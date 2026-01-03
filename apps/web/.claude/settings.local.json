@@ -5,7 +5,12 @@
       "Bash(git init:*)",
       "Bash(npm run dev:*)",
       "Bash(git remote:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: FastWrks InPersonMarketplace\n\n- Next.js 16 web app with config-driven form rendering\n- Two vertical configurations \\(fireworks, farmers_market\\)\n- Dynamic vendor signup forms\n- API routes for config and submissions\n- Architecture documentation\n- Environment setup for local dev \\(port 3002\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git config:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
