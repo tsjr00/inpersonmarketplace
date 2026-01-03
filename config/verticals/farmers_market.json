@@ -1,0 +1,141 @@
+{
+  "vertical_id": "farmers_market",
+  "vertical_name_public": "Farmers Market",
+
+  "nouns": {
+    "vendor_singular": "Vendor",
+    "vendor_plural": "Vendors",
+    "buyer_singular": "Customer",
+    "buyer_plural": "Customers",
+    "listing_singular": "Vendor Booth",
+    "listing_plural": "Vendor Booths",
+    "transaction_cta": "Reserve"
+  },
+
+  "seasonality": {
+    "mode": "recurring_schedule",
+    "windows": [
+      {
+        "label": "Market Days",
+        "days_of_week": ["Saturday"],
+        "start_time": "08:00",
+        "end_time": "13:00"
+      }
+    ]
+  },
+
+  "verification": {
+    "required": true,
+    "method": "document_manual_review",
+    "badges": {
+      "pending": "Approval Pending",
+      "approved": "Approved Vendor",
+      "rejected": "Not Approved"
+    }
+  },
+
+  "location": {
+    "allowed_types": ["market_location"],
+    "public_map_pin_required": true
+  },
+
+  "fulfillment": {
+    "modes": ["pickup"]
+  },
+
+  "payment": {
+    "mode": "off_app",
+    "notes": "Payment handled directly between customer and vendor."
+  },
+
+  "vendor_fields": [
+    { "key": "legal_name", "label": "Legal Name", "type": "text", "required": true },
+    { "key": "phone", "label": "Phone Number", "type": "phone", "required": true },
+    { "key": "email", "label": "Email Address", "type": "email", "required": true },
+
+    { "key": "business_name", "label": "Farm / Business Name", "type": "text", "required": true },
+    {
+      "key": "vendor_type",
+      "label": "Vendor Type",
+      "type": "select",
+      "options": ["Produce", "Meat", "Dairy", "Baked Goods", "Prepared Foods", "Other"],
+      "required": true
+    },
+
+    {
+      "key": "cottage_food_cert",
+      "label": "Cottage Food Permit or Exemption",
+      "type": "file",
+      "accept": ["pdf", "jpg", "png"],
+      "required": false
+    },
+
+    {
+      "key": "organic_cert",
+      "label": "Organic Certification (if applicable)",
+      "type": "file",
+      "accept": ["pdf", "jpg", "png"],
+      "required": false
+    }
+  ],
+
+  "listing_fields": [
+    { "key": "booth_name", "label": "Booth Name", "type": "text", "required": true },
+
+    {
+      "key": "product_categories",
+      "label": "Product Categories",
+      "type": "multi_select",
+      "options": ["Produce", "Meat", "Dairy", "Baked Goods", "Prepared Foods", "Other"],
+      "required": true
+    },
+
+    {
+      "key": "products_overview",
+      "label": "Products Offered",
+      "type": "textarea",
+      "required": true
+    },
+
+    {
+      "key": "price_level",
+      "label": "Typical Price Level",
+      "type": "select",
+      "options": ["Budget", "Mid", "Premium"],
+      "required": false
+    },
+
+    {
+      "key": "pickup_notes",
+      "label": "Pickup Instructions",
+      "type": "textarea",
+      "required": false
+    }
+  ],
+
+  "buyer_fields": [
+    { "key": "customer_name", "label": "Your Name", "type": "text", "required": true }
+  ],
+
+  "buyer_filters": [
+    {
+      "key": "product_categories",
+      "label": "Product Category",
+      "type": "select",
+      "options": ["Produce", "Meat", "Dairy", "Baked Goods", "Prepared Foods"]
+    },
+    { "key": "verified_only", "label": "Approved Vendors Only", "type": "boolean" }
+  ],
+
+  "agreements": {
+    "vendor": [
+      "platform_terms_core",
+      "vendor_terms_core",
+      "food_produce_addendum"
+    ],
+    "buyer": [
+      "platform_terms_core",
+      "buyer_terms_core"
+    ]
+  }
+}

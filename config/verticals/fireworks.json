@@ -1,0 +1,130 @@
+{
+  "vertical_id": "fireworks",
+  "vertical_name_public": "Fireworks Marketplace",
+
+  "nouns": {
+    "vendor_singular": "Seller",
+    "vendor_plural": "Sellers",
+    "buyer_singular": "Buyer",
+    "buyer_plural": "Buyers",
+    "listing_singular": "Stand",
+    "listing_plural": "Stands",
+    "transaction_cta": "Reserve"
+  },
+
+  "seasonality": {
+    "mode": "date_range",
+    "windows": [
+      { "label": "New Year", "start_mmdd": "12-15", "end_mmdd": "01-02" },
+      { "label": "Independence Day", "start_mmdd": "06-15", "end_mmdd": "07-06" }
+    ]
+  },
+
+  "verification": {
+    "required": true,
+    "method": "document_manual_review",
+    "badges": {
+      "pending": "Verification Pending",
+      "approved": "Verified Seller",
+      "rejected": "Not Verified"
+    }
+  },
+
+  "location": {
+    "allowed_types": ["stand_site", "pickup_point"],
+    "public_map_pin_required": true
+  },
+
+  "fulfillment": {
+    "modes": ["pickup"]
+  },
+
+  "payment": {
+    "mode": "off_app",
+    "notes": "Payment handled directly between buyer and seller."
+  },
+
+  "vendor_fields": [
+    { "key": "legal_name", "label": "Legal Name", "type": "text", "required": true },
+    { "key": "phone", "label": "Phone Number", "type": "phone", "required": true },
+    { "key": "email", "label": "Email Address", "type": "email", "required": true },
+
+    { "key": "business_name", "label": "Business Name", "type": "text", "required": true },
+    {
+      "key": "business_type",
+      "label": "Business Type",
+      "type": "select",
+      "options": ["Sole Proprietor", "LLC", "Corporation", "Other"],
+      "required": true
+    },
+
+    { "key": "county", "label": "Primary County (TX)", "type": "text", "required": true },
+    { "key": "permit_number", "label": "Fireworks Seller Permit #", "type": "text", "required": false },
+    {
+      "key": "permit_years",
+      "label": "Permit Year(s)",
+      "type": "multi_select",
+      "options": ["2023", "2024", "2025"],
+      "required": false
+    },
+
+    {
+      "key": "permit_upload",
+      "label": "Upload Permit or Approval Document",
+      "type": "file",
+      "accept": ["pdf", "jpg", "png"],
+      "required": false
+    }
+  ],
+
+  "listing_fields": [
+    { "key": "stand_name", "label": "Stand Name", "type": "text", "required": true },
+    { "key": "address", "label": "Stand Address", "type": "address", "required": true },
+    { "key": "city", "label": "City", "type": "text", "required": true },
+    { "key": "state", "label": "State", "type": "text", "default": "TX", "required": true },
+    { "key": "zip", "label": "ZIP Code", "type": "text", "required": true },
+
+    { "key": "sales_dates", "label": "Sales Dates", "type": "date_range", "required": true },
+    { "key": "sales_hours", "label": "Daily Hours", "type": "text", "required": false },
+
+    { "key": "products_overview", "label": "Products Overview", "type": "textarea", "required": false },
+    {
+      "key": "price_level",
+      "label": "Typical Price Level",
+      "type": "select",
+      "options": ["Budget", "Mid", "Premium"],
+      "required": false
+    },
+
+    { "key": "pickup_notes", "label": "Pickup Instructions", "type": "textarea", "required": false }
+  ],
+
+  "buyer_fields": [
+    { "key": "buyer_name", "label": "Your Name", "type": "text", "required": true },
+    { "key": "buyer_phone", "label": "Phone Number", "type": "phone", "required": true }
+  ],
+
+  "buyer_filters": [
+    { "key": "city", "label": "City", "type": "text" },
+    { "key": "date", "label": "Date", "type": "date" },
+    {
+      "key": "price_level",
+      "label": "Price Level",
+      "type": "select",
+      "options": ["Budget", "Mid", "Premium"]
+    },
+    { "key": "verified_only", "label": "Verified Sellers Only", "type": "boolean" }
+  ],
+
+  "agreements": {
+    "vendor": [
+      "platform_terms_core",
+      "vendor_terms_core",
+      "regulated_goods_fireworks"
+    ],
+    "buyer": [
+      "platform_terms_core",
+      "buyer_terms_core"
+    ]
+  }
+}
