@@ -1,50 +1,52 @@
-import fs from "fs";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
-function getRepoRoot(): string {
-  // apps/web → apps → BuildApp
-  return path.resolve(process.cwd(), "..", "..");
-}
+// Use anon key for public read access (server component)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-export default function HomePage() {
-  const root = getRepoRoot();
-  const verticalsDir = path.join(root, "config", "verticals");
+export default async function HomePage() {
+  // Fetch active verticals from Supabase
+  const { data: verticals, error } = await supabase
+    .from("verticals")
+    .select("vertical_id, name_public")
+    .eq("is_active", true)
+    .order("name_public");
 
-  let verticals: string[] = [];
-  try {
-    verticals = fs
-      .readdirSync(verticalsDir)
-      .filter((f) => f.endsWith(".json"))
-      .map((f) => f.replace(".json", ""));
-  } catch (e) {
-    verticals = [];
+  if (error) {
+    console.error("Error fetching verticals:", error);
   }
 
   return (
     <main style={{ padding: 32 }}>
       <h1 style={{ fontSize: 28, fontWeight: 800 }}>
-        FastWrks – BuildApp
+        FastWrks – InPersonMarketplace
       </h1>
 
       <p style={{ marginTop: 12 }}>
-        This page confirms the app can read vertical configs from the repo.
+        Config-driven marketplace platform. Select a vertical to get started.
       </p>
 
       <h2 style={{ marginTop: 24, fontSize: 20, fontWeight: 700 }}>
-        Detected Verticals
+        Available Marketplaces
       </h2>
 
-      {verticals.length === 0 ? (
+      {!verticals || verticals.length === 0 ? (
         <p style={{ marginTop: 12, color: "crimson" }}>
-          No vertical configs found.
+          No marketplaces available.
         </p>
       ) : (
         <ul style={{ marginTop: 12 }}>
           {verticals.map((v) => (
-            <li key={v} style={{ fontSize: 16, marginTop: 8 }}>
-  		<a href={`/${v}/vendor-signup`} style={{ textDecoration: 			"underline" }}> {v} — vendor signup 
-		</a>
-	    </li>
+            <li key={v.vertical_id} style={{ fontSize: 16, marginTop: 8 }}>
+              <a
+                href={`/${v.vertical_id}/vendor-signup`}
+                style={{ textDecoration: "underline" }}
+              >
+                {v.name_public} — Vendor Signup
+              </a>
+            </li>
           ))}
         </ul>
       )}

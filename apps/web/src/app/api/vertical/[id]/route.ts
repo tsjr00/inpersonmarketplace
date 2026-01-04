@@ -1,39 +1,44 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
-function getRepoRoot(): string {
-  // cwd = BuildApp/apps/web
-  // go up TWO levels to reach BuildApp
-  return path.resolve(process.cwd(), "..", "..");
-}
+// Use anon key for public read access
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-export async function GET(request: Request) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const url = new URL(request.url);
-    const parts = url.pathname.split("/").filter(Boolean);
-    // /api/vertical/{id}
-    const id = parts[2];
-
-    const root = getRepoRoot();
-    const filePath = path.join(root, "config", "verticals", `${id}.json`);
+    const { id } = await params;
 
     if (!id) {
-      return NextResponse.json({ error: "Missing vertical id" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing vertical id" },
+        { status: 400 }
+      );
     }
 
-    if (!fs.existsSync(filePath)) {
+    const { data: vertical, error } = await supabase
+      .from("verticals")
+      .select("config")
+      .eq("vertical_id", id)
+      .eq("is_active", true)
+      .single();
+
+    if (error || !vertical) {
       return NextResponse.json(
-        { error: "Vertical not found", triedPath: filePath, cwd: process.cwd(), id },
+        { error: "Vertical not found", id },
         { status: 404 }
       );
     }
 
-    const raw = fs.readFileSync(filePath, "utf-8");
-    const json = JSON.parse(raw);
-
-    return NextResponse.json(json);
+    // Return the full config object
+    return NextResponse.json(vertical.config);
   } catch (err) {
+    console.error("Error fetching vertical:", err);
     return NextResponse.json(
       { error: "Failed to load vertical config" },
       { status: 500 }

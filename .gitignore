@@ -41,7 +41,7 @@ coverage/
 # Misc
 *.pem
 
-# Data directory (user submissions)
-data/*.ndjson
-data/*.json
+# Data directory (uploads/exports only, not app data)
+data/*
 !data/.gitkeep
+!data/README.md
