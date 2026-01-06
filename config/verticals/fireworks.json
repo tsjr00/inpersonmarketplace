@@ -2,6 +2,26 @@
   "vertical_id": "fireworks",
   "vertical_name_public": "Fireworks Marketplace",
 
+  "branding": {
+    "domain": "fireworksstand.com",
+    "brand_name": "Fireworks Stand",
+    "tagline": "Your Premier Fireworks Marketplace",
+    "logo_path": "/branding/fireworks-logo.svg",
+    "favicon": "/branding/fireworks-favicon.ico",
+    "colors": {
+      "primary": "#ff4500",
+      "secondary": "#ffa500",
+      "accent": "#ff6347",
+      "background": "#1a1a1a",
+      "text": "#ffffff"
+    },
+    "meta": {
+      "title": "Fireworks Stand - Buy & Sell Fireworks",
+      "description": "Connect with licensed fireworks sellers in your area",
+      "keywords": "fireworks, buy fireworks, fireworks stand, fireworks marketplace"
+    }
+  },
+
   "nouns": {
     "vendor_singular": "Seller",
     "vendor_plural": "Sellers",

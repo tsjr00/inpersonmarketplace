@@ -1,6 +1,9 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { User } from "@supabase/supabase-js";
 
 type Field = {
   key: string;
@@ -12,185 +15,232 @@ type Field = {
 
 export default function VendorSignup({ params }: { params: Promise<{ vertical: string }> }) {
   const { vertical } = use(params);
+  const router = useRouter();
+  const supabase = createClient();
 
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [title, setTitle] = useState<string>("Vendor Signup");
   const [fields, setFields] = useState<Field[]>([]);
-  const [values, setValues] = useState<Record<string, any>>({});
-  const [submitted, setSubmitted] = useState<Record<string, any> | null>(null);
+  const [values, setValues] = useState<Record<string, unknown>>({});
+  const [submitted, setSubmitted] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Check authentication
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      setAuthLoading(false);
+    }
+    checkAuth();
+  }, [supabase.auth]);
 
   useEffect(() => {
     async function load() {
-      const res = await fetch(`/api/vertical/${vertical}`);
-      const cfg = await res.json();
+      try {
+        setLoading(true);
+        setError(null);
 
-      const vendorFields: Field[] = cfg.vendor_fields ?? [];
-      setFields(vendorFields);
+        const res = await fetch(`/api/vertical/${vertical}`);
 
-      const prettyTitle =
-        cfg?.vertical_name_public && cfg?.nouns?.vendor_singular
-          ? `${cfg.vertical_name_public} — ${cfg.nouns.vendor_singular} Signup`
-          : `${vertical} — Vendor Signup`;
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${res.status}`);
+        }
 
-      setTitle(prettyTitle);
+        const cfg = await res.json();
 
-      const initial: Record<string, any> = {};
-      for (const f of vendorFields) {
-        if (f.type === "multi_select") initial[f.key] = [];
-        else if (f.type === "boolean") initial[f.key] = false;
-        else if (f.type === "date_range") initial[f.key] = { start: "", end: "" };
-        else initial[f.key] = "";
+        if (!cfg) {
+          throw new Error("No configuration data returned");
+        }
+
+        // Extract vendor_fields - handle both direct and nested structures
+        const vendorFields: Field[] = cfg.vendor_fields ?? [];
+
+        if (vendorFields.length === 0) {
+          console.warn("No vendor_fields found in config:", cfg);
+        }
+
+        setFields(vendorFields);
+
+        // Set title
+        const prettyTitle =
+          cfg?.vertical_name_public && cfg?.nouns?.vendor_singular
+            ? `${cfg.vertical_name_public} — ${cfg.nouns.vendor_singular} Signup`
+            : `${vertical} — Vendor Signup`;
+
+        setTitle(prettyTitle);
+
+        // Initialize form values
+        const initial: Record<string, unknown> = {};
+        for (const f of vendorFields) {
+          if (f.type === "multi_select") initial[f.key] = [];
+          else if (f.type === "boolean") initial[f.key] = false;
+          else if (f.type === "date_range") initial[f.key] = { start: "", end: "" };
+          else initial[f.key] = "";
+        }
+        setValues(initial);
+      } catch (err) {
+        console.error("Failed to load vertical config:", err);
+        setError(err instanceof Error ? err.message : "Failed to load configuration");
+      } finally {
+        setLoading(false);
       }
-      setValues(initial);
     }
     load();
   }, [vertical]);
 
-  function setVal(key: string, val: any) {
+  function setVal(key: string, val: unknown) {
     setValues((prev) => ({ ...prev, [key]: val }));
   }
 
-async function handleSubmit(e: React.FormEvent) {
-  e.preventDefault();
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
 
-  const payload = {
-    kind: "vendor_signup",
-    vertical,
-    data: values
-  };
+    // Check if user is logged in
+    if (!user) {
+      alert("Please login first to become a vendor");
+      router.push(`/${vertical}/login`);
+      return;
+    }
 
-  const res = await fetch("/api/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+    // Validate required fields
+    const missingFields = fields
+      .filter((f) => f.required && !values[f.key])
+      .map((f) => f.label);
 
-  if (!res.ok) {
-    alert("Save failed. Check the terminal for errors.");
-    return;
+    if (missingFields.length > 0) {
+      alert(`Please fill in required fields: ${missingFields.join(", ")}`);
+      return;
+    }
+
+    // Validate email format
+    const email = values.email as string;
+    if (email && !email.includes("@")) {
+      alert("Please enter a valid email address");
+      return;
+    }
+
+    // Validate phone format
+    const phone = values.phone as string;
+    if (phone && !/^\d{10}$|^\d{3}-\d{3}-\d{4}$/.test(phone)) {
+      alert("Please enter a valid phone number (10 digits, e.g., 555-555-5555)");
+      return;
+    }
+
+    const payload = {
+      kind: "vendor_signup",
+      vertical,
+      user_id: user.id,
+      data: values
+    };
+
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        alert(`Save failed: ${result.error || "Unknown error"}`);
+        return;
+      }
+
+      setSubmitted({ ...payload, vendor_id: result.vendor_id });
+    } catch (err) {
+      console.error("Submit error:", err);
+      alert("Save failed. Check the console for errors.");
+    }
   }
 
-  setSubmitted(payload);
-}
+  // Auth loading state
+  if (authLoading) {
+    return (
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Loading...</h1>
+        <p style={{ marginTop: 10, opacity: 0.8 }}>
+          Checking authentication...
+        </p>
+      </main>
+    );
+  }
 
-  return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: 26, fontWeight: 800 }}>{title}</h1>
-      <p style={{ marginTop: 10, opacity: 0.8 }}>
-        Generated from <code>config/verticals/{vertical}.json</code>
-      </p>
+  // Not logged in state
+  if (!user) {
+    return (
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Login Required</h1>
+        <p style={{ marginTop: 10, opacity: 0.8 }}>
+          You must be logged in to register as a vendor.
+        </p>
+        <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
+          <a
+            href={`/${vertical}/login`}
+            style={{
+              padding: "12px 20px",
+              fontWeight: 800,
+              cursor: "pointer",
+              border: "1px solid #333",
+              borderRadius: 8,
+              textDecoration: "none",
+              color: "#333",
+              backgroundColor: "white"
+            }}
+          >
+            Login
+          </a>
+          <a
+            href={`/${vertical}/signup`}
+            style={{
+              padding: "12px 20px",
+              fontWeight: 800,
+              cursor: "pointer",
+              border: "1px solid #333",
+              borderRadius: 8,
+              textDecoration: "none",
+              color: "white",
+              backgroundColor: "#333"
+            }}
+          >
+            Create Account
+          </a>
+        </div>
+      </main>
+    );
+  }
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14, marginTop: 20 }}>
-        {fields.map((f) => {
-          const value = values[f.key];
+  // Loading state
+  if (loading) {
+    return (
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Loading...</h1>
+        <p style={{ marginTop: 10, opacity: 0.8 }}>
+          Fetching marketplace configuration...
+        </p>
+      </main>
+    );
+  }
 
-          if (f.type === "textarea") {
-            return (
-              <div key={f.key}>
-                <label style={{ fontWeight: 600 }}>
-                  {f.label} {f.required ? "(required)" : ""}
-                </label>
-                <textarea
-                  value={value ?? ""}
-                  onChange={(e) => setVal(f.key, e.target.value)}
-                  rows={4}
-                  style={{ width: "100%", padding: 10 }}
-                />
-              </div>
-            );
-          }
-
-          if (f.type === "select") {
-            return (
-              <div key={f.key}>
-                <label style={{ fontWeight: 600 }}>
-                  {f.label} {f.required ? "(required)" : ""}
-                </label>
-                <select
-                  value={value ?? ""}
-                  onChange={(e) => setVal(f.key, e.target.value)}
-                  style={{ width: "100%", padding: 10 }}
-                >
-                  <option value="">Select…</option>
-                  {(f.options ?? []).map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            );
-          }
-
-          if (f.type === "multi_select") {
-            const current: string[] = Array.isArray(value) ? value : [];
-            return (
-              <div key={f.key}>
-                <div style={{ fontWeight: 600 }}>
-                  {f.label} {f.required ? "(required)" : ""}
-                </div>
-                <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                  {(f.options ?? []).map((opt) => {
-                    const checked = current.includes(opt);
-                    return (
-                      <label key={opt} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            const next = e.target.checked
-                              ? [...current, opt]
-                              : current.filter((x) => x !== opt);
-                            setVal(f.key, next);
-                          }}
-                        />
-                        <span>{opt}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          }
-
-          if (f.type === "file") {
-            return (
-              <div key={f.key}>
-                <label style={{ fontWeight: 600 }}>
-                  {f.label} {f.required ? "(required)" : ""}
-                </label>
-                <input
-                  type="file"
-                  onChange={(e) => setVal(f.key, e.target.files?.[0]?.name ?? "")}
-                  style={{ width: "100%", padding: 10 }}
-                />
-                <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                  (Phase 0: storing filename only)
-                </div>
-              </div>
-            );
-          }
-
-          const inputType =
-            f.type === "email" ? "email" : f.type === "phone" ? "tel" : f.type === "date" ? "date" : "text";
-
-          return (
-            <div key={f.key}>
-              <label style={{ fontWeight: 600 }}>
-                {f.label} {f.required ? "(required)" : ""}
-              </label>
-              <input
-                type={inputType}
-                value={value ?? ""}
-                onChange={(e) => setVal(f.key, e.target.value)}
-                style={{ width: "100%", padding: 10 }}
-              />
-            </div>
-          );
-        })}
-
+  // Error state
+  if (error) {
+    return (
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: "crimson" }}>Error</h1>
+        <p style={{ marginTop: 10 }}>
+          Failed to load marketplace configuration: {error}
+        </p>
+        <p style={{ marginTop: 10, opacity: 0.8 }}>
+          Please check that the &quot;{vertical}&quot; marketplace exists and try again.
+        </p>
         <button
-          type="submit"
+          onClick={() => window.location.reload()}
           style={{
+            marginTop: 20,
             padding: "12px 14px",
             fontWeight: 800,
             cursor: "pointer",
@@ -198,16 +248,202 @@ async function handleSubmit(e: React.FormEvent) {
             borderRadius: 8
           }}
         >
-          Submit
+          Retry
         </button>
-      </form>
+      </main>
+    );
+  }
+
+  return (
+    <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+      <h1 style={{ fontSize: 26, fontWeight: 800 }}>{title}</h1>
+      <p style={{ marginTop: 10, opacity: 0.8 }}>
+        Logged in as: <strong>{user.email}</strong>
+      </p>
+      <p style={{ marginTop: 5, opacity: 0.8 }}>
+        Fill out the form below to register as a vendor.
+      </p>
+
+      {fields.length === 0 ? (
+        <p style={{ marginTop: 20, color: "orange" }}>
+          No form fields configured for this marketplace.
+        </p>
+      ) : (
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14, marginTop: 20 }}>
+          {fields.map((f) => {
+            const value = values[f.key];
+
+            if (f.type === "textarea") {
+              return (
+                <div key={f.key}>
+                  <label style={{ fontWeight: 600 }}>
+                    {f.label} {f.required ? "(required)" : ""}
+                  </label>
+                  <textarea
+                    value={(value as string) ?? ""}
+                    onChange={(e) => setVal(f.key, e.target.value)}
+                    rows={4}
+                    style={{ width: "100%", padding: 10 }}
+                  />
+                </div>
+              );
+            }
+
+            if (f.type === "select") {
+              return (
+                <div key={f.key}>
+                  <label style={{ fontWeight: 600 }}>
+                    {f.label} {f.required ? "(required)" : ""}
+                  </label>
+                  <select
+                    value={(value as string) ?? ""}
+                    onChange={(e) => setVal(f.key, e.target.value)}
+                    style={{ width: "100%", padding: 10 }}
+                  >
+                    <option value="">Select...</option>
+                    {(f.options ?? []).map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            }
+
+            if (f.type === "multi_select") {
+              const current: string[] = Array.isArray(value) ? (value as string[]) : [];
+              return (
+                <div key={f.key}>
+                  <div style={{ fontWeight: 600 }}>
+                    {f.label} {f.required ? "(required)" : ""}
+                  </div>
+                  <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                    {(f.options ?? []).map((opt) => {
+                      const checked = current.includes(opt);
+                      return (
+                        <label key={opt} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...current, opt]
+                                : current.filter((x) => x !== opt);
+                              setVal(f.key, next);
+                            }}
+                          />
+                          <span>{opt}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
+            if (f.type === "file") {
+              return (
+                <div key={f.key}>
+                  <label style={{ fontWeight: 600 }}>
+                    {f.label} {f.required ? "(required)" : ""}
+                  </label>
+                  <input
+                    type="file"
+                    onChange={(e) => setVal(f.key, e.target.files?.[0]?.name ?? "")}
+                    style={{ width: "100%", padding: 10 }}
+                  />
+                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                    (File upload coming soon - filename recorded only)
+                  </div>
+                </div>
+              );
+            }
+
+            // Phone field with validation
+            if (f.type === "phone") {
+              return (
+                <div key={f.key}>
+                  <label style={{ fontWeight: 600 }}>
+                    {f.label} {f.required ? "(required)" : ""}
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={(value as string) ?? ""}
+                    onChange={(e) => setVal(f.key, e.target.value)}
+                    pattern="[0-9]{3}-?[0-9]{3}-?[0-9]{4}"
+                    title="Phone number format: 555-555-5555 or 5555555555"
+                    placeholder="555-555-5555"
+                    style={{ width: "100%", padding: 10 }}
+                  />
+                </div>
+              );
+            }
+
+            const inputType =
+              f.type === "email" ? "email" : f.type === "date" ? "date" : "text";
+
+            return (
+              <div key={f.key}>
+                <label style={{ fontWeight: 600 }}>
+                  {f.label} {f.required ? "(required)" : ""}
+                </label>
+                <input
+                  type={inputType}
+                  value={(value as string) ?? ""}
+                  onChange={(e) => setVal(f.key, e.target.value)}
+                  style={{ width: "100%", padding: 10 }}
+                />
+              </div>
+            );
+          })}
+
+          <button
+            type="submit"
+            style={{
+              padding: "12px 14px",
+              fontWeight: 800,
+              cursor: "pointer",
+              border: "1px solid #333",
+              borderRadius: 8
+            }}
+          >
+            Submit
+          </button>
+        </form>
+      )}
 
       {submitted ? (
         <div style={{ marginTop: 24 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800 }}>Submitted JSON (preview)</h2>
-          <pre style={{ marginTop: 10, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
-            {JSON.stringify(submitted, null, 2)}
-          </pre>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: "green" }}>
+            Submitted Successfully!
+          </h2>
+          <p style={{ marginTop: 8, opacity: 0.8 }}>
+            Your vendor profile has been created and linked to your account.
+          </p>
+          <a
+            href={`/${vertical}/dashboard`}
+            style={{
+              display: "inline-block",
+              marginTop: 12,
+              padding: "12px 20px",
+              fontWeight: 800,
+              cursor: "pointer",
+              border: "1px solid #333",
+              borderRadius: 8,
+              textDecoration: "none",
+              color: "#333"
+            }}
+          >
+            Go to Dashboard
+          </a>
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ cursor: "pointer" }}>View submitted data</summary>
+            <pre style={{ marginTop: 10, padding: 12, border: "1px solid #ddd", borderRadius: 8, overflow: "auto" }}>
+              {JSON.stringify(submitted, null, 2)}
+            </pre>
+          </details>
         </div>
       ) : null}
     </main>

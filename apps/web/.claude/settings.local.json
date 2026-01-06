@@ -11,7 +11,14 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "Bash(git commit:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(dir /b \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\supabase\\\\migrations\")"
     ]
   }
 }

@@ -10,19 +10,46 @@ const supabaseAdmin = createClient(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { kind, vertical, data } = body;
+    const { kind, vertical, user_id, data } = body;
 
     if (kind === "vendor_signup") {
-      // For now, store as a vendor profile without user association
-      // This will be updated when auth is implemented
+      // Validate user_id if provided
+      if (user_id) {
+        // Check if vendor profile already exists for this user+vertical
+        const { data: existing } = await supabaseAdmin
+          .from("vendor_profiles")
+          .select("id")
+          .eq("user_id", user_id)
+          .eq("vertical_id", vertical)
+          .single();
+
+        if (existing) {
+          return NextResponse.json(
+            { ok: false, error: "You already have a vendor profile for this marketplace" },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Create vendor profile with user_id (if provided)
+      const insertData: {
+        vertical_id: string;
+        profile_data: unknown;
+        status: string;
+        user_id?: string;
+      } = {
+        vertical_id: vertical,
+        profile_data: data,
+        status: user_id ? "submitted" : "draft",
+      };
+
+      if (user_id) {
+        insertData.user_id = user_id;
+      }
+
       const { data: vendor, error } = await supabaseAdmin
         .from("vendor_profiles")
-        .insert({
-          vertical_id: vertical,
-          profile_data: data,
-          status: "draft",
-          // user_id will be set when auth is implemented
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -37,7 +64,9 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ok: true,
         vendor_id: vendor.id,
-        message: "Vendor profile created. Sign in to manage your profile.",
+        message: user_id
+          ? "Vendor profile created and linked to your account."
+          : "Vendor profile created. Sign in to manage your profile.",
       });
     }
 

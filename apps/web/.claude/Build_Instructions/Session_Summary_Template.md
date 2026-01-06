@@ -28,7 +28,42 @@
 
 ## Changes Made
 
-### Files Created
+### Migration Files Created (CRITICAL - ALWAYS LIST FIRST)
+**EVERY migration MUST include:**
+- ✅ Timestamp in filename (YYYYMMDD_HHMMSS_NNN)
+- ✅ Complete header with "Applied to" checklist
+- ✅ Entry in MIGRATION_LOG.md
+- ✅ Applied to Dev date/time documented
+- ✅ Applied to Staging date/time documented
+
+```
+supabase/migrations/20260105_143022_001_description.sql
+  Purpose: [What it does and why]
+  Created: 2026-01-05 14:30:22 CST
+  Applied: ✅ Dev (2026-01-05 14:35) | ✅ Staging (2026-01-05 14:42)
+  
+supabase/migrations/20260105_143500_002_description.sql
+  Purpose: [What it does and why]
+  Created: 2026-01-05 14:35:00 CST
+  Applied: ✅ Dev (2026-01-05 14:40) | ✅ Staging (2026-01-05 14:48)
+```
+
+**If NO migrations created this session:** 
+State "No database migrations this session" and explain why
+
+### MIGRATION_LOG.md Status
+- ✅ Updated with all new migrations
+- ✅ All timestamps recorded
+- ✅ Dev/Staging sync status confirmed
+- Current state: [All synced / Dev ahead / Staging ahead / Out of sync]
+
+### Migration File Headers Completed
+- ✅ All migration files have complete standard headers
+- ✅ "Applied to" checkboxes updated with actual dates
+- ✅ "Modified" timestamps added if files were updated
+- ✅ Rollback SQL included where applicable
+
+### Files Created (Non-Migration)
 ```
 path/to/new/file1.ext - Purpose/description
 path/to/new/file2.ext - Purpose/description

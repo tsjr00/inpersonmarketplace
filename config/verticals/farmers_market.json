@@ -2,6 +2,26 @@
   "vertical_id": "farmers_market",
   "vertical_name_public": "Farmers Market",
 
+  "branding": {
+    "domain": "farmersmarket.app",
+    "brand_name": "Fresh Market",
+    "tagline": "Farm Fresh, Locally Grown",
+    "logo_path": "/branding/farmers-logo.svg",
+    "favicon": "/branding/farmers-favicon.ico",
+    "colors": {
+      "primary": "#2d5016",
+      "secondary": "#6b8e23",
+      "accent": "#9acd32",
+      "background": "#f5f5dc",
+      "text": "#2d2d2d"
+    },
+    "meta": {
+      "title": "Fresh Market - Local Farmers & Producers",
+      "description": "Buy fresh produce directly from local farmers",
+      "keywords": "farmers market, fresh produce, local food, organic"
+    }
+  },
+
   "nouns": {
     "vendor_singular": "Vendor",
     "vendor_plural": "Vendors",
