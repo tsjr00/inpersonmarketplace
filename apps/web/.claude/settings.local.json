@@ -18,7 +18,12 @@
       "Bash(timeout:*)",
       "Bash(curl:*)",
       "Bash(npm run build:*)",
-      "Bash(dir /b \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\supabase\\\\migrations\")"
+      "Bash(dir /b \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\supabase\\\\migrations\")",
+      "Bash(dir \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\")",
+      "Bash(mkdir:*)",
+      "Bash(copy \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\\\\FastWrks logo.png\" \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\\\\logos\\\\fastwrks-logo.png\")",
+      "Bash(copy \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\\\\Farmers Marketing Logo.png\" \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\\\\logos\\\\farmersmarketing-logo.png\")",
+      "Bash(cp:*)"
     ]
   }
 }

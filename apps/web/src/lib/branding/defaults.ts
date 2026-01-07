@@ -1,0 +1,44 @@
+import { VerticalBranding } from './types'
+
+// Fallback branding for each vertical (used if database unavailable)
+// Safe to import in client components
+export const defaultBranding: Record<string, VerticalBranding> = {
+  fireworks: {
+    domain: 'fireworksstand.com',
+    brand_name: 'Fireworks Stand',
+    tagline: 'Your Premier Fireworks Marketplace',
+    logo_path: '/branding/fireworks-logo.svg',
+    favicon: '/branding/fireworks-favicon.ico',
+    colors: {
+      primary: '#ff4500',
+      secondary: '#ffa500',
+      accent: '#ff6347',
+      background: '#1a1a1a',
+      text: '#ffffff'
+    },
+    meta: {
+      title: 'Fireworks Stand - Buy & Sell Fireworks',
+      description: 'Connect with licensed fireworks sellers in your area',
+      keywords: 'fireworks, buy fireworks, fireworks stand, fireworks marketplace'
+    }
+  },
+  farmers_market: {
+    domain: 'farmersmarket.app',
+    brand_name: 'Fresh Market',
+    tagline: 'Farm Fresh, Locally Grown',
+    logo_path: '/branding/farmers-logo.svg',
+    favicon: '/branding/farmers-favicon.ico',
+    colors: {
+      primary: '#2d5016',
+      secondary: '#6b8e23',
+      accent: '#9acd32',
+      background: '#f5f5dc',
+      text: '#2d2d2d'
+    },
+    meta: {
+      title: 'Fresh Market - Local Farmers & Producers',
+      description: 'Buy fresh produce directly from local farmers',
+      keywords: 'farmers market, fresh produce, local food, organic'
+    }
+  }
+}

@@ -2,28 +2,21 @@
 
 import { useState, use, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 
-interface LoginPageProps {
+interface ForgotPasswordPageProps {
   params: Promise<{ vertical: string }>
 }
 
-interface VerticalConfig {
-  vertical_name_public?: string
-  branding?: VerticalBranding
-}
-
-export default function LoginPage({ params }: LoginPageProps) {
+export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) {
   const { vertical } = use(params)
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [configLoading, setConfigLoading] = useState(true)
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks)
-  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
@@ -31,7 +24,7 @@ export default function LoginPage({ params }: LoginPageProps) {
       try {
         const res = await fetch(`/api/vertical/${vertical}`)
         if (res.ok) {
-          const cfg: VerticalConfig = await res.json()
+          const cfg = await res.json()
           if (cfg.branding) {
             setBranding(cfg.branding)
           }
@@ -45,14 +38,13 @@ export default function LoginPage({ params }: LoginPageProps) {
     loadConfig()
   }, [vertical])
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleResetRequest = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/${vertical}/reset-password`,
     })
 
     if (error) {
@@ -61,10 +53,8 @@ export default function LoginPage({ params }: LoginPageProps) {
       return
     }
 
-    if (data.user) {
-      router.push(`/${vertical}/dashboard`)
-      router.refresh()
-    }
+    setSuccess(true)
+    setLoading(false)
   }
 
   if (configLoading) {
@@ -78,6 +68,53 @@ export default function LoginPage({ params }: LoginPageProps) {
         color: branding.colors.text
       }}>
         Loading...
+      </div>
+    )
+  }
+
+  if (success) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: branding.colors.background,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20
+      }}>
+        <div style={{
+          maxWidth: 400,
+          padding: 30,
+          backgroundColor: 'white',
+          border: `2px solid ${branding.colors.accent}`,
+          borderRadius: 8,
+          textAlign: 'center',
+          color: '#333'
+        }}>
+          <h2 style={{ color: branding.colors.accent, marginBottom: 20 }}>
+            Check Your Email
+          </h2>
+          <p style={{ marginBottom: 20, color: '#666' }}>
+            We&apos;ve sent a password reset link to <strong>{email}</strong>
+          </p>
+          <p style={{ marginBottom: 20, fontSize: 14, color: '#999' }}>
+            The link will expire in 1 hour.
+          </p>
+          <Link
+            href={`/${vertical}/login`}
+            style={{
+              display: 'inline-block',
+              padding: '10px 20px',
+              backgroundColor: branding.colors.primary,
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 4,
+              fontWeight: 600
+            }}
+          >
+            Back to Login
+          </Link>
+        </div>
       </div>
     )
   }
@@ -117,7 +154,7 @@ export default function LoginPage({ params }: LoginPageProps) {
         </p>
       </div>
 
-      {/* Login Form */}
+      {/* Reset Form */}
       <div style={{
         maxWidth: 400,
         margin: '0 auto',
@@ -133,8 +170,12 @@ export default function LoginPage({ params }: LoginPageProps) {
           color: branding.colors.primary,
           textAlign: 'center'
         }}>
-          Login to Your Account
+          Reset Your Password
         </h2>
+
+        <p style={{ marginBottom: 20, color: '#666', fontSize: 14 }}>
+          Enter your email address and we&apos;ll send you a link to reset your password.
+        </p>
 
         {error && (
           <div style={{
@@ -149,10 +190,10 @@ export default function LoginPage({ params }: LoginPageProps) {
           </div>
         )}
 
-        <form onSubmit={handleLogin}>
-          <div style={{ marginBottom: 15 }}>
+        <form onSubmit={handleResetRequest}>
+          <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
-              Email
+              Email Address
             </label>
             <input
               type="email"
@@ -160,27 +201,7 @@ export default function LoginPage({ params }: LoginPageProps) {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
-              style={{
-                width: '100%',
-                padding: 10,
-                fontSize: 16,
-                border: `1px solid ${branding.colors.primary}`,
-                borderRadius: 4,
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
+              placeholder="your@email.com"
               style={{
                 width: '100%',
                 padding: 10,
@@ -204,28 +225,22 @@ export default function LoginPage({ params }: LoginPageProps) {
               color: 'white',
               border: 'none',
               borderRadius: 4,
-              cursor: loading ? 'not-allowed' : 'pointer'
+              cursor: loading ? 'not-allowed' : 'pointer',
+              marginBottom: 15
             }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Sending...' : 'Send Reset Link'}
           </button>
+
+          <div style={{ textAlign: 'center' }}>
+            <Link
+              href={`/${vertical}/login`}
+              style={{ color: branding.colors.secondary, fontSize: 14 }}
+            >
+              Back to Login
+            </Link>
+          </div>
         </form>
-
-        <p style={{ marginTop: 20, textAlign: 'center', color: '#666' }}>
-          Don&apos;t have an account?{' '}
-          <Link href={`/${vertical}/signup`} style={{ color: branding.colors.primary, fontWeight: 600 }}>
-            Sign up
-          </Link>
-        </p>
-
-        <p style={{ marginTop: 10, textAlign: 'center' }}>
-          <Link
-            href={`/${vertical}/forgot-password`}
-            style={{ color: branding.colors.secondary, fontSize: 14 }}
-          >
-            Forgot your password?
-          </Link>
-        </p>
       </div>
     </div>
   )

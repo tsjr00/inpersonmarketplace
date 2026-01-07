@@ -79,6 +79,21 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             </h3>
             <p><strong>Status:</strong> {vendorProfile.status}</p>
             <p><strong>Joined:</strong> {new Date(vendorProfile.created_at).toLocaleDateString()}</p>
+            <a
+              href={`/${vertical}/vendor/dashboard`}
+              style={{
+                display: 'inline-block',
+                marginTop: 10,
+                padding: '10px 20px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 4,
+                fontWeight: 600
+              }}
+            >
+              Manage Vendor Profile
+            </a>
           </>
         ) : (
           <>

@@ -21,7 +21,9 @@
 | 20260104_003_vendor_vertical_constraint.sql | ✅ | 2026-01-05 | ✅ | 2026-01-05 | Unique constraint on (user_id, vertical_id) |
 | 20260105_152200_001_user_profile_trigger.sql | ⚠️ | 2026-01-05 | ❌ | - | Applied but BROKEN - wrong column name |
 | 20260105_152230_002_user_profiles_rls.sql | ✅ | 2026-01-05 | ❌ | - | RLS policies for user_profiles |
-| 20260105_180000_001_fix_user_profile_trigger.sql | ✅ | 2026-01-05 | ❌ | - | FIX: use display_name not full_name |
+| 20260105_180000_001_fix_user_profile_trigger.sql | ✅ | 2026-01-05 | ✅ | 2026-01-05 | FIX: use display_name not full_name |
+| 20260106_093233_001_add_branding_to_verticals.sql | ❌ | - | ❌ | - | Add comments and GIN index for config |
+| 20260106_093233_002_seed_vertical_branding.sql | ❌ | - | ❌ | - | Seed branding data for verticals |
 
 ---
 
@@ -53,18 +55,17 @@
 
 ## Environment Sync Status
 
-### Current State: ⚠️ SIGNUP BROKEN
-- Dev and Staging are synced for all existing migrations
-- Missing critical migrations for user signup functionality
-- Need to apply user profile trigger + RLS policies to both environments
+### Current State: ✅ SIGNUP WORKING
+- Dev: Fully up to date with all migrations
+- Staging: Needs trigger fix migration
+- Phase 5 branding migrations pending on both environments
 
 ### Action Required
-1. ✅ Created 20260105_152200_001_user_profile_trigger.sql
-2. ✅ Created 20260105_152230_002_user_profiles_rls.sql
-3. ❌ Apply both to Dev
-4. ❌ Test signup
-5. ❌ Apply both to Staging
-6. ❌ Update this log with timestamps
+1. ✅ Signup working on Dev
+2. ❌ Apply branding migrations (20260106_*) to Dev
+3. ❌ Apply branding migrations (20260106_*) to Staging
+4. ❌ Apply user profile trigger to Staging (20260105_152200_001)
+5. ❌ Update this log with timestamps
 
 ---
 

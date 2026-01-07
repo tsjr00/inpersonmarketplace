@@ -4,6 +4,8 @@ import { use, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
+import Link from "next/link";
+import { defaultBranding, VerticalBranding } from "@/lib/branding";
 
 type Field = {
   key: string;
@@ -26,6 +28,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [submitted, setSubmitted] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks);
 
   // Check authentication
   useEffect(() => {
@@ -72,6 +75,11 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             : `${vertical} — Vendor Signup`;
 
         setTitle(prettyTitle);
+
+        // Set branding if available
+        if (cfg?.branding) {
+          setBranding(cfg.branding);
+        }
 
         // Initialize form values
         const initial: Record<string, unknown> = {};
@@ -161,108 +169,146 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   // Auth loading state
   if (authLoading) {
     return (
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Loading...</h1>
-        <p style={{ marginTop: 10, opacity: 0.8 }}>
-          Checking authentication...
-        </p>
-      </main>
+      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
+        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}` }}>
+          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+            {branding.brand_name}
+          </Link>
+        </nav>
+        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Loading...</h1>
+          <p style={{ marginTop: 10, opacity: 0.8 }}>Checking authentication...</p>
+        </main>
+      </div>
     );
   }
 
   // Not logged in state
   if (!user) {
     return (
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Login Required</h1>
-        <p style={{ marginTop: 10, opacity: 0.8 }}>
-          You must be logged in to register as a vendor.
-        </p>
-        <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
-          <a
-            href={`/${vertical}/login`}
-            style={{
-              padding: "12px 20px",
-              fontWeight: 800,
-              cursor: "pointer",
-              border: "1px solid #333",
-              borderRadius: 8,
-              textDecoration: "none",
-              color: "#333",
-              backgroundColor: "white"
-            }}
-          >
-            Login
-          </a>
-          <a
-            href={`/${vertical}/signup`}
-            style={{
-              padding: "12px 20px",
-              fontWeight: 800,
-              cursor: "pointer",
-              border: "1px solid #333",
-              borderRadius: 8,
-              textDecoration: "none",
-              color: "white",
-              backgroundColor: "#333"
-            }}
-          >
-            Create Account
-          </a>
-        </div>
-      </main>
+      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
+        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+            {branding.brand_name}
+          </Link>
+          <Link href="/" style={{ color: branding.colors.secondary, textDecoration: 'none' }}>Home</Link>
+        </nav>
+        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Login Required</h1>
+          <p style={{ marginTop: 10, opacity: 0.8 }}>
+            You must be logged in to register as a vendor.
+          </p>
+          <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
+            <Link
+              href={`/${vertical}/login`}
+              style={{
+                padding: "12px 20px",
+                fontWeight: 800,
+                cursor: "pointer",
+                border: `2px solid ${branding.colors.primary}`,
+                borderRadius: 8,
+                textDecoration: "none",
+                color: branding.colors.primary,
+                backgroundColor: "white"
+              }}
+            >
+              Login
+            </Link>
+            <Link
+              href={`/${vertical}/signup`}
+              style={{
+                padding: "12px 20px",
+                fontWeight: 800,
+                cursor: "pointer",
+                border: "none",
+                borderRadius: 8,
+                textDecoration: "none",
+                color: "white",
+                backgroundColor: branding.colors.primary
+              }}
+            >
+              Create Account
+            </Link>
+          </div>
+        </main>
+      </div>
     );
   }
 
   // Loading state
   if (loading) {
     return (
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Loading...</h1>
-        <p style={{ marginTop: 10, opacity: 0.8 }}>
-          Fetching marketplace configuration...
-        </p>
-      </main>
+      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
+        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}` }}>
+          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+            {branding.brand_name}
+          </Link>
+        </nav>
+        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Loading...</h1>
+          <p style={{ marginTop: 10, opacity: 0.8 }}>Fetching marketplace configuration...</p>
+        </main>
+      </div>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: "crimson" }}>Error</h1>
-        <p style={{ marginTop: 10 }}>
-          Failed to load marketplace configuration: {error}
-        </p>
-        <p style={{ marginTop: 10, opacity: 0.8 }}>
-          Please check that the &quot;{vertical}&quot; marketplace exists and try again.
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          style={{
-            marginTop: 20,
-            padding: "12px 14px",
-            fontWeight: 800,
-            cursor: "pointer",
-            border: "1px solid #333",
-            borderRadius: 8
-          }}
-        >
-          Retry
-        </button>
-      </main>
+      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
+        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+            {branding.brand_name}
+          </Link>
+          <Link href="/" style={{ color: branding.colors.secondary, textDecoration: 'none' }}>Home</Link>
+        </nav>
+        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: "crimson" }}>Error</h1>
+          <p style={{ marginTop: 10 }}>
+            Failed to load marketplace configuration: {error}
+          </p>
+          <p style={{ marginTop: 10, opacity: 0.8 }}>
+            Please check that the &quot;{vertical}&quot; marketplace exists and try again.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: 20,
+              padding: "12px 14px",
+              fontWeight: 800,
+              cursor: "pointer",
+              border: `2px solid ${branding.colors.primary}`,
+              borderRadius: 8,
+              backgroundColor: 'white',
+              color: branding.colors.primary
+            }}
+          >
+            Retry
+          </button>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: 26, fontWeight: 800 }}>{title}</h1>
-      <p style={{ marginTop: 10, opacity: 0.8 }}>
-        Logged in as: <strong>{user.email}</strong>
-      </p>
-      <p style={{ marginTop: 5, opacity: 0.8 }}>
-        Fill out the form below to register as a vendor.
-      </p>
+    <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
+      <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+          {branding.brand_name}
+        </Link>
+        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+          <Link href="/" style={{ color: branding.colors.secondary, textDecoration: 'none' }}>Home</Link>
+          <Link href={`/${vertical}/dashboard`} style={{ color: branding.colors.primary, textDecoration: 'none', fontWeight: 600 }}>Dashboard</Link>
+        </div>
+      </nav>
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>{title}</h1>
+        <p style={{ marginTop: 10, opacity: 0.8 }}>
+          Logged in as: <strong>{user.email}</strong>
+        </p>
+        <p style={{ marginTop: 5, opacity: 0.8 }}>
+          Fill out the form below to register as a vendor.
+        </p>
 
       {fields.length === 0 ? (
         <p style={{ marginTop: 20, color: "orange" }}>
@@ -405,8 +451,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               padding: "12px 14px",
               fontWeight: 800,
               cursor: "pointer",
-              border: "1px solid #333",
-              borderRadius: 8
+              border: "none",
+              borderRadius: 8,
+              backgroundColor: branding.colors.primary,
+              color: "white"
             }}
           >
             Submit
@@ -416,13 +464,13 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
 
       {submitted ? (
         <div style={{ marginTop: 24 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: "green" }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: branding.colors.accent }}>
             Submitted Successfully!
           </h2>
           <p style={{ marginTop: 8, opacity: 0.8 }}>
             Your vendor profile has been created and linked to your account.
           </p>
-          <a
+          <Link
             href={`/${vertical}/dashboard`}
             style={{
               display: "inline-block",
@@ -430,22 +478,23 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               padding: "12px 20px",
               fontWeight: 800,
               cursor: "pointer",
-              border: "1px solid #333",
+              border: `2px solid ${branding.colors.primary}`,
               borderRadius: 8,
               textDecoration: "none",
-              color: "#333"
+              color: branding.colors.primary
             }}
           >
             Go to Dashboard
-          </a>
+          </Link>
           <details style={{ marginTop: 12 }}>
             <summary style={{ cursor: "pointer" }}>View submitted data</summary>
-            <pre style={{ marginTop: 10, padding: 12, border: "1px solid #ddd", borderRadius: 8, overflow: "auto" }}>
+            <pre style={{ marginTop: 10, padding: 12, border: `1px solid ${branding.colors.secondary}`, borderRadius: 8, overflow: "auto", backgroundColor: "white" }}>
               {JSON.stringify(submitted, null, 2)}
             </pre>
           </details>
         </div>
       ) : null}
-    </main>
+      </main>
+    </div>
   );
 }

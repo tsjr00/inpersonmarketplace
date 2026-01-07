@@ -6,24 +6,21 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 
-interface LoginPageProps {
+interface ResetPasswordPageProps {
   params: Promise<{ vertical: string }>
 }
 
-interface VerticalConfig {
-  vertical_name_public?: string
-  branding?: VerticalBranding
-}
-
-export default function LoginPage({ params }: LoginPageProps) {
+export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
   const { vertical } = use(params)
-  const [email, setEmail] = useState('')
+  const router = useRouter()
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [validatingToken, setValidatingToken] = useState(true)
   const [configLoading, setConfigLoading] = useState(true)
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks)
-  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
@@ -31,7 +28,7 @@ export default function LoginPage({ params }: LoginPageProps) {
       try {
         const res = await fetch(`/api/vertical/${vertical}`)
         if (res.ok) {
-          const cfg: VerticalConfig = await res.json()
+          const cfg = await res.json()
           if (cfg.branding) {
             setBranding(cfg.branding)
           }
@@ -45,14 +42,42 @@ export default function LoginPage({ params }: LoginPageProps) {
     loadConfig()
   }, [vertical])
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Validate reset token on mount
+  useEffect(() => {
+    const validateToken = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession()
+
+      if (error || !session) {
+        setError('Invalid or expired reset link. Please request a new one.')
+        setValidatingToken(false)
+        return
+      }
+
+      setValidatingToken(false)
+    }
+
+    validateToken()
+  }, [supabase])
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      setLoading(false)
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      setLoading(false)
+      return
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: password
     })
 
     if (error) {
@@ -61,13 +86,16 @@ export default function LoginPage({ params }: LoginPageProps) {
       return
     }
 
-    if (data.user) {
-      router.push(`/${vertical}/dashboard`)
-      router.refresh()
-    }
+    setSuccess(true)
+    setLoading(false)
+
+    // Redirect to login after 2 seconds
+    setTimeout(() => {
+      router.push(`/${vertical}/login`)
+    }, 2000)
   }
 
-  if (configLoading) {
+  if (configLoading || validatingToken) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -77,7 +105,37 @@ export default function LoginPage({ params }: LoginPageProps) {
         backgroundColor: branding.colors.background,
         color: branding.colors.text
       }}>
-        Loading...
+        {validatingToken ? 'Validating reset link...' : 'Loading...'}
+      </div>
+    )
+  }
+
+  if (success) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: branding.colors.background,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20
+      }}>
+        <div style={{
+          maxWidth: 400,
+          padding: 30,
+          backgroundColor: 'white',
+          border: `2px solid ${branding.colors.accent}`,
+          borderRadius: 8,
+          textAlign: 'center',
+          color: '#333'
+        }}>
+          <h2 style={{ color: branding.colors.accent, marginBottom: 20 }}>
+            Password Reset Successful!
+          </h2>
+          <p style={{ color: '#666' }}>
+            Redirecting to login...
+          </p>
+        </div>
       </div>
     )
   }
@@ -117,7 +175,7 @@ export default function LoginPage({ params }: LoginPageProps) {
         </p>
       </div>
 
-      {/* Login Form */}
+      {/* Reset Form */}
       <div style={{
         maxWidth: 400,
         margin: '0 auto',
@@ -133,7 +191,7 @@ export default function LoginPage({ params }: LoginPageProps) {
           color: branding.colors.primary,
           textAlign: 'center'
         }}>
-          Login to Your Account
+          Set New Password
         </h2>
 
         {error && (
@@ -146,20 +204,31 @@ export default function LoginPage({ params }: LoginPageProps) {
             color: '#c00'
           }}>
             {error}
+            {error.includes('expired') && (
+              <div style={{ marginTop: 10 }}>
+                <Link
+                  href={`/${vertical}/forgot-password`}
+                  style={{ color: branding.colors.primary, fontWeight: 600 }}
+                >
+                  Request a new reset link
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handlePasswordReset}>
           <div style={{ marginBottom: 15 }}>
             <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
-              Email
+              New Password (min 6 characters)
             </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={loading}
+              disabled={loading || !!error}
+              minLength={6}
               style={{
                 width: '100%',
                 padding: 10,
@@ -173,14 +242,14 @@ export default function LoginPage({ params }: LoginPageProps) {
 
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
-              Password
+              Confirm Password
             </label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              disabled={loading}
+              disabled={loading || !!error}
               style={{
                 width: '100%',
                 padding: 10,
@@ -194,38 +263,32 @@ export default function LoginPage({ params }: LoginPageProps) {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !!error}
             style={{
               width: '100%',
               padding: 12,
               fontSize: 16,
               fontWeight: 600,
-              backgroundColor: loading ? '#ccc' : branding.colors.primary,
+              backgroundColor: (loading || !!error) ? '#ccc' : branding.colors.primary,
               color: 'white',
               border: 'none',
               borderRadius: 4,
-              cursor: loading ? 'not-allowed' : 'pointer'
+              cursor: (loading || !!error) ? 'not-allowed' : 'pointer',
+              marginBottom: 15
             }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Updating Password...' : 'Update Password'}
           </button>
+
+          <div style={{ textAlign: 'center' }}>
+            <Link
+              href={`/${vertical}/login`}
+              style={{ color: branding.colors.secondary, fontSize: 14 }}
+            >
+              Back to Login
+            </Link>
+          </div>
         </form>
-
-        <p style={{ marginTop: 20, textAlign: 'center', color: '#666' }}>
-          Don&apos;t have an account?{' '}
-          <Link href={`/${vertical}/signup`} style={{ color: branding.colors.primary, fontWeight: 600 }}>
-            Sign up
-          </Link>
-        </p>
-
-        <p style={{ marginTop: 10, textAlign: 'center' }}>
-          <Link
-            href={`/${vertical}/forgot-password`}
-            style={{ color: branding.colors.secondary, fontSize: 14 }}
-          >
-            Forgot your password?
-          </Link>
-        </p>
       </div>
     </div>
   )

@@ -135,11 +135,24 @@ export default function SignupPage({ params }: SignupPageProps) {
     <div style={{
       minHeight: '100vh',
       backgroundColor: branding.colors.background,
-      color: branding.colors.text,
-      padding: 20
+      color: branding.colors.text
     }}>
+      {/* Navigation */}
+      <nav style={{
+        padding: '15px 40px',
+        borderBottom: `1px solid ${branding.colors.secondary}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+          {branding.brand_name}
+        </Link>
+        <Link href="/" style={{ color: branding.colors.secondary, textDecoration: 'none' }}>Home</Link>
+      </nav>
+
       {/* Logo/Header */}
-      <div style={{ textAlign: 'center', marginBottom: 40, paddingTop: 40 }}>
+      <div style={{ textAlign: 'center', marginBottom: 40, paddingTop: 40, padding: 20 }}>
         <h1 style={{
           fontSize: 36,
           fontWeight: 'bold',
