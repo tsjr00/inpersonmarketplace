@@ -2,6 +2,7 @@ export interface DomainConfig {
   domain: string
   verticalId: string | null  // null = show all (umbrella)
   isAdmin: boolean           // admin-only domain
+  isUmbrella?: boolean       // umbrella company domain (815enterprises.com)
   brandName: string
   logoPath: string | null
 }
@@ -39,14 +40,16 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
   '815enterprises.com': {
     domain: '815enterprises.com',
     verticalId: null,
-    isAdmin: true,
+    isAdmin: false,
+    isUmbrella: true,
     brandName: '815 Enterprises',
     logoPath: null
   },
   'www.815enterprises.com': {
     domain: '815enterprises.com',
     verticalId: null,
-    isAdmin: true,
+    isAdmin: false,
+    isUmbrella: true,
     brandName: '815 Enterprises',
     logoPath: null
   },

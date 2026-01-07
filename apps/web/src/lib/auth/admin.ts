@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 
 export type UserRole = 'buyer' | 'vendor' | 'admin' | 'verifier'
 
@@ -21,6 +22,16 @@ export async function requireAdmin(): Promise<AdminUser> {
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
+    // Get current domain to determine redirect
+    const headersList = await headers()
+    const host = headersList.get('host') || ''
+
+    // For umbrella domain, redirect to admin login page
+    if (host.includes('815enterprises.com')) {
+      redirect('/admin/login')
+    }
+
+    // For other domains, redirect to general login
     redirect('/login?error=unauthorized')
   }
 
