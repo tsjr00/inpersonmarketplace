@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
+import { AddToCartButton } from '@/components/cart/AddToCartButton'
+import { CartButton } from '@/components/cart/CartButton'
 
 interface ListingDetailPageProps {
   params: Promise<{ vertical: string; listingId: string }>
@@ -92,6 +94,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           >
             Browse
           </Link>
+          <CartButton primaryColor={branding.colors.primary} />
           {user ? (
             <Link
               href={`/${vertical}/dashboard`}
@@ -245,32 +248,17 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 </div>
               </div>
 
-              {/* Contact CTA */}
-              <button
-                style={{
-                  width: '100%',
-                  padding: '15px 20px',
-                  fontSize: 18,
-                  fontWeight: 600,
-                  backgroundColor: branding.colors.primary,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer'
+              {/* Add to Cart */}
+              <AddToCartButton
+                listingId={listingId}
+                listingInfo={{
+                  title: listing.title,
+                  price_cents: listing.price_cents || 0,
+                  vendor_name: vendorName,
                 }}
-              >
-                Contact Vendor
-              </button>
-
-              <p style={{
-                fontSize: 12,
-                color: '#999',
-                textAlign: 'center',
-                marginTop: 10,
-                marginBottom: 0
-              }}>
-                Reservations and ordering coming soon
-              </p>
+                maxQuantity={listing.quantity}
+                primaryColor={branding.colors.primary}
+              />
             </div>
 
             {/* Vendor Card */}

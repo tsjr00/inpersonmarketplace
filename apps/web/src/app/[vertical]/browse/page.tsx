@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import SearchFilter from './SearchFilter'
+import { CartButton } from '@/components/cart/CartButton'
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
@@ -105,6 +106,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           >
             Browse
           </Link>
+          <CartButton primaryColor={branding.colors.primary} />
           {user ? (
             <Link
               href={`/${vertical}/dashboard`}
