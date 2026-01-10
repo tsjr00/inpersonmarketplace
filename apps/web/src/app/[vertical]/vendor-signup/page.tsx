@@ -368,7 +368,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               return (
                 <div key={f.key}>
                   <div style={{ fontWeight: 600 }}>
-                    {f.label} {f.required ? "(required)" : ""}
+                    {f.label} {f.required ? "(required)" : ""}{" "}
+                    <span style={{ fontWeight: 400, fontSize: 14, color: '#666' }}>
+                      — select all that apply
+                    </span>
                   </div>
                   <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                     {(f.options ?? []).map((opt) => {
