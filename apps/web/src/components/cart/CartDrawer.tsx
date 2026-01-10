@@ -119,28 +119,6 @@ export function CartDrawer() {
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                marginBottom: 8,
-                fontSize: 14,
-                color: '#666',
-              }}>
-                <span>Subtotal</span>
-                <span>${(subtotal / 100).toFixed(2)}</span>
-              </div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: 8,
-                fontSize: 14,
-                color: '#666',
-              }}>
-                <span>Platform Fee (6.5%)</span>
-                <span>${(buyerFee / 100).toFixed(2)}</span>
-              </div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                paddingTop: 10,
-                borderTop: '1px solid #ddd',
                 fontSize: 18,
                 fontWeight: 'bold',
               }}>

@@ -394,18 +394,8 @@ export default function CheckoutPage() {
                 fontSize: 14,
                 color: '#666',
               }}>
-                <span>Subtotal ({checkoutItems.reduce((s, i) => s + i.quantity, 0)} items)</span>
-                <span>${(subtotal / 100).toFixed(2)}</span>
-              </div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: 10,
-                fontSize: 14,
-                color: '#666',
-              }}>
-                <span>Platform Fee (6.5%)</span>
-                <span>${(buyerFee / 100).toFixed(2)}</span>
+                <span>Items ({checkoutItems.reduce((s, i) => s + i.quantity, 0)})</span>
+                <span>${(total / 100).toFixed(2)}</span>
               </div>
               <div style={{
                 display: 'flex',

@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Please log in to add items to your cart' }, { status: 401 })
   }
 
   // Validate listing exists and has inventory
