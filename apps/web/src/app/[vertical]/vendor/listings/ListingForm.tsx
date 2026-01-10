@@ -188,6 +188,9 @@ export default function ListingForm({
               boxSizing: 'border-box'
             }}
           />
+          <p style={{ fontSize: 13, color: '#666', marginTop: 6, lineHeight: 1.4 }}>
+            Include: what it is, variety/type, quantity (size, count, or weight), and any special qualities.
+          </p>
         </div>
 
         {/* Price & Quantity Row */}
