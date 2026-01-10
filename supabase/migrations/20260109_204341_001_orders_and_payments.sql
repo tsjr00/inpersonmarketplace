@@ -6,8 +6,8 @@
 -- ============================================================================
 
 -- Applied to:
--- [ ] Dev (project-ref: vawpviatqalicckkqchs) - Date: _______
--- [ ] Staging (project-ref: vfknvsxfgcwqmlkuzhnq) - Date: _______
+-- [x] Dev (project-ref: vawpviatqalicckkqchs) - Date: 2026-01-09 20:43
+-- [x] Staging (project-ref: vfknvsxfgcwqmlkuzhnq) - Date: 2026-01-09 21:15
 
 -- ============================================================================
 -- ENUMS

@@ -24,6 +24,7 @@
 | 20260105_180000_001_fix_user_profile_trigger.sql | ✅ | 2026-01-05 | ✅ | 2026-01-05 | FIX: use display_name not full_name |
 | 20260106_093233_001_add_branding_to_verticals.sql | ❌ | - | ❌ | - | Add comments and GIN index for config |
 | 20260106_093233_002_seed_vertical_branding.sql | ❌ | - | ❌ | - | Seed branding data for verticals |
+| 20260109_204341_001_orders_and_payments.sql | ✅ | 2026-01-09 20:43 | ✅ | 2026-01-09 21:15 | Phase 3: Core commerce tables |
 
 ---
 
