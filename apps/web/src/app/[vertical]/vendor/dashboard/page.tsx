@@ -232,38 +232,86 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </div>
         </div>
 
-        {/* Listings Quick Access */}
+        {/* Quick Actions Grid */}
         <div style={{
-          padding: 20,
-          backgroundColor: 'white',
-          color: '#333',
-          border: `1px solid ${branding.colors.secondary}`,
-          borderRadius: 8
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: 20
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 15
-          }}>
-            <h2 style={{ color: branding.colors.primary, margin: 0 }}>Your Listings</h2>
-            <Link
-              href={`/${vertical}/vendor/listings`}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 4,
-                fontWeight: 600
-              }}
-            >
-              Manage Listings
-            </Link>
-          </div>
-          <p style={{ color: '#666', margin: 0 }}>
-            Create and manage your product listings for {branding.brand_name}.
-          </p>
+          {/* Listings Quick Access */}
+          <Link
+            href={`/${vertical}/vendor/listings`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: 20,
+              backgroundColor: 'white',
+              color: '#333',
+              border: `1px solid ${branding.colors.secondary}`,
+              borderRadius: 8,
+              cursor: 'pointer',
+              transition: 'box-shadow 0.2s',
+              height: '100%'
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>📦</div>
+              <h3 style={{ color: branding.colors.primary, margin: '0 0 10px 0' }}>
+                Your Listings
+              </h3>
+              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+                Create and manage your product listings
+              </p>
+            </div>
+          </Link>
+
+          {/* Payment Settings */}
+          <Link
+            href={`/${vertical}/vendor/dashboard/stripe`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: 20,
+              backgroundColor: 'white',
+              color: '#333',
+              border: `1px solid ${branding.colors.secondary}`,
+              borderRadius: 8,
+              cursor: 'pointer',
+              transition: 'box-shadow 0.2s',
+              height: '100%'
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>💳</div>
+              <h3 style={{ color: branding.colors.primary, margin: '0 0 10px 0' }}>
+                Payment Settings
+              </h3>
+              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+                Connect your bank account to receive payments
+              </p>
+            </div>
+          </Link>
+
+          {/* Orders */}
+          <Link
+            href={`/${vertical}/vendor/dashboard/orders`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: 20,
+              backgroundColor: 'white',
+              color: '#333',
+              border: `1px solid ${branding.colors.secondary}`,
+              borderRadius: 8,
+              cursor: 'pointer',
+              transition: 'box-shadow 0.2s',
+              height: '100%'
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>🛒</div>
+              <h3 style={{ color: branding.colors.primary, margin: '0 0 10px 0' }}>
+                Orders
+              </h3>
+              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+                Manage incoming orders from customers
+              </p>
+            </div>
+          </Link>
         </div>
 
         {/* Future Features */}
@@ -276,7 +324,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         }}>
           <h3 style={{ marginBottom: 15, color: '#666', marginTop: 0 }}>Coming Soon</h3>
           <ul style={{ margin: 0, paddingLeft: 20, color: '#888' }}>
-            <li>View orders and reservations</li>
             <li>Analytics and insights</li>
             <li>Customer messages</li>
           </ul>
