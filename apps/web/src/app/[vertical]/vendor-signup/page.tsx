@@ -160,6 +160,12 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       }
 
       setSubmitted({ ...payload, vendor_id: result.vendor_id });
+
+      // Auto-redirect to vendor dashboard after short delay
+      setTimeout(() => {
+        router.push(`/${vertical}/vendor/dashboard`);
+        router.refresh();
+      }, 1500);
     } catch (err) {
       console.error("Submit error:", err);
       alert("Save failed. Check the console for errors.");
@@ -468,10 +474,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             Submitted Successfully!
           </h2>
           <p style={{ marginTop: 8, opacity: 0.8 }}>
-            Your vendor profile has been created and linked to your account.
+            Your vendor profile has been created. Redirecting to your vendor dashboard...
           </p>
           <Link
-            href={`/${vertical}/dashboard`}
+            href={`/${vertical}/vendor/dashboard`}
             style={{
               display: "inline-block",
               marginTop: 12,
@@ -484,7 +490,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               color: branding.colors.primary
             }}
           >
-            Go to Dashboard
+            Go to Vendor Dashboard
           </Link>
           <details style={{ marginTop: 12 }}>
             <summary style={{ cursor: "pointer" }}>View submitted data</summary>
