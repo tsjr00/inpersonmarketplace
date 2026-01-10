@@ -96,8 +96,9 @@ export default function ListingForm({
     }
 
     if (result.error) {
-      console.error('Listing error:', result.error)
-      setError(result.error.message)
+      console.error('Listing error:', JSON.stringify(result.error, null, 2))
+      const errorMessage = result.error.message || result.error.details || 'Failed to save listing. Please try again.'
+      setError(errorMessage)
       setLoading(false)
       return
     }

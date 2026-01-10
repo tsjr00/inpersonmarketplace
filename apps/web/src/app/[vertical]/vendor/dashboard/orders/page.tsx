@@ -45,13 +45,20 @@ export default function VendorOrdersPage() {
   async function fetchOrders() {
     try {
       const response = await fetch('/api/vendor/orders')
-      if (!response.ok) throw new Error('Failed to fetch orders')
-
       const data = await response.json()
+
+      if (!response.ok) {
+        const errorMessage = data.error || 'Failed to fetch orders'
+        console.error('Orders fetch error:', errorMessage)
+        throw new Error(errorMessage)
+      }
+
       setOrders(data.orderItems || [])
       setError(null)
-    } catch {
-      setError('Failed to load orders')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load orders'
+      setError(errorMessage)
+      console.error('Orders error:', errorMessage)
     } finally {
       setLoading(false)
     }
@@ -66,11 +73,19 @@ export default function VendorOrdersPage() {
         method: 'POST',
       })
 
-      if (!response.ok) throw new Error('Failed to update order')
+      const data = await response.json()
+
+      if (!response.ok) {
+        const errorMessage = data.error || 'Failed to update order'
+        console.error('Order update error:', errorMessage)
+        throw new Error(errorMessage)
+      }
 
       await fetchOrders()
-    } catch {
-      alert('Failed to update order status')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update order status'
+      alert(errorMessage)
+      console.error('Order status update error:', errorMessage)
     }
   }
 
