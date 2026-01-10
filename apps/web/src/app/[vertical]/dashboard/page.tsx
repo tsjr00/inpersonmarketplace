@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import Link from 'next/link'
 import LogoutButton from './LogoutButton'
 
 interface DashboardPageProps {
@@ -27,6 +28,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .eq('user_id', user.id)
     .eq('vertical_id', vertical)
     .single()
+
+  const isVendor = !!vendorProfile
+  const isApprovedVendor = vendorProfile?.status === 'approved'
+
+  // Get recent orders count (as buyer)
+  const { count: orderCount } = await supabase
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('buyer_user_id', user.id)
 
   return (
     <div style={{
@@ -57,66 +67,181 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         color: '#333',
         border: `1px solid ${branding.colors.secondary}`,
         borderRadius: 8,
-        marginBottom: 20
+        marginBottom: 30
       }}>
-        <h2 style={{ marginTop: 0 }}>Welcome, {user.user_metadata?.full_name || user.email}!</h2>
-        <p><strong>Email:</strong> {user.email}</p>
-        <p><strong>Account Created:</strong> {new Date(user.created_at).toLocaleDateString()}</p>
+        <h2 style={{ marginTop: 0, marginBottom: 5 }}>
+          Welcome back, {user.user_metadata?.full_name || user.email?.split('@')[0]}!
+        </h2>
+        <p style={{ margin: 0, color: '#666', fontSize: 14 }}>{user.email}</p>
       </div>
 
-      {/* Vendor Status */}
-      <div style={{
-        padding: 20,
-        backgroundColor: 'white',
-        color: '#333',
-        border: `1px solid ${branding.colors.secondary}`,
-        borderRadius: 8
-      }}>
-        {vendorProfile ? (
-          <>
-            <h3 style={{ color: branding.colors.accent, marginTop: 0 }}>
-              You&apos;re a {branding.brand_name} Vendor
+      {/* ========== SHOPPER SECTION ========== */}
+      <section style={{ marginBottom: 30 }}>
+        <h2 style={{
+          fontSize: 20,
+          fontWeight: 600,
+          marginBottom: 15,
+          color: branding.colors.primary,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8
+        }}>
+          <span>🛒</span> Shopper
+        </h2>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: 15
+        }}>
+          {/* Browse Products Card */}
+          <Link
+            href={`/${vertical}/browse`}
+            style={{
+              display: 'block',
+              padding: 20,
+              backgroundColor: 'white',
+              color: '#333',
+              border: `1px solid ${branding.colors.secondary}`,
+              borderRadius: 8,
+              textDecoration: 'none'
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+              Browse Products
             </h3>
-            <p><strong>Status:</strong> {vendorProfile.status}</p>
-            <p><strong>Joined:</strong> {new Date(vendorProfile.created_at).toLocaleDateString()}</p>
-            <a
-              href={`/${vertical}/vendor/dashboard`}
-              style={{
-                display: 'inline-block',
-                marginTop: 10,
-                padding: '10px 20px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 4,
-                fontWeight: 600
-              }}
-            >
-              Manage Vendor Profile
-            </a>
-          </>
-        ) : (
-          <>
-            <h3 style={{ marginTop: 0 }}>Become a Vendor</h3>
-            <p>You&apos;re not yet registered as a vendor on {branding.brand_name}.</p>
-            <a
+            <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+              Discover fresh products from local vendors
+            </p>
+          </Link>
+
+          {/* My Orders Card */}
+          <Link
+            href={`/${vertical}/buyer/orders`}
+            style={{
+              display: 'block',
+              padding: 20,
+              backgroundColor: 'white',
+              color: '#333',
+              border: `1px solid ${branding.colors.secondary}`,
+              borderRadius: 8,
+              textDecoration: 'none'
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+              My Orders
+            </h3>
+            <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+              {orderCount || 0} order{orderCount !== 1 ? 's' : ''} placed
+            </p>
+          </Link>
+        </div>
+      </section>
+
+      {/* ========== VENDOR SECTION ========== */}
+      {isVendor && (
+        <section style={{ marginBottom: 30 }}>
+          <h2 style={{
+            fontSize: 20,
+            fontWeight: 600,
+            marginBottom: 15,
+            color: branding.colors.accent || '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <span>🏪</span> Vendor
+          </h2>
+
+          {isApprovedVendor ? (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: 15
+            }}>
+              {/* Vendor Dashboard Card */}
+              <Link
+                href={`/${vertical}/vendor/dashboard`}
+                style={{
+                  display: 'block',
+                  padding: 20,
+                  backgroundColor: '#eff6ff',
+                  color: '#333',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: 8,
+                  textDecoration: 'none'
+                }}
+              >
+                <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                  Vendor Dashboard
+                </h3>
+                <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                  Manage listings, orders, and payments
+                </p>
+              </Link>
+
+              {/* My Listings Card */}
+              <Link
+                href={`/${vertical}/vendor/listings`}
+                style={{
+                  display: 'block',
+                  padding: 20,
+                  backgroundColor: 'white',
+                  color: '#333',
+                  border: `1px solid ${branding.colors.secondary}`,
+                  borderRadius: 8,
+                  textDecoration: 'none'
+                }}
+              >
+                <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                  My Listings
+                </h3>
+                <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                  View and manage your products
+                </p>
+              </Link>
+            </div>
+          ) : (
+            <div style={{
+              padding: 20,
+              backgroundColor: '#fefce8',
+              color: '#333',
+              border: '1px solid #fde047',
+              borderRadius: 8
+            }}>
+              <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600, color: '#854d0e' }}>
+                ⏳ Pending Approval
+              </h3>
+              <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                Your vendor application is being reviewed. We&apos;ll notify you once approved.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ========== BECOME A VENDOR (small, at bottom) ========== */}
+      {!isVendor && (
+        <section style={{
+          borderTop: '1px solid #e5e7eb',
+          paddingTop: 20,
+          marginTop: 20
+        }}>
+          <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>
+            Interested in selling?{' '}
+            <Link
               href={`/${vertical}/vendor-signup`}
               style={{
-                display: 'inline-block',
-                marginTop: 10,
-                padding: '10px 20px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
+                color: branding.colors.primary,
                 textDecoration: 'none',
-                borderRadius: 4,
-                fontWeight: 600
+                fontWeight: 500
               }}
             >
-              Complete Vendor Registration
-            </a>
-          </>
-        )}
-      </div>
+              Become a vendor →
+            </Link>
+          </p>
+        </section>
+      )}
     </div>
   )
 }

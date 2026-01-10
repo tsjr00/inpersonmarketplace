@@ -23,7 +23,11 @@
       "Bash(mkdir:*)",
       "Bash(copy \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\\\\FastWrks logo.png\" \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\\\\logos\\\\fastwrks-logo.png\")",
       "Bash(copy \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\\\\Farmers Marketing Logo.png\" \"C:\\\\FastWrks-Fireworks\\\\BuildApp\\\\apps\\\\web\\\\public\\\\logos\\\\farmersmarketing-logo.png\")",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(git diff:*)",
+      "Bash(npx supabase:*)",
+      "Bash(ping:*)",
+      "Bash(cmd //c \"taskkill /PID 11108 /F\")"
     ]
   }
 }
