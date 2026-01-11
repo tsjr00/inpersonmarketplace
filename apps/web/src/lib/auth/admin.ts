@@ -8,6 +8,7 @@ export interface AdminUser {
   user_id: string
   email: string
   role: UserRole
+  roles?: string[]
   display_name: string | null
 }
 
@@ -35,10 +36,10 @@ export async function requireAdmin(): Promise<AdminUser> {
     redirect('/login?error=unauthorized')
   }
 
-  // Get user profile with role
+  // Get user profile with role (select BOTH columns for compatibility)
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
-    .select('user_id, email, role, display_name')
+    .select('user_id, email, role, roles, display_name')
     .eq('user_id', user.id)
     .single()
 
@@ -46,8 +47,9 @@ export async function requireAdmin(): Promise<AdminUser> {
     redirect('/login?error=no_profile')
   }
 
-  // Check admin role
-  if (profile.role !== 'admin') {
+  // Check admin role - check BOTH columns during transition
+  const hasAdminRole = profile.role === 'admin' || profile.roles?.includes('admin')
+  if (!hasAdminRole) {
     redirect('/dashboard?error=not_admin')
   }
 
@@ -57,7 +59,7 @@ export async function requireAdmin(): Promise<AdminUser> {
 /**
  * Check if user is admin (returns boolean, no redirect)
  */
-export async function isAdmin(): Promise<boolean> {
+export async function isAdminCheck(): Promise<boolean> {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -65,9 +67,10 @@ export async function isAdmin(): Promise<boolean> {
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('role')
+    .select('role, roles')
     .eq('user_id', user.id)
     .single()
 
-  return profile?.role === 'admin'
+  // Check BOTH columns during transition
+  return profile?.role === 'admin' || profile?.roles?.includes('admin') || false
 }

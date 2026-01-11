@@ -27,7 +27,9 @@
       "Bash(git diff:*)",
       "Bash(npx supabase:*)",
       "Bash(ping:*)",
-      "Bash(cmd //c \"taskkill /PID 11108 /F\")"
+      "Bash(cmd //c \"taskkill /PID 11108 /F\")",
+      "Bash(npx tsc:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }

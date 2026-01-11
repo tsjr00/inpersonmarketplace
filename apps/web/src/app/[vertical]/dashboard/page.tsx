@@ -32,14 +32,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const isVendor = !!vendorProfile
   const isApprovedVendor = vendorProfile?.status === 'approved'
 
-  // Get user profile to check for admin role
+  // Get user profile to check for admin role - check BOTH columns during transition
   const { data: userProfile } = await supabase
     .from('user_profiles')
-    .select('roles')
+    .select('role, roles')
     .eq('user_id', user.id)
     .single()
 
-  const isAdmin = userProfile?.roles?.includes('admin')
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
 
   // Get recent orders count (as buyer)
   const { count: orderCount } = await supabase
