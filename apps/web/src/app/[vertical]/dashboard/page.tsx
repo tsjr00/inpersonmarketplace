@@ -202,18 +202,79 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               </Link>
             </div>
           ) : (
-            <div style={{
-              padding: 20,
-              backgroundColor: '#fefce8',
-              color: '#333',
-              border: '1px solid #fde047',
-              borderRadius: 8
-            }}>
-              <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600, color: '#854d0e' }}>
-                ⏳ Pending Approval
-              </h3>
-              <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
-                Your vendor application is being reviewed. We&apos;ll notify you once approved.
+            <div>
+              {/* Pending Approval Notice */}
+              <div style={{
+                padding: 15,
+                backgroundColor: '#fefce8',
+                color: '#333',
+                border: '1px solid #fde047',
+                borderRadius: 8,
+                marginBottom: 15
+              }}>
+                <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600, color: '#854d0e' }}>
+                  ⏳ Pending Approval
+                </h3>
+                <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                  Your vendor application is being reviewed. We&apos;ll notify you once approved.
+                </p>
+              </div>
+
+              {/* Draft Listings Section */}
+              <p style={{ margin: '0 0 12px 0', color: '#666', fontSize: 14 }}>
+                While you wait, you can prepare your listings:
+              </p>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: 15
+              }}>
+                {/* Create Draft Listings Card */}
+                <Link
+                  href={`/${vertical}/vendor/listings/new`}
+                  style={{
+                    display: 'block',
+                    padding: 20,
+                    backgroundColor: 'white',
+                    color: '#333',
+                    border: '1px solid #fde047',
+                    borderRadius: 8,
+                    textDecoration: 'none'
+                  }}
+                >
+                  <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                    Create Draft Listings
+                  </h3>
+                  <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                    Start adding your products now
+                  </p>
+                </Link>
+
+                {/* My Listings Card */}
+                <Link
+                  href={`/${vertical}/vendor/listings`}
+                  style={{
+                    display: 'block',
+                    padding: 20,
+                    backgroundColor: 'white',
+                    color: '#333',
+                    border: '1px solid #fde047',
+                    borderRadius: 8,
+                    textDecoration: 'none'
+                  }}
+                >
+                  <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                    My Listings
+                  </h3>
+                  <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                    View and edit your draft listings
+                  </p>
+                </Link>
+              </div>
+
+              <p style={{ margin: '12px 0 0 0', color: '#92400e', fontSize: 13, fontStyle: 'italic' }}>
+                Listings will be saved as drafts and can be published once your account is approved.
               </p>
             </div>
           )}
