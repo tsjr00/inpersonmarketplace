@@ -32,6 +32,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const isVendor = !!vendorProfile
   const isApprovedVendor = vendorProfile?.status === 'approved'
 
+  // Get user profile to check for admin role
+  const { data: userProfile } = await supabase
+    .from('user_profiles')
+    .select('roles')
+    .eq('user_id', user.id)
+    .single()
+
+  const isAdmin = userProfile?.roles?.includes('admin')
+
   // Get recent orders count (as buyer)
   const { count: orderCount } = await supabase
     .from('orders')
@@ -278,6 +287,44 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               </p>
             </div>
           )}
+        </section>
+      )}
+
+      {/* ========== ADMIN SECTION ========== */}
+      {isAdmin && (
+        <section style={{ marginBottom: 30 }}>
+          <h2 style={{
+            fontSize: 20,
+            fontWeight: 600,
+            marginBottom: 15,
+            color: '#7c3aed',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <span>🔧</span> Admin
+          </h2>
+
+          <Link
+            href="/admin"
+            style={{
+              display: 'block',
+              padding: 20,
+              backgroundColor: '#f5f3ff',
+              color: '#333',
+              border: '1px solid #c4b5fd',
+              borderRadius: 8,
+              textDecoration: 'none',
+              maxWidth: 300
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+              Admin Dashboard
+            </h3>
+            <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+              Manage vendors, listings, and users
+            </p>
+          </Link>
         </section>
       )}
 
