@@ -29,6 +29,9 @@ export default function ListingForm({
   // Check if vendor is pending approval
   const isPendingVendor = vendorStatus === 'submitted' || vendorStatus === 'pending'
 
+  // Extract listing_data for allergen info
+  const listingData = listing?.listing_data as Record<string, unknown> | null
+
   const [formData, setFormData] = useState({
     title: (listing?.title as string) || '',
     description: (listing?.description as string) || '',
@@ -38,6 +41,14 @@ export default function ListingForm({
     // Force draft for pending vendors
     status: isPendingVendor ? 'draft' : ((listing?.status as string) || 'draft')
   })
+
+  // Allergen tracking
+  const [containsAllergens, setContainsAllergens] = useState(
+    (listingData?.contains_allergens as boolean) || false
+  )
+  const [ingredients, setIngredients] = useState(
+    (listingData?.ingredients as string) || ''
+  )
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -69,7 +80,7 @@ export default function ListingForm({
       : 0
 
     // Prepare data - force draft status for pending vendors
-    const listingData = {
+    const submitData = {
       vendor_profile_id: vendorProfileId,
       vertical_id: vertical,
       title: formData.title.trim(),
@@ -78,6 +89,10 @@ export default function ListingForm({
       quantity: formData.quantity ? parseInt(formData.quantity) : null,
       category: formData.category.trim() || null,
       status: isPendingVendor ? 'draft' : formData.status,
+      listing_data: {
+        contains_allergens: containsAllergens,
+        ingredients: containsAllergens ? ingredients.trim() : null,
+      },
       updated_at: new Date().toISOString()
     }
 
@@ -87,7 +102,7 @@ export default function ListingForm({
       result = await supabase
         .from('listings')
         .insert({
-          ...listingData,
+          ...submitData,
           created_at: new Date().toISOString()
         })
         .select()
@@ -95,7 +110,7 @@ export default function ListingForm({
     } else {
       result = await supabase
         .from('listings')
-        .update(listingData)
+        .update(submitData)
         .eq('id', listing?.id)
         .select()
         .single()
@@ -210,8 +225,71 @@ export default function ListingForm({
           />
           <p style={{ fontSize: 13, color: '#666', marginTop: 6, lineHeight: 1.4 }}>
             Include: what it is, variety/type, quantity (size, count, or weight), and any special qualities.
+            {vertical === 'farmers_market' && (
+              <><br /><strong>If your product contains potential allergens</strong>, check the allergen box below and list the ingredients.</>
+            )}
           </p>
         </div>
+
+        {/* Allergen Section - only for farmers market */}
+        {vertical === 'farmers_market' && (
+          <div style={{ marginBottom: 20 }}>
+            {/* Allergen Checkbox */}
+            <label style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              cursor: 'pointer',
+              padding: 12,
+              backgroundColor: containsAllergens ? '#fef3c7' : '#f9fafb',
+              border: `1px solid ${containsAllergens ? '#f59e0b' : '#e5e7eb'}`,
+              borderRadius: 6
+            }}>
+              <input
+                type="checkbox"
+                checked={containsAllergens}
+                onChange={(e) => setContainsAllergens(e.target.checked)}
+                disabled={loading}
+                style={{ marginTop: 3, width: 18, height: 18 }}
+              />
+              <div>
+                <span style={{ fontWeight: 600 }}>This product may contain allergens</span>
+                <p style={{ fontSize: 13, color: '#666', margin: '4px 0 0 0' }}>
+                  Check this if your product contains ingredients that may cause allergic reactions
+                  (e.g., nuts, dairy, gluten, eggs, soy, shellfish)
+                </p>
+              </div>
+            </label>
+
+            {/* Ingredients Field - shown when allergen checkbox is checked */}
+            {containsAllergens && (
+              <div style={{ marginTop: 12, marginLeft: 28 }}>
+                <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+                  Ingredients / Allergen Information
+                </label>
+                <textarea
+                  value={ingredients}
+                  onChange={(e) => setIngredients(e.target.value)}
+                  disabled={loading}
+                  rows={3}
+                  placeholder="List ingredients, especially those that may cause allergic reactions..."
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    fontSize: 16,
+                    border: '1px solid #f59e0b',
+                    borderRadius: 4,
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <p style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
+                  List all ingredients OR at minimum the common allergens: nuts, peanuts, dairy, eggs, wheat/gluten, soy, fish, shellfish.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Price & Quantity Row */}
         <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
