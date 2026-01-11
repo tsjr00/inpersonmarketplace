@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
+import PublishButton from './PublishButton'
 
 interface ListingsPageProps {
   params: Promise<{ vertical: string }>
@@ -188,7 +189,14 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
               </div>
 
               {/* Actions */}
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {/* Publish button - only for approved vendors with draft listings */}
+                {vendorProfile.status === 'approved' && (
+                  <PublishButton
+                    listingId={listing.id as string}
+                    currentStatus={listing.status as string}
+                  />
+                )}
                 <Link
                   href={`/${vertical}/vendor/listings/${listing.id}/edit`}
                   style={{

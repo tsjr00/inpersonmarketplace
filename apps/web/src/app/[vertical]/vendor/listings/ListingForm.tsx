@@ -131,11 +131,13 @@ export default function ListingForm({
   }
 
   // Get category options based on vertical
+  // Note: These should match the config in verticals.config.listing_fields
   const getCategoryOptions = () => {
     if (vertical === 'fireworks') {
       return ['Aerial', 'Ground', 'Sparklers', 'Fountains', 'Novelty', 'Assortments', 'Other']
     } else if (vertical === 'farmers_market') {
-      return ['Produce', 'Dairy', 'Meat', 'Baked Goods', 'Preserves', 'Plants', 'Crafts', 'Other']
+      // Updated to match database config: Produce, Meat, Dairy, Eggs, Baked Goods, Prepared Foods, Preserves, Honey, Plants, Crafts, Other
+      return ['Produce', 'Meat', 'Dairy', 'Eggs', 'Baked Goods', 'Prepared Foods', 'Preserves', 'Honey', 'Plants', 'Crafts', 'Other']
     }
     return ['General', 'Other']
   }

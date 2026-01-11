@@ -54,16 +54,22 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   const { data: listings } = await query
 
-  // Get unique categories for filter
-  const { data: categories } = await supabase
-    .from('listings')
-    .select('category')
+  // Get categories from vertical config (not from listings)
+  const { data: verticalData } = await supabase
+    .from('verticals')
+    .select('config')
     .eq('vertical_id', vertical)
-    .eq('status', 'published')
-    .is('deleted_at', null)
-    .not('category', 'is', null)
+    .single()
 
-  const uniqueCategories = [...new Set(categories?.map(c => c.category).filter(Boolean))]
+  // Extract categories from listing_fields config
+  const listingFields = (verticalData?.config as Record<string, unknown>)?.listing_fields as Array<Record<string, unknown>> || []
+  const categoryField = listingFields.find(
+    (f) => f.key === 'product_categories' || f.key === 'category'
+  )
+  const configCategories = (categoryField?.options as string[]) || []
+
+  // Use config categories, not listing-derived categories
+  const uniqueCategories = configCategories
 
   // Check if user is logged in (for header)
   const { data: { user } } = await supabase.auth.getUser()

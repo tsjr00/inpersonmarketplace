@@ -44,6 +44,19 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   // Parse profile_data JSON
   const profileData = vendorProfile.profile_data as Record<string, unknown>
 
+  // Get draft listings count for approved vendors
+  let draftCount = 0
+  if (vendorProfile.status === 'approved') {
+    const { data: draftListings } = await supabase
+      .from('listings')
+      .select('id')
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('status', 'draft')
+      .is('deleted_at', null)
+
+    draftCount = draftListings?.length || 0
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -119,6 +132,40 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </div>
         </div>
       </div>
+
+      {/* Draft Listings Notice - for approved vendors with drafts */}
+      {draftCount > 0 && vendorProfile.status === 'approved' && (
+        <div style={{
+          padding: 20,
+          marginBottom: 30,
+          backgroundColor: '#dbeafe',
+          border: '1px solid #93c5fd',
+          borderRadius: 8,
+          color: '#1e40af'
+        }}>
+          <strong style={{ fontSize: 16 }}>
+            You have {draftCount} draft listing{draftCount > 1 ? 's' : ''}!
+          </strong>
+          <p style={{ margin: '8px 0 12px 0', fontSize: 14 }}>
+            Your account is approved. Visit your listings to publish them and make them visible to buyers.
+          </p>
+          <Link
+            href={`/${vertical}/vendor/listings`}
+            style={{
+              display: 'inline-block',
+              padding: '8px 16px',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 6,
+              fontWeight: 600,
+              fontSize: 14
+            }}
+          >
+            View My Listings →
+          </Link>
+        </div>
+      )}
 
       {/* Profile Information */}
       <div style={{ display: 'grid', gap: 20 }}>
