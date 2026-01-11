@@ -111,28 +111,18 @@ Next.js 13+ automatically uses these from the app directory.
 
 ## Part 8: Enable Multi-Select Vendor Types (DATABASE)
 
-**This requires manual database update. Run in Dev and Staging:**
+**Migration file created:** `supabase/migrations/20260110_002_pending_vendor_drafts_multiselect.sql`
 
-```sql
--- Update farmers_market vendor_fields to use multi_select
-UPDATE public.verticals
-SET config = jsonb_set(
-  config,
-  '{vendor_fields}',
-  '[
-    {"key":"legal_name","type":"text","label":"Legal Name","required":true},
-    {"key":"phone","type":"phone","label":"Phone Number","required":true},
-    {"key":"email","type":"email","label":"Email Address","required":true},
-    {"key":"business_name","type":"text","label":"Farm / Business Name","required":true},
-    {"key":"vendor_type","type":"multi_select","label":"What do you sell?","options":["Produce","Meat","Dairy","Baked Goods","Prepared Foods","Preserves","Plants","Crafts","Other"],"required":true},
-    {"key":"cottage_food_cert","type":"file","label":"Cottage Food Permit or Exemption","accept":["pdf","jpg","png"],"required":false},
-    {"key":"organic_cert","type":"file","label":"Organic Certification (if applicable)","accept":["pdf","jpg","png"],"required":false}
-  ]'::jsonb
-)
-WHERE vertical_id = 'farmers_market';
+This migration includes:
+1. RLS policy update for pending vendors to create draft listings
+2. Vendor_fields config update for multi-select vendor types
 
--- Verify
-SELECT config->'vendor_fields' FROM public.verticals WHERE vertical_id = 'farmers_market';
+**Apply to Dev and Staging:**
+```bash
+# Using Supabase CLI
+supabase db push
+
+# Or run manually in SQL Editor from the migration file
 ```
 
 ---
@@ -140,6 +130,7 @@ SELECT config->'vendor_fields' FROM public.verticals WHERE vertical_id = 'farmer
 ## Commits Made
 
 ```
+3791c05 Add migration for pending vendor drafts and multi-select vendor types
 5157c8c Add favicon and apple touch icon
 2c0fdea Add admin reminder for stale pending vendors
 904ef76 Add allergen checkbox and ingredients field to listings
