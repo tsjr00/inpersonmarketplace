@@ -10,7 +10,8 @@
 -- Drop existing insert policy
 DROP POLICY IF EXISTS "listings_insert" ON public.listings;
 
--- New policy: Approved vendors can create any status, pending can create drafts only
+-- New policy: Approved vendors can create any status, submitted/draft vendors can create drafts only
+-- Note: vendor_status enum values are: 'draft', 'submitted', 'approved', 'rejected', 'suspended'
 CREATE POLICY "listings_insert" ON public.listings
 FOR INSERT WITH CHECK (
   -- Approved vendors can create listings (any status)
@@ -20,12 +21,12 @@ FOR INSERT WITH CHECK (
     AND status = 'approved'
   )
   OR
-  -- Pending/submitted vendors can create DRAFT listings only
+  -- Submitted (pending approval) vendors can create DRAFT listings only
   (
     vendor_profile_id IN (
       SELECT id FROM public.vendor_profiles
       WHERE user_id = (SELECT auth.uid())
-      AND status IN ('submitted', 'pending')
+      AND status = 'submitted'
     )
     AND status = 'draft'
   )

@@ -26,8 +26,9 @@ export default function ListingForm({
   const router = useRouter()
   const supabase = createClient()
 
-  // Check if vendor is pending approval
-  const isPendingVendor = vendorStatus === 'submitted' || vendorStatus === 'pending'
+  // Check if vendor is pending approval (status='submitted' means awaiting approval)
+  // Note: vendor_status enum values are: 'draft', 'submitted', 'approved', 'rejected', 'suspended'
+  const isPendingVendor = vendorStatus === 'submitted'
 
   // Extract listing_data for allergen info
   const listingData = listing?.listing_data as Record<string, unknown> | null

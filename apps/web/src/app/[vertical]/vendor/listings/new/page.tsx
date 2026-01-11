@@ -32,7 +32,8 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
     redirect(`/${vertical}/vendor-signup`)
   }
 
-  const isPendingVendor = vendorProfile.status === 'submitted' || vendorProfile.status === 'pending'
+  // Note: vendor_status enum is 'submitted' for pending approval (not 'pending')
+  const isPendingVendor = vendorProfile.status === 'submitted'
 
   return (
     <div style={{
