@@ -31,8 +31,53 @@ export default async function AdminDashboardPage() {
     .order('created_at', { ascending: false })
     .limit(5)
 
+  // Get count of stale pending vendors (2+ days old)
+  const twoDaysAgo = new Date()
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+
+  const { count: stalePendingCount } = await supabase
+    .from('vendor_profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'submitted')
+    .lt('created_at', twoDaysAgo.toISOString())
+
   return (
     <div>
+      {/* Stale Pending Vendors Warning */}
+      {stalePendingCount && stalePendingCount > 0 && (
+        <div style={{
+          backgroundColor: '#fef3c7',
+          border: '1px solid #f59e0b',
+          borderLeft: '4px solid #f59e0b',
+          borderRadius: 6,
+          padding: 15,
+          marginBottom: 25,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <span style={{ color: '#92400e', fontWeight: 600 }}>
+              {stalePendingCount} vendor{stalePendingCount > 1 ? 's' : ''} pending approval for 2+ days
+            </span>
+          </div>
+          <Link
+            href="/admin/vendors/pending"
+            style={{
+              color: '#92400e',
+              textDecoration: 'none',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5
+            }}
+          >
+            Review now →
+          </Link>
+        </div>
+      )}
+
       <h1 style={{ marginBottom: 30, color: '#333' }}>Admin Dashboard</h1>
 
       {/* Stats Grid */}
