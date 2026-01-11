@@ -89,7 +89,7 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
               fontWeight: 600
             }}
           >
-            Back to Dashboard
+            Vendor Dashboard
           </Link>
         </div>
       </div>

@@ -20,10 +20,10 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  // Get vendor profile
+  // Get vendor profile with status
   const { data: vendorProfile } = await supabase
     .from('vendor_profiles')
-    .select('id')
+    .select('id, status')
     .eq('user_id', user.id)
     .eq('vertical_id', vertical)
     .single()
@@ -69,6 +69,7 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
       <ListingForm
         vertical={vertical}
         vendorProfileId={vendorProfile.id}
+        vendorStatus={vendorProfile.status}
         branding={branding}
         mode="edit"
         listing={listing}

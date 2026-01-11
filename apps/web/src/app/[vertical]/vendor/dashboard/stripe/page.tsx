@@ -95,7 +95,7 @@ export default function VendorStripePage() {
           href={`/${vertical}/vendor/dashboard`}
           style={{ color: '#666', textDecoration: 'none', fontSize: 14 }}
         >
-          ← Back to Dashboard
+          ← Vendor Dashboard
         </Link>
 
         <h1 style={{ marginTop: 20, marginBottom: 10 }}>Payment Settings</h1>

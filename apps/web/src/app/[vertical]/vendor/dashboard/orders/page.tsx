@@ -143,7 +143,7 @@ export default function VendorOrdersPage() {
             href={`/${vertical}/vendor/dashboard`}
             style={{ color: '#666', textDecoration: 'none', fontSize: 14 }}
           >
-            ← Back to Dashboard
+            ← Vendor Dashboard
           </Link>
           <h1 style={{ marginTop: 10, marginBottom: 5 }}>Orders</h1>
           <p style={{ color: '#666', margin: 0 }}>

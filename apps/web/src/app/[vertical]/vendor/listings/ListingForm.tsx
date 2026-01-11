@@ -9,6 +9,7 @@ import Link from 'next/link'
 interface ListingFormProps {
   vertical: string
   vendorProfileId: string
+  vendorStatus?: string
   branding: VerticalBranding
   mode: 'create' | 'edit'
   listing?: Record<string, unknown>
@@ -17,6 +18,7 @@ interface ListingFormProps {
 export default function ListingForm({
   vertical,
   vendorProfileId,
+  vendorStatus,
   branding,
   mode,
   listing
@@ -24,13 +26,17 @@ export default function ListingForm({
   const router = useRouter()
   const supabase = createClient()
 
+  // Check if vendor is pending approval
+  const isPendingVendor = vendorStatus === 'submitted' || vendorStatus === 'pending'
+
   const [formData, setFormData] = useState({
     title: (listing?.title as string) || '',
     description: (listing?.description as string) || '',
     price: listing?.price_cents ? ((listing.price_cents as number) / 100).toFixed(2) : '',
     quantity: listing?.quantity?.toString() || '',
     category: (listing?.category as string) || '',
-    status: (listing?.status as string) || 'draft'
+    // Force draft for pending vendors
+    status: isPendingVendor ? 'draft' : ((listing?.status as string) || 'draft')
   })
 
   const [loading, setLoading] = useState(false)
@@ -62,7 +68,7 @@ export default function ListingForm({
       ? Math.round(parseFloat(formData.price) * 100)
       : 0
 
-    // Prepare data
+    // Prepare data - force draft status for pending vendors
     const listingData = {
       vendor_profile_id: vendorProfileId,
       vertical_id: vertical,
@@ -71,7 +77,7 @@ export default function ListingForm({
       price_cents: priceCents,
       quantity: formData.quantity ? parseInt(formData.quantity) : null,
       category: formData.category.trim() || null,
-      status: formData.status,
+      status: isPendingVendor ? 'draft' : formData.status,
       updated_at: new Date().toISOString()
     }
 
@@ -128,6 +134,20 @@ export default function ListingForm({
       border: `1px solid ${branding.colors.secondary}`,
       borderRadius: 8
     }}>
+      {/* Pending vendor notice */}
+      {isPendingVendor && (
+        <div style={{
+          padding: 15,
+          marginBottom: 20,
+          backgroundColor: '#fefce8',
+          border: '1px solid #fde047',
+          borderRadius: 6,
+          color: '#854d0e'
+        }}>
+          <strong>Note:</strong> Your vendor account is pending approval. Listings will be saved as drafts and can be published once your account is approved.
+        </div>
+      )}
+
       {error && (
         <div style={{
           padding: 10,
@@ -272,35 +292,56 @@ export default function ListingForm({
           </select>
         </div>
 
-        {/* Status */}
-        <div style={{ marginBottom: 30 }}>
-          <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
-            Status
-          </label>
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            disabled={loading}
-            style={{
-              width: '100%',
+        {/* Status - only show full options for approved vendors */}
+        {!isPendingVendor ? (
+          <div style={{ marginBottom: 30 }}>
+            <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+              Status
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: 10,
+                fontSize: 16,
+                border: `1px solid ${branding.colors.primary}`,
+                borderRadius: 4,
+                backgroundColor: 'white',
+                boxSizing: 'border-box'
+              }}
+            >
+              <option value="draft">Draft (not visible to buyers)</option>
+              <option value="published">Published (visible to buyers)</option>
+              <option value="paused">Paused (temporarily hidden)</option>
+              <option value="archived">Archived</option>
+            </select>
+            <p style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
+              Draft listings are only visible to you. Set to Published when ready to sell.
+            </p>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 30 }}>
+            <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+              Status
+            </label>
+            <div style={{
               padding: 10,
               fontSize: 16,
-              border: `1px solid ${branding.colors.primary}`,
+              border: '1px solid #e5e7eb',
               borderRadius: 4,
-              backgroundColor: 'white',
-              boxSizing: 'border-box'
-            }}
-          >
-            <option value="draft">Draft (not visible to buyers)</option>
-            <option value="published">Published (visible to buyers)</option>
-            <option value="paused">Paused (temporarily hidden)</option>
-            <option value="archived">Archived</option>
-          </select>
-          <p style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
-            Draft listings are only visible to you. Set to Published when ready to sell.
-          </p>
-        </div>
+              backgroundColor: '#f9fafb',
+              color: '#6b7280'
+            }}>
+              Draft (pending vendor approval)
+            </div>
+            <p style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
+              You can publish listings after your vendor account is approved.
+            </p>
+          </div>
+        )}
 
         {/* Buttons */}
         <div style={{ display: 'flex', gap: 10 }}>
