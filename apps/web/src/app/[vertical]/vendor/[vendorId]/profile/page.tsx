@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
+import { formatDisplayPrice } from '@/lib/constants'
 
 interface VendorProfilePageProps {
   params: Promise<{ vertical: string; vendorId: string }>
@@ -40,79 +41,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  // Check auth for header
-  const { data: { user } } = await supabase.auth.getUser()
-
   return (
     <div style={{
-      minHeight: '100vh',
       backgroundColor: branding.colors.background,
       color: branding.colors.text
     }}>
-      {/* Navigation */}
-      <nav style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '15px 40px',
-        borderBottom: `1px solid ${branding.colors.secondary}`,
-        backgroundColor: branding.colors.background
-      }}>
-        <Link
-          href={`/${vertical}`}
-          style={{
-            fontSize: 24,
-            fontWeight: 'bold',
-            color: branding.colors.primary,
-            textDecoration: 'none'
-          }}
-        >
-          {branding.brand_name}
-        </Link>
-
-        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-          <Link
-            href={`/${vertical}/browse`}
-            style={{
-              color: branding.colors.text,
-              textDecoration: 'none',
-              fontWeight: 600
-            }}
-          >
-            Browse
-          </Link>
-          {user ? (
-            <Link
-              href={`/${vertical}/dashboard`}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600
-              }}
-            >
-              Dashboard
-            </Link>
-          ) : (
-            <Link
-              href={`/${vertical}/signup`}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600
-              }}
-            >
-              Sign Up
-            </Link>
-          )}
-        </div>
-      </nav>
-
       {/* Breadcrumb */}
       <div style={{ padding: '20px 40px', borderBottom: '1px solid #eee' }}>
         <Link
@@ -222,7 +155,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const listingId = listing.id as string
                 const listingTitle = listing.title as string
                 const listingCategory = listing.category as string | null
-                const listingPrice = ((listing.price_cents as number) || 0) / 100
+                const listingPriceCents = (listing.price_cents as number) || 0
 
                 return (
                   <Link
@@ -277,13 +210,13 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       {listingTitle}
                     </h3>
 
-                    {/* Price */}
+                    {/* Price (includes platform fee) */}
                     <div style={{
                       fontSize: 22,
                       fontWeight: 'bold',
                       color: branding.colors.primary
                     }}>
-                      ${listingPrice.toFixed(2)}
+                      {formatDisplayPrice(listingPriceCents)}
                     </div>
                   </Link>
                 )
