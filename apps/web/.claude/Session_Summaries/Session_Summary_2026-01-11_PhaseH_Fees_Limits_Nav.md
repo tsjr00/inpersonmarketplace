@@ -161,6 +161,9 @@ CREATE INDEX IF NOT EXISTS idx_vendor_profiles_tier ON public.vendor_profiles(ti
 | `src/app/[vertical]/vendor/listings/page.tsx` | Modified - listing count, base price |
 | `src/app/[vertical]/vendor/listings/new/page.tsx` | Modified - limit enforcement |
 | `src/app/[vertical]/vendor-signup/page.tsx` | Modified - market limit enforcement |
+| `src/app/[vertical]/page.tsx` | Modified - removed inline nav |
+| `src/app/[vertical]/dashboard/page.tsx` | Modified - removed LogoutButton |
+| `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` | Modified - display prices, removed inline nav |
 
 ---
 
@@ -252,6 +255,21 @@ Integrate Header into vertical layout, remove duplicate navigation
 - Removed inline navigation from browse page
 - Removed inline navigation from listing detail page
 - Header now appears on all vertical pages via layout
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+### Commit 3: `bc6651c`
+```
+Fix Phase H testing issues: pricing and duplicate navigation
+
+1. Vendor profile page now uses formatDisplayPrice() for buyer-facing prices
+2. Removed duplicate inline navigation from:
+   - Home page (src/app/[vertical]/page.tsx)
+   - Dashboard page (removed LogoutButton)
+   - Vendor profile page
+
+Header component now handles all navigation consistently.
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 ```
