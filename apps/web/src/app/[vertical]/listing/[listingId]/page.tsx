@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import { AddToCartButton } from '@/components/cart/AddToCartButton'
-import { CartButton } from '@/components/cart/CartButton'
 import { formatDisplayPrice } from '@/lib/constants'
 
 interface ListingDetailPageProps {
@@ -54,80 +53,11 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     .neq('id', listingId)
     .limit(4)
 
-  // Check auth for header
-  const { data: { user } } = await supabase.auth.getUser()
-
   return (
     <div style={{
-      minHeight: '100vh',
       backgroundColor: branding.colors.background,
       color: branding.colors.text
     }}>
-      {/* Navigation */}
-      <nav style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '15px 40px',
-        borderBottom: `1px solid ${branding.colors.secondary}`,
-        backgroundColor: branding.colors.background
-      }}>
-        <Link
-          href={`/${vertical}`}
-          style={{
-            fontSize: 24,
-            fontWeight: 'bold',
-            color: branding.colors.primary,
-            textDecoration: 'none'
-          }}
-        >
-          {branding.brand_name}
-        </Link>
-
-        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-          <Link
-            href={`/${vertical}/browse`}
-            style={{
-              color: branding.colors.text,
-              textDecoration: 'none',
-              fontWeight: 600
-            }}
-          >
-            Browse
-          </Link>
-          <CartButton primaryColor={branding.colors.primary} />
-          {user ? (
-            <Link
-              href={`/${vertical}/dashboard`}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600
-              }}
-            >
-              Dashboard
-            </Link>
-          ) : (
-            <Link
-              href={`/${vertical}/signup`}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600
-              }}
-            >
-              Sign Up
-            </Link>
-          )}
-        </div>
-      </nav>
-
       {/* Breadcrumb */}
       <div style={{ padding: '20px 40px', borderBottom: '1px solid #eee' }}>
         <Link
