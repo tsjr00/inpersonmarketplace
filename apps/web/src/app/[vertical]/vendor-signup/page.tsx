@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { defaultBranding, VerticalBranding } from "@/lib/branding";
+import { getMarketLimit } from "@/lib/constants";
 
 type Field = {
   key: string;
@@ -29,16 +30,53 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks);
+  const [marketLimitInfo, setMarketLimitInfo] = useState<{
+    atLimit: boolean;
+    alreadyInMarket: boolean;
+    tier: string;
+    marketCount: number;
+    limit: number;
+  } | null>(null);
 
-  // Check authentication
+  // Check authentication and market limits
   useEffect(() => {
-    async function checkAuth() {
+    async function checkAuthAndLimits() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+
+      if (user) {
+        // Check vendor profiles for this user
+        const { data: profiles } = await supabase
+          .from('vendor_profiles')
+          .select('id, vertical_id, tier, status')
+          .eq('user_id', user.id)
+          .neq('status', 'rejected');
+
+        const existingProfiles = profiles || [];
+        const tier = (existingProfiles[0]?.tier as string) || 'standard';
+        const limit = getMarketLimit(tier);
+        const alreadyInMarket = existingProfiles.some(p => p.vertical_id === vertical);
+        const atLimit = existingProfiles.length >= limit && !alreadyInMarket;
+
+        setMarketLimitInfo({
+          atLimit,
+          alreadyInMarket,
+          tier,
+          marketCount: existingProfiles.length,
+          limit
+        });
+
+        // If already in this market, redirect to vendor dashboard
+        if (alreadyInMarket) {
+          router.push(`/${vertical}/vendor/dashboard`);
+          return;
+        }
+      }
+
       setAuthLoading(false);
     }
-    checkAuth();
-  }, [supabase.auth]);
+    checkAuthAndLimits();
+  }, [supabase, vertical, router]);
 
   useEffect(() => {
     async function load() {
@@ -184,6 +222,67 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Loading...</h1>
           <p style={{ marginTop: 10, opacity: 0.8 }}>Checking authentication...</p>
+        </main>
+      </div>
+    );
+  }
+
+  // Market limit reached state
+  if (user && marketLimitInfo?.atLimit) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
+        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+            {branding.brand_name}
+          </Link>
+          <Link href={`/${vertical}/dashboard`} style={{ color: branding.colors.primary, textDecoration: 'none', fontWeight: 600 }}>Dashboard</Link>
+        </nav>
+        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Market Limit Reached</h1>
+          <div style={{
+            marginTop: 20,
+            padding: 20,
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: 8,
+            color: '#856404'
+          }}>
+            <p style={{ marginTop: 0, fontWeight: 600, fontSize: 16 }}>
+              You&apos;re already registered at {marketLimitInfo.marketCount} market{marketLimitInfo.marketCount > 1 ? 's' : ''}.
+            </p>
+            <p style={{ marginBottom: 0 }}>
+              {marketLimitInfo.tier === 'standard' ? (
+                <>
+                  Standard vendors can participate in 1 traditional market.
+                  <br /><br />
+                  <strong>Upgrade to Premium</strong> to join up to 3 markets.
+                </>
+              ) : (
+                <>
+                  Premium vendors can participate in up to 3 markets.
+                  <br /><br />
+                  Leave an existing market to join this one.
+                </>
+              )}
+            </p>
+          </div>
+          <Link
+            href={`/${vertical}/dashboard`}
+            style={{
+              display: "inline-block",
+              marginTop: 20,
+              padding: "12px 20px",
+              fontWeight: 800,
+              cursor: "pointer",
+              border: "none",
+              borderRadius: 8,
+              textDecoration: "none",
+              color: "white",
+              backgroundColor: branding.colors.primary
+            }}
+          >
+            ← Back to Dashboard
+          </Link>
         </main>
       </div>
     );

@@ -2,6 +2,7 @@
 
 import { useRouter, useParams } from 'next/navigation'
 import { useCart } from '@/lib/hooks/useCart'
+import { calculateDisplayPrice, formatPrice, PLATFORM_FEE_RATE } from '@/lib/constants'
 
 export function CartDrawer() {
   const router = useRouter()
@@ -9,12 +10,10 @@ export function CartDrawer() {
   const vertical = params?.vertical as string
   const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen } = useCart()
 
-  const subtotal = items.reduce((sum, item) => {
-    return sum + ((item.price_cents || 0) * item.quantity)
+  // Calculate display total with platform fee
+  const displayTotal = items.reduce((sum, item) => {
+    return sum + calculateDisplayPrice(item.price_cents || 0) * item.quantity
   }, 0)
-
-  const buyerFee = Math.round(subtotal * 0.065) // 6.5% buyer fee
-  const displayTotal = subtotal + buyerFee
 
   function handleCheckout() {
     setIsOpen(false)
@@ -123,7 +122,7 @@ export function CartDrawer() {
                 fontWeight: 'bold',
               }}>
                 <span>Total</span>
-                <span>${(displayTotal / 100).toFixed(2)}</span>
+                <span>{formatPrice(displayTotal)}</span>
               </div>
             </div>
 
@@ -165,8 +164,8 @@ function CartItem({
   onRemove: (listingId: string) => void
   onUpdateQuantity: (listingId: string, quantity: number) => void
 }) {
-  const displayPrice = ((item.price_cents || 0) * 1.065) / 100
-  const itemTotal = displayPrice * item.quantity
+  const displayPriceCents = calculateDisplayPrice(item.price_cents || 0)
+  const itemTotalCents = displayPriceCents * item.quantity
 
   return (
     <div style={{
@@ -203,7 +202,7 @@ function CartItem({
             {item.vendor_name || 'Unknown Vendor'}
           </p>
           <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 500 }}>
-            ${displayPrice.toFixed(2)} each
+            {formatPrice(displayPriceCents)} each
           </p>
         </div>
         <button
@@ -266,7 +265,7 @@ function CartItem({
           </button>
         </div>
         <span style={{ fontSize: 16, fontWeight: 'bold' }}>
-          ${itemTotal.toFixed(2)}
+          {formatPrice(itemTotalCents)}
         </span>
       </div>
     </div>

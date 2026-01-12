@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
+import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
 
 interface CheckoutItem {
   listingId: string
@@ -134,12 +135,10 @@ export default function CheckoutPage() {
     }
   }
 
-  // Calculate totals
-  const subtotal = checkoutItems.reduce((sum, item) => {
-    return sum + (item.price_cents * item.quantity)
+  // Calculate totals with platform fee
+  const total = checkoutItems.reduce((sum, item) => {
+    return sum + calculateDisplayPrice(item.price_cents) * item.quantity
   }, 0)
-  const buyerFee = Math.round(subtotal * 0.065)
-  const total = subtotal + buyerFee
 
   // Check if all items are available
   const hasUnavailableItems = checkoutItems.some(item => !item.available)
@@ -348,10 +347,10 @@ export default function CheckoutPage() {
 
                   <div style={{ textAlign: 'right' }}>
                     <p style={{ fontSize: 18, fontWeight: 'bold', margin: '0 0 5px 0' }}>
-                      ${((item.price_cents * item.quantity * 1.065) / 100).toFixed(2)}
+                      {formatPrice(calculateDisplayPrice(item.price_cents) * item.quantity)}
                     </p>
                     <p style={{ fontSize: 13, color: '#666', margin: '0 0 10px 0' }}>
-                      ${((item.price_cents * 1.065) / 100).toFixed(2)} each
+                      {formatPrice(calculateDisplayPrice(item.price_cents))} each
                     </p>
                     <button
                       onClick={() => removeFromCart(item.listingId)}
@@ -395,7 +394,7 @@ export default function CheckoutPage() {
                 color: '#666',
               }}>
                 <span>Items ({checkoutItems.reduce((s, i) => s + i.quantity, 0)})</span>
-                <span>${(total / 100).toFixed(2)}</span>
+                <span>{formatPrice(total)}</span>
               </div>
               <div style={{
                 display: 'flex',
@@ -406,7 +405,7 @@ export default function CheckoutPage() {
                 fontWeight: 'bold',
               }}>
                 <span>Total</span>
-                <span>${(total / 100).toFixed(2)}</span>
+                <span>{formatPrice(total)}</span>
               </div>
             </div>
 

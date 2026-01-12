@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import { AddToCartButton } from '@/components/cart/AddToCartButton'
 import { CartButton } from '@/components/cart/CartButton'
+import { formatDisplayPrice } from '@/lib/constants'
 
 interface ListingDetailPageProps {
   params: Promise<{ vertical: string; listingId: string }>
@@ -218,14 +219,14 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 {listing.title}
               </h1>
 
-              {/* Price */}
+              {/* Price (includes platform fee) */}
               <div style={{
                 fontSize: 36,
                 fontWeight: 'bold',
                 color: branding.colors.primary,
                 marginBottom: 20
               }}>
-                ${((listing.price_cents || 0) / 100).toFixed(2)}
+                {formatDisplayPrice(listing.price_cents || 0)}
               </div>
 
               {/* Availability */}
@@ -358,7 +359,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                         fontWeight: 600,
                         color: branding.colors.primary
                       }}>
-                        ${(((item.price_cents as number) || 0) / 100).toFixed(2)}
+                        {formatDisplayPrice((item.price_cents as number) || 0)}
                       </span>
                     </Link>
                   ))}

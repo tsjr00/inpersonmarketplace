@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import PublishButton from './PublishButton'
+import { formatPrice, getListingLimit } from '@/lib/constants'
 
 interface ListingsPageProps {
   params: Promise<{ vertical: string }>
@@ -24,7 +25,7 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
   // Get vendor profile for this vertical
   const { data: vendorProfile } = await supabase
     .from('vendor_profiles')
-    .select('id, status')
+    .select('id, status, tier')
     .eq('user_id', user.id)
     .eq('vertical_id', vertical)
     .single()
@@ -40,6 +41,12 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
     .eq('vendor_profile_id', vendorProfile.id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+
+  // Calculate listing count and limit
+  const tier = (vendorProfile as Record<string, unknown>).tier as string || 'standard'
+  const limit = getListingLimit(tier)
+  const listingCount = listings?.length || 0
+  const canCreateMore = listingCount < limit
 
   return (
     <div style={{
@@ -62,23 +69,45 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
             My Listings
           </h1>
           <p style={{ fontSize: 14, color: branding.colors.secondary, margin: 0 }}>
-            {branding.brand_name}
+            {branding.brand_name} &bull; {listingCount} / {limit} listings
+            {listingCount >= limit && (
+              <span style={{ color: '#dc3545', fontWeight: 600 }}> (limit reached)</span>
+            )}
+            {listingCount === limit - 1 && (
+              <span style={{ color: '#ffc107', fontWeight: 600 }}> (1 remaining)</span>
+            )}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <Link
-            href={`/${vertical}/vendor/listings/new`}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: branding.colors.primary,
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: 6,
-              fontWeight: 600
-            }}
-          >
-            + New Listing
-          </Link>
+          {canCreateMore ? (
+            <Link
+              href={`/${vertical}/vendor/listings/new`}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontWeight: 600
+              }}
+            >
+              + New Listing
+            </Link>
+          ) : (
+            <span
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#ccc',
+                color: '#666',
+                borderRadius: 6,
+                fontWeight: 600,
+                cursor: 'not-allowed'
+              }}
+              title={`Limit of ${limit} listings reached`}
+            >
+              + New Listing
+            </span>
+          )}
           <Link
             href={`/${vertical}/vendor/dashboard`}
             style={{
@@ -173,7 +202,7 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                 {(listing.description as string) || 'No description'}
               </p>
 
-              {/* Price & Quantity */}
+              {/* Price & Quantity (shows base price for vendors) */}
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -181,7 +210,7 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                 fontSize: 14
               }}>
                 <span>
-                  <strong>Price:</strong> ${(((listing.price_cents as number) || 0) / 100).toFixed(2)}
+                  <strong>Price:</strong> {formatPrice((listing.price_cents as number) || 0)}
                 </span>
                 <span>
                   <strong>Qty:</strong> {(listing.quantity as number) ?? 'Unlimited'}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { formatPrice } from '@/lib/constants'
 
 interface Order {
   id: string
@@ -208,7 +209,7 @@ export default function BuyerOrdersPage() {
                         {config.label}
                       </span>
                       <span style={{ fontSize: 18, fontWeight: 'bold' }}>
-                        ${(order.total_amount_cents / 100).toFixed(2)}
+                        {formatPrice(order.total_amount_cents)}
                       </span>
                     </div>
                   </div>
@@ -242,7 +243,7 @@ export default function BuyerOrdersPage() {
                               </div>
                               <div style={{ textAlign: 'right' }}>
                                 <p style={{ margin: '0 0 3px 0', fontWeight: 600 }}>
-                                  ${(item.subtotal_cents / 100).toFixed(2)}
+                                  {formatPrice(item.subtotal_cents)}
                                 </p>
                                 <span style={{
                                   padding: '2px 8px',

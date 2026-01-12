@@ -3,6 +3,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import SearchFilter from './SearchFilter'
 import { CartButton } from '@/components/cart/CartButton'
+import { formatDisplayPrice } from '@/lib/constants'
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
@@ -207,7 +208,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               const listingTitle = listing.title as string
               const listingDesc = (listing.description as string) || 'No description'
               const listingCategory = listing.category as string | null
-              const listingPrice = ((listing.price_cents as number) || 0) / 100
+              const listingPriceCents = (listing.price_cents as number) || 0
 
               return (
                 <Link
@@ -277,14 +278,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                     {listingDesc}
                   </p>
 
-                  {/* Price */}
+                  {/* Price (includes platform fee) */}
                   <div style={{
                     fontSize: 22,
                     fontWeight: 'bold',
                     color: branding.colors.primary,
                     marginBottom: 10
                   }}>
-                    ${listingPrice.toFixed(2)}
+                    {formatDisplayPrice(listingPriceCents)}
                   </div>
 
                   {/* Vendor Name */}
