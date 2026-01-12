@@ -110,6 +110,14 @@ export function getMarketLimit(tier: string): number
 - Fetches user, profile, and vendor data
 - Passes to Header client component
 
+**`src/app/[vertical]/layout.tsx`** (layout integration)
+- Wraps all vertical pages with HeaderWrapper
+- Header now appears on all vertical routes automatically
+
+### Pages Updated (removed duplicate navigation)
+- `src/app/[vertical]/browse/page.tsx` - removed inline nav
+- `src/app/[vertical]/listing/[listingId]/page.tsx` - removed inline nav
+
 ---
 
 ## Database Migration
@@ -144,8 +152,9 @@ CREATE INDEX IF NOT EXISTS idx_vendor_profiles_tier ON public.vendor_profiles(ti
 | `src/lib/constants.ts` | **Created** |
 | `src/components/layout/Header.tsx` | **Created** |
 | `src/components/layout/HeaderWrapper.tsx` | **Created** |
-| `src/app/[vertical]/browse/page.tsx` | Modified - display prices |
-| `src/app/[vertical]/listing/[listingId]/page.tsx` | Modified - display prices |
+| `src/app/[vertical]/layout.tsx` | **Created** - integrates Header |
+| `src/app/[vertical]/browse/page.tsx` | Modified - display prices, removed inline nav |
+| `src/app/[vertical]/listing/[listingId]/page.tsx` | Modified - display prices, removed inline nav |
 | `src/components/cart/CartDrawer.tsx` | Modified - use constants |
 | `src/app/[vertical]/checkout/page.tsx` | Modified - use constants |
 | `src/app/[vertical]/buyer/orders/page.tsx` | Modified - use formatPrice |
@@ -184,21 +193,30 @@ Build completed successfully with all routes compiled.
 - [ ] Redirects if already in this market
 
 ### Part 4: Header Component
-- [ ] Header components created and build passes
-- [ ] Can be integrated into pages as needed
+- [ ] Header appears on all vertical pages
+- [ ] Logo links to vertical home
+- [ ] Browse link works
+- [ ] Dashboard link works (logged in only)
+- [ ] Cart button shows and works
+- [ ] User dropdown opens/closes
+- [ ] My Orders link works
+- [ ] Vendor Dashboard link shows for vendors
+- [ ] Admin Dashboard link shows for admins
+- [ ] Logout works
 
 ---
 
 ## Notes
 
-- Header component is created but not yet integrated into the layout
-- To integrate, import `HeaderWrapper` in the layout and pass the vertical
+- Header is integrated via `src/app/[vertical]/layout.tsx`
+- Duplicate inline navigation removed from browse and listing pages
 - The vendor tier column needs to be added via migration in Dev/Staging
 
 ---
 
-## Commit Message
+## Commits
 
+### Commit 1: `057489b`
 ```
 Phase H: Platform fee, listing/market limits, and Header component
 
@@ -222,6 +240,18 @@ Part 4: Header component
 - Created HeaderWrapper server component
 
 Database: Added tier column migration
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+### Commit 2: `5edee64`
+```
+Integrate Header into vertical layout, remove duplicate navigation
+
+- Created src/app/[vertical]/layout.tsx with HeaderWrapper
+- Removed inline navigation from browse page
+- Removed inline navigation from listing detail page
+- Header now appears on all vertical pages via layout
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 ```
