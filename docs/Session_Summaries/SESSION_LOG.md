@@ -30,6 +30,27 @@
 - **Next Session:** Ready for Tracy to test and merge
 - **Detail:** Phase-L-1-Component-Library-2026-01-13.md
 
+### Phase-M-1-Seed-Data-Script
+**Branch:** feature/seed-data-script | **Status:** Complete | **Started:** 2026-01-13
+
+#### 2026-01-13 Session (~30 minutes)
+- **Completed:**
+  - ✓ seed-data.ts script (users, vendors, listings, orders)
+  - ✓ Configurable via environment variables
+  - ✓ Safe test data cleanup before seeding
+  - ✓ npm run seed command
+  - ✓ README with usage instructions
+- **NOT Completed:**
+  - ⏸ Markets seeding (tables not yet created)
+  - ⏸ Live testing (requires Tracy's service role key)
+- **Issues & Resolutions:**
+  - None
+- **Migrations Created:** 0 - no database changes
+- **Testing:** Requires Tracy to test with .env.local configured
+- **Commits:** 2 commits to feature/seed-data-script
+- **Next Session:** Ready for Tracy to test and merge
+- **Detail:** Phase-M-1-Seed-Data-Script-2026-01-13.md
+
 ### Phase-K-1-Markets-Foundation
 **Branch:** feature/markets-foundation | **Status:** Not Started | **Started:** [date when first session begins]
 
