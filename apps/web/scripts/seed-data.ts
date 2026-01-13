@@ -200,22 +200,40 @@ async function createTestUsers(): Promise<CreatedUser[]> {
     }
 
     // Wait a moment for the trigger to create user_profile
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 200));
 
-    // Update the auto-created user profile (trigger creates it automatically)
-    const { data: profileData, error: profileError } = await supabase
-      .from('user_profiles')
-      .update({
-        email,
-        display_name: `${firstName} ${lastName}`,
-        roles: isVendor ? ['vendor', 'buyer'] : ['buyer'],
-      })
-      .eq('user_id', authData.user.id)
-      .select('id')
-      .single();
+    // Query for the auto-created user profile (trigger creates it automatically)
+    let profileData: { id: string } | null = null;
+    let retries = 3;
 
-    if (profileError) {
-      console.error(`❌ Error updating user profile ${email}:`, profileError.message);
+    while (retries > 0 && !profileData) {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('user_id', authData.user.id)
+        .single();
+
+      if (data) {
+        profileData = data;
+        // Update the profile with additional fields
+        await supabase
+          .from('user_profiles')
+          .update({
+            email,
+            display_name: `${firstName} ${lastName}`,
+            roles: isVendor ? ['vendor', 'buyer'] : ['buyer'],
+          })
+          .eq('id', data.id);
+      } else {
+        retries--;
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+    }
+
+    if (!profileData) {
+      console.error(`❌ Error finding user profile ${email}: profile not created by trigger`);
       continue;
     }
 
@@ -255,7 +273,7 @@ async function createVendorProfiles(users: CreatedUser[]): Promise<CreatedVendor
     const { data, error } = await supabase
       .from('vendor_profiles')
       .insert({
-        user_id: user.profileId,
+        user_id: user.authId,  // FK references user_profiles.user_id (auth.users.id)
         vertical_id: vertical,
         status: randomItem(statuses),
         profile_data: {
