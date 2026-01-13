@@ -199,20 +199,23 @@ async function createTestUsers(): Promise<CreatedUser[]> {
       continue;
     }
 
-    // Create user profile
+    // Wait a moment for the trigger to create user_profile
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Update the auto-created user profile (trigger creates it automatically)
     const { data: profileData, error: profileError } = await supabase
       .from('user_profiles')
-      .insert({
-        user_id: authData.user.id,
+      .update({
         email,
         display_name: `${firstName} ${lastName}`,
         roles: isVendor ? ['vendor', 'buyer'] : ['buyer'],
       })
+      .eq('user_id', authData.user.id)
       .select('id')
       .single();
 
     if (profileError) {
-      console.error(`❌ Error creating user profile ${email}:`, profileError.message);
+      console.error(`❌ Error updating user profile ${email}:`, profileError.message);
       continue;
     }
 
