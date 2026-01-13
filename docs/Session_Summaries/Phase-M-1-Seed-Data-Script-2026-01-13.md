@@ -1,7 +1,7 @@
 # Session Summary: Phase-M-1-Seed-Data-Script
 
 **Date:** 2026-01-13
-**Duration:** ~30 minutes
+**Duration:** ~1 hour
 **Branch:** feature/seed-data-script
 **Status:** Complete
 
@@ -13,22 +13,32 @@
 - ✓ Script creates test users (auth + profiles), vendors, listings, orders
 - ✓ Configurable via environment variables (NUM_VENDORS, NUM_LISTINGS, etc.)
 - ✓ Clears existing test data before seeding (safe cleanup)
-- ✓ Installed tsx dependency for running TypeScript scripts
+- ✓ Installed tsx and dotenv dependencies
 - ✓ Added `npm run seed` command to package.json
 - ✓ Created comprehensive README with usage instructions
+- ✓ Successfully tested - created 33 users, 10 vendors, 18 listings, 15 orders
 
 ---
 
 ## NOT Completed (if applicable)
 
 - ⏸ Markets seeding (markets tables not yet created - waiting for Phase-K-1)
-- ⏸ Live testing (requires Tracy's .env.local with SUPABASE_SERVICE_ROLE_KEY)
 
 ---
 
 ## Issues Encountered & Resolutions
 
-None - implementation went smoothly.
+**Issue 1:** Script couldn't find environment variables
+**Solution:** Added dotenv dependency and `import { config as loadEnv } from 'dotenv'; loadEnv({ path: '.env.local' });` at top of script
+
+**Issue 2:** "Invalid API key" errors
+**Solution:** Tracy configured correct SUPABASE_SERVICE_ROLE_KEY in .env.local
+
+**Issue 3:** "duplicate key value violates unique constraint user_profiles_user_id_key"
+**Solution:** Database trigger auto-creates user_profiles on auth user creation. Changed script to query for existing profile instead of inserting, then update with additional fields. Added retry logic to handle timing.
+
+**Issue 4:** "vendor_profiles_user_id_fkey" foreign key constraint violation
+**Solution:** FK was changed in migration 20260106_155657 to reference `user_profiles(user_id)` instead of `user_profiles(id)`. Changed script to use `authId` (auth.users.id) instead of `profileId` for vendor_profiles.user_id.
 
 ---
 
@@ -40,55 +50,73 @@ None - no database changes in this phase.
 
 ## Testing Performed
 
-**Manual testing:**
-- Script cannot be tested without service role key in .env.local
-- Tracy should test by running `npm run seed` in apps/web directory
+**Script execution:**
+```
+npm run seed
+```
 
-**Code review:**
-- Verified script handles all foreign key relationships correctly
-- Verified cascade deletion order (clears child tables first)
-- Verified error handling and console output
+**Results:**
+- ✅ 33 users created (10 vendors, 23 buyers)
+- ✅ 10 vendor profiles (5 fireworks, 5 farmers_market verticals)
+- ✅ 18 listings with various statuses
+- ✅ 15 orders with order items
+
+**Test credentials:**
+- Email: any `@test.com` email (e.g., `lisa.miller0@test.com`)
+- Password: `TestPassword123!`
 
 ---
 
 ## Commits
 
-**Total commits:** 2
+**Total commits:** 6
 **Branch:** feature/seed-data-script
 **Pushed to GitHub:** Yes
 
-1. feat(scripts): Add seed data script
-2. docs(scripts): Add seed data README
+1. `feat(scripts): Add seed data script` - Initial script creation
+2. `docs(scripts): Add seed data README` - Usage documentation
+3. `fix(scripts): Load .env.local in seed script` - Added dotenv
+4. `fix(scripts): Update user profile instead of insert` - Handle trigger
+5. `fix(scripts): Use authId for vendor_profiles FK` - Correct FK reference
+
+---
+
+## Files Created/Modified
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `/apps/web/scripts/seed-data.ts` | Created | Main seed script |
+| `/apps/web/scripts/README.md` | Created | Usage documentation |
+| `/apps/web/package.json` | Modified | Added seed script, dotenv dependency |
 
 ---
 
 ## Next Session Should Start With
 
-Phase complete. Ready for Tracy to:
-1. Configure .env.local with SUPABASE_SERVICE_ROLE_KEY
-2. Run `npm run seed` in apps/web directory
-3. Verify data in Supabase dashboard
-4. Merge to main when satisfied
+Phase complete. Script is working and tested. Ready to merge to main.
 
 ---
 
 ## Notes for Tracy
 
-**To test the seed script:**
-1. Ensure `.env.local` has:
-   - `NEXT_PUBLIC_SUPABASE_URL` (your Dev project URL)
-   - `SUPABASE_SERVICE_ROLE_KEY` (from Supabase dashboard > Settings > API)
-2. Run: `cd apps/web && npm run seed`
-3. Check Supabase dashboard for created data
-4. Log in with any @test.com email and password `TestPassword123!`
+**To run the seed script again:**
+```bash
+cd apps/web
+npm run seed
+```
 
-**Script features:**
-- Creates both fireworks and farmers_market data (50/50 split)
-- Generates realistic business names, product names, prices
-- Creates auth users that can actually log in
-- Cleans up test data before each run (idempotent)
+**Custom amounts:**
+```bash
+NUM_VENDORS=20 NUM_LISTINGS=50 npm run seed
+```
 
-**Safety:**
-- Only affects @test.com emails
-- Does not touch real user data
-- Only use on Dev, never on Staging/Production
+**Key learnings for future scripts:**
+1. Database has trigger that auto-creates user_profiles - don't try to insert manually
+2. vendor_profiles.user_id references user_profiles.user_id (auth user id), not user_profiles.id
+3. Use dotenv to load .env.local for scripts that need environment variables
+
+**Data created:**
+- 50% fireworks vertical, 50% farmers_market vertical
+- Vendors have fake Stripe account IDs for testing
+- Orders have order_items linked to listings and vendors
+- All test data uses @test.com emails for easy identification/cleanup

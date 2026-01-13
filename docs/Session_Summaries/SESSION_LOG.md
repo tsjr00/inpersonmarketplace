@@ -31,24 +31,26 @@
 - **Detail:** Phase-L-1-Component-Library-2026-01-13.md
 
 ### Phase-M-1-Seed-Data-Script
-**Branch:** feature/seed-data-script | **Status:** Complete | **Started:** 2026-01-13
+**Branch:** feature/seed-data-script | **Status:** Complete & Tested | **Started:** 2026-01-13
 
-#### 2026-01-13 Session (~30 minutes)
+#### 2026-01-13 Session (~1 hour)
 - **Completed:**
   - ✓ seed-data.ts script (users, vendors, listings, orders)
   - ✓ Configurable via environment variables
   - ✓ Safe test data cleanup before seeding
-  - ✓ npm run seed command
+  - ✓ npm run seed command + dotenv for .env.local loading
   - ✓ README with usage instructions
+  - ✓ Successfully tested: 33 users, 10 vendors, 18 listings, 15 orders
 - **NOT Completed:**
   - ⏸ Markets seeding (tables not yet created)
-  - ⏸ Live testing (requires Tracy's service role key)
 - **Issues & Resolutions:**
-  - None
+  - dotenv needed → Added dotenv to load .env.local
+  - Trigger creates user_profiles → Changed to query/update instead of insert
+  - FK constraint → vendor_profiles.user_id references user_profiles.user_id (authId)
 - **Migrations Created:** 0 - no database changes
-- **Testing:** Requires Tracy to test with .env.local configured
-- **Commits:** 2 commits to feature/seed-data-script
-- **Next Session:** Ready for Tracy to test and merge
+- **Testing:** Script tested successfully with `npm run seed`
+- **Commits:** 6 commits to feature/seed-data-script
+- **Next Session:** Ready to merge to main
 - **Detail:** Phase-M-1-Seed-Data-Script-2026-01-13.md
 
 ### Phase-K-1-Markets-Foundation
