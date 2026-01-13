@@ -6,6 +6,9 @@
  * Custom: NUM_VENDORS=20 NUM_LISTINGS=50 npm run seed
  */
 
+import { config as loadEnv } from 'dotenv';
+loadEnv({ path: '.env.local' });
+
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration
