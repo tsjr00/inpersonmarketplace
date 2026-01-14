@@ -404,6 +404,35 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
+          {/* Analytics */}
+          <Link
+            href={`/${vertical}/vendor/analytics`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: 16,
+              backgroundColor: 'white',
+              color: '#333',
+              border: '1px solid #e5e7eb',
+              borderRadius: 8,
+              cursor: 'pointer',
+              height: '100%',
+              minHeight: 120
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📊</div>
+              <h3 style={{
+                color: branding.colors.primary,
+                margin: '0 0 8px 0',
+                fontSize: 16,
+                fontWeight: 600
+              }}>
+                Analytics
+              </h3>
+              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+                View sales trends and insights
+              </p>
+            </div>
+          </Link>
         </div>
 
         {/* Coming Soon */}
@@ -423,7 +452,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             Coming Soon
           </h3>
           <ul style={{ margin: 0, paddingLeft: 20, color: '#9ca3af', fontSize: 14 }}>
-            <li>Analytics and insights</li>
             <li>Customer messages</li>
           </ul>
         </div>
@@ -442,7 +470,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             grid-template-columns: repeat(3, 1fr);
           }
           .vendor-dashboard .action-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
           }
         }
       `}</style>
