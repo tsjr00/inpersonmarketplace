@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import { AddToCartButton } from '@/components/cart/AddToCartButton'
+import { CartButton } from '@/components/cart/CartButton'
 import { formatDisplayPrice } from '@/lib/constants'
 
 interface ListingDetailPageProps {
@@ -53,86 +54,156 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     .neq('id', listingId)
     .limit(4)
 
+  // Check auth for header
+  const { data: { user } } = await supabase.auth.getUser()
+
   return (
-    <div
-      style={{
-        backgroundColor: branding.colors.background,
-        color: branding.colors.text,
-        minHeight: '100vh'
-      }}
-      className="listing-detail-page"
-    >
-      {/* Back Link */}
-      <div style={{
-        padding: '16px',
-        borderBottom: '1px solid #eee',
-        backgroundColor: 'white'
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: branding.colors.background,
+      color: branding.colors.text
+    }}>
+      {/* Navigation */}
+      <nav style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '15px 40px',
+        borderBottom: `1px solid ${branding.colors.secondary}`,
+        backgroundColor: branding.colors.background
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <Link
+          href={`/${vertical}`}
+          style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: branding.colors.primary,
+            textDecoration: 'none'
+          }}
+        >
+          {branding.brand_name}
+        </Link>
+
+        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
           <Link
             href={`/${vertical}/browse`}
             style={{
-              color: branding.colors.primary,
+              color: branding.colors.text,
               textDecoration: 'none',
-              fontSize: 14,
-              display: 'inline-flex',
-              alignItems: 'center',
-              minHeight: 44,
-              padding: '8px 0'
+              fontWeight: 600
             }}
           >
-            ← Back to Browse
+            Browse
           </Link>
+          <CartButton primaryColor={branding.colors.primary} />
+          {user ? (
+            <Link
+              href={`/${vertical}/dashboard`}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontWeight: 600
+              }}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              href={`/${vertical}/signup`}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontWeight: 600
+              }}
+            >
+              Sign Up
+            </Link>
+          )}
         </div>
+      </nav>
+
+      {/* Breadcrumb */}
+      <div style={{ padding: '20px 40px', borderBottom: '1px solid #eee' }}>
+        <Link
+          href={`/${vertical}/browse`}
+          style={{ color: branding.colors.primary, textDecoration: 'none' }}
+        >
+          ← Back to Browse
+        </Link>
       </div>
 
       {/* Content */}
-      <div style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '24px 16px'
-      }}>
-        {/* Main Content - single col mobile, two col desktop */}
-        <div className="main-grid" style={{
-          display: 'grid',
-          gap: 24
-        }}>
-          {/* Left: Image */}
+      <div style={{ padding: 40, maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 40 }}>
+          {/* Main Content */}
           <div>
+            {/* Image */}
             <div style={{
-              aspectRatio: '1',
-              backgroundColor: '#f3f4f6',
+              height: 400,
+              backgroundColor: '#f0f0f0',
               borderRadius: 8,
+              marginBottom: 30,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              maxHeight: 500
+              justifyContent: 'center'
             }}>
               <span style={{ fontSize: 80, color: '#ccc' }}>📦</span>
             </div>
+
+            {/* Description */}
+            <div style={{
+              padding: 25,
+              backgroundColor: 'white',
+              borderRadius: 8,
+              border: `1px solid ${branding.colors.secondary}`
+            }}>
+              <h2 style={{
+                color: branding.colors.primary,
+                marginBottom: 15,
+                marginTop: 0,
+                fontSize: 24
+              }}>
+                Description
+              </h2>
+              <p style={{
+                color: '#333',
+                lineHeight: 1.8,
+                fontSize: 16,
+                whiteSpace: 'pre-wrap',
+                margin: 0
+              }}>
+                {listing.description || 'No description provided.'}
+              </p>
+            </div>
           </div>
 
-          {/* Right: Details */}
+          {/* Sidebar */}
           <div>
             {/* Listing Info Card */}
             <div style={{
-              padding: 20,
+              padding: 25,
               backgroundColor: 'white',
               borderRadius: 8,
-              border: '1px solid #e5e7eb',
+              border: `1px solid ${branding.colors.secondary}`,
               marginBottom: 20
             }}>
               {/* Category */}
               {listing.category && (
                 <span style={{
                   display: 'inline-block',
-                  padding: '4px 12px',
-                  backgroundColor: '#d1fae5',
-                  color: '#065f46',
-                  borderRadius: 12,
+                  padding: '4px 10px',
+                  backgroundColor: branding.colors.secondary + '20',
+                  color: branding.colors.secondary,
+                  borderRadius: 4,
                   fontSize: 12,
                   fontWeight: 600,
-                  marginBottom: 12
+                  marginBottom: 15
                 }}>
                   {listing.category}
                 </span>
@@ -141,16 +212,16 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               {/* Title */}
               <h1 style={{
                 color: '#333',
-                margin: '0 0 12px 0',
-                fontSize: 24,
-                lineHeight: 1.3
+                marginBottom: 15,
+                marginTop: 0,
+                fontSize: 28
               }}>
                 {listing.title}
               </h1>
 
               {/* Price (includes platform fee) */}
               <div style={{
-                fontSize: 32,
+                fontSize: 36,
                 fontWeight: 'bold',
                 color: branding.colors.primary,
                 marginBottom: 20
@@ -161,11 +232,11 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               {/* Availability */}
               <div style={{
                 marginBottom: 20,
-                padding: 16,
-                backgroundColor: '#f9fafb',
-                borderRadius: 8
+                padding: 15,
+                backgroundColor: '#f8f9fa',
+                borderRadius: 6
               }}>
-                <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 4 }}>
+                <div style={{ fontSize: 14, color: '#666', marginBottom: 5 }}>
                   Availability
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 600, color: '#333' }}>
@@ -193,16 +264,16 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
             {/* Vendor Card */}
             <div style={{
-              padding: 20,
+              padding: 25,
               backgroundColor: 'white',
               borderRadius: 8,
-              border: '1px solid #e5e7eb'
+              border: `1px solid ${branding.colors.secondary}`
             }}>
               <h3 style={{
                 color: branding.colors.primary,
-                margin: '0 0 12px 0',
-                fontSize: 16,
-                fontWeight: 600
+                marginBottom: 15,
+                marginTop: 0,
+                fontSize: 18
               }}>
                 Sold by
               </h3>
@@ -210,21 +281,22 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               <Link
                 href={`/${vertical}/vendor/${vendorId}/profile`}
                 style={{
+                  display: 'block',
                   textDecoration: 'none',
                   color: '#333'
                 }}
               >
                 <div style={{
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: 600,
-                  marginBottom: 8,
+                  marginBottom: 10,
                   color: branding.colors.primary
                 }}>
                   {vendorName}
                 </div>
               </Link>
 
-              <div style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+              <div style={{ fontSize: 14, color: '#666', marginBottom: 15 }}>
                 Member since {new Date(vendorProfile.created_at as string).toLocaleDateString('en-US', {
                   month: 'long',
                   year: 'numeric'
@@ -234,122 +306,69 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               <Link
                 href={`/${vertical}/vendor/${vendorId}/profile`}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '12px 16px',
+                  display: 'block',
+                  padding: '10px 15px',
                   backgroundColor: branding.colors.secondary,
                   color: 'white',
                   textDecoration: 'none',
                   borderRadius: 6,
-                  fontWeight: 600,
-                  minHeight: 44
+                  textAlign: 'center',
+                  fontWeight: 600
                 }}
               >
                 View Vendor Profile
               </Link>
             </div>
-          </div>
-        </div>
 
-        {/* Description & More from Vendor - stack below on mobile */}
-        <div className="bottom-grid" style={{
-          display: 'grid',
-          gap: 24,
-          marginTop: 24
-        }}>
-          {/* Description */}
-          <div style={{
-            padding: 20,
-            backgroundColor: 'white',
-            borderRadius: 8,
-            border: '1px solid #e5e7eb'
-          }}>
-            <h2 style={{
-              color: branding.colors.primary,
-              margin: '0 0 12px 0',
-              fontSize: 18,
-              fontWeight: 600
-            }}>
-              Description
-            </h2>
-            <p style={{
-              color: '#333',
-              lineHeight: 1.7,
-              fontSize: 15,
-              whiteSpace: 'pre-wrap',
-              margin: 0
-            }}>
-              {listing.description || 'No description provided.'}
-            </p>
-          </div>
-
-          {/* Other Listings from Vendor */}
-          {otherListings && otherListings.length > 0 && (
-            <div style={{
-              padding: 20,
-              backgroundColor: 'white',
-              borderRadius: 8,
-              border: '1px solid #e5e7eb'
-            }}>
-              <h3 style={{
-                color: branding.colors.primary,
-                margin: '0 0 16px 0',
-                fontSize: 16,
-                fontWeight: 600
+            {/* Other Listings from Vendor */}
+            {otherListings && otherListings.length > 0 && (
+              <div style={{
+                padding: 25,
+                backgroundColor: 'white',
+                borderRadius: 8,
+                border: `1px solid ${branding.colors.secondary}`,
+                marginTop: 20
               }}>
-                More from {vendorName}
-              </h3>
+                <h3 style={{
+                  color: branding.colors.primary,
+                  marginBottom: 15,
+                  marginTop: 0,
+                  fontSize: 18
+                }}>
+                  More from {vendorName}
+                </h3>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {otherListings.map((item: Record<string, unknown>) => (
-                  <Link
-                    key={item.id as string}
-                    href={`/${vertical}/listing/${item.id}`}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '12px 16px',
-                      backgroundColor: '#f9fafb',
-                      borderRadius: 6,
-                      textDecoration: 'none',
-                      color: '#333',
-                      minHeight: 44
-                    }}
-                  >
-                    <span style={{ fontSize: 14 }}>{item.title as string}</span>
-                    <span style={{
-                      fontWeight: 600,
-                      color: branding.colors.primary
-                    }}>
-                      {formatDisplayPrice((item.price_cents as number) || 0)}
-                    </span>
-                  </Link>
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {otherListings.map((item: Record<string, unknown>) => (
+                    <Link
+                      key={item.id as string}
+                      href={`/${vertical}/listing/${item.id}`}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '10px 15px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: 6,
+                        textDecoration: 'none',
+                        color: '#333'
+                      }}
+                    >
+                      <span style={{ fontSize: 14 }}>{item.title as string}</span>
+                      <span style={{
+                        fontWeight: 600,
+                        color: branding.colors.primary
+                      }}>
+                        {formatDisplayPrice((item.price_cents as number) || 0)}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Responsive Styles */}
-      <style>{`
-        .listing-detail-page .main-grid {
-          grid-template-columns: 1fr;
-        }
-        .listing-detail-page .bottom-grid {
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 768px) {
-          .listing-detail-page .main-grid {
-            grid-template-columns: 1fr 400px;
-          }
-          .listing-detail-page .bottom-grid {
-            grid-template-columns: 1fr 400px;
-          }
-        }
-      `}</style>
     </div>
   )
 }

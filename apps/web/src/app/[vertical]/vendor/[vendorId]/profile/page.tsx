@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
-import { formatDisplayPrice } from '@/lib/constants'
 
 interface VendorProfilePageProps {
   params: Promise<{ vertical: string; vendorId: string }>
@@ -30,12 +29,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
   const profileData = vendor.profile_data as Record<string, unknown>
   const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
-
-  // Get vendor_type from profile (could be array or string)
-  const profileTypes = profileData?.vendor_type
-  const profileCategories: string[] = profileTypes
-    ? (Array.isArray(profileTypes) ? profileTypes as string[] : [profileTypes as string])
-    : []
+  const vendorType = (profileData?.vendor_type as string) || (profileData?.business_type as string) || null
 
   // Get vendor's published listings
   const { data: listings } = await supabase
@@ -46,107 +40,132 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  // Get all unique categories from vendor's listings
-  const listingCategories = [...new Set(
-    (listings || [])
-      .map(l => l.category as string | null)
-      .filter((c): c is string => c !== null)
-  )]
-
-  // Combine profile categories and listing categories (unique)
-  const allCategories = [...new Set([...profileCategories, ...listingCategories])]
+  // Check auth for header
+  const { data: { user } } = await supabase.auth.getUser()
 
   return (
-    <div
-      style={{
-        backgroundColor: branding.colors.background,
-        color: branding.colors.text,
-        minHeight: '100vh'
-      }}
-      className="vendor-profile-page"
-    >
-      {/* Back Link */}
-      <div style={{
-        padding: '16px',
-        borderBottom: '1px solid #eee',
-        backgroundColor: 'white'
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: branding.colors.background,
+      color: branding.colors.text
+    }}>
+      {/* Navigation */}
+      <nav style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '15px 40px',
+        borderBottom: `1px solid ${branding.colors.secondary}`,
+        backgroundColor: branding.colors.background
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <Link
+          href={`/${vertical}`}
+          style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: branding.colors.primary,
+            textDecoration: 'none'
+          }}
+        >
+          {branding.brand_name}
+        </Link>
+
+        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
           <Link
             href={`/${vertical}/browse`}
             style={{
-              color: branding.colors.primary,
+              color: branding.colors.text,
               textDecoration: 'none',
-              fontSize: 14,
-              display: 'inline-flex',
-              alignItems: 'center',
-              minHeight: 44,
-              padding: '8px 0'
+              fontWeight: 600
             }}
           >
-            ← Back to Browse
+            Browse
           </Link>
+          {user ? (
+            <Link
+              href={`/${vertical}/dashboard`}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontWeight: 600
+              }}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              href={`/${vertical}/signup`}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontWeight: 600
+              }}
+            >
+              Sign Up
+            </Link>
+          )}
         </div>
+      </nav>
+
+      {/* Breadcrumb */}
+      <div style={{ padding: '20px 40px', borderBottom: '1px solid #eee' }}>
+        <Link
+          href={`/${vertical}/browse`}
+          style={{ color: branding.colors.primary, textDecoration: 'none' }}
+        >
+          ← Back to Browse
+        </Link>
       </div>
 
       {/* Content */}
-      <div style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '24px 16px'
-      }}>
+      <div style={{ padding: 40, maxWidth: 1200, margin: '0 auto' }}>
         {/* Vendor Header */}
         <div style={{
-          padding: 24,
+          padding: 30,
           backgroundColor: 'white',
           borderRadius: 8,
-          border: '1px solid #e5e7eb',
-          marginBottom: 24
+          border: `1px solid ${branding.colors.secondary}`,
+          marginBottom: 30
         }}>
-          <div className="vendor-header" style={{
-            display: 'flex',
-            gap: 20,
-            alignItems: 'center'
-          }}>
-            {/* Vendor Avatar - proper aspect ratio with object-cover */}
+          <div style={{ display: 'flex', gap: 30, alignItems: 'center' }}>
+            {/* Vendor Avatar Placeholder */}
             <div style={{
-              width: 80,
-              height: 80,
+              width: 100,
+              height: 100,
               borderRadius: '50%',
               backgroundColor: branding.colors.primary + '20',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 32,
-              fontWeight: 'bold',
-              color: branding.colors.primary,
-              flexShrink: 0,
-              overflow: 'hidden'
+              fontSize: 40,
+              color: branding.colors.primary
             }}>
-              {/* If we had a logo, we'd use object-cover */}
               {vendorName.charAt(0).toUpperCase()}
             </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: 1 }}>
               <h1 style={{
                 color: branding.colors.primary,
-                margin: 0,
-                fontSize: 24,
-                fontWeight: 'bold',
-                lineHeight: 1.3
+                marginBottom: 10,
+                marginTop: 0,
+                fontSize: 32
               }}>
                 {vendorName}
               </h1>
 
-              <div className="vendor-meta" style={{
+              <div style={{
                 display: 'flex',
-                gap: 16,
+                gap: 20,
                 flexWrap: 'wrap',
-                color: '#666',
-                fontSize: 14,
-                marginTop: 8
+                color: '#666'
               }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span>
                   ✓ Verified Vendor
                 </span>
                 <span>
@@ -162,34 +181,23 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             </div>
           </div>
 
-          {/* Categories - show ALL categories vendor sells */}
-          {allCategories.length > 0 && (
+          {/* Business Info */}
+          {vendorType && (
             <div style={{
               marginTop: 20,
               paddingTop: 20,
-              borderTop: '1px solid #f3f4f6'
+              borderTop: '1px solid #eee'
             }}>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 8
+              <span style={{
+                padding: '4px 10px',
+                backgroundColor: branding.colors.secondary + '20',
+                color: branding.colors.secondary,
+                borderRadius: 4,
+                fontSize: 14,
+                fontWeight: 600
               }}>
-                {allCategories.map(category => (
-                  <span
-                    key={category}
-                    style={{
-                      padding: '6px 14px',
-                      backgroundColor: '#d1fae5',
-                      color: '#065f46',
-                      borderRadius: 16,
-                      fontSize: 13,
-                      fontWeight: 600
-                    }}
-                  >
-                    {category}
-                  </span>
-                ))}
-              </div>
+                {vendorType}
+              </span>
             </div>
           )}
         </div>
@@ -198,23 +206,23 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
         <div>
           <h2 style={{
             color: branding.colors.primary,
-            margin: '0 0 20px 0',
-            fontSize: 20,
-            fontWeight: 600
+            marginBottom: 20,
+            fontSize: 24
           }}>
             Listings from {vendorName}
           </h2>
 
           {listings && listings.length > 0 ? (
-            <div className="listings-grid" style={{
+            <div style={{
               display: 'grid',
-              gap: 16
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: 25
             }}>
               {listings.map((listing) => {
                 const listingId = listing.id as string
                 const listingTitle = listing.title as string
                 const listingCategory = listing.category as string | null
-                const listingPriceCents = (listing.price_cents as number) || 0
+                const listingPrice = ((listing.price_cents as number) || 0) / 100
 
                 return (
                   <Link
@@ -222,63 +230,60 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     href={`/${vertical}/listing/${listingId}`}
                     style={{
                       display: 'block',
-                      padding: 16,
+                      padding: 20,
                       backgroundColor: 'white',
                       color: '#333',
-                      border: '1px solid #e5e7eb',
+                      border: `1px solid ${branding.colors.secondary}`,
                       borderRadius: 8,
                       textDecoration: 'none'
                     }}
                   >
-                    {/* Image Placeholder with Category Badge */}
-                    <div style={{ position: 'relative', marginBottom: 12 }}>
-                      {listingCategory && (
-                        <span style={{
-                          position: 'absolute',
-                          top: 8,
-                          left: 8,
-                          padding: '4px 10px',
-                          backgroundColor: '#d1fae5',
-                          color: '#065f46',
-                          borderRadius: 12,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          zIndex: 1
-                        }}>
-                          {listingCategory}
-                        </span>
-                      )}
-
-                      <div style={{
-                        height: 140,
-                        backgroundColor: '#f3f4f6',
-                        borderRadius: 6,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <span style={{ fontSize: 36, color: '#ccc' }}>📦</span>
-                      </div>
+                    {/* Image Placeholder */}
+                    <div style={{
+                      height: 150,
+                      backgroundColor: '#f0f0f0',
+                      borderRadius: 6,
+                      marginBottom: 15,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <span style={{ fontSize: 40, color: '#ccc' }}>📦</span>
                     </div>
+
+                    {/* Category */}
+                    {listingCategory && (
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '3px 8px',
+                        backgroundColor: branding.colors.secondary + '20',
+                        color: branding.colors.secondary,
+                        borderRadius: 4,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        marginBottom: 10
+                      }}>
+                        {listingCategory}
+                      </span>
+                    )}
 
                     {/* Title */}
                     <h3 style={{
                       marginBottom: 8,
                       marginTop: 0,
                       color: branding.colors.primary,
-                      fontSize: 16,
-                      fontWeight: 600
+                      fontSize: 18
                     }}>
                       {listingTitle}
                     </h3>
 
-                    {/* Price (includes platform fee) */}
+                    {/* Price */}
                     <div style={{
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: 'bold',
                       color: branding.colors.primary
                     }}>
-                      {formatDisplayPrice(listingPriceCents)}
+                      ${listingPrice.toFixed(2)}
                     </div>
                   </Link>
                 )
@@ -297,42 +302,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           )}
         </div>
       </div>
-
-      {/* Responsive Styles */}
-      <style>{`
-        .vendor-profile-page .vendor-header {
-          flex-direction: column;
-          text-align: center;
-        }
-        .vendor-profile-page .vendor-meta {
-          justify-content: center;
-        }
-        .vendor-profile-page .listings-grid {
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 640px) {
-          .vendor-profile-page .vendor-header {
-            flex-direction: row;
-            text-align: left;
-          }
-          .vendor-profile-page .vendor-meta {
-            justify-content: flex-start;
-          }
-          .vendor-profile-page .listings-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        @media (min-width: 1024px) {
-          .vendor-profile-page .listings-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        @media (min-width: 1280px) {
-          .vendor-profile-page .listings-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
-        }
-      `}</style>
     </div>
   )
 }

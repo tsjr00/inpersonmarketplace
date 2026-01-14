@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
+import LogoutButton from './LogoutButton'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -48,20 +49,25 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   return (
     <div style={{
+      minHeight: '100vh',
       backgroundColor: branding.colors.background,
       color: branding.colors.text,
       padding: 40
     }}>
-      {/* Page Title */}
-      <h1 style={{
-        color: branding.colors.primary,
-        margin: 0,
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 30,
         paddingBottom: 20,
         borderBottom: `2px solid ${branding.colors.primary}`
       }}>
-        {branding.brand_name} Dashboard
-      </h1>
+        <h1 style={{ color: branding.colors.primary, margin: 0 }}>
+          {branding.brand_name} Dashboard
+        </h1>
+        <LogoutButton vertical={vertical} branding={branding} />
+      </div>
 
       {/* Welcome Section */}
       <div style={{

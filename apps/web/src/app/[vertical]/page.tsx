@@ -21,11 +21,82 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
     .eq('status', 'published')
     .is('deleted_at', null)
 
+  // Check auth
+  const { data: { user } } = await supabase.auth.getUser()
+
   return (
     <div style={{
+      minHeight: '100vh',
       backgroundColor: branding.colors.background,
       color: branding.colors.text
     }}>
+      {/* Navigation */}
+      <nav style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '15px 40px',
+        borderBottom: `1px solid ${branding.colors.secondary}`
+      }}>
+        <div style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary }}>
+          {branding.brand_name}
+        </div>
+
+        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+          <Link
+            href={`/${vertical}/browse`}
+            style={{
+              color: branding.colors.text,
+              textDecoration: 'none',
+              fontWeight: 600
+            }}
+          >
+            Browse
+          </Link>
+          {user ? (
+            <Link
+              href={`/${vertical}/dashboard`}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontWeight: 600
+              }}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href={`/${vertical}/login`}
+                style={{
+                  color: branding.colors.primary,
+                  textDecoration: 'none',
+                  fontWeight: 600
+                }}
+              >
+                Login
+              </Link>
+              <Link
+                href={`/${vertical}/signup`}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: branding.colors.primary,
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: 6,
+                  fontWeight: 600
+                }}
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
+        </div>
+      </nav>
+
       {/* Hero Section */}
       <section style={{
         padding: '80px 40px',

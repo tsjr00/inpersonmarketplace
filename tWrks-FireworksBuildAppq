@@ -1,0 +1,33 @@
+*   [33m2483ec6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge vendor analytics feature
+[31m|[m[32m\[m  
+[31m|[m * [33ma50164c[m[33m ([m[1;31morigin/feature/vendor-analytics[m[33m, [m[1;32mfeature/vendor-analytics[m[33m)[m docs: Add Phase-K-2 vendor analytics session summary
+[31m|[m * [33m56894a4[m feat(analytics): Add vendor analytics dashboard
+[31m|[m * [33mfd4a842[m docs: Add Phase-K-1 session documentation
+* [32m|[m   [33m5a7d9bf[m Merge branch 'feature/markets-foundation'
+[33m|[m[34m\[m [32m\[m  
+[33m|[m * [32m|[m [33mdd60fff[m[33m ([m[1;31morigin/feature/markets-foundation[m[33m, [m[1;32mfeature/markets-foundation[m[33m)[m docs: Add Phase-K-1 session documentation
+[33m|[m * [32m|[m [33mb2d66f3[m feat(markets): Add admin market management
+[33m|[m * [32m|[m [33m16be606[m feat(markets): Add market list and detail pages
+[33m|[m * [32m|[m [33m5356977[m docs: Add PROJECT_PERSPECTIVE for parallel CC instances
+[33m|[m * [32m|[m [33m91872ad[m feat(markets): Add markets API endpoints
+[33m|[m * [32m|[m [33m6b4a091[m feat(markets): Add markets database schema and migrations
+[33m|[m [32m|[m[32m/[m  
+* [32m|[m [33me01a09f[m fix(tooling): Add comment to pre-commit hook for clarity
+* [32m|[m [33mce6753b[m docs: Add PROJECT_CONTEXT and parallel build instructions
+* [32m|[m [33mbbba5d2[m[33m ([m[1;31morigin/feature/pre-commit-hooks[m[33m, [m[1;32mfeature/pre-commit-hooks[m[33m)[m docs: Session summary and logs for Phase-N-1 - 2026-01-13
+* [32m|[m [33md4a70db[m feat(tooling): Add pre-commit hooks with husky and lint-staged
+* [32m|[m [33maa2f0e7[m feat(scripts): Add test accounts list and generator script
+* [32m|[m [33m85a83ae[m[33m ([m[1;31morigin/feature/seed-data-script[m[33m, [m[1;32mfeature/seed-data-script[m[33m)[m docs: Update session summary for Phase-M-1 with test results
+* [32m|[m [33mf5fe302[m fix(scripts): Use authId for vendor_profiles FK (references user_profiles.user_id)
+* [32m|[m [33m07ca174[m fix(scripts): Update user profile instead of insert (trigger creates it)
+* [32m|[m [33m5c8cf19[m fix(scripts): Load .env.local in seed script
+* [32m|[m [33m569e7d3[m docs: Session summary and logs for Phase-M-1 - 2026-01-13
+* [32m|[m [33maa50c6b[m docs(scripts): Add seed data README
+* [32m|[m [33m6c1561e[m feat(scripts): Add seed data script
+* [32m|[m [33m89d7d55[m adding seed-data-script
+* [32m|[m [33m234dfbf[m[33m ([m[1;31morigin/feature/component-library[m[33m, [m[1;32mfeature/component-library[m[33m)[m docs: Session summary and logs for Phase-L-1 - 2026-01-13
+* [32m|[m [33m431ca80[m feat(test): Add component library test page
+* [32m|[m [33m4474dd3[m docs(components): Add shared components documentation
+* [32m|[m [33maaf255f[m feat(components): Add MobileNav component
+* [32m|[m [33m4729e7d[m feat(components): Add StatusBadge component
+* [32m|[m [33m29342ae[m feat(components): Add StandardForm component

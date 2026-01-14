@@ -2,61 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import SearchFilter from './SearchFilter'
+import { CartButton } from '@/components/cart/CartButton'
 import { formatDisplayPrice } from '@/lib/constants'
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
   searchParams: Promise<{ category?: string; search?: string }>
-}
-
-interface Listing {
-  id: string
-  title: string
-  description: string | null
-  price_cents: number
-  quantity: number
-  category: string | null
-  image_urls: string[] | null
-  created_at: string
-  vendor_profile_id: string
-  vendor_profiles: {
-    id: string
-    profile_data: Record<string, unknown>
-    status: string
-  }
-}
-
-// Group listings by category, then by vendor
-function groupListingsByCategory(listings: Listing[]): Record<string, Listing[]> {
-  const grouped: Record<string, Listing[]> = {}
-
-  listings.forEach(listing => {
-    const category = listing.category || 'Other'
-
-    if (!grouped[category]) {
-      grouped[category] = []
-    }
-    grouped[category].push(listing)
-  })
-
-  // Sort listings within each category by vendor name, then by newest
-  Object.keys(grouped).forEach(category => {
-    grouped[category].sort((a, b) => {
-      const vendorA = (a.vendor_profiles?.profile_data?.business_name as string) ||
-                      (a.vendor_profiles?.profile_data?.farm_name as string) || 'Unknown'
-      const vendorB = (b.vendor_profiles?.profile_data?.business_name as string) ||
-                      (b.vendor_profiles?.profile_data?.farm_name as string) || 'Unknown'
-
-      // First sort by vendor name
-      const vendorCompare = vendorA.localeCompare(vendorB)
-      if (vendorCompare !== 0) return vendorCompare
-
-      // Then by newest first within same vendor
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    })
-  })
-
-  return grouped
 }
 
 export default async function BrowsePage({ params, searchParams }: BrowsePageProps) {
@@ -68,7 +19,6 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
   // Build query for published listings from approved vendors
-  // Sort by category first, then by created_at for within-category ordering
   let query = supabase
     .from('listings')
     .select(`
@@ -91,7 +41,6 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     .eq('status', 'published')
     .eq('vendor_profiles.status', 'approved')
     .is('deleted_at', null)
-    .order('category', { ascending: true })
     .order('created_at', { ascending: false })
 
   // Apply category filter
@@ -104,10 +53,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
   }
 
-  const { data: rawListings } = await query
-
-  // Type assertion for listings
-  const listings = rawListings as unknown as Listing[] | null
+  const { data: listings } = await query
 
   // Get categories from vertical config (not from listings)
   const { data: verticalData } = await supabase
@@ -126,38 +72,104 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   // Use config categories, not listing-derived categories
   const uniqueCategories = configCategories
 
-  // Group listings by category when no search/filter is applied
-  const isFiltered = !!(search || category)
-  const groupedListings = !isFiltered && listings ? groupListingsByCategory(listings) : {}
-  const sortedCategories = Object.keys(groupedListings).sort()
+  // Check if user is logged in (for header)
+  const { data: { user } } = await supabase.auth.getUser()
 
   return (
-    <div
-      style={{
-        backgroundColor: branding.colors.background,
-        color: branding.colors.text,
-        minHeight: '100vh'
-      }}
-      className="browse-page"
-    >
-      {/* Page Content */}
-      <div style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '24px 16px'
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: branding.colors.background,
+      color: branding.colors.text
+    }}>
+      {/* Navigation */}
+      <nav style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '15px 40px',
+        borderBottom: `1px solid ${branding.colors.secondary}`,
+        backgroundColor: branding.colors.background
       }}>
+        <Link
+          href={`/${vertical}`}
+          style={{
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: branding.colors.primary,
+            textDecoration: 'none'
+          }}
+        >
+          {branding.brand_name}
+        </Link>
+
+        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
+          <Link
+            href={`/${vertical}/browse`}
+            style={{
+              color: branding.colors.text,
+              textDecoration: 'none',
+              fontWeight: 600
+            }}
+          >
+            Browse
+          </Link>
+          <CartButton primaryColor={branding.colors.primary} />
+          {user ? (
+            <Link
+              href={`/${vertical}/dashboard`}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontWeight: 600
+              }}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href={`/${vertical}/login`}
+                style={{
+                  color: branding.colors.primary,
+                  textDecoration: 'none',
+                  fontWeight: 600
+                }}
+              >
+                Login
+              </Link>
+              <Link
+                href={`/${vertical}/signup`}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: branding.colors.primary,
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: 6,
+                  fontWeight: 600
+                }}
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
+        </div>
+      </nav>
+
+      {/* Page Content */}
+      <div style={{ padding: 40 }}>
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 30 }}>
           <h1 style={{
             color: branding.colors.primary,
-            marginBottom: 8,
-            marginTop: 0,
-            fontSize: 28,
-            fontWeight: 'bold'
+            marginBottom: 10,
+            fontSize: 36
           }}>
-            Browse Products
+            Browse {branding.brand_name}
           </h1>
-          <p style={{ color: branding.colors.secondary, fontSize: 16, margin: 0 }}>
+          <p style={{ color: branding.colors.secondary, fontSize: 18 }}>
             Discover products from verified vendors
           </p>
         </div>
@@ -173,90 +185,122 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
         {/* Results Count */}
         <div style={{ marginBottom: 20 }}>
-          <p style={{ color: branding.colors.secondary, margin: 0 }}>
+          <p style={{ color: branding.colors.secondary }}>
             {listings?.length || 0} listing{listings?.length !== 1 ? 's' : ''} found
             {category && ` in ${category}`}
             {search && ` matching "${search}"`}
           </p>
         </div>
 
-        {/* Listings Display */}
+        {/* Listings Grid */}
         {listings && listings.length > 0 ? (
-          <>
-            {/* When NOT searching/filtering: Show grouped by category with headers */}
-            {!isFiltered && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
-                {sortedCategories.map(cat => (
-                  <div key={cat}>
-                    {/* Category Header */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 16,
-                      marginBottom: 20
-                    }}>
-                      <div style={{
-                        height: 1,
-                        backgroundColor: branding.colors.secondary,
-                        flex: 1,
-                        opacity: 0.3
-                      }} />
-                      <h2 style={{
-                        margin: 0,
-                        padding: '8px 20px',
-                        backgroundColor: branding.colors.secondary + '15',
-                        color: branding.colors.primary,
-                        borderRadius: 20,
-                        fontSize: 16,
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {cat}
-                      </h2>
-                      <div style={{
-                        height: 1,
-                        backgroundColor: branding.colors.secondary,
-                        flex: 1,
-                        opacity: 0.3
-                      }} />
-                    </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 25
+          }}>
+            {listings.map((listing) => {
+              // vendor_profiles comes as object from !inner join
+              const vendorProfile = listing.vendor_profiles as unknown as Record<string, unknown> | null
+              const vendorData = vendorProfile?.profile_data as Record<string, unknown> | null
+              const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
+              const listingId = listing.id as string
+              const listingTitle = listing.title as string
+              const listingDesc = (listing.description as string) || 'No description'
+              const listingCategory = listing.category as string | null
+              const listingPriceCents = (listing.price_cents as number) || 0
 
-                    {/* Listings Grid for this category */}
-                    <div className="listings-grid" style={{
-                      display: 'grid',
-                      gap: 16
-                    }}>
-                      {groupedListings[cat].map((listing) => (
-                        <ListingCard
-                          key={listing.id}
-                          listing={listing}
-                          vertical={vertical}
-                          branding={branding}
-                        />
-                      ))}
-                    </div>
+              return (
+                <Link
+                  key={listingId}
+                  href={`/${vertical}/listing/${listingId}`}
+                  style={{
+                    display: 'block',
+                    padding: 20,
+                    backgroundColor: 'white',
+                    color: '#333',
+                    border: `1px solid ${branding.colors.secondary}`,
+                    borderRadius: 8,
+                    textDecoration: 'none'
+                  }}
+                >
+                  {/* Image Placeholder */}
+                  <div style={{
+                    height: 150,
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: 6,
+                    marginBottom: 15,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#999'
+                  }}>
+                    <span style={{ fontSize: 40 }}>📦</span>
                   </div>
-                ))}
-              </div>
-            )}
 
-            {/* When searching/filtering: Show flat grid */}
-            {isFiltered && (
-              <div className="listings-grid" style={{
-                display: 'grid',
-                gap: 16
-              }}>
-                {listings.map((listing) => (
-                  <ListingCard
-                    key={listing.id}
-                    listing={listing}
-                    vertical={vertical}
-                    branding={branding}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+                  {/* Category Badge */}
+                  {listingCategory && (
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '3px 8px',
+                      backgroundColor: branding.colors.secondary + '20',
+                      color: branding.colors.secondary,
+                      borderRadius: 4,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      marginBottom: 10
+                    }}>
+                      {listingCategory}
+                    </span>
+                  )}
+
+                  {/* Title */}
+                  <h3 style={{
+                    marginBottom: 8,
+                    marginTop: 0,
+                    color: branding.colors.primary,
+                    fontSize: 18
+                  }}>
+                    {listingTitle}
+                  </h3>
+
+                  {/* Description */}
+                  <p style={{
+                    fontSize: 14,
+                    color: '#666',
+                    marginBottom: 15,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    lineHeight: 1.4
+                  }}>
+                    {listingDesc}
+                  </p>
+
+                  {/* Price (includes platform fee) */}
+                  <div style={{
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    color: branding.colors.primary,
+                    marginBottom: 10
+                  }}>
+                    {formatDisplayPrice(listingPriceCents)}
+                  </div>
+
+                  {/* Vendor Name */}
+                  <div style={{
+                    fontSize: 13,
+                    color: '#888',
+                    borderTop: '1px solid #eee',
+                    paddingTop: 10
+                  }}>
+                    by {vendorName}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
         ) : (
           <div style={{
             padding: 60,
@@ -265,7 +309,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             borderRadius: 8,
             textAlign: 'center'
           }}>
-            <h3 style={{ marginBottom: 15, marginTop: 0, color: '#666' }}>No Listings Found</h3>
+            <h3 style={{ marginBottom: 15, color: '#666' }}>No Listings Found</h3>
             <p style={{ color: '#999', marginBottom: 20 }}>
               {search || category
                 ? 'Try adjusting your search or filters'
@@ -277,13 +321,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                 href={`/${vertical}/browse`}
                 style={{
                   display: 'inline-block',
-                  padding: '12px 24px',
+                  padding: '10px 20px',
                   backgroundColor: branding.colors.primary,
                   color: 'white',
                   textDecoration: 'none',
                   borderRadius: 6,
-                  fontWeight: 600,
-                  minHeight: 44
+                  fontWeight: 600
                 }}
               >
                 Clear Filters
@@ -292,141 +335,6 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           </div>
         )}
       </div>
-
-      {/* Responsive Grid Styles */}
-      <style>{`
-        .browse-page .listings-grid {
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 640px) {
-          .browse-page .listings-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        @media (min-width: 1024px) {
-          .browse-page .listings-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        @media (min-width: 1280px) {
-          .browse-page .listings-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
-        }
-      `}</style>
     </div>
-  )
-}
-
-// Listing Card Component
-function ListingCard({
-  listing,
-  vertical,
-  branding
-}: {
-  listing: Listing
-  vertical: string
-  branding: { colors: { primary: string; secondary: string } }
-}) {
-  const vendorData = listing.vendor_profiles?.profile_data
-  const vendorName = (vendorData?.business_name as string) ||
-                     (vendorData?.farm_name as string) || 'Vendor'
-  const listingDesc = listing.description || 'No description'
-
-  return (
-    <Link
-      href={`/${vertical}/listing/${listing.id}`}
-      style={{
-        display: 'block',
-        padding: 16,
-        backgroundColor: 'white',
-        color: '#333',
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
-        textDecoration: 'none',
-        height: '100%'
-      }}
-    >
-      {/* Image Placeholder with Category Badge */}
-      <div style={{ position: 'relative', marginBottom: 12 }}>
-        {/* Category Badge */}
-        {listing.category && (
-          <span style={{
-            position: 'absolute',
-            top: 8,
-            left: 8,
-            padding: '4px 10px',
-            backgroundColor: '#d1fae5',
-            color: '#065f46',
-            borderRadius: 12,
-            fontSize: 11,
-            fontWeight: 600,
-            zIndex: 1
-          }}>
-            {listing.category}
-          </span>
-        )}
-
-        {/* Image placeholder */}
-        <div style={{
-          height: 140,
-          backgroundColor: '#f3f4f6',
-          borderRadius: 6,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#9ca3af'
-        }}>
-          <span style={{ fontSize: 36 }}>📦</span>
-        </div>
-      </div>
-
-      {/* Title */}
-      <h3 style={{
-        marginBottom: 6,
-        marginTop: 0,
-        color: branding.colors.primary,
-        fontSize: 16,
-        fontWeight: 600,
-        lineHeight: 1.3
-      }}>
-        {listing.title}
-      </h3>
-
-      {/* Description */}
-      <p style={{
-        fontSize: 13,
-        color: '#666',
-        marginBottom: 12,
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
-        lineHeight: 1.4,
-        minHeight: 36
-      }}>
-        {listingDesc}
-      </p>
-
-      {/* Price (includes platform fee) */}
-      <div style={{
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: branding.colors.primary,
-        marginBottom: 8
-      }}>
-        {formatDisplayPrice(listing.price_cents)}
-      </div>
-
-      {/* Vendor Name */}
-      <div style={{
-        fontSize: 12,
-        color: '#888',
-        borderTop: '1px solid #f3f4f6',
-        paddingTop: 8
-      }}>
-        by {vendorName}
-      </div>
-    </Link>
   )
 }

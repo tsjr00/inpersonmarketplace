@@ -30,7 +30,6 @@ export function Header({
   branding
 }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const pathname = usePathname()
@@ -48,8 +47,6 @@ export function Header({
   }, [])
 
   const handleLogout = async () => {
-    setDropdownOpen(false)
-    setMobileMenuOpen(false)
     await supabase.auth.signOut()
     router.push(`/${vertical}`)
     router.refresh()
@@ -58,7 +55,6 @@ export function Header({
   const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
   const isVendor = vendorProfile && vendorProfile.status === 'approved'
   const isPendingVendor = vendorProfile && ['submitted', 'draft'].includes(vendorProfile.status)
-  const hasVendorProfile = !!vendorProfile
 
   return (
     <header style={{
@@ -71,19 +67,19 @@ export function Header({
       <div style={{
         maxWidth: 1200,
         margin: '0 auto',
-        padding: '0 16px'
+        padding: '0 20px'
       }}>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          height: 56
+          height: 64
         }}>
           {/* Logo */}
           <Link
             href={`/${vertical}`}
             style={{
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: 'bold',
               color: branding.colors.primary,
               textDecoration: 'none'
@@ -92,24 +88,21 @@ export function Header({
             {branding.brand_name}
           </Link>
 
-          {/* Desktop Navigation - hidden on mobile */}
+          {/* Main Navigation */}
           <nav style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 24
-          }}
-          className="desktop-nav"
-          >
+            gap: 30
+          }}>
             <Link
               href={`/${vertical}/browse`}
               style={{
                 color: pathname?.includes('/browse') ? branding.colors.primary : branding.colors.text,
                 textDecoration: 'none',
-                fontWeight: pathname?.includes('/browse') ? 600 : 400,
-                fontSize: 14
+                fontWeight: pathname?.includes('/browse') ? 600 : 400
               }}
             >
-              Browse Products
+              Browse
             </Link>
 
             {user && (
@@ -118,8 +111,7 @@ export function Header({
                 style={{
                   color: pathname === `/${vertical}/dashboard` ? branding.colors.primary : branding.colors.text,
                   textDecoration: 'none',
-                  fontWeight: pathname === `/${vertical}/dashboard` ? 600 : 400,
-                  fontSize: 14
+                  fontWeight: pathname === `/${vertical}/dashboard` ? 600 : 400
                 }}
               >
                 Dashboard
@@ -128,27 +120,24 @@ export function Header({
           </nav>
 
           {/* Right Side - Cart & User */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Cart - always visible */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+            {/* Cart */}
             {user && <CartButton primaryColor={branding.colors.primary} />}
 
-            {/* User Menu - Desktop */}
+            {/* User Menu */}
             {user ? (
-              <div style={{ position: 'relative' }} ref={dropdownRef} className="desktop-nav">
+              <div style={{ position: 'relative' }} ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 6,
+                    gap: 8,
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    padding: 8,
-                    minHeight: 44,
-                    minWidth: 44
+                    padding: 8
                   }}
-                  aria-label="User menu"
                 >
                   <div style={{
                     width: 32,
@@ -165,10 +154,9 @@ export function Header({
                     {userProfile?.display_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
                   </div>
                   <span style={{
-                    fontSize: 12,
+                    fontSize: 14,
                     transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0)',
-                    transition: 'transform 0.2s',
-                    color: '#666'
+                    transition: 'transform 0.2s'
                   }}>
                     ▼
                   </span>
@@ -181,7 +169,7 @@ export function Header({
                     right: 0,
                     top: '100%',
                     marginTop: 8,
-                    width: 240,
+                    width: 220,
                     backgroundColor: 'white',
                     borderRadius: 8,
                     boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
@@ -223,35 +211,12 @@ export function Header({
                         padding: '12px 16px',
                         textDecoration: 'none',
                         color: '#333',
-                        fontSize: 14,
-                        minHeight: 44,
-                        lineHeight: '20px'
+                        fontSize: 14
                       }}
                     >
                       My Orders
                     </Link>
 
-                    {/* Become a Vendor - only for non-vendors */}
-                    {!hasVendorProfile && (
-                      <Link
-                        href={`/${vertical}/vendor-signup`}
-                        onClick={() => setDropdownOpen(false)}
-                        style={{
-                          display: 'block',
-                          padding: '12px 16px',
-                          textDecoration: 'none',
-                          color: '#059669',
-                          fontSize: 14,
-                          backgroundColor: '#ecfdf5',
-                          minHeight: 44,
-                          lineHeight: '20px'
-                        }}
-                      >
-                        Become a Vendor
-                      </Link>
-                    )}
-
-                    {/* Vendor Dashboard - only for vendors */}
                     {(isVendor || isPendingVendor) && (
                       <Link
                         href={`/${vertical}/vendor/dashboard`}
@@ -261,9 +226,7 @@ export function Header({
                           padding: '12px 16px',
                           textDecoration: 'none',
                           color: '#333',
-                          fontSize: 14,
-                          minHeight: 44,
-                          lineHeight: '20px'
+                          fontSize: 14
                         }}
                       >
                         Vendor Dashboard
@@ -282,7 +245,6 @@ export function Header({
                       </Link>
                     )}
 
-                    {/* Admin Dashboard - only for admins */}
                     {isAdmin && (
                       <Link
                         href={`/${vertical}/admin`}
@@ -293,9 +255,7 @@ export function Header({
                           textDecoration: 'none',
                           color: '#7c3aed',
                           fontSize: 14,
-                          backgroundColor: '#f5f3ff',
-                          minHeight: 44,
-                          lineHeight: '20px'
+                          backgroundColor: '#f5f3ff'
                         }}
                       >
                         Admin Dashboard
@@ -304,24 +264,6 @@ export function Header({
 
                     <div style={{ borderTop: '1px solid #eee' }} />
 
-                    {/* Settings */}
-                    <Link
-                      href={`/${vertical}/settings`}
-                      onClick={() => setDropdownOpen(false)}
-                      style={{
-                        display: 'block',
-                        padding: '12px 16px',
-                        textDecoration: 'none',
-                        color: '#333',
-                        fontSize: 14,
-                        minHeight: 44,
-                        lineHeight: '20px'
-                      }}
-                    >
-                      Settings
-                    </Link>
-
-                    {/* Logout */}
                     <button
                       onClick={handleLogout}
                       style={{
@@ -333,8 +275,7 @@ export function Header({
                         border: 'none',
                         color: '#dc3545',
                         fontSize: 14,
-                        cursor: 'pointer',
-                        minHeight: 44
+                        cursor: 'pointer'
                       }}
                     >
                       Logout
@@ -343,18 +284,13 @@ export function Header({
                 )}
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} className="desktop-nav">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Link
                   href={`/${vertical}/login`}
                   style={{
                     color: branding.colors.primary,
                     textDecoration: 'none',
-                    fontWeight: 600,
-                    fontSize: 14,
-                    padding: '8px 12px',
-                    minHeight: 44,
-                    display: 'flex',
-                    alignItems: 'center'
+                    fontWeight: 600
                   }}
                 >
                   Login
@@ -367,252 +303,16 @@ export function Header({
                     color: 'white',
                     textDecoration: 'none',
                     borderRadius: 6,
-                    fontWeight: 600,
-                    fontSize: 14,
-                    minHeight: 44,
-                    display: 'flex',
-                    alignItems: 'center'
+                    fontWeight: 600
                   }}
                 >
                   Sign Up
                 </Link>
               </div>
             )}
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{
-                display: 'none',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: 8,
-                minHeight: 44,
-                minWidth: 44,
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              className="mobile-menu-btn"
-              aria-label="Menu"
-            >
-              <span style={{ fontSize: 24 }}>{mobileMenuOpen ? '✕' : '☰'}</span>
-            </button>
           </div>
         </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div
-            style={{
-              borderTop: '1px solid #eee',
-              padding: '16px 0',
-              backgroundColor: 'white'
-            }}
-            className="mobile-menu"
-          >
-            <Link
-              href={`/${vertical}/browse`}
-              onClick={() => setMobileMenuOpen(false)}
-              style={{
-                display: 'block',
-                padding: '12px 0',
-                textDecoration: 'none',
-                color: branding.colors.text,
-                fontSize: 16,
-                fontWeight: 500
-              }}
-            >
-              Browse Products
-            </Link>
-
-            {user ? (
-              <>
-                <Link
-                  href={`/${vertical}/dashboard`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '12px 0',
-                    textDecoration: 'none',
-                    color: branding.colors.text,
-                    fontSize: 16,
-                    fontWeight: 500
-                  }}
-                >
-                  Dashboard
-                </Link>
-
-                <Link
-                  href={`/${vertical}/buyer/orders`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '12px 0',
-                    textDecoration: 'none',
-                    color: branding.colors.text,
-                    fontSize: 16
-                  }}
-                >
-                  My Orders
-                </Link>
-
-                {!hasVendorProfile && (
-                  <Link
-                    href={`/${vertical}/vendor-signup`}
-                    onClick={() => setMobileMenuOpen(false)}
-                    style={{
-                      display: 'block',
-                      padding: '12px 0',
-                      textDecoration: 'none',
-                      color: '#059669',
-                      fontSize: 16,
-                      fontWeight: 500
-                    }}
-                  >
-                    Become a Vendor
-                  </Link>
-                )}
-
-                {(isVendor || isPendingVendor) && (
-                  <Link
-                    href={`/${vertical}/vendor/dashboard`}
-                    onClick={() => setMobileMenuOpen(false)}
-                    style={{
-                      display: 'block',
-                      padding: '12px 0',
-                      textDecoration: 'none',
-                      color: branding.colors.text,
-                      fontSize: 16
-                    }}
-                  >
-                    Vendor Dashboard
-                    {isPendingVendor && (
-                      <span style={{
-                        marginLeft: 8,
-                        fontSize: 12,
-                        color: '#856404',
-                        backgroundColor: '#fff3cd',
-                        padding: '2px 6px',
-                        borderRadius: 4
-                      }}>
-                        Pending
-                      </span>
-                    )}
-                  </Link>
-                )}
-
-                {isAdmin && (
-                  <Link
-                    href={`/${vertical}/admin`}
-                    onClick={() => setMobileMenuOpen(false)}
-                    style={{
-                      display: 'block',
-                      padding: '12px 0',
-                      textDecoration: 'none',
-                      color: '#7c3aed',
-                      fontSize: 16,
-                      fontWeight: 500
-                    }}
-                  >
-                    Admin Dashboard
-                  </Link>
-                )}
-
-                <div style={{ borderTop: '1px solid #eee', margin: '12px 0' }} />
-
-                <Link
-                  href={`/${vertical}/settings`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '12px 0',
-                    textDecoration: 'none',
-                    color: branding.colors.text,
-                    fontSize: 16
-                  }}
-                >
-                  Settings
-                </Link>
-
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '12px 0',
-                    textAlign: 'left',
-                    background: 'none',
-                    border: 'none',
-                    color: '#dc3545',
-                    fontSize: 16,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
-                <Link
-                  href={`/${vertical}/login`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '12px 16px',
-                    textDecoration: 'none',
-                    color: branding.colors.primary,
-                    fontSize: 16,
-                    fontWeight: 600,
-                    textAlign: 'center',
-                    border: `2px solid ${branding.colors.primary}`,
-                    borderRadius: 8
-                  }}
-                >
-                  Login
-                </Link>
-                <Link
-                  href={`/${vertical}/signup`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '12px 16px',
-                    backgroundColor: branding.colors.primary,
-                    color: 'white',
-                    textDecoration: 'none',
-                    borderRadius: 8,
-                    fontWeight: 600,
-                    fontSize: 16,
-                    textAlign: 'center'
-                  }}
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
       </div>
-
-      {/* Responsive Styles */}
-      <style>{`
-        @media (max-width: 640px) {
-          .desktop-nav {
-            display: none !important;
-          }
-          .mobile-menu-btn {
-            display: flex !important;
-          }
-        }
-        @media (min-width: 641px) {
-          .mobile-menu-btn {
-            display: none !important;
-          }
-          .mobile-menu {
-            display: none !important;
-          }
-        }
-      `}</style>
     </header>
   )
 }
