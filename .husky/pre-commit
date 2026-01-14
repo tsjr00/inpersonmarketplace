@@ -1,3 +1,4 @@
 #!/bin/sh
+# Pre-commit hook - runs lint-staged on staged files
 cd apps/web
 npx lint-staged
