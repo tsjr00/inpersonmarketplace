@@ -169,6 +169,35 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
         </div>
       </div>
 
+      {/* Quick Actions */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 20,
+        marginBottom: 30
+      }}>
+        <Link
+          href={`/${vertical}/admin/markets`}
+          style={{
+            display: 'block',
+            padding: '24px',
+            backgroundColor: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            color: 'inherit',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+        >
+          <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', marginTop: 0, color: branding.colors.primary }}>
+            Manage Markets
+          </h3>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
+            Create and manage fixed farmers markets
+          </p>
+        </Link>
+      </div>
+
       {/* Vendor Management Component */}
       <VendorManagement vertical={vertical} branding={branding} />
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { VerticalBranding } from '@/lib/branding'
 import Link from 'next/link'
+import MarketSelector from '@/components/vendor/MarketSelector'
 
 interface ListingFormProps {
   vertical: string
@@ -51,6 +52,10 @@ export default function ListingForm({
     (listingData?.ingredients as string) || ''
   )
 
+  // Market selection
+  const [selectedMarketIds, setSelectedMarketIds] = useState<string[]>([])
+  const [hasMarkets, setHasMarkets] = useState(true) // Assume true until loaded
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -68,9 +73,16 @@ export default function ListingForm({
     setError('')
     setLoading(true)
 
-    // Validate
+    // Validate title
     if (!formData.title.trim()) {
       setError('Title is required')
+      setLoading(false)
+      return
+    }
+
+    // Validate market selection (required for all listings)
+    if (selectedMarketIds.length === 0 && hasMarkets) {
+      setError('Please select at least one market for this listing')
       setLoading(false)
       return
     }
@@ -123,6 +135,39 @@ export default function ListingForm({
       setError(errorMessage)
       setLoading(false)
       return
+    }
+
+    const savedListingId = result.data?.id
+
+    // Handle market associations if we have markets
+    if (savedListingId && selectedMarketIds.length > 0) {
+      // If editing, delete existing market associations first
+      if (mode === 'edit') {
+        const { error: deleteError } = await supabase
+          .from('listing_markets')
+          .delete()
+          .eq('listing_id', savedListingId)
+
+        if (deleteError) {
+          console.error('Error deleting listing markets:', deleteError)
+          // Continue anyway - listing was saved
+        }
+      }
+
+      // Create new market associations
+      const listingMarkets = selectedMarketIds.map(marketId => ({
+        listing_id: savedListingId,
+        market_id: marketId
+      }))
+
+      const { error: insertError } = await supabase
+        .from('listing_markets')
+        .insert(listingMarkets)
+
+      if (insertError) {
+        console.error('Error creating listing markets:', insertError)
+        // Continue anyway - listing was saved, markets can be added later
+      }
     }
 
     // Success - redirect to listings
@@ -373,6 +418,25 @@ export default function ListingForm({
           </select>
         </div>
 
+        {/* Market Selection */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}>
+            Available at <span style={{ color: '#c00' }}>*</span>
+          </label>
+          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
+            Select the markets/locations where this product will be available
+          </p>
+          <MarketSelector
+            vertical={vertical}
+            listingId={mode === 'edit' ? (listing?.id as string) : undefined}
+            selectedMarketIds={selectedMarketIds}
+            onChange={setSelectedMarketIds}
+            onMarketsLoaded={(markets) => setHasMarkets(markets.length > 0)}
+            disabled={loading}
+            primaryColor={branding.colors.primary}
+          />
+        </div>
+
         {/* Status - only show full options for approved vendors */}
         {!isPendingVendor ? (
           <div style={{ marginBottom: 30 }}>
@@ -397,7 +461,6 @@ export default function ListingForm({
               <option value="draft">Draft (not visible to buyers)</option>
               <option value="published">Published (visible to buyers)</option>
               <option value="paused">Paused (temporarily hidden)</option>
-              <option value="archived">Archived</option>
             </select>
             <p style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
               Draft listings are only visible to you. Set to Published when ready to sell.

@@ -5,18 +5,12 @@ import { useCart } from '@/lib/hooks/useCart'
 
 interface AddToCartButtonProps {
   listingId: string
-  listingInfo: {
-    title: string
-    price_cents: number
-    vendor_name: string
-  }
   maxQuantity?: number | null
   primaryColor?: string
 }
 
 export function AddToCartButton({
   listingId,
-  listingInfo,
   maxQuantity,
   primaryColor = '#333'
 }: AddToCartButtonProps) {
@@ -41,7 +35,7 @@ export function AddToCartButton({
     setError(null)
 
     try {
-      await addToCart(listingId, quantity, listingInfo)
+      await addToCart(listingId, quantity)
       setQuantity(1) // Reset quantity after adding
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to add to cart')
@@ -79,7 +73,7 @@ export function AddToCartButton({
                 opacity: quantity <= 1 ? 0.5 : 1,
               }}
             >
-              −
+              -
             </button>
             <span style={{
               width: 40,

@@ -1,14 +1,14 @@
 'use client'
 
 import { useRouter, useParams } from 'next/navigation'
-import { useCart } from '@/lib/hooks/useCart'
-import { calculateDisplayPrice, formatPrice, PLATFORM_FEE_RATE } from '@/lib/constants'
+import { useCart, CartItem } from '@/lib/hooks/useCart'
+import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
 
 export function CartDrawer() {
   const router = useRouter()
   const params = useParams()
   const vertical = params?.vertical as string
-  const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen } = useCart()
+  const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen, loading } = useCart()
 
   // Calculate display total with platform fee
   const displayTotal = items.reduce((sum, item) => {
@@ -74,7 +74,7 @@ export function CartDrawer() {
               padding: 5,
             }}
           >
-            ×
+            x
           </button>
         </div>
 
@@ -84,7 +84,15 @@ export function CartDrawer() {
           overflow: 'auto',
           padding: 25,
         }}>
-          {items.length === 0 ? (
+          {loading ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              color: '#999',
+            }}>
+              <p>Loading cart...</p>
+            </div>
+          ) : items.length === 0 ? (
             <div style={{
               textAlign: 'center',
               padding: '60px 20px',
@@ -96,8 +104,8 @@ export function CartDrawer() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
               {items.map(item => (
-                <CartItem
-                  key={item.listingId}
+                <CartItemCard
+                  key={item.id}
                   item={item}
                   onRemove={removeFromCart}
                   onUpdateQuantity={updateQuantity}
@@ -149,20 +157,14 @@ export function CartDrawer() {
   )
 }
 
-function CartItem({
+function CartItemCard({
   item,
   onRemove,
   onUpdateQuantity,
 }: {
-  item: {
-    listingId: string
-    quantity: number
-    title?: string
-    price_cents?: number
-    vendor_name?: string
-  }
-  onRemove: (listingId: string) => void
-  onUpdateQuantity: (listingId: string, quantity: number) => void
+  item: CartItem
+  onRemove: (cartItemId: string) => Promise<void>
+  onUpdateQuantity: (cartItemId: string, quantity: number) => Promise<void>
 }) {
   const displayPriceCents = calculateDisplayPrice(item.price_cents || 0)
   const itemTotalCents = displayPriceCents * item.quantity
@@ -206,7 +208,7 @@ function CartItem({
           </p>
         </div>
         <button
-          onClick={() => onRemove(item.listingId)}
+          onClick={() => onRemove(item.id)}
           style={{
             background: 'none',
             border: 'none',
@@ -228,7 +230,7 @@ function CartItem({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <button
-            onClick={() => onUpdateQuantity(item.listingId, item.quantity - 1)}
+            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
             style={{
               width: 28,
               height: 28,
@@ -239,7 +241,7 @@ function CartItem({
               fontSize: 16,
             }}
           >
-            −
+            -
           </button>
           <span style={{
             width: 32,
@@ -250,7 +252,7 @@ function CartItem({
             {item.quantity}
           </span>
           <button
-            onClick={() => onUpdateQuantity(item.listingId, item.quantity + 1)}
+            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
             style={{
               width: 28,
               height: 28,

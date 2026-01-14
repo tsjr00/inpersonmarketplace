@@ -1,4 +1,5 @@
 import { HeaderWrapper } from '@/components/layout/HeaderWrapper'
+import { CartProviderWrapper } from '@/components/cart/CartProviderWrapper'
 
 interface VerticalLayoutProps {
   children: React.ReactNode
@@ -12,9 +13,11 @@ export default async function VerticalLayout({
   const { vertical } = await params
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      <HeaderWrapper vertical={vertical} />
-      <main>{children}</main>
-    </div>
+    <CartProviderWrapper vertical={vertical}>
+      <div style={{ minHeight: '100vh' }}>
+        <HeaderWrapper vertical={vertical} />
+        <main>{children}</main>
+      </div>
+    </CartProviderWrapper>
   )
 }

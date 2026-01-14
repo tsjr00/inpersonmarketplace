@@ -1,21 +1,33 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 
-interface CartItem {
+export interface CartItem {
+  id: string
   listingId: string
   quantity: number
   title?: string
   price_cents?: number
   vendor_name?: string
+  quantity_available?: number | null
+  status?: string
+}
+
+interface CartSummary {
+  total_items: number
+  total_cents: number
+  vendor_count: number
 }
 
 interface CartContextType {
   items: CartItem[]
-  addToCart: (listingId: string, quantity: number, listingInfo?: { title?: string; price_cents?: number; vendor_name?: string }) => Promise<void>
-  removeFromCart: (listingId: string) => void
-  updateQuantity: (listingId: string, quantity: number) => void
+  summary: CartSummary
+  loading: boolean
+  addToCart: (listingId: string, quantity?: number) => Promise<void>
+  removeFromCart: (cartItemId: string) => Promise<void>
+  updateQuantity: (cartItemId: string, quantity: number) => Promise<void>
   clearCart: () => void
+  refreshCart: () => Promise<void>
   itemCount: number
   isOpen: boolean
   setIsOpen: (open: boolean) => void
@@ -23,111 +35,142 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({
+  children,
+  vertical
+}: {
+  children: ReactNode
+  vertical: string
+}) {
   const [items, setItems] = useState<CartItem[]>([])
+  const [summary, setSummary] = useState<CartSummary>({
+    total_items: 0,
+    total_cents: 0,
+    vendor_count: 0
+  })
+  const [loading, setLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
-  // Load cart from localStorage on mount
+  // Clear localStorage cart on mount (migration cleanup)
   useEffect(() => {
-    setMounted(true)
-    const savedCart = localStorage.getItem('cart')
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart))
-      } catch (err) {
-        console.error('Failed to load cart:', err)
+    if (typeof window !== 'undefined') {
+      const oldCart = localStorage.getItem('cart')
+      if (oldCart) {
+        console.log('Migrating from localStorage cart to database cart...')
+        localStorage.removeItem('cart')
       }
     }
   }, [])
 
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('cart', JSON.stringify(items))
-    }
-  }, [items, mounted])
-
-  async function addToCart(
-    listingId: string,
-    quantity: number,
-    listingInfo?: { title?: string; price_cents?: number; vendor_name?: string }
-  ) {
+  const refreshCart = useCallback(async () => {
+    setLoading(true)
     try {
-      // Optionally verify with API
-      const response = await fetch('/api/cart/add', {
+      const res = await fetch(`/api/cart?vertical=${vertical}`)
+      if (res.ok) {
+        const data = await res.json()
+        setItems(data.items || [])
+        setSummary(data.summary || { total_items: 0, total_cents: 0, vendor_count: 0 })
+      } else if (res.status === 401) {
+        // User not logged in - clear cart
+        setItems([])
+        setSummary({ total_items: 0, total_cents: 0, vendor_count: 0 })
+      }
+    } catch (error) {
+      console.error('Error fetching cart:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [vertical])
+
+  // Fetch cart on mount and vertical change
+  useEffect(() => {
+    refreshCart()
+  }, [refreshCart])
+
+  const addToCart = async (listingId: string, quantity: number = 1) => {
+    try {
+      const res = await fetch('/api/cart/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId, quantity }),
+        body: JSON.stringify({ vertical, listingId, quantity })
       })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to add to cart')
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to add item to cart')
       }
 
-      const data = await response.json()
+      await refreshCart()
+      setIsOpen(true) // Open cart drawer after adding
+    } catch (error) {
+      console.error('Error adding to cart:', error)
+      throw error
+    }
+  }
 
-      setItems(prev => {
-        const existing = prev.find(item => item.listingId === listingId)
-        if (existing) {
-          return prev.map(item =>
-            item.listingId === listingId
-              ? { ...item, quantity: item.quantity + quantity }
-              : item
-          )
-        }
-        return [...prev, {
-          listingId,
-          quantity,
-          title: listingInfo?.title || data.listing?.title,
-          price_cents: listingInfo?.price_cents || data.listing?.price_cents,
-          vendor_name: listingInfo?.vendor_name || data.listing?.vendor_name,
-        }]
+  const removeFromCart = async (cartItemId: string) => {
+    try {
+      const res = await fetch(`/api/cart/items/${cartItemId}`, {
+        method: 'DELETE'
       })
 
-      // Open cart drawer after adding
-      setIsOpen(true)
-    } catch (err) {
-      throw err
+      if (!res.ok) {
+        throw new Error('Failed to remove item from cart')
+      }
+
+      await refreshCart()
+    } catch (error) {
+      console.error('Error removing from cart:', error)
+      throw error
     }
   }
 
-  function removeFromCart(listingId: string) {
-    setItems(prev => prev.filter(item => item.listingId !== listingId))
-  }
-
-  function updateQuantity(listingId: string, quantity: number) {
+  const updateQuantity = async (cartItemId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(listingId)
+      await removeFromCart(cartItemId)
       return
     }
-    setItems(prev =>
-      prev.map(item =>
-        item.listingId === listingId ? { ...item, quantity } : item
-      )
-    )
+
+    try {
+      const res = await fetch(`/api/cart/items/${cartItemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity })
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to update quantity')
+      }
+
+      await refreshCart()
+    } catch (error) {
+      console.error('Error updating quantity:', error)
+      throw error
+    }
   }
 
-  function clearCart() {
+  const clearCart = () => {
     setItems([])
+    setSummary({ total_items: 0, total_cents: 0, vendor_count: 0 })
   }
 
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
+  const itemCount = summary.total_items
 
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-        itemCount,
-        isOpen,
-        setIsOpen,
-      }}
-    >
+    <CartContext.Provider value={{
+      items,
+      summary,
+      loading,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      refreshCart,
+      itemCount,
+      isOpen,
+      setIsOpen
+    }}>
       {children}
     </CartContext.Provider>
   )

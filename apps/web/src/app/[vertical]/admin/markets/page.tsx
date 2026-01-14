@@ -1,0 +1,503 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+
+type Market = {
+  id: string
+  name: string
+  market_type: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  day_of_week?: number
+  start_time?: string
+  end_time?: string
+  status: string
+}
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+export default function AdminMarketsPage() {
+  const params = useParams()
+  const router = useRouter()
+  const vertical = params.vertical as string
+
+  const [markets, setMarkets] = useState<Market[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editingMarket, setEditingMarket] = useState<Market | null>(null)
+  const [formData, setFormData] = useState({
+    name: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    day_of_week: 6, // Saturday default
+    start_time: '08:00',
+    end_time: '13:00',
+    status: 'active'
+  })
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    fetchMarkets()
+  }, [vertical])
+
+  const fetchMarkets = async () => {
+    try {
+      const res = await fetch(`/api/admin/markets?vertical=${vertical}`)
+      if (res.ok) {
+        const data = await res.json()
+        setMarkets(data.markets || [])
+      }
+    } catch (error) {
+      console.error('Error fetching markets:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      if (editingMarket) {
+        // Update
+        const res = await fetch(`/api/admin/markets/${editingMarket.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vertical, ...formData })
+        })
+
+        if (res.ok) {
+          await fetchMarkets()
+          resetForm()
+        } else {
+          const error = await res.json()
+          alert(error.error || 'Failed to update market')
+        }
+      } else {
+        // Create
+        const res = await fetch(`/api/admin/markets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vertical, ...formData })
+        })
+
+        if (res.ok) {
+          await fetchMarkets()
+          resetForm()
+        } else {
+          const error = await res.json()
+          alert(error.error || 'Failed to create market')
+        }
+      }
+    } catch (error) {
+      console.error('Error saving market:', error)
+      alert('Failed to save market')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleEdit = (market: Market) => {
+    setEditingMarket(market)
+    setFormData({
+      name: market.name,
+      address: market.address,
+      city: market.city,
+      state: market.state,
+      zip: market.zip,
+      day_of_week: market.day_of_week ?? 6,
+      start_time: market.start_time || '08:00',
+      end_time: market.end_time || '13:00',
+      status: market.status
+    })
+    setShowForm(true)
+  }
+
+  const handleDelete = async (marketId: string, marketName: string) => {
+    if (!confirm(`Delete market "${marketName}"? This will affect all vendor listings at this market.`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/admin/markets/${marketId}`, {
+        method: 'DELETE'
+      })
+
+      if (res.ok) {
+        await fetchMarkets()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Failed to delete market')
+      }
+    } catch (error) {
+      console.error('Error deleting market:', error)
+      alert('Failed to delete market')
+    }
+  }
+
+  const resetForm = () => {
+    setShowForm(false)
+    setEditingMarket(null)
+    setFormData({
+      name: '',
+      address: '',
+      city: '',
+      state: '',
+      zip: '',
+      day_of_week: 6,
+      start_time: '08:00',
+      end_time: '13:00',
+      status: 'active'
+    })
+  }
+
+  if (loading) {
+    return <div style={{ padding: '24px' }}>Loading markets...</div>
+  }
+
+  const fixedMarkets = markets.filter(m => m.market_type === 'fixed')
+
+  return (
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: 12 }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Market Management</h1>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => router.push(`/${vertical}/admin`)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#f3f4f6',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            Back to Admin
+          </button>
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#2563eb',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              Create Fixed Market
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showForm && (
+        <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', marginTop: 0 }}>
+            {editingMarket ? 'Edit Market' : 'Create New Fixed Market'}
+          </h2>
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                Market Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  boxSizing: 'border-box'
+                }}
+                placeholder="e.g., Downtown Farmers Market"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                Address *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                  City *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                  State *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                  maxLength={2}
+                  placeholder="TX"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                  ZIP *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.zip}
+                  onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                  Day of Week *
+                </label>
+                <select
+                  required
+                  value={formData.day_of_week}
+                  onChange={(e) => setFormData({ ...formData, day_of_week: parseInt(e.target.value) })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {DAYS.map((day, index) => (
+                    <option key={index} value={index}>{day}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                  Start Time *
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={formData.start_time}
+                  onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                  End Time *
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={formData.end_time}
+                  onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                Status *
+              </label>
+              <select
+                required
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#2563eb',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  opacity: submitting ? 0.5 : 1
+                }}
+              >
+                {submitting ? 'Saving...' : (editingMarket ? 'Update Market' : 'Create Market')}
+              </button>
+              <button
+                type="button"
+                onClick={resetForm}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#f3f4f6',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', marginTop: 0 }}>
+          Fixed Markets ({fixedMarkets.length})
+        </h2>
+
+        {fixedMarkets.length === 0 ? (
+          <p style={{ color: '#6b7280', fontStyle: 'italic' }}>
+            No fixed markets created yet. Create one above.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {fixedMarkets.map(market => (
+              <div
+                key={market.id}
+                style={{
+                  padding: '16px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', marginTop: 0 }}>
+                      {market.name}
+                    </h3>
+                    <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '4px', marginTop: 0 }}>
+                      {market.address}, {market.city}, {market.state} {market.zip}
+                    </p>
+                    {market.day_of_week !== null && market.day_of_week !== undefined && (
+                      <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
+                        {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
+                      </p>
+                    )}
+                    <p style={{
+                      fontSize: '12px',
+                      marginTop: '8px',
+                      marginBottom: 0,
+                      color: market.status === 'active' ? '#059669' : '#6b7280',
+                      fontWeight: '500'
+                    }}>
+                      Status: {market.status}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleEdit(market)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#3b82f6',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(market.id, market.name)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#dc2626',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
