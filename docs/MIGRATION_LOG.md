@@ -21,7 +21,7 @@
 **Staging project:** vfknvsxfgcwqmlkuzhnq (InPersonMarketplace-Staging)
 
 **Process:** Always apply to Dev first, test, then apply to Staging
-**Last Updated:** 2026-01-13
+**Last Updated:** 2026-01-14
 
 ---
 
@@ -29,7 +29,8 @@
 
 | Migration File | Phase | Dev Status | Dev Date | Staging Status | Staging Date | Breaking | Dependencies | Notes |
 |----------------|-------|------------|----------|----------------|--------------|----------|--------------|-------|
-| [CC will add migrations here] | - | - | - | - | - | - | - | - |
+| 20260114_001_phase_k1_markets_tables.sql | Phase-K-1 | ❌ | - | ❌ | - | No | None | Markets, schedules, vendors tables |
+| 20260114_002_phase_k1_listings_market_link.sql | Phase-K-1 | ❌ | - | ❌ | - | No | First migration | Add market_id to listings |
 
 ---
 
@@ -37,7 +38,8 @@
 
 | Migration File | Phase | Target Environments | Priority | Blocker | Purpose |
 |----------------|-------|---------------------|----------|---------|---------|
-| [CC will add pending migrations here] | - | - | - | - | - |
+| 20260114_001_phase_k1_markets_tables.sql | Phase-K-1 | Dev, Staging | High | None | Create markets foundation tables |
+| 20260114_002_phase_k1_listings_market_link.sql | Phase-K-1 | Dev, Staging | High | First migration | Link listings to markets |
 
 ---
 
@@ -51,7 +53,46 @@
 
 ## Migration Details
 
-[CC will add detailed entries for each migration here]
+### 20260114_001_phase_k1_markets_tables.sql
+**Phase:** Phase-K-1-Markets-Foundation
+**Purpose:** Create foundation tables for markets functionality
+**File:** `/supabase/migrations/20260114_001_phase_k1_markets_tables.sql`
+
+**Changes:**
+- `markets`: Created - Main markets table with type (traditional/private_pickup), location, contact info
+- `market_schedules`: Created - Operating hours for traditional markets (day_of_week, start/end times)
+- `market_vendors`: Created - Junction table for vendor-market associations with approval workflow
+- Indexes: 9 indexes for performance on common queries
+- RLS Policies: Public view active markets, vendors apply to markets, admins manage all
+
+**Impact:**
+- Breaking: No
+- Data migration: No
+- App changes: No - new tables only
+
+**Rollback Safety:** Safe - DROP TABLE for all three tables
+
+**Notes:** None
+
+---
+
+### 20260114_002_phase_k1_listings_market_link.sql
+**Phase:** Phase-K-1-Markets-Foundation
+**Purpose:** Add optional market association to listings for future pre-sales feature
+**File:** `/supabase/migrations/20260114_002_phase_k1_listings_market_link.sql`
+
+**Changes:**
+- `listings`: ALTER - Add market_id column (nullable UUID, FK to markets)
+- Index: idx_listings_market for market-based queries
+
+**Impact:**
+- Breaking: No - nullable column
+- Data migration: No
+- App changes: No - optional field
+
+**Rollback Safety:** Safe - ALTER TABLE DROP COLUMN
+
+**Notes:** Pre-sales feature will use this in Phase-K-3
 
 ---
 
