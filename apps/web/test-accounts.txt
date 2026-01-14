@@ -1,0 +1,218 @@
+# Test Accounts
+# Generated: 2026-01-14T00:09:17.637Z
+# Password for all accounts: TestPassword123!
+
+================================================================================
+VENDOR ACCOUNTS (can create listings, receive orders)
+================================================================================
+
+Email:    amy.wilson7@test.com
+Password: TestPassword123!
+Name:     Amy Wilson
+Type:     VENDOR
+Vertical: farmers_market
+Business: Premium Miller Garden
+Status:   submitted
+----------------------------------------
+Email:    chris.jones2@test.com
+Password: TestPassword123!
+Name:     Chris Jones
+Type:     VENDOR
+Vertical: fireworks
+Business: Organic Wilson Pyro
+Status:   draft
+----------------------------------------
+Email:    david.brown3@test.com
+Password: TestPassword123!
+Name:     David Brown
+Type:     VENDOR
+Vertical: farmers_market
+Business: Family Williams Stand
+Status:   draft
+----------------------------------------
+Email:    emily.taylor1@test.com
+Password: TestPassword123!
+Name:     Emily Taylor
+Type:     VENDOR
+Vertical: farmers_market
+Business: Local Wilson Orchard
+Status:   draft
+----------------------------------------
+Email:    john.jones0@test.com
+Password: TestPassword123!
+Name:     John Jones
+Type:     VENDOR
+Vertical: fireworks
+Business: Organic Jones Fireworks
+Status:   submitted
+----------------------------------------
+Email:    lisa.williams5@test.com
+Password: TestPassword123!
+Name:     Lisa Williams
+Type:     VENDOR
+Vertical: farmers_market
+Business: Premium Miller Market
+Status:   approved
+----------------------------------------
+Email:    mike.davis9@test.com
+Password: TestPassword123!
+Name:     Mike Davis
+Type:     VENDOR
+Vertical: farmers_market
+Business: Hometown Williams Ranch
+Status:   draft
+----------------------------------------
+Email:    mike.johnson6@test.com
+Password: TestPassword123!
+Name:     Mike Johnson
+Type:     VENDOR
+Vertical: fireworks
+Business: Organic Davis Fireworks
+Status:   submitted
+----------------------------------------
+Email:    mike.wilson8@test.com
+Password: TestPassword123!
+Name:     Mike Wilson
+Type:     VENDOR
+Vertical: fireworks
+Business: Fresh Moore Pyro
+Status:   approved
+----------------------------------------
+Email:    sarah.williams4@test.com
+Password: TestPassword123!
+Name:     Sarah Williams
+Type:     VENDOR
+Vertical: fireworks
+Business: Premium Williams Pyro
+Status:   approved
+----------------------------------------
+
+================================================================================
+BUYER ACCOUNTS (can browse, add to cart, place orders)
+================================================================================
+
+Email:    amy.jones16@test.com
+Password: TestPassword123!
+Name:     Amy Jones
+Type:     BUYER
+----------------------------------------
+Email:    amy.miller13@test.com
+Password: TestPassword123!
+Name:     Amy Miller
+Type:     BUYER
+----------------------------------------
+Email:    amy.taylor30@test.com
+Password: TestPassword123!
+Name:     Amy Taylor
+Type:     BUYER
+----------------------------------------
+Email:    chris.jones12@test.com
+Password: TestPassword123!
+Name:     Chris Jones
+Type:     BUYER
+----------------------------------------
+Email:    chris.moore10@test.com
+Password: TestPassword123!
+Name:     Chris Moore
+Type:     BUYER
+----------------------------------------
+Email:    chris.moore31@test.com
+Password: TestPassword123!
+Name:     Chris Moore
+Type:     BUYER
+----------------------------------------
+Email:    chris.williams22@test.com
+Password: TestPassword123!
+Name:     Chris Williams
+Type:     BUYER
+----------------------------------------
+Email:    david.johnson27@test.com
+Password: TestPassword123!
+Name:     David Johnson
+Type:     BUYER
+----------------------------------------
+Email:    david.jones17@test.com
+Password: TestPassword123!
+Name:     David Jones
+Type:     BUYER
+----------------------------------------
+Email:    david.smith28@test.com
+Password: TestPassword123!
+Name:     David Smith
+Type:     BUYER
+----------------------------------------
+Email:    emily.davis14@test.com
+Password: TestPassword123!
+Name:     Emily Davis
+Type:     BUYER
+----------------------------------------
+Email:    emily.johnson29@test.com
+Password: TestPassword123!
+Name:     Emily Johnson
+Type:     BUYER
+----------------------------------------
+Email:    emily.smith26@test.com
+Password: TestPassword123!
+Name:     Emily Smith
+Type:     BUYER
+----------------------------------------
+Email:    jane.jones19@test.com
+Password: TestPassword123!
+Name:     Jane Jones
+Type:     BUYER
+----------------------------------------
+Email:    jane.miller21@test.com
+Password: TestPassword123!
+Name:     Jane Miller
+Type:     BUYER
+----------------------------------------
+Email:    john.davis18@test.com
+Password: TestPassword123!
+Name:     John Davis
+Type:     BUYER
+----------------------------------------
+Email:    john.jones11@test.com
+Password: TestPassword123!
+Name:     John Jones
+Type:     BUYER
+----------------------------------------
+Email:    john.wilson32@test.com
+Password: TestPassword123!
+Name:     John Wilson
+Type:     BUYER
+----------------------------------------
+Email:    lisa.smith23@test.com
+Password: TestPassword123!
+Name:     Lisa Smith
+Type:     BUYER
+----------------------------------------
+Email:    mike.davis15@test.com
+Password: TestPassword123!
+Name:     Mike Davis
+Type:     BUYER
+----------------------------------------
+Email:    mike.taylor25@test.com
+Password: TestPassword123!
+Name:     Mike Taylor
+Type:     BUYER
+----------------------------------------
+Email:    mike.williams24@test.com
+Password: TestPassword123!
+Name:     Mike Williams
+Type:     BUYER
+----------------------------------------
+Email:    sarah.smith20@test.com
+Password: TestPassword123!
+Name:     Sarah Smith
+Type:     BUYER
+----------------------------------------
+
+================================================================================
+SUMMARY
+================================================================================
+Total Accounts: 33
+Vendor Accounts: 10
+Buyer-Only Accounts: 23
+
+Fireworks Vendors: 5
+Farmers Market Vendors: 5
