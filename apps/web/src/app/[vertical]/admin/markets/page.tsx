@@ -161,7 +161,7 @@ export default function AdminMarketsPage() {
     return <div style={{ padding: '24px' }}>Loading markets...</div>
   }
 
-  const fixedMarkets = markets.filter(m => m.market_type === 'fixed')
+  const fixedMarkets = markets.filter(m => m.market_type === 'traditional')
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>

@@ -134,7 +134,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Market vendor not found' }, { status: 404 })
   }
 
-  const isOwnApplication = (marketVendor.vendor_profiles as { user_id: string } | null)?.user_id === userProfile?.id
+  const isOwnApplication = (marketVendor.vendor_profiles as { user_id: string }[] | null)?.[0]?.user_id === userProfile?.id
 
   // Only allow if admin or own application
   if (!isAdmin && !isOwnApplication) {

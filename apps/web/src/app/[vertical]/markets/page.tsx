@@ -21,11 +21,11 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
       market_vendors(count)
     `)
     .eq('vertical_id', vertical)
-    .eq('active', true)
+    .eq('status' , 'active')
     .order('name', { ascending: true })
 
   if (type) {
-    query = query.eq('type', type)
+    query = query.eq('market_type', type)
   }
 
   if (city) {
@@ -47,7 +47,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     .from('markets')
     .select('city')
     .eq('vertical_id', vertical)
-    .eq('active', true)
+    .eq('status' , 'active')
     .not('city', 'is', null)
 
   const cities = [...new Set(allMarkets?.map(m => m.city).filter(Boolean))] as string[]

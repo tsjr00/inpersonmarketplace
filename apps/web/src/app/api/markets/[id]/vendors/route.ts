@@ -55,20 +55,23 @@ export async function GET(
       profile_data: Record<string, unknown>
       status: string
       vertical_id: string
-    } | null
-  }) => ({
-    id: mv.id,
-    vendor_profile_id: mv.vendor_profile_id,
-    approved: mv.approved,
-    booth_number: mv.booth_number,
-    notes: mv.notes,
-    created_at: mv.created_at,
-    business_name: mv.vendor_profiles?.profile_data?.business_name ||
-                   mv.vendor_profiles?.profile_data?.farm_name ||
-                   'Unknown',
-    vendor_status: mv.vendor_profiles?.status,
-    vertical_id: mv.vendor_profiles?.vertical_id,
-  }))
+    }[]
+  }) => {
+    const vp = mv.vendor_profiles?.[0]
+    return {
+      id: mv.id,
+      vendor_profile_id: mv.vendor_profile_id,
+      approved: mv.approved,
+      booth_number: mv.booth_number,
+      notes: mv.notes,
+      created_at: mv.created_at,
+      business_name: vp?.profile_data?.business_name ||
+                     vp?.profile_data?.farm_name ||
+                     'Unknown',
+      vendor_status: vp?.status,
+      vertical_id: vp?.vertical_id,
+    }
+  })
 
   return NextResponse.json({ vendors })
 }
