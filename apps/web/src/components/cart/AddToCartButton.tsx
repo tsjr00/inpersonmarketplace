@@ -2,19 +2,23 @@
 
 import { useState } from 'react'
 import { useCart } from '@/lib/hooks/useCart'
+import { useToast } from '@/lib/hooks/useToast'
 
 interface AddToCartButtonProps {
   listingId: string
   maxQuantity?: number | null
   primaryColor?: string
+  vertical?: string
 }
 
 export function AddToCartButton({
   listingId,
   maxQuantity,
-  primaryColor = '#333'
+  primaryColor = '#333',
+  vertical = 'farmers_market'
 }: AddToCartButtonProps) {
   const { addToCart, items } = useCart()
+  const { showToast, ToastContainer } = useToast()
   const [quantity, setQuantity] = useState(1)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +31,7 @@ export function AddToCartButton({
 
   async function handleAddToCart() {
     if (availableToAdd <= 0) {
-      setError('Maximum quantity reached')
+      showToast('Maximum quantity reached', 'warning')
       return
     }
 
@@ -36,9 +40,23 @@ export function AddToCartButton({
 
     try {
       await addToCart(listingId, quantity)
+      showToast('Added to cart!', 'success')
       setQuantity(1) // Reset quantity after adding
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to add to cart')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add to cart'
+
+      // Check for unauthorized error
+      if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.includes('401')) {
+        showToast('Please log in to add items to your cart', 'info')
+        // Redirect after brief delay
+        setTimeout(() => {
+          const currentPath = window.location.pathname
+          window.location.href = `/${vertical}/login?redirect=${encodeURIComponent(currentPath)}`
+        }, 2000)
+      } else {
+        showToast(errorMessage, 'error')
+        setError(errorMessage)
+      }
     } finally {
       setAdding(false)
     }
@@ -49,6 +67,7 @@ export function AddToCartButton({
 
   return (
     <div>
+      <ToastContainer />
       {/* Quantity Selector */}
       {!isSoldOut && availableToAdd > 0 && (
         <div style={{

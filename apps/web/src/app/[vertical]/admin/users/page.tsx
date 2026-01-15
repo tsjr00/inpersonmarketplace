@@ -95,6 +95,17 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
 
   const typedUsers = users as unknown as UserProfile[] | null
 
+  // Filter to only users in this vertical
+  // Include all buyers (no vendor profile) and vendors who have a profile in this vertical
+  const verticalUsers = typedUsers?.filter(user => {
+    // If user has no vendor profiles, they're a buyer - include them
+    if (!user.vendor_profiles || user.vendor_profiles.length === 0) {
+      return true
+    }
+    // If user has vendor profiles, only include if they have one in this vertical
+    return user.vendor_profiles.some(vp => vp.vertical_id === vertical)
+  }) || []
+
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 20px' }}>
       <AdminNav type="vertical" vertical={vertical} />
@@ -110,7 +121,7 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
             Users
           </h1>
           <p style={{ color: '#666', margin: 0 }}>
-            {typedUsers?.length || 0} total users
+            {verticalUsers.length} users in this vertical
           </p>
         </div>
         <Link
@@ -129,7 +140,7 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
       </div>
 
       {/* Users Table */}
-      {typedUsers && typedUsers.length > 0 ? (
+      {verticalUsers.length > 0 ? (
         <div style={{
           backgroundColor: 'white',
           borderRadius: 8,
@@ -154,7 +165,7 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
               </tr>
             </thead>
             <tbody>
-              {typedUsers.map((user) => (
+              {verticalUsers.map((user) => (
                 <tr key={user.id} style={{ borderBottom: '1px solid #e9ecef' }}>
                   {/* Name */}
                   <td style={{ padding: 12 }}>

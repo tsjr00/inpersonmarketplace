@@ -63,6 +63,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Business</th>
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Vertical</th>
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Status</th>
+                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Tier</th>
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Created</th>
                 <th style={{ textAlign: 'right', padding: 15, color: '#666' }}>Action</th>
               </tr>
@@ -75,6 +76,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                 const vendorStatus = vendor.status as string
                 const verticalId = vendor.vertical_id as string
                 const createdAt = vendor.created_at as string
+                const tier = (vendor.tier as string) || 'standard'
 
                 return (
                   <tr key={vendorId} style={{ borderBottom: '1px solid #eee' }}>
@@ -108,6 +110,22 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                           vendorStatus === 'rejected' ? '#721c24' : '#383d41'
                       }}>
                         {vendorStatus}
+                      </span>
+                    </td>
+                    <td style={{ padding: 15 }}>
+                      <span style={{
+                        padding: '4px 8px',
+                        borderRadius: 4,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        backgroundColor:
+                          tier === 'premium' ? '#dbeafe' :
+                          tier === 'featured' ? '#fef3c7' : '#f3f4f6',
+                        color:
+                          tier === 'premium' ? '#1e40af' :
+                          tier === 'featured' ? '#92400e' : '#6b7280'
+                      }}>
+                        {tier}
                       </span>
                     </td>
                     <td style={{ padding: 15, color: '#666', fontSize: 14 }}>
