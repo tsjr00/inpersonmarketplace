@@ -27,6 +27,8 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<{ id: string; email: string } | null>(null)
+  const [marketWarnings, setMarketWarnings] = useState<string[]>([])
+  const [marketValid, setMarketValid] = useState(true)
 
   // Check auth and validate cart items
   useEffect(() => {
@@ -91,6 +93,28 @@ export default function CheckoutPage() {
     validateCart()
   }, [items])
 
+  // Validate market compatibility
+  useEffect(() => {
+    async function validateMarkets() {
+      if (!user) return
+
+      try {
+        const res = await fetch('/api/cart/validate')
+        if (res.ok) {
+          const data = await res.json()
+          setMarketWarnings(data.warnings || [])
+          setMarketValid(data.valid !== false && (!data.warnings || data.warnings.length === 0))
+        }
+      } catch (err) {
+        console.error('Market validation error:', err)
+      }
+    }
+
+    if (user && items.length > 0) {
+      validateMarkets()
+    }
+  }, [user, items])
+
   async function handleCheckout() {
     if (!user) {
       // Redirect to login with return URL
@@ -102,7 +126,7 @@ export default function CheckoutPage() {
     setError(null)
 
     try {
-      const response = await fetch('/api/checkout', {
+      const response = await fetch('/api/checkout/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -268,6 +292,25 @@ export default function CheckoutPage() {
                 marginBottom: 16,
               }}>
                 {error}
+              </div>
+            )}
+
+            {marketWarnings.length > 0 && (
+              <div style={{
+                padding: 16,
+                backgroundColor: '#fef3c7',
+                border: '2px solid #f59e0b',
+                borderRadius: 8,
+                marginBottom: 16,
+              }}>
+                <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#92400e' }}>
+                  Market Compatibility Issues:
+                </p>
+                <ul style={{ margin: 0, paddingLeft: 20, color: '#92400e' }}>
+                  {marketWarnings.map((warning, idx) => (
+                    <li key={idx}>{warning}</li>
+                  ))}
+                </ul>
               </div>
             )}
 
@@ -464,7 +507,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={processing || hasUnavailableItems}
+                disabled={processing || hasUnavailableItems || !marketValid}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -473,15 +516,15 @@ export default function CheckoutPage() {
                   padding: '14px 20px',
                   fontSize: 16,
                   fontWeight: 600,
-                  backgroundColor: processing || hasUnavailableItems ? '#ccc' : '#333',
+                  backgroundColor: processing || hasUnavailableItems || !marketValid ? '#ccc' : '#333',
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
-                  cursor: processing || hasUnavailableItems ? 'not-allowed' : 'pointer',
+                  cursor: processing || hasUnavailableItems || !marketValid ? 'not-allowed' : 'pointer',
                   minHeight: 48,
                 }}
               >
-                {processing ? 'Processing...' : user ? 'Pay Now' : 'Sign In to Checkout'}
+                {processing ? 'Processing...' : !marketValid ? 'Fix Market Issues' : user ? 'Pay Now' : 'Sign In to Checkout'}
               </button>
 
               <p style={{

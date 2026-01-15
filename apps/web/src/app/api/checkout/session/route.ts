@@ -29,15 +29,61 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Fetch listings with vendor info
+    // Fetch listings with vendor and market info
     const listingIds = items.map((i) => i.listingId)
     const { data: listings } = await supabase
       .from('listings')
-      .select('id, title, description, price_cents, vertical_id, vendor_profile_id')
+      .select(`
+        id, title, description, price_cents, vertical_id, vendor_profile_id,
+        listing_markets (
+          market_id,
+          markets (
+            id,
+            name,
+            market_type
+          )
+        )
+      `)
       .in('id', listingIds)
 
     if (!listings || listings.length !== items.length) {
       return NextResponse.json({ error: 'Invalid items' }, { status: 400 })
+    }
+
+    // Validate market compatibility
+    const marketTypes = new Set<string>()
+    const marketIds = new Set<string>()
+
+    for (const listing of listings) {
+      const listingMarkets = listing.listing_markets as unknown as Array<{
+        market_id: string
+        markets: { id: string; name: string; market_type: string }
+      }> | null
+
+      if (!listingMarkets || listingMarkets.length === 0) {
+        return NextResponse.json({
+          error: `"${listing.title}" is not available at any markets`
+        }, { status: 400 })
+      }
+
+      const market = listingMarkets[0].markets
+      marketTypes.add(market.market_type)
+      marketIds.add(market.id)
+    }
+
+    // Check for mixed market types
+    if (marketTypes.size > 1) {
+      return NextResponse.json({
+        error: 'Cannot checkout with items from both traditional markets and private pickup'
+      }, { status: 400 })
+    }
+
+    // Check traditional markets use same market
+    const marketType = Array.from(marketTypes)[0]
+    if (marketType === 'traditional' && marketIds.size > 1) {
+      return NextResponse.json({
+        error: 'All traditional market items must be from the same market'
+      }, { status: 400 })
     }
 
     // Calculate totals
