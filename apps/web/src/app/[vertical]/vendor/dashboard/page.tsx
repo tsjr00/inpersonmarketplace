@@ -377,7 +377,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
           {/* Orders */}
           <Link
-            href={`/${vertical}/vendor/dashboard/orders`}
+            href={`/${vertical}/vendor/orders`}
             style={{ textDecoration: 'none' }}
           >
             <div style={{
