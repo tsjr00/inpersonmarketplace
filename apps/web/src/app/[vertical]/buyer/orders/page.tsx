@@ -9,15 +9,21 @@ interface Order {
   id: string
   order_number: string
   status: string
-  total_amount_cents: number
+  total_cents: number
   created_at: string
   items: Array<{
     id: string
     listing_title: string
+    listing_image: string | null
     vendor_name: string
     quantity: number
     subtotal_cents: number
     status: string
+    market: {
+      id: string
+      name: string
+      type: string
+    }
   }>
 }
 
@@ -29,14 +35,17 @@ export default function BuyerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string>('')
 
   useEffect(() => {
     fetchOrders()
-  }, [])
+  }, [statusFilter])
 
   async function fetchOrders() {
     try {
-      const response = await fetch('/api/buyer/orders')
+      const queryParams = new URLSearchParams()
+      if (statusFilter) queryParams.set('status', statusFilter)
+      const response = await fetch(`/api/buyer/orders?${queryParams.toString()}`)
       if (!response.ok) {
         if (response.status === 401) {
           router.push(`/${vertical}/login?redirect=/${vertical}/buyer/orders`)
@@ -112,6 +121,30 @@ export default function BuyerOrdersPage() {
         <p style={{ color: '#666', margin: 0 }}>
           View and track your purchases
         </p>
+
+        {/* Status Filter */}
+        <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <label style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
+            Filter:
+          </label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: 6,
+              fontSize: 14,
+              backgroundColor: 'white'
+            }}
+          >
+            <option value="">All Orders</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="ready">Ready for Pickup</option>
+            <option value="fulfilled">Fulfilled</option>
+          </select>
+        </div>
       </div>
 
       {error && (
@@ -169,11 +202,20 @@ export default function BuyerOrdersPage() {
               return (
                 <div
                   key={order.id}
+                  onClick={() => router.push(`/${vertical}/buyer/orders/${order.id}`)}
                   style={{
                     backgroundColor: 'white',
                     borderRadius: 8,
                     border: '1px solid #ddd',
                     overflow: 'hidden',
+                    cursor: 'pointer',
+                    transition: 'box-shadow 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = 'none'
                   }}
                 >
                   {/* Order Header */}
@@ -209,7 +251,7 @@ export default function BuyerOrdersPage() {
                         {config.label}
                       </span>
                       <span style={{ fontSize: 18, fontWeight: 'bold' }}>
-                        {formatPrice(order.total_amount_cents)}
+                        {formatPrice(order.total_cents)}
                       </span>
                     </div>
                   </div>
