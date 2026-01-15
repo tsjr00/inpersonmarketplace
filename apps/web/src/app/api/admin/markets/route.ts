@@ -55,7 +55,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ markets: markets || [] })
 }
 
-// POST - Create fixed market (admin only)
+// POST - Create traditional market (admin only)
 export async function POST(request: Request) {
   const supabase = await createClient()
 
@@ -93,14 +93,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Vertical not found' }, { status: 404 })
   }
 
-  // Create fixed market (vendor_profile_id is NULL for fixed markets)
+  // Create traditional market (vendor_profile_id is NULL for traditional markets)
   const { data: market, error: createError } = await supabase
     .from('markets')
     .insert({
       vertical_id: verticalData.id,
-      vendor_profile_id: null, // Fixed markets have no owner
+      vendor_profile_id: null, // Traditional markets have no owner
       name,
-      market_type: 'fixed',
+      market_type: 'traditional',
       address,
       city,
       state,

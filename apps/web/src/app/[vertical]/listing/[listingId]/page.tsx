@@ -227,7 +227,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                         <div style={{ color: '#6b7280', fontSize: 13 }}>
                           {market.address}, {market.city}, {market.state}
                         </div>
-                        {market.market_type === 'fixed' && market.day_of_week !== null && (
+                        {market.market_type === 'traditional' && market.day_of_week !== null && (
                           <div style={{ color: '#6b7280', fontSize: 12 }}>
                             {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][market.day_of_week]}
                             {market.start_time && market.end_time && ` ${market.start_time} - ${market.end_time}`}

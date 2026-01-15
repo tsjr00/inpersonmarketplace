@@ -45,9 +45,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
     }
 
-    // Filter markets: show fixed markets + vendor's own private pickup markets
+    // Filter markets: show traditional markets + vendor's own private pickup markets
     const relevantMarkets = (allMarkets || []).filter(m =>
-      m.market_type === 'fixed' || m.vendor_profile_id === vendorProfile.id
+      m.market_type === 'traditional' || m.vendor_profile_id === vendorProfile.id
     )
 
     // Get listing counts per market for this vendor

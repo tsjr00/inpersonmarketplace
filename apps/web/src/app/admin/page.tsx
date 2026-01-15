@@ -78,6 +78,28 @@ export default async function AdminDashboardPage() {
         </div>
       )}
 
+      {/* Navigation back to Vertical Admin */}
+      <div style={{ marginBottom: 16 }}>
+        <Link
+          href="/farmers_market/admin"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 16px',
+            backgroundColor: '#f3f4f6',
+            border: '1px solid #d1d5db',
+            borderRadius: 6,
+            textDecoration: 'none',
+            color: '#374151',
+            fontSize: 14,
+            fontWeight: 500
+          }}
+        >
+          ← Back to Farmers Market Admin
+        </Link>
+      </div>
+
       <h1 style={{ marginBottom: 30, color: '#333' }}>Admin Dashboard</h1>
 
       {/* Stats Grid */}

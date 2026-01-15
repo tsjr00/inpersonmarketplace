@@ -50,7 +50,7 @@ export async function PUT(
       status
     })
     .eq('id', marketId)
-    .eq('market_type', 'fixed') // Only allow updating fixed markets
+    .eq('market_type', 'traditional') // Only allow updating traditional markets
     .select()
     .single()
 
@@ -103,7 +103,7 @@ export async function DELETE(
     .from('markets')
     .delete()
     .eq('id', marketId)
-    .eq('market_type', 'fixed') // Only allow deleting fixed markets
+    .eq('market_type', 'traditional') // Only allow deleting traditional markets
 
   if (deleteError) {
     console.error('Error deleting market:', deleteError)

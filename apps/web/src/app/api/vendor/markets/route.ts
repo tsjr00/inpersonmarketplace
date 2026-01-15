@@ -48,8 +48,8 @@ export async function GET(request: Request) {
       m.market_type === 'private_pickup' && m.vendor_profile_id === vendorProfile.id
     )
 
-    // Get fixed markets
-    const fixedMarkets = (allMarkets || []).filter(m => m.market_type === 'fixed')
+    // Get traditional markets
+    const fixedMarkets = (allMarkets || []).filter(m => m.market_type === 'traditional')
 
     // Calculate limits based on tier
     const tier = vendorProfile.tier || 'standard'

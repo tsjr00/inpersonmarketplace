@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import VendorManagement from './VendorManagement'
+import AdminNav from '@/components/admin/AdminNav'
 
 interface AdminDashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -99,6 +100,9 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
         </Link>
       </div>
 
+      {/* Admin Navigation */}
+      <AdminNav type="vertical" vertical={vertical} />
+
       {/* Stale Vendor Warning */}
       {staleCount > 0 && (
         <div style={{
@@ -193,7 +197,27 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             Manage Markets
           </h3>
           <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
-            Create and manage fixed farmers markets
+            Create and manage traditional farmers markets
+          </p>
+        </Link>
+        <Link
+          href={`/${vertical}/admin/users`}
+          style={{
+            display: 'block',
+            padding: '24px',
+            backgroundColor: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            color: 'inherit',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+        >
+          <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', marginTop: 0, color: branding.colors.primary }}>
+            Manage Users
+          </h3>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
+            View all users and their roles
           </p>
         </Link>
       </div>

@@ -139,12 +139,12 @@ export default function MarketSelector({
     )
   }
 
-  const fixedMarkets = markets.filter(m => m.market_type === 'fixed')
+  const fixedMarkets = markets.filter(m => m.market_type === 'traditional')
   const privateMarkets = markets.filter(m => m.market_type === 'private_pickup')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Fixed Markets */}
+      {/* Traditional Markets */}
       {fixedMarkets.length > 0 && (
         <div>
           <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, marginTop: 0, color: '#374151' }}>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import AdminNav from '@/components/admin/AdminNav'
 
 interface AdminUsersPageProps {
   params: Promise<{ vertical: string }>
@@ -96,6 +97,7 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 20px' }}>
+      <AdminNav type="vertical" vertical={vertical} />
       {/* Header */}
       <div style={{
         display: 'flex',

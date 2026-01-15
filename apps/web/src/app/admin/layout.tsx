@@ -79,12 +79,36 @@ export default async function AdminLayout({
           >
             Users
           </Link>
+          <Link
+            href="/admin/markets"
+            style={{
+              padding: '12px 15px',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 6
+            }}
+          >
+            Markets
+          </Link>
 
           <div style={{
             borderTop: '1px solid rgba(255,255,255,0.2)',
             margin: '20px 0',
             paddingTop: 20
           }}>
+            <Link
+              href="/farmers_market/admin"
+              style={{
+                padding: '12px 15px',
+                color: '#22c55e',
+                textDecoration: 'none',
+                borderRadius: 6,
+                display: 'block',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)'
+              }}
+            >
+              Vertical Admin
+            </Link>
             <Link
               href="/"
               style={{

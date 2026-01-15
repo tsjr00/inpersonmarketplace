@@ -223,7 +223,7 @@ export default function VendorMarketsPage() {
           </div>
         )}
 
-        {/* Fixed Markets Section */}
+        {/* Traditional Markets Section */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: 8,
@@ -236,14 +236,14 @@ export default function VendorMarketsPage() {
               Traditional Markets
             </h2>
             <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-              Fixed schedule farmers markets.
+              Traditional schedule farmers markets.
               {limits && ` You can join ${limits.fixedMarketLimit} market${limits.fixedMarketLimit > 1 ? 's' : ''} (${limits.currentFixedMarketCount} of ${limits.fixedMarketLimit} used).`}
             </p>
           </div>
 
           {fixedMarkets.length === 0 ? (
             <p style={{ color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>
-              No fixed markets available yet. Check back soon!
+              No traditional markets available yet. Check back soon!
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

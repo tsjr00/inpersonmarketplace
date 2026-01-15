@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import AdminNav from '@/components/admin/AdminNav'
 
 type Market = {
   id: string
@@ -161,10 +162,11 @@ export default function AdminMarketsPage() {
     return <div style={{ padding: '24px' }}>Loading markets...</div>
   }
 
-  const fixedMarkets = markets.filter(m => m.market_type === 'traditional')
+  const traditionalMarkets = markets.filter(m => m.market_type === 'traditional')
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+      <AdminNav type="vertical" vertical={vertical} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Market Management</h1>
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -192,7 +194,7 @@ export default function AdminMarketsPage() {
                 cursor: 'pointer'
               }}
             >
-              Create Fixed Market
+              Create Traditional Market
             </button>
           )}
         </div>
@@ -201,7 +203,7 @@ export default function AdminMarketsPage() {
       {showForm && (
         <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '24px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', marginTop: 0 }}>
-            {editingMarket ? 'Edit Market' : 'Create New Fixed Market'}
+            {editingMarket ? 'Edit Market' : 'Create New Traditional Market'}
           </h2>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -421,16 +423,16 @@ export default function AdminMarketsPage() {
 
       <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
         <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', marginTop: 0 }}>
-          Fixed Markets ({fixedMarkets.length})
+          Traditional Markets ({traditionalMarkets.length})
         </h2>
 
-        {fixedMarkets.length === 0 ? (
+        {traditionalMarkets.length === 0 ? (
           <p style={{ color: '#6b7280', fontStyle: 'italic' }}>
-            No fixed markets created yet. Create one above.
+            No traditional markets created yet. Create one above.
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {fixedMarkets.map(market => (
+            {traditionalMarkets.map(market => (
               <div
                 key={market.id}
                 style={{
