@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
 
@@ -18,10 +18,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Get query parameters
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status')
+
     console.log('[/api/buyer/orders] Fetching orders for user:', user.id)
 
     // Get buyer's orders with items
-    const { data: orders, error } = await supabase
+    let query = supabase
       .from('orders')
       .select(`
         id,
@@ -29,25 +33,45 @@ export async function GET() {
         status,
         total_amount_cents,
         created_at,
+        updated_at,
         order_items(
           id,
           quantity,
           unit_price_cents,
           subtotal_cents,
           status,
+          market_id,
+          pickup_date,
           listing:listings(
             id,
             title,
+            image_urls,
             vendor_profile_id,
             vendor_profiles(
               id,
               profile_data
             )
+          ),
+          market:markets(
+            id,
+            name,
+            market_type,
+            address,
+            city,
+            state,
+            zip
           )
         )
       `)
       .eq('buyer_user_id', user.id)
       .order('created_at', { ascending: false })
+
+    // Apply status filter
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    const { data: orders, error } = await query
 
     if (error) {
       console.error('[/api/buyer/orders] Database error:', JSON.stringify(error, null, 2))
@@ -64,21 +88,36 @@ export async function GET() {
       id: order.id,
       order_number: order.order_number,
       status: order.status,
-      total_amount_cents: order.total_amount_cents,
+      total_cents: order.total_amount_cents,
       created_at: order.created_at,
+      updated_at: order.updated_at,
       items: (order.order_items || []).map((item: Record<string, unknown>) => {
         const listing = item.listing as Record<string, unknown> | null
         const vendorProfiles = listing?.vendor_profiles as Record<string, unknown> | null
         const profileData = vendorProfiles?.profile_data as Record<string, unknown> | null
         const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+        const market = item.market as Record<string, unknown> | null
 
         return {
           id: item.id,
+          listing_id: listing?.id,
           listing_title: (listing?.title as string) || 'Unknown Item',
+          listing_image: (listing?.image_urls as string[])?.[0] || null,
           vendor_name: vendorName,
           quantity: item.quantity,
+          unit_price_cents: item.unit_price_cents,
           subtotal_cents: item.subtotal_cents,
           status: item.status || order.status,
+          market: {
+            id: market?.id,
+            name: (market?.name as string) || 'Unknown',
+            type: (market?.market_type as string) || 'traditional',
+            address: market?.address,
+            city: market?.city,
+            state: market?.state,
+            zip: market?.zip
+          },
+          pickup_date: item.pickup_date
         }
       })
     }))
