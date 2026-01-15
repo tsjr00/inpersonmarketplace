@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import SettingsForm from './SettingsForm'
 
 interface SettingsPageProps {
   params: Promise<{ vertical: string }>
@@ -68,38 +69,34 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           Account Details
         </h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 4px 0' }}>Email</p>
-            <p style={{ margin: 0, color: '#111827' }}>{user.email}</p>
-          </div>
+        <SettingsForm
+          initialDisplayName={userProfile?.display_name || ''}
+          userEmail={user.email || ''}
+          primaryColor={branding.colors.primary}
+        />
 
-          <div>
-            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 4px 0' }}>Display Name</p>
-            <p style={{ margin: 0, color: '#111827' }}>
-              {userProfile?.display_name || 'Not set'}
-            </p>
-          </div>
+        <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 4px 0' }}>Member Since</p>
+              <p style={{ margin: 0, color: '#111827' }}>
+                {userProfile?.created_at
+                  ? new Date(userProfile.created_at).toLocaleDateString()
+                  : 'Unknown'}
+              </p>
+            </div>
 
-          <div>
-            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 4px 0' }}>Member Since</p>
-            <p style={{ margin: 0, color: '#111827' }}>
-              {userProfile?.created_at
-                ? new Date(userProfile.created_at).toLocaleDateString()
-                : 'Unknown'}
-            </p>
-          </div>
-
-          <div>
-            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 4px 0' }}>Account ID</p>
-            <p style={{
-              margin: 0,
-              color: '#6b7280',
-              fontSize: 12,
-              fontFamily: 'monospace'
-            }}>
-              {user.id}
-            </p>
+            <div>
+              <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 4px 0' }}>Account ID</p>
+              <p style={{
+                margin: 0,
+                color: '#6b7280',
+                fontSize: 12,
+                fontFamily: 'monospace'
+              }}>
+                {user.id}
+              </p>
+            </div>
           </div>
         </div>
       </div>

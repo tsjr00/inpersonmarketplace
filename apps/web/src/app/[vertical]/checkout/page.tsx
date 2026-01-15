@@ -527,15 +527,36 @@ export default function CheckoutPage() {
                 {processing ? 'Processing...' : !marketValid ? 'Fix Market Issues' : user ? 'Pay Now' : 'Sign In to Checkout'}
               </button>
 
-              <p style={{
-                fontSize: 12,
-                color: '#999',
-                textAlign: 'center',
-                marginTop: 12,
-                marginBottom: 0,
+              {/* Security messaging */}
+              <div style={{
+                marginTop: 16,
+                padding: 12,
+                backgroundColor: '#dbeafe',
+                borderRadius: 6,
+                border: '1px solid #93c5fd'
               }}>
-                Secure checkout powered by Stripe
-              </p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: 16 }}>🔒</span>
+                  <div>
+                    <p style={{
+                      margin: '0 0 4px 0',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#1e40af'
+                    }}>
+                      Your payment is secure
+                    </p>
+                    <p style={{
+                      margin: 0,
+                      fontSize: 12,
+                      color: '#1e40af',
+                      lineHeight: 1.4
+                    }}>
+                      We use Stripe, trusted by millions worldwide. Your payment info is encrypted and never stored on our servers.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

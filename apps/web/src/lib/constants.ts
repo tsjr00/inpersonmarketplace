@@ -3,6 +3,21 @@
  * Central location for platform-wide configuration values
  */
 
+// Approved product categories for farmers market
+export const CATEGORIES = [
+  'Produce',
+  'Meat & Poultry',
+  'Dairy & Eggs',
+  'Baked Goods',
+  'Pantry',
+  'Prepared Foods',
+  'Health & Wellness',
+  'Art & Decor',
+  'Home & Functional'
+] as const
+
+export type Category = typeof CATEGORIES[number]
+
 // Platform fee as decimal (6.5% = 0.065)
 export const PLATFORM_FEE_RATE = 0.065
 

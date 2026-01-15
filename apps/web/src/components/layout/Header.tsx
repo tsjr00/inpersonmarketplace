@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CartButton } from '@/components/cart/CartButton'
@@ -13,6 +14,7 @@ interface HeaderProps {
   vendorProfile?: { id: string; status: string } | null
   branding: {
     brand_name: string
+    logo_path?: string
     colors: {
       primary: string
       secondary: string
@@ -83,13 +85,29 @@ export function Header({
           <Link
             href={`/${vertical}`}
             style={{
-              fontSize: 20,
-              fontWeight: 'bold',
-              color: branding.colors.primary,
+              display: 'flex',
+              alignItems: 'center',
               textDecoration: 'none'
             }}
           >
-            {branding.brand_name}
+            {branding.logo_path ? (
+              <Image
+                src={branding.logo_path}
+                alt={branding.brand_name}
+                width={140}
+                height={36}
+                style={{ height: 'auto', maxHeight: 36 }}
+                priority
+              />
+            ) : (
+              <span style={{
+                fontSize: 20,
+                fontWeight: 'bold',
+                color: branding.colors.primary
+              }}>
+                {branding.brand_name}
+              </span>
+            )}
           </Link>
 
           {/* Desktop Navigation - hidden on mobile */}

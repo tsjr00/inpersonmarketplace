@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import SearchFilter from './SearchFilter'
-import { formatDisplayPrice } from '@/lib/constants'
+import { formatDisplayPrice, CATEGORIES } from '@/lib/constants'
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
@@ -121,22 +121,25 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   // Type assertion for listings
   const listings = rawListings as unknown as Listing[] | null
 
-  // Get categories from vertical config (not from listings)
-  const { data: verticalData } = await supabase
-    .from('verticals')
-    .select('config')
-    .eq('vertical_id', vertical)
-    .single()
+  // Get categories - use CATEGORIES constant for farmers_market, or fall back to config
+  let uniqueCategories: readonly string[] | string[] = []
+  if (vertical === 'farmers_market') {
+    // Use centralized CATEGORIES constant
+    uniqueCategories = CATEGORIES
+  } else {
+    // Fall back to database config for other verticals
+    const { data: verticalData } = await supabase
+      .from('verticals')
+      .select('config')
+      .eq('vertical_id', vertical)
+      .single()
 
-  // Extract categories from listing_fields config
-  const listingFields = (verticalData?.config as Record<string, unknown>)?.listing_fields as Array<Record<string, unknown>> || []
-  const categoryField = listingFields.find(
-    (f) => f.key === 'product_categories' || f.key === 'category'
-  )
-  const configCategories = (categoryField?.options as string[]) || []
-
-  // Use config categories, not listing-derived categories
-  const uniqueCategories = configCategories
+    const listingFields = (verticalData?.config as Record<string, unknown>)?.listing_fields as Array<Record<string, unknown>> || []
+    const categoryField = listingFields.find(
+      (f) => f.key === 'product_categories' || f.key === 'category'
+    )
+    uniqueCategories = (categoryField?.options as string[]) || []
+  }
 
   // Group listings by category when no search/filter is applied
   const isFiltered = !!(search || category)

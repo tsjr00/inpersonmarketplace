@@ -7,7 +7,7 @@ export const defaultBranding: Record<string, VerticalBranding> = {
     domain: 'fireworksstand.com',
     brand_name: 'Fireworks Stand',
     tagline: 'Your Premier Fireworks Marketplace',
-    logo_path: '/branding/fireworks-logo.svg',
+    logo_path: '/logos/fastwrks-logo.png',
     favicon: '/branding/fireworks-favicon.ico',
     colors: {
       primary: '#ff4500',
@@ -26,7 +26,7 @@ export const defaultBranding: Record<string, VerticalBranding> = {
     domain: 'farmersmarket.app',
     brand_name: 'Fresh Market',
     tagline: 'Farm Fresh, Locally Grown',
-    logo_path: '/branding/farmers-logo.svg',
+    logo_path: '/logos/farmersmarketing-logo.png',
     favicon: '/branding/farmers-favicon.ico',
     colors: {
       primary: '#2d5016',

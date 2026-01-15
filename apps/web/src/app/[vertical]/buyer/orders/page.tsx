@@ -167,33 +167,40 @@ export default function BuyerOrdersPage() {
         margin: '0 auto',
       }}>
         {orders.length === 0 ? (
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: 8,
-            border: '1px solid #ddd',
-            padding: 60,
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 60, marginBottom: 20, opacity: 0.3 }}>📦</div>
-            <h3 style={{ marginBottom: 10, color: '#666' }}>No orders yet</h3>
-            <p style={{ color: '#999', marginBottom: 25 }}>
-              Start shopping to see your orders here
-            </p>
-            <Link
-              href={`/${vertical}/browse`}
-              style={{
-                display: 'inline-block',
-                padding: '12px 25px',
-                backgroundColor: '#333',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
-              }}
-            >
-              Browse Products
-            </Link>
-          </div>
+          <>
+            {/* Empty state message */}
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: 8,
+              border: '1px dashed #d1d5db',
+              padding: 60,
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 60, marginBottom: 20, opacity: 0.3 }}>📦</div>
+              <h3 style={{ marginBottom: 10, color: '#666' }}>No orders yet</h3>
+              <p style={{ color: '#999', marginBottom: 0 }}>
+                Start shopping to see your orders here
+              </p>
+            </div>
+
+            {/* Browse button - outside the empty state box */}
+            <div style={{ marginTop: 20, textAlign: 'center' }}>
+              <Link
+                href={`/${vertical}/browse`}
+                style={{
+                  display: 'inline-block',
+                  padding: '12px 25px',
+                  backgroundColor: '#333',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: 6,
+                  fontWeight: 600,
+                }}
+              >
+                Browse Products
+              </Link>
+            </div>
+          </>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {orders.map(order => {

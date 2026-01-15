@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { VerticalBranding } from '@/lib/branding'
+import { CATEGORIES } from '@/lib/constants'
 import Link from 'next/link'
 import MarketSelector from '@/components/vendor/MarketSelector'
 
@@ -58,6 +59,58 @@ export default function ListingForm({
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [hasDraft, setHasDraft] = useState(false)
+
+  // Session storage key for draft persistence (only for create mode)
+  const storageKey = mode === 'create' ? `listing-draft-${vendorProfileId}` : null
+
+  // Load draft from session storage on mount (create mode only)
+  useEffect(() => {
+    if (!storageKey) return
+
+    try {
+      const saved = sessionStorage.getItem(storageKey)
+      if (saved) {
+        const draft = JSON.parse(saved)
+        setFormData(prev => ({ ...prev, ...draft.formData }))
+        if (draft.containsAllergens !== undefined) setContainsAllergens(draft.containsAllergens)
+        if (draft.ingredients) setIngredients(draft.ingredients)
+        setHasDraft(true)
+      }
+    } catch (err) {
+      console.error('Failed to load draft:', err)
+    }
+  }, [storageKey])
+
+  // Save draft to session storage on change (create mode only, debounced)
+  useEffect(() => {
+    if (!storageKey) return
+
+    const timer = setTimeout(() => {
+      const draft = {
+        formData: { title: formData.title, description: formData.description, price: formData.price, quantity: formData.quantity, category: formData.category },
+        containsAllergens,
+        ingredients
+      }
+      sessionStorage.setItem(storageKey, JSON.stringify(draft))
+      if (formData.title || formData.description || formData.price) {
+        setHasDraft(true)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [formData, containsAllergens, ingredients, storageKey])
+
+  // Clear draft function
+  const clearDraft = () => {
+    if (storageKey) {
+      sessionStorage.removeItem(storageKey)
+      setHasDraft(false)
+      setFormData({ title: '', description: '', price: '', quantity: '', category: '', status: 'draft' })
+      setContainsAllergens(false)
+      setIngredients('')
+    }
+  }
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -170,19 +223,21 @@ export default function ListingForm({
       }
     }
 
-    // Success - redirect to listings
+    // Success - clear draft and redirect to listings
+    if (storageKey) {
+      sessionStorage.removeItem(storageKey)
+    }
     router.push(`/${vertical}/vendor/listings`)
     router.refresh()
   }
 
   // Get category options based on vertical
-  // Note: These should match the config in verticals.config.listing_fields
   const getCategoryOptions = () => {
     if (vertical === 'fireworks') {
       return ['Aerial', 'Ground', 'Sparklers', 'Fountains', 'Novelty', 'Assortments', 'Other']
     } else if (vertical === 'farmers_market') {
-      // Updated to match database config: Produce, Meat, Dairy, Eggs, Baked Goods, Prepared Foods, Preserves, Honey, Plants, Crafts, Other
-      return ['Produce', 'Meat', 'Dairy', 'Eggs', 'Baked Goods', 'Prepared Foods', 'Preserves', 'Honey', 'Plants', 'Crafts', 'Other']
+      // Use centralized CATEGORIES constant
+      return [...CATEGORIES]
     }
     return ['General', 'Other']
   }
@@ -197,6 +252,39 @@ export default function ListingForm({
       border: `1px solid ${branding.colors.secondary}`,
       borderRadius: 8
     }}>
+      {/* Draft indicator - only show in create mode when there's saved data */}
+      {mode === 'create' && hasDraft && (
+        <div style={{
+          padding: 12,
+          marginBottom: 20,
+          backgroundColor: '#fef3c7',
+          border: '1px solid #fde047',
+          borderRadius: 6,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ fontSize: 14, color: '#92400e' }}>
+            Draft saved - your progress is preserved
+          </span>
+          <button
+            type="button"
+            onClick={clearDraft}
+            style={{
+              padding: '4px 12px',
+              fontSize: 12,
+              color: '#92400e',
+              backgroundColor: 'white',
+              border: '1px solid #f59e0b',
+              borderRadius: 4,
+              cursor: 'pointer'
+            }}
+          >
+            Clear Draft
+          </button>
+        </div>
+      )}
+
       {/* Pending vendor notice */}
       {isPendingVendor && (
         <div style={{
