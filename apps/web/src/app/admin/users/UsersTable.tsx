@@ -17,6 +17,8 @@ interface UserProfile {
   role: string | null
   roles: string[] | null
   verticals: string[] | null
+  buyer_tier: string | null
+  buyer_tier_expires_at: string | null
   created_at: string
   vendor_profiles: VendorProfile[] | null
 }
@@ -70,6 +72,7 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [tierFilter, setTierFilter] = useState<string>('all')
+  const [buyerTierFilter, setBuyerTierFilter] = useState<string>('all')
 
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
@@ -111,7 +114,7 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
         if (!hasStatus) return false
       }
 
-      // Tier filter
+      // Vendor Tier filter
       if (tierFilter !== 'all') {
         if (!user.vendor_profiles || user.vendor_profiles.length === 0) return false
         const hasTier = user.vendor_profiles.some(vp => {
@@ -121,12 +124,19 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
         if (!hasTier) return false
       }
 
+      // Buyer Tier filter
+      if (buyerTierFilter !== 'all') {
+        const userBuyerTier = user.buyer_tier || 'free'
+        if (userBuyerTier !== buyerTierFilter) return false
+      }
+
       return true
     })
-  }, [users, search, verticalFilter, roleFilter, statusFilter, tierFilter])
+  }, [users, search, verticalFilter, roleFilter, statusFilter, tierFilter, buyerTierFilter])
 
   const clearFilters = () => {
     setSearch('')
+    setBuyerTierFilter('all')
     setVerticalFilter('all')
     setRoleFilter('all')
     setStatusFilter('all')
@@ -134,7 +144,7 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
   }
 
   const hasActiveFilters = search || verticalFilter !== 'all' || roleFilter !== 'all' ||
-                           statusFilter !== 'all' || tierFilter !== 'all'
+                           statusFilter !== 'all' || tierFilter !== 'all' || buyerTierFilter !== 'all'
 
   return (
     <>
@@ -221,7 +231,7 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
           <option value="rejected">Rejected</option>
         </select>
 
-        {/* Tier Filter */}
+        {/* Vendor Tier Filter */}
         <select
           value={tierFilter}
           onChange={(e) => setTierFilter(e.target.value)}
@@ -231,13 +241,31 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
             border: '1px solid #ddd',
             borderRadius: 6,
             backgroundColor: 'white',
-            minWidth: 120
+            minWidth: 130
           }}
         >
-          <option value="all">All Tiers</option>
+          <option value="all">Vendor Tier</option>
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
           <option value="featured">Featured</option>
+        </select>
+
+        {/* Buyer Tier Filter */}
+        <select
+          value={buyerTierFilter}
+          onChange={(e) => setBuyerTierFilter(e.target.value)}
+          style={{
+            padding: '10px 14px',
+            fontSize: 14,
+            border: '1px solid #ddd',
+            borderRadius: 6,
+            backgroundColor: 'white',
+            minWidth: 120
+          }}
+        >
+          <option value="all">Buyer Tier</option>
+          <option value="free">Free</option>
+          <option value="premium">Premium</option>
         </select>
 
         {/* Results count */}
@@ -260,8 +288,9 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Email</th>
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Name</th>
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Role</th>
+                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Buyer Tier</th>
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Vendor Status</th>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Tier</th>
+                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Vendor Tier</th>
                 <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Joined</th>
               </tr>
             </thead>
@@ -284,6 +313,23 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
                       }}>
                         {roleInfo.label}
                       </span>
+                    </td>
+                    <td style={{ padding: 15 }}>
+                      <span style={{
+                        padding: '3px 8px',
+                        borderRadius: 10,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        backgroundColor: user.buyer_tier === 'premium' ? '#fef3c7' : '#f3f4f6',
+                        color: user.buyer_tier === 'premium' ? '#92400e' : '#6b7280'
+                      }}>
+                        {user.buyer_tier === 'premium' ? 'Premium' : 'Free'}
+                      </span>
+                      {user.buyer_tier === 'premium' && user.buyer_tier_expires_at && (
+                        <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>
+                          exp: {new Date(user.buyer_tier_expires_at).toLocaleDateString()}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: 15 }}>
                       {user.vendor_profiles && user.vendor_profiles.length > 0 ? (

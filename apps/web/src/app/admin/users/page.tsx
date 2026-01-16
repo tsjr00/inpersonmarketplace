@@ -17,6 +17,8 @@ interface UserProfile {
   role: string | null
   roles: string[] | null
   verticals: string[] | null
+  buyer_tier: string | null
+  buyer_tier_expires_at: string | null
   created_at: string
   vendor_profiles: VendorProfile[] | null
 }
@@ -25,7 +27,7 @@ export default async function UsersPage() {
   await requireAdmin()
   const supabase = await createClient()
 
-  // Fetch users with their roles, verticals, and vendor profiles (including tier)
+  // Fetch users with their roles, verticals, buyer tier, and vendor profiles
   const { data: users } = await supabase
     .from('user_profiles')
     .select(`
@@ -36,6 +38,8 @@ export default async function UsersPage() {
       role,
       roles,
       verticals,
+      buyer_tier,
+      buyer_tier_expires_at,
       created_at,
       vendor_profiles (
         id,
@@ -70,6 +74,8 @@ export default async function UsersPage() {
     role: user.role as string | null,
     roles: user.roles as string[] | null,
     verticals: user.verticals as string[] | null,
+    buyer_tier: user.buyer_tier as string | null,
+    buyer_tier_expires_at: user.buyer_tier_expires_at as string | null,
     created_at: user.created_at as string,
     vendor_profiles: user.vendor_profiles as VendorProfile[] | null
   }))
