@@ -35,9 +35,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'File must be an image' }, { status: 400 })
     }
 
-    // Size limit: 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File must be under 5MB' }, { status: 400 })
+    // Size limit: 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File must be under 2MB. Use squoosh.app to compress larger images.' }, { status: 400 })
     }
 
     // Upload to Supabase Storage

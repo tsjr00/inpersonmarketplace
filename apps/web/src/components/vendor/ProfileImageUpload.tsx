@@ -22,8 +22,8 @@ export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }:
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be under 5MB')
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image must be under 2MB. Use squoosh.app to compress.')
       return
     }
 
@@ -130,7 +130,14 @@ export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }:
             fontSize: 12,
             color: '#6b7280'
           }}>
-            PNG, JPG, or WebP. Max 5MB. Square images work best.
+            PNG, JPG, or WebP. Max 2MB. Square images work best.
+          </p>
+          <p style={{
+            margin: '4px 0 0',
+            fontSize: 11,
+            color: '#9ca3af'
+          }}>
+            Large image? Compress it free at <a href="https://squoosh.app" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>squoosh.app</a>
           </p>
 
           {error && (
