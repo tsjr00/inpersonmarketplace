@@ -53,8 +53,8 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
 
     if (statusFilter !== 'all') {
       if (statusFilter === 'pending') {
-        // 'submitted' is the status for pending approval
-        query = query.eq('status', 'submitted')
+        // 'submitted' and 'draft' are pending approval
+        query = query.in('status', ['submitted', 'draft'])
       } else {
         query = query.eq('status', statusFilter)
       }
@@ -190,7 +190,7 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
               {vendors.map((vendor) => {
                 const isStale = vendor.days_pending !== undefined &&
                   vendor.days_pending >= 2 &&
-                  vendor.status === 'submitted'
+                  (vendor.status === 'submitted' || vendor.status === 'draft')
 
                 return (
                   <tr
@@ -255,13 +255,13 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
                           vendor.status === 'rejected' ? '#991b1b' :
                           '#92400e'
                       }}>
-                        {vendor.status === 'submitted' ? 'pending' : vendor.status}
+                        {(vendor.status === 'submitted' || vendor.status === 'draft') ? 'pending' : vendor.status}
                       </span>
                     </td>
 
                     {/* Actions */}
                     <td style={{ padding: '15px 10px' }}>
-                      {vendor.status === 'submitted' && (
+                      {(vendor.status === 'submitted' || vendor.status === 'draft') && (
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button
                             onClick={() => handleApprove(vendor.id)}
