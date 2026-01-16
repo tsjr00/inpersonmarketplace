@@ -48,7 +48,7 @@ export default function VendorActions({ vendorId, currentStatus }: VendorActions
 
   return (
     <div style={{ display: 'flex', gap: 10 }}>
-      {currentStatus === 'submitted' && (
+      {(currentStatus === 'submitted' || currentStatus === 'draft') && (
         <>
           <button
             onClick={() => updateStatus('approved')}
