@@ -331,6 +331,35 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
             }}>
               {listing.description || 'No description provided.'}
             </p>
+
+            {/* Allergen Warning */}
+            {listing.listing_data?.contains_allergens && (
+              <div style={{
+                marginTop: 20,
+                padding: 16,
+                backgroundColor: '#fef3c7',
+                border: '1px solid #f59e0b',
+                borderRadius: 8
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 8
+                }}>
+                  <span style={{ fontSize: 18 }}>⚠️</span>
+                  <strong style={{ color: '#92400e' }}>Allergen Warning</strong>
+                </div>
+                <p style={{
+                  margin: 0,
+                  color: '#78350f',
+                  fontSize: 14,
+                  lineHeight: 1.5
+                }}>
+                  {listing.listing_data?.ingredients || 'This product may contain allergens. Contact the vendor for details.'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Other Listings from Vendor */}

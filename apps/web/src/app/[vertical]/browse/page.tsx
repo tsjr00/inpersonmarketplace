@@ -20,6 +20,10 @@ interface Listing {
   image_urls: string[] | null
   created_at: string
   vendor_profile_id: string
+  listing_data?: {
+    contains_allergens?: boolean
+    ingredients?: string
+  }
   vendor_profiles: {
     id: string
     profile_data: Record<string, unknown>
@@ -89,6 +93,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       image_urls,
       created_at,
       vendor_profile_id,
+      listing_data,
       vendor_profiles!inner (
         id,
         profile_data,
@@ -382,6 +387,30 @@ function ListingCard({
             zIndex: 1
           }}>
             {listing.category}
+          </span>
+        )}
+
+        {/* Allergen Warning Badge */}
+        {listing.listing_data?.contains_allergens && (
+          <span
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              padding: '4px 10px',
+              backgroundColor: '#fef3c7',
+              color: '#92400e',
+              borderRadius: 12,
+              fontSize: 11,
+              fontWeight: 600,
+              zIndex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}
+            title={listing.listing_data?.ingredients || 'Contains allergens'}
+          >
+            <span>⚠️</span> Allergens
           </span>
         )}
 
