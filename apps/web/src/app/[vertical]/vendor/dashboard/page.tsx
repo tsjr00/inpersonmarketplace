@@ -57,6 +57,65 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     draftCount = draftListings?.length || 0
   }
 
+  // Get active markets/pickup locations from published listings
+  interface ActiveMarket {
+    id: string
+    name: string
+    market_type: string
+    address: string
+    city: string
+    state: string
+    day_of_week: number | null
+    start_time: string | null
+    end_time: string | null
+  }
+
+  let activeMarkets: ActiveMarket[] = []
+  if (vendorProfile.status === 'approved') {
+    // Get published listings with their markets
+    const { data: listingsWithMarkets } = await supabase
+      .from('listings')
+      .select(`
+        id,
+        listing_markets (
+          market_id,
+          markets (
+            id,
+            name,
+            market_type,
+            address,
+            city,
+            state,
+            day_of_week,
+            start_time,
+            end_time
+          )
+        )
+      `)
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('status', 'published')
+      .is('deleted_at', null)
+
+    // Extract unique markets
+    const marketMap = new Map<string, ActiveMarket>()
+    listingsWithMarkets?.forEach(listing => {
+      const listingMarkets = listing.listing_markets as unknown as Array<{
+        market_id: string
+        markets: ActiveMarket | null
+      }> | null
+      listingMarkets?.forEach(lm => {
+        if (lm.markets && !marketMap.has(lm.markets.id)) {
+          marketMap.set(lm.markets.id, lm.markets)
+        }
+      })
+    })
+    activeMarkets = Array.from(marketMap.values())
+  }
+
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const traditionalMarkets = activeMarkets.filter(m => m.market_type === 'traditional')
+  const privatePickups = activeMarkets.filter(m => m.market_type === 'private_pickup')
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -283,29 +342,180 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </div>
 
-          {/* Market Info - Placeholder for future */}
+          {/* Your Plan / Tier Card */}
           <div style={{
             padding: 16,
-            backgroundColor: '#f9fafb',
+            backgroundColor: vendorProfile.tier === 'premium' ? '#fef3c7' : vendorProfile.tier === 'featured' ? '#dbeafe' : 'white',
             color: '#333',
-            border: '1px solid #e5e7eb',
+            border: `1px solid ${vendorProfile.tier === 'premium' ? '#fcd34d' : vendorProfile.tier === 'featured' ? '#93c5fd' : '#e5e7eb'}`,
             borderRadius: 8
           }}>
             <h2 style={{
-              color: '#9ca3af',
+              color: branding.colors.primary,
               margin: '0 0 16px 0',
               fontSize: 16,
               fontWeight: 600
             }}>
-              Market Info
+              Your Plan
             </h2>
 
-            <p style={{ margin: 0, fontSize: 14, color: '#9ca3af' }}>
-              Coming soon
-            </p>
-            <p style={{ margin: '8px 0 0 0', fontSize: 12, color: '#9ca3af' }}>
-              Your market assignments and schedule will appear here.
-            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Current Tier</p>
+                <p style={{
+                  margin: '2px 0 0 0',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: vendorProfile.tier === 'premium' ? '#92400e' : vendorProfile.tier === 'featured' ? '#1e40af' : '#374151'
+                }}>
+                  {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'}
+                </p>
+              </div>
+
+              {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
+                <div>
+                  <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#666' }}>
+                    Upgrade to Premium for priority placement and more visibility!
+                  </p>
+                  <Link
+                    href={`/${vertical}/vendor/dashboard/upgrade`}
+                    style={{
+                      display: 'inline-block',
+                      padding: '8px 16px',
+                      backgroundColor: branding.colors.primary,
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: 6,
+                      fontWeight: 600,
+                      fontSize: 13
+                    }}
+                  >
+                    Upgrade to Premium
+                  </Link>
+                </div>
+              )}
+
+              {vendorProfile.tier === 'premium' && (
+                <p style={{ margin: 0, fontSize: 13, color: '#92400e' }}>
+                  You have priority placement in search results and featured sections.
+                </p>
+              )}
+
+              {vendorProfile.tier === 'featured' && (
+                <p style={{ margin: 0, fontSize: 13, color: '#1e40af' }}>
+                  Your listings are featured prominently across the marketplace.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Market Info Card */}
+          <div style={{
+            padding: 16,
+            backgroundColor: 'white',
+            color: '#333',
+            border: '1px solid #e5e7eb',
+            borderRadius: 8
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              marginBottom: 16,
+              gap: 8
+            }}>
+              <h2 style={{
+                color: branding.colors.primary,
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 600
+              }}>
+                Active Pickup Locations
+              </h2>
+              <Link
+                href={`/${vertical}/vendor/markets`}
+                style={{
+                  fontSize: 12,
+                  color: branding.colors.primary,
+                  textDecoration: 'none'
+                }}
+              >
+                Manage
+              </Link>
+            </div>
+
+            {vendorProfile.status !== 'approved' ? (
+              <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>
+                Available after approval
+              </p>
+            ) : activeMarkets.length === 0 ? (
+              <div>
+                <p style={{ margin: '0 0 12px 0', fontSize: 13, color: '#666' }}>
+                  No active listings with pickup locations yet.
+                </p>
+                <Link
+                  href={`/${vertical}/vendor/markets`}
+                  style={{
+                    fontSize: 13,
+                    color: branding.colors.primary,
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Set up markets
+                </Link>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Traditional Markets */}
+                {traditionalMarkets.length > 0 && (
+                  <div>
+                    <p style={{ margin: '0 0 6px 0', fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Markets ({traditionalMarkets.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {traditionalMarkets.map(market => (
+                        <div key={market.id} style={{
+                          padding: 8,
+                          backgroundColor: '#f9fafb',
+                          borderRadius: 4,
+                          fontSize: 13
+                        }}>
+                          <div style={{ fontWeight: 500, marginBottom: 2 }}>{market.name}</div>
+                          <div style={{ color: '#6b7280', fontSize: 12 }}>
+                            {market.day_of_week !== null && `${DAYS[market.day_of_week]} `}
+                            {market.start_time && market.end_time && `${market.start_time}-${market.end_time}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Private Pickups */}
+                {privatePickups.length > 0 && (
+                  <div>
+                    <p style={{ margin: '0 0 6px 0', fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Private Pickup ({privatePickups.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {privatePickups.map(pickup => (
+                        <div key={pickup.id} style={{
+                          padding: 8,
+                          backgroundColor: '#f9fafb',
+                          borderRadius: 4,
+                          fontSize: 13
+                        }}>
+                          <div style={{ fontWeight: 500, marginBottom: 2 }}>{pickup.name}</div>
+                          <div style={{ color: '#6b7280', fontSize: 12 }}>
+                            {pickup.city}, {pickup.state}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -437,9 +647,17 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .vendor-dashboard .action-grid {
           grid-template-columns: 1fr;
         }
-        @media (min-width: 768px) {
+        @media (min-width: 640px) {
           .vendor-dashboard .info-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .vendor-dashboard .action-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        @media (min-width: 1024px) {
+          .vendor-dashboard .info-grid {
+            grid-template-columns: repeat(4, 1fr);
           }
           .vendor-dashboard .action-grid {
             grid-template-columns: repeat(3, 1fr);

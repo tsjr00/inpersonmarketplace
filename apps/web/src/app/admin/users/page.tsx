@@ -28,7 +28,7 @@ export default async function UsersPage() {
   const supabase = await createClient()
 
   // Fetch users with their roles, verticals, buyer tier, and vendor profiles
-  const { data: users } = await supabase
+  const { data: users, error } = await supabase
     .from('user_profiles')
     .select(`
       id,
@@ -49,6 +49,11 @@ export default async function UsersPage() {
       )
     `)
     .order('created_at', { ascending: false })
+
+  // Log error for debugging
+  if (error) {
+    console.error('Error fetching users:', error)
+  }
 
   // Get unique verticals from both user verticals and vendor profiles
   const verticals = new Set<string>()
