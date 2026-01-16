@@ -109,17 +109,36 @@ export function CartProvider({
   }
 
   const removeFromCart = async (cartItemId: string) => {
+    // Optimistic update - remove from UI immediately
+    const previousItems = [...items]
+    const previousSummary = { ...summary }
+
+    const itemToRemove = items.find(item => item.id === cartItemId)
+    if (itemToRemove) {
+      setItems(prevItems => prevItems.filter(item => item.id !== cartItemId))
+      setSummary(prev => ({
+        ...prev,
+        total_items: prev.total_items - itemToRemove.quantity,
+        total_cents: prev.total_cents - (itemToRemove.quantity * (itemToRemove.price_cents || 0))
+      }))
+    }
+
     try {
       const res = await fetch(`/api/cart/items/${cartItemId}`, {
         method: 'DELETE'
       })
 
       if (!res.ok) {
+        // Revert optimistic update on error
+        setItems(previousItems)
+        setSummary(previousSummary)
         throw new Error('Failed to remove item from cart')
       }
-
-      await refreshCart()
+      // Success - no need to refresh
     } catch (error) {
+      // Revert on any error
+      setItems(previousItems)
+      setSummary(previousSummary)
       console.error('Error removing from cart:', error)
       throw error
     }
@@ -131,6 +150,29 @@ export function CartProvider({
       return
     }
 
+    // Optimistic update - update UI immediately
+    const previousItems = [...items]
+    const previousSummary = { ...summary }
+
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === cartItemId
+          ? { ...item, quantity }
+          : item
+      )
+    )
+
+    // Update summary optimistically
+    const itemBeingUpdated = items.find(item => item.id === cartItemId)
+    if (itemBeingUpdated) {
+      const quantityDiff = quantity - itemBeingUpdated.quantity
+      setSummary(prev => ({
+        ...prev,
+        total_items: prev.total_items + quantityDiff,
+        total_cents: prev.total_cents + (quantityDiff * (itemBeingUpdated.price_cents || 0))
+      }))
+    }
+
     try {
       const res = await fetch(`/api/cart/items/${cartItemId}`, {
         method: 'PUT',
@@ -139,12 +181,17 @@ export function CartProvider({
       })
 
       if (!res.ok) {
+        // Revert optimistic update on error
+        setItems(previousItems)
+        setSummary(previousSummary)
         const error = await res.json()
         throw new Error(error.error || 'Failed to update quantity')
       }
-
-      await refreshCart()
+      // Success - no need to refresh, optimistic update is already in place
     } catch (error) {
+      // Revert on any error
+      setItems(previousItems)
+      setSummary(previousSummary)
       console.error('Error updating quantity:', error)
       throw error
     }
