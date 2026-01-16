@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
               markets(
                 id,
                 name,
-                type,
+                market_type,
                 address,
                 city,
                 state,
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
           marketsMap.set(market.id as string, {
             id: market.id as string,
             name: (market.name as string) || 'Unknown',
-            type: (market.type as string) || 'traditional'
+            type: (market.market_type as string) || 'traditional'
           })
         }
 
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
           market: market ? {
             id: market.id,
             name: (market.name as string) || 'Unknown',
-            type: (market.type as string) || 'traditional',
+            type: (market.market_type as string) || 'traditional',
             address: market.address,
             city: market.city,
             state: market.state,
