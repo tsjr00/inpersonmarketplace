@@ -17,6 +17,7 @@ interface UserProfile {
     id: string
     status: string
     vertical_id: string
+    tier?: string
   }[]
 }
 
@@ -88,7 +89,8 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
       vendor_profiles (
         id,
         status,
-        vertical_id
+        vertical_id,
+        tier
       )
     `)
     .order('created_at', { ascending: false })
@@ -160,6 +162,9 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
                   Vendor Status
                 </th>
                 <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#495057' }}>
+                  Tier
+                </th>
+                <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#495057' }}>
                   Joined
                 </th>
               </tr>
@@ -223,6 +228,36 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
                             }}
                           >
                             {vp.vertical_id}: {vp.status}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ color: '#999', fontSize: 13 }}>-</span>
+                    )}
+                  </td>
+
+                  {/* Tier */}
+                  <td style={{ padding: 12 }}>
+                    {user.vendor_profiles && user.vendor_profiles.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {user.vendor_profiles.map((vp) => (
+                          <span
+                            key={vp.id}
+                            style={{
+                              padding: '3px 10px',
+                              borderRadius: 10,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              backgroundColor:
+                                vp.tier === 'premium' ? '#dbeafe' :
+                                vp.tier === 'featured' ? '#fef3c7' : '#f3f4f6',
+                              color:
+                                vp.tier === 'premium' ? '#1e40af' :
+                                vp.tier === 'featured' ? '#92400e' : '#6b7280',
+                              display: 'inline-block'
+                            }}
+                          >
+                            {vp.tier || 'standard'}
                           </span>
                         ))}
                       </div>

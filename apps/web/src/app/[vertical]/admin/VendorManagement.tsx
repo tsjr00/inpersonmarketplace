@@ -8,6 +8,7 @@ interface Vendor {
   id: string
   user_id: string
   status: string
+  tier?: string
   created_at: string
   profile_data: {
     business_name?: string
@@ -18,6 +19,7 @@ interface Vendor {
   }
   user_email?: string
   days_pending?: number
+  markets?: { market_id: string; markets: { name: string } | null }[]
 }
 
 interface VendorManagementProps {
@@ -45,8 +47,15 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
         id,
         user_id,
         status,
+        tier,
         created_at,
-        profile_data
+        profile_data,
+        market_vendors (
+          market_id,
+          markets (
+            name
+          )
+        )
       `)
       .eq('vertical_id', vertical)
       .order('created_at', { ascending: false })
@@ -75,10 +84,11 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
         return {
           ...vendor,
           days_pending: daysPending,
-          user_email: vendor.profile_data?.email || 'Unknown'
+          user_email: vendor.profile_data?.email || 'Unknown',
+          markets: vendor.market_vendors || []
         }
       })
-      setVendors(vendorsWithDetails)
+      setVendors(vendorsWithDetails as Vendor[])
     }
 
     setLoading(false)
@@ -176,7 +186,10 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
                   Type
                 </th>
                 <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
-                  Submitted
+                  Markets
+                </th>
+                <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
+                  Tier
                 </th>
                 <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
                   Status
@@ -226,16 +239,49 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
                       }
                     </td>
 
-                    {/* Submitted Date */}
+                    {/* Markets */}
                     <td style={{ padding: '15px 10px' }}>
-                      <div style={{ color: '#333' }}>
-                        {new Date(vendor.created_at).toLocaleDateString()}
-                      </div>
-                      {isStale && (
-                        <div style={{ fontSize: 13, color: '#92400e', fontWeight: 600 }}>
-                          {vendor.days_pending} days ago
+                      {vendor.markets && vendor.markets.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {vendor.markets.slice(0, 2).map((m, idx) => (
+                            <span key={idx} style={{
+                              fontSize: 12,
+                              color: '#333',
+                              backgroundColor: '#f0fdf4',
+                              padding: '2px 8px',
+                              borderRadius: 4
+                            }}>
+                              {m.markets?.name || 'Unknown'}
+                            </span>
+                          ))}
+                          {vendor.markets.length > 2 && (
+                            <span style={{ fontSize: 11, color: '#666' }}>
+                              +{vendor.markets.length - 2} more
+                            </span>
+                          )}
                         </div>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: 13 }}>No markets</span>
                       )}
+                    </td>
+
+                    {/* Tier */}
+                    <td style={{ padding: '15px 10px' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '4px 10px',
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        backgroundColor:
+                          vendor.tier === 'premium' ? '#dbeafe' :
+                          vendor.tier === 'featured' ? '#fef3c7' : '#f3f4f6',
+                        color:
+                          vendor.tier === 'premium' ? '#1e40af' :
+                          vendor.tier === 'featured' ? '#92400e' : '#6b7280'
+                      }}>
+                        {vendor.tier || 'standard'}
+                      </span>
                     </td>
 
                     {/* Status */}
