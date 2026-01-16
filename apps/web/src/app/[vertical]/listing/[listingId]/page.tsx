@@ -224,7 +224,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                       start_time: string | null
                       end_time: string | null
                     }) => {
-                      const isPrivate = market.market_type === 'private'
+                      const isPrivate = market.market_type === 'private_pickup'
                       const prefix = isPrivate ? 'Private Pickup: ' : 'Market: '
                       // Only show private pickup address if user is logged in
                       const showAddress = !isPrivate || isLoggedIn

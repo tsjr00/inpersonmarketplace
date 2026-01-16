@@ -41,7 +41,8 @@
       "Bash(dir /s /b \"C:\\\\GitHub\\\\Projects\\\\inpersonmarketplace\\\\apps\\\\web\\\\src\\\\app\\\\[vertical]\\\\vendor\")",
       "Bash(grep:*)",
       "Bash(npx kill-port:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(find:*)"
     ]
   }
 }
