@@ -34,6 +34,7 @@ interface Listing {
     market_id: string
     markets: {
       name: string
+      market_type: string
     } | null
   }[]
 }
@@ -103,7 +104,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       listing_markets (
         market_id,
         markets (
-          name
+          name,
+          market_type
         )
       )
     `)
@@ -473,7 +475,11 @@ function ListingCard({
           marginBottom: 8
         }}>
           {listing.listing_markets.length === 1
-            ? listing.listing_markets[0].markets?.name || 'Pickup location'
+            ? (() => {
+                const market = listing.listing_markets[0].markets
+                const prefix = market?.market_type === 'private' ? 'Private Pickup: ' : 'Market: '
+                return prefix + (market?.name || 'Location')
+              })()
             : `${listing.listing_markets.length} pickup locations`
           }
         </div>

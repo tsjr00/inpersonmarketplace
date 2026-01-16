@@ -29,7 +29,19 @@
       "Bash(ping:*)",
       "Bash(cmd //c \"taskkill /PID 11108 /F\")",
       "Bash(npx tsc:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(xargs:*)",
+      "Bash(ls:*)",
+      "Bash(dir /b \"C:\\\\GitHub\\\\Projects\\\\inpersonmarketplace\\\\apps\\\\web\\\\src\\\\app\\\\[vertical]\\\\vendor\")",
+      "Bash(dir /b \"C:\\\\GitHub\\\\Projects\\\\inpersonmarketplace\\\\apps\\\\web\\\\src\\\\app\\\\[vertical]\\\\vendor\\\\[vendorId]\")",
+      "Bash(dir /b \"C:\\\\GitHub\\\\Projects\\\\inpersonmarketplace\\\\apps\\\\web\\\\src\\\\app\\\\[vertical]\\\\vendor\\\\[vendorId]\\\\profile\")",
+      "Bash(dir /s /b \"C:\\\\GitHub\\\\Projects\\\\inpersonmarketplace\\\\apps\\\\web\\\\src\\\\app\\\\[vertical]\\\\vendor\")",
+      "Bash(grep:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(node -e:*)"
     ]
   }
 }

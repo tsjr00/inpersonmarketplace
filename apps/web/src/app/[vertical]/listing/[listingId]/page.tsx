@@ -59,6 +59,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
       p_listing_id: listingId
     })
 
+  // Check if user is logged in (for private pickup address visibility)
+  const { data: { user } } = await supabase.auth.getUser()
+  const isLoggedIn = !!user
+
   return (
     <div
       style={{
@@ -219,22 +223,39 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                       day_of_week: number | null
                       start_time: string | null
                       end_time: string | null
-                    }) => (
-                      <div key={market.market_id} style={{ fontSize: 14 }}>
-                        <div style={{ fontWeight: 600, color: '#333' }}>
-                          {market.market_name}
-                        </div>
-                        <div style={{ color: '#6b7280', fontSize: 13 }}>
-                          {market.address}, {market.city}, {market.state}
-                        </div>
-                        {market.market_type === 'traditional' && market.day_of_week !== null && (
-                          <div style={{ color: '#6b7280', fontSize: 12 }}>
-                            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][market.day_of_week]}
-                            {market.start_time && market.end_time && ` ${market.start_time} - ${market.end_time}`}
+                    }) => {
+                      const isPrivate = market.market_type === 'private'
+                      const prefix = isPrivate ? 'Private Pickup: ' : 'Market: '
+                      // Only show private pickup address if user is logged in
+                      const showAddress = !isPrivate || isLoggedIn
+
+                      return (
+                        <div key={market.market_id} style={{ fontSize: 14 }}>
+                          <div style={{ fontWeight: 600, color: '#333' }}>
+                            <span style={{ color: '#6b7280', fontWeight: 500 }}>{prefix}</span>
+                            {market.market_name}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {showAddress ? (
+                            <div style={{ color: '#6b7280', fontSize: 13 }}>
+                              {market.address}, {market.city}, {market.state}
+                            </div>
+                          ) : (
+                            <div style={{ color: '#9ca3af', fontSize: 13, fontStyle: 'italic' }}>
+                              <Link href={`/${vertical}/login`} style={{ color: branding.colors.primary, textDecoration: 'none' }}>
+                                Log in
+                              </Link>
+                              {' '}to see pickup address
+                            </div>
+                          )}
+                          {market.market_type === 'traditional' && market.day_of_week !== null && (
+                            <div style={{ color: '#6b7280', fontSize: 12 }}>
+                              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][market.day_of_week]}
+                              {market.start_time && market.end_time && ` ${market.start_time} - ${market.end_time}`}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
