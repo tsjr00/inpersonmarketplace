@@ -12,8 +12,21 @@ interface CheckoutItem {
   title: string
   price_cents: number
   vendor_name: string
+  vendor_profile_id?: string
   available: boolean
   available_quantity: number | null
+}
+
+interface SuggestedProduct {
+  id: string
+  title: string
+  price_cents: number
+  vendor_profile_id: string
+  vendor_profiles?: {
+    id: string
+    business_name?: string
+    tier?: string
+  }
 }
 
 export default function CheckoutPage() {
@@ -29,6 +42,7 @@ export default function CheckoutPage() {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null)
   const [marketWarnings, setMarketWarnings] = useState<string[]>([])
   const [marketValid, setMarketValid] = useState(true)
+  const [suggestedProducts, setSuggestedProducts] = useState<SuggestedProduct[]>([])
 
   // Check auth and validate cart items
   useEffect(() => {
@@ -114,6 +128,44 @@ export default function CheckoutPage() {
       validateMarkets()
     }
   }, [user, items])
+
+  // Fetch product suggestions from vendors in cart
+  useEffect(() => {
+    async function fetchSuggestions() {
+      if (checkoutItems.length === 0) {
+        setSuggestedProducts([])
+        return
+      }
+
+      // Get unique vendor IDs from cart
+      const vendorIds = [...new Set(checkoutItems.map(item => item.vendor_profile_id).filter(Boolean))]
+      const excludeIds = checkoutItems.map(item => item.listingId)
+
+      if (vendorIds.length === 0) return
+
+      try {
+        const res = await fetch('/api/listings/suggestions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vendorIds,
+            excludeIds,
+            limit: 4,
+            vertical
+          })
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          setSuggestedProducts(data.listings || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch suggestions:', err)
+      }
+    }
+
+    fetchSuggestions()
+  }, [checkoutItems, vertical])
 
   async function handleCheckout() {
     if (!user) {
@@ -437,6 +489,118 @@ export default function CheckoutPage() {
                 </div>
               ))}
             </div>
+
+            {/* Cross-Sell Section */}
+            {suggestedProducts.length > 0 && (
+              <div style={{
+                marginTop: 24,
+                backgroundColor: '#fffbeb',
+                borderRadius: 8,
+                padding: 20,
+                border: '2px solid #fbbf24'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                  <span style={{ fontSize: 24 }}>✨</span>
+                  <h3 style={{
+                    margin: 0,
+                    fontSize: 18,
+                    fontWeight: 600,
+                    color: '#92400e'
+                  }}>
+                    Complete your order from your vendors
+                  </h3>
+                </div>
+                <p style={{
+                  margin: '0 0 16px 36px',
+                  fontSize: 14,
+                  color: '#78350f'
+                }}>
+                  Since you&apos;re already picking up from these vendors, why not add these items?
+                </p>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                  gap: 12
+                }}>
+                  {suggestedProducts.map(product => (
+                    <div
+                      key={product.id}
+                      style={{
+                        backgroundColor: 'white',
+                        borderRadius: 8,
+                        padding: 12,
+                        border: '1px solid #fbbf24'
+                      }}
+                    >
+                      {/* Product image placeholder */}
+                      <div style={{
+                        width: '100%',
+                        height: 80,
+                        backgroundColor: '#f3f4f6',
+                        borderRadius: 6,
+                        marginBottom: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 28
+                      }}>
+                        📦
+                      </div>
+
+                      <h4 style={{
+                        margin: '0 0 4px 0',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: '#111827',
+                        lineHeight: 1.3,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {product.title}
+                      </h4>
+
+                      <p style={{
+                        margin: '0 0 8px 0',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: '#3b82f6'
+                      }}>
+                        {formatPrice(calculateDisplayPrice(product.price_cents))}
+                      </p>
+
+                      <p style={{
+                        margin: '0 0 8px 0',
+                        fontSize: 11,
+                        color: '#6b7280',
+                        fontStyle: 'italic'
+                      }}>
+                        from {product.vendor_profiles?.business_name || 'Vendor'}
+                      </p>
+
+                      <Link
+                        href={`/${vertical}/listing/${product.id}`}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '8px 12px',
+                          backgroundColor: '#f59e0b',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: 6,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          textAlign: 'center',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        View Item
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Order Summary */}

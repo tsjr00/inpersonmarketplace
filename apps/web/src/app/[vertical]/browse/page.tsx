@@ -3,6 +3,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import SearchFilter from './SearchFilter'
 import { formatDisplayPrice, CATEGORIES } from '@/lib/constants'
+import TierBadge from '@/components/shared/TierBadge'
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
@@ -23,6 +24,7 @@ interface Listing {
     id: string
     profile_data: Record<string, unknown>
     status: string
+    tier?: 'standard' | 'premium' | 'featured'
   }
   listing_markets?: {
     market_id: string
@@ -90,7 +92,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       vendor_profiles!inner (
         id,
         profile_data,
-        status
+        status,
+        tier
       ),
       listing_markets (
         market_id,
@@ -441,9 +444,15 @@ function ListingCard({
         paddingTop: 8,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        gap: 8
       }}>
-        <span>by {vendorName}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
+          {listing.vendor_profiles.tier && listing.vendor_profiles.tier !== 'standard' && (
+            <TierBadge tier={listing.vendor_profiles.tier} size="sm" />
+          )}
+        </div>
         {listing.listing_markets && listing.listing_markets.length > 0 && (
           <span style={{
             backgroundColor: '#f3f4f6',

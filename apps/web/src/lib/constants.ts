@@ -18,6 +18,33 @@ export const CATEGORIES = [
 
 export type Category = typeof CATEGORIES[number]
 
+// Premium tier badge configuration
+export const TIER_BADGES = {
+  premium: {
+    label: 'Premium',
+    icon: '⭐',
+    color: '#3b82f6',
+    bgColor: '#dbeafe',
+    borderColor: '#93c5fd'
+  },
+  featured: {
+    label: 'Featured',
+    icon: '✨',
+    color: '#f59e0b',
+    bgColor: '#fef3c7',
+    borderColor: '#fcd34d'
+  },
+  standard: {
+    label: 'Standard',
+    icon: '',
+    color: '#6b7280',
+    bgColor: '#f3f4f6',
+    borderColor: '#d1d5db'
+  }
+} as const
+
+export type VendorTierType = keyof typeof TIER_BADGES
+
 // Platform fee as decimal (6.5% = 0.065)
 export const PLATFORM_FEE_RATE = 0.065
 

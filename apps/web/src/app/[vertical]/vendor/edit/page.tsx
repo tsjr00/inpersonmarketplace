@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import EditProfileForm from './EditProfileForm'
+import ProfileImageUpload from '@/components/vendor/ProfileImageUpload'
+import ProfileEditForm from '@/components/vendor/ProfileEditForm'
+import { VendorTierType } from '@/lib/constants'
 
 interface EditProfilePageProps {
   params: Promise<{ vertical: string }>
@@ -53,11 +56,45 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         </p>
       </div>
 
-      <EditProfileForm
-        vertical={vertical}
-        vendorProfile={vendorProfile}
-        branding={branding}
-      />
+      {/* Profile Image Section */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 24,
+        marginBottom: 20,
+        border: '1px solid #e5e7eb'
+      }}>
+        <ProfileImageUpload
+          currentImageUrl={vendorProfile.profile_image_url}
+        />
+      </div>
+
+      {/* Description & Social Links */}
+      <div style={{ marginBottom: 20 }}>
+        <ProfileEditForm
+          vendorId={vendorProfile.id}
+          currentData={{
+            description: vendorProfile.description,
+            social_links: vendorProfile.social_links
+          }}
+          tier={(vendorProfile.tier || 'standard') as VendorTierType}
+        />
+      </div>
+
+      {/* Original Edit Form */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 24,
+        border: '1px solid #e5e7eb'
+      }}>
+        <h2 style={{ margin: '0 0 20px 0', fontSize: 20, fontWeight: 600 }}>Business Information</h2>
+        <EditProfileForm
+          vertical={vertical}
+          vendorProfile={vendorProfile}
+          branding={branding}
+        />
+      </div>
     </div>
   )
 }

@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
-import { formatDisplayPrice } from '@/lib/constants'
+import { formatDisplayPrice, VendorTierType } from '@/lib/constants'
+import VendorAvatar from '@/components/shared/VendorAvatar'
+import TierBadge from '@/components/shared/TierBadge'
 
 interface VendorProfilePageProps {
   params: Promise<{ vertical: string; vendorId: string }>
@@ -30,6 +32,10 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
   const profileData = vendor.profile_data as Record<string, unknown>
   const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+  const vendorTier = (vendor.tier || 'standard') as VendorTierType
+  const vendorDescription = vendor.description as string | null
+  const vendorImageUrl = vendor.profile_image_url as string | null
+  const socialLinks = vendor.social_links as Record<string, string> | null
 
   // Get vendor_type from profile (could be array or string)
   const profileTypes = profileData?.vendor_type
@@ -105,38 +111,44 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
         }}>
           <div className="vendor-header" style={{
             display: 'flex',
-            gap: 20,
-            alignItems: 'center'
+            gap: 24,
+            alignItems: 'flex-start'
           }}>
-            {/* Vendor Avatar - proper aspect ratio with object-cover */}
-            <div style={{
-              width: 80,
-              height: 80,
-              borderRadius: '50%',
-              backgroundColor: branding.colors.primary + '20',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 32,
-              fontWeight: 'bold',
-              color: branding.colors.primary,
-              flexShrink: 0,
-              overflow: 'hidden'
-            }}>
-              {/* If we had a logo, we'd use object-cover */}
-              {vendorName.charAt(0).toUpperCase()}
-            </div>
+            {/* Vendor Avatar */}
+            <VendorAvatar
+              imageUrl={vendorImageUrl}
+              name={vendorName}
+              size={100}
+              tier={vendorTier}
+            />
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h1 style={{
-                color: branding.colors.primary,
-                margin: 0,
-                fontSize: 24,
-                fontWeight: 'bold',
-                lineHeight: 1.3
-              }}>
-                {vendorName}
-              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                <h1 style={{
+                  color: branding.colors.primary,
+                  margin: 0,
+                  fontSize: 28,
+                  fontWeight: 'bold',
+                  lineHeight: 1.3
+                }}>
+                  {vendorName}
+                </h1>
+                {vendorTier !== 'standard' && (
+                  <TierBadge tier={vendorTier} size="lg" />
+                )}
+              </div>
+
+              {/* Description */}
+              {vendorDescription && (
+                <p style={{
+                  margin: '12px 0',
+                  fontSize: 15,
+                  lineHeight: 1.6,
+                  color: '#374151'
+                }}>
+                  {vendorDescription}
+                </p>
+              )}
 
               <div className="vendor-meta" style={{
                 display: 'flex',
@@ -159,6 +171,71 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                   {listings?.length || 0} listing{listings?.length !== 1 ? 's' : ''}
                 </span>
               </div>
+
+              {/* Social Links (Premium only) */}
+              {socialLinks && Object.keys(socialLinks).some(key => socialLinks[key]) && (
+                <div style={{
+                  display: 'flex',
+                  gap: 12,
+                  marginTop: 16,
+                  flexWrap: 'wrap'
+                }}>
+                  {socialLinks.facebook && (
+                    <a
+                      href={socialLinks.facebook}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#1877f2',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        fontWeight: 600
+                      }}
+                    >
+                      Facebook
+                    </a>
+                  )}
+                  {socialLinks.instagram && (
+                    <a
+                      href={socialLinks.instagram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#e4405f',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        fontWeight: 600
+                      }}
+                    >
+                      Instagram
+                    </a>
+                  )}
+                  {socialLinks.website && (
+                    <a
+                      href={socialLinks.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        fontWeight: 600
+                      }}
+                    >
+                      Website
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
