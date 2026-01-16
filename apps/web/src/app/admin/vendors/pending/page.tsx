@@ -17,7 +17,7 @@ export default async function PendingVendorsPage() {
       created_at,
       user_id
     `)
-    .eq('status', 'submitted')
+    .in('status', ['submitted', 'draft'])
     .order('created_at', { ascending: true })
 
   return (
