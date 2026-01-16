@@ -62,6 +62,40 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   // Combine profile categories and listing categories (unique)
   const allCategories = [...new Set([...profileCategories, ...listingCategories])]
 
+  // Get unique markets where this vendor has active listings
+  const listingIds = (listings || []).map(l => l.id as string)
+  let vendorMarkets: { id: string; name: string; market_type: string }[] = []
+
+  if (listingIds.length > 0) {
+    const { data: listingMarketsData } = await supabase
+      .from('listing_markets')
+      .select(`
+        market_id,
+        markets (
+          id,
+          name,
+          market_type
+        )
+      `)
+      .in('listing_id', listingIds)
+
+    // Extract unique markets
+    const marketsMap = new Map<string, { id: string; name: string; market_type: string }>()
+    if (listingMarketsData) {
+      for (const lm of listingMarketsData) {
+        const market = lm.markets as unknown as { id: string; name: string; market_type: string } | null
+        if (market && !marketsMap.has(market.id)) {
+          marketsMap.set(market.id, {
+            id: market.id,
+            name: market.name,
+            market_type: market.market_type
+          })
+        }
+      }
+    }
+    vendorMarkets = Array.from(marketsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }
+
   return (
     <div
       style={{
@@ -266,6 +300,49 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     {category}
                   </span>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pickup Locations - markets and private pickups */}
+          {vendorMarkets.length > 0 && (
+            <div style={{
+              marginTop: 20,
+              paddingTop: 20,
+              borderTop: '1px solid #f3f4f6'
+            }}>
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#374151',
+                margin: '0 0 12px 0'
+              }}>
+                Pickup Locations
+              </h3>
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 8
+              }}>
+                {vendorMarkets.map(market => {
+                  const isPrivate = market.market_type === 'private_pickup'
+                  const prefix = isPrivate ? 'Private Pickup: ' : 'Market: '
+                  return (
+                    <span
+                      key={market.id}
+                      style={{
+                        padding: '6px 14px',
+                        backgroundColor: isPrivate ? '#fef3c7' : '#e0f2fe',
+                        color: isPrivate ? '#92400e' : '#0369a1',
+                        borderRadius: 16,
+                        fontSize: 13,
+                        fontWeight: 500
+                      }}
+                    >
+                      {prefix}{market.name}
+                    </span>
+                  )
+                })}
               </div>
             </div>
           )}

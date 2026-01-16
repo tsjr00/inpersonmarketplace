@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import SettingsForm from './SettingsForm'
 import VendorTierManager from './VendorTierManager'
+import BuyerTierManager from './BuyerTierManager'
 
 interface SettingsPageProps {
   params: Promise<{ vertical: string }>
@@ -100,6 +101,33 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Buyer Membership */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: 8,
+        border: '1px solid #e5e7eb',
+        padding: 24,
+        marginBottom: 24
+      }}>
+        <h2 style={{
+          fontSize: 18,
+          fontWeight: 600,
+          color: '#111827',
+          marginTop: 0,
+          marginBottom: 20
+        }}>
+          Membership
+        </h2>
+
+        <BuyerTierManager
+          vertical={vertical}
+          currentTier={userProfile?.buyer_tier || 'free'}
+          tierExpiresAt={userProfile?.buyer_tier_expires_at}
+          stripeSubscriptionId={userProfile?.stripe_subscription_id}
+          primaryColor={branding.colors.primary}
+        />
       </div>
 
       {/* Vendor Account Details (if vendor) */}

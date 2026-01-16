@@ -71,13 +71,15 @@ export async function POST(
       status: 'processing',
     })
 
-    // Check if all items in order fulfilled
+    // Check if all non-cancelled items in order are fulfilled
     const { data: allItems } = await supabase
       .from('order_items')
       .select('status')
       .eq('order_id', orderItem.order_id)
 
-    const allFulfilled = allItems?.every((item) => item.status === 'fulfilled')
+    // Filter out cancelled items and check if remaining are all fulfilled
+    const activeItems = allItems?.filter((item) => item.status !== 'cancelled') || []
+    const allFulfilled = activeItems.length > 0 && activeItems.every((item) => item.status === 'fulfilled')
 
     if (allFulfilled) {
       await supabase

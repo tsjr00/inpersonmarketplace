@@ -2,11 +2,71 @@
 
 **Purpose:** Track development progress across all phases and sessions
 
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-01-16
 
 ---
 
 ## Active Phases
+
+### Phase-J-Pre-Sales-Order-Flow
+**Branch:** main | **Status:** Complete | **Started:** 2026-01-16
+
+#### 2026-01-16 Session (~2 hours)
+- **Completed:**
+  - ✓ J-1: Buyer pickup confirmation (buyer_confirmed_at field + API)
+  - ✓ J-1: Vendor fulfillment flow with two-way handoff
+  - ✓ J-1: Vendor Pickup Mode page for market day use
+  - ✓ J-1: Prominent order numbers on buyer/vendor UIs
+  - ✓ J-2: Buyer cancellation API (before vendor confirms only)
+  - ✓ J-2: Vendor rejection API ("Can't Fulfill" with required reason)
+  - ✓ J-2: Partial fulfillment logic (order completes when all non-cancelled items done)
+  - ✓ J-3: Notification service infrastructure (stubbed, logs to console)
+  - ✓ J-3: 7 notification templates (order placed, confirmed, ready, fulfilled, cancelled, expired)
+  - ✓ J-3: Order expiration system based on pickup date
+  - ✓ J-3: Vercel cron job for daily expiration processing (6am UTC)
+  - ✓ J-3: Passive expiration checks in buyer/vendor APIs
+- **NOT Completed:**
+  - ⏸ Email sending (stubbed - needs Resend/SendGrid integration)
+  - ⏸ Stripe refunds (TODO in cron endpoint)
+  - ⏸ QR codes (user decided not needed)
+- **Issues & Resolutions:**
+  - `order_item_status` enum missing 'paid' → Changed to check only 'pending'
+  - `pickup_date` column missing → Added in expiration migration
+  - `valid_buyer_tier` constraint already exists → Skipped, ran remaining SQL
+- **Migrations Created:** 5 migrations (20260116_001 through 005)
+- **Testing:** Build passes, all TypeScript compiles
+- **Commits:** Multiple commits to main
+- **Next Session:** Test full order lifecycle, integrate email service
+- **Detail:** /docs/Session_Summaries/Phase_J_Pre_Sales_Session_Summary.md
+
+---
+
+### Phase-Q-UX-Enhancements
+**Branch:** main | **Status:** Complete | **Started:** 2026-01-16
+
+#### 2026-01-16 Session (~2 hours)
+- **Completed:**
+  - ✓ Listing card layout reorganization (market name moved above separator)
+  - ✓ Added 2 new categories: "Plants & Flowers" and "Clothing & Fashion"
+  - ✓ Category descriptions in listing form to help vendors categorize items
+  - ✓ Updated category descriptions (Prepared Foods = shelf-stable snacks, Home & Functional = includes small furniture)
+  - ✓ Vendor signup acknowledgments (4 checkboxes for legal compliance)
+  - ✓ Market type prefix ("Market:" vs "Private Pickup:") on listing cards and detail pages
+  - ✓ Private pickup address privacy (only show to logged-in users)
+  - ✓ Pickup locations section on public vendor profile page
+  - ✓ Fixed market_type column name bug (was using 'type' instead of 'market_type')
+- **NOT Completed:**
+  - None - all items complete
+- **Issues & Resolutions:**
+  - "column markets_2.type does not exist" error → Database uses `market_type` not `type`
+  - Private pickup check failing → Database uses `'private_pickup'` not `'private'`
+- **Migrations Created:** 0 - no database changes needed
+- **Testing:** Build compiles, all features manually verified
+- **Commits:** Multiple commits to main
+- **Next Session:** Ready for production testing
+- **Detail:** /docs/Session_Summaries/Phase_Q_UX_Enhancements_Session_Summary.md
+
+---
 
 ### Phase-L-1-Component-Library
 **Branch:** feature/component-library | **Status:** Complete | **Started:** 2026-01-13

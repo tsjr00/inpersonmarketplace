@@ -41,6 +41,8 @@ export async function GET(request: NextRequest) {
           unit_price_cents,
           subtotal_cents,
           status,
+          expires_at,
+          cancelled_at,
           listing:listings(
             id,
             title,
@@ -114,6 +116,10 @@ export async function GET(request: NextRequest) {
           })
         }
 
+        const itemStatus = (item.status as string) || (order.status as string)
+        const expiresAt = item.expires_at as string | null
+        const cancelledAt = item.cancelled_at as string | null
+
         return {
           id: item.id,
           listing_id: listing?.id,
@@ -123,7 +129,9 @@ export async function GET(request: NextRequest) {
           quantity: item.quantity,
           unit_price_cents: item.unit_price_cents,
           subtotal_cents: item.subtotal_cents,
-          status: item.status || order.status,
+          status: itemStatus,
+          expires_at: expiresAt,
+          is_expired: expiresAt && new Date(expiresAt) < new Date() && itemStatus === 'pending' && !cancelledAt,
           market: market ? {
             id: market.id,
             name: (market.name as string) || 'Unknown',

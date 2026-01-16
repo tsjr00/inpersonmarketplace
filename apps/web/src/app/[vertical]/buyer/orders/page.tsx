@@ -160,6 +160,7 @@ export default function BuyerOrdersPage() {
               <option value="confirmed">Confirmed</option>
               <option value="ready">Ready for Pickup</option>
               <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
 
@@ -278,40 +279,61 @@ export default function BuyerOrdersPage() {
                 >
                   {/* Order Header */}
                   <div style={{
-                    padding: '20px 25px',
+                    padding: '16px 20px',
                     borderBottom: '1px solid #eee',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     backgroundColor: '#fafafa',
+                    gap: 12,
+                    flexWrap: 'wrap'
                   }}>
-                    <div>
-                      <p style={{ color: '#666', fontSize: 13, margin: '0 0 3px 0' }}>
-                        Order #{order.order_number}
-                      </p>
-                      <p style={{ color: '#999', fontSize: 12, margin: 0 }}>
-                        {new Date(order.created_at).toLocaleDateString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-                      <span style={{
-                        padding: '5px 12px',
-                        backgroundColor: config.bgColor,
-                        color: config.color,
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 600,
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      {/* Prominent Order Number */}
+                      <div style={{
+                        backgroundColor: '#111827',
+                        color: 'white',
+                        padding: '8px 14px',
+                        borderRadius: 6,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center'
                       }}>
-                        {config.label}
-                      </span>
-                      <span style={{ fontSize: 18, fontWeight: 'bold' }}>
-                        {formatPrice(order.total_cents)}
-                      </span>
+                        <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
+                          Order
+                        </span>
+                        <span style={{
+                          fontSize: 18,
+                          fontWeight: 'bold',
+                          fontFamily: 'monospace',
+                          letterSpacing: 1
+                        }}>
+                          {order.order_number || order.id.slice(0, 8).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{
+                          padding: '5px 12px',
+                          backgroundColor: config.bgColor,
+                          color: config.color,
+                          borderRadius: 20,
+                          fontSize: 12,
+                          fontWeight: 600,
+                        }}>
+                          {config.label}
+                        </span>
+                        <p style={{ color: '#999', fontSize: 12, margin: '6px 0 0 0' }}>
+                          {new Date(order.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      </div>
                     </div>
+                    <span style={{ fontSize: 18, fontWeight: 'bold' }}>
+                      {formatPrice(order.total_cents)}
+                    </span>
                   </div>
 
                   {/* Order Items */}

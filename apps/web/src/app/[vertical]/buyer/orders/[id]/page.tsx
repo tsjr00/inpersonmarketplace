@@ -40,6 +40,12 @@ interface OrderItem {
   vendor_phone: string | null
   market: Market
   pickup_date: string | null
+  buyer_confirmed_at: string | null
+  vendor_confirmed_at: string | null
+  cancelled_at: string | null
+  cancelled_by: string | null
+  cancellation_reason: string | null
+  refund_amount_cents: number | null
 }
 
 interface OrderDetail {
@@ -61,6 +67,8 @@ export default function BuyerOrderDetailPage() {
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingItemId, setConfirmingItemId] = useState<string | null>(null)
+  const [cancellingItemId, setCancellingItemId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchOrder()
@@ -82,6 +90,64 @@ export default function BuyerOrderDetailPage() {
       setError(err instanceof Error ? err.message : 'Failed to load order')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleConfirmPickup = async (itemId: string) => {
+    if (!confirm('Confirm you have received this item? This cannot be undone.')) {
+      return
+    }
+
+    setConfirmingItemId(itemId)
+    try {
+      const res = await fetch(`/api/buyer/orders/${itemId}/confirm`, {
+        method: 'POST'
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to confirm pickup')
+      }
+
+      // Refresh order to get updated status
+      fetchOrder()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to confirm pickup')
+    } finally {
+      setConfirmingItemId(null)
+    }
+  }
+
+  const handleCancelItem = async (itemId: string) => {
+    const reason = prompt('Why do you want to cancel this item? (optional)')
+    if (reason === null) {
+      // User clicked Cancel on prompt
+      return
+    }
+
+    if (!confirm('Are you sure you want to cancel this item? You will receive a refund.')) {
+      return
+    }
+
+    setCancellingItemId(itemId)
+    try {
+      const res = await fetch(`/api/buyer/orders/${itemId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to cancel item')
+      }
+
+      // Refresh order to get updated status
+      fetchOrder()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to cancel item')
+    } finally {
+      setCancellingItemId(null)
     }
   }
 
@@ -157,13 +223,33 @@ export default function BuyerOrderDetailPage() {
           ← Back to Orders
         </Link>
 
-        {/* Header */}
+        {/* Header with Prominent Order Number */}
         <div style={{ marginTop: 16, marginBottom: 24 }}>
-          <h1 style={{ color: '#111827', marginBottom: 8, marginTop: 0, fontSize: 28, fontWeight: 'bold' }}>
-            Order #{order.order_number || order.id.slice(0, 8)}
-          </h1>
+          {/* Large Order Number Box */}
+          <div style={{
+            backgroundColor: '#111827',
+            color: 'white',
+            padding: '16px 24px',
+            borderRadius: 8,
+            marginBottom: 16,
+            display: 'inline-block'
+          }}>
+            <p style={{ margin: 0, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7 }}>
+              Order Number
+            </p>
+            <p style={{
+              margin: '4px 0 0 0',
+              fontSize: 32,
+              fontWeight: 'bold',
+              fontFamily: 'monospace',
+              letterSpacing: 2
+            }}>
+              {order.order_number || order.id.slice(0, 8).toUpperCase()}
+            </p>
+          </div>
           <p style={{ color: '#6b7280', margin: 0 }}>
             Placed on {new Date(order.created_at).toLocaleDateString('en-US', {
+              weekday: 'long',
               month: 'long',
               day: 'numeric',
               year: 'numeric'
@@ -245,9 +331,138 @@ export default function BuyerOrderDetailPage() {
                       <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#6b7280' }}>
                         by {item.vendor_name}
                       </p>
-                      <p style={{ margin: 0, fontSize: 14, color: '#374151' }}>
+                      <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#374151' }}>
                         Quantity: {item.quantity} × {formatPrice(item.unit_price_cents)} = <strong>{formatPrice(item.subtotal_cents)}</strong>
                       </p>
+
+                      {/* Item Status & Confirmation */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        flexWrap: 'wrap'
+                      }}>
+                        {/* Status Badge */}
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: 4,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          backgroundColor:
+                            item.status === 'cancelled' ? '#fee2e2' :
+                            item.status === 'fulfilled' ? '#d1fae5' :
+                            item.status === 'ready' ? '#dbeafe' :
+                            item.status === 'confirmed' ? '#fef3c7' :
+                            '#f3f4f6',
+                          color:
+                            item.status === 'cancelled' ? '#991b1b' :
+                            item.status === 'fulfilled' ? '#065f46' :
+                            item.status === 'ready' ? '#1e40af' :
+                            item.status === 'confirmed' ? '#92400e' :
+                            '#374151'
+                        }}>
+                          {item.status === 'cancelled' ? 'Cancelled' :
+                           item.status === 'fulfilled' ? 'Picked Up' :
+                           item.status === 'ready' ? 'Ready for Pickup' :
+                           item.status === 'confirmed' ? 'Preparing' :
+                           item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                        </span>
+
+                        {/* Cancellation Info */}
+                        {item.cancelled_at && (
+                          <div style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#fef2f2',
+                            borderRadius: 6,
+                            fontSize: 12,
+                            color: '#991b1b',
+                            width: '100%'
+                          }}>
+                            <p style={{ margin: 0, fontWeight: 600 }}>
+                              {item.cancelled_by === 'vendor' ? 'Cancelled by vendor' : 'You cancelled this item'}
+                            </p>
+                            {item.cancellation_reason && (
+                              <p style={{ margin: '4px 0 0 0' }}>
+                                Reason: {item.cancellation_reason}
+                              </p>
+                            )}
+                            {item.refund_amount_cents && (
+                              <p style={{ margin: '4px 0 0 0', fontWeight: 500 }}>
+                                Refund: {formatPrice(item.refund_amount_cents)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Buyer Confirmed Badge */}
+                        {item.buyer_confirmed_at && !item.cancelled_at && (
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            backgroundColor: '#d1fae5',
+                            color: '#065f46',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}>
+                            <span>✓</span> You confirmed receipt
+                          </span>
+                        )}
+
+                        {/* Confirm Button - show when ready/fulfilled and not yet confirmed */}
+                        {['ready', 'fulfilled'].includes(item.status) && !item.buyer_confirmed_at && !item.cancelled_at && (
+                          <button
+                            onClick={() => handleConfirmPickup(item.id)}
+                            disabled={confirmingItemId === item.id}
+                            style={{
+                              padding: '8px 16px',
+                              backgroundColor: confirmingItemId === item.id ? '#9ca3af' : '#059669',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              cursor: confirmingItemId === item.id ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6
+                            }}
+                          >
+                            {confirmingItemId === item.id ? (
+                              'Confirming...'
+                            ) : (
+                              <>
+                                <span>✓</span> Confirm Receipt
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {/* Cancel Button - show when pending/paid (before vendor confirms) */}
+                        {['pending', 'paid'].includes(item.status) && !item.cancelled_at && (
+                          <button
+                            onClick={() => handleCancelItem(item.id)}
+                            disabled={cancellingItemId === item.id}
+                            style={{
+                              padding: '8px 16px',
+                              backgroundColor: cancellingItemId === item.id ? '#9ca3af' : '#dc2626',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontSize: 13,
+                              fontWeight: 600,
+                              cursor: cancellingItemId === item.id ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6
+                            }}
+                          >
+                            {cancellingItemId === item.id ? 'Cancelling...' : 'Cancel Item'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

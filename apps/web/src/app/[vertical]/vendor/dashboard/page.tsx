@@ -614,6 +614,36 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
+
+          {/* Pickup Mode - Quick mobile-friendly order lookup */}
+          <Link
+            href={`/${vertical}/vendor/pickup`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: 16,
+              backgroundColor: '#dcfce7',
+              color: '#333',
+              border: '1px solid #86efac',
+              borderRadius: 8,
+              cursor: 'pointer',
+              height: '100%',
+              minHeight: 120
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📲</div>
+              <h3 style={{
+                color: '#166534',
+                margin: '0 0 8px 0',
+                fontSize: 16,
+                fontWeight: 600
+              }}>
+                Pickup Mode
+              </h3>
+              <p style={{ color: '#166534', margin: 0, fontSize: 14 }}>
+                Mobile-friendly view for market day fulfillment
+              </p>
+            </div>
+          </Link>
         </div>
 
         {/* Coming Soon */}
@@ -660,7 +690,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             grid-template-columns: repeat(4, 1fr);
           }
           .vendor-dashboard .action-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
           }
         }
       `}</style>

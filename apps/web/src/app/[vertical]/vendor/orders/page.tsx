@@ -142,6 +142,29 @@ export default function VendorOrdersPage() {
     }
   }
 
+  const handleRejectItem = async (itemId: string, reason: string) => {
+    if (!confirm(`Are you sure you want to reject this item? The customer will be refunded.\n\nReason: ${reason}`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/vendor/orders/${itemId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      })
+      if (res.ok) {
+        fetchOrders()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Failed to reject item')
+      }
+    } catch (error) {
+      console.error('Error rejecting item:', error)
+      alert('An error occurred')
+    }
+  }
+
   const handleClearFilters = () => {
     setStatusFilter(null)
     setMarketFilter(null)
@@ -256,6 +279,7 @@ export default function VendorOrdersPage() {
               onConfirmItem={handleConfirmItem}
               onReadyItem={handleReadyItem}
               onFulfillItem={handleFulfillItem}
+              onRejectItem={handleRejectItem}
             />
           ))}
         </div>

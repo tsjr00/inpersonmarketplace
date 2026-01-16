@@ -40,6 +40,11 @@ export async function GET(request: NextRequest) {
       status,
       market_id,
       pickup_date,
+      buyer_confirmed_at,
+      cancelled_at,
+      cancelled_by,
+      cancellation_reason,
+      expires_at,
       created_at,
       listing:listings(
         id,
@@ -117,7 +122,13 @@ export async function GET(request: NextRequest) {
       market_type: item.market?.market_type || 'traditional',
       market_address: item.market?.address,
       market_city: item.market?.city,
-      pickup_date: item.pickup_date
+      pickup_date: item.pickup_date,
+      buyer_confirmed_at: item.buyer_confirmed_at,
+      cancelled_at: item.cancelled_at,
+      cancelled_by: item.cancelled_by,
+      cancellation_reason: item.cancellation_reason,
+      expires_at: item.expires_at,
+      is_expired: item.expires_at && new Date(item.expires_at) < new Date() && item.status === 'pending' && !item.cancelled_at
     })
   })
 

@@ -31,14 +31,16 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const isVendor = !!vendorProfile
   const isApprovedVendor = vendorProfile?.status === 'approved'
 
-  // Get user profile to check for admin role - check BOTH columns during transition
+  // Get user profile to check for admin role and buyer tier
   const { data: userProfile } = await supabase
     .from('user_profiles')
-    .select('role, roles')
+    .select('role, roles, buyer_tier, buyer_tier_expires_at')
     .eq('user_id', user.id)
     .single()
 
   const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+  const buyerTier = (userProfile?.buyer_tier as string) || 'free'
+  const isPremiumBuyer = buyerTier === 'premium'
 
   // Get recent orders count (as buyer)
   const { count: orderCount } = await supabase
@@ -139,6 +141,134 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             </p>
           </Link>
         </div>
+
+        {/* Upgrade to Premium Card - only show for free tier */}
+        {!isPremiumBuyer && (
+          <div style={{
+            marginTop: 20,
+            padding: 24,
+            backgroundColor: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+            border: '1px solid #93c5fd',
+            borderRadius: 12
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              gap: 20
+            }}>
+              <div style={{ flex: 1, minWidth: 250 }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 8
+                }}>
+                  <span style={{ fontSize: 24 }}>⭐</span>
+                  <h3 style={{
+                    margin: 0,
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: '#1e40af'
+                  }}>
+                    Upgrade to Premium
+                  </h3>
+                </div>
+                <p style={{
+                  margin: '0 0 16px 0',
+                  color: '#1e3a8a',
+                  fontSize: 15
+                }}>
+                  Get exclusive benefits for just <strong>$9.99/month</strong> or <strong>$81.50/year</strong>{' '}
+                  <span style={{
+                    backgroundColor: '#059669',
+                    color: 'white',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}>
+                    Save 32%
+                  </span>
+                </p>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: 10
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
+                    <span style={{ fontSize: 14, color: '#374151' }}>Early access to new listings</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
+                    <span style={{ fontSize: 14, color: '#374151' }}>Priority customer support</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
+                    <span style={{ fontSize: 14, color: '#374151' }}>Order history & insights</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
+                    <span style={{ fontSize: 14, color: '#374151' }}>Premium member badge</span>
+                  </div>
+                </div>
+              </div>
+
+              <Link
+                href={`/${vertical}/buyer/upgrade`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '14px 28px',
+                  backgroundColor: '#2563eb',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 16,
+                  minHeight: 48,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)'
+                }}
+              >
+                Upgrade Now →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Premium Member Badge - show for premium buyers */}
+        {isPremiumBuyer && (
+          <div style={{
+            marginTop: 20,
+            padding: 16,
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #86efac',
+            borderRadius: 8,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12
+          }}>
+            <span style={{ fontSize: 24 }}>⭐</span>
+            <div>
+              <div style={{
+                fontWeight: 600,
+                color: '#166534',
+                fontSize: 15
+              }}>
+                Premium Member
+              </div>
+              <div style={{ fontSize: 13, color: '#166534' }}>
+                Enjoying early access, priority support, and exclusive benefits
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ========== VENDOR SECTION ========== */}

@@ -21,6 +21,7 @@ export default function SignupPage({ params }: SignupPageProps) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
+  const [startWithPremium, setStartWithPremium] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -72,6 +73,7 @@ export default function SignupPage({ params }: SignupPageProps) {
         data: {
           full_name: fullName,
           preferred_vertical: vertical,
+          start_with_premium: startWithPremium,
         },
       },
     })
@@ -85,7 +87,12 @@ export default function SignupPage({ params }: SignupPageProps) {
     if (data.user) {
       setSuccess(true)
       setTimeout(() => {
-        router.push(`/${vertical}/dashboard`)
+        // If they selected premium, redirect to upgrade page to complete payment
+        if (startWithPremium) {
+          router.push(`/${vertical}/buyer/upgrade`)
+        } else {
+          router.push(`/${vertical}/dashboard`)
+        }
         router.refresh()
       }, 2000)
     }
@@ -125,7 +132,13 @@ export default function SignupPage({ params }: SignupPageProps) {
           <h2 style={{ color: branding.colors.accent, marginBottom: 10 }}>
             Account Created!
           </h2>
-          <p style={{ color: '#333' }}>Welcome to {branding.brand_name}. Redirecting to your dashboard...</p>
+          <p style={{ color: '#333' }}>
+            Welcome to {branding.brand_name}.{' '}
+            {startWithPremium
+              ? 'Redirecting to complete your Premium membership...'
+              : 'Redirecting to your dashboard...'
+            }
+          </p>
         </div>
       </div>
     )
@@ -282,6 +295,77 @@ export default function SignupPage({ params }: SignupPageProps) {
                 boxSizing: 'border-box'
               }}
             />
+          </div>
+
+          {/* Premium Membership Option */}
+          <div
+            onClick={() => !loading && setStartWithPremium(!startWithPremium)}
+            style={{
+              marginBottom: 20,
+              padding: 16,
+              borderRadius: 8,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              border: startWithPremium ? '2px solid #2563eb' : '2px solid #e5e7eb',
+              backgroundColor: startWithPremium ? '#eff6ff' : '#f9fafb',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12
+            }}>
+              <div style={{
+                width: 20,
+                height: 20,
+                borderRadius: 4,
+                border: startWithPremium ? '2px solid #2563eb' : '2px solid #d1d5db',
+                backgroundColor: startWithPremium ? '#2563eb' : 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                marginTop: 2
+              }}>
+                {startWithPremium && (
+                  <span style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</span>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginBottom: 4
+                }}>
+                  <span style={{ fontSize: 16 }}>⭐</span>
+                  <span style={{
+                    fontWeight: 600,
+                    color: startWithPremium ? '#1e40af' : '#374151'
+                  }}>
+                    Start with Premium
+                  </span>
+                  <span style={{
+                    backgroundColor: '#059669',
+                    color: 'white',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    fontSize: 10,
+                    fontWeight: 600
+                  }}>
+                    SAVE 32%
+                  </span>
+                </div>
+                <p style={{
+                  margin: 0,
+                  fontSize: 13,
+                  color: '#6b7280',
+                  lineHeight: 1.4
+                }}>
+                  $9.99/month or $81.50/year — Early access to listings, priority support, and more
+                </p>
+              </div>
+            </div>
           </div>
 
           <button

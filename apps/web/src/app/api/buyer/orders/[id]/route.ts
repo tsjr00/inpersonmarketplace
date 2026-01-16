@@ -33,6 +33,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
         status,
         market_id,
         pickup_date,
+        buyer_confirmed_at,
+        pickup_confirmed_at,
+        cancelled_at,
+        cancelled_by,
+        cancellation_reason,
+        refund_amount_cents,
+        expires_at,
         listing:listings (
           id,
           title,
@@ -111,7 +118,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
           contact_phone: market?.contact_phone,
           schedules: market?.market_schedules || []
         },
-        pickup_date: item.pickup_date
+        pickup_date: item.pickup_date,
+        buyer_confirmed_at: item.buyer_confirmed_at,
+        vendor_confirmed_at: item.pickup_confirmed_at,
+        cancelled_at: item.cancelled_at,
+        cancelled_by: item.cancelled_by,
+        cancellation_reason: item.cancellation_reason,
+        refund_amount_cents: item.refund_amount_cents,
+        expires_at: item.expires_at,
+        is_expired: item.expires_at && new Date(item.expires_at) < new Date() && item.status === 'pending' && !item.cancelled_at
       }
     })
   }

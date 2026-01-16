@@ -16,6 +16,10 @@ interface OrderItem {
   market_address?: string
   market_city?: string
   pickup_date?: string
+  buyer_confirmed_at?: string | null
+  cancelled_at?: string | null
+  cancelled_by?: string | null
+  cancellation_reason?: string | null
 }
 
 interface OrderCardProps {
@@ -31,21 +35,24 @@ interface OrderCardProps {
   onConfirmItem?: (itemId: string) => void
   onReadyItem?: (itemId: string) => void
   onFulfillItem?: (itemId: string) => void
+  onRejectItem?: (itemId: string, reason: string) => void
 }
 
 function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
 }
 
-export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem }: OrderCardProps) {
+export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem }: OrderCardProps) {
   const orderDate = new Date(order.created_at).toLocaleDateString()
   const orderTime = new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
   // Get unique markets for this order
   const markets = [...new Set(order.items.map(item => item.market_name))]
 
-  // Calculate vendor's subtotal for this order
-  const vendorSubtotal = order.items.reduce((sum, item) => sum + item.subtotal_cents, 0)
+  // Calculate vendor's subtotal for this order (excluding cancelled items)
+  const vendorSubtotal = order.items
+    .filter(item => item.status !== 'cancelled')
+    .reduce((sum, item) => sum + item.subtotal_cents, 0)
 
   return (
     <div style={{
@@ -64,15 +71,38 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
         flexWrap: 'wrap',
         gap: 12
       }}>
-        <div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 4 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#111827' }}>
-              Order #{order.order_number}
-            </h3>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          {/* Prominent Order Number */}
+          <div style={{
+            backgroundColor: '#111827',
+            color: 'white',
+            padding: '10px 16px',
+            borderRadius: 6,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            flexShrink: 0
+          }}>
+            <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
+              Order
+            </span>
+            <span style={{
+              fontSize: 20,
+              fontWeight: 'bold',
+              fontFamily: 'monospace',
+              letterSpacing: 1
+            }}>
+              {order.order_number || order.id.slice(0, 8).toUpperCase()}
+            </span>
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-            {orderDate} at {orderTime} - Customer: {order.customer_name}
-          </p>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#374151' }}>
+              {order.customer_name}
+            </p>
+            <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#6b7280' }}>
+              {orderDate} at {orderTime}
+            </p>
+          </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
@@ -157,65 +187,128 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                     <OrderStatusBadge status={item.status} />
                   </div>
 
+                  {/* Cancellation Info */}
+                  {item.cancelled_at && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '8px 12px',
+                      backgroundColor: '#fef2f2',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      color: '#991b1b'
+                    }}>
+                      <p style={{ margin: 0, fontWeight: 600 }}>
+                        {item.cancelled_by === 'buyer' ? 'Cancelled by customer' : 'You cancelled this item'}
+                      </p>
+                      {item.cancellation_reason && (
+                        <p style={{ margin: '4px 0 0 0' }}>
+                          Reason: {item.cancellation_reason}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Buyer Confirmed Badge */}
+                  {item.buyer_confirmed_at && !item.cancelled_at && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '6px 10px',
+                      backgroundColor: '#d1fae5',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      color: '#065f46',
+                      fontWeight: 500
+                    }}>
+                      Customer confirmed receipt
+                    </div>
+                  )}
+
                   {/* Item Actions */}
-                  <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {item.status === 'pending' && onConfirmItem && (
-                      <button
-                        onClick={() => onConfirmItem(item.id)}
-                        style={{
-                          padding: '6px 14px',
-                          backgroundColor: '#3b82f6',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 6,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          minHeight: 36
-                        }}
-                      >
-                        Confirm
-                      </button>
-                    )}
+                  {!item.cancelled_at && (
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {item.status === 'pending' && onConfirmItem && (
+                        <button
+                          onClick={() => onConfirmItem(item.id)}
+                          style={{
+                            padding: '6px 14px',
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 6,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            minHeight: 36
+                          }}
+                        >
+                          Confirm
+                        </button>
+                      )}
 
-                    {item.status === 'confirmed' && onReadyItem && (
-                      <button
-                        onClick={() => onReadyItem(item.id)}
-                        style={{
-                          padding: '6px 14px',
-                          backgroundColor: '#10b981',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 6,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          minHeight: 36
-                        }}
-                      >
-                        Mark Ready
-                      </button>
-                    )}
+                      {item.status === 'confirmed' && onReadyItem && (
+                        <button
+                          onClick={() => onReadyItem(item.id)}
+                          style={{
+                            padding: '6px 14px',
+                            backgroundColor: '#10b981',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 6,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            minHeight: 36
+                          }}
+                        >
+                          Mark Ready
+                        </button>
+                      )}
 
-                    {item.status === 'ready' && onFulfillItem && (
-                      <button
-                        onClick={() => onFulfillItem(item.id)}
-                        style={{
-                          padding: '6px 14px',
-                          backgroundColor: '#8b5cf6',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 6,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          minHeight: 36
-                        }}
-                      >
-                        Mark Fulfilled
-                      </button>
-                    )}
-                  </div>
+                      {item.status === 'ready' && onFulfillItem && (
+                        <button
+                          onClick={() => onFulfillItem(item.id)}
+                          style={{
+                            padding: '6px 14px',
+                            backgroundColor: '#8b5cf6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 6,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            minHeight: 36
+                          }}
+                        >
+                          Mark Fulfilled
+                        </button>
+                      )}
+
+                      {/* Reject Button - available until item is fulfilled */}
+                      {item.status !== 'fulfilled' && onRejectItem && (
+                        <button
+                          onClick={() => {
+                            const reason = prompt('Why can\'t you fulfill this item?')
+                            if (reason) {
+                              onRejectItem(item.id, reason)
+                            }
+                          }}
+                          style={{
+                            padding: '6px 14px',
+                            backgroundColor: 'white',
+                            color: '#dc2626',
+                            border: '1px solid #dc2626',
+                            borderRadius: 6,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            minHeight: 36
+                          }}
+                        >
+                          Can't Fulfill
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
