@@ -81,10 +81,14 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
         if (!nameMatch && !emailMatch && !idMatch) return false
       }
 
-      // Vertical filter
+      // Vertical filter (only applies to vendors - buyers/admins always pass)
       if (verticalFilter !== 'all') {
-        const hasVertical = user.vendor_profiles?.some(vp => vp.vertical_id === verticalFilter)
-        if (!hasVertical) return false
+        // If user has vendor profiles, check if any match the vertical
+        if (user.vendor_profiles && user.vendor_profiles.length > 0) {
+          const hasVertical = user.vendor_profiles.some(vp => vp.vertical_id === verticalFilter)
+          if (!hasVertical) return false
+        }
+        // Non-vendors (buyers, admins without vendor profiles) pass through
       }
 
       // Role filter
