@@ -16,6 +16,7 @@ interface UserProfile {
   display_name: string | null
   role: string | null
   roles: string[] | null
+  verticals: string[] | null
   created_at: string
   vendor_profiles: VendorProfile[] | null
 }
@@ -81,14 +82,15 @@ export default function UsersTable({ users, verticals }: UsersTableProps) {
         if (!nameMatch && !emailMatch && !idMatch) return false
       }
 
-      // Vertical filter (only applies to vendors - buyers/admins always pass)
+      // Vertical filter - check both vendor profiles AND user's verticals array
       if (verticalFilter !== 'all') {
-        // If user has vendor profiles, check if any match the vertical
-        if (user.vendor_profiles && user.vendor_profiles.length > 0) {
-          const hasVertical = user.vendor_profiles.some(vp => vp.vertical_id === verticalFilter)
-          if (!hasVertical) return false
-        }
-        // Non-vendors (buyers, admins without vendor profiles) pass through
+        // Check if user has this vertical in their verticals array
+        const hasUserVertical = user.verticals?.includes(verticalFilter)
+        // Check if user has a vendor profile in this vertical
+        const hasVendorVertical = user.vendor_profiles?.some(vp => vp.vertical_id === verticalFilter)
+
+        // User must have the vertical in either their verticals array or vendor profiles
+        if (!hasUserVertical && !hasVendorVertical) return false
       }
 
       // Role filter

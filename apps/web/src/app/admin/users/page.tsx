@@ -16,6 +16,7 @@ interface UserProfile {
   display_name: string | null
   role: string | null
   roles: string[] | null
+  verticals: string[] | null
   created_at: string
   vendor_profiles: VendorProfile[] | null
 }
@@ -24,7 +25,7 @@ export default async function UsersPage() {
   await requireAdmin()
   const supabase = await createClient()
 
-  // Fetch users with their roles and vendor profiles (including tier)
+  // Fetch users with their roles, verticals, and vendor profiles (including tier)
   const { data: users } = await supabase
     .from('user_profiles')
     .select(`
@@ -34,6 +35,7 @@ export default async function UsersPage() {
       display_name,
       role,
       roles,
+      verticals,
       created_at,
       vendor_profiles (
         id,
@@ -44,9 +46,15 @@ export default async function UsersPage() {
     `)
     .order('created_at', { ascending: false })
 
-  // Get unique verticals from vendor profiles
+  // Get unique verticals from both user verticals and vendor profiles
   const verticals = new Set<string>()
   users?.forEach(user => {
+    // Add from user's verticals array
+    const userVerticals = user.verticals as string[] | null
+    userVerticals?.forEach(v => {
+      if (v) verticals.add(v)
+    })
+    // Add from vendor profiles
     const vps = user.vendor_profiles as VendorProfile[] | null
     vps?.forEach(vp => {
       if (vp.vertical_id) verticals.add(vp.vertical_id)
@@ -61,6 +69,7 @@ export default async function UsersPage() {
     display_name: user.display_name as string | null,
     role: user.role as string | null,
     roles: user.roles as string[] | null,
+    verticals: user.verticals as string[] | null,
     created_at: user.created_at as string,
     vendor_profiles: user.vendor_profiles as VendorProfile[] | null
   }))
