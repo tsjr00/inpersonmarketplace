@@ -8,6 +8,21 @@ import { CATEGORIES } from '@/lib/constants'
 import Link from 'next/link'
 import MarketSelector from '@/components/vendor/MarketSelector'
 
+// Category descriptions to help vendors categorize their products
+const CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  'Produce': 'Fresh fruits, vegetables, herbs, mushrooms, and microgreens. Includes both conventional and organic options.',
+  'Meat & Poultry': 'Fresh, frozen, or cured meats including beef, pork, lamb, chicken, turkey, duck, and game meats. Also includes sausages and charcuterie.',
+  'Dairy & Eggs': 'Milk, cheese, butter, yogurt, cream, eggs, and other dairy products. Includes both cow and alternative dairy (goat, sheep).',
+  'Baked Goods': 'Bread, pastries, cookies, cakes, pies, muffins, and other baked items. Includes gluten-free and specialty baked goods.',
+  'Pantry': 'Shelf-stable items like jams, jellies, honey, maple syrup, sauces, pickles, oils, vinegars, spices, dry pasta, and grains.',
+  'Prepared Foods': 'Shelf-stable snacks and ready-to-eat items like popcorn, granola, trail mix, dried fruits, chips, and other packaged snacks. Includes items that will be stored cold before pickup.',
+  'Plants & Flowers': 'Live plants, seedlings, cut flowers, bouquets, potted plants, succulents, and garden starts.',
+  'Health & Wellness': 'Natural body care products, soaps, lotions, balms, herbal remedies, teas, and wellness items.',
+  'Clothing & Fashion': 'Handmade or locally-made clothing, accessories, jewelry, hats, scarves, bags, and wearable items.',
+  'Art & Decor': 'Original artwork, prints, photography, pottery, ceramics, candles, and decorative home items.',
+  'Home & Functional': 'Handcrafted household items like cutting boards, utensils, textiles, and baskets. Also includes small furniture such as lamps, chairs, shelves, and other functional pieces.'
+}
+
 interface ListingFormProps {
   vertical: string
   vendorProfileId: string
@@ -504,6 +519,21 @@ export default function ListingForm({
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
+          {/* Category description helper */}
+          {formData.category && CATEGORY_DESCRIPTIONS[formData.category] && (
+            <div style={{
+              marginTop: 8,
+              padding: '10px 12px',
+              backgroundColor: '#f0f9ff',
+              border: '1px solid #bae6fd',
+              borderRadius: 6,
+              fontSize: 13,
+              color: '#0369a1',
+              lineHeight: 1.5
+            }}>
+              <strong>{formData.category}:</strong> {CATEGORY_DESCRIPTIONS[formData.category]}
+            </div>
+          )}
         </div>
 
         {/* Market Selection */}

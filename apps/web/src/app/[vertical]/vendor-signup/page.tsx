@@ -30,6 +30,14 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks);
+
+  // Vendor acknowledgments
+  const [acknowledgments, setAcknowledgments] = useState({
+    legalCompliance: false,
+    productSafety: false,
+    platformTerms: false,
+    accurateInfo: false
+  });
   const [marketLimitInfo, setMarketLimitInfo] = useState<{
     atLimit: boolean;
     alreadyInMarket: boolean;
@@ -176,11 +184,24 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       return;
     }
 
+    // Validate acknowledgments
+    const allAcknowledged = Object.values(acknowledgments).every(v => v === true);
+    if (!allAcknowledged) {
+      alert("Please review and accept all vendor acknowledgments before submitting.");
+      return;
+    }
+
     const payload = {
       kind: "vendor_signup",
       vertical,
       user_id: user.id,
-      data: values
+      data: {
+        ...values,
+        acknowledgments: {
+          ...acknowledgments,
+          accepted_at: new Date().toISOString()
+        }
+      }
     };
 
     try {
@@ -553,19 +574,138 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             );
           })}
 
+          {/* Vendor Acknowledgments Section */}
+          <div style={{
+            marginTop: 24,
+            padding: 20,
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: 8
+          }}>
+            <h3 style={{
+              margin: '0 0 16px 0',
+              fontSize: 16,
+              fontWeight: 700,
+              color: '#1e293b'
+            }}>
+              Vendor Acknowledgments
+            </h3>
+            <p style={{
+              margin: '0 0 16px 0',
+              fontSize: 13,
+              color: '#64748b',
+              lineHeight: 1.5
+            }}>
+              As an independent vendor, you are the expert on your own business and products. Please review and acknowledge each statement below.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Independent Business Status */}
+              <label style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+                padding: 12,
+                backgroundColor: acknowledgments.legalCompliance ? '#f0fdf4' : 'white',
+                border: `1px solid ${acknowledgments.legalCompliance ? '#86efac' : '#e2e8f0'}`,
+                borderRadius: 6
+              }}>
+                <input
+                  type="checkbox"
+                  checked={acknowledgments.legalCompliance}
+                  onChange={(e) => setAcknowledgments(prev => ({ ...prev, legalCompliance: e.target.checked }))}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
+                  <strong>Independent Business:</strong> I understand that I am operating as an independent business or agent. As the expert on my own products and services, I am solely responsible for knowing and complying with all federal, state, and local laws, regulations, and permit requirements that apply to my business. This platform does not and cannot know which specific regulations apply to my situation.
+                </span>
+              </label>
+
+              {/* Product Responsibility */}
+              <label style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+                padding: 12,
+                backgroundColor: acknowledgments.productSafety ? '#f0fdf4' : 'white',
+                border: `1px solid ${acknowledgments.productSafety ? '#86efac' : '#e2e8f0'}`,
+                borderRadius: 6
+              }}>
+                <input
+                  type="checkbox"
+                  checked={acknowledgments.productSafety}
+                  onChange={(e) => setAcknowledgments(prev => ({ ...prev, productSafety: e.target.checked }))}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
+                  <strong>Product Responsibility:</strong> As the expert on my products, I take full responsibility for ensuring they meet all applicable safety standards, labeling requirements, and preparation regulations. If my products require permits, certifications, or licenses, I have obtained them. This platform relies on my expertise and honesty regarding my own products.
+                </span>
+              </label>
+
+              {/* Platform Role & Liability */}
+              <label style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+                padding: 12,
+                backgroundColor: acknowledgments.platformTerms ? '#f0fdf4' : 'white',
+                border: `1px solid ${acknowledgments.platformTerms ? '#86efac' : '#e2e8f0'}`,
+                borderRadius: 6
+              }}>
+                <input
+                  type="checkbox"
+                  checked={acknowledgments.platformTerms}
+                  onChange={(e) => setAcknowledgments(prev => ({ ...prev, platformTerms: e.target.checked }))}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
+                  <strong>Platform Role:</strong> I understand this platform simply connects independent vendors with buyers and does not verify, endorse, or assume responsibility for my products, compliance, or business practices. I agree to indemnify and hold harmless the platform from any claims or liabilities arising from my products or business activities.
+                </span>
+              </label>
+
+              {/* Honesty & Transparency */}
+              <label style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+                padding: 12,
+                backgroundColor: acknowledgments.accurateInfo ? '#f0fdf4' : 'white',
+                border: `1px solid ${acknowledgments.accurateInfo ? '#86efac' : '#e2e8f0'}`,
+                borderRadius: 6
+              }}>
+                <input
+                  type="checkbox"
+                  checked={acknowledgments.accurateInfo}
+                  onChange={(e) => setAcknowledgments(prev => ({ ...prev, accurateInfo: e.target.checked }))}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
+                  <strong>Honesty & Transparency:</strong> I commit to being honest and transparent in all my dealings on this platform. All information I provide is true and accurate. I understand this platform relies on vendor integrity, and that misrepresentation may result in account termination.
+                </span>
+              </label>
+            </div>
+          </div>
+
           <button
             type="submit"
+            disabled={!Object.values(acknowledgments).every(v => v)}
             style={{
+              marginTop: 20,
               padding: "12px 14px",
               fontWeight: 800,
-              cursor: "pointer",
+              cursor: Object.values(acknowledgments).every(v => v) ? "pointer" : "not-allowed",
               border: "none",
               borderRadius: 8,
-              backgroundColor: branding.colors.primary,
-              color: "white"
+              backgroundColor: Object.values(acknowledgments).every(v => v) ? branding.colors.primary : '#9ca3af',
+              color: "white",
+              width: "100%"
             }}
           >
-            Submit
+            Submit Application
           </button>
         </form>
       )}

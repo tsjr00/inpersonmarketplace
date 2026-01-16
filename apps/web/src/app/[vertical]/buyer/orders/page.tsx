@@ -23,8 +23,14 @@ interface Order {
       id: string
       name: string
       type: string
-    }
+    } | null
   }>
+}
+
+interface Market {
+  id: string
+  name: string
+  type: string
 }
 
 export default function BuyerOrdersPage() {
@@ -33,18 +39,22 @@ export default function BuyerOrdersPage() {
   const vertical = params.vertical as string
 
   const [orders, setOrders] = useState<Order[]>([])
+  const [markets, setMarkets] = useState<Market[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [marketFilter, setMarketFilter] = useState<string>('')
 
   useEffect(() => {
     fetchOrders()
-  }, [statusFilter])
+  }, [statusFilter, marketFilter])
 
   async function fetchOrders() {
     try {
+      setError(null)
       const queryParams = new URLSearchParams()
       if (statusFilter) queryParams.set('status', statusFilter)
+      if (marketFilter) queryParams.set('market', marketFilter)
       const response = await fetch(`/api/buyer/orders?${queryParams.toString()}`)
       if (!response.ok) {
         if (response.status === 401) {
@@ -56,6 +66,10 @@ export default function BuyerOrdersPage() {
 
       const data = await response.json()
       setOrders(data.orders || [])
+      // Only update markets on initial load (no filters) to preserve the full list
+      if (!statusFilter && !marketFilter && data.markets) {
+        setMarkets(data.markets)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load orders')
     } finally {
@@ -68,7 +82,8 @@ export default function BuyerOrdersPage() {
     paid: { label: 'Paid', color: '#004085', bgColor: '#cce5ff' },
     confirmed: { label: 'Confirmed', color: '#004085', bgColor: '#cce5ff' },
     ready: { label: 'Ready for Pickup', color: '#6f42c1', bgColor: '#e2d9f3' },
-    fulfilled: { label: 'Completed', color: '#155724', bgColor: '#d4edda' },
+    completed: { label: 'Completed', color: '#155724', bgColor: '#d4edda' },
+    fulfilled: { label: 'Picked Up', color: '#155724', bgColor: '#d4edda' }, // For order items
     cancelled: { label: 'Cancelled', color: '#721c24', bgColor: '#f8d7da' },
     refunded: { label: 'Refunded', color: '#721c24', bgColor: '#f8d7da' },
   }
@@ -122,28 +137,57 @@ export default function BuyerOrdersPage() {
           View and track your purchases
         </p>
 
-        {/* Status Filter */}
-        <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
-          <label style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
-            Filter:
-          </label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 14,
-              backgroundColor: 'white'
-            }}
-          >
-            <option value="">All Orders</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="ready">Ready for Pickup</option>
-            <option value="fulfilled">Fulfilled</option>
-          </select>
+        {/* Filters */}
+        <div style={{ marginTop: 20, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <label style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
+              Status:
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: 14,
+                backgroundColor: 'white'
+              }}
+            >
+              <option value="">All Orders</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="ready">Ready for Pickup</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+
+          {markets.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
+                Market:
+              </label>
+              <select
+                value={marketFilter}
+                onChange={(e) => setMarketFilter(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 6,
+                  fontSize: 14,
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">All Markets</option>
+                {markets.map(market => (
+                  <option key={market.id} value={market.id}>
+                    {market.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -177,29 +221,36 @@ export default function BuyerOrdersPage() {
               textAlign: 'center',
             }}>
               <div style={{ fontSize: 60, marginBottom: 20, opacity: 0.3 }}>📦</div>
-              <h3 style={{ marginBottom: 10, color: '#666' }}>No orders yet</h3>
+              <h3 style={{ marginBottom: 10, color: '#666' }}>
+                {statusFilter || marketFilter ? 'No matching orders' : 'No orders yet'}
+              </h3>
               <p style={{ color: '#999', marginBottom: 0 }}>
-                Start shopping to see your orders here
+                {statusFilter || marketFilter
+                  ? 'Try adjusting your filters to see more orders'
+                  : 'Start shopping to see your orders here'
+                }
               </p>
             </div>
 
-            {/* Browse button - outside the empty state box */}
-            <div style={{ marginTop: 20, textAlign: 'center' }}>
-              <Link
-                href={`/${vertical}/browse`}
-                style={{
-                  display: 'inline-block',
-                  padding: '12px 25px',
-                  backgroundColor: '#333',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: 6,
-                  fontWeight: 600,
-                }}
-              >
-                Browse Products
-              </Link>
-            </div>
+            {/* Browse button - only show when no filters */}
+            {!statusFilter && !marketFilter && (
+              <div style={{ marginTop: 20, textAlign: 'center' }}>
+                <Link
+                  href={`/${vertical}/browse`}
+                  style={{
+                    display: 'inline-block',
+                    padding: '12px 25px',
+                    backgroundColor: '#333',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: 6,
+                    fontWeight: 600,
+                  }}
+                >
+                  Browse Products
+                </Link>
+              </div>
+            )}
           </>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -288,6 +339,7 @@ export default function BuyerOrdersPage() {
                                 </p>
                                 <p style={{ margin: '3px 0 0', fontSize: 13, color: '#666' }}>
                                   {item.vendor_name} • Qty: {item.quantity}
+                                  {item.market && ` • ${item.market.name}`}
                                 </p>
                               </div>
                               <div style={{ textAlign: 'right' }}>

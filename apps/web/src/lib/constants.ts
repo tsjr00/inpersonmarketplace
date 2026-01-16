@@ -11,7 +11,9 @@ export const CATEGORIES = [
   'Baked Goods',
   'Pantry',
   'Prepared Foods',
+  'Plants & Flowers',
   'Health & Wellness',
+  'Clothing & Fashion',
   'Art & Decor',
   'Home & Functional'
 ] as const

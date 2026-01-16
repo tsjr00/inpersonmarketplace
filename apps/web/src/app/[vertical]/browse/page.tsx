@@ -460,41 +460,38 @@ function ListingCard({
         fontSize: 20,
         fontWeight: 'bold',
         color: branding.colors.primary,
-        marginBottom: 8
+        marginBottom: 6
       }}>
         {formatDisplayPrice(listing.price_cents)}
       </div>
 
-      {/* Vendor Name & Market Count */}
+      {/* Market/Location - above the separator */}
+      {listing.listing_markets && listing.listing_markets.length > 0 && (
+        <div style={{
+          fontSize: 12,
+          color: '#6b7280',
+          marginBottom: 8
+        }}>
+          {listing.listing_markets.length === 1
+            ? listing.listing_markets[0].markets?.name || 'Pickup location'
+            : `${listing.listing_markets.length} pickup locations`
+          }
+        </div>
+      )}
+
+      {/* Vendor Name & Premium Badge */}
       <div style={{
         fontSize: 12,
         color: '#888',
         borderTop: '1px solid #f3f4f6',
         paddingTop: 8,
         display: 'flex',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        gap: 8
+        gap: 6
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
-          {listing.vendor_profiles.tier && listing.vendor_profiles.tier !== 'standard' && (
-            <TierBadge tier={listing.vendor_profiles.tier} size="sm" />
-          )}
-        </div>
-        {listing.listing_markets && listing.listing_markets.length > 0 && (
-          <span style={{
-            backgroundColor: '#f3f4f6',
-            padding: '2px 8px',
-            borderRadius: 10,
-            fontSize: 11,
-            color: '#6b7280'
-          }}>
-            {listing.listing_markets.length === 1
-              ? `At: ${listing.listing_markets[0].markets?.name || 'location'}`
-              : `${listing.listing_markets.length} locations`
-            }
-          </span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
+        {listing.vendor_profiles.tier && listing.vendor_profiles.tier !== 'standard' && (
+          <TierBadge tier={listing.vendor_profiles.tier} size="sm" />
         )}
       </div>
     </Link>
