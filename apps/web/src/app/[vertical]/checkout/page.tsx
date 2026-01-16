@@ -411,7 +411,10 @@ export default function CheckoutPage() {
                         <span style={{ fontSize: 14, color: '#666' }}>Qty:</span>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                           <button
-                            onClick={() => updateQuantity(item.listingId, item.quantity - 1)}
+                            onClick={() => {
+                              const cartItem = items.find(ci => ci.listingId === item.listingId)
+                              if (cartItem) updateQuantity(cartItem.id, item.quantity - 1)
+                            }}
                             style={{
                               width: 36,
                               height: 36,
@@ -440,7 +443,10 @@ export default function CheckoutPage() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(item.listingId, item.quantity + 1)}
+                            onClick={() => {
+                              const cartItem = items.find(ci => ci.listingId === item.listingId)
+                              if (cartItem) updateQuantity(cartItem.id, item.quantity + 1)
+                            }}
                             disabled={item.available_quantity !== null && item.quantity >= item.available_quantity}
                             style={{
                               width: 36,
@@ -470,7 +476,10 @@ export default function CheckoutPage() {
                         {formatPrice(calculateDisplayPrice(item.price_cents))} each
                       </p>
                       <button
-                        onClick={() => removeFromCart(item.listingId)}
+                        onClick={() => {
+                          const cartItem = items.find(ci => ci.listingId === item.listingId)
+                          if (cartItem) removeFromCart(cartItem.id)
+                        }}
                         style={{
                           padding: '6px 12px',
                           backgroundColor: 'white',
@@ -507,16 +516,9 @@ export default function CheckoutPage() {
                     fontWeight: 600,
                     color: '#92400e'
                   }}>
-                    Complete your order from your vendors
+                    Other items you may enjoy from these vendors
                   </h3>
                 </div>
-                <p style={{
-                  margin: '0 0 16px 36px',
-                  fontSize: 14,
-                  color: '#78350f'
-                }}>
-                  Since you&apos;re already picking up from these vendors, why not add these items?
-                </p>
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',

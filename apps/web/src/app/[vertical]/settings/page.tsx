@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import SettingsForm from './SettingsForm'
+import VendorTierManager from './VendorTierManager'
 
 interface SettingsPageProps {
   params: Promise<{ vertical: string }>
@@ -149,13 +150,21 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
             <div>
               <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 4px 0' }}>Tier</p>
-              <p style={{
-                margin: 0,
-                color: '#111827',
-                textTransform: 'capitalize'
+              <span style={{
+                display: 'inline-block',
+                padding: '4px 12px',
+                borderRadius: 4,
+                fontSize: 14,
+                textTransform: 'capitalize',
+                backgroundColor:
+                  vendorProfile.tier === 'premium' ? '#fef3c7' :
+                  vendorProfile.tier === 'featured' ? '#dbeafe' : '#f3f4f6',
+                color:
+                  vendorProfile.tier === 'premium' ? '#92400e' :
+                  vendorProfile.tier === 'featured' ? '#1e40af' : '#374151'
               }}>
                 {vendorProfile.tier || 'standard'}
-              </p>
+              </span>
             </div>
 
             <div>
@@ -165,6 +174,15 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
               </p>
             </div>
           </div>
+
+          {/* Tier Management */}
+          <VendorTierManager
+            vertical={vertical}
+            vendorId={vendorProfile.id}
+            currentTier={vendorProfile.tier || 'standard'}
+            stripeSubscriptionId={vendorProfile.stripe_subscription_id}
+            primaryColor={branding.colors.primary}
+          />
         </div>
       )}
 

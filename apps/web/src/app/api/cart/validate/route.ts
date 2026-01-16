@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
         title: listing.title,
         price_cents: listing.price_cents,
         vendor_name: vendorName,
+        vendor_profile_id: vendorProfile?.id as string | undefined,
         available: isAvailable,
         available_quantity: listing.quantity,
       }

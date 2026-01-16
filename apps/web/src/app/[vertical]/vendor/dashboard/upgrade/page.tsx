@@ -87,37 +87,41 @@ export default function VendorUpgradePage() {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: 20
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 24
           }}>
+            {/* 10 Listings */}
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 backgroundColor: '#dbeafe',
                 borderRadius: 8,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
+                fontWeight: 700,
+                color: '#1e40af',
                 flexShrink: 0
               }}>
-                *
+                10
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Priority Placement
+                  10 Product Listings
                 </h3>
                 <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Your listings appear higher in search results
+                  Double your catalog size - list up to 10 products (Standard: 5 listings)
                 </p>
               </div>
             </div>
 
+            {/* Multiple Markets */}
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 backgroundColor: '#d1fae5',
                 borderRadius: 8,
                 display: 'flex',
@@ -126,22 +130,23 @@ export default function VendorUpgradePage() {
                 fontSize: 20,
                 flexShrink: 0
               }}>
-                +
+                <span style={{ fontSize: 16 }}>+++</span>
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Featured Sections
+                  Multiple Market Availability
                 </h3>
                 <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Get featured on the homepage and category pages
+                  Sell at multiple markets and pickup locations simultaneously (Standard: 1 market only)
                 </p>
               </div>
             </div>
 
+            {/* Priority Placement */}
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 backgroundColor: '#fef3c7',
                 borderRadius: 8,
                 display: 'flex',
@@ -150,22 +155,23 @@ export default function VendorUpgradePage() {
                 fontSize: 20,
                 flexShrink: 0
               }}>
-                $
+                <span style={{ fontSize: 18 }}>^</span>
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Premium Badge
+                  Priority Placement
                 </h3>
                 <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Stand out with a premium badge on your profile
+                  Your listings appear higher in search results and category pages
                 </p>
               </div>
             </div>
 
+            {/* Featured Sections */}
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 backgroundColor: '#fce7f3',
                 borderRadius: 8,
                 display: 'flex',
@@ -174,14 +180,64 @@ export default function VendorUpgradePage() {
                 fontSize: 20,
                 flexShrink: 0
               }}>
-                %
+                <span style={{ fontSize: 18 }}>*</span>
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Analytics Access
+                  Featured Sections
                 </h3>
                 <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Detailed insights on views, sales, and trends
+                  Get featured on the homepage and browse pages to attract more buyers
+                </p>
+              </div>
+            </div>
+
+            {/* Premium Badge */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                backgroundColor: '#e0e7ff',
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 20,
+                flexShrink: 0
+              }}>
+                <span style={{ fontSize: 16 }}>P</span>
+              </div>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
+                  Premium Badge
+                </h3>
+                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
+                  Stand out with a premium badge displayed on your vendor profile
+                </p>
+              </div>
+            </div>
+
+            {/* Analytics */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                backgroundColor: '#f3e8ff',
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 20,
+                flexShrink: 0
+              }}>
+                <span style={{ fontSize: 16 }}>//</span>
+              </div>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
+                  Advanced Analytics
+                </h3>
+                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
+                  Detailed insights on listing views, sales performance, and market trends
                 </p>
               </div>
             </div>
