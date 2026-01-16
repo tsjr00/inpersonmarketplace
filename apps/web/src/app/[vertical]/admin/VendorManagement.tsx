@@ -20,6 +20,7 @@ interface Vendor {
   user_email?: string
   days_pending?: number
   markets?: { market_id: string; markets: { name: string } | null }[]
+  market_vendors?: { market_id: string; markets: { name: string } | null }[]
 }
 
 interface VendorManagementProps {
@@ -88,7 +89,7 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
           markets: vendor.market_vendors || []
         }
       })
-      setVendors(vendorsWithDetails as Vendor[])
+      setVendors(vendorsWithDetails as unknown as Vendor[])
     }
 
     setLoading(false)
