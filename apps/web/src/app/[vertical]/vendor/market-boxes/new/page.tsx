@@ -12,6 +12,9 @@ interface Market {
   address: string
   city: string
   state: string
+  isHomeMarket?: boolean
+  canUse?: boolean
+  homeMarketRestricted?: boolean
 }
 
 const DAYS = [
@@ -34,6 +37,8 @@ export default function NewMarketBoxPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
+  const [isPremium, setIsPremium] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -66,6 +71,8 @@ export default function NewMarketBoxPage() {
         ...(data.privatePickupMarkets || [])
       ]
       setMarkets(allMarkets)
+      setHomeMarketId(data.homeMarketId || null)
+      setIsPremium(data.isPremium || false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load markets')
     } finally {
@@ -297,12 +304,22 @@ export default function NewMarketBoxPage() {
                   }}
                 >
                   <option value="">Select a location...</option>
-                  {markets.map(market => (
-                    <option key={market.id} value={market.id}>
-                      {market.market_type === 'private_pickup' ? 'Private: ' : 'Market: '}
-                      {market.name} - {market.city}, {market.state}
-                    </option>
-                  ))}
+                  {markets.map(market => {
+                    const isDisabled = market.homeMarketRestricted === true
+                    return (
+                      <option
+                        key={market.id}
+                        value={market.id}
+                        disabled={isDisabled}
+                        style={{ color: isDisabled ? '#9ca3af' : 'inherit' }}
+                      >
+                        {market.market_type === 'private_pickup' ? 'Private: ' : 'Market: '}
+                        {market.name} - {market.city}, {market.state}
+                        {market.isHomeMarket && ' 🏠'}
+                        {isDisabled && ' (Upgrade for multiple markets)'}
+                      </option>
+                    )
+                  })}
                 </select>
                 <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
                   This location will be fixed for all 4 weeks of the subscription

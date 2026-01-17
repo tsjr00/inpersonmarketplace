@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { canActivateMarketBox, formatLimitError } from '@/lib/vendor-limits'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -113,10 +114,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get vendor profile
+  // Get vendor profile with tier for limit checks
   const { data: vendor } = await supabase
     .from('vendor_profiles')
-    .select('id')
+    .select('id, tier')
     .eq('user_id', user.id)
     .single()
 
@@ -124,10 +125,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
   }
 
-  // Verify ownership
+  // Verify ownership and get current active state
   const { data: existing } = await supabase
     .from('market_box_offerings')
-    .select('id, vendor_profile_id')
+    .select('id, vendor_profile_id, active')
     .eq('id', offeringId)
     .single()
 
@@ -163,6 +164,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({
         error: 'Cannot change pickup location or time while there are active subscribers',
       }, { status: 400 })
+    }
+  }
+
+  // BUG 1.1 FIX: Check activation limit when reactivating a market box
+  // Only check if trying to change from inactive to active
+  if (active === true && existing.active === false) {
+    const activationCheck = await canActivateMarketBox(
+      supabase,
+      vendor.id,
+      vendor.tier || 'standard'
+    )
+    if (!activationCheck.allowed) {
+      return NextResponse.json({
+        error: formatLimitError(activationCheck),
+      }, { status: 403 })
     }
   }
 

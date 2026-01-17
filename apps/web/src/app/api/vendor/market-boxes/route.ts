@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import {
+  getTierLimits,
+  canCreateMarketBox,
+  canActivateMarketBox,
+  getMarketBoxUsage,
+  formatLimitError,
+} from '@/lib/vendor-limits'
 
-// Vendor tier limits for market box offerings
-const OFFERING_LIMITS = {
-  standard: 1,
-  premium: 3,
-} as const
-
+// Subscriber limits per offering (separate from tier limits)
 const SUBSCRIBER_LIMITS = {
   standard: 2,
   premium: null, // unlimited
@@ -89,19 +91,29 @@ export async function GET() {
     })
   )
 
-  // Get tier limits
-  const tier = (vendor.tier || 'standard') as keyof typeof OFFERING_LIMITS
-  const maxOfferings = OFFERING_LIMITS[tier]
-  const activeOfferingCount = offeringsWithCounts.filter(o => o.active).length
+  // Get tier limits using centralized utility
+  const tier = vendor.tier || 'standard'
+  const tierLimits = getTierLimits(tier)
+  const totalCount = offeringsWithCounts.length
+  const activeCount = offeringsWithCounts.filter(o => o.active).length
+  const subscriberTier = tier as keyof typeof SUBSCRIBER_LIMITS
 
   return NextResponse.json({
     offerings: offeringsWithCounts,
     limits: {
       tier,
-      max_offerings: maxOfferings,
-      current_offerings: activeOfferingCount,
-      can_create_more: activeOfferingCount < maxOfferings,
-      subscriber_limit: SUBSCRIBER_LIMITS[tier],
+      // Total market boxes (active + inactive)
+      max_total: tierLimits.totalMarketBoxes,
+      current_total: totalCount,
+      can_create_more: totalCount < tierLimits.totalMarketBoxes,
+      // Active market boxes
+      max_active: tierLimits.activeMarketBoxes,
+      current_active: activeCount,
+      can_activate_more: activeCount < tierLimits.activeMarketBoxes,
+      // Legacy fields for backwards compatibility
+      max_offerings: tierLimits.activeMarketBoxes,
+      current_offerings: activeCount,
+      subscriber_limit: SUBSCRIBER_LIMITS[subscriberTier],
     },
   })
 }
@@ -129,19 +141,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
   }
 
-  // Check offering limit
-  const tier = (vendor.tier || 'standard') as keyof typeof OFFERING_LIMITS
-  const maxOfferings = OFFERING_LIMITS[tier]
+  const tier = vendor.tier || 'standard'
 
-  const { count: currentCount } = await supabase
-    .from('market_box_offerings')
-    .select('*', { count: 'exact', head: true })
-    .eq('vendor_profile_id', vendor.id)
-    .eq('active', true)
-
-  if ((currentCount || 0) >= maxOfferings) {
+  // Check total market box limit (can create any new box)
+  const createCheck = await canCreateMarketBox(supabase, vendor.id, tier)
+  if (!createCheck.allowed) {
     return NextResponse.json({
-      error: `${tier} vendors can only have ${maxOfferings} active market box offering${maxOfferings > 1 ? 's' : ''}. Upgrade to premium for more.`,
+      error: formatLimitError(createCheck),
+    }, { status: 403 })
+  }
+
+  // Check active market box limit (new boxes are created as active)
+  const activateCheck = await canActivateMarketBox(supabase, vendor.id, tier)
+  if (!activateCheck.allowed) {
+    return NextResponse.json({
+      error: formatLimitError(activateCheck),
     }, { status: 403 })
   }
 

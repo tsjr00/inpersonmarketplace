@@ -18,9 +18,12 @@ type Market = {
 }
 
 type MarketLimits = {
-  fixedMarketLimit: number
+  traditionalMarkets: number
+  privatePickupLocations: number
   currentFixedMarketCount: number
+  currentPrivatePickupCount: number
   canAddFixed: boolean
+  canAddPrivatePickup: boolean
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -237,7 +240,12 @@ export default function VendorMarketsPage() {
             </h2>
             <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
               Traditional schedule farmers markets.
-              {limits && ` You can join ${limits.fixedMarketLimit} market${limits.fixedMarketLimit > 1 ? 's' : ''} (${limits.currentFixedMarketCount} of ${limits.fixedMarketLimit} used).`}
+              {limits && ` You can join ${limits.traditionalMarkets} market${limits.traditionalMarkets > 1 ? 's' : ''} (${limits.currentFixedMarketCount} of ${limits.traditionalMarkets} used).`}
+              {limits && !limits.canAddFixed && (
+                <span style={{ color: '#dc2626', marginLeft: 8 }}>
+                  Limit reached. <a href={`/${vertical}/settings`} style={{ color: '#2563eb' }}>Upgrade</a> for more markets.
+                </span>
+              )}
             </p>
           </div>
 
@@ -308,10 +316,16 @@ export default function VendorMarketsPage() {
                 Private Pickup Locations
               </h2>
               <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-                Your own pickup locations with flexible scheduling. No limit on private pickups.
+                Your own pickup locations with flexible scheduling.
+                {limits && ` (${limits.currentPrivatePickupCount} of ${limits.privatePickupLocations} used)`}
+                {limits && !limits.canAddPrivatePickup && (
+                  <span style={{ color: '#dc2626', marginLeft: 8 }}>
+                    Limit reached. <a href={`/${vertical}/settings`} style={{ color: '#2563eb' }}>Upgrade</a> for more locations.
+                  </span>
+                )}
               </p>
             </div>
-            {!showForm && (
+            {!showForm && limits?.canAddPrivatePickup && (
               <button
                 onClick={() => setShowForm(true)}
                 style={{
@@ -325,6 +339,23 @@ export default function VendorMarketsPage() {
                 }}
               >
                 Add Pickup Location
+              </button>
+            )}
+            {!showForm && limits && !limits.canAddPrivatePickup && (
+              <button
+                disabled
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#9ca3af',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontWeight: 600,
+                  cursor: 'not-allowed'
+                }}
+                title="Upgrade to add more pickup locations"
+              >
+                Add Pickup Location (Limit Reached)
               </button>
             )}
           </div>

@@ -131,7 +131,7 @@ export default function VendorMarketBoxesPage() {
             Market Boxes
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Offer 4-week subscription bundles to premium buyers
+            Offer 4-week <strong>prepaid</strong> subscription bundles to premium buyers
           </p>
         </div>
 

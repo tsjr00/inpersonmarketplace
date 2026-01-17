@@ -12,6 +12,9 @@ interface Market {
   address: string
   city: string
   state: string
+  isHomeMarket?: boolean
+  canUse?: boolean
+  homeMarketRestricted?: boolean
 }
 
 interface MarketBoxOffering {
@@ -319,12 +322,24 @@ export default function EditMarketBoxPage() {
                 }}
               >
                 <option value="">Select a location...</option>
-                {markets.map(market => (
-                  <option key={market.id} value={market.id}>
-                    {market.market_type === 'private_pickup' ? 'Private: ' : 'Market: '}
-                    {market.name} - {market.city}, {market.state}
-                  </option>
-                ))}
+                {markets.map(market => {
+                  // Allow current selection even if restricted
+                  const isCurrentSelection = market.id === formData.pickup_market_id
+                  const isDisabled = market.homeMarketRestricted === true && !isCurrentSelection
+                  return (
+                    <option
+                      key={market.id}
+                      value={market.id}
+                      disabled={isDisabled}
+                      style={{ color: isDisabled ? '#9ca3af' : 'inherit' }}
+                    >
+                      {market.market_type === 'private_pickup' ? 'Private: ' : 'Market: '}
+                      {market.name} - {market.city}, {market.state}
+                      {market.isHomeMarket && ' 🏠'}
+                      {isDisabled && ' (Upgrade for multiple markets)'}
+                    </option>
+                  )
+                })}
               </select>
             </div>
 

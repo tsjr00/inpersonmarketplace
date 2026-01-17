@@ -17,6 +17,8 @@ type Market = {
   limit: number
   canAdd: boolean
   isVendorOwned: boolean
+  isHomeMarket: boolean
+  homeMarketRestricted: boolean
 }
 
 type MarketSelectorProps = {
@@ -25,6 +27,7 @@ type MarketSelectorProps = {
   selectedMarketIds: string[]
   onChange: (marketIds: string[]) => void
   onMarketsLoaded?: (markets: Market[]) => void
+  onMetadataLoaded?: (vendorTier: string, homeMarketId: string | null) => void
   disabled?: boolean
   primaryColor?: string
 }
@@ -37,6 +40,7 @@ export default function MarketSelector({
   selectedMarketIds,
   onChange,
   onMarketsLoaded,
+  onMetadataLoaded,
   disabled = false,
   primaryColor = '#2563eb'
 }: MarketSelectorProps) {
@@ -64,6 +68,11 @@ export default function MarketSelector({
       // Call onMarketsLoaded callback if provided
       if (onMarketsLoaded) {
         onMarketsLoaded(data.markets || [])
+      }
+
+      // Call onMetadataLoaded callback if provided
+      if (onMetadataLoaded) {
+        onMetadataLoaded(data.vendorTier || 'standard', data.homeMarketId || null)
       }
 
       // Set initial selection if editing and we haven't done initial load
@@ -163,12 +172,13 @@ export default function MarketSelector({
                     alignItems: 'flex-start',
                     padding: 12,
                     border: '1px solid',
-                    borderColor: isSelected ? primaryColor : '#d1d5db',
+                    borderColor: isSelected ? primaryColor : market.homeMarketRestricted ? '#f3f4f6' : '#d1d5db',
                     borderRadius: 8,
                     cursor: canSelect && !disabled ? 'pointer' : 'not-allowed',
-                    backgroundColor: isSelected ? `${primaryColor}10` : '#fff',
-                    opacity: canSelect ? 1 : 0.6
+                    backgroundColor: isSelected ? `${primaryColor}10` : market.homeMarketRestricted ? '#f9fafb' : '#fff',
+                    opacity: canSelect ? 1 : 0.5
                   }}
+                  title={market.homeMarketRestricted ? 'Upgrade to join multiple markets' : undefined}
                 >
                   <input
                     type="checkbox"
@@ -184,8 +194,20 @@ export default function MarketSelector({
                     }}
                   />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4, color: '#333' }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4, color: '#333', display: 'flex', alignItems: 'center', gap: 8 }}>
                       {market.name}
+                      {market.isHomeMarket && (
+                        <span style={{
+                          fontSize: 12,
+                          color: '#16a34a',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}>
+                          🏠 Home Market
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 13, color: '#6b7280' }}>
                       {market.address}, {market.city}, {market.state}
@@ -197,7 +219,12 @@ export default function MarketSelector({
                     )}
                     <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
                       {market.currentCount} of {market.limit} listings used
-                      {!canSelect && !isSelected && (
+                      {market.homeMarketRestricted && (
+                        <span style={{ color: '#9ca3af', marginLeft: 8, fontStyle: 'italic' }}>
+                          Upgrade to join multiple markets
+                        </span>
+                      )}
+                      {!canSelect && !isSelected && !market.homeMarketRestricted && (
                         <span style={{ color: '#dc2626', marginLeft: 8 }}>
                           (Limit reached)
                         </span>

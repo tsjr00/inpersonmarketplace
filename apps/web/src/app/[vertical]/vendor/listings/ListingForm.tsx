@@ -10,17 +10,17 @@ import MarketSelector from '@/components/vendor/MarketSelector'
 
 // Category descriptions to help vendors categorize their products
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  'Produce': 'Fresh fruits, vegetables, herbs, mushrooms, and microgreens. Includes both conventional and organic options.',
-  'Meat & Poultry': 'Fresh, frozen, or cured meats including beef, pork, lamb, chicken, turkey, duck, and game meats. Also includes sausages and charcuterie.',
-  'Dairy & Eggs': 'Milk, cheese, butter, yogurt, cream, eggs, and other dairy products. Includes both cow and alternative dairy (goat, sheep).',
-  'Baked Goods': 'Bread, pastries, cookies, cakes, pies, muffins, and other baked items. Includes gluten-free and specialty baked goods.',
-  'Pantry': 'Shelf-stable items like jams, jellies, honey, maple syrup, sauces, pickles, oils, vinegars, spices, dry pasta, and grains.',
-  'Prepared Foods': 'Shelf-stable snacks and ready-to-eat items like popcorn, granola, trail mix, dried fruits, chips, and other packaged snacks. Includes items that will be stored cold before pickup.',
-  'Plants & Flowers': 'Live plants, seedlings, cut flowers, bouquets, potted plants, succulents, and garden starts.',
-  'Health & Wellness': 'Natural body care products, soaps, lotions, balms, herbal remedies, teas, and wellness items.',
-  'Clothing & Fashion': 'Handmade or locally-made clothing, accessories, jewelry, hats, scarves, bags, and wearable items.',
-  'Art & Decor': 'Original artwork, prints, photography, pottery, ceramics, candles, and decorative home items.',
-  'Home & Functional': 'Handcrafted household items like cutting boards, utensils, textiles, and baskets. Also includes small furniture such as lamps, chairs, shelves, and other functional pieces.'
+  'Produce': 'Fresh fruits, vegetables, herbs, mushrooms, microgreens, and similar items.',
+  'Meat & Poultry': 'Fresh, frozen, or cured meats including beef, pork, lamb, chicken, turkey, duck, game meats, sausages, charcuterie, and similar items.',
+  'Dairy & Eggs': 'Milk, cheese, butter, yogurt, cream, eggs, and similar dairy products. Includes cow and alternative dairy (goat, sheep).',
+  'Baked Goods': 'Bread, pastries, cookies, cakes, pies, muffins, gluten-free options, and similar baked items.',
+  'Pantry': 'Jams, jellies, honey, maple syrup, sauces, pickles, oils, vinegars, spices, dry pasta, grains, and similar shelf-stable items.',
+  'Prepared Foods': 'Popcorn, granola, trail mix, dried fruits, chips, ready-to-eat items, and similar snacks. Includes items stored cold before pickup.',
+  'Plants & Flowers': 'Live plants, seedlings, cut flowers, bouquets, potted plants, succulents, garden starts, and similar items.',
+  'Health & Wellness': 'Natural body care products, soaps, lotions, balms, herbal remedies, teas, and similar wellness items.',
+  'Clothing & Fashion': 'Handmade or locally-made clothing, accessories, jewelry, hats, scarves, bags, and similar wearable items.',
+  'Art & Decor': 'Original artwork, prints, photography, pottery, ceramics, candles, decorative home items, and similar items.',
+  'Home & Functional': 'Handcrafted cutting boards, utensils, textiles, baskets, small furniture, and similar functional household items.'
 }
 
 interface ListingFormProps {
@@ -71,6 +71,9 @@ export default function ListingForm({
   // Market selection
   const [selectedMarketIds, setSelectedMarketIds] = useState<string[]>([])
   const [hasMarkets, setHasMarkets] = useState(true) // Assume true until loaded
+  const [vendorTier, setVendorTier] = useState<string>('standard')
+  const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
+  const [marketData, setMarketData] = useState<{ id: string; market_type: string }[]>([])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -235,6 +238,31 @@ export default function ListingForm({
       if (insertError) {
         console.error('Error creating listing markets:', insertError)
         // Continue anyway - listing was saved, markets can be added later
+      }
+    }
+
+    // Auto-set home market for standard vendors if needed (FEATURE 2.1)
+    if (!homeMarketId && vendorTier === 'standard' && selectedMarketIds.length > 0) {
+      // Find the first traditional market in selection
+      const traditionalMarketId = selectedMarketIds.find(id => {
+        const market = marketData.find(m => m.id === id)
+        return market && market.market_type === 'traditional'
+      })
+
+      if (traditionalMarketId) {
+        try {
+          await fetch('/api/vendor/home-market', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vertical,
+              marketId: traditionalMarketId
+            })
+          })
+        } catch (err) {
+          // Don't block on home market set failure
+          console.error('Failed to set home market:', err)
+        }
       }
     }
 
@@ -549,7 +577,14 @@ export default function ListingForm({
             listingId={mode === 'edit' ? (listing?.id as string) : undefined}
             selectedMarketIds={selectedMarketIds}
             onChange={setSelectedMarketIds}
-            onMarketsLoaded={(markets) => setHasMarkets(markets.length > 0)}
+            onMarketsLoaded={(markets) => {
+              setHasMarkets(markets.length > 0)
+              setMarketData(markets.map(m => ({ id: m.id, market_type: m.market_type })))
+            }}
+            onMetadataLoaded={(tier, homeId) => {
+              setVendorTier(tier)
+              setHomeMarketId(homeId)
+            }}
             disabled={loading}
             primaryColor={branding.colors.primary}
           />

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isPremiumTier, getTierLimits } from '@/lib/vendor-limits'
 
 // GET - Get market stats for vendor (used in listing form)
 export async function GET(request: Request) {
@@ -19,10 +20,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Vertical required' }, { status: 400 })
     }
 
-    // Get vendor profile
+    // Get vendor profile with home market
     const { data: vendorProfile, error: vpError } = await supabase
       .from('vendor_profiles')
-      .select('id, tier')
+      .select('id, tier, home_market_id')
       .eq('user_id', user.id)
       .eq('vertical_id', vertical)
       .single()
@@ -50,6 +51,11 @@ export async function GET(request: Request) {
       m.market_type === 'traditional' || m.vendor_profile_id === vendorProfile.id
     )
 
+    // Check vendor tier for home market restrictions
+    const vendorTier = vendorProfile.tier || 'standard'
+    const isVendorPremium = isPremiumTier(vendorTier)
+    const tierLimits = getTierLimits(vendorTier)
+
     // Get listing counts per market for this vendor
     const marketStats = await Promise.all(
       relevantMarkets.map(async (market) => {
@@ -60,15 +66,33 @@ export async function GET(request: Request) {
             p_market_id: market.id
           })
 
-        // Check if vendor can add listing to this market
-        const { data: canAdd } = await supabase
+        // Check if vendor can add listing to this market (RPC check)
+        const { data: rpcCanAdd } = await supabase
           .rpc('can_vendor_add_listing_to_market', {
             p_vendor_profile_id: vendorProfile.id,
             p_market_id: market.id,
             p_listing_id: listingId || null
           })
 
-        const limit = vendorProfile.tier === 'premium' ? 10 : 5
+        const isHomeMarket = market.id === vendorProfile.home_market_id
+        const isTraditionalMarket = market.market_type === 'traditional'
+
+        // BUG 1.2 FIX: For standard vendors, only allow their home market for traditional markets
+        // Premium vendors can add to any market (up to their limit)
+        let canAdd = rpcCanAdd ?? true
+        let homeMarketRestricted = false
+
+        if (isTraditionalMarket && !isVendorPremium) {
+          // Standard vendor with traditional market
+          if (vendorProfile.home_market_id) {
+            // Has a home market - can only use that one
+            if (!isHomeMarket) {
+              canAdd = false
+              homeMarketRestricted = true
+            }
+          }
+          // If no home market yet, any traditional market can become home market (first use)
+        }
 
         return {
           id: market.id,
@@ -81,9 +105,11 @@ export async function GET(request: Request) {
           start_time: market.start_time,
           end_time: market.end_time,
           currentCount: count || 0,
-          limit,
-          canAdd: canAdd ?? true,
-          isVendorOwned: market.vendor_profile_id === vendorProfile.id
+          limit: tierLimits.productListings,
+          canAdd,
+          isVendorOwned: market.vendor_profile_id === vendorProfile.id,
+          isHomeMarket,
+          homeMarketRestricted // true if this market is blocked due to home market restriction
         }
       })
     )
@@ -104,7 +130,13 @@ export async function GET(request: Request) {
     return NextResponse.json({
       markets: marketStats,
       currentMarketIds,
-      vendorTier: vendorProfile.tier || 'standard'
+      vendorTier,
+      homeMarketId: vendorProfile.home_market_id,
+      isPremium: isVendorPremium,
+      tierLimits: {
+        traditionalMarkets: tierLimits.traditionalMarkets,
+        productListings: tierLimits.productListings
+      }
     })
   } catch (error) {
     console.error('[/api/vendor/market-stats] Unexpected error:', error)
