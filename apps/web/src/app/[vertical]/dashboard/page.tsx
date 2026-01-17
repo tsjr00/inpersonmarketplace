@@ -173,7 +173,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     fontWeight: 700,
                     color: '#1e40af'
                   }}>
-                    Upgrade to Premium
+                    Upgrade Your Shopper Account
                   </h3>
                 </div>
                 <p style={{
@@ -181,7 +181,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   color: '#1e3a8a',
                   fontSize: 15
                 }}>
-                  Get exclusive benefits for just <strong>$9.99/month</strong> or <strong>$81.50/year</strong>{' '}
+                  Become a Premium Shopper for just <strong>$9.99/month</strong> or <strong>$81.50/year</strong>{' '}
                   <span style={{
                     backgroundColor: '#059669',
                     color: 'white',
@@ -201,6 +201,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
+                    <span style={{ fontSize: 14, color: '#374151' }}>Access to Market Box subscriptions</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
                     <span style={{ fontSize: 14, color: '#374151' }}>Early access to new listings</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -209,11 +213,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
-                    <span style={{ fontSize: 14, color: '#374151' }}>Order history & insights</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
-                    <span style={{ fontSize: 14, color: '#374151' }}>Premium member badge</span>
+                    <span style={{ fontSize: 14, color: '#374151' }}>Premium shopper badge</span>
                   </div>
                 </div>
               </div>
@@ -273,18 +273,25 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
       {/* ========== VENDOR SECTION ========== */}
       {isVendor && (
-        <section style={{ marginBottom: 30 }}>
-          <h2 style={{
-            fontSize: 20,
-            fontWeight: 600,
-            marginBottom: 15,
-            color: branding.colors.accent || '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8
-          }}>
-            <span>🏪</span> Vendor
-          </h2>
+        <>
+          {/* Separator between Shopper and Vendor sections */}
+          <div style={{
+            borderTop: '1px solid #e5e7eb',
+            marginBottom: 30
+          }} />
+
+          <section style={{ marginBottom: 30 }}>
+            <h2 style={{
+              fontSize: 20,
+              fontWeight: 600,
+              marginBottom: 15,
+              color: branding.colors.accent || '#2563eb',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8
+            }}>
+              <span>🏪</span> Vendor
+            </h2>
 
           {isApprovedVendor ? (
             <div style={{
@@ -331,6 +338,27 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 </h3>
                 <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
                   View and manage your products
+                </p>
+              </Link>
+
+              {/* My Market Boxes Card */}
+              <Link
+                href={`/${vertical}/vendor/market-boxes`}
+                style={{
+                  display: 'block',
+                  padding: 20,
+                  backgroundColor: 'white',
+                  color: '#333',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: 8,
+                  textDecoration: 'none'
+                }}
+              >
+                <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                  My Market Boxes
+                </h3>
+                <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                  Create subscription bundles for premium buyers
                 </p>
               </Link>
             </div>
@@ -404,6 +432,26 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     View and edit your draft listings
                   </p>
                 </Link>
+
+                {/* My Market Boxes Card - greyed out for pending vendors */}
+                <div
+                  style={{
+                    display: 'block',
+                    padding: 20,
+                    backgroundColor: '#f9fafb',
+                    color: '#9ca3af',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 8,
+                    opacity: 0.7
+                  }}
+                >
+                  <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600, color: '#9ca3af' }}>
+                    My Market Boxes
+                  </h3>
+                  <p style={{ margin: 0, color: '#9ca3af', fontSize: 14 }}>
+                    Available after approval - create subscription bundles
+                  </p>
+                </div>
               </div>
 
               <p style={{ margin: '12px 0 0 0', color: '#92400e', fontSize: 13, fontStyle: 'italic' }}>
@@ -411,7 +459,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               </p>
             </div>
           )}
-        </section>
+          </section>
+        </>
       )}
 
       {/* ========== ADMIN SECTION ========== */}

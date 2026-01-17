@@ -152,52 +152,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </p>
         </div>
 
-        {/* Status Banner - full width */}
-        <div style={{
-          padding: 16,
-          marginBottom: 24,
-          backgroundColor:
-            vendorProfile.status === 'approved' ? '#d1fae5' :
-            vendorProfile.status === 'submitted' ? '#fef3c7' :
-            vendorProfile.status === 'rejected' ? '#fee2e2' : '#e5e7eb',
-          border: `1px solid ${
-            vendorProfile.status === 'approved' ? '#a7f3d0' :
-            vendorProfile.status === 'submitted' ? '#fcd34d' :
-            vendorProfile.status === 'rejected' ? '#fecaca' : '#d1d5db'
-          }`,
-          borderRadius: 8,
-          color: '#333'
-        }}>
-          <div className="status-banner-content" style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 12
-          }}>
-            <div>
-              <strong style={{
-                fontSize: 16,
-                color: vendorProfile.status === 'approved' ? '#065f46' :
-                       vendorProfile.status === 'submitted' ? '#92400e' :
-                       vendorProfile.status === 'rejected' ? '#991b1b' : '#374151'
-              }}>
-                Status: {vendorProfile.status.charAt(0).toUpperCase() + vendorProfile.status.slice(1)}
-              </strong>
-              <p style={{ margin: '4px 0 0 0', fontSize: 14, color: '#666' }}>
-                {vendorProfile.status === 'approved' && 'Your vendor profile is approved and active'}
-                {vendorProfile.status === 'submitted' && 'Your profile is under review'}
-                {vendorProfile.status === 'rejected' && 'Your profile needs updates'}
-                {vendorProfile.status === 'suspended' && 'Your profile is currently suspended'}
-                {vendorProfile.status === 'draft' && 'Your profile is saved as draft'}
-              </p>
-            </div>
-            <div style={{ fontSize: 12, color: '#666' }}>
-              Submitted: {new Date(vendorProfile.created_at).toLocaleDateString()}
-            </div>
-          </div>
-        </div>
-
         {/* Draft Listings Notice - for approved vendors with drafts */}
         {draftCount > 0 && vendorProfile.status === 'approved' && (
           <div style={{
@@ -233,13 +187,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </div>
         )}
 
-        {/* Info Cards - 3 column grid on desktop, 1 column on mobile */}
+        {/* TOP ROW - Info Cards: Business Info, Pickup Locations, Pickup Mode */}
         <div className="info-grid" style={{
           display: 'grid',
           gap: 16,
           marginBottom: 24
         }}>
-          {/* Contact Information */}
+          {/* Combined Business & Contact Information */}
           <div style={{
             padding: 16,
             backgroundColor: 'white',
@@ -260,12 +214,18 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 fontSize: 16,
                 fontWeight: 600
               }}>
-                Contact Information
+                Business & Contact Info
               </h2>
               <EditProfileButton vertical={vertical} />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Business Name</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
+                  {(profileData.business_name as string) || (profileData.farm_name as string) || 'Not provided'}
+                </p>
+              </div>
               <div>
                 <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Legal Name</p>
                 <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
@@ -287,129 +247,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </div>
 
-          {/* Business Information */}
-          <div style={{
-            padding: 16,
-            backgroundColor: 'white',
-            color: '#333',
-            border: '1px solid #e5e7eb',
-            borderRadius: 8
-          }}>
-            <h2 style={{
-              color: branding.colors.primary,
-              margin: '0 0 16px 0',
-              fontSize: 16,
-              fontWeight: 600
-            }}>
-              Business Information
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Business Name</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
-                  {(profileData.business_name as string) || (profileData.farm_name as string) || 'Not provided'}
-                </p>
-              </div>
-
-              {vertical === 'fireworks' && (
-                <>
-                  <div>
-                    <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Business Type</p>
-                    <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
-                      {(profileData.business_type as string) || 'Not provided'}
-                    </p>
-                  </div>
-                  <div>
-                    <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Primary County (TX)</p>
-                    <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
-                      {(profileData.primary_county as string) || 'Not provided'}
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {vertical === 'farmers_market' && (
-                <div>
-                  <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Vendor Type</p>
-                  <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
-                    {Array.isArray(profileData.vendor_type)
-                      ? (profileData.vendor_type as string[]).join(', ')
-                      : (profileData.vendor_type as string) || 'Not provided'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Your Plan / Tier Card */}
-          <div style={{
-            padding: 16,
-            backgroundColor: vendorProfile.tier === 'premium' ? '#fef3c7' : vendorProfile.tier === 'featured' ? '#dbeafe' : 'white',
-            color: '#333',
-            border: `1px solid ${vendorProfile.tier === 'premium' ? '#fcd34d' : vendorProfile.tier === 'featured' ? '#93c5fd' : '#e5e7eb'}`,
-            borderRadius: 8
-          }}>
-            <h2 style={{
-              color: branding.colors.primary,
-              margin: '0 0 16px 0',
-              fontSize: 16,
-              fontWeight: 600
-            }}>
-              Your Plan
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Current Tier</p>
-                <p style={{
-                  margin: '2px 0 0 0',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: vendorProfile.tier === 'premium' ? '#92400e' : vendorProfile.tier === 'featured' ? '#1e40af' : '#374151'
-                }}>
-                  {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'}
-                </p>
-              </div>
-
-              {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
-                <div>
-                  <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#666' }}>
-                    Upgrade to Premium for priority placement and more visibility!
-                  </p>
-                  <Link
-                    href={`/${vertical}/vendor/dashboard/upgrade`}
-                    style={{
-                      display: 'inline-block',
-                      padding: '8px 16px',
-                      backgroundColor: branding.colors.primary,
-                      color: 'white',
-                      textDecoration: 'none',
-                      borderRadius: 6,
-                      fontWeight: 600,
-                      fontSize: 13
-                    }}
-                  >
-                    Upgrade to Premium
-                  </Link>
-                </div>
-              )}
-
-              {vendorProfile.tier === 'premium' && (
-                <p style={{ margin: 0, fontSize: 13, color: '#92400e' }}>
-                  You have priority placement in search results and featured sections.
-                </p>
-              )}
-
-              {vendorProfile.tier === 'featured' && (
-                <p style={{ margin: 0, fontSize: 13, color: '#1e40af' }}>
-                  Your listings are featured prominently across the marketplace.
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Market Info Card */}
+          {/* Active Pickup Locations Card */}
           <div style={{
             padding: 16,
             backgroundColor: 'white',
@@ -517,9 +355,39 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </div>
             )}
           </div>
+
+          {/* Pickup Mode - Quick mobile-friendly order lookup */}
+          <Link
+            href={`/${vertical}/vendor/pickup`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: 16,
+              backgroundColor: '#dcfce7',
+              color: '#333',
+              border: '1px solid #86efac',
+              borderRadius: 8,
+              cursor: 'pointer',
+              height: '100%',
+              minHeight: 140
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📲</div>
+              <h3 style={{
+                color: '#166534',
+                margin: '0 0 8px 0',
+                fontSize: 16,
+                fontWeight: 600
+              }}>
+                Pickup Mode
+              </h3>
+              <p style={{ color: '#166534', margin: 0, fontSize: 14 }}>
+                Mobile-friendly view for market day fulfillment
+              </p>
+            </div>
+          </Link>
         </div>
 
-        {/* Action Cards - 3 column grid */}
+        {/* MIDDLE ROW - Action Cards: Your Listings, Market Boxes, Orders */}
         <div className="action-grid" style={{
           display: 'grid',
           gap: 16,
@@ -555,32 +423,32 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </Link>
 
-          {/* Payment Settings */}
+          {/* Market Boxes - 4-week subscription bundles */}
           <Link
-            href={`/${vertical}/vendor/dashboard/stripe`}
+            href={`/${vertical}/vendor/market-boxes`}
             style={{ textDecoration: 'none' }}
           >
             <div style={{
               padding: 16,
-              backgroundColor: 'white',
+              backgroundColor: vendorProfile.tier === 'premium' ? '#fef3c7' : 'white',
               color: '#333',
-              border: '1px solid #e5e7eb',
+              border: `1px solid ${vendorProfile.tier === 'premium' ? '#fcd34d' : '#e5e7eb'}`,
               borderRadius: 8,
               cursor: 'pointer',
               height: '100%',
               minHeight: 120
             }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>💳</div>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📦</div>
               <h3 style={{
                 color: branding.colors.primary,
                 margin: '0 0 8px 0',
                 fontSize: 16,
                 fontWeight: 600
               }}>
-                Payment Settings
+                Market Boxes
               </h3>
               <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-                Connect your bank account to receive payments
+                Offer 4-week subscription bundles to premium buyers
               </p>
             </div>
           </Link>
@@ -614,33 +482,119 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
+        </div>
 
-          {/* Pickup Mode - Quick mobile-friendly order lookup */}
+        {/* BOTTOM ROW - Your Plan + Payment Settings */}
+        <div className="bottom-grid" style={{
+          display: 'grid',
+          gap: 16,
+          marginBottom: 24
+        }}>
+          {/* Your Plan / Tier Card - includes status */}
+          <div style={{
+            padding: 16,
+            backgroundColor: vendorProfile.tier === 'premium' ? '#fef3c7' : vendorProfile.tier === 'featured' ? '#dbeafe' : 'white',
+            color: '#333',
+            border: `1px solid ${vendorProfile.tier === 'premium' ? '#fcd34d' : vendorProfile.tier === 'featured' ? '#93c5fd' : '#e5e7eb'}`,
+            borderRadius: 8
+          }}>
+            <h2 style={{
+              color: branding.colors.primary,
+              margin: '0 0 16px 0',
+              fontSize: 16,
+              fontWeight: 600
+            }}>
+              Your Plan
+            </h2>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Current Tier</p>
+                  <p style={{
+                    margin: '2px 0 0 0',
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: vendorProfile.tier === 'premium' ? '#92400e' : vendorProfile.tier === 'featured' ? '#1e40af' : '#374151'
+                  }}>
+                    {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'}
+                  </p>
+                </div>
+                <div style={{
+                  padding: '4px 12px',
+                  backgroundColor: vendorProfile.status === 'approved' ? '#dcfce7' : '#fef3c7',
+                  color: vendorProfile.status === 'approved' ? '#166534' : '#92400e',
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  {vendorProfile.status.charAt(0).toUpperCase() + vendorProfile.status.slice(1)}
+                </div>
+              </div>
+
+              {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
+                <div>
+                  <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#666' }}>
+                    Upgrade to Premium for priority placement and more visibility!
+                  </p>
+                  <Link
+                    href={`/${vertical}/vendor/dashboard/upgrade`}
+                    style={{
+                      display: 'inline-block',
+                      padding: '8px 16px',
+                      backgroundColor: branding.colors.primary,
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: 6,
+                      fontWeight: 600,
+                      fontSize: 13
+                    }}
+                  >
+                    Upgrade to Premium
+                  </Link>
+                </div>
+              )}
+
+              {vendorProfile.tier === 'premium' && (
+                <p style={{ margin: 0, fontSize: 13, color: '#92400e' }}>
+                  You have priority placement in search results and featured sections.
+                </p>
+              )}
+
+              {vendorProfile.tier === 'featured' && (
+                <p style={{ margin: 0, fontSize: 13, color: '#1e40af' }}>
+                  Your listings are featured prominently across the marketplace.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Payment Settings */}
           <Link
-            href={`/${vertical}/vendor/pickup`}
+            href={`/${vertical}/vendor/dashboard/stripe`}
             style={{ textDecoration: 'none' }}
           >
             <div style={{
               padding: 16,
-              backgroundColor: '#dcfce7',
+              backgroundColor: 'white',
               color: '#333',
-              border: '1px solid #86efac',
+              border: '1px solid #e5e7eb',
               borderRadius: 8,
               cursor: 'pointer',
               height: '100%',
               minHeight: 120
             }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>📲</div>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>💳</div>
               <h3 style={{
-                color: '#166534',
+                color: branding.colors.primary,
                 margin: '0 0 8px 0',
                 fontSize: 16,
                 fontWeight: 600
               }}>
-                Pickup Mode
+                Payment Settings
               </h3>
-              <p style={{ color: '#166534', margin: 0, fontSize: 14 }}>
-                Mobile-friendly view for market day fulfillment
+              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+                Connect your bank account to receive payments
               </p>
             </div>
           </Link>
@@ -677,6 +631,9 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .vendor-dashboard .action-grid {
           grid-template-columns: 1fr;
         }
+        .vendor-dashboard .bottom-grid {
+          grid-template-columns: 1fr;
+        }
         @media (min-width: 640px) {
           .vendor-dashboard .info-grid {
             grid-template-columns: repeat(2, 1fr);
@@ -684,13 +641,19 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           .vendor-dashboard .action-grid {
             grid-template-columns: repeat(2, 1fr);
           }
+          .vendor-dashboard .bottom-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
         }
         @media (min-width: 1024px) {
           .vendor-dashboard .info-grid {
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
           }
           .vendor-dashboard .action-grid {
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
+          }
+          .vendor-dashboard .bottom-grid {
+            grid-template-columns: repeat(2, 1fr);
           }
         }
       `}</style>

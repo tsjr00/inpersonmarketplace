@@ -57,24 +57,58 @@ export default function VendorTierManager({
   }
 
   if (!isPremium) {
-    // Standard tier - show upgrade option
+    // Standard tier - show upgrade option with benefits
     return (
       <div style={{
         marginTop: 16,
-        padding: 16,
-        backgroundColor: '#f9fafb',
+        padding: 20,
+        background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
         borderRadius: 8,
-        border: '1px solid #e5e7eb'
+        border: '1px solid #fcd34d'
       }}>
-        <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#374151' }}>
-          Upgrade to Premium for priority placement and more visibility.
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 12
+        }}>
+          <span style={{ fontSize: 20 }}>🏆</span>
+          <h3 style={{
+            margin: 0,
+            fontSize: 16,
+            fontWeight: 600,
+            color: '#92400e'
+          }}>
+            Upgrade to Premium Vendor
+          </h3>
+        </div>
+
+        <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#78350f' }}>
+          Grow your business with more listings, multiple markets, and priority visibility for just{' '}
+          <strong>$24.99/month</strong> or <strong>$208.15/year</strong>.
         </p>
+
+        <ul style={{
+          margin: '0 0 16px 0',
+          paddingLeft: 20,
+          fontSize: 13,
+          color: '#78350f',
+          lineHeight: 1.6
+        }}>
+          <li><strong>10 product listings</strong> (Standard: 5 listings)</li>
+          <li><strong>Multiple markets</strong> - sell at multiple locations (Standard: 1 market only)</li>
+          <li><strong>Priority placement</strong> in search results and browse pages</li>
+          <li><strong>Featured sections</strong> on homepage and category pages</li>
+          <li><strong>Premium badge</strong> on your vendor profile</li>
+          <li><strong>Advanced analytics</strong> - detailed sales and performance insights</li>
+        </ul>
+
         <Link
           href={`/${vertical}/vendor/dashboard/upgrade`}
           style={{
             display: 'inline-block',
             padding: '10px 20px',
-            backgroundColor: primaryColor,
+            backgroundColor: '#d97706',
             color: 'white',
             textDecoration: 'none',
             borderRadius: 6,
@@ -82,7 +116,7 @@ export default function VendorTierManager({
             fontSize: 14
           }}
         >
-          Upgrade to Premium
+          Upgrade Now
         </Link>
       </div>
     )

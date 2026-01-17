@@ -44,8 +44,10 @@ export default function VendorPickupPage() {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetchMarkets()
-  }, [])
+    if (vertical) {
+      fetchMarkets()
+    }
+  }, [vertical])
 
   useEffect(() => {
     if (selectedMarket) {
@@ -55,7 +57,7 @@ export default function VendorPickupPage() {
 
   const fetchMarkets = async () => {
     try {
-      const res = await fetch('/api/vendor/markets')
+      const res = await fetch(`/api/vendor/markets?vertical=${vertical}`)
       if (res.ok) {
         const data = await res.json()
         const allMarkets = [
@@ -458,7 +460,7 @@ export default function VendorPickupPage() {
         )}
       </div>
 
-      {/* Quick Actions Footer - for fast order lookup */}
+      {/* Quick Actions Footer - jumps to search bar (helpful when scrolled down on mobile) */}
       <div style={{
         position: 'fixed',
         bottom: 0,
@@ -470,7 +472,10 @@ export default function VendorPickupPage() {
         boxShadow: '0 -2px 10px rgba(0,0,0,0.1)'
       }}>
         <button
-          onClick={() => searchInputRef.current?.focus()}
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+            setTimeout(() => searchInputRef.current?.focus(), 300)
+          }}
           style={{
             width: '100%',
             padding: '14px 20px',
@@ -488,7 +493,7 @@ export default function VendorPickupPage() {
           }}
         >
           <span style={{ fontSize: 18 }}>🔍</span>
-          Quick Order Lookup
+          Search Orders
         </button>
       </div>
 
