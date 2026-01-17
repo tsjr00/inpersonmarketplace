@@ -4,7 +4,7 @@
 -- Purpose: Efficient 25-mile radius filtering using PostGIS
 -- ============================================================================
 
--- Ensure PostGIS extension is enabled (should already be)
+-- Ensure PostGIS extension is enabled
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- Create function to get markets within a radius of a point
@@ -57,8 +57,8 @@ BEGIN
     -- Convert meters to miles (1 mile = 1609.344 meters)
     ROUND(
       (ST_Distance(
-        ST_SetSRID(ST_MakePoint(m.longitude::float, m.latitude::float), 4326)::geography,
-        ST_SetSRID(ST_MakePoint(user_lng::float, user_lat::float), 4326)::geography
+        ST_SetSRID(ST_MakePoint(CAST(m.longitude AS float), CAST(m.latitude AS float)), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(CAST(user_lng AS float), CAST(user_lat AS float)), 4326)::geography
       ) / 1609.344)::numeric,
       1
     ) as distance_miles
@@ -70,15 +70,15 @@ BEGIN
     AND (vertical_filter IS NULL OR m.vertical_id = vertical_filter)
     AND (market_type_filter IS NULL OR m.market_type = market_type_filter)
     AND ST_DWithin(
-      ST_SetSRID(ST_MakePoint(m.longitude::float, m.latitude::float), 4326)::geography,
-      ST_SetSRID(ST_MakePoint(user_lng::float, user_lat::float), 4326)::geography,
-      radius_meters::float
+      ST_SetSRID(ST_MakePoint(CAST(m.longitude AS float), CAST(m.latitude AS float)), 4326)::geography,
+      ST_SetSRID(ST_MakePoint(CAST(user_lng AS float), CAST(user_lat AS float)), 4326)::geography,
+      CAST(radius_meters AS float)
     )
   ORDER BY distance_miles ASC;
 END;
 $$;
 
--- Create similar function for vendors within radius
+-- Create function for vendors within radius
 CREATE OR REPLACE FUNCTION get_vendors_within_radius(
   user_lat DECIMAL,
   user_lng DECIMAL,
@@ -123,8 +123,8 @@ BEGIN
     v.created_at,
     ROUND(
       (ST_Distance(
-        ST_SetSRID(ST_MakePoint(v.longitude::float, v.latitude::float), 4326)::geography,
-        ST_SetSRID(ST_MakePoint(user_lng::float, user_lat::float), 4326)::geography
+        ST_SetSRID(ST_MakePoint(CAST(v.longitude AS float), CAST(v.latitude AS float)), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(CAST(user_lng AS float), CAST(user_lat AS float)), 4326)::geography
       ) / 1609.344)::numeric,
       1
     ) as distance_miles
@@ -135,23 +135,16 @@ BEGIN
     AND v.status = 'approved'
     AND (vertical_filter IS NULL OR v.vertical_id = vertical_filter)
     AND ST_DWithin(
-      ST_SetSRID(ST_MakePoint(v.longitude::float, v.latitude::float), 4326)::geography,
-      ST_SetSRID(ST_MakePoint(user_lng::float, user_lat::float), 4326)::geography,
-      radius_meters::float
+      ST_SetSRID(ST_MakePoint(CAST(v.longitude AS float), CAST(v.latitude AS float)), 4326)::geography,
+      ST_SetSRID(ST_MakePoint(CAST(user_lng AS float), CAST(user_lat AS float)), 4326)::geography,
+      CAST(radius_meters AS float)
     )
   ORDER BY distance_miles ASC;
 END;
 $$;
 
--- Add spatial indexes for faster queries
--- These use the geography type for accurate distance calculations
-CREATE INDEX IF NOT EXISTS idx_markets_geography ON markets
-  USING GIST (ST_SetSRID(ST_MakePoint(longitude::float, latitude::float), 4326)::geography)
-  WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_vendor_profiles_geography ON vendor_profiles
-  USING GIST (ST_SetSRID(ST_MakePoint(longitude::float, latitude::float), 4326)::geography)
-  WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+-- Note: Spatial GIST indexes omitted - the B-tree indexes on lat/lng from migration 003 will suffice
+-- GIST indexes can be added later if performance requires it
 
 -- ============================================================================
 -- END MIGRATION
