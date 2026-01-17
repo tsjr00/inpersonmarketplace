@@ -16,6 +16,9 @@ type Market = {
   start_time?: string
   end_time?: string
   status: string
+  submitted_by?: string
+  submitted_at?: string
+  rejection_reason?: string
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -158,11 +161,55 @@ export default function AdminMarketsPage() {
     })
   }
 
+  const handleApprove = async (marketId: string) => {
+    try {
+      const res = await fetch(`/api/admin/markets/${marketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' })
+      })
+
+      if (res.ok) {
+        await fetchMarkets()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Failed to approve market')
+      }
+    } catch (error) {
+      console.error('Error approving market:', error)
+      alert('Failed to approve market')
+    }
+  }
+
+  const handleReject = async (marketId: string) => {
+    const reason = prompt('Reason for rejection (optional):')
+
+    try {
+      const res = await fetch(`/api/admin/markets/${marketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected', rejection_reason: reason || null })
+      })
+
+      if (res.ok) {
+        await fetchMarkets()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Failed to reject market')
+      }
+    } catch (error) {
+      console.error('Error rejecting market:', error)
+      alert('Failed to reject market')
+    }
+  }
+
   if (loading) {
     return <div style={{ padding: '24px' }}>Loading markets...</div>
   }
 
-  const traditionalMarkets = markets.filter(m => m.market_type === 'traditional')
+  const pendingMarkets = markets.filter(m => m.status === 'pending')
+  const activeMarkets = markets.filter(m => m.market_type === 'traditional' && m.status === 'active')
+  const inactiveMarkets = markets.filter(m => m.market_type === 'traditional' && m.status === 'inactive')
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
@@ -383,6 +430,8 @@ export default function AdminMarketsPage() {
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
+                <option value="pending">Pending Approval</option>
+                <option value="rejected">Rejected</option>
               </select>
             </div>
 
@@ -421,18 +470,109 @@ export default function AdminMarketsPage() {
         </div>
       )}
 
+      {/* Pending Markets Section - Vendor Submissions */}
+      {pendingMarkets.length > 0 && (
+        <div style={{ backgroundColor: '#fef3c7', padding: '24px', borderRadius: '8px', border: '1px solid #f59e0b', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', marginTop: 0, color: '#92400e' }}>
+            ⏳ Pending Approval ({pendingMarkets.length})
+          </h2>
+          <p style={{ fontSize: '14px', color: '#92400e', marginBottom: '16px' }}>
+            These markets were submitted by vendors and require admin review.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {pendingMarkets.map(market => (
+              <div
+                key={market.id}
+                style={{
+                  padding: '16px',
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', marginTop: 0 }}>
+                      {market.name}
+                    </h3>
+                    <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '4px', marginTop: 0 }}>
+                      {market.address}, {market.city}, {market.state} {market.zip}
+                    </p>
+                    {market.day_of_week !== null && market.day_of_week !== undefined && (
+                      <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
+                        {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
+                      </p>
+                    )}
+                    {market.submitted_at && (
+                      <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '8px', marginBottom: 0 }}>
+                        Submitted: {new Date(market.submitted_at).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleApprove(market.id)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#059669',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      ✓ Approve
+                    </button>
+                    <button
+                      onClick={() => handleReject(market.id)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#dc2626',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      ✗ Reject
+                    </button>
+                    <button
+                      onClick={() => handleEdit(market)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
         <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', marginTop: 0 }}>
-          Traditional Markets ({traditionalMarkets.length})
+          Active Markets ({activeMarkets.length})
         </h2>
 
-        {traditionalMarkets.length === 0 ? (
+        {activeMarkets.length === 0 ? (
           <p style={{ color: '#6b7280', fontStyle: 'italic' }}>
-            No traditional markets created yet. Create one above.
+            No active traditional markets yet. Create one above.
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {traditionalMarkets.map(market => (
+            {activeMarkets.map(market => (
               <div
                 key={market.id}
                 style={{

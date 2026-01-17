@@ -479,7 +479,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           </h2>
 
           <Link
-            href="/admin"
+            href={`/${vertical}/admin`}
             style={{
               display: 'block',
               padding: 20,
@@ -492,7 +492,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             }}
           >
             <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
-              Admin Dashboard
+              Admin Panel
             </h3>
             <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
               Manage vendors, listings, and users

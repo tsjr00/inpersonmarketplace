@@ -253,7 +253,7 @@ export default function VendorMarketBoxDetailPage() {
                 fontSize: 14
               }}
             >
-              Edit Offering
+              Edit/Reconfigure Market Box
             </Link>
           </div>
         </div>

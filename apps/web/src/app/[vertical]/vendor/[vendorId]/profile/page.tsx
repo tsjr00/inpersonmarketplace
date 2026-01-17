@@ -96,6 +96,15 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     vendorMarkets = Array.from(marketsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
   }
 
+  // Check if vendor has active market boxes
+  const { count: activeMarketBoxCount } = await supabase
+    .from('market_box_offerings')
+    .select('*', { count: 'exact', head: true })
+    .eq('vendor_profile_id', vendorId)
+    .eq('active', true)
+
+  const hasActiveMarketBoxes = (activeMarketBoxCount || 0) > 0
+
   return (
     <div
       style={{
@@ -274,18 +283,26 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           </div>
 
           {/* Categories - show ALL categories vendor sells */}
-          {allCategories.length > 0 && (
+          {(allCategories.length > 0 || hasActiveMarketBoxes) && (
             <div style={{
               marginTop: 20,
               paddingTop: 20,
               borderTop: '1px solid #f3f4f6'
             }}>
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#374151',
+                margin: '0 0 12px 0'
+              }}>
+                Listing Categories
+              </h3>
               <div style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: 8
               }}>
-                {allCategories.map(category => (
+                {allCategories.sort().map(category => (
                   <span
                     key={category}
                     style={{
@@ -300,6 +317,20 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     {category}
                   </span>
                 ))}
+                {hasActiveMarketBoxes && (
+                  <span
+                    style={{
+                      padding: '6px 14px',
+                      backgroundColor: '#dbeafe',
+                      color: '#1e40af',
+                      borderRadius: 16,
+                      fontSize: 13,
+                      fontWeight: 600
+                    }}
+                  >
+                    📦 Market Box
+                  </span>
+                )}
               </div>
             </div>
           )}

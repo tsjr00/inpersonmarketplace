@@ -25,6 +25,8 @@ interface Order {
 interface Market {
   id: string
   name: string
+  isHomeMarket?: boolean
+  canUse?: boolean
 }
 
 function formatPrice(cents: number): string {
@@ -60,13 +62,23 @@ export default function VendorPickupPage() {
       const res = await fetch(`/api/vendor/markets?vertical=${vertical}`)
       if (res.ok) {
         const data = await res.json()
+        // Filter fixed markets to only include those the vendor can use (respects home market restriction)
+        const usableFixedMarkets = (data.fixedMarkets || []).filter((m: any) => m.canUse !== false)
         const allMarkets = [
-          ...(data.fixedMarkets || []),
+          ...usableFixedMarkets,
           ...(data.privatePickupMarkets || [])
         ]
-        setMarkets(allMarkets.map((m: any) => ({ id: m.id, name: m.name })))
-        // Auto-select first market if available
-        if (allMarkets.length > 0) {
+        setMarkets(allMarkets.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          isHomeMarket: m.isHomeMarket || false,
+          canUse: m.canUse !== false
+        })))
+        // Auto-select home market if available, otherwise first market
+        const homeMarket = allMarkets.find((m: any) => m.isHomeMarket)
+        if (homeMarket) {
+          setSelectedMarket(homeMarket.id)
+        } else if (allMarkets.length > 0) {
           setSelectedMarket(allMarkets[0].id)
         }
       }
@@ -201,7 +213,7 @@ export default function VendorPickupPage() {
           <option value="">Select a market...</option>
           {markets.map(market => (
             <option key={market.id} value={market.id}>
-              {market.name}
+              {market.isHomeMarket ? '🏠 ' : ''}{market.name}
             </option>
           ))}
         </select>

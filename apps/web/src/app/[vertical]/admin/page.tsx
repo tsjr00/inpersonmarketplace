@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import VendorManagement from './VendorManagement'
 import AdminNav from '@/components/admin/AdminNav'
+import { hasPlatformAdminRole } from '@/lib/auth/admin'
 
 interface AdminDashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -26,10 +27,14 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     .eq('user_id', user.id)
     .single()
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin') ||
+    userProfile?.role === 'platform_admin' || userProfile?.roles?.includes('platform_admin')
   if (!isAdmin) {
     redirect(`/${vertical}/dashboard`)
   }
+
+  // Check if user has platform admin privileges (can access global admin)
+  const isPlatformAdmin = hasPlatformAdminRole(userProfile || {})
 
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
@@ -82,7 +87,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
       }}>
         <div>
           <h1 style={{ color: branding.colors.primary, margin: 0 }}>
-            Admin Dashboard
+            Admin Panel
           </h1>
           <p style={{ fontSize: 14, color: branding.colors.secondary, margin: '5px 0 0 0' }}>
             {branding.brand_name} - Vendor Management
@@ -225,24 +230,26 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
       {/* Vendor Management Component */}
       <VendorManagement vertical={vertical} branding={branding} />
 
-      {/* Link to Global Admin */}
-      <div style={{
-        borderTop: '1px solid #e5e7eb',
-        paddingTop: 20,
-        marginTop: 30
-      }}>
-        <Link
-          href="/admin"
-          style={{
-            color: '#7c3aed',
-            textDecoration: 'none',
-            fontWeight: 500,
-            fontSize: 14
-          }}
-        >
-          Go to Global Admin Dashboard →
-        </Link>
-      </div>
+      {/* Link to Platform Admin - only visible to platform admins */}
+      {isPlatformAdmin && (
+        <div style={{
+          borderTop: '1px solid #e5e7eb',
+          paddingTop: 20,
+          marginTop: 30
+        }}>
+          <Link
+            href="/admin"
+            style={{
+              color: '#7c3aed',
+              textDecoration: 'none',
+              fontWeight: 500,
+              fontSize: 14
+            }}
+          >
+            Go to Platform Admin Dashboard →
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

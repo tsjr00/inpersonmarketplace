@@ -15,6 +15,9 @@ type Market = {
   day_of_week?: number
   start_time?: string
   end_time?: string
+  isHomeMarket?: boolean
+  canUse?: boolean
+  homeMarketRestricted?: boolean
 }
 
 type MarketLimits = {
@@ -36,6 +39,10 @@ export default function VendorMarketsPage() {
   const [fixedMarkets, setFixedMarkets] = useState<Market[]>([])
   const [privatePickupMarkets, setPrivatePickupMarkets] = useState<Market[]>([])
   const [limits, setLimits] = useState<MarketLimits | null>(null)
+  const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
+  const [vendorTier, setVendorTier] = useState<string>('standard')
+  const [isPremium, setIsPremium] = useState(false)
+  const [changingHomeMarket, setChangingHomeMarket] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
@@ -61,6 +68,9 @@ export default function VendorMarketsPage() {
         setFixedMarkets(data.fixedMarkets || [])
         setPrivatePickupMarkets(data.privatePickupMarkets || [])
         setLimits(data.limits)
+        setHomeMarketId(data.homeMarketId || null)
+        setVendorTier(data.vendorTier || 'standard')
+        setIsPremium(data.isPremium || false)
       } else if (res.status === 404) {
         // Vendor profile not found - redirect to signup
         router.push(`/${vertical}/vendor-signup`)
@@ -70,6 +80,36 @@ export default function VendorMarketsPage() {
       setError('Failed to load markets')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSetHomeMarket = async (marketId: string) => {
+    if (isPremium) return // Premium vendors don't need home market
+
+    setChangingHomeMarket(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/vendor/home-market', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vertical, marketId })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to change home market')
+        return
+      }
+
+      // Refresh markets to update UI
+      await fetchMarkets()
+    } catch (err) {
+      console.error('Error changing home market:', err)
+      setError('Failed to change home market')
+    } finally {
+      setChangingHomeMarket(false)
     }
   }
 
@@ -260,21 +300,62 @@ export default function VendorMarketsPage() {
                   key={market.id}
                   style={{
                     padding: 16,
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 8
+                    border: market.isHomeMarket ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                    borderRadius: 8,
+                    backgroundColor: market.isHomeMarket ? '#eff6ff' : 'white'
                   }}
                 >
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600 }}>
-                    {market.name}
-                  </h3>
-                  <p style={{ margin: '0 0 4px 0', fontSize: 14, color: '#6b7280' }}>
-                    {market.address}, {market.city}, {market.state} {market.zip}
-                  </p>
-                  {market.day_of_week !== null && market.day_of_week !== undefined && (
-                    <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#6b7280' }}>
-                      {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
-                    </p>
-                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+                          {market.name}
+                        </h3>
+                        {market.isHomeMarket && (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '2px 8px',
+                            backgroundColor: '#2563eb',
+                            color: 'white',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            fontWeight: 600
+                          }}>
+                            🏠 Home Market
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ margin: '0 0 4px 0', fontSize: 14, color: '#6b7280' }}>
+                        {market.address}, {market.city}, {market.state} {market.zip}
+                      </p>
+                      {market.day_of_week !== null && market.day_of_week !== undefined && (
+                        <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#6b7280' }}>
+                          {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
+                        </p>
+                      )}
+                    </div>
+                    {/* Set as Home Market button - only for standard vendors, not on current home market */}
+                    {!isPremium && !market.isHomeMarket && (
+                      <button
+                        onClick={() => handleSetHomeMarket(market.id)}
+                        disabled={changingHomeMarket}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: changingHomeMarket ? '#9ca3af' : '#f3f4f6',
+                          color: '#374151',
+                          border: '1px solid #d1d5db',
+                          borderRadius: 6,
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: changingHomeMarket ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {changingHomeMarket ? 'Changing...' : 'Set as Home Market'}
+                      </button>
+                    )}
+                  </div>
                   <button
                     onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
                     style={{
