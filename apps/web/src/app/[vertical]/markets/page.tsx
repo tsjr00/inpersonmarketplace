@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import MarketCard from '@/components/markets/MarketCard'
 import MarketFilters from './MarketFilters'
+import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
 
 interface MarketsPageProps {
   params: Promise<{ vertical: string }>
@@ -12,7 +12,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   const { type, city, search } = await searchParams
   const supabase = await createClient()
 
-  // Build query
+  // Build query for initial markets (shown before location is set)
   let query = supabase
     .from('markets')
     .select(`
@@ -21,7 +21,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
       market_vendors(count)
     `)
     .eq('vertical_id', vertical)
-    .eq('status' , 'active')
+    .eq('status', 'active')
     .order('name', { ascending: true })
 
   if (type) {
@@ -47,7 +47,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     .from('markets')
     .select('city')
     .eq('vertical_id', vertical)
-    .eq('status' , 'active')
+    .eq('status', 'active')
     .not('city', 'is', null)
 
   const cities = [...new Set(allMarkets?.map(m => m.city).filter(Boolean))] as string[]
@@ -55,11 +55,13 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   // Transform markets data
   const transformedMarkets = markets?.map(market => ({
     ...market,
+    type: market.market_type as 'traditional' | 'private_pickup',
+    active: market.active ?? (market.status === 'active'),
     schedules: market.market_schedules,
     vendor_count: market.market_vendors?.[0]?.count || 0,
     market_schedules: undefined,
     market_vendors: undefined,
-  }))
+  })) || []
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
@@ -76,36 +78,13 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
         cities={cities}
       />
 
-      {/* Results count */}
-      <div style={{ marginBottom: 16, color: '#666' }}>
-        {transformedMarkets?.length || 0} market{transformedMarkets?.length !== 1 ? 's' : ''} found
-      </div>
-
-      {/* Market grid */}
-      {transformedMarkets && transformedMarkets.length > 0 ? (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: 20,
-        }}>
-          {transformedMarkets.map(market => (
-            <MarketCard key={market.id} market={market} vertical={vertical} />
-          ))}
-        </div>
-      ) : (
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: 12,
-          padding: 60,
-          textAlign: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        }}>
-          <p style={{ color: '#666', fontSize: 16 }}>No markets found matching your filters.</p>
-          <p style={{ color: '#999', fontSize: 14, marginTop: 8 }}>
-            Try adjusting your search criteria or check back later.
-          </p>
-        </div>
-      )}
+      {/* Markets with Location Filtering */}
+      <MarketsWithLocation
+        vertical={vertical}
+        initialMarkets={transformedMarkets}
+        type={type}
+        cities={cities}
+      />
     </div>
   )
 }
