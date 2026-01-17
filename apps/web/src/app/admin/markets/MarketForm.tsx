@@ -13,6 +13,8 @@ interface Market {
   city?: string
   state?: string
   zip?: string
+  latitude?: number | null
+  longitude?: number | null
   contact_email?: string
   contact_phone?: string
   active: boolean
@@ -38,6 +40,8 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
     city: market?.city || '',
     state: market?.state || '',
     zip: market?.zip || '',
+    latitude: market?.latitude?.toString() || '',
+    longitude: market?.longitude?.toString() || '',
     contact_email: market?.contact_email || '',
     contact_phone: market?.contact_phone || '',
     active: market?.active ?? true,
@@ -60,10 +64,17 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
       const url = mode === 'create' ? '/api/markets' : `/api/markets/${market?.id}`
       const method = mode === 'create' ? 'POST' : 'PATCH'
 
+      // Parse lat/lng as numbers if provided
+      const submitData = {
+        ...formData,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+      }
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       })
 
       const data = await response.json()
@@ -189,7 +200,7 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={labelStyle}>City</label>
             <input
@@ -226,6 +237,43 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
             />
           </div>
         </div>
+
+        {/* Coordinates for location filtering */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          <div>
+            <label style={labelStyle}>
+              Latitude
+              <span style={{ fontWeight: 400, color: '#666', marginLeft: 6 }}>(optional)</span>
+            </label>
+            <input
+              type="text"
+              name="latitude"
+              value={formData.latitude}
+              onChange={handleChange}
+              style={inputStyle}
+              placeholder="e.g., 30.2672"
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              Longitude
+              <span style={{ fontWeight: 400, color: '#666', marginLeft: 6 }}>(optional)</span>
+            </label>
+            <input
+              type="text"
+              name="longitude"
+              value={formData.longitude}
+              onChange={handleChange}
+              style={inputStyle}
+              placeholder="e.g., -97.7431"
+            />
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: '#666', marginTop: -12, marginBottom: 20 }}>
+          Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: '#0070f3' }}>latlong.net</a> -
+          enables 25-mile radius filtering for buyers
+        </p>
 
         {/* Contact */}
         <h3 style={{ margin: '24px 0 20px 0', fontSize: 16, fontWeight: 600, color: '#333', paddingTop: 20, borderTop: '1px solid #eee' }}>

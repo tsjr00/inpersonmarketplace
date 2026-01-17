@@ -89,6 +89,8 @@ export async function POST(request: NextRequest) {
     city,
     state,
     zip,
+    latitude,
+    longitude,
     contact_email,
     contact_phone,
   } = body
@@ -114,15 +116,18 @@ export async function POST(request: NextRequest) {
     .insert({
       name,
       vertical_id,
-      type,
+      market_type: type,
       description,
       address,
       city,
       state,
-      zip,
+      zip_code: zip,
+      latitude: latitude || null,
+      longitude: longitude || null,
       contact_email,
       contact_phone,
       active: true,
+      status: 'active',
     })
     .select()
     .single()

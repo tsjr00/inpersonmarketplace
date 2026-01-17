@@ -109,6 +109,8 @@ export async function PATCH(
     'city',
     'state',
     'zip',
+    'latitude',
+    'longitude',
     'contact_email',
     'contact_phone',
     'active',
