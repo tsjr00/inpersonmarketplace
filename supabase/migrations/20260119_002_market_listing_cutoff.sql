@@ -21,7 +21,7 @@ ADD COLUMN IF NOT EXISTS cutoff_hours INTEGER DEFAULT 18;
 COMMENT ON COLUMN markets.cutoff_hours IS 'Hours before market/pickup time when listings stop accepting orders. Traditional markets default to 18 hours, private pickup to 10 hours.';
 
 -- Set default cutoff for private_pickup markets
-UPDATE markets SET cutoff_hours = 10 WHERE type = 'private_pickup' AND cutoff_hours = 18;
+UPDATE markets SET cutoff_hours = 10 WHERE market_type = 'private_pickup' AND cutoff_hours = 18;
 
 -- =====================================================
 -- 3. Function to get next occurrence of a market day
@@ -87,7 +87,7 @@ DECLARE
   v_cutoff_hours INTEGER;
 BEGIN
   -- Get market info
-  SELECT id, type, timezone, cutoff_hours
+  SELECT id, market_type, timezone, cutoff_hours
   INTO v_market
   FROM markets
   WHERE id = p_market_id AND active = true;
@@ -101,7 +101,7 @@ BEGIN
   -- Traditional: 18 hours, Private pickup: 10 hours (use stored value or default)
   v_cutoff_hours := COALESCE(
     v_market.cutoff_hours,
-    CASE WHEN v_market.type = 'private_pickup' THEN 10 ELSE 18 END
+    CASE WHEN v_market.market_type = 'private_pickup' THEN 10 ELSE 18 END
   );
 
   -- Find the earliest upcoming cutoff across all schedules
@@ -158,7 +158,7 @@ BEGIN
 
   -- Check each associated market
   FOR v_market_record IN
-    SELECT m.id, m.type
+    SELECT m.id, m.market_type
     FROM listing_markets lm
     JOIN markets m ON m.id = lm.market_id
     WHERE lm.listing_id = p_listing_id AND m.active = true
@@ -200,7 +200,7 @@ BEGIN
     SELECT
       m.id,
       m.name,
-      m.type,
+      m.market_type,
       m.timezone,
       m.cutoff_hours
     FROM listing_markets lm
@@ -210,7 +210,7 @@ BEGIN
     -- Determine cutoff hours based on market type
     v_cutoff_hours := COALESCE(
       v_market_record.cutoff_hours,
-      CASE WHEN v_market_record.type = 'private_pickup' THEN 10 ELSE 18 END
+      CASE WHEN v_market_record.market_type = 'private_pickup' THEN 10 ELSE 18 END
     );
 
     -- Get the next schedule for this market
@@ -236,7 +236,7 @@ BEGIN
       v_market_info := jsonb_build_object(
         'market_id', v_market_record.id,
         'market_name', v_market_record.name,
-        'market_type', v_market_record.type,
+        'market_type', v_market_record.market_type,
         'is_accepting', NOW() < v_cutoff,
         'cutoff_at', v_cutoff,
         'next_market_at', v_next_market,
@@ -250,7 +250,7 @@ BEGIN
       v_market_info := jsonb_build_object(
         'market_id', v_market_record.id,
         'market_name', v_market_record.name,
-        'market_type', v_market_record.type,
+        'market_type', v_market_record.market_type,
         'is_accepting', false,
         'cutoff_at', NULL,
         'next_market_at', NULL,
