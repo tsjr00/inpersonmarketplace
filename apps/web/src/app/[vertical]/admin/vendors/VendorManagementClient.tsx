@@ -1,16 +1,18 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { VerticalBranding } from '@/lib/branding'
+import { useState, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useDebounce } from '@/lib/hooks/useDebounce'
+import Pagination from '@/components/admin/Pagination'
+import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
 interface Vendor {
   id: string
   user_id: string
   status: string
-  tier?: string
+  tier: string | null
   created_at: string
   profile_data: {
     business_name?: string
@@ -18,120 +20,86 @@ interface Vendor {
     email?: string
     phone?: string
     vendor_type?: string | string[]
-  }
-  user_email?: string
-  days_pending?: number
-  markets?: { market_id: string; markets: { name: string } | null }[]
-  market_vendors?: { market_id: string; markets: { name: string } | null }[]
+  } | null
+  days_pending: number
+  user_email: string
+  markets: Array<{ market_id: string; markets: { name: string } | null }>
 }
 
-interface VendorManagementProps {
+interface VendorManagementClientProps {
   vertical: string
-  branding: VerticalBranding
+  vendors: Vendor[]
+  totalCount: number
+  currentPage: number
+  pageSize: number
+  totalPages: number
+  initialFilters: {
+    search: string
+    status: string
+    tier: string
+  }
 }
 
-export default function VendorManagement({ vertical, branding }: VendorManagementProps) {
-  const [vendors, setVendors] = useState<Vendor[]>([])
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [tierFilter, setTierFilter] = useState<string>('all')
-  const [searchTerm, setSearchTerm] = useState<string>('')
-  const [loading, setLoading] = useState(true)
+export default function VendorManagementClient({
+  vertical,
+  vendors: initialVendors,
+  totalCount,
+  currentPage,
+  pageSize,
+  totalPages,
+  initialFilters
+}: VendorManagementClientProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Vendors state (to allow optimistic updates after approve/reject)
+  const [vendors, setVendors] = useState(initialVendors)
+
+  // Local state for immediate UI feedback
+  const [searchInput, setSearchInput] = useState(initialFilters.search)
+  const [status, setStatus] = useState(initialFilters.status)
+  const [tier, setTier] = useState(initialFilters.tier)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const supabase = createClient()
+  const [exporting, setExporting] = useState(false)
 
-  useEffect(() => {
-    fetchVendors()
-  }, [])
+  // Debounce search input (300ms)
+  const debouncedSearch = useDebounce(searchInput, 300)
 
-  async function fetchVendors() {
-    setLoading(true)
+  // Update URL when filters change
+  const updateFilters = useCallback((updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', '1') // Reset to page 1 when filters change
 
-    const query = supabase
-      .from('vendor_profiles')
-      .select(`
-        id,
-        user_id,
-        status,
-        tier,
-        created_at,
-        profile_data,
-        market_vendors (
-          market_id,
-          markets (
-            name
-          )
-        )
-      `)
-      .eq('vertical_id', vertical)
-      .order('created_at', { ascending: false })
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error('Error fetching vendors:', error)
-      setVendors([])
-    } else {
-      // Calculate days pending for each vendor
-      const vendorsWithDetails = (data || []).map((vendor) => {
-        const daysPending = Math.floor(
-          (Date.now() - new Date(vendor.created_at).getTime()) / (1000 * 60 * 60 * 24)
-        )
-
-        return {
-          ...vendor,
-          days_pending: daysPending,
-          user_email: vendor.profile_data?.email || 'Unknown',
-          markets: vendor.market_vendors || []
-        }
-      })
-      setVendors(vendorsWithDetails as unknown as Vendor[])
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) {
+        params.set(key, value)
+      } else {
+        params.delete(key)
+      }
     }
 
-    setLoading(false)
+    router.push(`/${vertical}/admin/vendors?${params.toString()}`)
+  }, [router, vertical, searchParams])
+
+  // Effect to update URL when debounced search changes
+  if (debouncedSearch !== initialFilters.search) {
+    updateFilters({ search: debouncedSearch })
   }
 
-  // Client-side filtering
-  const filteredVendors = useMemo(() => {
-    return vendors.filter(vendor => {
-      // Search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase()
-        const businessName = vendor.profile_data?.business_name?.toLowerCase() || ''
-        const legalName = vendor.profile_data?.legal_name?.toLowerCase() || ''
-        const email = vendor.user_email?.toLowerCase() || ''
-        if (!businessName.includes(searchLower) && !legalName.includes(searchLower) && !email.includes(searchLower)) {
-          return false
-        }
-      }
-
-      // Status filter
-      if (statusFilter !== 'all') {
-        if (statusFilter === 'pending') {
-          if (vendor.status !== 'submitted' && vendor.status !== 'draft') return false
-        } else if (vendor.status !== statusFilter) {
-          return false
-        }
-      }
-
-      // Tier filter
-      if (tierFilter !== 'all') {
-        const vendorTier = vendor.tier || 'standard'
-        if (vendorTier !== tierFilter) return false
-      }
-
-      return true
-    })
-  }, [vendors, searchTerm, statusFilter, tierFilter])
-
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || tierFilter !== 'all'
-
-  const clearFilters = () => {
-    setSearchTerm('')
-    setStatusFilter('all')
-    setTierFilter('all')
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', String(page))
+    router.push(`/${vertical}/admin/vendors?${params.toString()}`)
   }
 
-  async function handleApprove(vendorId: string) {
+  const handlePageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('limit', String(size))
+    params.set('page', '1')
+    router.push(`/${vertical}/admin/vendors?${params.toString()}`)
+  }
+
+  const handleApprove = async (vendorId: string) => {
     setActionLoading(vendorId)
 
     const res = await fetch(`/api/admin/vendors/${vendorId}/approve`, {
@@ -139,7 +107,12 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
     })
 
     if (res.ok) {
-      fetchVendors()
+      // Optimistic update
+      setVendors(prev => prev.map(v =>
+        v.id === vendorId ? { ...v, status: 'approved' } : v
+      ))
+      // Refresh server data
+      router.refresh()
     } else {
       const data = await res.json()
       alert(data.error || 'Failed to approve vendor')
@@ -148,7 +121,7 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
     setActionLoading(null)
   }
 
-  async function handleReject(vendorId: string) {
+  const handleReject = async (vendorId: string) => {
     if (!confirm('Are you sure you want to reject this vendor?')) return
 
     setActionLoading(vendorId)
@@ -158,13 +131,90 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
     })
 
     if (res.ok) {
-      fetchVendors()
+      // Optimistic update
+      setVendors(prev => prev.map(v =>
+        v.id === vendorId ? { ...v, status: 'rejected' } : v
+      ))
+      // Refresh server data
+      router.refresh()
     } else {
       const data = await res.json()
       alert(data.error || 'Failed to reject vendor')
     }
 
     setActionLoading(null)
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      exportToCSV(vendors, `${vertical}_vendors`, [
+        {
+          key: 'profile_data',
+          header: 'Business Name',
+          getValue: (row) => row.profile_data?.business_name || ''
+        },
+        {
+          key: 'profile_data',
+          header: 'Legal Name',
+          getValue: (row) => row.profile_data?.legal_name || ''
+        },
+        { key: 'user_email', header: 'Email' },
+        {
+          key: 'profile_data',
+          header: 'Phone',
+          getValue: (row) => row.profile_data?.phone || ''
+        },
+        {
+          key: 'profile_data',
+          header: 'Type',
+          getValue: (row) => {
+            const vt = row.profile_data?.vendor_type
+            return Array.isArray(vt) ? vt.join(', ') : vt || ''
+          }
+        },
+        { key: 'status', header: 'Status' },
+        {
+          key: 'tier',
+          header: 'Tier',
+          getValue: (row) => row.tier || 'standard'
+        },
+        {
+          key: 'markets',
+          header: 'Markets',
+          getValue: (row) => row.markets.map(m => m.markets?.name || 'Unknown').join('; ')
+        },
+        {
+          key: 'created_at',
+          header: 'Created',
+          getValue: (row) => formatDateForExport(row.created_at)
+        }
+      ])
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const clearFilters = () => {
+    setSearchInput('')
+    setStatus('')
+    setTier('')
+    router.push(`/${vertical}/admin/vendors`)
+  }
+
+  const hasFilters = searchInput || status || tier
+
+  const inputStyle = {
+    padding: spacing['2xs'],
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.sm,
+    fontSize: typography.sizes.sm,
+  }
+
+  const selectStyle = {
+    ...inputStyle,
+    minWidth: 120,
+    backgroundColor: 'white',
   }
 
   return (
@@ -174,7 +224,7 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
       padding: spacing.lg,
       boxShadow: shadows.sm
     }}>
-      {/* Search and Filters */}
+      {/* Filters */}
       <div style={{
         display: 'flex',
         gap: spacing.sm,
@@ -182,68 +232,47 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
         flexWrap: 'wrap',
         alignItems: 'center'
       }}>
-        {/* Search Input */}
-        <div style={{ flex: '1 1 250px', minWidth: 200 }}>
-          <input
-            type="text"
-            placeholder="Search by business name or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: `${spacing.xs} ${spacing.sm}`,
-              fontSize: typography.sizes.sm,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.sm,
-              backgroundColor: 'white'
-            }}
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Search by business name or email..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          style={{ ...inputStyle, minWidth: 200, flex: 1 }}
+        />
 
-        {/* Status Filter */}
         <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={{
-            padding: `${spacing.xs} ${spacing.sm}`,
-            fontSize: typography.sizes.sm,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.sm,
-            backgroundColor: 'white',
-            minWidth: 140
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value)
+            updateFilters({ status: e.target.value })
           }}
+          style={selectStyle}
         >
-          <option value="all">All Statuses</option>
+          <option value="">All Statuses</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </select>
 
-        {/* Tier Filter */}
         <select
-          value={tierFilter}
-          onChange={(e) => setTierFilter(e.target.value)}
-          style={{
-            padding: `${spacing.xs} ${spacing.sm}`,
-            fontSize: typography.sizes.sm,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.sm,
-            backgroundColor: 'white',
-            minWidth: 130
+          value={tier}
+          onChange={(e) => {
+            setTier(e.target.value)
+            updateFilters({ tier: e.target.value })
           }}
+          style={selectStyle}
         >
-          <option value="all">All Tiers</option>
+          <option value="">All Tiers</option>
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
           <option value="featured">Featured</option>
         </select>
 
-        {/* Clear Filters */}
-        {hasActiveFilters && (
+        {hasFilters && (
           <button
             onClick={clearFilters}
             style={{
-              padding: `${spacing.xs} ${spacing.sm}`,
+              padding: `${spacing['2xs']} ${spacing.xs}`,
               backgroundColor: colors.surfaceSubtle,
               color: colors.textPrimary,
               border: `1px solid ${colors.border}`,
@@ -255,22 +284,30 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
             Clear Filters
           </button>
         )}
+
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          style={{
+            padding: `${spacing['2xs']} ${spacing.xs}`,
+            backgroundColor: colors.primary,
+            color: 'white',
+            border: 'none',
+            borderRadius: radius.sm,
+            cursor: exporting ? 'not-allowed' : 'pointer',
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.medium
+          }}
+        >
+          {exporting ? 'Exporting...' : 'Export CSV'}
+        </button>
       </div>
 
-      {/* Results count */}
-      <div style={{ marginBottom: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
-        {filteredVendors.length} of {vendors.length} vendor{vendors.length !== 1 ? 's' : ''}
-      </div>
-
-      {/* Loading state */}
-      {loading ? (
-        <p style={{ color: colors.textSecondary }}>Loading vendors...</p>
-      ) : filteredVendors.length === 0 ? (
+      {/* Table */}
+      {vendors.length === 0 ? (
         <div style={{ textAlign: 'center', padding: spacing.xl, color: colors.textSecondary }}>
-          <p style={{ margin: 0 }}>
-            {vendors.length === 0 ? 'No vendors found.' : 'No vendors match your filters.'}
-          </p>
-          {hasActiveFilters && (
+          <p style={{ margin: 0 }}>No vendors match your filters.</p>
+          {hasFilters && (
             <button
               onClick={clearFilters}
               style={{
@@ -293,33 +330,18 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `2px solid ${colors.border}`, backgroundColor: colors.surfaceSubtle }}>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-                  Business Name
-                </th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-                  Contact
-                </th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-                  Type
-                </th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-                  Markets
-                </th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-                  Tier
-                </th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-                  Status
-                </th>
-                <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
-                  Actions
-                </th>
+                <th style={thStyle}>Business Name</th>
+                <th style={thStyle}>Contact</th>
+                <th style={thStyle}>Type</th>
+                <th style={thStyle}>Markets</th>
+                <th style={thStyle}>Tier</th>
+                <th style={thStyle}>Status</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredVendors.map((vendor) => {
-                const isStale = vendor.days_pending !== undefined &&
-                  vendor.days_pending >= 2 &&
+              {vendors.map((vendor) => {
+                const isStale = vendor.days_pending >= 2 &&
                   (vendor.status === 'submitted' || vendor.status === 'draft')
 
                 return (
@@ -330,66 +352,61 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
                       backgroundColor: isStale ? '#fef3c7' : 'transparent'
                     }}
                   >
-                    {/* Business Name */}
-                    <td style={{ padding: '15px 10px' }}>
-                      <div style={{ fontWeight: 600, color: '#333' }}>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 600, color: colors.textPrimary }}>
                         {vendor.profile_data?.business_name || 'Unnamed'}
                       </div>
-                      <div style={{ fontSize: 13, color: '#666' }}>
-                        {vendor.profile_data?.legal_name}
-                      </div>
+                      {vendor.profile_data?.legal_name && (
+                        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                          {vendor.profile_data.legal_name}
+                        </div>
+                      )}
                     </td>
-
-                    {/* Contact */}
-                    <td style={{ padding: '15px 10px' }}>
-                      <div style={{ color: '#333' }}>{vendor.user_email}</div>
-                      <div style={{ fontSize: 13, color: '#666' }}>
-                        {vendor.profile_data?.phone}
-                      </div>
+                    <td style={tdStyle}>
+                      <div style={{ color: colors.textPrimary }}>{vendor.user_email}</div>
+                      {vendor.profile_data?.phone && (
+                        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                          {vendor.profile_data.phone}
+                        </div>
+                      )}
                     </td>
-
-                    {/* Type */}
-                    <td style={{ padding: '15px 10px', color: '#333' }}>
+                    <td style={tdStyle}>
                       {Array.isArray(vendor.profile_data?.vendor_type)
                         ? vendor.profile_data.vendor_type.join(', ')
                         : vendor.profile_data?.vendor_type || '—'
                       }
                     </td>
-
-                    {/* Markets */}
-                    <td style={{ padding: '15px 10px' }}>
+                    <td style={tdStyle}>
                       {vendor.markets && vendor.markets.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {vendor.markets.slice(0, 2).map((m, idx) => (
                             <span key={idx} style={{
-                              fontSize: 12,
-                              color: '#333',
+                              fontSize: typography.sizes.xs,
+                              color: colors.textPrimary,
                               backgroundColor: '#f0fdf4',
                               padding: '2px 8px',
-                              borderRadius: 4
+                              borderRadius: radius.sm
                             }}>
                               {m.markets?.name || 'Unknown'}
                             </span>
                           ))}
                           {vendor.markets.length > 2 && (
-                            <span style={{ fontSize: 11, color: '#666' }}>
+                            <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
                               +{vendor.markets.length - 2} more
                             </span>
                           )}
                         </div>
                       ) : (
-                        <span style={{ color: '#999', fontSize: 13 }}>No markets</span>
+                        <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>No markets</span>
                       )}
                     </td>
-
-                    {/* Tier */}
-                    <td style={{ padding: '15px 10px' }}>
+                    <td style={tdStyle}>
                       <span style={{
                         display: 'inline-block',
-                        padding: '4px 10px',
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 600,
+                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                        borderRadius: radius.full,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
                         backgroundColor:
                           vendor.tier === 'premium' ? '#dbeafe' :
                           vendor.tier === 'featured' ? '#fef3c7' : '#f3f4f6',
@@ -400,34 +417,27 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
                         {vendor.tier || 'standard'}
                       </span>
                     </td>
-
-                    {/* Status */}
-                    <td style={{ padding: '15px 10px' }}>
+                    <td style={tdStyle}>
                       <span style={{
                         display: 'inline-block',
-                        padding: '4px 10px',
-                        borderRadius: 20,
-                        fontSize: 13,
-                        fontWeight: 500,
+                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                        borderRadius: radius.full,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.medium,
                         backgroundColor:
-                          vendor.status === 'approved' ? '#d1fae5' :
-                          vendor.status === 'rejected' ? '#fee2e2' :
-                          '#fef3c7',
+                          vendor.status === 'approved' ? '#dcfce7' :
+                          vendor.status === 'rejected' ? '#fee2e2' : '#fef3c7',
                         color:
-                          vendor.status === 'approved' ? '#065f46' :
-                          vendor.status === 'rejected' ? '#991b1b' :
-                          '#92400e'
+                          vendor.status === 'approved' ? '#166534' :
+                          vendor.status === 'rejected' ? '#991b1b' : '#92400e'
                       }}>
                         {(vendor.status === 'submitted' || vendor.status === 'draft') ? 'pending' : vendor.status}
                       </span>
                     </td>
-
-                    {/* Actions */}
-                    <td style={{ padding: spacing.sm, textAlign: 'right' }}>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                        {/* View Link */}
                         <Link
-                          href={`/${vertical}/vendor/${vendor.id}`}
+                          href={`/${vertical}/vendor/${vendor.id}/profile`}
                           style={{
                             padding: `${spacing['3xs']} ${spacing.xs}`,
                             fontSize: typography.sizes.sm,
@@ -441,7 +451,6 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
                           View
                         </Link>
 
-                        {/* Approve/Reject for pending */}
                         {(vendor.status === 'submitted' || vendor.status === 'draft') && (
                           <>
                             <button
@@ -479,7 +488,6 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
                           </>
                         )}
 
-                        {/* Re-approve for rejected */}
                         {vendor.status === 'rejected' && (
                           <button
                             onClick={() => handleApprove(vendor.id)}
@@ -507,6 +515,30 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
           </table>
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalCount}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+      />
     </div>
   )
+}
+
+const thStyle = {
+  textAlign: 'left' as const,
+  padding: spacing.sm,
+  color: colors.textSecondary,
+  fontWeight: typography.weights.semibold,
+  fontSize: typography.sizes.sm
+}
+
+const tdStyle = {
+  padding: spacing.sm,
+  fontSize: typography.sizes.sm,
+  color: colors.textPrimary
 }

@@ -1,108 +1,147 @@
-'use client'
-
-import { useState, useEffect, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { redirect } from 'next/navigation'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import ListingsTableClient from './ListingsTableClient'
+import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 
-interface Listing {
-  id: string
-  title: string
-  status: string
-  price_cents: number
-  category?: string
-  created_at: string
-  vendor_profiles: {
-    id: string
-    tier: string
-    profile_data: {
-      business_name?: string
-      farm_name?: string
-    }
-  }
+// Cache for 2 minutes
+export const revalidate = 120
+
+interface AdminListingsPageProps {
+  params: Promise<{ vertical: string }>
+  searchParams: Promise<{
+    page?: string
+    limit?: string
+    search?: string
+    status?: string
+    category?: string
+  }>
 }
 
-export default function AdminListingsPage() {
-  const params = useParams()
-  const vertical = params.vertical as string
+export default async function AdminListingsPage({ params, searchParams }: AdminListingsPageProps) {
+  const { vertical } = await params
+  const {
+    page = '1',
+    limit = '20',
+    search = '',
+    status = '',
+    category = ''
+  } = await searchParams
 
-  const [listings, setListings] = useState<Listing[]>([])
-  const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [categoryFilter, setCategoryFilter] = useState<string>('all')
-  const [searchTerm, setSearchTerm] = useState('')
+  const supabase = await createClient()
 
-  useEffect(() => {
-    fetchListings()
-  }, [vertical])
-
-  const fetchListings = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/listings?vertical=${vertical}&admin=true`)
-      if (res.ok) {
-        const data = await res.json()
-        setListings(data.listings || [])
-      }
-    } catch (error) {
-      console.error('Error fetching listings:', error)
-    } finally {
-      setLoading(false)
-    }
+  // Check auth
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect(`/${vertical}/login`)
   }
 
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(cents / 100)
+  // Verify admin role
+  const { data: userProfile } = await supabase
+    .from('user_profiles')
+    .select('role, roles')
+    .eq('user_id', user.id)
+    .single()
+
+  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin') ||
+    userProfile?.role === 'platform_admin' || userProfile?.roles?.includes('platform_admin')
+  if (!isAdmin) {
+    redirect(`/${vertical}/dashboard`)
   }
 
-  // Get unique categories for filter dropdown
-  const categories = useMemo(() => {
-    const cats = new Set<string>()
-    listings.forEach(l => {
-      if (l.category) cats.add(l.category)
+  // Parse pagination params
+  const currentPage = Math.max(1, parseInt(page))
+  const pageSize = Math.min(100, Math.max(10, parseInt(limit)))
+  const offset = (currentPage - 1) * pageSize
+
+  // Use service client for full access
+  const serviceClient = createServiceClient()
+
+  // Build query with server-side filtering
+  let query = serviceClient
+    .from('listings')
+    .select(`
+      id,
+      title,
+      status,
+      price_cents,
+      category,
+      created_at,
+      vendor_profiles!inner (
+        id,
+        tier,
+        profile_data
+      )
+    `, { count: 'exact' })
+    .eq('vertical_id', vertical)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  // Apply status filter
+  if (status) {
+    query = query.eq('status', status)
+  }
+
+  // Apply category filter
+  if (category) {
+    query = query.eq('category', category)
+  }
+
+  // Apply pagination
+  query = query.range(offset, offset + pageSize - 1)
+
+  const { data: listings, count, error } = await query
+
+  if (error) {
+    console.error('Error fetching listings:', error)
+  }
+
+  // Client-side search filter
+  let filteredListings = listings || []
+  if (search) {
+    const searchLower = search.toLowerCase()
+    filteredListings = filteredListings.filter(listing => {
+      const title = (listing.title as string || '').toLowerCase()
+      const vendorProfile = listing.vendor_profiles as unknown as Record<string, unknown> | null
+      const profileData = vendorProfile?.profile_data as Record<string, string> | null
+      const vendorName = profileData?.business_name?.toLowerCase() || profileData?.farm_name?.toLowerCase() || ''
+      return title.includes(searchLower) || vendorName.includes(searchLower)
     })
-    return Array.from(cats).sort()
-  }, [listings])
+  }
 
-  // Client-side filtering
-  const filteredListings = useMemo(() => {
-    return listings.filter(listing => {
-      // Search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase()
-        const vendorName = listing.vendor_profiles?.profile_data?.business_name ||
-                          listing.vendor_profiles?.profile_data?.farm_name || ''
-        if (!listing.title.toLowerCase().includes(searchLower) &&
-            !vendorName.toLowerCase().includes(searchLower)) {
-          return false
+  // Get unique categories for filter
+  const { data: categoriesList } = await serviceClient
+    .from('listings')
+    .select('category')
+    .eq('vertical_id', vertical)
+    .is('deleted_at', null)
+    .not('category', 'is', null)
+
+  const uniqueCategories = [...new Set(categoriesList?.map(c => c.category as string).filter(Boolean))].sort()
+
+  // Type the listings properly (vendor_profiles comes as array from join, take first)
+  const typedListings = filteredListings.map(listing => ({
+    id: listing.id as string,
+    title: listing.title as string,
+    status: listing.status as string,
+    price_cents: listing.price_cents as number,
+    category: listing.category as string | null,
+    created_at: listing.created_at as string,
+    vendor_profiles: Array.isArray(listing.vendor_profiles) && listing.vendor_profiles.length > 0
+      ? {
+          id: listing.vendor_profiles[0].id as string,
+          tier: listing.vendor_profiles[0].tier as string | null,
+          profile_data: listing.vendor_profiles[0].profile_data as {
+            business_name?: string
+            farm_name?: string
+          } | null
         }
-      }
+      : null
+  }))
 
-      // Status filter
-      if (statusFilter !== 'all' && listing.status !== statusFilter) {
-        return false
-      }
-
-      // Category filter
-      if (categoryFilter !== 'all' && listing.category !== categoryFilter) {
-        return false
-      }
-
-      return true
-    })
-  }, [listings, searchTerm, statusFilter, categoryFilter])
-
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || categoryFilter !== 'all'
-
-  const clearFilters = () => {
-    setSearchTerm('')
-    setStatusFilter('all')
-    setCategoryFilter('all')
-  }
+  const totalCount = count || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   return (
     <div style={{
@@ -126,7 +165,7 @@ export default function AdminListingsPage() {
               Listings Management
             </h1>
             <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: `${spacing['3xs']} 0 0 0` }}>
-              Browse and moderate vendor product listings
+              {totalCount.toLocaleString()} listings
             </p>
           </div>
           <Link
@@ -145,227 +184,17 @@ export default function AdminListingsPage() {
         {/* Admin Navigation */}
         <AdminNav type="vertical" vertical={vertical} />
 
-        {/* Filters */}
-        <div style={{
-          display: 'flex',
-          gap: spacing.sm,
-          marginBottom: spacing.md,
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }}>
-          {/* Search Input */}
-          <div style={{ flex: '1 1 250px', minWidth: 200 }}>
-            <input
-              type="text"
-              placeholder="Search listings or vendors..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: `${spacing.xs} ${spacing.sm}`,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                fontSize: typography.sizes.sm,
-                backgroundColor: 'white'
-              }}
-            />
-          </div>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: `${spacing.xs} ${spacing.sm}`,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.sm,
-              fontSize: typography.sizes.sm,
-              backgroundColor: 'white',
-              minWidth: 130
-            }}
-          >
-            <option value="all">All Statuses</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
-
-          {/* Category Filter */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            style={{
-              padding: `${spacing.xs} ${spacing.sm}`,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.sm,
-              fontSize: typography.sizes.sm,
-              backgroundColor: 'white',
-              minWidth: 140
-            }}
-          >
-            <option value="all">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-
-          {/* Clear Filters */}
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              style={{
-                padding: `${spacing.xs} ${spacing.sm}`,
-                backgroundColor: colors.surfaceSubtle,
-                color: colors.textPrimary,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                cursor: 'pointer',
-                fontSize: typography.sizes.sm
-              }}
-            >
-              Clear Filters
-            </button>
-          )}
-        </div>
-
-        {/* Results count */}
-        <div style={{ marginBottom: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
-          {filteredListings.length} of {listings.length} listing{listings.length !== 1 ? 's' : ''}
-        </div>
-
         {/* Listings Table */}
-        <div style={{
-          backgroundColor: colors.surfaceElevated,
-          borderRadius: radius.md,
-          boxShadow: shadows.sm,
-          overflow: 'hidden'
-        }}>
-          {loading ? (
-            <div style={{ padding: spacing.lg, textAlign: 'center', color: colors.textSecondary }}>
-              Loading listings...
-            </div>
-          ) : filteredListings.length === 0 ? (
-            <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>
-              <p style={{ margin: 0 }}>
-                {listings.length === 0 ? 'No listings found.' : 'No listings match your filters.'}
-              </p>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  style={{
-                    marginTop: spacing.sm,
-                    padding: `${spacing.xs} ${spacing.sm}`,
-                    backgroundColor: colors.surfaceSubtle,
-                    border: 'none',
-                    borderRadius: radius.sm,
-                    cursor: 'pointer',
-                    fontSize: typography.sizes.sm,
-                    color: colors.textPrimary
-                  }}
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ backgroundColor: colors.surfaceSubtle }}>
-                  <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                    Title
-                  </th>
-                  <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                    Vendor
-                  </th>
-                  <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                    Category
-                  </th>
-                  <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                    Price
-                  </th>
-                  <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                    Status
-                  </th>
-                  <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredListings.map((listing) => {
-                  const vendorName = listing.vendor_profiles?.profile_data?.business_name ||
-                                    listing.vendor_profiles?.profile_data?.farm_name || 'Unknown'
-
-                  return (
-                    <tr key={listing.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                      <td style={{ padding: spacing.sm }}>
-                        <div style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                          {listing.title}
-                        </div>
-                      </td>
-                      <td style={{ padding: spacing.sm }}>
-                        <div style={{ color: colors.textPrimary }}>{vendorName}</div>
-                        {listing.vendor_profiles?.tier && listing.vendor_profiles.tier !== 'standard' && (
-                          <span style={{
-                            display: 'inline-block',
-                            marginTop: spacing['3xs'],
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: listing.vendor_profiles.tier === 'premium' ? '#dbeafe' : '#fef3c7',
-                            color: listing.vendor_profiles.tier === 'premium' ? '#1e40af' : '#92400e',
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            fontWeight: typography.weights.semibold
-                          }}>
-                            {listing.vendor_profiles.tier}
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
-                        {listing.category || '—'}
-                      </td>
-                      <td style={{ padding: spacing.sm, color: colors.textPrimary, fontWeight: typography.weights.medium }}>
-                        {formatPrice(listing.price_cents)}
-                      </td>
-                      <td style={{ padding: spacing.sm }}>
-                        <span style={{
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.semibold,
-                          backgroundColor:
-                            listing.status === 'published' ? '#d1fae5' :
-                            listing.status === 'draft' ? '#fef3c7' :
-                            '#f3f4f6',
-                          color:
-                            listing.status === 'published' ? '#065f46' :
-                            listing.status === 'draft' ? '#92400e' :
-                            '#6b7280'
-                        }}>
-                          {listing.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: spacing.sm, textAlign: 'right' }}>
-                        <Link
-                          href={`/${vertical}/listing/${listing.id}`}
-                          style={{
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: colors.primary,
-                            color: 'white',
-                            textDecoration: 'none',
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.sm
-                          }}
-                        >
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <ListingsTableClient
+          vertical={vertical}
+          listings={typedListings}
+          categories={uniqueCategories}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          initialFilters={{ search, status, category }}
+        />
       </div>
     </div>
   )

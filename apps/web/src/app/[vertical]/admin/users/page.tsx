@@ -1,31 +1,36 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
-import UsersTable from './UsersTable'
+import UsersTableClient from './UsersTableClient'
+
+// Cache for 2 minutes - admin data doesn't need real-time updates
+export const revalidate = 120
 
 interface AdminUsersPageProps {
   params: Promise<{ vertical: string }>
+  searchParams: Promise<{
+    page?: string
+    limit?: string
+    search?: string
+    role?: string
+    vendorStatus?: string
+    vendorTier?: string
+    buyerTier?: string
+  }>
 }
 
-interface UserProfile {
-  id: string
-  user_id: string
-  email?: string
-  display_name: string | null
-  role: string
-  roles: string[] | null
-  buyer_tier?: string | null
-  created_at: string
-  vendor_profiles: {
-    id: string
-    status: string
-    vertical_id: string
-    tier?: string
-  }[]
-}
-
-export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
+export default async function AdminUsersPage({ params, searchParams }: AdminUsersPageProps) {
   const { vertical } = await params
+  const {
+    page = '1',
+    limit = '20',
+    search = '',
+    role = '',
+    vendorStatus = '',
+    vendorTier = '',
+    buyerTier = ''
+  } = await searchParams
+
   const supabase = await createClient()
 
   // Verify user is authenticated and admin
@@ -55,9 +60,17 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
     )
   }
 
-  // Use service client to bypass RLS and fetch all users
+  // Parse pagination params
+  const currentPage = Math.max(1, parseInt(page))
+  const pageSize = Math.min(100, Math.max(10, parseInt(limit)))
+  const offset = (currentPage - 1) * pageSize
+
+  // Use service client to bypass RLS
   const serviceClient = createServiceClient()
-  const { data: users } = await serviceClient
+
+  // Build the query with server-side filtering
+  // Only select the columns we actually need (not full vendor_profiles)
+  let query = serviceClient
     .from('user_profiles')
     .select(`
       id,
@@ -68,31 +81,66 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
       roles,
       buyer_tier,
       created_at,
-      vendor_profiles (
+      vendor_profiles!left (
         id,
         status,
         vertical_id,
         tier
       )
-    `)
+    `, { count: 'exact' })
+    .contains('verticals', [vertical]) // Filter by vertical in DB!
     .order('created_at', { ascending: false })
 
-  const typedUsers = users as unknown as UserProfile[] | null
+  // Apply search filter (server-side)
+  if (search) {
+    query = query.or(`email.ilike.%${search}%,display_name.ilike.%${search}%`)
+  }
 
-  // Filter to only users in this vertical
-  // Include all buyers (no vendor profile) and vendors who have a profile in this vertical
-  const verticalUsers = typedUsers?.filter(user => {
-    // If user has no vendor profiles, they're a buyer - include them
-    if (!user.vendor_profiles || user.vendor_profiles.length === 0) {
+  // Apply role filter
+  if (role) {
+    query = query.contains('roles', [role])
+  }
+
+  // Apply buyer tier filter
+  if (buyerTier) {
+    query = query.eq('buyer_tier', buyerTier)
+  }
+
+  // Apply pagination
+  query = query.range(offset, offset + pageSize - 1)
+
+  const { data: users, count, error } = await query
+
+  if (error) {
+    console.error('Error fetching users:', error)
+  }
+
+  // Filter vendor-related filters client-side (complex nested filter)
+  // These filters are less common so acceptable for now
+  let filteredUsers = users || []
+
+  if (vendorStatus || vendorTier) {
+    filteredUsers = filteredUsers.filter(user => {
+      const vendorProfiles = user.vendor_profiles as { id: string; status: string; vertical_id: string; tier?: string }[] | null
+      if (!vendorProfiles || vendorProfiles.length === 0) return false
+
+      const verticalProfile = vendorProfiles.find(vp => vp.vertical_id === vertical)
+      if (!verticalProfile) return false
+
+      if (vendorStatus && verticalProfile.status !== vendorStatus) return false
+      if (vendorTier && verticalProfile.tier !== vendorTier) return false
+
       return true
-    }
-    // If user has vendor profiles, only include if they have one in this vertical
-    return user.vendor_profiles.some(vp => vp.vertical_id === vertical)
-  }) || []
+    })
+  }
+
+  const totalCount = count || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 20px' }}>
       <AdminNav type="vertical" vertical={vertical} />
+
       {/* Header */}
       <div style={{
         display: 'flex',
@@ -104,6 +152,9 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
           <h1 style={{ color: '#333', marginBottom: 8, marginTop: 0, fontSize: 28 }}>
             Users
           </h1>
+          <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+            {totalCount.toLocaleString()} users in this vertical
+          </p>
         </div>
         <Link
           href={`/${vertical}/admin`}
@@ -120,7 +171,15 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
         </Link>
       </div>
 
-      <UsersTable users={verticalUsers} vertical={vertical} />
+      <UsersTableClient
+        users={filteredUsers}
+        vertical={vertical}
+        totalCount={totalCount}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        initialFilters={{ search, role, vendorStatus, vendorTier, buyerTier }}
+      />
     </div>
   )
 }

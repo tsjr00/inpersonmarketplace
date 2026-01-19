@@ -1,168 +1,138 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
-import Link from 'next/link'
-import VendorFilters from './VendorFilters'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import AdminNav from '@/components/admin/AdminNav'
+import VendorsTableClient from './VendorsTableClient'
+
+// Cache for 2 minutes
+export const revalidate = 120
 
 interface VendorsPageProps {
-  searchParams: Promise<{ status?: string; vertical?: string }>
+  searchParams: Promise<{
+    page?: string
+    limit?: string
+    search?: string
+    status?: string
+    vertical?: string
+    tier?: string
+  }>
 }
 
 export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   await requireAdmin()
-  const { status, vertical } = await searchParams
-  const supabase = await createClient()
 
-  // Build query (using id, not vendor_id)
-  let query = supabase
+  const {
+    page = '1',
+    limit = '20',
+    search = '',
+    status = '',
+    vertical = '',
+    tier = ''
+  } = await searchParams
+
+  // Parse pagination params
+  const currentPage = Math.max(1, parseInt(page))
+  const pageSize = Math.min(100, Math.max(10, parseInt(limit)))
+  const offset = (currentPage - 1) * pageSize
+
+  const serviceClient = createServiceClient()
+
+  // Build query with server-side filtering
+  let query = serviceClient
     .from('vendor_profiles')
-    .select('*')
+    .select(`
+      id,
+      user_id,
+      vertical_id,
+      status,
+      tier,
+      created_at,
+      profile_data
+    `, { count: 'exact' })
     .order('created_at', { ascending: false })
 
+  // Apply status filter
   if (status) {
-    query = query.eq('status', status)
+    if (status === 'pending') {
+      query = query.in('status', ['submitted', 'draft'])
+    } else {
+      query = query.eq('status', status)
+    }
   }
 
+  // Apply vertical filter
   if (vertical) {
     query = query.eq('vertical_id', vertical)
   }
 
-  const { data: vendors } = await query
+  // Apply tier filter
+  if (tier) {
+    query = query.eq('tier', tier)
+  }
 
-  // Get unique verticals for filter
-  const { data: verticals } = await supabase
+  // Apply pagination
+  query = query.range(offset, offset + pageSize - 1)
+
+  const { data: vendors, count, error } = await query
+
+  if (error) {
+    console.error('Error fetching vendors:', error)
+  }
+
+  // Client-side search filter (profile_data is JSONB, can't easily filter server-side)
+  let filteredVendors = vendors || []
+  if (search) {
+    const searchLower = search.toLowerCase()
+    filteredVendors = filteredVendors.filter(vendor => {
+      const profileData = vendor.profile_data as Record<string, string> | null
+      const businessName = profileData?.business_name?.toLowerCase() || ''
+      const legalName = profileData?.legal_name?.toLowerCase() || ''
+      const email = profileData?.email?.toLowerCase() || ''
+      return businessName.includes(searchLower) ||
+             legalName.includes(searchLower) ||
+             email.includes(searchLower)
+    })
+  }
+
+  // Get unique verticals for filter dropdown
+  const { data: verticalsList } = await serviceClient
     .from('verticals')
-    .select('vertical_id, name_public')
+    .select('id, name_public')
     .eq('is_active', true)
+    .order('id')
+
+  const totalCount = count || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
 
   return (
-    <div style={{ maxWidth: containers.wide, margin: '0 auto' }}>
-      <h1 style={{ color: '#333', marginBottom: spacing.lg, fontSize: typography.sizes['2xl'] }}>All Vendors</h1>
+    <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 20px' }}>
+      <AdminNav type="platform" />
 
-      {/* Filters */}
-      <VendorFilters
-        currentStatus={status}
-        currentVertical={vertical}
-        verticals={verticals || []}
-      />
-
-      {/* Results */}
-      <div style={{ marginBottom: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>
-        {vendors?.length || 0} vendor{vendors?.length !== 1 ? 's' : ''} found
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20
+      }}>
+        <div>
+          <h1 style={{ color: '#333', marginBottom: 8, marginTop: 0, fontSize: 28 }}>
+            All Vendors
+          </h1>
+          <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+            {totalCount.toLocaleString()} vendors total
+          </p>
+        </div>
       </div>
 
-      {vendors && vendors.length > 0 ? (
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: radius.md,
-          boxShadow: shadows.sm,
-          overflow: 'hidden'
-        }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f8f9fa' }}>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Business</th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Vertical</th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Status</th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Tier</th>
-                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Created</th>
-                <th style={{ textAlign: 'right', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vendors.map((vendor) => {
-                const vendorId = vendor.id as string
-                const profileData = vendor.profile_data as Record<string, unknown>
-                const businessName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Unknown'
-                const vendorStatus = vendor.status as string
-                const verticalId = vendor.vertical_id as string
-                const createdAt = vendor.created_at as string
-                const tier = (vendor.tier as string) || 'standard'
-
-                return (
-                  <tr key={vendorId} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: spacing.sm }}>
-                      <div style={{ fontWeight: typography.weights.semibold, color: '#333' }}>{businessName}</div>
-                    </td>
-                    <td style={{ padding: spacing.sm }}>
-                      <span style={{
-                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                        backgroundColor: '#f0f0f0',
-                        borderRadius: radius.sm,
-                        fontSize: typography.sizes.xs,
-                        fontWeight: typography.weights.semibold
-                      }}>
-                        {verticalId}
-                      </span>
-                    </td>
-                    <td style={{ padding: spacing.sm }}>
-                      <span style={{
-                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                        borderRadius: radius.sm,
-                        fontSize: typography.sizes.xs,
-                        fontWeight: typography.weights.semibold,
-                        backgroundColor:
-                          vendorStatus === 'approved' ? '#d4edda' :
-                          vendorStatus === 'submitted' ? '#fff3cd' :
-                          vendorStatus === 'rejected' ? '#f8d7da' : '#e2e3e5',
-                        color:
-                          vendorStatus === 'approved' ? '#155724' :
-                          vendorStatus === 'submitted' ? '#856404' :
-                          vendorStatus === 'rejected' ? '#721c24' : '#383d41'
-                      }}>
-                        {vendorStatus}
-                      </span>
-                    </td>
-                    <td style={{ padding: spacing.sm }}>
-                      <span style={{
-                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                        borderRadius: radius.sm,
-                        fontSize: typography.sizes.xs,
-                        fontWeight: typography.weights.semibold,
-                        backgroundColor:
-                          tier === 'premium' ? '#dbeafe' :
-                          tier === 'featured' ? '#fef3c7' : '#f3f4f6',
-                        color:
-                          tier === 'premium' ? '#1e40af' :
-                          tier === 'featured' ? '#92400e' : '#6b7280'
-                      }}>
-                        {tier}
-                      </span>
-                    </td>
-                    <td style={{ padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>
-                      {new Date(createdAt).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: spacing.sm, textAlign: 'right' }}>
-                      <Link
-                        href={`/admin/vendors/${vendorId}`}
-                        style={{
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: '#0070f3',
-                          color: 'white',
-                          textDecoration: 'none',
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.sm
-                        }}
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: radius.md,
-          padding: spacing['3xl'],
-          textAlign: 'center'
-        }}>
-          <p style={{ color: '#666', fontSize: typography.sizes.base }}>No vendors found matching filters.</p>
-        </div>
-      )}
+      <VendorsTableClient
+        vendors={filteredVendors}
+        verticals={verticalsList || []}
+        totalCount={totalCount}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        initialFilters={{ search, status, vertical, tier }}
+      />
     </div>
   )
 }
