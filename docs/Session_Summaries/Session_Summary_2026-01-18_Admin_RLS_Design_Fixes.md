@@ -1,11 +1,11 @@
-# Session Summary: Admin Panel, RLS Fixes, and Design System Rollout
+# Session Summary: Admin Panel, RLS Fixes, Design System, and Production Deployment
 **Date:** 2026-01-18
-**Focus Areas:** RLS Policy Fixes, Admin Dashboard Redesign, Design System Application, Market Box Fixes
+**Focus Areas:** RLS Policy Fixes, Admin Dashboard Redesign, Vertical Admin Enhancements, Production Deployment, Seed Data
 
 ---
 
 ## Overview
-This session addressed critical RLS policy issues preventing admin functionality, completed design system rollout, fixed market box offerings, and redesigned the vertical admin dashboard with a cleaner 2x2 card grid layout.
+This session addressed critical RLS policy issues, completed design system rollout, enhanced vertical admin pages with search/filter capabilities, fixed landing page deployment, and seeded production (staging) with realistic Amarillo-based test data.
 
 ---
 
@@ -37,81 +37,134 @@ This session addressed critical RLS policy issues preventing admin functionality
 
 ---
 
-### 3. Fixed Market Box Offering API
-**Problem:** Market box detail page showed "Offering not found" error.
+### 3. Enhanced Vertical Admin Pages with Search/Filter
+**Mimicked platform-level admin capabilities for vertical admin pages:**
 
-**Root Cause:** The API was trying to select `contact_email` and `contact_phone` columns that didn't exist in the `markets` table.
+**VendorManagement.tsx:**
+- Added search by business name/email
+- Added status filter (approved/pending/rejected)
+- Added tier filter (standard/premium)
+- Added view action link
+- Added clear filters button
+
+**Listings page.tsx:**
+- Added category filter (dynamically populated)
+- Enhanced search functionality
+- Added clear filters button
+
+**Markets page.tsx:**
+- Complete rewrite with search by name/city/address
+- Added status filter (active/inactive/pending/rejected)
+- Added type filter (traditional/private_pickup)
+- Table layout with all markets
+- Pending alert banner
+
+**UsersTable.tsx:**
+- Added vendor tier filter
+- Added buyer tier filter
+- Added email column to table
+- Split vendor status and tier into separate columns
+
+---
+
+### 4. Fixed Users Page - Only Showing Admin User
+**Problem:** `/farmers_market/admin/users` only showed the logged-in admin user, not all users.
+
+**Root Cause:** RLS policy `user_profiles_select` only allowed users to see their own profile.
+
+**Solution:** Created `createServiceClient()` function in `server.ts` that uses `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS for admin operations.
+
+**Files Modified:**
+- `src/lib/supabase/server.ts` - Added `createServiceClient()`
+- `src/app/[vertical]/admin/users/page.tsx` - Use service client
+- `src/app/admin/users/page.tsx` - Use service client
+
+---
+
+### 5. Created Missing Listings API Endpoint
+**Problem:** `/farmers_market/admin/listings` showed no data.
+
+**Solution:** Created `src/app/api/listings/route.ts` with:
+- `vertical` parameter (required)
+- `admin` parameter to bypass RLS via service client
+- `status` filter support
+- `vendor_id` filter support
+
+---
+
+### 6. Fixed Landing Page Deployment
+**Problem:** Vercel build failed - `Module not found: Can't resolve '@/components/landing'`
 
 **Solution:**
-- Added the missing columns to the database
-- Fixed the API route at `src/app/api/market-boxes/[id]/route.ts`
+1. Committed missing `apps/web/src/components/landing/` directory (10 files)
+2. Added `lucide-react` dependency to package.json
+3. Updated root `page.tsx` to redirect single-vertical domains to `/${verticalId}` for new landing
+
+**Landing Components Added:**
+- Hero.tsx, TrustStats.tsx, HowItWorks.tsx, FeaturedMarkets.tsx
+- VendorPitch.tsx, Features.tsx, FinalCTA.tsx, Footer.tsx
+- design-tokens.ts, index.ts
 
 ---
 
-### 4. Updated Test Data for Geographic Filtering
-Updated all test markets, listings, and vendor profiles with Amarillo, TX addresses (79106 area) so the user can test geographic filtering functionality.
+### 7. Created listing_markets Junction Table
+**Problem:** Browse page queries `listing_markets` but table didn't exist.
+
+**Solution:** Created `20260118_003_create_listing_markets.sql`:
+- Junction table for many-to-many listings ↔ markets
+- RLS policies for public read, vendor manage, admin all
+- Indexes on listing_id and market_id
+
+**Applied to:** Staging ✅
 
 ---
 
-### 5. Fixed Market Box Card Width Issue
-**Problem:** First market box card on browse page was narrower than others.
+### 8. Created Production Seed Script
+**File:** `apps/web/scripts/seed-production.ts`
 
-**Solution:** Changed CSS grid from `1fr` to `minmax(0, 1fr)` in both grid style blocks in `src/app/[vertical]/browse/page.tsx` to prevent content from expanding columns.
+**Creates realistic test data for farmers_market vertical:**
 
----
+**Markets (2 - Amarillo, TX):**
+- Amarillo Community Market (1000 S Polk St) - Saturday 8am-12pm
+- Westgate Mall Farmers Market (7701 W Interstate 40) - Wednesday 4pm-7pm
 
-### 6. Added Lat/Long Fields to Vertical Admin Markets Form
-**Updated files:**
-- `src/app/[vertical]/admin/markets/page.tsx` - Added latitude/longitude form fields
-- `src/app/api/admin/markets/route.ts` - Handle lat/long in POST
-- `src/app/api/admin/markets/[id]/route.ts` - Handle lat/long in PUT
+**Vendors (8):**
+| Vendor | Category | Tier | Listings |
+|--------|----------|------|----------|
+| Sunrise Organic Farm | Produce | Premium | 5 |
+| Hill Country Heritage Meats | Meat & Poultry | Premium | 5 |
+| Happy Hens Farm | Dairy & Eggs | Standard | 4 |
+| Bluebonnet Bakery | Baked Goods | Standard | 4 |
+| Texas Honey Co. | Pantry | Standard | 4 |
+| Abuela's Kitchen | Prepared Foods | Premium | 5 |
+| Lone Star Succulents | Plants & Flowers | Standard | 4 |
+| Healing Roots Apothecary | Health & Wellness | Standard | 4 |
 
----
+**Market Boxes (3):**
+- Weekly Veggie Box ($120/4 weeks)
+- Family Meat Share ($280/4 weeks)
+- Tamale Tuesday Box ($88/4 weeks)
 
-### 7. Redesigned Vertical Admin Dashboard
-**Location:** `src/app/[vertical]/admin/page.tsx`
+**Buyer Accounts (2):**
+- Demo Buyer (free tier)
+- Premium Tester (premium tier)
 
-**Changes:**
-- Added "Vendors" button to AdminNav (now 4 buttons: Dashboard, Markets, Vendors, Users)
-- Removed old redundant "Quick Stats" cards (Pending Vendors, Approved Vendors, Published Listings)
-- Removed old "Quick Actions" section
-- Created clean 2x2 grid with 4 management cards:
-
-**Card 1 - Manage Markets:**
-- Active | Pending | Total
-
-**Card 2 - Manage Vendors:**
-- Standard | Premium | Pending
-- Orange border + badge when pending > 0
-
-**Card 3 - Manage Users:**
-- Standard Buyers | Premium Buyers
-
-**Card 4 - Manage Listings:**
-- Products/Bundles | Market Boxes
+**Applied to:** Staging ✅
 
 ---
 
-### 8. Created New Admin Pages
-**New files:**
-- `src/app/[vertical]/admin/vendors/page.tsx` - Vendor management page
-- `src/app/[vertical]/admin/listings/page.tsx` - Listings management page with search/filter
+### 9. Fixed Security Linter Warnings
+**Migration:** `20260118_004_fix_security_warnings.sql`
 
----
+**Fixes applied:**
+1. `create_profile_for_user` function - Added explicit `SET search_path = public`
+2. `fulfillments` RLS policies - Replaced `true` with proper ownership checks
 
-### 9. Updated AdminNav Component
-**File:** `src/components/admin/AdminNav.tsx`
+**Ignored (safe):**
+- `spatial_ref_sys` RLS - PostGIS system table, can't modify
+- `postgis` extension in public - Moving can break things
 
-Added "Vendors" link to vertical admin navigation.
-
----
-
-### 10. Fixed Admin Role Check
-**Problem:** Platform admin users couldn't see admin links because code only checked for `role === 'admin'`, not `role === 'platform_admin'`.
-
-**Solution:** Updated both files to check for both roles:
-- `src/components/layout/Header.tsx`
-- `src/app/[vertical]/dashboard/page.tsx`
+**Applied to:** Staging ✅
 
 ---
 
@@ -120,19 +173,30 @@ Added "Vendors" link to vertical admin navigation.
 ### New Files
 - `supabase/migrations/20260118_001_fix_user_profiles_rls_recursion.sql`
 - `supabase/migrations/20260118_002_add_markets_contact_fields.sql`
+- `supabase/migrations/20260118_003_create_listing_markets.sql`
+- `supabase/migrations/20260118_004_fix_security_warnings.sql`
 - `src/app/[vertical]/admin/vendors/page.tsx`
 - `src/app/[vertical]/admin/listings/page.tsx`
+- `src/app/api/listings/route.ts`
+- `src/components/landing/*.tsx` (10 files)
+- `apps/web/scripts/seed-production.ts`
 
 ### Modified Files
+- `src/lib/supabase/server.ts` - Added createServiceClient()
 - `src/app/[vertical]/admin/page.tsx` - Complete redesign
-- `src/app/[vertical]/admin/markets/page.tsx` - Added lat/long fields
+- `src/app/[vertical]/admin/markets/page.tsx` - Search/filter, lat/long fields
+- `src/app/[vertical]/admin/users/page.tsx` - Service client for RLS bypass
+- `src/app/[vertical]/admin/users/UsersTable.tsx` - Enhanced filters
+- `src/app/[vertical]/admin/VendorManagement.tsx` - Search/filter
 - `src/app/[vertical]/browse/page.tsx` - Fixed grid CSS
+- `src/app/page.tsx` - Redirect to vertical landing
 - `src/app/api/market-boxes/[id]/route.ts` - Fixed column query
 - `src/app/api/admin/markets/route.ts` - Added lat/long support
 - `src/app/api/admin/markets/[id]/route.ts` - Added lat/long support
 - `src/components/admin/AdminNav.tsx` - Added Vendors link
 - `src/components/layout/Header.tsx` - Fixed platform_admin check
 - `src/app/[vertical]/dashboard/page.tsx` - Fixed platform_admin check
+- `apps/web/package.json` - Added lucide-react
 
 ---
 
@@ -144,25 +208,46 @@ Added "Vendors" link to vertical admin navigation.
 3. Added `contact_email`, `contact_phone` columns to markets
 4. Added `latitude`, `longitude` columns to markets
 5. Created index `idx_markets_location`
-6. Updated test data with Amarillo, TX addresses
-7. Created test market box offerings
 
-### Staging Environment
+### Staging Environment (Production)
 1. Same RLS policy fix
 2. Same column additions to markets table
+3. Created `listing_markets` junction table with RLS
+4. Fixed `create_profile_for_user` function search_path
+5. Fixed `fulfillments` RLS policies (insert/update/delete)
+6. Seeded with 2 Amarillo markets, 8 vendors, 35 listings, 3 market boxes, 2 buyers
 
 ---
 
-## Testing Notes
-- Admin dashboard accessible at `/farmers_market/admin`
-- All 4 management cards link to their respective pages
-- Market creation form now includes lat/long fields with helper link to latlong.net
-- Market box detail pages now load correctly
-- Geographic filtering works with Amarillo area test data
+## Test Credentials (Staging/Production)
+
+| Type | Email | Password |
+|------|-------|----------|
+| Vendor | sunriseorganicfarm.demo@farmersmarketing.app | DemoVendor2026! |
+| Vendor | hillcountryheritagemeats.demo@farmersmarketing.app | DemoVendor2026! |
+| Buyer (Free) | buyer.demo@farmersmarketing.app | DemoBuyer2026! |
+| Buyer (Premium) | premium.tester@farmersmarketing.app | DemoBuyer2026! |
+
+---
+
+## Deployment Status
+- **Vercel:** Successfully deployed to farmersmarketing.app
+- **Landing Page:** New design with Hero, TrustStats, HowItWorks, etc.
+- **Browse Page:** Populated with 35 listings across all categories
+- **Market Boxes:** 3 subscription offerings available
+
+---
+
+## Security Notes
+- Removed spam/bot user: `e.bise.du.ru.7.1@gmail.com` (random signup from Jan 10)
+- Consider adding Cloudflare Turnstile CAPTCHA to signup forms
+- Remaining security warnings are PostGIS system tables (safe to ignore)
 
 ---
 
 ## Next Steps / Future Considerations
+- Add Turnstile CAPTCHA to signup/login forms
 - Add more robust geocoding (auto-populate lat/long from address)
 - Consider adding market box management to the listings admin page
 - Add bulk actions to vendor management
+- Seed Dev environment with similar test data
