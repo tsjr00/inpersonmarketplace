@@ -13,12 +13,9 @@ export default async function HomePage() {
     return <UmbrellaHome />
   }
 
-  // Single-vertical domain: show that vertical's homepage
+  // Single-vertical domain: redirect to the vertical's homepage with new landing
   if (domainConfig.verticalId) {
-    return <SingleVerticalHome
-      verticalId={domainConfig.verticalId}
-      domainConfig={domainConfig}
-    />
+    redirect(`/${domainConfig.verticalId}`)
   }
 
   // Multi-vertical domain (localhost, staging): show marketplace selector
