@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface CheckoutItem {
   listingId: string
@@ -226,19 +227,19 @@ export default function CheckoutPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8f9fa',
+        backgroundColor: colors.surfaceBase,
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
             width: 40,
             height: 40,
-            border: '4px solid #e0e0e0',
-            borderTop: '4px solid #333',
-            borderRadius: '50%',
+            border: `4px solid ${colors.border}`,
+            borderTop: `4px solid ${colors.primary}`,
+            borderRadius: radius.full,
             animation: 'spin 1s linear infinite',
-            margin: '0 auto 15px',
+            margin: `0 auto ${spacing.sm}`,
           }} />
-          <p>Loading checkout...</p>
+          <p style={{ color: colors.textSecondary }}>Loading checkout...</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -249,18 +250,23 @@ export default function CheckoutPage() {
     return (
       <div style={{
         minHeight: '100vh',
-        backgroundColor: '#f8f9fa',
-        padding: '24px 16px',
+        backgroundColor: colors.surfaceBase,
+        padding: `${spacing.md} ${spacing.sm}`,
       }}>
         <div style={{
-          maxWidth: 600,
+          maxWidth: containers.sm,
           margin: '0 auto',
           textAlign: 'center',
-          padding: '60px 20px',
+          padding: `${spacing['3xl']} ${spacing.md}`,
         }}>
-          <div style={{ fontSize: 80, marginBottom: 20, opacity: 0.3 }}>🛒</div>
-          <h1 style={{ marginBottom: 15, marginTop: 0 }}>Your cart is empty</h1>
-          <p style={{ color: '#666', marginBottom: 30 }}>
+          <div style={{ fontSize: 80, marginBottom: spacing.md, opacity: 0.3 }}>🛒</div>
+          <h1 style={{
+            marginBottom: spacing.sm,
+            marginTop: 0,
+            color: colors.textPrimary,
+            fontSize: typography.sizes['2xl'],
+          }}>Your cart is empty</h1>
+          <p style={{ color: colors.textMuted, marginBottom: spacing.lg }}>
             Add some items to your cart to checkout
           </p>
           <Link
@@ -269,13 +275,14 @@ export default function CheckoutPage() {
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '15px 30px',
-              backgroundColor: '#333',
-              color: 'white',
+              padding: `${spacing.sm} ${spacing.lg}`,
+              backgroundColor: colors.primary,
+              color: colors.textInverse,
               textDecoration: 'none',
-              borderRadius: 6,
-              fontWeight: 600,
+              borderRadius: radius.sm,
+              fontWeight: typography.weights.semibold,
               minHeight: 44,
+              boxShadow: shadows.primary,
             }}
           >
             Browse Products
@@ -289,26 +296,26 @@ export default function CheckoutPage() {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: '#f8f9fa',
+        backgroundColor: colors.surfaceBase,
       }}
       className="checkout-page"
     >
       {/* Header */}
       <div style={{
-        backgroundColor: 'white',
-        borderBottom: '1px solid #eee',
-        padding: '16px',
+        backgroundColor: colors.surfaceElevated,
+        borderBottom: `1px solid ${colors.border}`,
+        padding: spacing.sm,
       }}>
         <div style={{
-          maxWidth: 1200,
+          maxWidth: containers.lg,
           margin: '0 auto',
         }}>
           <Link
             href={`/${vertical}/browse`}
             style={{
-              color: '#666',
+              color: colors.textMuted,
               textDecoration: 'none',
-              fontSize: 14,
+              fontSize: typography.sizes.sm,
               display: 'inline-flex',
               alignItems: 'center',
               minHeight: 44,
@@ -316,32 +323,41 @@ export default function CheckoutPage() {
           >
             ← Back to Shopping
           </Link>
-          <h1 style={{ margin: '8px 0 0 0', fontSize: 24 }}>Checkout</h1>
+          <h1 style={{
+            margin: `${spacing['2xs']} 0 0 0`,
+            fontSize: typography.sizes.xl,
+            color: colors.textPrimary,
+          }}>Checkout</h1>
         </div>
       </div>
 
       {/* Content */}
       <div style={{
-        maxWidth: 1200,
+        maxWidth: containers.lg,
         margin: '0 auto',
-        padding: '24px 16px',
+        padding: `${spacing.md} ${spacing.sm}`,
       }}>
         <div className="checkout-grid" style={{
           display: 'grid',
-          gap: 24,
+          gap: spacing.md,
         }}>
           {/* Cart Items */}
           <div className="cart-items">
-            <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 18 }}>Order Items</h2>
+            <h2 style={{
+              marginTop: 0,
+              marginBottom: spacing.sm,
+              fontSize: typography.sizes.lg,
+              color: colors.textPrimary,
+            }}>Order Items</h2>
 
             {error && (
               <div style={{
-                padding: 15,
+                padding: spacing.sm,
                 backgroundColor: '#f8d7da',
                 border: '1px solid #f5c6cb',
-                borderRadius: 8,
+                borderRadius: radius.md,
                 color: '#721c24',
-                marginBottom: 16,
+                marginBottom: spacing.sm,
               }}>
                 {error}
               </div>
@@ -349,16 +365,16 @@ export default function CheckoutPage() {
 
             {marketWarnings.length > 0 && (
               <div style={{
-                padding: 16,
-                backgroundColor: '#fef3c7',
-                border: '2px solid #f59e0b',
-                borderRadius: 8,
-                marginBottom: 16,
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceSubtle,
+                border: `2px solid ${colors.accent}`,
+                borderRadius: radius.md,
+                marginBottom: spacing.sm,
               }}>
-                <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#92400e' }}>
+                <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                   Market Compatibility Issues:
                 </p>
-                <ul style={{ margin: 0, paddingLeft: 20, color: '#92400e' }}>
+                <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary }}>
                   {marketWarnings.map((warning, idx) => (
                     <li key={idx}>{warning}</li>
                   ))}
@@ -366,39 +382,44 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
               {checkoutItems.map(item => (
                 <div
                   key={item.listingId}
                   style={{
-                    padding: 16,
-                    backgroundColor: 'white',
-                    borderRadius: 8,
-                    border: item.available ? '1px solid #e5e7eb' : '2px solid #dc3545',
+                    padding: spacing.sm,
+                    backgroundColor: colors.surfaceElevated,
+                    borderRadius: radius.md,
+                    border: item.available ? `1px solid ${colors.border}` : '2px solid #dc3545',
+                    boxShadow: shadows.sm,
                   }}
                 >
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'flex-start',
-                    gap: 12,
+                    gap: spacing.xs,
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ margin: '0 0 4px 0', fontSize: 16 }}>
+                      <h3 style={{
+                        margin: `0 0 ${spacing['3xs']} 0`,
+                        fontSize: typography.sizes.base,
+                        color: colors.textPrimary,
+                      }}>
                         {item.title}
                       </h3>
-                      <p style={{ color: '#666', fontSize: 14, margin: '0 0 8px 0' }}>
+                      <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']} 0` }}>
                         {item.vendor_name}
                       </p>
 
                       {!item.available && (
                         <div style={{
-                          padding: '8px 12px',
+                          padding: `${spacing['2xs']} ${spacing.xs}`,
                           backgroundColor: '#f8d7da',
                           color: '#721c24',
-                          borderRadius: 4,
-                          fontSize: 13,
-                          marginBottom: 8,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          marginBottom: spacing['2xs'],
                         }}>
                           {item.available_quantity === 0
                             ? 'Sold out'
@@ -407,8 +428,8 @@ export default function CheckoutPage() {
                         </div>
                       )}
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 14, color: '#666' }}>Qty:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                        <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>Qty:</span>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                           <button
                             onClick={() => {
@@ -418,14 +439,15 @@ export default function CheckoutPage() {
                             style={{
                               width: 36,
                               height: 36,
-                              border: '1px solid #e5e7eb',
-                              borderRadius: '4px 0 0 4px',
-                              backgroundColor: 'white',
+                              border: `1px solid ${colors.border}`,
+                              borderRadius: `${radius.sm} 0 0 ${radius.sm}`,
+                              backgroundColor: colors.surfaceElevated,
                               cursor: 'pointer',
-                              fontSize: 18,
+                              fontSize: typography.sizes.lg,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
+                              color: colors.textPrimary,
                             }}
                           >
                             −
@@ -436,9 +458,10 @@ export default function CheckoutPage() {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            borderTop: '1px solid #e5e7eb',
-                            borderBottom: '1px solid #e5e7eb',
-                            fontSize: 14,
+                            borderTop: `1px solid ${colors.border}`,
+                            borderBottom: `1px solid ${colors.border}`,
+                            fontSize: typography.sizes.sm,
+                            color: colors.textPrimary,
                           }}>
                             {item.quantity}
                           </span>
@@ -451,15 +474,16 @@ export default function CheckoutPage() {
                             style={{
                               width: 36,
                               height: 36,
-                              border: '1px solid #e5e7eb',
-                              borderRadius: '0 4px 4px 0',
-                              backgroundColor: 'white',
+                              border: `1px solid ${colors.border}`,
+                              borderRadius: `0 ${radius.sm} ${radius.sm} 0`,
+                              backgroundColor: colors.surfaceElevated,
                               cursor: item.available_quantity !== null && item.quantity >= item.available_quantity ? 'not-allowed' : 'pointer',
-                              fontSize: 18,
+                              fontSize: typography.sizes.lg,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               opacity: item.available_quantity !== null && item.quantity >= item.available_quantity ? 0.5 : 1,
+                              color: colors.textPrimary,
                             }}
                           >
                             +
@@ -469,10 +493,10 @@ export default function CheckoutPage() {
                     </div>
 
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <p style={{ fontSize: 18, fontWeight: 'bold', margin: '0 0 4px 0' }}>
+                      <p style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, margin: `0 0 ${spacing['3xs']} 0`, color: colors.textPrimary }}>
                         {formatPrice(calculateDisplayPrice(item.price_cents) * item.quantity)}
                       </p>
-                      <p style={{ fontSize: 13, color: '#666', margin: '0 0 8px 0' }}>
+                      <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: `0 0 ${spacing['2xs']} 0` }}>
                         {formatPrice(calculateDisplayPrice(item.price_cents))} each
                       </p>
                       <button
@@ -481,13 +505,13 @@ export default function CheckoutPage() {
                           if (cartItem) removeFromCart(cartItem.id)
                         }}
                         style={{
-                          padding: '6px 12px',
-                          backgroundColor: 'white',
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          backgroundColor: colors.surfaceElevated,
                           color: '#dc3545',
                           border: '1px solid #dc3545',
-                          borderRadius: 4,
+                          borderRadius: radius.sm,
                           cursor: 'pointer',
-                          fontSize: 13,
+                          fontSize: typography.sizes.xs,
                           minHeight: 36,
                         }}
                       >
@@ -502,19 +526,19 @@ export default function CheckoutPage() {
             {/* Cross-Sell Section */}
             {suggestedProducts.length > 0 && (
               <div style={{
-                marginTop: 24,
-                backgroundColor: '#fffbeb',
-                borderRadius: 8,
-                padding: 20,
-                border: '2px solid #fbbf24'
+                marginTop: spacing.md,
+                backgroundColor: colors.surfaceSubtle,
+                borderRadius: radius.md,
+                padding: spacing.md,
+                border: `2px solid ${colors.accent}`
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                  <span style={{ fontSize: 24 }}>✨</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm }}>
+                  <span style={{ fontSize: typography.sizes.xl }}>✨</span>
                   <h3 style={{
                     margin: 0,
-                    fontSize: 18,
-                    fontWeight: 600,
-                    color: '#92400e'
+                    fontSize: typography.sizes.lg,
+                    fontWeight: typography.weights.semibold,
+                    color: colors.textPrimary
                   }}>
                     Other items you may enjoy from these vendors
                   </h3>
@@ -522,39 +546,40 @@ export default function CheckoutPage() {
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                  gap: 12
+                  gap: spacing.xs
                 }}>
                   {suggestedProducts.map(product => (
                     <div
                       key={product.id}
                       style={{
-                        backgroundColor: 'white',
-                        borderRadius: 8,
-                        padding: 12,
-                        border: '1px solid #fbbf24'
+                        backgroundColor: colors.surfaceElevated,
+                        borderRadius: radius.md,
+                        padding: spacing.xs,
+                        border: `1px solid ${colors.accent}`,
+                        boxShadow: shadows.sm,
                       }}
                     >
                       {/* Product image placeholder */}
                       <div style={{
                         width: '100%',
                         height: 80,
-                        backgroundColor: '#f3f4f6',
-                        borderRadius: 6,
-                        marginBottom: 8,
+                        backgroundColor: colors.surfaceMuted,
+                        borderRadius: radius.sm,
+                        marginBottom: spacing['2xs'],
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: 28
+                        fontSize: typography.sizes['2xl']
                       }}>
                         📦
                       </div>
 
                       <h4 style={{
-                        margin: '0 0 4px 0',
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: '#111827',
-                        lineHeight: 1.3,
+                        margin: `0 0 ${spacing['3xs']} 0`,
+                        fontSize: typography.sizes.sm,
+                        fontWeight: typography.weights.semibold,
+                        color: colors.textPrimary,
+                        lineHeight: typography.leading.snug,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap'
@@ -563,18 +588,18 @@ export default function CheckoutPage() {
                       </h4>
 
                       <p style={{
-                        margin: '0 0 8px 0',
-                        fontSize: 16,
-                        fontWeight: 700,
-                        color: '#3b82f6'
+                        margin: `0 0 ${spacing['2xs']} 0`,
+                        fontSize: typography.sizes.base,
+                        fontWeight: typography.weights.bold,
+                        color: colors.primary
                       }}>
                         {formatPrice(calculateDisplayPrice(product.price_cents))}
                       </p>
 
                       <p style={{
-                        margin: '0 0 8px 0',
-                        fontSize: 11,
-                        color: '#6b7280',
+                        margin: `0 0 ${spacing['2xs']} 0`,
+                        fontSize: typography.sizes.xs,
+                        color: colors.textMuted,
                         fontStyle: 'italic'
                       }}>
                         from {product.vendor_profiles?.business_name || 'Vendor'}
@@ -585,13 +610,13 @@ export default function CheckoutPage() {
                         style={{
                           display: 'block',
                           width: '100%',
-                          padding: '8px 12px',
-                          backgroundColor: '#f59e0b',
-                          color: 'white',
+                          padding: `${spacing['2xs']} ${spacing.xs}`,
+                          backgroundColor: colors.accent,
+                          color: colors.textPrimary,
                           border: 'none',
-                          borderRadius: 6,
-                          fontSize: 13,
-                          fontWeight: 600,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
                           textAlign: 'center',
                           textDecoration: 'none'
                         }}
@@ -608,22 +633,23 @@ export default function CheckoutPage() {
           {/* Order Summary */}
           <div className="order-summary">
             <div style={{
-              backgroundColor: 'white',
-              borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              padding: 20,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: `1px solid ${colors.border}`,
+              padding: spacing.md,
               position: 'sticky',
-              top: 20,
+              top: spacing.md,
+              boxShadow: shadows.md,
             }}>
-              <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: 18 }}>Order Summary</h2>
+              <h2 style={{ marginTop: 0, marginBottom: spacing.sm, fontSize: typography.sizes.lg, color: colors.textPrimary }}>Order Summary</h2>
 
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: spacing.sm }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginBottom: 8,
-                  fontSize: 14,
-                  color: '#666',
+                  marginBottom: spacing['2xs'],
+                  fontSize: typography.sizes.sm,
+                  color: colors.textMuted,
                 }}>
                   <span>Items ({checkoutItems.reduce((s, i) => s + i.quantity, 0)})</span>
                   <span>{formatPrice(total)}</span>
@@ -631,10 +657,11 @@ export default function CheckoutPage() {
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  paddingTop: 16,
-                  borderTop: '1px solid #f3f4f6',
-                  fontSize: 20,
-                  fontWeight: 'bold',
+                  paddingTop: spacing.sm,
+                  borderTop: `1px solid ${colors.borderMuted}`,
+                  fontSize: typography.sizes.lg,
+                  fontWeight: typography.weights.bold,
+                  color: colors.textPrimary,
                 }}>
                   <span>Total</span>
                   <span>{formatPrice(total)}</span>
@@ -643,15 +670,15 @@ export default function CheckoutPage() {
 
               {!user && (
                 <div style={{
-                  padding: 12,
-                  backgroundColor: '#fff3cd',
-                  border: '1px solid #ffeeba',
-                  borderRadius: 8,
-                  marginBottom: 16,
-                  fontSize: 14,
+                  padding: spacing.xs,
+                  backgroundColor: colors.surfaceSubtle,
+                  border: `1px solid ${colors.accent}`,
+                  borderRadius: radius.md,
+                  marginBottom: spacing.sm,
+                  fontSize: typography.sizes.sm,
                 }}>
-                  <strong>Sign in required</strong>
-                  <p style={{ margin: '4px 0 0', color: '#856404' }}>
+                  <strong style={{ color: colors.textPrimary }}>Sign in required</strong>
+                  <p style={{ margin: `${spacing['3xs']} 0 0`, color: colors.textSecondary }}>
                     You&apos;ll need to sign in to complete your purchase
                   </p>
                 </div>
@@ -659,12 +686,12 @@ export default function CheckoutPage() {
 
               {hasUnavailableItems && (
                 <div style={{
-                  padding: 12,
+                  padding: spacing.xs,
                   backgroundColor: '#f8d7da',
                   border: '1px solid #f5c6cb',
-                  borderRadius: 8,
-                  marginBottom: 16,
-                  fontSize: 14,
+                  borderRadius: radius.md,
+                  marginBottom: spacing.sm,
+                  fontSize: typography.sizes.sm,
                   color: '#721c24',
                 }}>
                   Some items in your cart are no longer available. Please remove them to continue.
@@ -679,15 +706,16 @@ export default function CheckoutPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '14px 20px',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  backgroundColor: processing || hasUnavailableItems || !marketValid ? '#ccc' : '#333',
-                  color: 'white',
+                  padding: `${spacing.sm} ${spacing.md}`,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold,
+                  backgroundColor: processing || hasUnavailableItems || !marketValid ? colors.border : colors.primary,
+                  color: colors.textInverse,
                   border: 'none',
-                  borderRadius: 6,
+                  borderRadius: radius.sm,
                   cursor: processing || hasUnavailableItems || !marketValid ? 'not-allowed' : 'pointer',
                   minHeight: 48,
+                  boxShadow: processing || hasUnavailableItems || !marketValid ? 'none' : shadows.primary,
                 }}
               >
                 {processing ? 'Processing...' : !marketValid ? 'Fix Market Issues' : user ? 'Pay Now' : 'Sign In to Checkout'}
@@ -695,28 +723,28 @@ export default function CheckoutPage() {
 
               {/* Security messaging */}
               <div style={{
-                marginTop: 16,
-                padding: 12,
-                backgroundColor: '#dbeafe',
-                borderRadius: 6,
-                border: '1px solid #93c5fd'
+                marginTop: spacing.sm,
+                padding: spacing.xs,
+                backgroundColor: colors.primaryLight,
+                borderRadius: radius.sm,
+                border: `1px solid ${colors.primary}`
               }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: 16 }}>🔒</span>
+                <div style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: typography.sizes.base }}>🔒</span>
                   <div>
                     <p style={{
-                      margin: '0 0 4px 0',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: '#1e40af'
+                      margin: `0 0 ${spacing['3xs']} 0`,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      color: colors.textPrimary
                     }}>
                       Your payment is secure
                     </p>
                     <p style={{
                       margin: 0,
-                      fontSize: 12,
-                      color: '#1e40af',
-                      lineHeight: 1.4
+                      fontSize: typography.sizes.xs,
+                      color: colors.textSecondary,
+                      lineHeight: typography.leading.normal
                     }}>
                       We use Stripe, trusted by millions worldwide. Your payment info is encrypted and never stored on our servers.
                     </p>

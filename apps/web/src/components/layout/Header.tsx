@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CartButton } from '@/components/cart/CartButton'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface HeaderProps {
   vertical: string
@@ -57,23 +58,26 @@ export function Header({
     router.refresh()
   }
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+  const isAdmin = userProfile?.role === 'admin' ||
+    userProfile?.role === 'platform_admin' ||
+    userProfile?.roles?.includes('admin') ||
+    userProfile?.roles?.includes('platform_admin')
   const isVendor = vendorProfile && vendorProfile.status === 'approved'
   const isPendingVendor = vendorProfile && ['submitted', 'draft'].includes(vendorProfile.status)
   const hasVendorProfile = !!vendorProfile
 
   return (
     <header style={{
-      backgroundColor: 'white',
-      borderBottom: `1px solid ${branding.colors.secondary}`,
+      backgroundColor: colors.surfaceElevated,
+      borderBottom: `1px solid ${colors.border}`,
       position: 'sticky',
       top: 0,
       zIndex: 50
     }}>
       <div style={{
-        maxWidth: 1200,
+        maxWidth: containers.xl,
         margin: '0 auto',
-        padding: '0 16px'
+        padding: `0 ${spacing.sm}`
       }}>
         <div style={{
           display: 'flex',
@@ -101,9 +105,9 @@ export function Header({
               />
             ) : (
               <span style={{
-                fontSize: 20,
-                fontWeight: 'bold',
-                color: branding.colors.primary
+                fontSize: typography.sizes.xl,
+                fontWeight: typography.weights.bold,
+                color: colors.primary
               }}>
                 {branding.brand_name}
               </span>
@@ -114,17 +118,17 @@ export function Header({
           <nav style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 24
+            gap: spacing.md
           }}
           className="desktop-nav"
           >
             <Link
               href={`/${vertical}/browse`}
               style={{
-                color: pathname?.includes('/browse') ? branding.colors.primary : branding.colors.text,
+                color: pathname?.includes('/browse') ? colors.primary : colors.textSecondary,
                 textDecoration: 'none',
-                fontWeight: pathname?.includes('/browse') ? 600 : 400,
-                fontSize: 14
+                fontWeight: pathname?.includes('/browse') ? typography.weights.semibold : typography.weights.normal,
+                fontSize: typography.sizes.sm
               }}
             >
               Browse Products
@@ -134,10 +138,10 @@ export function Header({
               <Link
                 href={`/${vertical}/dashboard`}
                 style={{
-                  color: pathname === `/${vertical}/dashboard` ? branding.colors.primary : branding.colors.text,
+                  color: pathname === `/${vertical}/dashboard` ? colors.primary : colors.textSecondary,
                   textDecoration: 'none',
-                  fontWeight: pathname === `/${vertical}/dashboard` ? 600 : 400,
-                  fontSize: 14
+                  fontWeight: pathname === `/${vertical}/dashboard` ? typography.weights.semibold : typography.weights.normal,
+                  fontSize: typography.sizes.sm
                 }}
               >
                 Dashboard
@@ -146,9 +150,9 @@ export function Header({
           </nav>
 
           {/* Right Side - Cart & User */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
             {/* Cart - always visible */}
-            {user && <CartButton primaryColor={branding.colors.primary} />}
+            {user && <CartButton primaryColor={colors.primary} />}
 
             {/* User Menu - Desktop */}
             {user ? (
@@ -158,11 +162,11 @@ export function Header({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 6,
+                    gap: spacing['3xs'],
                     background: 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    padding: 8,
+                    padding: spacing['2xs'],
                     minHeight: 44,
                     minWidth: 44
                   }}
@@ -171,22 +175,22 @@ export function Header({
                   <div style={{
                     width: 32,
                     height: 32,
-                    borderRadius: '50%',
-                    backgroundColor: branding.colors.primary + '20',
+                    borderRadius: radius.full,
+                    backgroundColor: colors.primaryLight,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: branding.colors.primary,
-                    fontWeight: 600,
-                    fontSize: 14
+                    color: colors.primaryDark,
+                    fontWeight: typography.weights.semibold,
+                    fontSize: typography.sizes.sm
                   }}>
                     {userProfile?.display_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'}
                   </div>
                   <span style={{
-                    fontSize: 12,
+                    fontSize: typography.sizes.xs,
                     transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0)',
                     transition: 'transform 0.2s',
-                    color: '#666'
+                    color: colors.textMuted
                   }}>
                     ▼
                   </span>
@@ -198,32 +202,32 @@ export function Header({
                     position: 'absolute',
                     right: 0,
                     top: '100%',
-                    marginTop: 8,
+                    marginTop: spacing['2xs'],
                     width: 240,
-                    backgroundColor: 'white',
-                    borderRadius: 8,
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-                    border: '1px solid #eee',
+                    backgroundColor: colors.surfaceElevated,
+                    borderRadius: radius.lg,
+                    boxShadow: shadows.lg,
+                    border: `1px solid ${colors.border}`,
                     overflow: 'hidden',
                     zIndex: 100
                   }}>
                     {/* User Info */}
                     <div style={{
-                      padding: '12px 16px',
-                      borderBottom: '1px solid #eee'
+                      padding: `${spacing.xs} ${spacing.sm}`,
+                      borderBottom: `1px solid ${colors.border}`
                     }}>
                       <p style={{
                         margin: 0,
-                        fontWeight: 600,
-                        fontSize: 14,
-                        color: '#333'
+                        fontWeight: typography.weights.semibold,
+                        fontSize: typography.sizes.sm,
+                        color: colors.textPrimary
                       }}>
                         {userProfile?.display_name || 'User'}
                       </p>
                       <p style={{
-                        margin: '4px 0 0',
-                        fontSize: 12,
-                        color: '#666',
+                        margin: `${spacing['3xs']} 0 0`,
+                        fontSize: typography.sizes.xs,
+                        color: colors.textMuted,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap'
@@ -238,10 +242,10 @@ export function Header({
                       onClick={() => setDropdownOpen(false)}
                       style={{
                         display: 'block',
-                        padding: '12px 16px',
+                        padding: `${spacing.xs} ${spacing.sm}`,
                         textDecoration: 'none',
-                        color: '#333',
-                        fontSize: 14,
+                        color: colors.textPrimary,
+                        fontSize: typography.sizes.sm,
                         minHeight: 44,
                         lineHeight: '20px'
                       }}
@@ -256,11 +260,11 @@ export function Header({
                         onClick={() => setDropdownOpen(false)}
                         style={{
                           display: 'block',
-                          padding: '12px 16px',
+                          padding: `${spacing.xs} ${spacing.sm}`,
                           textDecoration: 'none',
-                          color: '#059669',
-                          fontSize: 14,
-                          backgroundColor: '#ecfdf5',
+                          color: colors.primaryDark,
+                          fontSize: typography.sizes.sm,
+                          backgroundColor: colors.primaryLight,
                           minHeight: 44,
                           lineHeight: '20px'
                         }}
@@ -276,10 +280,10 @@ export function Header({
                         onClick={() => setDropdownOpen(false)}
                         style={{
                           display: 'block',
-                          padding: '12px 16px',
+                          padding: `${spacing.xs} ${spacing.sm}`,
                           textDecoration: 'none',
-                          color: '#333',
-                          fontSize: 14,
+                          color: colors.textPrimary,
+                          fontSize: typography.sizes.sm,
                           minHeight: 44,
                           lineHeight: '20px'
                         }}
@@ -287,12 +291,12 @@ export function Header({
                         Vendor Dashboard
                         {isPendingVendor && (
                           <span style={{
-                            marginLeft: 8,
-                            fontSize: 11,
+                            marginLeft: spacing['2xs'],
+                            fontSize: typography.sizes.xs,
                             color: '#856404',
                             backgroundColor: '#fff3cd',
-                            padding: '2px 6px',
-                            borderRadius: 4
+                            padding: `2px ${spacing['3xs']}`,
+                            borderRadius: radius.sm
                           }}>
                             Pending
                           </span>
@@ -307,10 +311,10 @@ export function Header({
                         onClick={() => setDropdownOpen(false)}
                         style={{
                           display: 'block',
-                          padding: '12px 16px',
+                          padding: `${spacing.xs} ${spacing.sm}`,
                           textDecoration: 'none',
                           color: '#7c3aed',
-                          fontSize: 14,
+                          fontSize: typography.sizes.sm,
                           backgroundColor: '#f5f3ff',
                           minHeight: 44,
                           lineHeight: '20px'
@@ -320,7 +324,7 @@ export function Header({
                       </Link>
                     )}
 
-                    <div style={{ borderTop: '1px solid #eee' }} />
+                    <div style={{ borderTop: `1px solid ${colors.border}` }} />
 
                     {/* Settings */}
                     <Link
@@ -328,10 +332,10 @@ export function Header({
                       onClick={() => setDropdownOpen(false)}
                       style={{
                         display: 'block',
-                        padding: '12px 16px',
+                        padding: `${spacing.xs} ${spacing.sm}`,
                         textDecoration: 'none',
-                        color: '#333',
-                        fontSize: 14,
+                        color: colors.textPrimary,
+                        fontSize: typography.sizes.sm,
                         minHeight: 44,
                         lineHeight: '20px'
                       }}
@@ -345,12 +349,12 @@ export function Header({
                       style={{
                         display: 'block',
                         width: '100%',
-                        padding: '12px 16px',
+                        padding: `${spacing.xs} ${spacing.sm}`,
                         textAlign: 'left',
                         background: 'none',
                         border: 'none',
                         color: '#dc3545',
-                        fontSize: 14,
+                        fontSize: typography.sizes.sm,
                         cursor: 'pointer',
                         minHeight: 44
                       }}
@@ -361,15 +365,15 @@ export function Header({
                 )}
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} className="desktop-nav">
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }} className="desktop-nav">
                 <Link
                   href={`/${vertical}/login`}
                   style={{
-                    color: branding.colors.primary,
+                    color: colors.primary,
                     textDecoration: 'none',
-                    fontWeight: 600,
-                    fontSize: 14,
-                    padding: '8px 12px',
+                    fontWeight: typography.weights.semibold,
+                    fontSize: typography.sizes.sm,
+                    padding: `${spacing['2xs']} ${spacing.xs}`,
                     minHeight: 44,
                     display: 'flex',
                     alignItems: 'center'
@@ -380,13 +384,13 @@ export function Header({
                 <Link
                   href={`/${vertical}/signup`}
                   style={{
-                    padding: '8px 16px',
-                    backgroundColor: branding.colors.primary,
-                    color: 'white',
+                    padding: `${spacing['2xs']} ${spacing.sm}`,
+                    backgroundColor: colors.primary,
+                    color: colors.textInverse,
                     textDecoration: 'none',
-                    borderRadius: 6,
-                    fontWeight: 600,
-                    fontSize: 14,
+                    borderRadius: radius.md,
+                    fontWeight: typography.weights.semibold,
+                    fontSize: typography.sizes.sm,
                     minHeight: 44,
                     display: 'flex',
                     alignItems: 'center'
@@ -405,7 +409,7 @@ export function Header({
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                padding: 8,
+                padding: spacing['2xs'],
                 minHeight: 44,
                 minWidth: 44,
                 alignItems: 'center',
@@ -423,9 +427,9 @@ export function Header({
         {mobileMenuOpen && (
           <div
             style={{
-              borderTop: '1px solid #eee',
-              padding: '16px 0',
-              backgroundColor: 'white'
+              borderTop: `1px solid ${colors.border}`,
+              padding: `${spacing.sm} 0`,
+              backgroundColor: colors.surfaceElevated
             }}
             className="mobile-menu"
           >
@@ -434,11 +438,11 @@ export function Header({
               onClick={() => setMobileMenuOpen(false)}
               style={{
                 display: 'block',
-                padding: '12px 0',
+                padding: `${spacing.xs} 0`,
                 textDecoration: 'none',
-                color: branding.colors.text,
-                fontSize: 16,
-                fontWeight: 500
+                color: colors.textPrimary,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.medium
               }}
             >
               Browse Products
@@ -451,11 +455,11 @@ export function Header({
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     display: 'block',
-                    padding: '12px 0',
+                    padding: `${spacing.xs} 0`,
                     textDecoration: 'none',
-                    color: branding.colors.text,
-                    fontSize: 16,
-                    fontWeight: 500
+                    color: colors.textPrimary,
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.medium
                   }}
                 >
                   Dashboard
@@ -466,10 +470,10 @@ export function Header({
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     display: 'block',
-                    padding: '12px 0',
+                    padding: `${spacing.xs} 0`,
                     textDecoration: 'none',
-                    color: branding.colors.text,
-                    fontSize: 16
+                    color: colors.textPrimary,
+                    fontSize: typography.sizes.base
                   }}
                 >
                   My Orders
@@ -481,11 +485,11 @@ export function Header({
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
                       display: 'block',
-                      padding: '12px 0',
+                      padding: `${spacing.xs} 0`,
                       textDecoration: 'none',
-                      color: '#059669',
-                      fontSize: 16,
-                      fontWeight: 500
+                      color: colors.primaryDark,
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.medium
                     }}
                   >
                     Become a Vendor
@@ -498,21 +502,21 @@ export function Header({
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
                       display: 'block',
-                      padding: '12px 0',
+                      padding: `${spacing.xs} 0`,
                       textDecoration: 'none',
-                      color: branding.colors.text,
-                      fontSize: 16
+                      color: colors.textPrimary,
+                      fontSize: typography.sizes.base
                     }}
                   >
                     Vendor Dashboard
                     {isPendingVendor && (
                       <span style={{
-                        marginLeft: 8,
-                        fontSize: 12,
+                        marginLeft: spacing['2xs'],
+                        fontSize: typography.sizes.xs,
                         color: '#856404',
                         backgroundColor: '#fff3cd',
-                        padding: '2px 6px',
-                        borderRadius: 4
+                        padding: `2px ${spacing['3xs']}`,
+                        borderRadius: radius.sm
                       }}>
                         Pending
                       </span>
@@ -526,28 +530,28 @@ export function Header({
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
                       display: 'block',
-                      padding: '12px 0',
+                      padding: `${spacing.xs} 0`,
                       textDecoration: 'none',
                       color: '#7c3aed',
-                      fontSize: 16,
-                      fontWeight: 500
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.medium
                     }}
                   >
                     Admin Dashboard
                   </Link>
                 )}
 
-                <div style={{ borderTop: '1px solid #eee', margin: '12px 0' }} />
+                <div style={{ borderTop: `1px solid ${colors.border}`, margin: `${spacing.xs} 0` }} />
 
                 <Link
                   href={`/${vertical}/settings`}
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     display: 'block',
-                    padding: '12px 0',
+                    padding: `${spacing.xs} 0`,
                     textDecoration: 'none',
-                    color: branding.colors.text,
-                    fontSize: 16
+                    color: colors.textPrimary,
+                    fontSize: typography.sizes.base
                   }}
                 >
                   Settings
@@ -558,12 +562,12 @@ export function Header({
                   style={{
                     display: 'block',
                     width: '100%',
-                    padding: '12px 0',
+                    padding: `${spacing.xs} 0`,
                     textAlign: 'left',
                     background: 'none',
                     border: 'none',
                     color: '#dc3545',
-                    fontSize: 16,
+                    fontSize: typography.sizes.base,
                     cursor: 'pointer'
                   }}
                 >
@@ -571,20 +575,20 @@ export function Header({
                 </button>
               </>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, marginTop: spacing.xs }}>
                 <Link
                   href={`/${vertical}/login`}
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     display: 'block',
-                    padding: '12px 16px',
+                    padding: `${spacing.xs} ${spacing.sm}`,
                     textDecoration: 'none',
-                    color: branding.colors.primary,
-                    fontSize: 16,
-                    fontWeight: 600,
+                    color: colors.primary,
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold,
                     textAlign: 'center',
-                    border: `2px solid ${branding.colors.primary}`,
-                    borderRadius: 8
+                    border: `2px solid ${colors.primary}`,
+                    borderRadius: radius.md
                   }}
                 >
                   Login
@@ -594,13 +598,13 @@ export function Header({
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     display: 'block',
-                    padding: '12px 16px',
-                    backgroundColor: branding.colors.primary,
-                    color: 'white',
+                    padding: `${spacing.xs} ${spacing.sm}`,
+                    backgroundColor: colors.primary,
+                    color: colors.textInverse,
                     textDecoration: 'none',
-                    borderRadius: 8,
-                    fontWeight: 600,
-                    fontSize: 16,
+                    borderRadius: radius.md,
+                    fontWeight: typography.weights.semibold,
+                    fontSize: typography.sizes.base,
                     textAlign: 'center'
                   }}
                 >

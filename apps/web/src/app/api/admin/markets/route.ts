@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { vertical, name, address, city, state, zip, day_of_week, start_time, end_time, status = 'active' } = body
+  const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, status = 'active' } = body
 
   if (!vertical || !name || !address || !city || !state || !zip || day_of_week === undefined || !start_time || !end_time) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -105,6 +105,8 @@ export async function POST(request: Request) {
       city,
       state,
       zip,
+      latitude: latitude || null,
+      longitude: longitude || null,
       day_of_week: parseInt(day_of_week),
       start_time,
       end_time,

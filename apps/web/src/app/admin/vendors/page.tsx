@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import VendorFilters from './VendorFilters'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface VendorsPageProps {
   searchParams: Promise<{ status?: string; vertical?: string }>
@@ -35,8 +36,8 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
     .eq('is_active', true)
 
   return (
-    <div>
-      <h1 style={{ color: '#333', marginBottom: 30 }}>All Vendors</h1>
+    <div style={{ maxWidth: containers.wide, margin: '0 auto' }}>
+      <h1 style={{ color: '#333', marginBottom: spacing.lg, fontSize: typography.sizes['2xl'] }}>All Vendors</h1>
 
       {/* Filters */}
       <VendorFilters
@@ -46,26 +47,26 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
       />
 
       {/* Results */}
-      <div style={{ marginBottom: 15, color: '#666' }}>
+      <div style={{ marginBottom: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>
         {vendors?.length || 0} vendor{vendors?.length !== 1 ? 's' : ''} found
       </div>
 
       {vendors && vendors.length > 0 ? (
         <div style={{
           backgroundColor: 'white',
-          borderRadius: 8,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          borderRadius: radius.md,
+          boxShadow: shadows.sm,
           overflow: 'hidden'
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa' }}>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Business</th>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Vertical</th>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Status</th>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Tier</th>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666' }}>Created</th>
-                <th style={{ textAlign: 'right', padding: 15, color: '#666' }}>Action</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Business</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Vertical</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Status</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Tier</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Created</th>
+                <th style={{ textAlign: 'right', padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -80,26 +81,26 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
 
                 return (
                   <tr key={vendorId} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: 15 }}>
-                      <div style={{ fontWeight: 600, color: '#333' }}>{businessName}</div>
+                    <td style={{ padding: spacing.sm }}>
+                      <div style={{ fontWeight: typography.weights.semibold, color: '#333' }}>{businessName}</div>
                     </td>
-                    <td style={{ padding: 15 }}>
+                    <td style={{ padding: spacing.sm }}>
                       <span style={{
-                        padding: '4px 8px',
+                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
                         backgroundColor: '#f0f0f0',
-                        borderRadius: 4,
-                        fontSize: 12,
-                        fontWeight: 600
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold
                       }}>
                         {verticalId}
                       </span>
                     </td>
-                    <td style={{ padding: 15 }}>
+                    <td style={{ padding: spacing.sm }}>
                       <span style={{
-                        padding: '4px 8px',
-                        borderRadius: 4,
-                        fontSize: 12,
-                        fontWeight: 600,
+                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
                         backgroundColor:
                           vendorStatus === 'approved' ? '#d4edda' :
                           vendorStatus === 'submitted' ? '#fff3cd' :
@@ -112,12 +113,12 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                         {vendorStatus}
                       </span>
                     </td>
-                    <td style={{ padding: 15 }}>
+                    <td style={{ padding: spacing.sm }}>
                       <span style={{
-                        padding: '4px 8px',
-                        borderRadius: 4,
-                        fontSize: 12,
-                        fontWeight: 600,
+                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
                         backgroundColor:
                           tier === 'premium' ? '#dbeafe' :
                           tier === 'featured' ? '#fef3c7' : '#f3f4f6',
@@ -128,19 +129,19 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                         {tier}
                       </span>
                     </td>
-                    <td style={{ padding: 15, color: '#666', fontSize: 14 }}>
+                    <td style={{ padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>
                       {new Date(createdAt).toLocaleDateString()}
                     </td>
-                    <td style={{ padding: 15, textAlign: 'right' }}>
+                    <td style={{ padding: spacing.sm, textAlign: 'right' }}>
                       <Link
                         href={`/admin/vendors/${vendorId}`}
                         style={{
-                          padding: '6px 12px',
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
                           backgroundColor: '#0070f3',
                           color: 'white',
                           textDecoration: 'none',
-                          borderRadius: 4,
-                          fontSize: 14
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.sm
                         }}
                       >
                         View
@@ -155,11 +156,11 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
       ) : (
         <div style={{
           backgroundColor: 'white',
-          borderRadius: 8,
-          padding: 60,
+          borderRadius: radius.md,
+          padding: spacing['3xl'],
           textAlign: 'center'
         }}>
-          <p style={{ color: '#666' }}>No vendors found matching filters.</p>
+          <p style={{ color: '#666', fontSize: typography.sizes.base }}>No vendors found matching filters.</p>
         </div>
       )}
     </div>

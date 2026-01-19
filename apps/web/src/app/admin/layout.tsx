@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
+import { spacing, typography, radius } from '@/lib/design-tokens'
 
 export default async function AdminLayout({
   children,
@@ -15,21 +16,21 @@ export default async function AdminLayout({
         width: 250,
         backgroundColor: '#1a1a2e',
         color: 'white',
-        padding: 20
+        padding: spacing.md
       }}>
-        <div style={{ marginBottom: 30 }}>
-          <h2 style={{ fontSize: 20, marginBottom: 5 }}>Admin Panel</h2>
-          <p style={{ fontSize: 12, color: '#888' }}>{admin.email}</p>
+        <div style={{ marginBottom: spacing.lg }}>
+          <h2 style={{ fontSize: typography.sizes.lg, marginBottom: spacing['3xs'] }}>Admin Panel</h2>
+          <p style={{ fontSize: typography.sizes.xs, color: '#888' }}>{admin.email}</p>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
           <Link
             href="/admin"
             style={{
-              padding: '12px 15px',
+              padding: `${spacing.xs} ${spacing.sm}`,
               color: 'white',
               textDecoration: 'none',
-              borderRadius: 6,
+              borderRadius: radius.sm,
               backgroundColor: 'rgba(255,255,255,0.1)'
             }}
           >
@@ -38,10 +39,10 @@ export default async function AdminLayout({
           <Link
             href="/admin/vendors"
             style={{
-              padding: '12px 15px',
+              padding: `${spacing.xs} ${spacing.sm}`,
               color: 'white',
               textDecoration: 'none',
-              borderRadius: 6
+              borderRadius: radius.sm
             }}
           >
             Vendors
@@ -49,10 +50,10 @@ export default async function AdminLayout({
           <Link
             href="/admin/vendors/pending"
             style={{
-              padding: '12px 15px',
+              padding: `${spacing.xs} ${spacing.sm}`,
               color: 'white',
               textDecoration: 'none',
-              borderRadius: 6
+              borderRadius: radius.sm
             }}
           >
             Pending Approval
@@ -60,10 +61,10 @@ export default async function AdminLayout({
           <Link
             href="/admin/listings"
             style={{
-              padding: '12px 15px',
+              padding: `${spacing.xs} ${spacing.sm}`,
               color: 'white',
               textDecoration: 'none',
-              borderRadius: 6
+              borderRadius: radius.sm
             }}
           >
             Listings
@@ -71,10 +72,10 @@ export default async function AdminLayout({
           <Link
             href="/admin/users"
             style={{
-              padding: '12px 15px',
+              padding: `${spacing.xs} ${spacing.sm}`,
               color: 'white',
               textDecoration: 'none',
-              borderRadius: 6
+              borderRadius: radius.sm
             }}
           >
             Users
@@ -82,10 +83,10 @@ export default async function AdminLayout({
           <Link
             href="/admin/markets"
             style={{
-              padding: '12px 15px',
+              padding: `${spacing.xs} ${spacing.sm}`,
               color: 'white',
               textDecoration: 'none',
-              borderRadius: 6
+              borderRadius: radius.sm
             }}
           >
             Markets
@@ -93,16 +94,16 @@ export default async function AdminLayout({
 
           <div style={{
             borderTop: '1px solid rgba(255,255,255,0.2)',
-            margin: '20px 0',
-            paddingTop: 20
+            margin: `${spacing.md} 0`,
+            paddingTop: spacing.md
           }}>
             <Link
               href="/farmers_market/admin"
               style={{
-                padding: '12px 15px',
+                padding: `${spacing.xs} ${spacing.sm}`,
                 color: '#22c55e',
                 textDecoration: 'none',
-                borderRadius: 6,
+                borderRadius: radius.sm,
                 display: 'block',
                 backgroundColor: 'rgba(34, 197, 94, 0.1)'
               }}
@@ -112,10 +113,10 @@ export default async function AdminLayout({
             <Link
               href="/"
               style={{
-                padding: '12px 15px',
+                padding: `${spacing.xs} ${spacing.sm}`,
                 color: '#888',
                 textDecoration: 'none',
-                borderRadius: 6,
+                borderRadius: radius.sm,
                 display: 'block'
               }}
             >
@@ -129,7 +130,7 @@ export default async function AdminLayout({
       <main style={{
         flex: 1,
         backgroundColor: '#f5f5f5',
-        padding: 30
+        padding: spacing.lg
       }}>
         {children}
       </main>

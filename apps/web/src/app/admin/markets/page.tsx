@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import MarketAdminFilters from './MarketAdminFilters'
 import DeleteMarketButton from './DeleteMarketButton'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface MarketsAdminPageProps {
   searchParams: Promise<{ vertical?: string; type?: string; active?: string }>
@@ -51,19 +52,19 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
   }))
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ color: '#333', margin: 0 }}>Markets Management</h1>
+    <div style={{ maxWidth: containers.wide, margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+        <h1 style={{ color: '#333', margin: 0, fontSize: typography.sizes['2xl'] }}>Markets Management</h1>
         <Link
           href="/admin/markets/new"
           style={{
-            padding: '10px 20px',
+            padding: `${spacing['2xs']} ${spacing.md}`,
             backgroundColor: '#0070f3',
             color: 'white',
             textDecoration: 'none',
-            borderRadius: 8,
-            fontSize: 14,
-            fontWeight: 500,
+            borderRadius: radius.md,
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.medium,
           }}
         >
           + New Market
@@ -79,7 +80,7 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
       />
 
       {/* Results count */}
-      <div style={{ marginBottom: 16, color: '#666' }}>
+      <div style={{ marginBottom: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>
         {transformedMarkets?.length || 0} market{transformedMarkets?.length !== 1 ? 's' : ''} found
       </div>
 
@@ -87,32 +88,32 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
       {transformedMarkets && transformedMarkets.length > 0 ? (
         <div style={{
           backgroundColor: 'white',
-          borderRadius: 8,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          borderRadius: radius.md,
+          boxShadow: shadows.sm,
           overflow: 'hidden',
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa' }}>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666', fontWeight: 600 }}>Name</th>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666', fontWeight: 600 }}>Vertical</th>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666', fontWeight: 600 }}>Type</th>
-                <th style={{ textAlign: 'left', padding: 15, color: '#666', fontWeight: 600 }}>Location</th>
-                <th style={{ textAlign: 'center', padding: 15, color: '#666', fontWeight: 600 }}>Vendors</th>
-                <th style={{ textAlign: 'center', padding: 15, color: '#666', fontWeight: 600 }}>Status</th>
-                <th style={{ textAlign: 'right', padding: 15, color: '#666', fontWeight: 600 }}>Actions</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>Name</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>Vertical</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>Type</th>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: '#666', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>Location</th>
+                <th style={{ textAlign: 'center', padding: spacing.sm, color: '#666', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>Vendors</th>
+                <th style={{ textAlign: 'center', padding: spacing.sm, color: '#666', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>Status</th>
+                <th style={{ textAlign: 'right', padding: spacing.sm, color: '#666', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {transformedMarkets.map((market) => (
                 <tr key={market.id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: 15 }}>
-                    <div style={{ fontWeight: 600, color: '#333' }}>{market.name}</div>
+                  <td style={{ padding: spacing.sm }}>
+                    <div style={{ fontWeight: typography.weights.semibold, color: '#333' }}>{market.name}</div>
                     {market.description && (
                       <div style={{
-                        fontSize: 13,
+                        fontSize: typography.sizes.xs,
                         color: '#666',
-                        marginTop: 4,
+                        marginTop: spacing['3xs'],
                         maxWidth: 300,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -122,67 +123,67 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: 15 }}>
+                  <td style={{ padding: spacing.sm }}>
                     <span style={{
-                      padding: '4px 8px',
+                      padding: `${spacing['3xs']} ${spacing['2xs']}`,
                       backgroundColor: '#f0f0f0',
-                      borderRadius: 4,
-                      fontSize: 12,
-                      fontWeight: 600,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
                     }}>
                       {market.vertical_id}
                     </span>
                   </td>
-                  <td style={{ padding: 15 }}>
+                  <td style={{ padding: spacing.sm }}>
                     <span style={{
-                      padding: '4px 8px',
-                      borderRadius: 4,
-                      fontSize: 12,
-                      fontWeight: 600,
+                      padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
                       backgroundColor: market.type === 'traditional' ? '#e8f5e9' : '#fff3e0',
                       color: market.type === 'traditional' ? '#2e7d32' : '#e65100',
                     }}>
                       {market.type === 'traditional' ? 'Traditional' : 'Private Pickup'}
                     </span>
                   </td>
-                  <td style={{ padding: 15, color: '#666', fontSize: 14 }}>
+                  <td style={{ padding: spacing.sm, color: '#666', fontSize: typography.sizes.sm }}>
                     {[market.city, market.state].filter(Boolean).join(', ') || '-'}
                   </td>
-                  <td style={{ padding: 15, textAlign: 'center' }}>
+                  <td style={{ padding: spacing.sm, textAlign: 'center' }}>
                     <span style={{
-                      padding: '4px 10px',
+                      padding: `${spacing['3xs']} ${spacing['2xs']}`,
                       backgroundColor: '#e3f2fd',
                       color: '#1565c0',
-                      borderRadius: 12,
-                      fontSize: 13,
-                      fontWeight: 600,
+                      borderRadius: radius.lg,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
                     }}>
                       {market.vendor_count}
                     </span>
                   </td>
-                  <td style={{ padding: 15, textAlign: 'center' }}>
+                  <td style={{ padding: spacing.sm, textAlign: 'center' }}>
                     <span style={{
-                      padding: '4px 8px',
-                      borderRadius: 4,
-                      fontSize: 12,
-                      fontWeight: 600,
+                      padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
                       backgroundColor: market.active ? '#d4edda' : '#f8d7da',
                       color: market.active ? '#155724' : '#721c24',
                     }}>
                       {market.active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td style={{ padding: 15, textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <td style={{ padding: spacing.sm, textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: spacing['2xs'], justifyContent: 'flex-end' }}>
                       <Link
                         href={`/admin/markets/${market.id}`}
                         style={{
-                          padding: '6px 12px',
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
                           backgroundColor: '#f0f0f0',
                           color: '#333',
                           textDecoration: 'none',
-                          borderRadius: 4,
-                          fontSize: 13,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
                         }}
                       >
                         View
@@ -190,12 +191,12 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
                       <Link
                         href={`/admin/markets/${market.id}/edit`}
                         style={{
-                          padding: '6px 12px',
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
                           backgroundColor: '#0070f3',
                           color: 'white',
                           textDecoration: 'none',
-                          borderRadius: 4,
-                          fontSize: 13,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
                         }}
                       >
                         Edit
@@ -211,21 +212,21 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
       ) : (
         <div style={{
           backgroundColor: 'white',
-          borderRadius: 8,
-          padding: 60,
+          borderRadius: radius.md,
+          padding: spacing['3xl'],
           textAlign: 'center',
         }}>
-          <p style={{ color: '#666' }}>No markets found matching filters.</p>
+          <p style={{ color: '#666', fontSize: typography.sizes.base }}>No markets found matching filters.</p>
           <Link
             href="/admin/markets/new"
             style={{
               display: 'inline-block',
-              marginTop: 16,
-              padding: '10px 20px',
+              marginTop: spacing.sm,
+              padding: `${spacing['2xs']} ${spacing.md}`,
               backgroundColor: '#0070f3',
               color: 'white',
               textDecoration: 'none',
-              borderRadius: 8,
+              borderRadius: radius.md,
             }}
           >
             Create First Market

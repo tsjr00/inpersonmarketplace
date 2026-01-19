@@ -21,6 +21,7 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
   const verticalLinks = vertical ? [
     { label: 'Dashboard', href: `/${vertical}/admin`, icon: '📊' },
     { label: 'Markets', href: `/${vertical}/admin/markets`, icon: '🏪' },
+    { label: 'Vendors', href: `/${vertical}/admin/vendors`, icon: '🧑‍🌾' },
     { label: 'Users', href: `/${vertical}/admin/users`, icon: '👥' },
   ] : []
 

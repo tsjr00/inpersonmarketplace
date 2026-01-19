@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import { AddToCartButton } from '@/components/cart/AddToCartButton'
 import { formatDisplayPrice } from '@/lib/constants'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface ListingDetailPageProps {
   params: Promise<{ vertical: string; listingId: string }>
@@ -66,29 +67,29 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   return (
     <div
       style={{
-        backgroundColor: branding.colors.background,
-        color: branding.colors.text,
+        backgroundColor: colors.surfaceBase,
+        color: colors.textPrimary,
         minHeight: '100vh'
       }}
       className="listing-detail-page"
     >
       {/* Back Link */}
       <div style={{
-        padding: '16px',
-        borderBottom: '1px solid #eee',
-        backgroundColor: 'white'
+        padding: spacing.sm,
+        borderBottom: `1px solid ${colors.border}`,
+        backgroundColor: colors.surfaceElevated
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
           <Link
             href={`/${vertical}/browse`}
             style={{
-              color: branding.colors.primary,
+              color: colors.primary,
               textDecoration: 'none',
-              fontSize: 14,
+              fontSize: typography.sizes.sm,
               display: 'inline-flex',
               alignItems: 'center',
               minHeight: 44,
-              padding: '8px 0'
+              padding: `${spacing['2xs']} 0`
             }}
           >
             ← Back to Browse
@@ -98,27 +99,27 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
       {/* Content */}
       <div style={{
-        maxWidth: 1200,
+        maxWidth: containers.xl,
         margin: '0 auto',
-        padding: '24px 16px'
+        padding: `${spacing.md} ${spacing.sm}`
       }}>
         {/* Main Content - single col mobile, two col desktop */}
         <div className="main-grid" style={{
           display: 'grid',
-          gap: 24
+          gap: spacing.md
         }}>
           {/* Left: Image */}
           <div>
             <div style={{
               aspectRatio: '1',
-              backgroundColor: '#f3f4f6',
-              borderRadius: 8,
+              backgroundColor: colors.surfaceMuted,
+              borderRadius: radius.md,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               maxHeight: 500
             }}>
-              <span style={{ fontSize: 80, color: '#ccc' }}>📦</span>
+              <span style={{ fontSize: 80, color: colors.textMuted }}>📦</span>
             </div>
           </div>
 
@@ -126,23 +127,23 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           <div>
             {/* Listing Info Card */}
             <div style={{
-              padding: 20,
-              backgroundColor: 'white',
-              borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              marginBottom: 20
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: `1px solid ${colors.border}`,
+              marginBottom: spacing.sm
             }}>
               {/* Category */}
               {listing.category && (
                 <span style={{
                   display: 'inline-block',
-                  padding: '4px 12px',
-                  backgroundColor: '#d1fae5',
-                  color: '#065f46',
-                  borderRadius: 12,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginBottom: 12
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: colors.primaryLight,
+                  color: colors.primaryDark,
+                  borderRadius: radius.lg,
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold,
+                  marginBottom: spacing.xs
                 }}>
                   {listing.category}
                 </span>
@@ -150,35 +151,35 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
               {/* Title */}
               <h1 style={{
-                color: '#333',
-                margin: '0 0 12px 0',
-                fontSize: 24,
-                lineHeight: 1.3
+                color: colors.textPrimary,
+                margin: `0 0 ${spacing.xs} 0`,
+                fontSize: typography.sizes.xl,
+                lineHeight: typography.leading.snug
               }}>
                 {listing.title}
               </h1>
 
               {/* Price (includes platform fee) */}
               <div style={{
-                fontSize: 32,
-                fontWeight: 'bold',
-                color: branding.colors.primary,
-                marginBottom: 20
+                fontSize: typography.sizes['2xl'],
+                fontWeight: typography.weights.bold,
+                color: colors.primary,
+                marginBottom: spacing.sm
               }}>
                 {formatDisplayPrice(listing.price_cents || 0)}
               </div>
 
               {/* Availability */}
               <div style={{
-                marginBottom: 20,
-                padding: 16,
-                backgroundColor: '#f9fafb',
-                borderRadius: 8
+                marginBottom: spacing.sm,
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceMuted,
+                borderRadius: radius.md
               }}>
-                <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 4 }}>
+                <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
                   Availability
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 600, color: '#333' }}>
+                <div style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                   {listing.quantity === null
                     ? 'In Stock'
                     : listing.quantity > 0
@@ -198,21 +199,21 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               {/* Available At - Markets */}
               {listingMarkets && listingMarkets.length > 0 && (
                 <div style={{
-                  marginTop: 20,
-                  padding: 16,
-                  backgroundColor: '#f9fafb',
-                  borderRadius: 8
+                  marginTop: spacing.sm,
+                  padding: spacing.sm,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.md
                 }}>
                   <h3 style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    marginBottom: 12,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    marginBottom: spacing.xs,
                     marginTop: 0,
-                    color: '#374151'
+                    color: colors.textSecondary
                   }}>
                     Available At
                   </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                     {listingMarkets.map((market: {
                       market_id: string
                       market_name: string
@@ -230,25 +231,25 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                       const showAddress = !isPrivate || isLoggedIn
 
                       return (
-                        <div key={market.market_id} style={{ fontSize: 14 }}>
-                          <div style={{ fontWeight: 600, color: '#333' }}>
-                            <span style={{ color: '#6b7280', fontWeight: 500 }}>{prefix}</span>
+                        <div key={market.market_id} style={{ fontSize: typography.sizes.sm }}>
+                          <div style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                            <span style={{ color: colors.textMuted, fontWeight: typography.weights.medium }}>{prefix}</span>
                             {market.market_name}
                           </div>
                           {showAddress ? (
-                            <div style={{ color: '#6b7280', fontSize: 13 }}>
+                            <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                               {market.address}, {market.city}, {market.state}
                             </div>
                           ) : (
-                            <div style={{ color: '#9ca3af', fontSize: 13, fontStyle: 'italic' }}>
-                              <Link href={`/${vertical}/login`} style={{ color: branding.colors.primary, textDecoration: 'none' }}>
+                            <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs, fontStyle: 'italic' }}>
+                              <Link href={`/${vertical}/login`} style={{ color: colors.primary, textDecoration: 'none' }}>
                                 Log in
                               </Link>
                               {' '}to see pickup address
                             </div>
                           )}
                           {market.market_type === 'traditional' && market.day_of_week !== null && (
-                            <div style={{ color: '#6b7280', fontSize: 12 }}>
+                            <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                               {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][market.day_of_week]}
                               {market.start_time && market.end_time && ` ${market.start_time} - ${market.end_time}`}
                             </div>
@@ -263,16 +264,16 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
             {/* Vendor Card */}
             <div style={{
-              padding: 20,
-              backgroundColor: 'white',
-              borderRadius: 8,
-              border: '1px solid #e5e7eb'
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: `1px solid ${colors.border}`
             }}>
               <h3 style={{
-                color: branding.colors.primary,
-                margin: '0 0 12px 0',
-                fontSize: 16,
-                fontWeight: 600
+                color: colors.textPrimary,
+                margin: `0 0 ${spacing.xs} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 Sold by
               </h3>
@@ -281,20 +282,20 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 href={`/${vertical}/vendor/${vendorId}/profile`}
                 style={{
                   textDecoration: 'none',
-                  color: '#333'
+                  color: colors.textPrimary
                 }}
               >
                 <div style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  marginBottom: 8,
-                  color: branding.colors.primary
+                  fontSize: typography.sizes.lg,
+                  fontWeight: typography.weights.semibold,
+                  marginBottom: spacing['2xs'],
+                  color: colors.primary
                 }}>
                   {vendorName}
                 </div>
               </Link>
 
-              <div style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+              <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, marginBottom: spacing.sm }}>
                 Member since {new Date(vendorProfile.created_at as string).toLocaleDateString('en-US', {
                   month: 'long',
                   year: 'numeric'
@@ -307,12 +308,12 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '12px 16px',
-                  backgroundColor: branding.colors.secondary,
-                  color: 'white',
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: colors.primaryDark,
+                  color: colors.textInverse,
                   textDecoration: 'none',
-                  borderRadius: 6,
-                  fontWeight: 600,
+                  borderRadius: radius.sm,
+                  fontWeight: typography.weights.semibold,
                   minHeight: 44
                 }}
               >
@@ -325,28 +326,28 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
         {/* Description & More from Vendor - stack below on mobile */}
         <div className="bottom-grid" style={{
           display: 'grid',
-          gap: 24,
-          marginTop: 24
+          gap: spacing.md,
+          marginTop: spacing.md
         }}>
           {/* Description */}
           <div style={{
-            padding: 20,
-            backgroundColor: 'white',
-            borderRadius: 8,
-            border: '1px solid #e5e7eb'
+            padding: spacing.sm,
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: radius.md,
+            border: `1px solid ${colors.border}`
           }}>
             <h2 style={{
-              color: branding.colors.primary,
-              margin: '0 0 12px 0',
-              fontSize: 18,
-              fontWeight: 600
+              color: colors.textPrimary,
+              margin: `0 0 ${spacing.xs} 0`,
+              fontSize: typography.sizes.lg,
+              fontWeight: typography.weights.semibold
             }}>
               Description
             </h2>
             <p style={{
-              color: '#333',
-              lineHeight: 1.7,
-              fontSize: 15,
+              color: colors.textSecondary,
+              lineHeight: typography.leading.relaxed,
+              fontSize: typography.sizes.base,
               whiteSpace: 'pre-wrap',
               margin: 0
             }}>
@@ -356,26 +357,26 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
             {/* Allergen Warning */}
             {listing.listing_data?.contains_allergens && (
               <div style={{
-                marginTop: 20,
-                padding: 16,
-                backgroundColor: '#fef3c7',
-                border: '1px solid #f59e0b',
-                borderRadius: 8
+                marginTop: spacing.sm,
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceSubtle,
+                border: `1px solid ${colors.accent}`,
+                borderRadius: radius.md
               }}>
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 8
+                  gap: spacing['2xs'],
+                  marginBottom: spacing['2xs']
                 }}>
                   <span style={{ fontSize: 18 }}>⚠️</span>
-                  <strong style={{ color: '#92400e' }}>Allergen Warning</strong>
+                  <strong style={{ color: colors.accent }}>Allergen Warning</strong>
                 </div>
                 <p style={{
                   margin: 0,
-                  color: '#78350f',
-                  fontSize: 14,
-                  lineHeight: 1.5
+                  color: colors.textSecondary,
+                  fontSize: typography.sizes.sm,
+                  lineHeight: typography.leading.normal
                 }}>
                   {listing.listing_data?.ingredients || 'This product may contain allergens. Contact the vendor for details.'}
                 </p>
@@ -386,21 +387,21 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           {/* Other Listings from Vendor */}
           {otherListings && otherListings.length > 0 && (
             <div style={{
-              padding: 20,
-              backgroundColor: 'white',
-              borderRadius: 8,
-              border: '1px solid #e5e7eb'
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: `1px solid ${colors.border}`
             }}>
               <h3 style={{
-                color: branding.colors.primary,
-                margin: '0 0 16px 0',
-                fontSize: 16,
-                fontWeight: 600
+                color: colors.textPrimary,
+                margin: `0 0 ${spacing.sm} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 More from {vendorName}
               </h3>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                 {otherListings.map((item: Record<string, unknown>) => (
                   <Link
                     key={item.id as string}
@@ -409,18 +410,18 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      padding: '12px 16px',
-                      backgroundColor: '#f9fafb',
-                      borderRadius: 6,
+                      padding: `${spacing.xs} ${spacing.sm}`,
+                      backgroundColor: colors.surfaceMuted,
+                      borderRadius: radius.sm,
                       textDecoration: 'none',
-                      color: '#333',
+                      color: colors.textPrimary,
                       minHeight: 44
                     }}
                   >
-                    <span style={{ fontSize: 14 }}>{item.title as string}</span>
+                    <span style={{ fontSize: typography.sizes.sm }}>{item.title as string}</span>
                     <span style={{
-                      fontWeight: 600,
-                      color: branding.colors.primary
+                      fontWeight: typography.weights.semibold,
+                      color: colors.primary
                     }}>
                       {formatDisplayPrice((item.price_cents as number) || 0)}
                     </span>

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import EditProfileButton from './EditProfileButton'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface VendorDashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -119,34 +120,34 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: branding.colors.background,
-      color: branding.colors.text
+      backgroundColor: colors.surfaceBase,
+      color: colors.textPrimary
     }}
     className="vendor-dashboard"
     >
       <div style={{
-        maxWidth: 1200,
+        maxWidth: containers.xl,
         margin: '0 auto',
-        padding: '24px 16px'
+        padding: `${spacing.md} ${spacing.sm}`
       }}>
         {/* Header */}
         <div style={{
-          marginBottom: 24,
-          paddingBottom: 16,
-          borderBottom: `2px solid ${branding.colors.primary}`
+          marginBottom: spacing.md,
+          paddingBottom: spacing.sm,
+          borderBottom: `2px solid ${colors.primary}`
         }}>
           <h1 style={{
-            color: branding.colors.primary,
+            color: colors.primary,
             margin: 0,
-            fontSize: 28,
-            fontWeight: 'bold'
+            fontSize: typography.sizes['2xl'],
+            fontWeight: typography.weights.bold
           }}>
             Vendor Dashboard
           </h1>
           <p style={{
-            fontSize: 14,
-            color: branding.colors.secondary,
-            margin: '4px 0 0 0'
+            fontSize: typography.sizes.sm,
+            color: colors.textSecondary,
+            margin: `${spacing['3xs']} 0 0 0`
           }}>
             {branding.brand_name}
           </p>
@@ -155,30 +156,30 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         {/* Draft Listings Notice - for approved vendors with drafts */}
         {draftCount > 0 && vendorProfile.status === 'approved' && (
           <div style={{
-            padding: 16,
-            marginBottom: 24,
-            backgroundColor: '#dbeafe',
-            border: '1px solid #93c5fd',
-            borderRadius: 8,
-            color: '#1e40af'
+            padding: spacing.sm,
+            marginBottom: spacing.md,
+            backgroundColor: colors.primaryLight,
+            border: `1px solid ${colors.primary}`,
+            borderRadius: radius.md,
+            color: colors.textPrimary
           }}>
-            <strong style={{ fontSize: 16 }}>
+            <strong style={{ fontSize: typography.sizes.base }}>
               You have {draftCount} draft listing{draftCount > 1 ? 's' : ''}!
             </strong>
-            <p style={{ margin: '8px 0 12px 0', fontSize: 14 }}>
+            <p style={{ margin: `${spacing['2xs']} 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm }}>
               Your account is approved. Visit your listings to publish them and make them visible to buyers.
             </p>
             <Link
               href={`/${vertical}/vendor/listings`}
               style={{
                 display: 'inline-block',
-                padding: '10px 20px',
-                backgroundColor: '#2563eb',
-                color: 'white',
+                padding: `${spacing['2xs']} ${spacing.sm}`,
+                backgroundColor: colors.primary,
+                color: colors.textInverse,
                 textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
-                fontSize: 14,
+                borderRadius: radius.sm,
+                fontWeight: typography.weights.semibold,
+                fontSize: typography.sizes.sm,
                 minHeight: 44
               }}
             >
@@ -190,57 +191,58 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         {/* TOP ROW - Info Cards: Business Info, Pickup Locations, Pickup Mode */}
         <div className="info-grid" style={{
           display: 'grid',
-          gap: 16,
-          marginBottom: 24
+          gap: spacing.sm,
+          marginBottom: spacing.md
         }}>
           {/* Combined Business & Contact Information */}
           <div style={{
-            padding: 16,
-            backgroundColor: 'white',
-            color: '#333',
-            border: '1px solid #e5e7eb',
-            borderRadius: 8
+            padding: spacing.sm,
+            backgroundColor: colors.surfaceElevated,
+            color: colors.textPrimary,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            boxShadow: shadows.sm
           }}>
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
-              marginBottom: 16,
-              gap: 8
+              marginBottom: spacing.sm,
+              gap: spacing['2xs']
             }}>
               <h2 style={{
-                color: branding.colors.primary,
+                color: colors.primary,
                 margin: 0,
-                fontSize: 16,
-                fontWeight: 600
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 Business & Contact Info
               </h2>
               <EditProfileButton vertical={vertical} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.xs }}>
               <div>
-                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Business Name</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
+                <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Business Name</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: typography.sizes.sm }}>
                   {(profileData.business_name as string) || (profileData.farm_name as string) || 'Not provided'}
                 </p>
               </div>
               <div>
-                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Legal Name</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
+                <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Legal Name</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: typography.sizes.sm }}>
                   {(profileData.legal_name as string) || 'Not provided'}
                 </p>
               </div>
               <div>
-                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Phone</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
+                <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Phone</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: typography.sizes.sm }}>
                   {(profileData.phone as string) || 'Not provided'}
                 </p>
               </div>
               <div>
-                <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Email</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: 14 }}>
+                <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Email</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: typography.sizes.sm }}>
                   {(profileData.email as string) || userProfile?.email || 'Not provided'}
                 </p>
               </div>
@@ -249,32 +251,33 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
           {/* Active Pickup Locations Card */}
           <div style={{
-            padding: 16,
-            backgroundColor: 'white',
-            color: '#333',
-            border: '1px solid #e5e7eb',
-            borderRadius: 8
+            padding: spacing.sm,
+            backgroundColor: colors.surfaceElevated,
+            color: colors.textPrimary,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            boxShadow: shadows.sm
           }}>
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
-              marginBottom: 16,
-              gap: 8
+              marginBottom: spacing.sm,
+              gap: spacing['2xs']
             }}>
               <h2 style={{
-                color: branding.colors.primary,
+                color: colors.primary,
                 margin: 0,
-                fontSize: 16,
-                fontWeight: 600
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 Active Pickup Locations
               </h2>
               <Link
                 href={`/${vertical}/vendor/markets`}
                 style={{
-                  fontSize: 12,
-                  color: branding.colors.primary,
+                  fontSize: typography.sizes.xs,
+                  color: colors.primary,
                   textDecoration: 'none'
                 }}
               >
@@ -283,19 +286,19 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
 
             {vendorProfile.status !== 'approved' ? (
-              <p style={{ margin: 0, fontSize: 13, color: '#9ca3af' }}>
+              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                 Available after approval
               </p>
             ) : activeMarkets.length === 0 ? (
               <div>
-                <p style={{ margin: '0 0 12px 0', fontSize: 13, color: '#666' }}>
+                <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                   No active listings with pickup locations yet.
                 </p>
                 <Link
                   href={`/${vertical}/vendor/markets`}
                   style={{
-                    fontSize: 13,
-                    color: branding.colors.primary,
+                    fontSize: typography.sizes.sm,
+                    color: colors.primary,
                     textDecoration: 'underline'
                   }}
                 >
@@ -303,23 +306,23 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 </Link>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                 {/* Traditional Markets */}
                 {traditionalMarkets.length > 0 && (
                   <div>
-                    <p style={{ margin: '0 0 6px 0', fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>
+                    <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold, textTransform: 'uppercase' }}>
                       Markets ({traditionalMarkets.length})
                     </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
                       {traditionalMarkets.map(market => (
                         <div key={market.id} style={{
-                          padding: 8,
-                          backgroundColor: '#f9fafb',
-                          borderRadius: 4,
-                          fontSize: 13
+                          padding: spacing['2xs'],
+                          backgroundColor: colors.surfaceMuted,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.sm
                         }}>
-                          <div style={{ fontWeight: 500, marginBottom: 2 }}>{market.name}</div>
-                          <div style={{ color: '#6b7280', fontSize: 12 }}>
+                          <div style={{ fontWeight: typography.weights.medium, marginBottom: 2 }}>{market.name}</div>
+                          <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                             {market.day_of_week !== null && `${DAYS[market.day_of_week]} `}
                             {market.start_time && market.end_time && `${market.start_time}-${market.end_time}`}
                           </div>
@@ -332,19 +335,19 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 {/* Private Pickups */}
                 {privatePickups.length > 0 && (
                   <div>
-                    <p style={{ margin: '0 0 6px 0', fontSize: 11, color: '#6b7280', fontWeight: 600, textTransform: 'uppercase' }}>
+                    <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold, textTransform: 'uppercase' }}>
                       Private Pickup ({privatePickups.length})
                     </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
                       {privatePickups.map(pickup => (
                         <div key={pickup.id} style={{
-                          padding: 8,
-                          backgroundColor: '#f9fafb',
-                          borderRadius: 4,
-                          fontSize: 13
+                          padding: spacing['2xs'],
+                          backgroundColor: colors.surfaceMuted,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.sm
                         }}>
-                          <div style={{ fontWeight: 500, marginBottom: 2 }}>{pickup.name}</div>
-                          <div style={{ color: '#6b7280', fontSize: 12 }}>
+                          <div style={{ fontWeight: typography.weights.medium, marginBottom: 2 }}>{pickup.name}</div>
+                          <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                             {pickup.city}, {pickup.state}
                           </div>
                         </div>
@@ -362,25 +365,26 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             style={{ textDecoration: 'none' }}
           >
             <div style={{
-              padding: 16,
-              backgroundColor: '#dcfce7',
-              color: '#333',
-              border: '1px solid #86efac',
-              borderRadius: 8,
+              padding: spacing.sm,
+              backgroundColor: colors.primaryLight,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.primary}`,
+              borderRadius: radius.md,
               cursor: 'pointer',
               height: '100%',
-              minHeight: 140
+              minHeight: 140,
+              boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>📲</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📲</div>
               <h3 style={{
-                color: '#166534',
-                margin: '0 0 8px 0',
-                fontSize: 16,
-                fontWeight: 600
+                color: colors.primaryDark,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 Pickup Mode
               </h3>
-              <p style={{ color: '#166534', margin: 0, fontSize: 14 }}>
+              <p style={{ color: colors.primaryDark, margin: 0, fontSize: typography.sizes.sm }}>
                 Mobile-friendly view for market day fulfillment
               </p>
             </div>
@@ -390,8 +394,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         {/* MIDDLE ROW - Action Cards: Your Listings, Market Boxes, Orders */}
         <div className="action-grid" style={{
           display: 'grid',
-          gap: 16,
-          marginBottom: 24
+          gap: spacing.sm,
+          marginBottom: spacing.md
         }}>
           {/* Your Listings */}
           <Link
@@ -399,25 +403,26 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             style={{ textDecoration: 'none' }}
           >
             <div style={{
-              padding: 16,
-              backgroundColor: 'white',
-              color: '#333',
-              border: '1px solid #e5e7eb',
-              borderRadius: 8,
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
               cursor: 'pointer',
               height: '100%',
-              minHeight: 120
+              minHeight: 120,
+              boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>📦</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
               <h3 style={{
-                color: branding.colors.primary,
-                margin: '0 0 8px 0',
-                fontSize: 16,
-                fontWeight: 600
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 Your Listings
               </h3>
-              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
                 Create and manage your product listings
               </p>
             </div>
@@ -429,25 +434,26 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             style={{ textDecoration: 'none' }}
           >
             <div style={{
-              padding: 16,
-              backgroundColor: vendorProfile.tier === 'premium' ? '#fef3c7' : 'white',
-              color: '#333',
-              border: `1px solid ${vendorProfile.tier === 'premium' ? '#fcd34d' : '#e5e7eb'}`,
-              borderRadius: 8,
+              padding: spacing.sm,
+              backgroundColor: vendorProfile.tier === 'premium' ? colors.surfaceSubtle : colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${vendorProfile.tier === 'premium' ? colors.accent : colors.border}`,
+              borderRadius: radius.md,
               cursor: 'pointer',
               height: '100%',
-              minHeight: 120
+              minHeight: 120,
+              boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>📦</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
               <h3 style={{
-                color: branding.colors.primary,
-                margin: '0 0 8px 0',
-                fontSize: 16,
-                fontWeight: 600
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 Market Boxes
               </h3>
-              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
                 Offer 4-week subscription bundles to premium buyers
               </p>
             </div>
@@ -459,25 +465,26 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             style={{ textDecoration: 'none' }}
           >
             <div style={{
-              padding: 16,
-              backgroundColor: 'white',
-              color: '#333',
-              border: '1px solid #e5e7eb',
-              borderRadius: 8,
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
               cursor: 'pointer',
               height: '100%',
-              minHeight: 120
+              minHeight: 120,
+              boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>🧾</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🧾</div>
               <h3 style={{
-                color: branding.colors.primary,
-                margin: '0 0 8px 0',
-                fontSize: 16,
-                fontWeight: 600
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 Orders
               </h3>
-              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
                 Manage incoming orders from customers
               </p>
             </div>
@@ -487,46 +494,47 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         {/* BOTTOM ROW - Your Plan + Payment Settings */}
         <div className="bottom-grid" style={{
           display: 'grid',
-          gap: 16,
-          marginBottom: 24
+          gap: spacing.sm,
+          marginBottom: spacing.md
         }}>
           {/* Your Plan / Tier Card - includes status */}
           <div style={{
-            padding: 16,
-            backgroundColor: vendorProfile.tier === 'premium' ? '#fef3c7' : vendorProfile.tier === 'featured' ? '#dbeafe' : 'white',
-            color: '#333',
-            border: `1px solid ${vendorProfile.tier === 'premium' ? '#fcd34d' : vendorProfile.tier === 'featured' ? '#93c5fd' : '#e5e7eb'}`,
-            borderRadius: 8
+            padding: spacing.sm,
+            backgroundColor: vendorProfile.tier === 'premium' ? colors.surfaceSubtle : vendorProfile.tier === 'featured' ? colors.primaryLight : colors.surfaceElevated,
+            color: colors.textPrimary,
+            border: `1px solid ${vendorProfile.tier === 'premium' ? colors.accent : vendorProfile.tier === 'featured' ? colors.primary : colors.border}`,
+            borderRadius: radius.md,
+            boxShadow: shadows.sm
           }}>
             <h2 style={{
-              color: branding.colors.primary,
-              margin: '0 0 16px 0',
-              fontSize: 16,
-              fontWeight: 600
+              color: colors.primary,
+              margin: `0 0 ${spacing.sm} 0`,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold
             }}>
               Your Plan
             </h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Current Tier</p>
+                  <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Current Tier</p>
                   <p style={{
                     margin: '2px 0 0 0',
-                    fontSize: 16,
-                    fontWeight: 600,
-                    color: vendorProfile.tier === 'premium' ? '#92400e' : vendorProfile.tier === 'featured' ? '#1e40af' : '#374151'
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold,
+                    color: vendorProfile.tier === 'premium' ? colors.accent : vendorProfile.tier === 'featured' ? colors.primary : colors.textPrimary
                   }}>
                     {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'}
                   </p>
                 </div>
                 <div style={{
-                  padding: '4px 12px',
-                  backgroundColor: vendorProfile.status === 'approved' ? '#dcfce7' : '#fef3c7',
-                  color: vendorProfile.status === 'approved' ? '#166534' : '#92400e',
-                  borderRadius: 16,
-                  fontSize: 12,
-                  fontWeight: 600
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: vendorProfile.status === 'approved' ? colors.primaryLight : colors.surfaceSubtle,
+                  color: vendorProfile.status === 'approved' ? colors.primaryDark : colors.accent,
+                  borderRadius: radius.full,
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold
                 }}>
                   {vendorProfile.status.charAt(0).toUpperCase() + vendorProfile.status.slice(1)}
                 </div>
@@ -534,20 +542,20 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
               {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
                 <div>
-                  <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#666' }}>
+                  <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                     Upgrade to Premium for priority placement and more visibility!
                   </p>
                   <Link
                     href={`/${vertical}/vendor/dashboard/upgrade`}
                     style={{
                       display: 'inline-block',
-                      padding: '8px 16px',
-                      backgroundColor: branding.colors.primary,
-                      color: 'white',
+                      padding: `${spacing['2xs']} ${spacing.sm}`,
+                      backgroundColor: colors.primary,
+                      color: colors.textInverse,
                       textDecoration: 'none',
-                      borderRadius: 6,
-                      fontWeight: 600,
-                      fontSize: 13
+                      borderRadius: radius.sm,
+                      fontWeight: typography.weights.semibold,
+                      fontSize: typography.sizes.sm
                     }}
                   >
                     Upgrade to Premium
@@ -556,13 +564,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               )}
 
               {vendorProfile.tier === 'premium' && (
-                <p style={{ margin: 0, fontSize: 13, color: '#92400e' }}>
+                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.accent }}>
                   You have priority placement in search results and featured sections.
                 </p>
               )}
 
               {vendorProfile.tier === 'featured' && (
-                <p style={{ margin: 0, fontSize: 13, color: '#1e40af' }}>
+                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.primary }}>
                   Your listings are featured prominently across the marketplace.
                 </p>
               )}
@@ -575,25 +583,26 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             style={{ textDecoration: 'none' }}
           >
             <div style={{
-              padding: 16,
-              backgroundColor: 'white',
-              color: '#333',
-              border: '1px solid #e5e7eb',
-              borderRadius: 8,
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
               cursor: 'pointer',
               height: '100%',
-              minHeight: 120
+              minHeight: 120,
+              boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>💳</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>💳</div>
               <h3 style={{
-                color: branding.colors.primary,
-                margin: '0 0 8px 0',
-                fontSize: 16,
-                fontWeight: 600
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
               }}>
                 Payment Settings
               </h3>
-              <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
                 Connect your bank account to receive payments
               </p>
             </div>
@@ -602,21 +611,21 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
         {/* Coming Soon */}
         <div style={{
-          padding: 16,
-          backgroundColor: '#f9fafb',
-          color: '#333',
-          border: '1px solid #e5e7eb',
-          borderRadius: 8
+          padding: spacing.sm,
+          backgroundColor: colors.surfaceMuted,
+          color: colors.textPrimary,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.md
         }}>
           <h3 style={{
-            margin: '0 0 12px 0',
-            color: '#6b7280',
-            fontSize: 16,
-            fontWeight: 600
+            margin: `0 0 ${spacing.xs} 0`,
+            color: colors.textMuted,
+            fontSize: typography.sizes.base,
+            fontWeight: typography.weights.semibold
           }}>
             Coming Soon
           </h3>
-          <ul style={{ margin: 0, paddingLeft: 20, color: '#9ca3af', fontSize: 14 }}>
+          <ul style={{ margin: 0, paddingLeft: 20, color: colors.textMuted, fontSize: typography.sizes.sm }}>
             <li>Analytics and insights</li>
             <li>Customer messages</li>
           </ul>

@@ -7,6 +7,7 @@ import OrderStatusSummary from '@/components/buyer/OrderStatusSummary'
 import OrderTimeline from '@/components/buyer/OrderTimeline'
 import PickupDetails from '@/components/buyer/PickupDetails'
 import { formatPrice } from '@/lib/constants'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface Market {
   id: string
@@ -158,9 +159,9 @@ export default function BuyerOrderDetailPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8f9fa'
+        backgroundColor: colors.surfaceBase
       }}>
-        <p>Loading order details...</p>
+        <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>Loading order details...</p>
       </div>
     )
   }
@@ -173,19 +174,20 @@ export default function BuyerOrderDetailPage() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8f9fa',
-        gap: 16
+        backgroundColor: colors.surfaceBase,
+        gap: spacing.sm
       }}>
-        <p style={{ color: '#991b1b' }}>{error || 'Order not found'}</p>
+        <p style={{ color: '#991b1b', fontSize: typography.sizes.base }}>{error || 'Order not found'}</p>
         <Link
           href={`/${vertical}/buyer/orders`}
           style={{
-            padding: '10px 20px',
-            backgroundColor: '#3b82f6',
-            color: 'white',
+            padding: `${spacing.xs} ${spacing.md}`,
+            backgroundColor: colors.primary,
+            color: colors.textInverse,
             textDecoration: 'none',
-            borderRadius: 6,
-            fontWeight: 600
+            borderRadius: radius.sm,
+            fontWeight: typography.weights.semibold,
+            fontSize: typography.sizes.base
           }}
         >
           Back to Orders
@@ -211,43 +213,43 @@ export default function BuyerOrderDetailPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f8f9fa',
-      padding: '40px 20px'
+      backgroundColor: colors.surfaceBase,
+      padding: `${spacing.xl} ${spacing.md}`
     }}>
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
         {/* Back Link */}
         <Link
           href={`/${vertical}/buyer/orders`}
-          style={{ color: '#666', textDecoration: 'none', fontSize: 14 }}
+          style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
         >
           ← Back to Orders
         </Link>
 
         {/* Header with Prominent Order Number */}
-        <div style={{ marginTop: 16, marginBottom: 24 }}>
+        <div style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
           {/* Large Order Number Box */}
           <div style={{
-            backgroundColor: '#111827',
-            color: 'white',
-            padding: '16px 24px',
-            borderRadius: 8,
-            marginBottom: 16,
+            backgroundColor: colors.textPrimary,
+            color: colors.textInverse,
+            padding: `${spacing.sm} ${spacing.md}`,
+            borderRadius: radius.md,
+            marginBottom: spacing.sm,
             display: 'inline-block'
           }}>
-            <p style={{ margin: 0, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7 }}>
+            <p style={{ margin: 0, fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7 }}>
               Order Number
             </p>
             <p style={{
-              margin: '4px 0 0 0',
-              fontSize: 32,
-              fontWeight: 'bold',
+              margin: `${spacing['3xs']} 0 0 0`,
+              fontSize: typography.sizes['3xl'],
+              fontWeight: typography.weights.bold,
               fontFamily: 'monospace',
               letterSpacing: 2
             }}>
               {order.order_number || order.id.slice(0, 8).toUpperCase()}
             </p>
           </div>
-          <p style={{ color: '#6b7280', margin: 0 }}>
+          <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
             Placed on {new Date(order.created_at).toLocaleDateString('en-US', {
               weekday: 'long',
               month: 'long',
@@ -269,7 +271,7 @@ export default function BuyerOrderDetailPage() {
 
         {/* Items by Market */}
         {Object.values(marketGroups).map((group) => (
-          <div key={group.market.id} style={{ marginBottom: 24 }}>
+          <div key={group.market.id} style={{ marginBottom: spacing.md }}>
             {/* Pickup Details */}
             <PickupDetails
               market={group.market}
@@ -278,28 +280,28 @@ export default function BuyerOrderDetailPage() {
 
             {/* Items for this Market */}
             <div style={{
-              padding: 20,
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: 8
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md
             }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, marginTop: 0, color: '#374151' }}>
+              <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>
                 Items from {group.market.name}
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                 {group.items.map(item => (
                   <div key={item.id} style={{
                     display: 'flex',
-                    gap: 16,
-                    paddingBottom: 16,
-                    borderBottom: '1px solid #f3f4f6'
+                    gap: spacing.sm,
+                    paddingBottom: spacing.sm,
+                    borderBottom: `1px solid ${colors.borderMuted}`
                   }}>
                     {/* Image */}
                     <div style={{
                       width: 80,
                       height: 80,
-                      backgroundColor: '#f3f4f6',
-                      borderRadius: 6,
+                      backgroundColor: colors.surfaceMuted,
+                      borderRadius: radius.sm,
                       flexShrink: 0,
                       overflow: 'hidden'
                     }}>
@@ -316,7 +318,7 @@ export default function BuyerOrderDetailPage() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: 32
+                          fontSize: typography.sizes['2xl']
                         }}>
                           📦
                         </div>
@@ -325,13 +327,13 @@ export default function BuyerOrderDetailPage() {
 
                     {/* Details */}
                     <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600, color: '#111827' }}>
+                      <h4 style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                         {item.listing_title}
                       </h4>
-                      <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#6b7280' }}>
+                      <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                         by {item.vendor_name}
                       </p>
-                      <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#374151' }}>
+                      <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                         Quantity: {item.quantity} × {formatPrice(item.unit_price_cents)} = <strong>{formatPrice(item.subtotal_cents)}</strong>
                       </p>
 
@@ -339,27 +341,27 @@ export default function BuyerOrderDetailPage() {
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 12,
+                        gap: spacing.xs,
                         flexWrap: 'wrap'
                       }}>
                         {/* Status Badge */}
                         <span style={{
-                          padding: '4px 10px',
-                          borderRadius: 4,
-                          fontSize: 12,
-                          fontWeight: 600,
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
                           backgroundColor:
                             item.status === 'cancelled' ? '#fee2e2' :
-                            item.status === 'fulfilled' ? '#d1fae5' :
-                            item.status === 'ready' ? '#dbeafe' :
-                            item.status === 'confirmed' ? '#fef3c7' :
-                            '#f3f4f6',
+                            item.status === 'fulfilled' ? colors.primaryLight :
+                            item.status === 'ready' ? colors.surfaceSubtle :
+                            item.status === 'confirmed' ? colors.surfaceSubtle :
+                            colors.surfaceMuted,
                           color:
                             item.status === 'cancelled' ? '#991b1b' :
-                            item.status === 'fulfilled' ? '#065f46' :
-                            item.status === 'ready' ? '#1e40af' :
-                            item.status === 'confirmed' ? '#92400e' :
-                            '#374151'
+                            item.status === 'fulfilled' ? colors.primaryDark :
+                            item.status === 'ready' ? colors.accent :
+                            item.status === 'confirmed' ? colors.accent :
+                            colors.textSecondary
                         }}>
                           {item.status === 'cancelled' ? 'Cancelled' :
                            item.status === 'fulfilled' ? 'Picked Up' :
@@ -371,23 +373,23 @@ export default function BuyerOrderDetailPage() {
                         {/* Cancellation Info */}
                         {item.cancelled_at && (
                           <div style={{
-                            padding: '8px 12px',
+                            padding: `${spacing['2xs']} ${spacing.xs}`,
                             backgroundColor: '#fef2f2',
-                            borderRadius: 6,
-                            fontSize: 12,
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
                             color: '#991b1b',
                             width: '100%'
                           }}>
-                            <p style={{ margin: 0, fontWeight: 600 }}>
+                            <p style={{ margin: 0, fontWeight: typography.weights.semibold }}>
                               {item.cancelled_by === 'vendor' ? 'Cancelled by vendor' : 'You cancelled this item'}
                             </p>
                             {item.cancellation_reason && (
-                              <p style={{ margin: '4px 0 0 0' }}>
+                              <p style={{ margin: `${spacing['3xs']} 0 0 0` }}>
                                 Reason: {item.cancellation_reason}
                               </p>
                             )}
                             {item.refund_amount_cents && (
-                              <p style={{ margin: '4px 0 0 0', fontWeight: 500 }}>
+                              <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontWeight: typography.weights.medium }}>
                                 Refund: {formatPrice(item.refund_amount_cents)}
                               </p>
                             )}
@@ -397,15 +399,15 @@ export default function BuyerOrderDetailPage() {
                         {/* Buyer Confirmed Badge */}
                         {item.buyer_confirmed_at && !item.cancelled_at && (
                           <span style={{
-                            padding: '4px 10px',
-                            borderRadius: 4,
-                            fontSize: 12,
-                            fontWeight: 600,
-                            backgroundColor: '#d1fae5',
-                            color: '#065f46',
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                            backgroundColor: colors.primaryLight,
+                            color: colors.primaryDark,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 4
+                            gap: spacing['3xs']
                           }}>
                             <span>✓</span> You confirmed receipt
                           </span>
@@ -417,17 +419,17 @@ export default function BuyerOrderDetailPage() {
                             onClick={() => handleConfirmPickup(item.id)}
                             disabled={confirmingItemId === item.id}
                             style={{
-                              padding: '8px 16px',
-                              backgroundColor: confirmingItemId === item.id ? '#9ca3af' : '#059669',
-                              color: 'white',
+                              padding: `${spacing['2xs']} ${spacing.sm}`,
+                              backgroundColor: confirmingItemId === item.id ? colors.textMuted : colors.primary,
+                              color: colors.textInverse,
                               border: 'none',
-                              borderRadius: 6,
-                              fontSize: 13,
-                              fontWeight: 600,
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.sm,
+                              fontWeight: typography.weights.semibold,
                               cursor: confirmingItemId === item.id ? 'not-allowed' : 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 6
+                              gap: spacing['3xs']
                             }}
                           >
                             {confirmingItemId === item.id ? (
@@ -446,17 +448,17 @@ export default function BuyerOrderDetailPage() {
                             onClick={() => handleCancelItem(item.id)}
                             disabled={cancellingItemId === item.id}
                             style={{
-                              padding: '8px 16px',
-                              backgroundColor: cancellingItemId === item.id ? '#9ca3af' : '#dc2626',
-                              color: 'white',
+                              padding: `${spacing['2xs']} ${spacing.sm}`,
+                              backgroundColor: cancellingItemId === item.id ? colors.textMuted : '#dc2626',
+                              color: colors.textInverse,
                               border: 'none',
-                              borderRadius: 6,
-                              fontSize: 13,
-                              fontWeight: 600,
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.sm,
+                              fontWeight: typography.weights.semibold,
                               cursor: cancellingItemId === item.id ? 'not-allowed' : 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 6
+                              gap: spacing['3xs']
                             }}
                           >
                             {cancellingItemId === item.id ? 'Cancelling...' : 'Cancel Item'}
@@ -473,18 +475,18 @@ export default function BuyerOrderDetailPage() {
 
         {/* Order Total */}
         <div style={{
-          padding: 20,
-          backgroundColor: 'white',
-          border: '1px solid #e5e7eb',
-          borderRadius: 8,
+          padding: spacing.md,
+          backgroundColor: colors.surfaceElevated,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.md,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <span style={{ fontSize: 18, fontWeight: 600, color: '#374151' }}>
+          <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
             Order Total
           </span>
-          <span style={{ fontSize: 24, fontWeight: 700, color: '#111827' }}>
+          <span style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
             {formatPrice(order.total_cents)}
           </span>
         </div>

@@ -1,50 +1,67 @@
 import Link from 'next/link'
+import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
 
   return (
     <footer
+      className="flex justify-center"
       style={{
         marginTop: 'auto',
-        padding: '48px 20px 24px',
-        backgroundColor: '#f9fafb',
-        borderTop: '1px solid #e5e7eb'
+        padding: `${spacing['2xl']} ${spacing.sm} ${spacing.md}`,
+        backgroundColor: colors.surfaceMuted,
+        borderTop: `1px solid ${colors.border}`
       }}
     >
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ maxWidth: containers.xl, width: '100%' }}>
         {/* Footer Content */}
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 40,
-            marginBottom: 32
+            gap: spacing.xl,
+            marginBottom: spacing.lg
           }}
         >
           {/* Company Info */}
           <div>
-            <h4 style={{ marginBottom: 16, fontSize: 18, fontWeight: 600, color: '#111827' }}>
+            <h4 style={{
+              marginBottom: spacing.sm,
+              fontSize: typography.sizes.lg,
+              fontWeight: typography.weights.semibold,
+              color: colors.textPrimary
+            }}>
               815 Enterprises
             </h4>
-            <p style={{ color: '#6b7280', fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+            <p style={{
+              color: colors.textSecondary,
+              fontSize: typography.sizes.sm,
+              lineHeight: typography.leading.relaxed,
+              margin: 0
+            }}>
               Connecting local vendors with their communities through innovative marketplace solutions.
             </p>
           </div>
 
           {/* Links */}
           <div>
-            <h4 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600, color: '#111827' }}>
+            <h4 style={{
+              marginBottom: spacing.sm,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              color: colors.textPrimary
+            }}>
               Company
             </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              <li style={{ marginBottom: 12 }}>
+              <li style={{ marginBottom: spacing.xs }}>
                 <Link
                   href="/about"
                   style={{
-                    color: '#6b7280',
+                    color: colors.textSecondary,
                     textDecoration: 'none',
-                    fontSize: 14
+                    fontSize: typography.sizes.sm
                   }}
                 >
                   About Us
@@ -55,29 +72,34 @@ export default function Footer() {
 
           {/* Legal */}
           <div>
-            <h4 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600, color: '#111827' }}>
+            <h4 style={{
+              marginBottom: spacing.sm,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              color: colors.textPrimary
+            }}>
               Legal
             </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              <li style={{ marginBottom: 12 }}>
+              <li style={{ marginBottom: spacing.xs }}>
                 <Link
                   href="/terms"
                   style={{
-                    color: '#6b7280',
+                    color: colors.textSecondary,
                     textDecoration: 'none',
-                    fontSize: 14
+                    fontSize: typography.sizes.sm
                   }}
                 >
                   Terms of Service
                 </Link>
               </li>
-              <li style={{ marginBottom: 12 }}>
+              <li style={{ marginBottom: spacing.xs }}>
                 <Link
                   href="/privacy"
                   style={{
-                    color: '#6b7280',
+                    color: colors.textSecondary,
                     textDecoration: 'none',
-                    fontSize: 14
+                    fontSize: typography.sizes.sm
                   }}
                 >
                   Privacy Policy
@@ -90,12 +112,12 @@ export default function Footer() {
         {/* Copyright */}
         <div
           style={{
-            paddingTop: 24,
-            borderTop: '1px solid #e5e7eb',
+            paddingTop: spacing.md,
+            borderTop: `1px solid ${colors.border}`,
             textAlign: 'center'
           }}
         >
-          <p style={{ color: '#9ca3af', fontSize: 14, margin: 0 }}>
+          <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: 0 }}>
             © {currentYear} 815 Enterprises. All rights reserved.
           </p>
         </div>

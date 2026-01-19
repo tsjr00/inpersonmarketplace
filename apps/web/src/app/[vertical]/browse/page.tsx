@@ -5,6 +5,7 @@ import SearchFilter from './SearchFilter'
 import BrowseToggle from './BrowseToggle'
 import { formatDisplayPrice, CATEGORIES } from '@/lib/constants'
 import TierBadge from '@/components/shared/TierBadge'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
@@ -173,25 +174,25 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     return (
       <div
         style={{
-          backgroundColor: branding.colors.background,
-          color: branding.colors.text,
+          backgroundColor: colors.surfaceBase,
+          color: colors.textPrimary,
           minHeight: '100vh'
         }}
         className="browse-page"
       >
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 16px' }}>
+        <div style={{ maxWidth: containers.xl, margin: '0 auto', padding: `${spacing.md} ${spacing.sm}` }}>
           {/* Header */}
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: spacing.md }}>
             <h1 style={{
-              color: branding.colors.primary,
-              marginBottom: 8,
+              color: colors.textPrimary,
+              marginBottom: spacing['2xs'],
               marginTop: 0,
-              fontSize: 28,
-              fontWeight: 'bold'
+              fontSize: typography.sizes['2xl'],
+              fontWeight: typography.weights.bold
             }}>
               Browse
             </h1>
-            <p style={{ color: branding.colors.secondary, fontSize: 16, margin: 0 }}>
+            <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
               Discover products and subscriptions from verified vendors
             </p>
           </div>
@@ -201,29 +202,29 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
           {/* Market Boxes Info */}
           <div style={{
-            padding: 16,
-            marginBottom: 24,
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: 8
+            padding: spacing.sm,
+            marginBottom: spacing.md,
+            backgroundColor: colors.primaryLight,
+            border: `1px solid ${colors.primary}`,
+            borderRadius: radius.md
           }}>
-            <h4 style={{ margin: '0 0 8px 0', color: '#1e40af', fontSize: 14 }}>What are Market Boxes?</h4>
-            <p style={{ margin: 0, fontSize: 13, color: '#1e40af' }}>
+            <h4 style={{ margin: `0 0 ${spacing['2xs']} 0`, color: colors.primaryDark, fontSize: typography.sizes.sm }}>What are Market Boxes?</h4>
+            <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.primaryDark }}>
               Market Boxes are 4-week subscription bundles. Pay once, pick up weekly at the same location.
               Premium membership required to purchase.
             </p>
           </div>
 
           {/* Results Count */}
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ color: branding.colors.secondary, margin: 0 }}>
+          <div style={{ marginBottom: spacing.sm }}>
+            <p style={{ color: colors.textSecondary, margin: 0 }}>
               {offeringsWithSubs.length} market box{offeringsWithSubs.length !== 1 ? 'es' : ''} available
             </p>
           </div>
 
           {/* Market Boxes Grid */}
           {offeringsWithSubs.length > 0 ? (
-            <div className="listings-grid" style={{ display: 'grid', gap: 16 }}>
+            <div className="listings-grid" style={{ display: 'grid', gap: spacing.sm }}>
               {offeringsWithSubs.map((offering) => (
                 <MarketBoxCard
                   key={offering.id}
@@ -235,14 +236,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             </div>
           ) : (
             <div style={{
-              padding: 60,
-              backgroundColor: 'white',
-              color: '#333',
-              borderRadius: 8,
+              padding: spacing['3xl'],
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              borderRadius: radius.md,
               textAlign: 'center'
             }}>
-              <h3 style={{ marginBottom: 15, marginTop: 0, color: '#666' }}>No Market Boxes Available</h3>
-              <p style={{ color: '#999', marginBottom: 20 }}>
+              <h3 style={{ marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>No Market Boxes Available</h3>
+              <p style={{ color: colors.textMuted, marginBottom: spacing.sm }}>
                 Check back later for 4-week subscription offerings from local vendors.
               </p>
             </div>
@@ -252,21 +253,21 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         {/* Responsive Grid Styles */}
         <style>{`
           .browse-page .listings-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
           }
           @media (min-width: 640px) {
             .browse-page .listings-grid {
-              grid-template-columns: repeat(2, 1fr);
+              grid-template-columns: repeat(2, minmax(0, 1fr));
             }
           }
           @media (min-width: 1024px) {
             .browse-page .listings-grid {
-              grid-template-columns: repeat(3, 1fr);
+              grid-template-columns: repeat(3, minmax(0, 1fr));
             }
           }
           @media (min-width: 1280px) {
             .browse-page .listings-grid {
-              grid-template-columns: repeat(4, 1fr);
+              grid-template-columns: repeat(4, minmax(0, 1fr));
             }
           }
         `}</style>
@@ -354,30 +355,30 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   return (
     <div
       style={{
-        backgroundColor: branding.colors.background,
-        color: branding.colors.text,
+        backgroundColor: colors.surfaceBase,
+        color: colors.textPrimary,
         minHeight: '100vh'
       }}
       className="browse-page"
     >
       {/* Page Content */}
       <div style={{
-        maxWidth: 1200,
+        maxWidth: containers.xl,
         margin: '0 auto',
-        padding: '24px 16px'
+        padding: `${spacing.md} ${spacing.sm}`
       }}>
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: spacing.md }}>
           <h1 style={{
-            color: branding.colors.primary,
-            marginBottom: 8,
+            color: colors.textPrimary,
+            marginBottom: spacing['2xs'],
             marginTop: 0,
-            fontSize: 28,
-            fontWeight: 'bold'
+            fontSize: typography.sizes['2xl'],
+            fontWeight: typography.weights.bold
           }}>
             Browse
           </h1>
-          <p style={{ color: branding.colors.secondary, fontSize: 16, margin: 0 }}>
+          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
             Discover products and subscriptions from verified vendors
           </p>
         </div>
@@ -395,8 +396,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         />
 
         {/* Results Count */}
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ color: branding.colors.secondary, margin: 0 }}>
+        <div style={{ marginBottom: spacing.sm }}>
+          <p style={{ color: colors.textSecondary, margin: 0 }}>
             {listings?.length || 0} listing{listings?.length !== 1 ? 's' : ''} found
             {category && ` in ${category}`}
             {search && ` matching "${search}"`}
@@ -408,46 +409,44 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           <>
             {/* When NOT searching/filtering: Show grouped by category with headers */}
             {!isFiltered && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xl }}>
                 {sortedCategories.map(cat => (
                   <div key={cat}>
                     {/* Category Header */}
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 16,
-                      marginBottom: 20
+                      gap: spacing.sm,
+                      marginBottom: spacing.sm
                     }}>
                       <div style={{
                         height: 1,
-                        backgroundColor: branding.colors.secondary,
-                        flex: 1,
-                        opacity: 0.3
+                        backgroundColor: colors.border,
+                        flex: 1
                       }} />
                       <h2 style={{
                         margin: 0,
-                        padding: '8px 20px',
-                        backgroundColor: branding.colors.secondary + '15',
-                        color: branding.colors.primary,
-                        borderRadius: 20,
-                        fontSize: 16,
-                        fontWeight: 600,
+                        padding: `${spacing['2xs']} ${spacing.sm}`,
+                        backgroundColor: colors.surfaceSubtle,
+                        color: colors.textPrimary,
+                        borderRadius: radius.full,
+                        fontSize: typography.sizes.base,
+                        fontWeight: typography.weights.semibold,
                         whiteSpace: 'nowrap'
                       }}>
                         {cat}
                       </h2>
                       <div style={{
                         height: 1,
-                        backgroundColor: branding.colors.secondary,
-                        flex: 1,
-                        opacity: 0.3
+                        backgroundColor: colors.border,
+                        flex: 1
                       }} />
                     </div>
 
                     {/* Listings Grid for this category */}
                     <div className="listings-grid" style={{
                       display: 'grid',
-                      gap: 16
+                      gap: spacing.sm
                     }}>
                       {groupedListings[cat].map((listing) => (
                         <ListingCard
@@ -467,7 +466,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             {isFiltered && (
               <div className="listings-grid" style={{
                 display: 'grid',
-                gap: 16
+                gap: spacing.sm
               }}>
                 {listings.map((listing) => (
                   <ListingCard
@@ -482,14 +481,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           </>
         ) : (
           <div style={{
-            padding: 60,
-            backgroundColor: 'white',
-            color: '#333',
-            borderRadius: 8,
+            padding: spacing['3xl'],
+            backgroundColor: colors.surfaceElevated,
+            color: colors.textPrimary,
+            borderRadius: radius.md,
             textAlign: 'center'
           }}>
-            <h3 style={{ marginBottom: 15, marginTop: 0, color: '#666' }}>No Listings Found</h3>
-            <p style={{ color: '#999', marginBottom: 20 }}>
+            <h3 style={{ marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>No Listings Found</h3>
+            <p style={{ color: colors.textMuted, marginBottom: spacing.sm }}>
               {search || category
                 ? 'Try adjusting your search or filters'
                 : `Be the first to list on ${branding.brand_name}!`
@@ -500,12 +499,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                 href={`/${vertical}/browse`}
                 style={{
                   display: 'inline-block',
-                  padding: '12px 24px',
-                  backgroundColor: branding.colors.primary,
-                  color: 'white',
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: colors.primary,
+                  color: colors.textInverse,
                   textDecoration: 'none',
-                  borderRadius: 6,
-                  fontWeight: 600,
+                  borderRadius: radius.sm,
+                  fontWeight: typography.weights.semibold,
                   minHeight: 44
                 }}
               >
@@ -519,21 +518,21 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       {/* Responsive Grid Styles */}
       <style>{`
         .browse-page .listings-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
         @media (min-width: 640px) {
           .browse-page .listings-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
         @media (min-width: 1024px) {
           .browse-page .listings-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
         @media (min-width: 1280px) {
           .browse-page .listings-grid {
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
       `}</style>
@@ -561,29 +560,29 @@ function ListingCard({
       href={`/${vertical}/listing/${listing.id}`}
       style={{
         display: 'block',
-        padding: 16,
-        backgroundColor: 'white',
-        color: '#333',
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
+        padding: spacing.sm,
+        backgroundColor: colors.surfaceElevated,
+        color: colors.textPrimary,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
         textDecoration: 'none',
         height: '100%'
       }}
     >
       {/* Image Placeholder with Category Badge */}
-      <div style={{ position: 'relative', marginBottom: 12 }}>
+      <div style={{ position: 'relative', marginBottom: spacing.xs }}>
         {/* Category Badge */}
         {listing.category && (
           <span style={{
             position: 'absolute',
-            top: 8,
-            left: 8,
-            padding: '4px 10px',
-            backgroundColor: '#d1fae5',
-            color: '#065f46',
-            borderRadius: 12,
-            fontSize: 11,
-            fontWeight: 600,
+            top: spacing['2xs'],
+            left: spacing['2xs'],
+            padding: `${spacing['3xs']} ${spacing.xs}`,
+            backgroundColor: colors.primaryLight,
+            color: colors.primaryDark,
+            borderRadius: radius.lg,
+            fontSize: typography.sizes.xs,
+            fontWeight: typography.weights.semibold,
             zIndex: 1
           }}>
             {listing.category}
@@ -595,18 +594,18 @@ function ListingCard({
           <span
             style={{
               position: 'absolute',
-              top: 8,
-              right: 8,
-              padding: '4px 10px',
-              backgroundColor: '#fef3c7',
-              color: '#92400e',
-              borderRadius: 12,
-              fontSize: 11,
-              fontWeight: 600,
+              top: spacing['2xs'],
+              right: spacing['2xs'],
+              padding: `${spacing['3xs']} ${spacing.xs}`,
+              backgroundColor: colors.surfaceSubtle,
+              color: colors.accent,
+              borderRadius: radius.lg,
+              fontSize: typography.sizes.xs,
+              fontWeight: typography.weights.semibold,
               zIndex: 1,
               display: 'flex',
               alignItems: 'center',
-              gap: 4
+              gap: spacing['3xs']
             }}
             title={listing.listing_data?.ingredients || 'Contains allergens'}
           >
@@ -617,12 +616,12 @@ function ListingCard({
         {/* Image placeholder */}
         <div style={{
           height: 140,
-          backgroundColor: '#f3f4f6',
-          borderRadius: 6,
+          backgroundColor: colors.surfaceMuted,
+          borderRadius: radius.sm,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#9ca3af'
+          color: colors.textMuted
         }}>
           <span style={{ fontSize: 36 }}>📦</span>
         </div>
@@ -630,26 +629,26 @@ function ListingCard({
 
       {/* Title */}
       <h3 style={{
-        marginBottom: 6,
+        marginBottom: spacing['3xs'],
         marginTop: 0,
-        color: branding.colors.primary,
-        fontSize: 16,
-        fontWeight: 600,
-        lineHeight: 1.3
+        color: colors.textPrimary,
+        fontSize: typography.sizes.base,
+        fontWeight: typography.weights.semibold,
+        lineHeight: typography.leading.snug
       }}>
         {listing.title}
       </h3>
 
       {/* Description */}
       <p style={{
-        fontSize: 13,
-        color: '#666',
-        marginBottom: 12,
+        fontSize: typography.sizes.xs,
+        color: colors.textSecondary,
+        marginBottom: spacing.xs,
         display: '-webkit-box',
         WebkitLineClamp: 2,
         WebkitBoxOrient: 'vertical',
         overflow: 'hidden',
-        lineHeight: 1.4,
+        lineHeight: typography.leading.normal,
         minHeight: 36
       }}>
         {listingDesc}
@@ -657,10 +656,10 @@ function ListingCard({
 
       {/* Price (includes platform fee) */}
       <div style={{
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: branding.colors.primary,
-        marginBottom: 6
+        fontSize: typography.sizes.lg,
+        fontWeight: typography.weights.bold,
+        color: colors.primary,
+        marginBottom: spacing['3xs']
       }}>
         {formatDisplayPrice(listing.price_cents)}
       </div>
@@ -668,9 +667,9 @@ function ListingCard({
       {/* Market/Location - above the separator */}
       {listing.listing_markets && listing.listing_markets.length > 0 && (
         <div style={{
-          fontSize: 12,
-          color: '#6b7280',
-          marginBottom: 8
+          fontSize: typography.sizes.xs,
+          color: colors.textMuted,
+          marginBottom: spacing['2xs']
         }}>
           {listing.listing_markets.length === 1
             ? (() => {
@@ -685,13 +684,13 @@ function ListingCard({
 
       {/* Vendor Name & Premium Badge */}
       <div style={{
-        fontSize: 12,
-        color: '#888',
-        borderTop: '1px solid #f3f4f6',
-        paddingTop: 8,
+        fontSize: typography.sizes.xs,
+        color: colors.textMuted,
+        borderTop: `1px solid ${colors.borderMuted}`,
+        paddingTop: spacing['2xs'],
         display: 'flex',
         alignItems: 'center',
-        gap: 6
+        gap: spacing['3xs']
       }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
         {listing.vendor_profiles.tier && listing.vendor_profiles.tier !== 'standard' && (
@@ -739,29 +738,29 @@ function MarketBoxCard({
       href={`/${vertical}/market-box/${offering.id}`}
       style={{
         display: 'block',
-        padding: 16,
-        backgroundColor: 'white',
-        color: '#333',
-        border: offering.is_at_capacity ? '1px solid #fecaca' : '1px solid #e5e7eb',
-        borderRadius: 8,
+        padding: spacing.sm,
+        backgroundColor: colors.surfaceElevated,
+        color: colors.textPrimary,
+        border: offering.is_at_capacity ? `1px solid ${colors.accent}` : `1px solid ${colors.border}`,
+        borderRadius: radius.md,
         textDecoration: 'none',
         height: '100%',
         opacity: offering.is_at_capacity ? 0.7 : 1
       }}
     >
       {/* Image Placeholder with Badges */}
-      <div style={{ position: 'relative', marginBottom: 12 }}>
+      <div style={{ position: 'relative', marginBottom: spacing.xs }}>
         {/* Subscription Badge */}
         <span style={{
           position: 'absolute',
-          top: 8,
-          left: 8,
-          padding: '4px 10px',
-          backgroundColor: '#dbeafe',
-          color: '#1e40af',
-          borderRadius: 12,
-          fontSize: 11,
-          fontWeight: 600,
+          top: spacing['2xs'],
+          left: spacing['2xs'],
+          padding: `${spacing['3xs']} ${spacing.xs}`,
+          backgroundColor: colors.primaryLight,
+          color: colors.primaryDark,
+          borderRadius: radius.lg,
+          fontSize: typography.sizes.xs,
+          fontWeight: typography.weights.semibold,
           zIndex: 1
         }}>
           4-Week Box
@@ -771,14 +770,14 @@ function MarketBoxCard({
         {offering.is_at_capacity && (
           <span style={{
             position: 'absolute',
-            top: 8,
-            right: 8,
-            padding: '4px 10px',
-            backgroundColor: '#fee2e2',
-            color: '#991b1b',
-            borderRadius: 12,
-            fontSize: 11,
-            fontWeight: 600,
+            top: spacing['2xs'],
+            right: spacing['2xs'],
+            padding: `${spacing['3xs']} ${spacing.xs}`,
+            backgroundColor: colors.surfaceSubtle,
+            color: colors.accent,
+            borderRadius: radius.lg,
+            fontSize: typography.sizes.xs,
+            fontWeight: typography.weights.semibold,
             zIndex: 1
           }}>
             Full
@@ -788,12 +787,12 @@ function MarketBoxCard({
         {/* Image placeholder */}
         <div style={{
           height: 140,
-          backgroundColor: '#eff6ff',
-          borderRadius: 6,
+          backgroundColor: colors.primaryLight,
+          borderRadius: radius.sm,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#3b82f6'
+          color: colors.primary
         }}>
           <span style={{ fontSize: 36 }}>📦</span>
         </div>
@@ -801,26 +800,26 @@ function MarketBoxCard({
 
       {/* Title */}
       <h3 style={{
-        marginBottom: 6,
+        marginBottom: spacing['3xs'],
         marginTop: 0,
-        color: branding.colors.primary,
-        fontSize: 16,
-        fontWeight: 600,
-        lineHeight: 1.3
+        color: colors.textPrimary,
+        fontSize: typography.sizes.base,
+        fontWeight: typography.weights.semibold,
+        lineHeight: typography.leading.snug
       }}>
         {offering.name}
       </h3>
 
       {/* Description */}
       <p style={{
-        fontSize: 13,
-        color: '#666',
-        marginBottom: 12,
+        fontSize: typography.sizes.xs,
+        color: colors.textSecondary,
+        marginBottom: spacing.xs,
         display: '-webkit-box',
         WebkitLineClamp: 2,
         WebkitBoxOrient: 'vertical',
         overflow: 'hidden',
-        lineHeight: 1.4,
+        lineHeight: typography.leading.normal,
         minHeight: 36
       }}>
         {boxDesc}
@@ -828,22 +827,22 @@ function MarketBoxCard({
 
       {/* Price */}
       <div style={{
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: branding.colors.primary,
-        marginBottom: 4
+        fontSize: typography.sizes.lg,
+        fontWeight: typography.weights.bold,
+        color: colors.primary,
+        marginBottom: spacing['3xs']
       }}>
         {formatPrice(offering.price_cents)}
       </div>
-      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+      <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['2xs'] }}>
         for 4 weeks ({formatPrice(offering.price_cents / 4)}/week)
       </div>
 
       {/* Pickup Info */}
       <div style={{
-        fontSize: 12,
-        color: '#6b7280',
-        marginBottom: 8
+        fontSize: typography.sizes.xs,
+        color: colors.textMuted,
+        marginBottom: spacing['2xs']
       }}>
         {DAYS[offering.pickup_day_of_week]}s {formatTime(offering.pickup_start_time)}-{formatTime(offering.pickup_end_time)}
         {offering.market && (
@@ -853,13 +852,13 @@ function MarketBoxCard({
 
       {/* Vendor Name & Tier Badge */}
       <div style={{
-        fontSize: 12,
-        color: '#888',
-        borderTop: '1px solid #f3f4f6',
-        paddingTop: 8,
+        fontSize: typography.sizes.xs,
+        color: colors.textMuted,
+        borderTop: `1px solid ${colors.borderMuted}`,
+        paddingTop: spacing['2xs'],
         display: 'flex',
         alignItems: 'center',
-        gap: 6
+        gap: spacing['3xs']
       }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
         {offering.vendor_profiles.tier && offering.vendor_profiles.tier !== 'standard' && (

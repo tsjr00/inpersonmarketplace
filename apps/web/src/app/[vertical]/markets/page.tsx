@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import MarketFilters from './MarketFilters'
 import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface MarketsPageProps {
   params: Promise<{ vertical: string }>
@@ -64,9 +65,27 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   })) || []
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
-      <h1 style={{ color: '#333', marginBottom: 8, fontSize: 28 }}>Markets</h1>
-      <p style={{ color: '#666', marginBottom: 24, fontSize: 16 }}>
+    <div style={{
+      maxWidth: containers.xl,
+      margin: '0 auto',
+      padding: `${spacing.sm} ${spacing.sm}`,
+      backgroundColor: colors.surfaceBase,
+      minHeight: '100vh'
+    }}>
+      <h1 style={{
+        color: colors.textPrimary,
+        marginBottom: spacing['2xs'],
+        marginTop: 0,
+        fontSize: typography.sizes['2xl'],
+        fontWeight: typography.weights.bold
+      }}>
+        Markets
+      </h1>
+      <p style={{
+        color: colors.textSecondary,
+        marginBottom: spacing.md,
+        fontSize: typography.sizes.base
+      }}>
         Find farmers markets and pickup locations near you
       </p>
 

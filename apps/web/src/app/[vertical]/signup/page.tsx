@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface SignupPageProps {
   params: Promise<{ vertical: string }>
@@ -105,8 +106,8 @@ export default function SignupPage({ params }: SignupPageProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: branding.colors.background,
-        color: branding.colors.text
+        backgroundColor: colors.surfaceBase,
+        color: colors.textPrimary
       }}>
         Loading...
       </div>
@@ -117,22 +118,23 @@ export default function SignupPage({ params }: SignupPageProps) {
     return (
       <div style={{
         minHeight: '100vh',
-        backgroundColor: branding.colors.background,
+        backgroundColor: colors.surfaceBase,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
       }}>
         <div style={{
-          maxWidth: 400,
-          padding: 30,
-          backgroundColor: 'white',
-          border: `2px solid ${branding.colors.accent}`,
-          borderRadius: 8
+          maxWidth: containers.sm,
+          margin: '0 auto',
+          padding: spacing.lg,
+          backgroundColor: colors.surfaceElevated,
+          border: `2px solid ${colors.accent}`,
+          borderRadius: radius.md
         }}>
-          <h2 style={{ color: branding.colors.accent, marginBottom: 10 }}>
+          <h2 style={{ color: colors.accent, marginBottom: spacing.xs, fontSize: typography.sizes.xl }}>
             Account Created!
           </h2>
-          <p style={{ color: '#333' }}>
+          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>
             Welcome to {branding.brand_name}.{' '}
             {startWithPremium
               ? 'Redirecting to complete your Premium membership...'
@@ -147,64 +149,65 @@ export default function SignupPage({ params }: SignupPageProps) {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: branding.colors.background,
-      color: branding.colors.text
+      backgroundColor: colors.surfaceBase,
+      color: colors.textSecondary
     }}>
       {/* Navigation */}
       <nav style={{
-        padding: '15px 40px',
-        borderBottom: `1px solid ${branding.colors.secondary}`,
+        padding: `${spacing.sm} ${spacing.xl}`,
+        borderBottom: `1px solid ${colors.border}`,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center'
       }}>
-        <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+        <Link href={`/${vertical}`} style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primary, textDecoration: 'none' }}>
           {branding.brand_name}
         </Link>
-        <Link href="/" style={{ color: branding.colors.secondary, textDecoration: 'none' }}>Home</Link>
+        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
       </nav>
 
       {/* Logo/Header */}
-      <div style={{ textAlign: 'center', marginBottom: 40, paddingTop: 40, padding: 20 }}>
+      <div style={{ textAlign: 'center', marginBottom: spacing.xl, paddingTop: spacing.xl, padding: spacing.md }}>
         <h1 style={{
-          fontSize: 36,
-          fontWeight: 'bold',
-          color: branding.colors.primary,
-          marginBottom: 10
+          fontSize: typography.sizes['3xl'],
+          fontWeight: typography.weights.bold,
+          color: colors.textPrimary,
+          marginBottom: spacing.xs
         }}>
           {branding.brand_name}
         </h1>
-        <p style={{ fontSize: 18, color: branding.colors.secondary }}>
+        <p style={{ fontSize: typography.sizes.lg, color: colors.textSecondary }}>
           {branding.tagline}
         </p>
       </div>
 
       {/* Signup Form */}
       <div style={{
-        maxWidth: 400,
+        maxWidth: containers.sm,
         margin: '0 auto',
-        padding: 30,
-        backgroundColor: 'white',
-        color: '#333',
-        border: `2px solid ${branding.colors.primary}`,
-        borderRadius: 8,
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        padding: spacing.lg,
+        backgroundColor: colors.surfaceElevated,
+        color: colors.textSecondary,
+        border: `2px solid ${colors.primary}`,
+        borderRadius: radius.md,
+        boxShadow: shadows.md
       }}>
         <h2 style={{
-          marginBottom: 20,
-          color: branding.colors.primary,
-          textAlign: 'center'
+          marginBottom: spacing.md,
+          color: colors.textPrimary,
+          textAlign: 'center',
+          fontSize: typography.sizes.xl
         }}>
           Create Your Account
         </h2>
 
         {error && (
           <div style={{
-            padding: 10,
-            marginBottom: 20,
+            padding: spacing.xs,
+            marginBottom: spacing.md,
             backgroundColor: '#fee',
             border: '1px solid #fcc',
-            borderRadius: 4,
+            borderRadius: radius.sm,
             color: '#c00'
           }}>
             {error}
@@ -212,8 +215,8 @@ export default function SignupPage({ params }: SignupPageProps) {
         )}
 
         <form onSubmit={handleSignup}>
-          <div style={{ marginBottom: 15 }}>
-            <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+          <div style={{ marginBottom: spacing.sm }}>
+            <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
               Full Name
             </label>
             <input
@@ -224,17 +227,17 @@ export default function SignupPage({ params }: SignupPageProps) {
               disabled={loading}
               style={{
                 width: '100%',
-                padding: 10,
-                fontSize: 16,
-                border: `1px solid ${branding.colors.primary}`,
-                borderRadius: 4,
+                padding: spacing.xs,
+                fontSize: typography.sizes.base,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
                 boxSizing: 'border-box'
               }}
             />
           </div>
 
-          <div style={{ marginBottom: 15 }}>
-            <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+          <div style={{ marginBottom: spacing.sm }}>
+            <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
               Email
             </label>
             <input
@@ -245,17 +248,17 @@ export default function SignupPage({ params }: SignupPageProps) {
               disabled={loading}
               style={{
                 width: '100%',
-                padding: 10,
-                fontSize: 16,
-                border: `1px solid ${branding.colors.primary}`,
-                borderRadius: 4,
+                padding: spacing.xs,
+                fontSize: typography.sizes.base,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
                 boxSizing: 'border-box'
               }}
             />
           </div>
 
-          <div style={{ marginBottom: 15 }}>
-            <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+          <div style={{ marginBottom: spacing.sm }}>
+            <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
               Password (min 6 characters)
             </label>
             <input
@@ -267,17 +270,17 @@ export default function SignupPage({ params }: SignupPageProps) {
               minLength={6}
               style={{
                 width: '100%',
-                padding: 10,
-                fontSize: 16,
-                border: `1px solid ${branding.colors.primary}`,
-                borderRadius: 4,
+                padding: spacing.xs,
+                fontSize: typography.sizes.base,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
                 boxSizing: 'border-box'
               }}
             />
           </div>
 
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+          <div style={{ marginBottom: spacing.md }}>
+            <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
               Confirm Password
             </label>
             <input
@@ -288,10 +291,10 @@ export default function SignupPage({ params }: SignupPageProps) {
               disabled={loading}
               style={{
                 width: '100%',
-                padding: 10,
-                fontSize: 16,
-                border: `1px solid ${branding.colors.primary}`,
-                borderRadius: 4,
+                padding: spacing.xs,
+                fontSize: typography.sizes.base,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
                 boxSizing: 'border-box'
               }}
             />
@@ -301,26 +304,26 @@ export default function SignupPage({ params }: SignupPageProps) {
           <div
             onClick={() => !loading && setStartWithPremium(!startWithPremium)}
             style={{
-              marginBottom: 20,
-              padding: 16,
-              borderRadius: 8,
+              marginBottom: spacing.md,
+              padding: spacing.sm,
+              borderRadius: radius.md,
               cursor: loading ? 'not-allowed' : 'pointer',
-              border: startWithPremium ? '2px solid #2563eb' : '2px solid #e5e7eb',
-              backgroundColor: startWithPremium ? '#eff6ff' : '#f9fafb',
+              border: startWithPremium ? `2px solid ${colors.primary}` : `2px solid ${colors.border}`,
+              backgroundColor: startWithPremium ? colors.primaryLight : colors.surfaceMuted,
               transition: 'all 0.2s ease'
             }}
           >
             <div style={{
               display: 'flex',
               alignItems: 'flex-start',
-              gap: 12
+              gap: spacing.xs
             }}>
               <div style={{
                 width: 20,
                 height: 20,
-                borderRadius: 4,
-                border: startWithPremium ? '2px solid #2563eb' : '2px solid #d1d5db',
-                backgroundColor: startWithPremium ? '#2563eb' : 'white',
+                borderRadius: radius.sm,
+                border: startWithPremium ? `2px solid ${colors.primary}` : `2px solid ${colors.border}`,
+                backgroundColor: startWithPremium ? colors.primary : colors.surfaceElevated,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -328,39 +331,39 @@ export default function SignupPage({ params }: SignupPageProps) {
                 marginTop: 2
               }}>
                 {startWithPremium && (
-                  <span style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</span>
+                  <span style={{ color: colors.textInverse, fontSize: typography.sizes.sm, fontWeight: typography.weights.bold }}>✓</span>
                 )}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 6,
-                  marginBottom: 4
+                  gap: spacing['2xs'],
+                  marginBottom: spacing['3xs']
                 }}>
-                  <span style={{ fontSize: 16 }}>⭐</span>
+                  <span style={{ fontSize: typography.sizes.base }}>⭐</span>
                   <span style={{
-                    fontWeight: 600,
-                    color: startWithPremium ? '#1e40af' : '#374151'
+                    fontWeight: typography.weights.semibold,
+                    color: startWithPremium ? colors.primaryDark : colors.textSecondary
                   }}>
                     Start with Premium
                   </span>
                   <span style={{
-                    backgroundColor: '#059669',
-                    color: 'white',
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                    fontSize: 10,
-                    fontWeight: 600
+                    backgroundColor: colors.primaryDark,
+                    color: colors.textInverse,
+                    padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold
                   }}>
                     SAVE 32%
                   </span>
                 </div>
                 <p style={{
                   margin: 0,
-                  fontSize: 13,
-                  color: '#6b7280',
-                  lineHeight: 1.4
+                  fontSize: typography.sizes.sm,
+                  color: colors.textMuted,
+                  lineHeight: typography.leading.normal
                 }}>
                   $9.99/month or $81.50/year — Early access to listings, priority support, and more
                 </p>
@@ -373,23 +376,24 @@ export default function SignupPage({ params }: SignupPageProps) {
             disabled={loading}
             style={{
               width: '100%',
-              padding: 12,
-              fontSize: 16,
-              fontWeight: 600,
-              backgroundColor: loading ? '#ccc' : branding.colors.primary,
-              color: 'white',
+              padding: spacing.xs,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              backgroundColor: loading ? colors.textMuted : colors.primary,
+              color: colors.textInverse,
               border: 'none',
-              borderRadius: 4,
-              cursor: loading ? 'not-allowed' : 'pointer'
+              borderRadius: radius.sm,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              boxShadow: loading ? 'none' : shadows.primary
             }}
           >
             {loading ? 'Creating account...' : 'Sign Up'}
           </button>
         </form>
 
-        <p style={{ marginTop: 20, textAlign: 'center', color: '#666' }}>
+        <p style={{ marginTop: spacing.md, textAlign: 'center', color: colors.textMuted, fontSize: typography.sizes.base }}>
           Already have an account?{' '}
-          <Link href={`/${vertical}/login`} style={{ color: branding.colors.primary, fontWeight: 600 }}>
+          <Link href={`/${vertical}/login`} style={{ color: colors.primary, fontWeight: typography.weights.semibold }}>
             Login
           </Link>
         </p>

@@ -34,7 +34,7 @@ export async function PUT(
 
   const { id: marketId } = await params
   const body = await request.json()
-  const { name, address, city, state, zip, day_of_week, start_time, end_time, status } = body
+  const { name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, status } = body
 
   const { data: market, error: updateError } = await supabase
     .from('markets')
@@ -44,6 +44,8 @@ export async function PUT(
       city,
       state,
       zip,
+      latitude: latitude !== undefined ? latitude : undefined,
+      longitude: longitude !== undefined ? longitude : undefined,
       day_of_week: day_of_week !== undefined ? parseInt(day_of_week) : undefined,
       start_time,
       end_time,

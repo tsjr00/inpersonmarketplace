@@ -1,9 +1,104 @@
+import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
-import Link from 'next/link'
+import {
+  Hero,
+  TrustStats,
+  HowItWorks,
+  FeaturedMarkets,
+  VendorPitch,
+  Features,
+  FinalCTA,
+  Footer
+} from '@/components/landing'
 
 interface VerticalHomePageProps {
   params: Promise<{ vertical: string }>
+}
+
+// Generate dynamic metadata for SEO
+export async function generateMetadata({ params }: VerticalHomePageProps): Promise<Metadata> {
+  const { vertical } = await params
+  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+
+  const isFarmersMarket = vertical === 'farmers_market'
+
+  const title = isFarmersMarket
+    ? 'Fresh Market | Local Farmers Markets & Farm Fresh Food'
+    : `${branding.brand_name} | ${branding.tagline}`
+
+  const description = isFarmersMarket
+    ? 'Discover fresh, local food from farmers markets near you. Browse products from verified vendors, pre-order online, and pick up at your neighborhood market. Support local farmers and artisans.'
+    : branding.meta.description
+
+  const keywords = isFarmersMarket
+    ? 'farmers market, local food, fresh produce, farm fresh, local vendors, organic food, farmers market near me, local farmers, artisan food, farm to table, buy local, fresh vegetables, local meat, local bakery'
+    : branding.meta.keywords
+
+  return {
+    title,
+    description,
+    keywords,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      locale: 'en_US',
+      siteName: branding.brand_name,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
+    alternates: {
+      canonical: `/${vertical}`,
+    },
+  }
+}
+
+// Fetch stats from database with fallback values for display
+async function getVerticalStats(supabase: Awaited<ReturnType<typeof createClient>>, vertical: string) {
+  // Get listing count
+  const { count: listingCount } = await supabase
+    .from('listings')
+    .select('*', { count: 'exact', head: true })
+    .eq('vertical_id', vertical)
+    .eq('status', 'published')
+    .is('deleted_at', null)
+
+  // Get vendor count
+  const { count: vendorCount } = await supabase
+    .from('vendor_profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('vertical_id', vertical)
+    .eq('status', 'approved')
+
+  // Get market count
+  const { count: marketCount } = await supabase
+    .from('markets')
+    .select('*', { count: 'exact', head: true })
+    .eq('vertical_id', vertical)
+    .eq('status', 'active')
+
+  // Use real counts if available, otherwise use reasonable fallback values
+  // Fallbacks ensure the page looks populated during early launch
+  return {
+    listingCount: (listingCount && listingCount > 0) ? listingCount : 50,
+    vendorCount: (vendorCount && vendorCount > 0) ? vendorCount : 25,
+    marketCount: (marketCount && marketCount > 0) ? marketCount : 5,
+  }
 }
 
 export default async function VerticalHomePage({ params }: VerticalHomePageProps) {
@@ -13,141 +108,94 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  // Get listing count
-  const { count } = await supabase
-    .from('listings')
-    .select('*', { count: 'exact', head: true })
-    .eq('vertical_id', vertical)
-    .eq('status', 'published')
-    .is('deleted_at', null)
+  // Fetch stats only - FeaturedMarkets is now text-only per Tracy's decision
+  const stats = await getVerticalStats(supabase, vertical)
+
+  // Generate Schema.org structured data
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      // Organization
+      {
+        '@type': 'Organization',
+        '@id': `https://${branding.domain}/#organization`,
+        name: branding.brand_name,
+        url: `https://${branding.domain}`,
+        logo: {
+          '@type': 'ImageObject',
+          url: `https://${branding.domain}${branding.logo_path}`,
+        },
+        description: branding.meta.description,
+      },
+      // WebSite
+      {
+        '@type': 'WebSite',
+        '@id': `https://${branding.domain}/#website`,
+        url: `https://${branding.domain}`,
+        name: branding.brand_name,
+        publisher: {
+          '@id': `https://${branding.domain}/#organization`,
+        },
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: `https://${branding.domain}/${vertical}/browse?search={search_term_string}`,
+          'query-input': 'required name=search_term_string',
+        },
+      },
+      // WebPage
+      {
+        '@type': 'WebPage',
+        '@id': `https://${branding.domain}/${vertical}/#webpage`,
+        url: `https://${branding.domain}/${vertical}`,
+        name: branding.meta.title,
+        description: branding.meta.description,
+        isPartOf: {
+          '@id': `https://${branding.domain}/#website`,
+        },
+        about: {
+          '@id': `https://${branding.domain}/#organization`,
+        },
+      },
+    ],
+  }
 
   return (
-    <div style={{
-      backgroundColor: branding.colors.background,
-      color: branding.colors.text
-    }}>
-      {/* Hero Section */}
-      <section style={{
-        padding: '80px 40px',
-        textAlign: 'center'
-      }}>
-        <h1 style={{
-          fontSize: 56,
-          fontWeight: 'bold',
-          marginBottom: 20,
-          color: branding.colors.primary,
-          lineHeight: 1.2
-        }}>
-          {branding.brand_name}
-        </h1>
+    <>
+      {/* Schema.org JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
 
-        <p style={{
-          fontSize: 22,
-          color: branding.colors.secondary,
-          maxWidth: 600,
-          margin: '0 auto 40px',
-          lineHeight: 1.6
-        }}>
-          {branding.tagline}
-        </p>
+      <main>
+        {/* Hero Section */}
+        <Hero
+          vertical={vertical}
+          listingCount={stats.listingCount}
+          marketCount={stats.marketCount}
+        />
 
-        <div style={{
-          display: 'flex',
-          gap: 15,
-          justifyContent: 'center',
-          flexWrap: 'wrap'
-        }}>
-          <Link
-            href={`/${vertical}/browse`}
-            style={{
-              padding: '18px 40px',
-              backgroundColor: branding.colors.primary,
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 18
-            }}
-          >
-            Browse {count || 0} Listings
-          </Link>
-          <Link
-            href={`/${vertical}/vendor-signup`}
-            style={{
-              padding: '18px 40px',
-              backgroundColor: 'transparent',
-              color: branding.colors.primary,
-              border: `2px solid ${branding.colors.primary}`,
-              textDecoration: 'none',
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 18
-            }}
-          >
-            Become a Vendor
-          </Link>
-        </div>
-      </section>
+        {/* Trust Statistics */}
+        <TrustStats stats={stats} />
 
-      {/* Quick Stats */}
-      <section style={{
-        padding: '60px 40px',
-        backgroundColor: 'rgba(255,255,255,0.1)'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 60,
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: 48,
-              fontWeight: 'bold',
-              color: branding.colors.primary
-            }}>
-              {count || 0}
-            </div>
-            <div style={{ fontSize: 18, color: branding.colors.secondary }}>
-              Active Listings
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: 48,
-              fontWeight: 'bold',
-              color: branding.colors.primary
-            }}>
-              ✓
-            </div>
-            <div style={{ fontSize: 18, color: branding.colors.secondary }}>
-              Verified Vendors
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: 48,
-              fontWeight: 'bold',
-              color: branding.colors.primary
-            }}>
-              🛡️
-            </div>
-            <div style={{ fontSize: 18, color: branding.colors.secondary }}>
-              Trusted Platform
-            </div>
-          </div>
-        </div>
-      </section>
+        {/* How It Works */}
+        <HowItWorks vertical={vertical} />
 
-      {/* Footer */}
-      <footer style={{
-        padding: '30px 40px',
-        borderTop: `1px solid ${branding.colors.secondary}`,
-        textAlign: 'center',
-        color: branding.colors.secondary
-      }}>
-        <p>© 2026 {branding.brand_name}. Part of FastWrks Marketplace.</p>
-      </footer>
-    </div>
+        {/* Featured Markets - Text only section, no database needed */}
+        <FeaturedMarkets vertical={vertical} />
+
+        {/* Platform Features */}
+        <Features vertical={vertical} />
+
+        {/* Vendor Pitch */}
+        <VendorPitch vertical={vertical} />
+
+        {/* Final CTA */}
+        <FinalCTA vertical={vertical} />
+
+        {/* Footer */}
+        <Footer vertical={vertical} />
+      </main>
+    </>
   )
 }

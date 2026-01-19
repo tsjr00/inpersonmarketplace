@@ -9,6 +9,7 @@ import MetricCard from '@/components/analytics/MetricCard'
 import SalesChart from '@/components/analytics/SalesChart'
 import TopProductsTable from '@/components/analytics/TopProductsTable'
 import DateRangePicker from '@/components/analytics/DateRangePicker'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface OverviewData {
   totalRevenue: number
@@ -161,7 +162,7 @@ export default function VendorAnalyticsPage() {
     return (
       <div style={{
         minHeight: '100vh',
-        backgroundColor: branding.colors.background,
+        backgroundColor: colors.surfaceBase,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -174,12 +175,12 @@ export default function VendorAnalyticsPage() {
             href={`/${vertical}/vendor/dashboard`}
             style={{
               display: 'inline-block',
-              marginTop: 16,
-              padding: '10px 20px',
-              backgroundColor: branding.colors.primary,
-              color: 'white',
+              marginTop: spacing.sm,
+              padding: `${spacing['2xs']} ${spacing.sm}`,
+              backgroundColor: colors.primary,
+              color: colors.textInverse,
               textDecoration: 'none',
-              borderRadius: 6
+              borderRadius: radius.sm
             }}
           >
             Back to Dashboard
@@ -193,42 +194,42 @@ export default function VendorAnalyticsPage() {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: branding.colors.background,
-        color: branding.colors.text
+        backgroundColor: colors.surfaceBase,
+        color: colors.textPrimary
       }}
       className="analytics-page"
     >
       <div style={{
-        maxWidth: 1200,
+        maxWidth: containers.xl,
         margin: '0 auto',
-        padding: '24px 16px'
+        padding: `${spacing.md} ${spacing.sm}`
       }}>
         {/* Header */}
         <div style={{
-          marginBottom: 24,
-          paddingBottom: 16,
-          borderBottom: `2px solid ${branding.colors.primary}`
+          marginBottom: spacing.md,
+          paddingBottom: spacing.sm,
+          borderBottom: `2px solid ${colors.primary}`
         }}>
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             flexWrap: 'wrap',
-            gap: 16
+            gap: spacing.sm
           }}>
             <div>
               <h1 style={{
-                color: branding.colors.primary,
+                color: colors.primary,
                 margin: 0,
-                fontSize: 28,
-                fontWeight: 'bold'
+                fontSize: typography.sizes['2xl'],
+                fontWeight: typography.weights.bold
               }}>
                 Analytics Dashboard
               </h1>
               <p style={{
-                fontSize: 14,
-                color: branding.colors.secondary,
-                margin: '4px 0 0 0'
+                fontSize: typography.sizes.sm,
+                color: colors.textSecondary,
+                margin: `${spacing['3xs']} 0 0 0`
               }}>
                 {branding.brand_name}
               </p>
@@ -239,12 +240,12 @@ export default function VendorAnalyticsPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '10px 20px',
-                backgroundColor: branding.colors.secondary,
-                color: 'white',
+                padding: `${spacing['2xs']} ${spacing.sm}`,
+                backgroundColor: colors.primaryDark,
+                color: colors.textInverse,
                 textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
+                borderRadius: radius.sm,
+                fontWeight: typography.weights.semibold,
                 minHeight: 44
               }}
             >
@@ -255,11 +256,12 @@ export default function VendorAnalyticsPage() {
 
         {/* Date Range Picker */}
         <div style={{
-          marginBottom: 24,
-          padding: 16,
-          backgroundColor: 'white',
-          borderRadius: 8,
-          border: '1px solid #e5e7eb'
+          marginBottom: spacing.md,
+          padding: spacing.sm,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.md,
+          border: `1px solid ${colors.border}`,
+          boxShadow: shadows.sm
         }}>
           <DateRangePicker
             value={dateRange}
@@ -273,7 +275,7 @@ export default function VendorAnalyticsPage() {
             alignItems: 'center',
             justifyContent: 'center',
             height: 400,
-            color: '#6b7280'
+            color: colors.textMuted
           }}>
             Loading analytics...
           </div>
@@ -282,8 +284,8 @@ export default function VendorAnalyticsPage() {
             {/* Metric Cards */}
             <div className="metrics-grid" style={{
               display: 'grid',
-              gap: 16,
-              marginBottom: 24
+              gap: spacing.sm,
+              marginBottom: spacing.md
             }}>
               <MetricCard
                 label="Total Revenue"
@@ -313,38 +315,39 @@ export default function VendorAnalyticsPage() {
 
             {/* Sales Trend Chart */}
             <div style={{
-              marginBottom: 24,
-              padding: 20,
-              backgroundColor: 'white',
-              borderRadius: 8,
-              border: '1px solid #e5e7eb'
+              marginBottom: spacing.md,
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: `1px solid ${colors.border}`,
+              boxShadow: shadows.sm
             }}>
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: 16
+                marginBottom: spacing.sm
               }}>
                 <h2 style={{
                   margin: 0,
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: '#111827'
+                  fontSize: typography.sizes.lg,
+                  fontWeight: typography.weights.semibold,
+                  color: colors.textPrimary
                 }}>
                   Sales Trends
                 </h2>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: spacing['2xs'] }}>
                   <button
                     onClick={() => setChartMetric('revenue')}
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: 4,
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      borderRadius: radius.sm,
                       border: 'none',
-                      fontSize: 12,
-                      fontWeight: 600,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
                       cursor: 'pointer',
-                      backgroundColor: chartMetric === 'revenue' ? branding.colors.primary : '#e5e7eb',
-                      color: chartMetric === 'revenue' ? 'white' : '#374151'
+                      backgroundColor: chartMetric === 'revenue' ? colors.primary : colors.surfaceMuted,
+                      color: chartMetric === 'revenue' ? colors.textInverse : colors.textSecondary
                     }}
                   >
                     Revenue
@@ -352,14 +355,14 @@ export default function VendorAnalyticsPage() {
                   <button
                     onClick={() => setChartMetric('orders')}
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: 4,
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      borderRadius: radius.sm,
                       border: 'none',
-                      fontSize: 12,
-                      fontWeight: 600,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
                       cursor: 'pointer',
-                      backgroundColor: chartMetric === 'orders' ? branding.colors.primary : '#e5e7eb',
-                      color: chartMetric === 'orders' ? 'white' : '#374151'
+                      backgroundColor: chartMetric === 'orders' ? colors.primary : colors.surfaceMuted,
+                      color: chartMetric === 'orders' ? colors.textInverse : colors.textSecondary
                     }}
                   >
                     Orders
@@ -369,27 +372,28 @@ export default function VendorAnalyticsPage() {
               <SalesChart
                 data={trends}
                 metric={chartMetric}
-                primaryColor={branding.colors.primary}
+                primaryColor={colors.primary}
               />
             </div>
 
             {/* Two column layout for products and customers */}
             <div className="bottom-grid" style={{
               display: 'grid',
-              gap: 24
+              gap: spacing.md
             }}>
               {/* Top Products */}
               <div style={{
-                padding: 20,
-                backgroundColor: 'white',
-                borderRadius: 8,
-                border: '1px solid #e5e7eb'
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                borderRadius: radius.md,
+                border: `1px solid ${colors.border}`,
+                boxShadow: shadows.sm
               }}>
                 <h2 style={{
-                  margin: '0 0 16px 0',
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: '#111827'
+                  margin: `0 0 ${spacing.sm} 0`,
+                  fontSize: typography.sizes.lg,
+                  fontWeight: typography.weights.semibold,
+                  color: colors.textPrimary
                 }}>
                   Top Products
                 </h2>
@@ -403,67 +407,68 @@ export default function VendorAnalyticsPage() {
 
               {/* Customer Insights */}
               <div style={{
-                padding: 20,
-                backgroundColor: 'white',
-                borderRadius: 8,
-                border: '1px solid #e5e7eb'
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                borderRadius: radius.md,
+                border: `1px solid ${colors.border}`,
+                boxShadow: shadows.sm
               }}>
                 <h2 style={{
-                  margin: '0 0 16px 0',
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: '#111827'
+                  margin: `0 0 ${spacing.sm} 0`,
+                  fontSize: typography.sizes.lg,
+                  fontWeight: typography.weights.semibold,
+                  color: colors.textPrimary
                 }}>
                   Customer Insights
                 </h2>
 
                 {customers ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                     {/* Customer Stats */}
                     <div style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(2, 1fr)',
-                      gap: 12
+                      gap: spacing.xs
                     }}>
                       <div style={{
-                        padding: 16,
-                        backgroundColor: '#f0fdf4',
-                        borderRadius: 8,
+                        padding: spacing.sm,
+                        backgroundColor: colors.primaryLight,
+                        borderRadius: radius.md,
                         textAlign: 'center'
                       }}>
-                        <div style={{ fontSize: 24, fontWeight: 'bold', color: '#059669' }}>
+                        <div style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primaryDark }}>
                           {customers.newCustomers}
                         </div>
-                        <div style={{ fontSize: 12, color: '#6b7280' }}>New Customers</div>
+                        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>New Customers</div>
                       </div>
                       <div style={{
-                        padding: 16,
-                        backgroundColor: '#eff6ff',
-                        borderRadius: 8,
+                        padding: spacing.sm,
+                        backgroundColor: colors.surfaceSubtle,
+                        borderRadius: radius.md,
                         textAlign: 'center'
                       }}>
-                        <div style={{ fontSize: 24, fontWeight: 'bold', color: '#2563eb' }}>
+                        <div style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primary }}>
                           {customers.returningCustomers}
                         </div>
-                        <div style={{ fontSize: 12, color: '#6b7280' }}>Returning</div>
+                        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Returning</div>
                       </div>
                     </div>
 
                     {/* Order Frequency */}
                     <div style={{
-                      padding: 16,
-                      backgroundColor: '#f9fafb',
-                      borderRadius: 8
+                      padding: spacing.sm,
+                      backgroundColor: colors.surfaceMuted,
+                      borderRadius: radius.md
                     }}>
                       <div style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center'
                       }}>
-                        <span style={{ color: '#6b7280', fontSize: 14 }}>
+                        <span style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>
                           Avg Orders per Customer
                         </span>
-                        <span style={{ fontSize: 18, fontWeight: 'bold', color: '#111827' }}>
+                        <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                           {customers.averageOrdersPerCustomer}
                         </span>
                       </div>
@@ -472,25 +477,25 @@ export default function VendorAnalyticsPage() {
                     {/* Order Status Breakdown */}
                     {overview && (
                       <div style={{
-                        padding: 16,
-                        backgroundColor: '#f9fafb',
-                        borderRadius: 8
+                        padding: spacing.sm,
+                        backgroundColor: colors.surfaceMuted,
+                        borderRadius: radius.md
                       }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#374151' }}>
+                        <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, marginBottom: spacing.xs, color: colors.textSecondary }}>
                           Order Status
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: '#059669' }}>Completed</span>
-                            <span style={{ fontWeight: 600 }}>{overview.completedOrders}</span>
+                            <span style={{ color: colors.primaryDark }}>Completed</span>
+                            <span style={{ fontWeight: typography.weights.semibold }}>{overview.completedOrders}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: '#d97706' }}>Pending</span>
-                            <span style={{ fontWeight: 600 }}>{overview.pendingOrders}</span>
+                            <span style={{ color: colors.accent }}>Pending</span>
+                            <span style={{ fontWeight: typography.weights.semibold }}>{overview.pendingOrders}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: '#dc2626' }}>Cancelled</span>
-                            <span style={{ fontWeight: 600 }}>{overview.cancelledOrders}</span>
+                            <span style={{ fontWeight: typography.weights.semibold }}>{overview.cancelledOrders}</span>
                           </div>
                         </div>
                       </div>
@@ -498,9 +503,9 @@ export default function VendorAnalyticsPage() {
                   </div>
                 ) : (
                   <div style={{
-                    padding: 40,
+                    padding: spacing.xl,
                     textAlign: 'center',
-                    color: '#6b7280'
+                    color: colors.textMuted
                   }}>
                     No customer data available
                   </div>

@@ -12,6 +12,8 @@ type Market = {
   city: string
   state: string
   zip: string
+  latitude?: number | null
+  longitude?: number | null
   day_of_week?: number
   start_time?: string
   end_time?: string
@@ -38,6 +40,8 @@ export default function AdminMarketsPage() {
     city: '',
     state: '',
     zip: '',
+    latitude: '',
+    longitude: '',
     day_of_week: 6, // Saturday default
     start_time: '08:00',
     end_time: '13:00',
@@ -67,13 +71,20 @@ export default function AdminMarketsPage() {
     e.preventDefault()
     setSubmitting(true)
 
+    // Parse lat/lng as numbers if provided
+    const submitData = {
+      ...formData,
+      latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+      longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+    }
+
     try {
       if (editingMarket) {
         // Update
         const res = await fetch(`/api/admin/markets/${editingMarket.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vertical, ...formData })
+          body: JSON.stringify({ vertical, ...submitData })
         })
 
         if (res.ok) {
@@ -88,7 +99,7 @@ export default function AdminMarketsPage() {
         const res = await fetch(`/api/admin/markets`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vertical, ...formData })
+          body: JSON.stringify({ vertical, ...submitData })
         })
 
         if (res.ok) {
@@ -115,6 +126,8 @@ export default function AdminMarketsPage() {
       city: market.city,
       state: market.state,
       zip: market.zip,
+      latitude: market.latitude?.toString() || '',
+      longitude: market.longitude?.toString() || '',
       day_of_week: market.day_of_week ?? 6,
       start_time: market.start_time || '08:00',
       end_time: market.end_time || '13:00',
@@ -154,6 +167,8 @@ export default function AdminMarketsPage() {
       city: '',
       state: '',
       zip: '',
+      latitude: '',
+      longitude: '',
       day_of_week: 6,
       start_time: '08:00',
       end_time: '13:00',
@@ -351,6 +366,48 @@ export default function AdminMarketsPage() {
                 />
               </div>
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                  Latitude <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.latitude}
+                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="e.g., 35.2220"
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '500', marginBottom: '8px' }}>
+                  Longitude <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.longitude}
+                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="e.g., -101.8313"
+                />
+              </div>
+            </div>
+            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '-8px' }}>
+              Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>latlong.net</a> - enables 25-mile radius filtering for buyers
+            </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px' }}>
               <div>

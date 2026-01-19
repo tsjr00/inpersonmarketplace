@@ -5,6 +5,7 @@ import Link from 'next/link'
 import PublishButton from './PublishButton'
 import DeleteListingButton from './DeleteListingButton'
 import { formatPrice, getListingLimit } from '@/lib/constants'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface ListingsPageProps {
   params: Promise<{ vertical: string }>
@@ -80,35 +81,35 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: branding.colors.background,
-        color: branding.colors.text
+        backgroundColor: colors.surfaceBase,
+        color: colors.textPrimary
       }}
       className="vendor-listings-page"
     >
       <div style={{
-        maxWidth: 1200,
+        maxWidth: containers.xl,
         margin: '0 auto',
-        padding: '24px 16px'
+        padding: `${spacing.md} ${spacing.sm}`
       }}>
         {/* Header - Mobile-first layout */}
         <div style={{
-          marginBottom: 24,
-          paddingBottom: 20,
-          borderBottom: `2px solid ${branding.colors.primary}`
+          marginBottom: spacing.md,
+          paddingBottom: spacing.sm,
+          borderBottom: `2px solid ${colors.primary}`
         }}>
           {/* Title */}
           <h1 style={{
-            color: branding.colors.primary,
+            color: colors.primary,
             margin: 0,
-            fontSize: 28,
-            fontWeight: 'bold'
+            fontSize: typography.sizes['2xl'],
+            fontWeight: typography.weights.bold
           }}>
             My Listings
           </h1>
           <p style={{
-            fontSize: 14,
-            color: branding.colors.secondary,
-            margin: '4px 0 16px 0'
+            fontSize: typography.sizes.sm,
+            color: colors.textSecondary,
+            margin: `${spacing['3xs']} 0 ${spacing.sm} 0`
           }}>
             {branding.brand_name}
           </p>
@@ -116,8 +117,8 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
           {/* Buttons - stack on mobile, inline on desktop */}
           <div className="header-buttons" style={{
             display: 'flex',
-            gap: 12,
-            marginBottom: 16
+            gap: spacing.xs,
+            marginBottom: spacing.sm
           }}>
             {canCreateMore ? (
               <Link
@@ -126,12 +127,12 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '12px 24px',
-                  backgroundColor: branding.colors.primary,
-                  color: 'white',
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: colors.primary,
+                  color: colors.textInverse,
                   textDecoration: 'none',
-                  borderRadius: 6,
-                  fontWeight: 600,
+                  borderRadius: radius.sm,
+                  fontWeight: typography.weights.semibold,
                   minHeight: 44,
                   flex: 1
                 }}
@@ -144,11 +145,11 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '12px 24px',
-                  backgroundColor: '#ccc',
-                  color: '#666',
-                  borderRadius: 6,
-                  fontWeight: 600,
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: colors.borderMuted,
+                  color: colors.textMuted,
+                  borderRadius: radius.sm,
+                  fontWeight: typography.weights.semibold,
                   cursor: 'not-allowed',
                   minHeight: 44,
                   flex: 1
@@ -164,12 +165,12 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '12px 24px',
-                backgroundColor: branding.colors.secondary,
-                color: 'white',
+                padding: `${spacing.xs} ${spacing.md}`,
+                backgroundColor: colors.primaryDark,
+                color: colors.textInverse,
                 textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
+                borderRadius: radius.sm,
+                fontWeight: typography.weights.semibold,
                 minHeight: 44,
                 flex: 1
               }}
@@ -180,16 +181,16 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
 
           {/* Listing count */}
           <p style={{
-            fontSize: 14,
-            color: branding.colors.secondary,
+            fontSize: typography.sizes.sm,
+            color: colors.textSecondary,
             margin: 0
           }}>
             {listingCount} / {limit} listings
             {listingCount >= limit && (
-              <span style={{ color: '#dc3545', fontWeight: 600 }}> (limit reached)</span>
+              <span style={{ color: '#dc3545', fontWeight: typography.weights.semibold }}> (limit reached)</span>
             )}
             {listingCount === limit - 1 && (
-              <span style={{ color: '#ffc107', fontWeight: 600 }}> (1 remaining)</span>
+              <span style={{ color: colors.accent, fontWeight: typography.weights.semibold }}> (1 remaining)</span>
             )}
           </p>
         </div>
@@ -197,12 +198,12 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
         {/* Vendor Status Warning */}
         {vendorProfile.status !== 'approved' && (
           <div style={{
-            padding: 15,
-            marginBottom: 20,
-            backgroundColor: '#fff3cd',
-            border: '1px solid #ffc107',
-            borderRadius: 8,
-            color: '#856404'
+            padding: spacing.sm,
+            marginBottom: spacing.sm,
+            backgroundColor: colors.surfaceSubtle,
+            border: `1px solid ${colors.accent}`,
+            borderRadius: radius.md,
+            color: colors.textPrimary
           }}>
             <strong>Note:</strong> Your vendor profile is pending approval.
             Listings you create will become visible once your profile is approved.
@@ -213,36 +214,37 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
         {listings && listings.length > 0 ? (
           <div className="listings-grid" style={{
             display: 'grid',
-            gap: 16
+            gap: spacing.sm
           }}>
             {(listings as VendorListing[]).map((listing) => (
               <div
                 key={listing.id}
                 style={{
-                  padding: 16,
-                  backgroundColor: 'white',
-                  color: '#333',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: 8
+                  padding: spacing.sm,
+                  backgroundColor: colors.surfaceElevated,
+                  color: colors.textPrimary,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.md,
+                  boxShadow: shadows.sm
                 }}
               >
                 {/* Status Badge */}
-                <div style={{ marginBottom: 10 }}>
+                <div style={{ marginBottom: spacing['2xs'] }}>
                   <span style={{
-                    padding: '4px 8px',
-                    borderRadius: 4,
-                    fontSize: 12,
-                    fontWeight: 600,
+                    padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
                     backgroundColor:
-                      listing.status === 'published' ? '#d4edda' :
-                      listing.status === 'draft' ? '#e2e3e5' :
-                      listing.status === 'paused' ? '#fff3cd' :
-                      listing.status === 'archived' ? '#f8d7da' : '#e2e3e5',
+                      listing.status === 'published' ? colors.primaryLight :
+                      listing.status === 'draft' ? colors.surfaceMuted :
+                      listing.status === 'paused' ? colors.surfaceSubtle :
+                      listing.status === 'archived' ? '#f8d7da' : colors.surfaceMuted,
                     color:
-                      listing.status === 'published' ? '#155724' :
-                      listing.status === 'draft' ? '#383d41' :
-                      listing.status === 'paused' ? '#856404' :
-                      listing.status === 'archived' ? '#721c24' : '#383d41'
+                      listing.status === 'published' ? colors.primaryDark :
+                      listing.status === 'draft' ? colors.textMuted :
+                      listing.status === 'paused' ? colors.accent :
+                      listing.status === 'archived' ? '#721c24' : colors.textMuted
                   }}>
                     {listing.status.toUpperCase()}
                   </span>
@@ -250,19 +252,19 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
 
                 {/* Title */}
                 <h3 style={{
-                  marginBottom: 10,
+                  marginBottom: spacing['2xs'],
                   marginTop: 0,
-                  color: branding.colors.primary,
-                  fontSize: 18
+                  color: colors.primary,
+                  fontSize: typography.sizes.lg
                 }}>
                   {listing.title}
                 </h3>
 
                 {/* Description */}
                 <p style={{
-                  fontSize: 14,
-                  color: '#666',
-                  marginBottom: 15,
+                  fontSize: typography.sizes.sm,
+                  color: colors.textSecondary,
+                  marginBottom: spacing.sm,
                   display: '-webkit-box',
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: 'vertical',
@@ -275,8 +277,8 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginBottom: 10,
-                  fontSize: 14
+                  marginBottom: spacing['2xs'],
+                  fontSize: typography.sizes.sm
                 }}>
                   <span>
                     <strong>Price:</strong> {formatPrice(listing.price_cents || 0)}
@@ -289,9 +291,9 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                 {/* Markets */}
                 {listing.listing_markets && listing.listing_markets.length > 0 && (
                   <div style={{
-                    marginBottom: 15,
-                    fontSize: 12,
-                    color: '#6b7280'
+                    marginBottom: spacing.sm,
+                    fontSize: typography.sizes.xs,
+                    color: colors.textMuted
                   }}>
                     <strong>Markets:</strong>{' '}
                     {listing.listing_markets
@@ -302,7 +304,7 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                 )}
 
                 {/* Actions */}
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
                   {/* Publish button - only for approved vendors with draft listings */}
                   {vendorProfile.status === 'approved' && (
                     <PublishButton
@@ -317,13 +319,13 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: '10px 12px',
-                      backgroundColor: branding.colors.primary,
-                      color: 'white',
+                      padding: `${spacing['2xs']} ${spacing.xs}`,
+                      backgroundColor: colors.primary,
+                      color: colors.textInverse,
                       textDecoration: 'none',
-                      borderRadius: 4,
-                      fontSize: 14,
-                      fontWeight: 600,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold,
                       minHeight: 44
                     }}
                   >
@@ -336,13 +338,13 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: '10px 12px',
-                      backgroundColor: '#6c757d',
-                      color: 'white',
+                      padding: `${spacing['2xs']} ${spacing.xs}`,
+                      backgroundColor: colors.accentMuted,
+                      color: colors.textInverse,
                       textDecoration: 'none',
-                      borderRadius: 4,
-                      fontSize: 14,
-                      fontWeight: 600,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold,
                       minHeight: 44
                     }}
                   >
@@ -358,14 +360,15 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
           </div>
         ) : (
           <div style={{
-            padding: 60,
-            backgroundColor: 'white',
-            color: '#333',
-            borderRadius: 8,
-            textAlign: 'center'
+            padding: spacing['3xl'],
+            backgroundColor: colors.surfaceElevated,
+            color: colors.textPrimary,
+            borderRadius: radius.md,
+            textAlign: 'center',
+            boxShadow: shadows.sm
           }}>
-            <h3 style={{ marginBottom: 15, marginTop: 0, color: '#666' }}>No Listings Yet</h3>
-            <p style={{ marginBottom: 20, color: '#999' }}>
+            <h3 style={{ marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>No Listings Yet</h3>
+            <p style={{ marginBottom: spacing.sm, color: colors.textMuted }}>
               Create your first listing to start selling on {branding.brand_name}
             </p>
             <Link
@@ -374,12 +377,12 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '12px 24px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
+                padding: `${spacing.xs} ${spacing.md}`,
+                backgroundColor: colors.primary,
+                color: colors.textInverse,
                 textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600,
+                borderRadius: radius.sm,
+                fontWeight: typography.weights.semibold,
                 minHeight: 44
               }}
             >

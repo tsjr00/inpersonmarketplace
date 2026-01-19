@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/constants'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface Order {
   id: string
@@ -78,14 +79,14 @@ export default function BuyerOrdersPage() {
   }
 
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-    pending: { label: 'Pending Payment', color: '#856404', bgColor: '#fff3cd' },
-    paid: { label: 'Paid', color: '#004085', bgColor: '#cce5ff' },
-    confirmed: { label: 'Confirmed', color: '#004085', bgColor: '#cce5ff' },
-    ready: { label: 'Ready for Pickup', color: '#6f42c1', bgColor: '#e2d9f3' },
-    completed: { label: 'Completed', color: '#155724', bgColor: '#d4edda' },
-    fulfilled: { label: 'Picked Up', color: '#155724', bgColor: '#d4edda' }, // For order items
-    cancelled: { label: 'Cancelled', color: '#721c24', bgColor: '#f8d7da' },
-    refunded: { label: 'Refunded', color: '#721c24', bgColor: '#f8d7da' },
+    pending: { label: 'Pending Payment', color: colors.accent, bgColor: colors.surfaceSubtle },
+    paid: { label: 'Paid', color: colors.primaryDark, bgColor: colors.primaryLight },
+    confirmed: { label: 'Confirmed', color: colors.primaryDark, bgColor: colors.primaryLight },
+    ready: { label: 'Ready for Pickup', color: colors.accent, bgColor: colors.surfaceSubtle },
+    completed: { label: 'Completed', color: colors.primaryDark, bgColor: colors.primaryLight },
+    fulfilled: { label: 'Picked Up', color: colors.primaryDark, bgColor: colors.primaryLight },
+    cancelled: { label: 'Cancelled', color: '#991b1b', bgColor: '#fee2e2' },
+    refunded: { label: 'Refunded', color: '#991b1b', bgColor: '#fee2e2' },
   }
 
   if (loading) {
@@ -95,19 +96,19 @@ export default function BuyerOrdersPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8f9fa',
+        backgroundColor: colors.surfaceBase,
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
             width: 40,
             height: 40,
-            border: '4px solid #e0e0e0',
-            borderTop: '4px solid #333',
+            border: `4px solid ${colors.border}`,
+            borderTop: `4px solid ${colors.primary}`,
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
-            margin: '0 auto 15px',
+            margin: `0 auto ${spacing.sm}`,
           }} />
-          <p>Loading orders...</p>
+          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>Loading orders...</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -117,41 +118,41 @@ export default function BuyerOrdersPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f8f9fa',
-      padding: 40,
+      backgroundColor: colors.surfaceBase,
+      padding: spacing.xl,
     }}>
       {/* Header */}
       <div style={{
-        maxWidth: 800,
+        maxWidth: containers.xl,
         margin: '0 auto',
-        marginBottom: 30,
+        marginBottom: spacing.lg,
       }}>
         <Link
           href={`/${vertical}/dashboard`}
-          style={{ color: '#666', textDecoration: 'none', fontSize: 14 }}
+          style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
         >
           ← Back to Dashboard
         </Link>
-        <h1 style={{ marginTop: 15, marginBottom: 5 }}>My Orders</h1>
-        <p style={{ color: '#666', margin: 0 }}>
+        <h1 style={{ marginTop: spacing.sm, marginBottom: spacing['3xs'], color: colors.textPrimary, fontSize: typography.sizes['2xl'] }}>My Orders</h1>
+        <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
           View and track your purchases
         </p>
 
         {/* Filters */}
-        <div style={{ marginTop: 20, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <label style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
+        <div style={{ marginTop: spacing.md, display: 'flex', gap: spacing.sm, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center' }}>
+            <label style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
               Status:
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               style={{
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                fontSize: 14,
-                backgroundColor: 'white'
+                padding: `${spacing['2xs']} ${spacing.xs}`,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                backgroundColor: colors.surfaceElevated
               }}
             >
               <option value="">All Orders</option>
@@ -165,19 +166,19 @@ export default function BuyerOrdersPage() {
           </div>
 
           {markets.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
+            <div style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center' }}>
+              <label style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
                 Market:
               </label>
               <select
                 value={marketFilter}
                 onChange={(e) => setMarketFilter(e.target.value)}
                 style={{
-                  padding: '8px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 6,
-                  fontSize: 14,
-                  backgroundColor: 'white'
+                  padding: `${spacing['2xs']} ${spacing.xs}`,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  backgroundColor: colors.surfaceElevated
                 }}
               >
                 <option value="">All Markets</option>
@@ -194,13 +195,14 @@ export default function BuyerOrdersPage() {
 
       {error && (
         <div style={{
-          maxWidth: 800,
-          margin: '0 auto 20px',
-          padding: 15,
-          backgroundColor: '#f8d7da',
-          border: '1px solid #f5c6cb',
-          borderRadius: 8,
-          color: '#721c24',
+          maxWidth: containers.xl,
+          margin: `0 auto ${spacing.md}`,
+          padding: spacing.sm,
+          backgroundColor: '#fee2e2',
+          border: '1px solid #fecaca',
+          borderRadius: radius.md,
+          color: '#991b1b',
+          fontSize: typography.sizes.sm,
         }}>
           {error}
         </div>
@@ -208,24 +210,24 @@ export default function BuyerOrdersPage() {
 
       {/* Orders List */}
       <div style={{
-        maxWidth: 800,
+        maxWidth: containers.xl,
         margin: '0 auto',
       }}>
         {orders.length === 0 ? (
           <>
             {/* Empty state message */}
             <div style={{
-              backgroundColor: 'white',
-              borderRadius: 8,
-              border: '1px dashed #d1d5db',
-              padding: 60,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: `1px dashed ${colors.border}`,
+              padding: spacing['3xl'],
               textAlign: 'center',
             }}>
-              <div style={{ fontSize: 60, marginBottom: 20, opacity: 0.3 }}>📦</div>
-              <h3 style={{ marginBottom: 10, color: '#666' }}>
+              <div style={{ fontSize: 60, marginBottom: spacing.md, opacity: 0.3 }}>📦</div>
+              <h3 style={{ marginBottom: spacing.xs, color: colors.textMuted, fontSize: typography.sizes.lg }}>
                 {statusFilter || marketFilter ? 'No matching orders' : 'No orders yet'}
               </h3>
-              <p style={{ color: '#999', marginBottom: 0 }}>
+              <p style={{ color: colors.textMuted, marginBottom: 0, fontSize: typography.sizes.base }}>
                 {statusFilter || marketFilter
                   ? 'Try adjusting your filters to see more orders'
                   : 'Start shopping to see your orders here'
@@ -235,17 +237,19 @@ export default function BuyerOrdersPage() {
 
             {/* Browse button - only show when no filters */}
             {!statusFilter && !marketFilter && (
-              <div style={{ marginTop: 20, textAlign: 'center' }}>
+              <div style={{ marginTop: spacing.md, textAlign: 'center' }}>
                 <Link
                   href={`/${vertical}/browse`}
                   style={{
                     display: 'inline-block',
-                    padding: '12px 25px',
-                    backgroundColor: '#333',
-                    color: 'white',
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    backgroundColor: colors.primary,
+                    color: colors.textInverse,
                     textDecoration: 'none',
-                    borderRadius: 6,
-                    fontWeight: 600,
+                    borderRadius: radius.sm,
+                    fontWeight: typography.weights.semibold,
+                    fontSize: typography.sizes.base,
+                    boxShadow: shadows.primary,
                   }}
                 >
                   Browse Products
@@ -254,7 +258,7 @@ export default function BuyerOrdersPage() {
             )}
           </>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
             {orders.map(order => {
               const config = statusConfig[order.status] || statusConfig.pending
 
@@ -263,15 +267,15 @@ export default function BuyerOrdersPage() {
                   key={order.id}
                   onClick={() => router.push(`/${vertical}/buyer/orders/${order.id}`)}
                   style={{
-                    backgroundColor: 'white',
-                    borderRadius: 8,
-                    border: '1px solid #ddd',
+                    backgroundColor: colors.surfaceElevated,
+                    borderRadius: radius.md,
+                    border: `1px solid ${colors.border}`,
                     overflow: 'hidden',
                     cursor: 'pointer',
                     transition: 'box-shadow 0.2s',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'
+                    e.currentTarget.style.boxShadow = shadows.md
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.boxShadow = 'none'
@@ -279,32 +283,32 @@ export default function BuyerOrdersPage() {
                 >
                   {/* Order Header */}
                   <div style={{
-                    padding: '16px 20px',
-                    borderBottom: '1px solid #eee',
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    borderBottom: `1px solid ${colors.borderMuted}`,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    backgroundColor: '#fafafa',
-                    gap: 12,
+                    backgroundColor: colors.surfaceMuted,
+                    gap: spacing.xs,
                     flexWrap: 'wrap'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
                       {/* Prominent Order Number */}
                       <div style={{
-                        backgroundColor: '#111827',
-                        color: 'white',
-                        padding: '8px 14px',
-                        borderRadius: 6,
+                        backgroundColor: colors.textPrimary,
+                        color: colors.textInverse,
+                        padding: `${spacing['2xs']} ${spacing.sm}`,
+                        borderRadius: radius.sm,
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center'
                       }}>
-                        <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
+                        <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
                           Order
                         </span>
                         <span style={{
-                          fontSize: 18,
-                          fontWeight: 'bold',
+                          fontSize: typography.sizes.lg,
+                          fontWeight: typography.weights.bold,
                           fontFamily: 'monospace',
                           letterSpacing: 1
                         }}>
@@ -313,16 +317,16 @@ export default function BuyerOrdersPage() {
                       </div>
                       <div>
                         <span style={{
-                          padding: '5px 12px',
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
                           backgroundColor: config.bgColor,
                           color: config.color,
-                          borderRadius: 20,
-                          fontSize: 12,
-                          fontWeight: 600,
+                          borderRadius: radius.full,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
                         }}>
                           {config.label}
                         </span>
-                        <p style={{ color: '#999', fontSize: 12, margin: '6px 0 0 0' }}>
+                        <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `${spacing['3xs']} 0 0 0` }}>
                           {new Date(order.created_at).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -331,15 +335,15 @@ export default function BuyerOrdersPage() {
                         </p>
                       </div>
                     </div>
-                    <span style={{ fontSize: 18, fontWeight: 'bold' }}>
+                    <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                       {formatPrice(order.total_cents)}
                     </span>
                   </div>
 
                   {/* Order Items */}
-                  <div style={{ padding: '20px 25px' }}>
+                  <div style={{ padding: `${spacing.md} ${spacing.md}` }}>
                     {order.items && order.items.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                         {order.items.map((item, index) => {
                           const itemConfig = statusConfig[item.status] || statusConfig.pending
 
@@ -350,31 +354,31 @@ export default function BuyerOrdersPage() {
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                padding: '12px 15px',
-                                backgroundColor: '#f8f9fa',
-                                borderRadius: 6,
+                                padding: `${spacing.xs} ${spacing.sm}`,
+                                backgroundColor: colors.surfaceMuted,
+                                borderRadius: radius.sm,
                               }}
                             >
                               <div>
-                                <p style={{ margin: 0, fontWeight: 500 }}>
+                                <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary, fontSize: typography.sizes.base }}>
                                   {item.listing_title}
                                 </p>
-                                <p style={{ margin: '3px 0 0', fontSize: 13, color: '#666' }}>
+                                <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                                   {item.vendor_name} • Qty: {item.quantity}
                                   {item.market && ` • ${item.market.name}`}
                                 </p>
                               </div>
                               <div style={{ textAlign: 'right' }}>
-                                <p style={{ margin: '0 0 3px 0', fontWeight: 600 }}>
+                                <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.base }}>
                                   {formatPrice(item.subtotal_cents)}
                                 </p>
                                 <span style={{
-                                  padding: '2px 8px',
+                                  padding: `2px ${spacing['2xs']}`,
                                   backgroundColor: itemConfig.bgColor,
                                   color: itemConfig.color,
-                                  borderRadius: 10,
-                                  fontSize: 11,
-                                  fontWeight: 500,
+                                  borderRadius: radius.full,
+                                  fontSize: typography.sizes.xs,
+                                  fontWeight: typography.weights.medium,
                                 }}>
                                   {itemConfig.label}
                                 </span>
@@ -384,7 +388,7 @@ export default function BuyerOrdersPage() {
                         })}
                       </div>
                     ) : (
-                      <p style={{ color: '#999', margin: 0, fontStyle: 'italic' }}>
+                      <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>
                         No item details available
                       </p>
                     )}
@@ -393,19 +397,19 @@ export default function BuyerOrdersPage() {
                   {/* Order Actions */}
                   {(order.status === 'ready' || order.status === 'confirmed') && (
                     <div style={{
-                      padding: '15px 25px',
-                      borderTop: '1px solid #eee',
-                      backgroundColor: '#f0f8ff',
+                      padding: `${spacing.sm} ${spacing.md}`,
+                      borderTop: `1px solid ${colors.borderMuted}`,
+                      backgroundColor: colors.primaryLight,
                     }}>
                       <p style={{
                         margin: 0,
-                        fontSize: 14,
-                        color: '#004085',
+                        fontSize: typography.sizes.sm,
+                        color: colors.primaryDark,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 8,
+                        gap: spacing['2xs'],
                       }}>
-                        <span style={{ fontSize: 18 }}>📍</span>
+                        <span style={{ fontSize: typography.sizes.lg }}>📍</span>
                         {order.status === 'ready'
                           ? 'Your order is ready for pickup!'
                           : 'Your order has been confirmed by the vendor'

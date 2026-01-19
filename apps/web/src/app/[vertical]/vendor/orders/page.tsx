@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import OrderCard from '@/components/vendor/OrderCard'
 import OrderFilters from '@/components/vendor/OrderFilters'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface OrderItem {
   id: string
@@ -180,33 +181,33 @@ export default function VendorOrdersPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
-        <p>Loading orders...</p>
+      <div style={{ padding: spacing.xl, textAlign: 'center', backgroundColor: colors.surfaceBase, minHeight: '100vh' }}>
+        <p style={{ color: colors.textMuted }}>Loading orders...</p>
       </div>
     )
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
+    <div style={{ maxWidth: containers.xl, margin: '0 auto', padding: `${spacing.md} ${spacing.sm}`, backgroundColor: colors.surfaceBase, minHeight: '100vh' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md, flexWrap: 'wrap', gap: spacing.sm }}>
         <div>
-          <h1 style={{ color: '#111827', marginBottom: 8, marginTop: 0, fontSize: 28, fontWeight: 'bold' }}>
+          <h1 style={{ color: colors.primary, marginBottom: spacing['2xs'], marginTop: 0, fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold }}>
             Orders
           </h1>
-          <p style={{ color: '#6b7280', margin: 0 }}>
+          <p style={{ color: colors.textSecondary, margin: 0 }}>
             Manage customer orders and pickup fulfillment
           </p>
         </div>
         <Link
           href={`/${vertical}/vendor/dashboard`}
           style={{
-            padding: '10px 20px',
-            backgroundColor: '#6b7280',
-            color: 'white',
+            padding: `${spacing['2xs']} ${spacing.sm}`,
+            backgroundColor: colors.primaryDark,
+            color: colors.textInverse,
             textDecoration: 'none',
-            borderRadius: 6,
-            fontWeight: 600,
+            borderRadius: radius.sm,
+            fontWeight: typography.weights.semibold,
             minHeight: 44,
             display: 'flex',
             alignItems: 'center'
@@ -217,7 +218,7 @@ export default function VendorOrdersPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: spacing.md }}>
         <OrderFilters
           currentStatus={statusFilter}
           currentMarketId={marketFilter}
@@ -232,38 +233,38 @@ export default function VendorOrdersPage() {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-        gap: 12,
-        marginBottom: 24
+        gap: spacing.xs,
+        marginBottom: spacing.md
       }}>
-        <div style={{ padding: 16, backgroundColor: '#fef3c7', borderRadius: 8 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#92400e' }}>
+        <div style={{ padding: spacing.sm, backgroundColor: colors.surfaceSubtle, borderRadius: radius.md, boxShadow: shadows.sm }}>
+          <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.accent }}>
             Pending
           </p>
-          <p style={{ margin: '4px 0 0 0', fontSize: 24, fontWeight: 700, color: '#92400e' }}>
+          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.accent }}>
             {statusCounts.pending}
           </p>
         </div>
-        <div style={{ padding: 16, backgroundColor: '#dbeafe', borderRadius: 8 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#1e40af' }}>
+        <div style={{ padding: spacing.sm, backgroundColor: colors.primaryLight, borderRadius: radius.md, boxShadow: shadows.sm }}>
+          <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.primary }}>
             Confirmed
           </p>
-          <p style={{ margin: '4px 0 0 0', fontSize: 24, fontWeight: 700, color: '#1e40af' }}>
+          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primary }}>
             {statusCounts.confirmed}
           </p>
         </div>
-        <div style={{ padding: 16, backgroundColor: '#d1fae5', borderRadius: 8 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#065f46' }}>
+        <div style={{ padding: spacing.sm, backgroundColor: colors.primaryLight, borderRadius: radius.md, boxShadow: shadows.sm }}>
+          <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.primaryDark }}>
             Ready
           </p>
-          <p style={{ margin: '4px 0 0 0', fontSize: 24, fontWeight: 700, color: '#065f46' }}>
+          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primaryDark }}>
             {statusCounts.ready}
           </p>
         </div>
-        <div style={{ padding: 16, backgroundColor: '#e0e7ff', borderRadius: 8 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#4338ca' }}>
+        <div style={{ padding: spacing.sm, backgroundColor: colors.surfaceMuted, borderRadius: radius.md, boxShadow: shadows.sm }}>
+          <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
             Fulfilled
           </p>
-          <p style={{ margin: '4px 0 0 0', fontSize: 24, fontWeight: 700, color: '#4338ca' }}>
+          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.textSecondary }}>
             {statusCounts.fulfilled}
           </p>
         </div>
@@ -285,16 +286,17 @@ export default function VendorOrdersPage() {
         </div>
       ) : (
         <div style={{
-          padding: 60,
-          backgroundColor: 'white',
-          borderRadius: 8,
+          padding: spacing['3xl'],
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.md,
           textAlign: 'center',
-          border: '1px solid #e5e7eb'
+          border: `1px solid ${colors.border}`,
+          boxShadow: shadows.sm
         }}>
-          <p style={{ color: '#6b7280', fontSize: 16, margin: 0 }}>
+          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
             No orders found.
           </p>
-          <p style={{ color: '#9ca3af', fontSize: 14, marginTop: 8 }}>
+          <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, marginTop: spacing['2xs'] }}>
             {statusFilter || marketFilter
               ? 'Try adjusting your filters.'
               : 'Orders will appear here when customers make purchases.'}

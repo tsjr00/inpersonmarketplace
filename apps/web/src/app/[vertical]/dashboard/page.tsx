@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { hasAdminRole } from '@/lib/auth/admin'
 import Link from 'next/link'
+import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -38,7 +40,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .eq('user_id', user.id)
     .single()
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+  const isAdmin = userProfile ? hasAdminRole(userProfile) : false
   const buyerTier = (userProfile?.buyer_tier as string) || 'free'
   const isPremiumBuyer = buyerTier === 'premium'
 
@@ -50,46 +52,49 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   return (
     <div style={{
-      backgroundColor: branding.colors.background,
-      color: branding.colors.text,
-      padding: 40
+      maxWidth: containers.xl,
+      margin: '0 auto',
+      backgroundColor: colors.surfaceBase,
+      color: colors.textSecondary,
+      padding: spacing.xl
     }}>
       {/* Page Title */}
       <h1 style={{
-        color: branding.colors.primary,
+        color: colors.primary,
         margin: 0,
-        marginBottom: 30,
-        paddingBottom: 20,
-        borderBottom: `2px solid ${branding.colors.primary}`
+        marginBottom: spacing.lg,
+        paddingBottom: spacing.md,
+        borderBottom: `2px solid ${colors.primary}`,
+        fontSize: typography.sizes['2xl']
       }}>
         {branding.brand_name} Dashboard
       </h1>
 
       {/* Welcome Section */}
       <div style={{
-        padding: 20,
-        backgroundColor: 'white',
-        color: '#333',
-        border: `1px solid ${branding.colors.secondary}`,
-        borderRadius: 8,
-        marginBottom: 30
+        padding: spacing.md,
+        backgroundColor: colors.surfaceElevated,
+        color: colors.textPrimary,
+        border: `1px solid ${colors.border}`,
+        borderRadius: radius.md,
+        marginBottom: spacing.lg
       }}>
-        <h2 style={{ marginTop: 0, marginBottom: 5 }}>
+        <h2 style={{ marginTop: 0, marginBottom: spacing['3xs'], fontSize: typography.sizes.xl }}>
           Welcome back, {user.user_metadata?.full_name || user.email?.split('@')[0]}!
         </h2>
-        <p style={{ margin: 0, color: '#666', fontSize: 14 }}>{user.email}</p>
+        <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>{user.email}</p>
       </div>
 
       {/* ========== SHOPPER SECTION ========== */}
-      <section style={{ marginBottom: 30 }}>
+      <section style={{ marginBottom: spacing.lg }}>
         <h2 style={{
-          fontSize: 20,
-          fontWeight: 600,
-          marginBottom: 15,
-          color: branding.colors.primary,
+          fontSize: typography.sizes.xl,
+          fontWeight: typography.weights.semibold,
+          marginBottom: spacing.sm,
+          color: colors.primary,
           display: 'flex',
           alignItems: 'center',
-          gap: 8
+          gap: spacing['2xs']
         }}>
           <span>🛒</span> Shopper
         </h2>
@@ -97,25 +102,25 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: 15
+          gap: spacing.sm
         }}>
           {/* Browse Products Card */}
           <Link
             href={`/${vertical}/browse`}
             style={{
               display: 'block',
-              padding: 20,
-              backgroundColor: 'white',
-              color: '#333',
-              border: `1px solid ${branding.colors.secondary}`,
-              borderRadius: 8,
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
               textDecoration: 'none'
             }}
           >
-            <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
               Browse Products
             </h3>
-            <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
               Discover fresh products from local vendors
             </p>
           </Link>
@@ -125,18 +130,18 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             href={`/${vertical}/buyer/orders`}
             style={{
               display: 'block',
-              padding: 20,
-              backgroundColor: 'white',
-              color: '#333',
-              border: `1px solid ${branding.colors.secondary}`,
-              borderRadius: 8,
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
               textDecoration: 'none'
             }}
           >
-            <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
               My Orders
             </h3>
-            <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
               {orderCount || 0} order{orderCount !== 1 ? 's' : ''} placed
             </p>
           </Link>
@@ -145,50 +150,50 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         {/* Upgrade to Premium Card - only show for free tier */}
         {!isPremiumBuyer && (
           <div style={{
-            marginTop: 20,
-            padding: 24,
-            backgroundColor: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-            border: '1px solid #93c5fd',
-            borderRadius: 12
+            marginTop: spacing.md,
+            padding: spacing.md,
+            backgroundColor: colors.primaryLight,
+            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.surfaceSubtle} 100%)`,
+            border: `1px solid ${colors.primary}`,
+            borderRadius: radius.lg
           }}>
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'flex-start',
               flexWrap: 'wrap',
-              gap: 20
+              gap: spacing.md
             }}>
               <div style={{ flex: 1, minWidth: 250 }}>
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 8
+                  gap: spacing['2xs'],
+                  marginBottom: spacing['2xs']
                 }}>
-                  <span style={{ fontSize: 24 }}>⭐</span>
+                  <span style={{ fontSize: typography.sizes['2xl'] }}>⭐</span>
                   <h3 style={{
                     margin: 0,
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: '#1e40af'
+                    fontSize: typography.sizes.xl,
+                    fontWeight: typography.weights.bold,
+                    color: colors.primaryDark
                   }}>
                     Upgrade Your Shopper Account
                   </h3>
                 </div>
                 <p style={{
-                  margin: '0 0 16px 0',
-                  color: '#1e3a8a',
-                  fontSize: 15
+                  margin: `0 0 ${spacing.sm} 0`,
+                  color: colors.textSecondary,
+                  fontSize: typography.sizes.base
                 }}>
                   Become a Premium Shopper for just <strong>$9.99/month</strong> or <strong>$81.50/year</strong>{' '}
                   <span style={{
-                    backgroundColor: '#059669',
-                    color: 'white',
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                    fontSize: 12,
-                    fontWeight: 600
+                    backgroundColor: colors.primary,
+                    color: colors.textInverse,
+                    padding: `2px ${spacing['2xs']}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold
                   }}>
                     Save 32%
                   </span>
@@ -197,23 +202,23 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: 10
+                  gap: spacing.xs
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
-                    <span style={{ fontSize: 14, color: '#374151' }}>Access to Market Box subscriptions</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                    <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Access to Market Box subscriptions</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
-                    <span style={{ fontSize: 14, color: '#374151' }}>Early access to new listings</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                    <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Early access to new listings</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
-                    <span style={{ fontSize: 14, color: '#374151' }}>Priority customer support</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                    <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Priority customer support</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#059669', fontWeight: 'bold' }}>✓</span>
-                    <span style={{ fontSize: 14, color: '#374151' }}>Premium shopper badge</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                    <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Premium shopper badge</span>
                   </div>
                 </div>
               </div>
@@ -224,16 +229,16 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '14px 28px',
-                  backgroundColor: '#2563eb',
-                  color: 'white',
+                  padding: `${spacing.sm} ${spacing.lg}`,
+                  backgroundColor: colors.primary,
+                  color: colors.textInverse,
                   textDecoration: 'none',
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  fontSize: 16,
+                  borderRadius: radius.md,
+                  fontWeight: typography.weights.semibold,
+                  fontSize: typography.sizes.base,
                   minHeight: 48,
                   whiteSpace: 'nowrap',
-                  boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)'
+                  boxShadow: shadows.primary
                 }}
               >
                 Upgrade Now →
@@ -245,25 +250,25 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         {/* Premium Member Badge - show for premium buyers */}
         {isPremiumBuyer && (
           <div style={{
-            marginTop: 20,
-            padding: 16,
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #86efac',
-            borderRadius: 8,
+            marginTop: spacing.md,
+            padding: spacing.sm,
+            backgroundColor: colors.primaryLight,
+            border: `1px solid ${colors.primary}`,
+            borderRadius: radius.md,
             display: 'flex',
             alignItems: 'center',
-            gap: 12
+            gap: spacing.xs
           }}>
-            <span style={{ fontSize: 24 }}>⭐</span>
+            <span style={{ fontSize: typography.sizes['2xl'] }}>⭐</span>
             <div>
               <div style={{
-                fontWeight: 600,
-                color: '#166534',
-                fontSize: 15
+                fontWeight: typography.weights.semibold,
+                color: colors.primaryDark,
+                fontSize: typography.sizes.base
               }}>
                 Premium Member
               </div>
-              <div style={{ fontSize: 13, color: '#166534' }}>
+              <div style={{ fontSize: typography.sizes.sm, color: colors.primaryDark }}>
                 Enjoying early access, priority support, and exclusive benefits
               </div>
             </div>
@@ -276,19 +281,19 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         <>
           {/* Separator between Shopper and Vendor sections */}
           <div style={{
-            borderTop: '1px solid #e5e7eb',
-            marginBottom: 30
+            borderTop: `1px solid ${colors.border}`,
+            marginBottom: spacing.lg
           }} />
 
-          <section style={{ marginBottom: 30 }}>
+          <section style={{ marginBottom: spacing.lg }}>
             <h2 style={{
-              fontSize: 20,
-              fontWeight: 600,
-              marginBottom: 15,
-              color: branding.colors.accent || '#2563eb',
+              fontSize: typography.sizes.xl,
+              fontWeight: typography.weights.semibold,
+              marginBottom: spacing.sm,
+              color: colors.accent,
               display: 'flex',
               alignItems: 'center',
-              gap: 8
+              gap: spacing['2xs']
             }}>
               <span>🏪</span> Vendor
             </h2>
@@ -297,25 +302,25 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-              gap: 15
+              gap: spacing.sm
             }}>
               {/* Vendor Dashboard Card */}
               <Link
                 href={`/${vertical}/vendor/dashboard`}
                 style={{
                   display: 'block',
-                  padding: 20,
-                  backgroundColor: '#eff6ff',
-                  color: '#333',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: 8,
+                  padding: spacing.md,
+                  backgroundColor: colors.primaryLight,
+                  color: colors.textPrimary,
+                  border: `1px solid ${colors.primary}`,
+                  borderRadius: radius.md,
                   textDecoration: 'none'
                 }}
               >
-                <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
                   Vendor Dashboard
                 </h3>
-                <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                   Manage listings, orders, and payments
                 </p>
               </Link>
@@ -325,18 +330,18 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 href={`/${vertical}/vendor/listings`}
                 style={{
                   display: 'block',
-                  padding: 20,
-                  backgroundColor: 'white',
-                  color: '#333',
-                  border: `1px solid ${branding.colors.secondary}`,
-                  borderRadius: 8,
+                  padding: spacing.md,
+                  backgroundColor: colors.surfaceElevated,
+                  color: colors.textPrimary,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.md,
                   textDecoration: 'none'
                 }}
               >
-                <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
                   My Listings
                 </h3>
-                <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                   View and manage your products
                 </p>
               </Link>
@@ -346,18 +351,18 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 href={`/${vertical}/vendor/market-boxes`}
                 style={{
                   display: 'block',
-                  padding: 20,
-                  backgroundColor: 'white',
-                  color: '#333',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: 8,
+                  padding: spacing.md,
+                  backgroundColor: colors.surfaceElevated,
+                  color: colors.textPrimary,
+                  border: `1px solid ${colors.primary}`,
+                  borderRadius: radius.md,
                   textDecoration: 'none'
                 }}
               >
-                <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
                   My Market Boxes
                 </h3>
-                <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                   Create subscription bundles for premium buyers
                 </p>
               </Link>
@@ -366,48 +371,48 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             <div>
               {/* Pending Approval Notice */}
               <div style={{
-                padding: 15,
-                backgroundColor: '#fefce8',
-                color: '#333',
-                border: '1px solid #fde047',
-                borderRadius: 8,
-                marginBottom: 15
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceSubtle,
+                color: colors.textPrimary,
+                border: `1px solid ${colors.accent}`,
+                borderRadius: radius.md,
+                marginBottom: spacing.sm
               }}>
-                <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600, color: '#854d0e' }}>
+                <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.accent }}>
                   ⏳ Pending Approval
                 </h3>
-                <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                   Your vendor application is being reviewed. We&apos;ll notify you once approved.
                 </p>
               </div>
 
               {/* Draft Listings Section */}
-              <p style={{ margin: '0 0 12px 0', color: '#666', fontSize: 14 }}>
+              <p style={{ margin: `0 0 ${spacing.xs} 0`, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                 While you wait, you can prepare your listings:
               </p>
 
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                gap: 15
+                gap: spacing.sm
               }}>
                 {/* Create Draft Listings Card */}
                 <Link
                   href={`/${vertical}/vendor/listings/new`}
                   style={{
                     display: 'block',
-                    padding: 20,
-                    backgroundColor: 'white',
-                    color: '#333',
-                    border: '1px solid #fde047',
-                    borderRadius: 8,
+                    padding: spacing.md,
+                    backgroundColor: colors.surfaceElevated,
+                    color: colors.textPrimary,
+                    border: `1px solid ${colors.accent}`,
+                    borderRadius: radius.md,
                     textDecoration: 'none'
                   }}
                 >
-                  <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                  <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
                     Create Draft Listings
                   </h3>
-                  <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                  <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                     Start adding your products now
                   </p>
                 </Link>
@@ -417,18 +422,18 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   href={`/${vertical}/vendor/listings`}
                   style={{
                     display: 'block',
-                    padding: 20,
-                    backgroundColor: 'white',
-                    color: '#333',
-                    border: '1px solid #fde047',
-                    borderRadius: 8,
+                    padding: spacing.md,
+                    backgroundColor: colors.surfaceElevated,
+                    color: colors.textPrimary,
+                    border: `1px solid ${colors.accent}`,
+                    borderRadius: radius.md,
                     textDecoration: 'none'
                   }}
                 >
-                  <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+                  <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
                     My Listings
                   </h3>
-                  <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+                  <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                     View and edit your draft listings
                   </p>
                 </Link>
@@ -437,24 +442,24 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 <div
                   style={{
                     display: 'block',
-                    padding: 20,
-                    backgroundColor: '#f9fafb',
-                    color: '#9ca3af',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 8,
+                    padding: spacing.md,
+                    backgroundColor: colors.surfaceMuted,
+                    color: colors.textMuted,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.md,
                     opacity: 0.7
                   }}
                 >
-                  <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600, color: '#9ca3af' }}>
+                  <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textMuted }}>
                     My Market Boxes
                   </h3>
-                  <p style={{ margin: 0, color: '#9ca3af', fontSize: 14 }}>
+                  <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                     Available after approval - create subscription bundles
                   </p>
                 </div>
               </div>
 
-              <p style={{ margin: '12px 0 0 0', color: '#92400e', fontSize: 13, fontStyle: 'italic' }}>
+              <p style={{ margin: `${spacing.xs} 0 0 0`, color: colors.accent, fontSize: typography.sizes.sm, fontStyle: 'italic' }}>
                 Listings will be saved as drafts and can be published once your account is approved.
               </p>
             </div>
@@ -465,15 +470,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
       {/* ========== ADMIN SECTION ========== */}
       {isAdmin && (
-        <section style={{ marginBottom: 30 }}>
+        <section style={{ marginBottom: spacing.lg }}>
           <h2 style={{
-            fontSize: 20,
-            fontWeight: 600,
-            marginBottom: 15,
+            fontSize: typography.sizes.xl,
+            fontWeight: typography.weights.semibold,
+            marginBottom: spacing.sm,
             color: '#7c3aed',
             display: 'flex',
             alignItems: 'center',
-            gap: 8
+            gap: spacing['2xs']
           }}>
             <span>🔧</span> Admin
           </h2>
@@ -482,19 +487,19 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             href={`/${vertical}/admin`}
             style={{
               display: 'block',
-              padding: 20,
+              padding: spacing.md,
               backgroundColor: '#f5f3ff',
-              color: '#333',
+              color: colors.textPrimary,
               border: '1px solid #c4b5fd',
-              borderRadius: 8,
+              borderRadius: radius.md,
               textDecoration: 'none',
               maxWidth: 300
             }}
           >
-            <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18, fontWeight: 600 }}>
+            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
               Admin Panel
             </h3>
-            <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
               Manage vendors, listings, and users
             </p>
           </Link>
@@ -504,18 +509,18 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       {/* ========== BECOME A VENDOR (small, at bottom) ========== */}
       {!isVendor && (
         <section style={{
-          borderTop: '1px solid #e5e7eb',
-          paddingTop: 20,
-          marginTop: 20
+          borderTop: `1px solid ${colors.border}`,
+          paddingTop: spacing.md,
+          marginTop: spacing.md
         }}>
-          <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>
+          <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
             Interested in selling?{' '}
             <Link
               href={`/${vertical}/vendor-signup`}
               style={{
-                color: branding.colors.primary,
+                color: colors.primary,
                 textDecoration: 'none',
-                fontWeight: 500
+                fontWeight: typography.weights.medium
               }}
             >
               Become a vendor →
