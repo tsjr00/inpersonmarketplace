@@ -54,7 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_market_box_subscriptions_offering_status
 
 -- Index for user's subscriptions
 CREATE INDEX IF NOT EXISTS idx_market_box_subscriptions_user
-  ON market_box_subscriptions(user_id, status);
+  ON market_box_subscriptions(buyer_user_id, status);
 
 -- ============================================================================
 -- MARKETS INDEXES
