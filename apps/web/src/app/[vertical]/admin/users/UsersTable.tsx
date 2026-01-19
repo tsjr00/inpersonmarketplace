@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
 interface UserProfile {
   id: string
   user_id: string
+  email?: string
   display_name: string | null
   role: string
   roles: string[] | null
+  buyer_tier?: string | null
   created_at: string
   vendor_profiles: {
     id: string
@@ -64,15 +67,18 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [vendorTierFilter, setVendorTierFilter] = useState<string>('all')
+  const [buyerTierFilter, setBuyerTierFilter] = useState<string>('all')
 
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
-      // Search filter
+      // Search filter (now includes email)
       if (search) {
         const searchLower = search.toLowerCase()
         const nameMatch = user.display_name?.toLowerCase().includes(searchLower)
         const idMatch = user.user_id.toLowerCase().includes(searchLower)
-        if (!nameMatch && !idMatch) return false
+        const emailMatch = user.email?.toLowerCase().includes(searchLower)
+        if (!nameMatch && !idMatch && !emailMatch) return false
       }
 
       // Role filter
@@ -92,33 +98,57 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
         }
       }
 
+      // Vendor tier filter
+      if (vendorTierFilter !== 'all') {
+        const vp = user.vendor_profiles?.find(v => v.vertical_id === vertical)
+        if (!vp) return false
+        const vendorTier = vp.tier || 'standard'
+        if (vendorTier !== vendorTierFilter) return false
+      }
+
+      // Buyer tier filter
+      if (buyerTierFilter !== 'all') {
+        const userBuyerTier = user.buyer_tier || 'free'
+        if (userBuyerTier !== buyerTierFilter) return false
+      }
+
       return true
     })
-  }, [users, search, roleFilter, statusFilter, vertical])
+  }, [users, search, roleFilter, statusFilter, vendorTierFilter, buyerTierFilter, vertical])
+
+  const hasActiveFilters = search || roleFilter !== 'all' || statusFilter !== 'all' || vendorTierFilter !== 'all' || buyerTierFilter !== 'all'
+
+  const clearFilters = () => {
+    setSearch('')
+    setRoleFilter('all')
+    setStatusFilter('all')
+    setVendorTierFilter('all')
+    setBuyerTierFilter('all')
+  }
 
   return (
     <>
       {/* Search & Filters */}
       <div style={{
         display: 'flex',
-        gap: 12,
-        marginBottom: 20,
+        gap: spacing.sm,
+        marginBottom: spacing.md,
         flexWrap: 'wrap',
         alignItems: 'center'
       }}>
         {/* Search Input */}
-        <div style={{ flex: '1 1 300px', minWidth: 200 }}>
+        <div style={{ flex: '1 1 250px', minWidth: 200 }}>
           <input
             type="text"
-            placeholder="Search by name or user ID..."
+            placeholder="Search by name, email, or user ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
               width: '100%',
-              padding: '10px 14px',
-              fontSize: 14,
-              border: '1px solid #ddd',
-              borderRadius: 6,
+              padding: `${spacing.xs} ${spacing.sm}`,
+              fontSize: typography.sizes.sm,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
               backgroundColor: 'white'
             }}
           />
@@ -129,12 +159,12 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
           style={{
-            padding: '10px 14px',
-            fontSize: 14,
-            border: '1px solid #ddd',
-            borderRadius: 6,
+            padding: `${spacing.xs} ${spacing.sm}`,
+            fontSize: typography.sizes.sm,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
             backgroundColor: 'white',
-            minWidth: 140
+            minWidth: 120
           }}
         >
           <option value="all">All Roles</option>
@@ -148,74 +178,142 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           style={{
-            padding: '10px 14px',
-            fontSize: 14,
-            border: '1px solid #ddd',
-            borderRadius: 6,
+            padding: `${spacing.xs} ${spacing.sm}`,
+            fontSize: typography.sizes.sm,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
             backgroundColor: 'white',
-            minWidth: 160
+            minWidth: 140
           }}
         >
-          <option value="all">All Statuses</option>
+          <option value="all">Vendor Status</option>
           <option value="approved">Approved</option>
           <option value="pending">Pending</option>
           <option value="rejected">Rejected</option>
         </select>
 
-        {/* Results count */}
-        <span style={{ color: '#666', fontSize: 14 }}>
-          {filteredUsers.length} of {users.length} users
-        </span>
+        {/* Vendor Tier Filter */}
+        <select
+          value={vendorTierFilter}
+          onChange={(e) => setVendorTierFilter(e.target.value)}
+          style={{
+            padding: `${spacing.xs} ${spacing.sm}`,
+            fontSize: typography.sizes.sm,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
+            backgroundColor: 'white',
+            minWidth: 130
+          }}
+        >
+          <option value="all">Vendor Tier</option>
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
+          <option value="featured">Featured</option>
+        </select>
+
+        {/* Buyer Tier Filter */}
+        <select
+          value={buyerTierFilter}
+          onChange={(e) => setBuyerTierFilter(e.target.value)}
+          style={{
+            padding: `${spacing.xs} ${spacing.sm}`,
+            fontSize: typography.sizes.sm,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
+            backgroundColor: 'white',
+            minWidth: 120
+          }}
+        >
+          <option value="all">Buyer Tier</option>
+          <option value="free">Free</option>
+          <option value="premium">Premium</option>
+        </select>
+
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            style={{
+              padding: `${spacing.xs} ${spacing.sm}`,
+              backgroundColor: colors.surfaceSubtle,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              cursor: 'pointer',
+              fontSize: typography.sizes.sm
+            }}
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+
+      {/* Results count */}
+      <div style={{ marginBottom: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
+        {filteredUsers.length} of {users.length} user{users.length !== 1 ? 's' : ''}
       </div>
 
       {/* Users Table */}
       {filteredUsers.length > 0 ? (
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: 8,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.md,
           overflow: 'hidden',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+          boxShadow: shadows.sm
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-                <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#495057' }}>
+              <tr style={{ backgroundColor: colors.surfaceSubtle, borderBottom: `2px solid ${colors.border}` }}>
+                <th style={{ padding: spacing.sm, textAlign: 'left', fontWeight: typography.weights.semibold, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
                   Name
                 </th>
-                <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#495057' }}>
+                <th style={{ padding: spacing.sm, textAlign: 'left', fontWeight: typography.weights.semibold, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
+                  Email
+                </th>
+                <th style={{ padding: spacing.sm, textAlign: 'left', fontWeight: typography.weights.semibold, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
                   Role(s)
                 </th>
-                <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#495057' }}>
+                <th style={{ padding: spacing.sm, textAlign: 'left', fontWeight: typography.weights.semibold, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
+                  Buyer Tier
+                </th>
+                <th style={{ padding: spacing.sm, textAlign: 'left', fontWeight: typography.weights.semibold, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
                   Vendor Status
                 </th>
-                <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#495057' }}>
-                  Tier
+                <th style={{ padding: spacing.sm, textAlign: 'left', fontWeight: typography.weights.semibold, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
+                  Vendor Tier
                 </th>
-                <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#495057' }}>
+                <th style={{ padding: spacing.sm, textAlign: 'left', fontWeight: typography.weights.semibold, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
                   Joined
                 </th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map((user) => (
-                <tr key={user.id} style={{ borderBottom: '1px solid #e9ecef' }}>
+                <tr key={user.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
                   {/* Name */}
-                  <td style={{ padding: 12 }}>
-                    <div style={{ fontWeight: 500, color: '#333' }}>
+                  <td style={{ padding: spacing.sm }}>
+                    <div style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>
                       {user.display_name || 'No name'}
                     </div>
-                    <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                    <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: spacing['3xs'] }}>
                       ID: {user.user_id.slice(0, 8)}...
                     </div>
                   </td>
 
+                  {/* Email */}
+                  <td style={{ padding: spacing.sm }}>
+                    <div style={{ color: colors.textPrimary, fontSize: typography.sizes.sm }}>
+                      {user.email || '—'}
+                    </div>
+                  </td>
+
                   {/* Role(s) */}
-                  <td style={{ padding: 12 }}>
+                  <td style={{ padding: spacing.sm }}>
                     <span style={{
-                      padding: '4px 12px',
-                      borderRadius: 12,
-                      fontSize: 13,
-                      fontWeight: 600,
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
                       backgroundColor: getDisplayRole(user).includes('admin')
                         ? '#e7d6ff'
                         : getDisplayRole(user).includes('vendor')
@@ -231,18 +329,34 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
                     </span>
                   </td>
 
+                  {/* Buyer Tier */}
+                  <td style={{ padding: spacing.sm }}>
+                    <span style={{
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      backgroundColor: user.buyer_tier === 'premium' ? '#dbeafe' : '#f3f4f6',
+                      color: user.buyer_tier === 'premium' ? '#1e40af' : '#6b7280'
+                    }}>
+                      {user.buyer_tier || 'free'}
+                    </span>
+                  </td>
+
                   {/* Vendor Status */}
-                  <td style={{ padding: 12 }}>
+                  <td style={{ padding: spacing.sm }}>
                     {user.vendor_profiles && user.vendor_profiles.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {user.vendor_profiles.map((vp) => (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+                        {user.vendor_profiles
+                          .filter(vp => vp.vertical_id === vertical)
+                          .map((vp) => (
                           <span
                             key={vp.id}
                             style={{
-                              padding: '3px 10px',
-                              borderRadius: 10,
-                              fontSize: 12,
-                              fontWeight: 600,
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              fontWeight: typography.weights.semibold,
                               backgroundColor:
                                 vp.status === 'approved' ? '#d1fae5' :
                                 vp.status === 'rejected' ? '#fee2e2' :
@@ -254,27 +368,29 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
                               display: 'inline-block'
                             }}
                           >
-                            {vp.vertical_id}: {vp.status}
+                            {vp.status}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <span style={{ color: '#999', fontSize: 13 }}>-</span>
+                      <span style={{ color: colors.textSecondary, fontSize: typography.sizes.sm }}>—</span>
                     )}
                   </td>
 
-                  {/* Tier */}
-                  <td style={{ padding: 12 }}>
+                  {/* Vendor Tier */}
+                  <td style={{ padding: spacing.sm }}>
                     {user.vendor_profiles && user.vendor_profiles.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {user.vendor_profiles.map((vp) => (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+                        {user.vendor_profiles
+                          .filter(vp => vp.vertical_id === vertical)
+                          .map((vp) => (
                           <span
                             key={vp.id}
                             style={{
-                              padding: '3px 10px',
-                              borderRadius: 10,
-                              fontSize: 12,
-                              fontWeight: 600,
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              fontWeight: typography.weights.semibold,
                               backgroundColor:
                                 vp.tier === 'premium' ? '#dbeafe' :
                                 vp.tier === 'featured' ? '#fef3c7' : '#f3f4f6',
@@ -289,12 +405,12 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
                         ))}
                       </div>
                     ) : (
-                      <span style={{ color: '#999', fontSize: 13 }}>-</span>
+                      <span style={{ color: colors.textSecondary, fontSize: typography.sizes.sm }}>—</span>
                     )}
                   </td>
 
                   {/* Joined */}
-                  <td style={{ padding: 12, color: '#666', fontSize: 14 }}>
+                  <td style={{ padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>
                 </tr>
@@ -304,33 +420,29 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
         </div>
       ) : (
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: 8,
-          padding: 60,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.md,
+          padding: spacing.xl,
           textAlign: 'center',
-          color: '#666'
+          color: colors.textSecondary
         }}>
           <p style={{ margin: 0 }}>
             {users.length === 0
               ? 'No users found.'
-              : 'No users match your search criteria.'}
+              : 'No users match your filters.'}
           </p>
-          {(search || roleFilter !== 'all' || statusFilter !== 'all') && (
+          {hasActiveFilters && (
             <button
-              onClick={() => {
-                setSearch('')
-                setRoleFilter('all')
-                setStatusFilter('all')
-              }}
+              onClick={clearFilters}
               style={{
-                marginTop: 16,
-                padding: '8px 16px',
-                backgroundColor: '#f3f4f6',
+                marginTop: spacing.sm,
+                padding: `${spacing.xs} ${spacing.sm}`,
+                backgroundColor: colors.surfaceSubtle,
                 border: 'none',
-                borderRadius: 6,
+                borderRadius: radius.sm,
                 cursor: 'pointer',
-                fontSize: 14,
-                color: '#333'
+                fontSize: typography.sizes.sm,
+                color: colors.textPrimary
               }}
             >
               Clear Filters

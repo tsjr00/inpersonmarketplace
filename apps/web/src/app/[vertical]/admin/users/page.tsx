@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
 import UsersTable from './UsersTable'
@@ -10,9 +10,11 @@ interface AdminUsersPageProps {
 interface UserProfile {
   id: string
   user_id: string
+  email?: string
   display_name: string | null
   role: string
   roles: string[] | null
+  buyer_tier?: string | null
   created_at: string
   vendor_profiles: {
     id: string
@@ -53,15 +55,18 @@ export default async function AdminUsersPage({ params }: AdminUsersPageProps) {
     )
   }
 
-  // Fetch all users with their vendor profiles
-  const { data: users } = await supabase
+  // Use service client to bypass RLS and fetch all users
+  const serviceClient = createServiceClient()
+  const { data: users } = await serviceClient
     .from('user_profiles')
     .select(`
       id,
       user_id,
+      email,
       display_name,
       role,
       roles,
+      buyer_tier,
       created_at,
       vendor_profiles (
         id,

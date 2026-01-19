@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import UsersTable from './UsersTable'
 
@@ -25,10 +25,10 @@ interface UserProfile {
 
 export default async function UsersPage() {
   await requireAdmin()
-  const supabase = await createClient()
 
-  // Fetch users with their roles, verticals, buyer tier, and vendor profiles
-  const { data: users, error } = await supabase
+  // Use service client to bypass RLS and fetch all users
+  const serviceClient = createServiceClient()
+  const { data: users, error } = await serviceClient
     .from('user_profiles')
     .select(`
       id,

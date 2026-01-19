@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
@@ -30,16 +30,17 @@ export default function AdminListingsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     fetchListings()
-  }, [vertical, statusFilter])
+  }, [vertical])
 
   const fetchListings = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/listings?vertical=${vertical}&admin=true${statusFilter !== 'all' ? `&status=${statusFilter}` : ''}`)
+      const res = await fetch(`/api/listings?vertical=${vertical}&admin=true`)
       if (res.ok) {
         const data = await res.json()
         setListings(data.listings || [])
@@ -58,13 +59,50 @@ export default function AdminListingsPage() {
     }).format(cents / 100)
   }
 
-  const filteredListings = listings.filter(listing => {
-    if (!searchTerm) return true
-    const vendorName = listing.vendor_profiles?.profile_data?.business_name ||
-                       listing.vendor_profiles?.profile_data?.farm_name || ''
-    return listing.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           vendorName.toLowerCase().includes(searchTerm.toLowerCase())
-  })
+  // Get unique categories for filter dropdown
+  const categories = useMemo(() => {
+    const cats = new Set<string>()
+    listings.forEach(l => {
+      if (l.category) cats.add(l.category)
+    })
+    return Array.from(cats).sort()
+  }, [listings])
+
+  // Client-side filtering
+  const filteredListings = useMemo(() => {
+    return listings.filter(listing => {
+      // Search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const vendorName = listing.vendor_profiles?.profile_data?.business_name ||
+                          listing.vendor_profiles?.profile_data?.farm_name || ''
+        if (!listing.title.toLowerCase().includes(searchLower) &&
+            !vendorName.toLowerCase().includes(searchLower)) {
+          return false
+        }
+      }
+
+      // Status filter
+      if (statusFilter !== 'all' && listing.status !== statusFilter) {
+        return false
+      }
+
+      // Category filter
+      if (categoryFilter !== 'all' && listing.category !== categoryFilter) {
+        return false
+      }
+
+      return true
+    })
+  }, [listings, searchTerm, statusFilter, categoryFilter])
+
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || categoryFilter !== 'all'
+
+  const clearFilters = () => {
+    setSearchTerm('')
+    setStatusFilter('all')
+    setCategoryFilter('all')
+  }
 
   return (
     <div style={{
@@ -112,21 +150,28 @@ export default function AdminListingsPage() {
           display: 'flex',
           gap: spacing.sm,
           marginBottom: spacing.md,
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          alignItems: 'center'
         }}>
-          <input
-            type="text"
-            placeholder="Search listings or vendors..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              padding: `${spacing.xs} ${spacing.sm}`,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.sm,
-              fontSize: typography.sizes.sm,
-              minWidth: 250
-            }}
-          />
+          {/* Search Input */}
+          <div style={{ flex: '1 1 250px', minWidth: 200 }}>
+            <input
+              type="text"
+              placeholder="Search listings or vendors..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: `${spacing.xs} ${spacing.sm}`,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                backgroundColor: 'white'
+              }}
+            />
+          </div>
+
+          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -135,19 +180,57 @@ export default function AdminListingsPage() {
               border: `1px solid ${colors.border}`,
               borderRadius: radius.sm,
               fontSize: typography.sizes.sm,
-              backgroundColor: colors.surfaceElevated
+              backgroundColor: 'white',
+              minWidth: 130
             }}
           >
-            <option value="all">All Status</option>
+            <option value="all">All Statuses</option>
             <option value="published">Published</option>
             <option value="draft">Draft</option>
             <option value="archived">Archived</option>
           </select>
+
+          {/* Category Filter */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={{
+              padding: `${spacing.xs} ${spacing.sm}`,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              backgroundColor: 'white',
+              minWidth: 140
+            }}
+          >
+            <option value="all">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
+          {/* Clear Filters */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              style={{
+                padding: `${spacing.xs} ${spacing.sm}`,
+                backgroundColor: colors.surfaceSubtle,
+                color: colors.textPrimary,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                cursor: 'pointer',
+                fontSize: typography.sizes.sm
+              }}
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
 
         {/* Results count */}
         <div style={{ marginBottom: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
-          {filteredListings.length} listing{filteredListings.length !== 1 ? 's' : ''} found
+          {filteredListings.length} of {listings.length} listing{listings.length !== 1 ? 's' : ''}
         </div>
 
         {/* Listings Table */}
@@ -162,8 +245,27 @@ export default function AdminListingsPage() {
               Loading listings...
             </div>
           ) : filteredListings.length === 0 ? (
-            <div style={{ padding: spacing.lg, textAlign: 'center', color: colors.textSecondary }}>
-              No listings found
+            <div style={{ padding: spacing.xl, textAlign: 'center', color: colors.textSecondary }}>
+              <p style={{ margin: 0 }}>
+                {listings.length === 0 ? 'No listings found.' : 'No listings match your filters.'}
+              </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  style={{
+                    marginTop: spacing.sm,
+                    padding: `${spacing.xs} ${spacing.sm}`,
+                    backgroundColor: colors.surfaceSubtle,
+                    border: 'none',
+                    borderRadius: radius.sm,
+                    cursor: 'pointer',
+                    fontSize: typography.sizes.sm,
+                    color: colors.textPrimary
+                  }}
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>

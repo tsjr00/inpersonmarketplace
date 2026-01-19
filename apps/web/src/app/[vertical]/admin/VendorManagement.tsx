@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { VerticalBranding } from '@/lib/branding'
+import Link from 'next/link'
+import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
 interface Vendor {
   id: string
@@ -30,19 +32,21 @@ interface VendorManagementProps {
 
 export default function VendorManagement({ vertical, branding }: VendorManagementProps) {
   const [vendors, setVendors] = useState<Vendor[]>([])
-  const [statusFilter, setStatusFilter] = useState<string>('pending')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [tierFilter, setTierFilter] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
     fetchVendors()
-  }, [statusFilter])
+  }, [])
 
   async function fetchVendors() {
     setLoading(true)
 
-    let query = supabase
+    const query = supabase
       .from('vendor_profiles')
       .select(`
         id,
@@ -60,15 +64,6 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
       `)
       .eq('vertical_id', vertical)
       .order('created_at', { ascending: false })
-
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'pending') {
-        // 'submitted' and 'draft' are pending approval
-        query = query.in('status', ['submitted', 'draft'])
-      } else {
-        query = query.eq('status', statusFilter)
-      }
-    }
 
     const { data, error } = await query
 
@@ -93,6 +88,47 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
     }
 
     setLoading(false)
+  }
+
+  // Client-side filtering
+  const filteredVendors = useMemo(() => {
+    return vendors.filter(vendor => {
+      // Search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const businessName = vendor.profile_data?.business_name?.toLowerCase() || ''
+        const legalName = vendor.profile_data?.legal_name?.toLowerCase() || ''
+        const email = vendor.user_email?.toLowerCase() || ''
+        if (!businessName.includes(searchLower) && !legalName.includes(searchLower) && !email.includes(searchLower)) {
+          return false
+        }
+      }
+
+      // Status filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'pending') {
+          if (vendor.status !== 'submitted' && vendor.status !== 'draft') return false
+        } else if (vendor.status !== statusFilter) {
+          return false
+        }
+      }
+
+      // Tier filter
+      if (tierFilter !== 'all') {
+        const vendorTier = vendor.tier || 'standard'
+        if (vendorTier !== tierFilter) return false
+      }
+
+      return true
+    })
+  }, [vendors, searchTerm, statusFilter, tierFilter])
+
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || tierFilter !== 'all'
+
+  const clearFilters = () => {
+    setSearchTerm('')
+    setStatusFilter('all')
+    setTierFilter('all')
   }
 
   async function handleApprove(vendorId: string) {
@@ -133,75 +169,155 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
 
   return (
     <div style={{
-      backgroundColor: 'white',
-      borderRadius: 8,
-      padding: 25,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: radius.md,
+      padding: spacing.lg,
+      boxShadow: shadows.sm
     }}>
-      {/* Header with filter */}
+      {/* Search and Filters */}
       <div style={{
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20
+        gap: spacing.sm,
+        marginBottom: spacing.md,
+        flexWrap: 'wrap',
+        alignItems: 'center'
       }}>
-        <h2 style={{ margin: 0, color: '#333' }}>Vendor Management</h2>
+        {/* Search Input */}
+        <div style={{ flex: '1 1 250px', minWidth: 200 }}>
+          <input
+            type="text"
+            placeholder="Search by business name or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              padding: `${spacing.xs} ${spacing.sm}`,
+              fontSize: typography.sizes.sm,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              backgroundColor: 'white'
+            }}
+          />
+        </div>
 
+        {/* Status Filter */}
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           style={{
-            padding: '8px 12px',
-            fontSize: 14,
-            border: '1px solid #ddd',
-            borderRadius: 6,
-            backgroundColor: 'white'
+            padding: `${spacing.xs} ${spacing.sm}`,
+            fontSize: typography.sizes.sm,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
+            backgroundColor: 'white',
+            minWidth: 140
           }}
         >
-          <option value="pending">Pending Approval</option>
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
-          <option value="all">All Vendors</option>
         </select>
+
+        {/* Tier Filter */}
+        <select
+          value={tierFilter}
+          onChange={(e) => setTierFilter(e.target.value)}
+          style={{
+            padding: `${spacing.xs} ${spacing.sm}`,
+            fontSize: typography.sizes.sm,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.sm,
+            backgroundColor: 'white',
+            minWidth: 130
+          }}
+        >
+          <option value="all">All Tiers</option>
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
+          <option value="featured">Featured</option>
+        </select>
+
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            style={{
+              padding: `${spacing.xs} ${spacing.sm}`,
+              backgroundColor: colors.surfaceSubtle,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              cursor: 'pointer',
+              fontSize: typography.sizes.sm
+            }}
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+
+      {/* Results count */}
+      <div style={{ marginBottom: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
+        {filteredVendors.length} of {vendors.length} vendor{vendors.length !== 1 ? 's' : ''}
       </div>
 
       {/* Loading state */}
       {loading ? (
-        <p style={{ color: '#666' }}>Loading vendors...</p>
-      ) : vendors.length === 0 ? (
-        <p style={{ color: '#666' }}>
-          No vendors found with status: {statusFilter === 'pending' ? 'pending approval' : statusFilter}
-        </p>
+        <p style={{ color: colors.textSecondary }}>Loading vendors...</p>
+      ) : filteredVendors.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: spacing.xl, color: colors.textSecondary }}>
+          <p style={{ margin: 0 }}>
+            {vendors.length === 0 ? 'No vendors found.' : 'No vendors match your filters.'}
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              style={{
+                marginTop: spacing.sm,
+                padding: `${spacing.xs} ${spacing.sm}`,
+                backgroundColor: colors.surfaceSubtle,
+                border: 'none',
+                borderRadius: radius.sm,
+                cursor: 'pointer',
+                fontSize: typography.sizes.sm,
+                color: colors.textPrimary
+              }}
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '2px solid #eee' }}>
-                <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
+              <tr style={{ borderBottom: `2px solid ${colors.border}`, backgroundColor: colors.surfaceSubtle }}>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
                   Business Name
                 </th>
-                <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
                   Contact
                 </th>
-                <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
                   Type
                 </th>
-                <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
                   Markets
                 </th>
-                <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
                   Tier
                 </th>
-                <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
+                <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
                   Status
                 </th>
-                <th style={{ textAlign: 'left', padding: '12px 10px', color: '#666', fontWeight: 600 }}>
+                <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody>
-              {vendors.map((vendor) => {
+              {filteredVendors.map((vendor) => {
                 const isStale = vendor.days_pending !== undefined &&
                   vendor.days_pending >= 2 &&
                   (vendor.status === 'submitted' || vendor.status === 'draft')
@@ -307,64 +423,82 @@ export default function VendorManagement({ vertical, branding }: VendorManagemen
                     </td>
 
                     {/* Actions */}
-                    <td style={{ padding: '15px 10px' }}>
-                      {(vendor.status === 'submitted' || vendor.status === 'draft') && (
-                        <div style={{ display: 'flex', gap: 8 }}>
+                    <td style={{ padding: spacing.sm, textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        {/* View Link */}
+                        <Link
+                          href={`/${vertical}/vendor/${vendor.id}`}
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            fontSize: typography.sizes.sm,
+                            fontWeight: typography.weights.medium,
+                            backgroundColor: colors.primary,
+                            color: 'white',
+                            textDecoration: 'none',
+                            borderRadius: radius.sm
+                          }}
+                        >
+                          View
+                        </Link>
+
+                        {/* Approve/Reject for pending */}
+                        {(vendor.status === 'submitted' || vendor.status === 'draft') && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(vendor.id)}
+                              disabled={actionLoading === vendor.id}
+                              style={{
+                                padding: `${spacing['3xs']} ${spacing.xs}`,
+                                fontSize: typography.sizes.sm,
+                                fontWeight: typography.weights.semibold,
+                                backgroundColor: actionLoading === vendor.id ? '#ccc' : '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: radius.sm,
+                                cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              {actionLoading === vendor.id ? '...' : 'Approve'}
+                            </button>
+                            <button
+                              onClick={() => handleReject(vendor.id)}
+                              disabled={actionLoading === vendor.id}
+                              style={{
+                                padding: `${spacing['3xs']} ${spacing.xs}`,
+                                fontSize: typography.sizes.sm,
+                                fontWeight: typography.weights.semibold,
+                                backgroundColor: actionLoading === vendor.id ? '#ccc' : '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: radius.sm,
+                                cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+
+                        {/* Re-approve for rejected */}
+                        {vendor.status === 'rejected' && (
                           <button
                             onClick={() => handleApprove(vendor.id)}
                             disabled={actionLoading === vendor.id}
                             style={{
-                              padding: '6px 12px',
-                              fontSize: 13,
-                              fontWeight: 600,
-                              backgroundColor: actionLoading === vendor.id ? '#ccc' : '#10b981',
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              fontSize: typography.sizes.sm,
+                              fontWeight: typography.weights.semibold,
+                              backgroundColor: actionLoading === vendor.id ? '#ccc' : '#3b82f6',
                               color: 'white',
                               border: 'none',
-                              borderRadius: 4,
+                              borderRadius: radius.sm,
                               cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
                             }}
                           >
-                            {actionLoading === vendor.id ? '...' : 'Approve'}
+                            Re-approve
                           </button>
-                          <button
-                            onClick={() => handleReject(vendor.id)}
-                            disabled={actionLoading === vendor.id}
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: 13,
-                              fontWeight: 600,
-                              backgroundColor: actionLoading === vendor.id ? '#ccc' : '#ef4444',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: 4,
-                              cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
-                            }}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                      {vendor.status === 'approved' && (
-                        <span style={{ color: '#666', fontSize: 13 }}>Active</span>
-                      )}
-                      {vendor.status === 'rejected' && (
-                        <button
-                          onClick={() => handleApprove(vendor.id)}
-                          disabled={actionLoading === vendor.id}
-                          style={{
-                            padding: '6px 12px',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            backgroundColor: actionLoading === vendor.id ? '#ccc' : '#3b82f6',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
-                          }}
-                        >
-                          Re-approve
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
