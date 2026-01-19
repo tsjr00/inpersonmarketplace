@@ -95,6 +95,37 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // Check cutoff times for all market types (traditional: 18hr, private_pickup: 10hr)
+    for (const listing of listings) {
+      const { data: isAccepting, error: cutoffError } = await supabase
+        .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
+
+      if (cutoffError) {
+        console.error('Cutoff check error:', cutoffError)
+        // Continue if function doesn't exist yet (migration not applied)
+      } else if (isAccepting === false) {
+        // Get detailed availability info for better error message
+        const { data: availability } = await supabase
+          .rpc('get_listing_market_availability', { p_listing_id: listing.id })
+
+        const closedMarket = (availability as Array<{ market_name: string; next_market_at: string; is_accepting: boolean; market_type: string }> | null)
+          ?.find(m => !m.is_accepting)
+
+        const prepMessage = closedMarket?.market_type === 'private_pickup'
+          ? 'Vendor needs time to prepare for pickup.'
+          : 'Vendors need time to prepare for market day.'
+
+        const marketInfo = closedMarket?.next_market_at
+          ? ` for ${closedMarket.market_name} on ${new Date(closedMarket.next_market_at).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`
+          : ''
+
+        return NextResponse.json({
+          error: `Orders for "${listing.title}" are now closed${marketInfo}. ${prepMessage}`,
+          code: 'CUTOFF_PASSED'
+        }, { status: 400 })
+      }
+    }
+
     // Calculate totals
     let subtotalCents = 0
     let platformFeeCents = 0

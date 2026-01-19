@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
-import { AddToCartButton } from '@/components/cart/AddToCartButton'
+import ListingPurchaseSection from '@/components/listings/ListingPurchaseSection'
 import { formatDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -189,11 +189,12 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 </div>
               </div>
 
-              {/* Add to Cart */}
-              <AddToCartButton
+              {/* Add to Cart with Cutoff Status */}
+              <ListingPurchaseSection
                 listingId={listingId}
                 maxQuantity={listing.quantity}
                 primaryColor={branding.colors.primary}
+                vertical={vertical}
               />
 
               {/* Available At - Markets */}

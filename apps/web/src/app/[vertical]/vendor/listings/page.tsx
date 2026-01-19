@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import PublishButton from './PublishButton'
 import DeleteListingButton from './DeleteListingButton'
+import ListingCutoffStatus from '@/components/vendor/ListingCutoffStatus'
 import { formatPrice, getListingLimit } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -249,6 +250,12 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                     {listing.status.toUpperCase()}
                   </span>
                 </div>
+
+                {/* Cutoff Status (for published listings at traditional markets) */}
+                <ListingCutoffStatus
+                  listingId={listing.id}
+                  status={listing.status}
+                />
 
                 {/* Title */}
                 <h3 style={{

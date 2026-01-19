@@ -52,6 +52,9 @@ export async function GET() {
   const marketTypes = new Set<string>()
   const marketIds = new Set<string>()
 
+  // Track cutoff info
+  const cutoffWarnings: string[] = []
+
   // Check each item
   for (const item of cartItems) {
     const listing = item.listings as unknown as {
@@ -72,6 +75,16 @@ export async function GET() {
     const market = listing.listing_markets[0].markets
     marketTypes.add(market.market_type)
     marketIds.add(market.id)
+
+    // Check cutoff for traditional markets
+    if (market.market_type === 'traditional') {
+      const { data: isAccepting } = await supabase
+        .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
+
+      if (isAccepting === false) {
+        cutoffWarnings.push(`Orders for "${listing.title}" are closed - vendors are preparing for market day`)
+      }
+    }
   }
 
   // Validation checks
@@ -91,12 +104,19 @@ export async function GET() {
     valid = false
   }
 
+  // Add cutoff warnings (these make checkout invalid)
+  if (cutoffWarnings.length > 0) {
+    warnings.push(...cutoffWarnings)
+    valid = false
+  }
+
   return NextResponse.json({
     valid,
     warnings,
     marketType,
     marketIds: Array.from(marketIds),
-    itemCount: cartItems.length
+    itemCount: cartItems.length,
+    hasCutoffIssues: cutoffWarnings.length > 0
   })
 }
 
@@ -136,8 +156,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to validate cart' }, { status: 500 })
     }
 
-    // Build response with availability info
-    const validatedItems = items.map(cartItem => {
+    // Build response with availability info (need to use async for cutoff checks)
+    const validatedItems = await Promise.all(items.map(async (cartItem) => {
       const listing = listings?.find(l => l.id === cartItem.listingId)
 
       if (!listing) {
@@ -149,6 +169,7 @@ export async function POST(request: NextRequest) {
           vendor_name: 'Unknown',
           available: false,
           available_quantity: 0,
+          cutoff_passed: false,
         }
       }
 
@@ -157,9 +178,14 @@ export async function POST(request: NextRequest) {
       const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
       const isVendorApproved = vendorProfile?.status === 'approved'
 
+      // Check cutoff status
+      const { data: isAccepting } = await supabase
+        .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
+      const cutoffPassed = isAccepting === false
+
       // Check availability
       const availableQty = listing.quantity === null ? 999 : listing.quantity
-      const isAvailable = isVendorApproved && availableQty >= cartItem.quantity
+      const isAvailable = isVendorApproved && availableQty >= cartItem.quantity && !cutoffPassed
 
       return {
         listingId: cartItem.listingId,
@@ -170,8 +196,9 @@ export async function POST(request: NextRequest) {
         vendor_profile_id: vendorProfile?.id as string | undefined,
         available: isAvailable,
         available_quantity: listing.quantity,
+        cutoff_passed: cutoffPassed,
       }
-    })
+    }))
 
     return NextResponse.json({ items: validatedItems })
   } catch (error) {

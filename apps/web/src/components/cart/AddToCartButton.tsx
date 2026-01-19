@@ -9,13 +9,15 @@ interface AddToCartButtonProps {
   maxQuantity?: number | null
   primaryColor?: string
   vertical?: string
+  ordersClosed?: boolean
 }
 
 export function AddToCartButton({
   listingId,
   maxQuantity,
   primaryColor = '#333',
-  vertical = 'farmers_market'
+  vertical = 'farmers_market',
+  ordersClosed = false
 }: AddToCartButtonProps) {
   const { addToCart, items } = useCart()
   const { showToast, ToastContainer } = useToast()
@@ -63,7 +65,7 @@ export function AddToCartButton({
   }
 
   const isSoldOut = maxQuantity !== null && maxQuantity !== undefined && maxQuantity <= 0
-  const isDisabled = adding || isSoldOut || availableToAdd <= 0
+  const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed
 
   return (
     <div>
@@ -144,6 +146,8 @@ export function AddToCartButton({
       >
         {adding ? (
           'Adding...'
+        ) : ordersClosed ? (
+          'Orders Closed'
         ) : isSoldOut ? (
           'Sold Out'
         ) : availableToAdd <= 0 ? (
