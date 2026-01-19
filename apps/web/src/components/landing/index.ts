@@ -1,0 +1,8 @@
+export { Hero } from './Hero'
+export { TrustStats } from './TrustStats'
+export { HowItWorks } from './HowItWorks'
+export { FeaturedMarkets } from './FeaturedMarkets'
+export { VendorPitch } from './VendorPitch'
+export { Features } from './Features'
+export { FinalCTA } from './FinalCTA'
+export { Footer } from './Footer'

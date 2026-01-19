@@ -1,0 +1,152 @@
+'use client'
+
+import Link from 'next/link'
+import { colors, spacing, typography } from '@/lib/design-tokens'
+
+interface FooterProps {
+  vertical: string
+}
+
+/**
+ * Footer Section
+ * Industry standard: Dark background for grounding/closure
+ * Uses inverse text, primary color for brand accent
+ */
+export function Footer({ vertical }: FooterProps) {
+  const currentYear = new Date().getFullYear()
+
+  const footerSections = [
+    {
+      title: 'For Shoppers',
+      links: [
+        { label: 'Browse Markets', href: `/${vertical}/markets` },
+        { label: 'Browse Products', href: `/${vertical}/browse` },
+        { label: 'How It Works', href: `/${vertical}#how-it-works` },
+        { label: 'Sign Up', href: `/${vertical}/signup` },
+      ]
+    },
+    {
+      title: 'For Vendors',
+      links: [
+        { label: 'Become a Vendor', href: `/${vertical}/vendor-signup` },
+        { label: 'Vendor FAQ', href: `/about#vendor-faq` },
+      ]
+    },
+    {
+      title: 'Company',
+      links: [
+        { label: 'About Us', href: '/about' },
+        { label: 'Contact Us', href: '/contact' },
+        { label: 'Privacy Policy', href: '/privacy' },
+        { label: 'Terms of Service', href: '/terms' },
+      ]
+    }
+  ]
+
+  return (
+    <footer
+      className="flex justify-center"
+      style={{
+        backgroundColor: colors.textPrimary,
+        paddingTop: spacing.xl,
+        paddingBottom: spacing.md,
+      }}
+    >
+      <div className="landing-container">
+        {/* Main Footer Content */}
+        <div
+          className="grid grid-cols-2 md:grid-cols-4"
+          style={{ gap: spacing.lg, marginBottom: spacing.lg }}
+        >
+          {/* Brand Column */}
+          <div className="col-span-2 md:col-span-1">
+            <h3
+              style={{
+                fontSize: typography.sizes.lg,
+                fontWeight: typography.weights.bold,
+                color: colors.primary,
+                marginBottom: spacing.xs,
+              }}
+            >
+              Fresh Market
+            </h3>
+            <p
+              style={{
+                fontSize: typography.sizes.sm,
+                color: colors.accentMuted,
+                lineHeight: typography.leading.relaxed,
+                marginBottom: spacing.xs,
+              }}
+            >
+              Connecting local food lovers with local food makers.
+            </p>
+            <p
+              style={{
+                fontSize: typography.sizes.xs,
+                color: colors.accentMuted,
+              }}
+            >
+              Part of FastWrks Marketplace
+            </p>
+          </div>
+
+          {/* Link Columns */}
+          {footerSections.map((section, index) => (
+            <div key={index}>
+              <h4
+                style={{
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold,
+                  color: colors.surfaceSubtle,
+                  marginBottom: spacing.sm,
+                }}
+              >
+                {section.title}
+              </h4>
+              <ul style={{ listStyle: 'none' }}>
+                {section.links.map((link, linkIndex) => (
+                  <li key={linkIndex} style={{ marginBottom: spacing['2xs'] }}>
+                    <Link
+                      href={link.href}
+                      className="transition-colors"
+                      style={{
+                        fontSize: typography.sizes.sm,
+                        color: colors.accentMuted,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = colors.primary
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = colors.accentMuted
+                      }}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Divider and Copyright */}
+        <div
+          style={{
+            borderTop: `1px solid ${colors.textSecondary}`,
+            paddingTop: spacing.md,
+          }}
+        >
+          <p
+            className="text-center"
+            style={{
+              fontSize: typography.sizes.sm,
+              color: colors.accentMuted,
+            }}
+          >
+            &copy; {currentYear} FastWrks Marketplace. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </footer>
+  )
+}
