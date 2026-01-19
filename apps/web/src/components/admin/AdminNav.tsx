@@ -20,14 +20,17 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
   // Vertical admin links
   const verticalLinks = vertical ? [
     { label: 'Dashboard', href: `/${vertical}/admin`, icon: '📊' },
+    { label: 'Analytics', href: `/${vertical}/admin/analytics`, icon: '📈' },
     { label: 'Markets', href: `/${vertical}/admin/markets`, icon: '🏪' },
     { label: 'Vendors', href: `/${vertical}/admin/vendors`, icon: '🧑‍🌾' },
+    { label: 'Listings', href: `/${vertical}/admin/listings`, icon: '📦' },
     { label: 'Users', href: `/${vertical}/admin/users`, icon: '👥' },
   ] : []
 
   // Platform admin links
   const platformLinks = [
     { label: 'Dashboard', href: '/admin', icon: '📊' },
+    { label: 'Analytics', href: '/admin/analytics', icon: '📈' },
     { label: 'Vendors', href: '/admin/vendors', icon: '🏪' },
     { label: 'Pending', href: '/admin/vendors/pending', icon: '⏳' },
     { label: 'Listings', href: '/admin/listings', icon: '📦' },
