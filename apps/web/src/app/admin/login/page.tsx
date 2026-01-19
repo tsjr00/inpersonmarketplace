@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
@@ -28,8 +28,37 @@ export default function AdminLoginPage() {
       return
     }
 
-    router.push('/admin')
-    router.refresh()
+    // Check if user has admin role
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role, roles')
+      .eq('user_id', data.user.id)
+      .single()
+
+    const isAdmin = profile?.role === 'admin' ||
+                    profile?.role === 'platform_admin' ||
+                    profile?.roles?.includes('admin') ||
+                    profile?.roles?.includes('platform_admin')
+
+    if (!isAdmin) {
+      await supabase.auth.signOut()
+      setError('Access denied. Admin privileges required.')
+      setLoading(false)
+      return
+    }
+
+    // Check MFA status
+    const { data: factors } = await supabase.auth.mfa.listFactors()
+    const hasMFA = factors?.totp?.some(f => f.status === 'verified')
+
+    if (!hasMFA) {
+      // Redirect to MFA setup
+      router.push('/admin/mfa/setup')
+      return
+    }
+
+    // Has MFA, redirect to verification
+    router.push('/admin/mfa/verify')
   }
 
   return (

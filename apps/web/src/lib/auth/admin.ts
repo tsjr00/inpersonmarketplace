@@ -13,7 +13,7 @@ export interface AdminUser {
 }
 
 /**
- * Check if current user is an admin
+ * Check if current user is an admin with MFA verified
  * Returns admin user data if authorized, redirects if not
  */
 export async function requireAdmin(): Promise<AdminUser> {
@@ -48,9 +48,28 @@ export async function requireAdmin(): Promise<AdminUser> {
   }
 
   // Check admin role - check BOTH columns during transition
-  const hasAdminRole = profile.role === 'admin' || profile.roles?.includes('admin')
-  if (!hasAdminRole) {
+  const isAdmin = profile.role === 'admin' ||
+                  profile.role === 'platform_admin' ||
+                  profile.roles?.includes('admin') ||
+                  profile.roles?.includes('platform_admin')
+  if (!isAdmin) {
     redirect('/dashboard?error=not_admin')
+  }
+
+  // Check MFA status for admin users
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+  // If user has MFA enrolled but hasn't verified this session, redirect to verify
+  if (aal?.nextLevel === 'aal2' && aal?.currentLevel === 'aal1') {
+    redirect('/admin/mfa/verify')
+  }
+
+  // If user doesn't have MFA set up at all, redirect to setup
+  const { data: factors } = await supabase.auth.mfa.listFactors()
+  const hasMFA = factors?.totp?.some(f => f.status === 'verified')
+
+  if (!hasMFA) {
+    redirect('/admin/mfa/setup')
   }
 
   return profile as AdminUser
