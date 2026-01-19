@@ -489,6 +489,37 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
+
+          {/* Analytics */}
+          <Link
+            href={`/${vertical}/vendor/analytics`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              cursor: 'pointer',
+              height: '100%',
+              minHeight: 120,
+              boxShadow: shadows.sm
+            }}>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📊</div>
+              <h3 style={{
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Analytics
+              </h3>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                View sales trends, top products, and insights
+              </p>
+            </div>
+          </Link>
         </div>
 
         {/* BOTTOM ROW - Your Plan + Payment Settings */}
@@ -626,7 +657,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             Coming Soon
           </h3>
           <ul style={{ margin: 0, paddingLeft: 20, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-            <li>Analytics and insights</li>
             <li>Customer messages</li>
           </ul>
         </div>
@@ -659,7 +689,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             grid-template-columns: repeat(3, 1fr);
           }
           .vendor-dashboard .action-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
           }
           .vendor-dashboard .bottom-grid {
             grid-template-columns: repeat(2, 1fr);
