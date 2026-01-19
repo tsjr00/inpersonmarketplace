@@ -47,18 +47,28 @@ export default function AdminLoginPage() {
       return
     }
 
-    // Check MFA status
-    const { data: factors } = await supabase.auth.mfa.listFactors()
-    const hasMFA = factors?.totp?.some(f => f.status === 'verified')
+    // Check if MFA is required (only on staging/production)
+    const requireMFA = process.env.NEXT_PUBLIC_REQUIRE_ADMIN_MFA === 'true'
 
-    if (!hasMFA) {
-      // Redirect to MFA setup
-      router.push('/admin/mfa/setup')
+    if (requireMFA) {
+      // Check MFA status
+      const { data: factors } = await supabase.auth.mfa.listFactors()
+      const hasMFA = factors?.totp?.some(f => f.status === 'verified')
+
+      if (!hasMFA) {
+        // Redirect to MFA setup
+        router.push('/admin/mfa/setup')
+        return
+      }
+
+      // Has MFA, redirect to verification
+      router.push('/admin/mfa/verify')
       return
     }
 
-    // Has MFA, redirect to verification
-    router.push('/admin/mfa/verify')
+    // MFA not required, go directly to admin
+    router.push('/admin')
+    router.refresh()
   }
 
   return (
