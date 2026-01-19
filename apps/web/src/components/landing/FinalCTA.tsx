@@ -46,7 +46,7 @@ export function FinalCTA({ vertical }: FinalCTAProps) {
           }}
         >
           {isFarmersMarket
-            ? 'Join our growing community of local food lovers and support farmers in your neighborhood.'
+            ? 'Join our growing community connecting local producers, artisans, and the neighbors who support them.'
             : 'Connect with local buyers and sellers in your area today.'
           }
         </p>

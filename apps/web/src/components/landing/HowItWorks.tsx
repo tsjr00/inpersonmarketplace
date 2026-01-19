@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, ShoppingCart, CalendarCheck, Package } from 'lucide-react'
+import { Search, ShoppingCart, Package, Users } from 'lucide-react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -22,21 +22,23 @@ export function HowItWorks({ vertical }: HowItWorksProps) {
     {
       icon: ShoppingCart,
       title: 'Shop & Order',
-      description: 'Add items to your cart from multiple vendors. Complete your order with secure checkout.'
-    },
-    {
-      icon: CalendarCheck,
-      title: 'Schedule Pickup',
       description: isFarmersMarket
-        ? 'Choose your pickup day at the market. Vendors prepare your order fresh for collection.'
-        : 'Select a convenient pickup time and location that works for your schedule.'
+        ? 'Choose your market. Add items to your cart. Complete your order with secure checkout (from one or more vendors).'
+        : 'Add items to your cart from multiple vendors. Complete your order with secure checkout.'
     },
     {
       icon: Package,
       title: 'Pick Up Fresh',
       description: isFarmersMarket
-        ? 'Visit the market and collect your pre-ordered items. Skip the lines and guarantee availability.'
+        ? 'Visit the market. Collect your pre-order items with guaranteed availability.'
         : 'Collect your items at the designated pickup point. Quick, easy, and convenient.'
+    },
+    {
+      icon: Users,
+      title: 'Enjoy the Market',
+      description: isFarmersMarket
+        ? 'Take your time browsing other vendors, meet friends, and enjoy being part of your local community.'
+        : 'Connect with local sellers and discover more products in your area.'
     }
   ]
 
@@ -178,7 +180,7 @@ export function HowItWorks({ vertical }: HowItWorksProps) {
               e.currentTarget.style.transform = 'scale(1)'
             }}
           >
-            <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
+            <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>
               Start
             </span>
             <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>

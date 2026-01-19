@@ -5,8 +5,8 @@ import {
   Smartphone,
   MapPin,
   Bell,
-  RefreshCw,
-  Heart
+  CheckCircle,
+  Clock
 } from 'lucide-react'
 import { colors, spacing, typography, shadows, radius } from '@/lib/design-tokens'
 
@@ -22,16 +22,15 @@ interface FeaturesProps {
 export function Features({ vertical }: FeaturesProps) {
   const isFarmersMarket = vertical === 'farmers_market'
 
+  // Cards organized by theme pairs:
+  // Row 1: Trust & Community (Verified Vendors + Local Focus)
+  // Row 2: Pre-order Benefits (No Sold-Out Items + Your Time, Your Way)
+  // Row 3: Technology & Access (Mobile Friendly + Order Updates)
   const features = [
     {
       icon: Shield,
       title: 'Verified Vendors',
       description: 'Every vendor is verified before joining. Shop with confidence knowing you\'re buying from legitimate local sellers.'
-    },
-    {
-      icon: Smartphone,
-      title: 'Mobile Friendly',
-      description: 'Browse, order, and manage pickups from any device. Our platform works seamlessly on phones, tablets, and desktops.'
     },
     {
       icon: MapPin,
@@ -41,21 +40,28 @@ export function Features({ vertical }: FeaturesProps) {
         : 'Discover sellers near you. All transactions happen locally for easy pickup.'
     },
     {
+      icon: CheckCircle,
+      title: 'No Sold-Out Items',
+      description: isFarmersMarket
+        ? 'Pre-order your favorites with guaranteed availability. Sleep in on market day and still get everything you want.'
+        : 'Reserve products ahead of time. Guaranteed availability means no disappointment.'
+    },
+    {
+      icon: Clock,
+      title: 'Your Time, Your Way',
+      description: isFarmersMarket
+        ? 'Pre-order and pick up on your schedule. Enjoy the market experience without the early morning rush.'
+        : 'Order ahead and pick up when it\'s convenient for you. No more rushing.'
+    },
+    {
+      icon: Smartphone,
+      title: 'Mobile Friendly',
+      description: 'Shop from any device - mobile or desktop. Landscape mode on mobile shows more products at once for easier browsing.'
+    },
+    {
       icon: Bell,
       title: 'Order Updates',
       description: 'Get notified when your order is confirmed, ready for pickup, and when new products are available.'
-    },
-    {
-      icon: RefreshCw,
-      title: 'Easy Returns',
-      description: 'Issues with your order? Our vendor policies ensure fair resolution. Customer satisfaction is our priority.'
-    },
-    {
-      icon: Heart,
-      title: 'Support Local',
-      description: isFarmersMarket
-        ? 'Your purchases directly support local farmers, bakers, and artisans. Keep money in your community.'
-        : 'Every purchase supports a local business. Build connections in your community.'
     }
   ]
 
@@ -89,7 +95,7 @@ export function Features({ vertical }: FeaturesProps) {
               marginRight: 'auto',
             }}
           >
-            Built for buyers and vendors who value quality, convenience, and community
+            Built for shoppers and vendors who value quality, convenience, and community
           </p>
         </div>
 

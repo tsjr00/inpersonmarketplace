@@ -1,5 +1,6 @@
 import { Package, Users, Store } from 'lucide-react'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { TrustStatsTagline } from './TrustStatsTagline'
 
 interface TrustStatsProps {
   stats: {
@@ -78,12 +79,7 @@ export function TrustStats({ stats }: TrustStatsProps) {
           })}
         </div>
 
-        <p
-          className="text-center"
-          style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}
-        >
-          Supporting local farmers and artisans in your community
-        </p>
+        <TrustStatsTagline defaultText="Supporting local producers and artisans in your community" />
       </div>
     </section>
   )

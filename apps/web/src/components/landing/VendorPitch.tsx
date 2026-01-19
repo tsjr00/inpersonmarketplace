@@ -16,14 +16,18 @@ interface VendorPitchProps {
 export function VendorPitch({ vertical }: VendorPitchProps) {
   const isFarmersMarket = vertical === 'farmers_market'
 
+  // Benefits organized by theme pairs (displayed in 2-column grid):
+  // Row 1: Market Preparation
+  // Row 2: Operations & Payments
+  // Row 3: Customer Growth
   const benefits = isFarmersMarket
     ? [
         'Pre-sell products before market day',
-        'Know exactly what to bring - reduce waste',
-        'Accept credit cards and online payments',
-        'Manage orders and inventory in one place',
-        'Build a loyal customer following',
-        'Get discovered by new local shoppers',
+        'Know what to bring, reduce waste',
+        'Manage orders and inventory easily',
+        'Credit card fees already built in',
+        'Build a loyal VIP customer base',
+        'Get discovered by local shoppers',
       ]
     : [
         'Reach more local customers online',
@@ -145,15 +149,6 @@ export function VendorPitch({ vertical }: VendorPitchProps) {
             <ArrowRight style={{ width: 20, height: 20 }} />
           </Link>
 
-          <p
-            style={{
-              marginTop: spacing.sm,
-              fontSize: typography.sizes.sm,
-              color: colors.textInverseMuted,
-            }}
-          >
-            Free to join. Only pay when you sell.
-          </p>
         </div>
       </div>
     </section>

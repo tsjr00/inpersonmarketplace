@@ -167,14 +167,7 @@ export function Hero({ vertical, listingCount, marketCount }: HeroProps) {
                 className="rounded-full"
                 style={{ width: 8, height: 8, backgroundColor: colors.primary }}
               />
-              Verified Vendors
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="rounded-full"
-                style={{ width: 8, height: 8, backgroundColor: colors.primary }}
-              />
-              Secure Payments
+              Local Vendors
             </div>
             <div className="flex items-center gap-2">
               <span
@@ -182,6 +175,13 @@ export function Hero({ vertical, listingCount, marketCount }: HeroProps) {
                 style={{ width: 8, height: 8, backgroundColor: colors.primary }}
               />
               Local Pickup
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="rounded-full"
+                style={{ width: 8, height: 8, backgroundColor: colors.primary }}
+              />
+              Secure Payments
             </div>
           </div>
         </div>

@@ -36,8 +36,8 @@ export function Footer({ vertical }: FooterProps) {
       title: 'Company',
       links: [
         { label: 'About Us', href: '/about' },
-        { label: 'Contact Us', href: '/contact' },
-        { label: 'Privacy Policy', href: '/privacy' },
+        { label: 'Contact Us', href: '/about#contact' },
+        { label: 'Privacy Policy', href: '/terms#privacy-policy' },
         { label: 'Terms of Service', href: '/terms' },
       ]
     }
@@ -60,33 +60,14 @@ export function Footer({ vertical }: FooterProps) {
         >
           {/* Brand Column */}
           <div className="col-span-2 md:col-span-1">
-            <h3
-              style={{
-                fontSize: typography.sizes.lg,
-                fontWeight: typography.weights.bold,
-                color: colors.primary,
-                marginBottom: spacing.xs,
-              }}
-            >
-              Fresh Market
-            </h3>
             <p
               style={{
                 fontSize: typography.sizes.sm,
                 color: colors.accentMuted,
                 lineHeight: typography.leading.relaxed,
-                marginBottom: spacing.xs,
               }}
             >
-              Connecting local food lovers with local food makers.
-            </p>
-            <p
-              style={{
-                fontSize: typography.sizes.xs,
-                color: colors.accentMuted,
-              }}
-            >
-              Part of FastWrks Marketplace
+              Connecting neighbors with local producers and artisans.
             </p>
           </div>
 
@@ -143,7 +124,7 @@ export function Footer({ vertical }: FooterProps) {
               color: colors.accentMuted,
             }}
           >
-            &copy; {currentYear} FastWrks Marketplace. All rights reserved.
+            &copy; {currentYear} farmersmarketing.app. All rights reserved.
           </p>
         </div>
       </div>
