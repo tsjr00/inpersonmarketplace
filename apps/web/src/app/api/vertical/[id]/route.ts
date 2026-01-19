@@ -35,8 +35,10 @@ export async function GET(
       );
     }
 
-    // Return the full config object
-    return NextResponse.json(vertical.config);
+    // Return the full config object - cache for 1 hour (config rarely changes)
+    return NextResponse.json(vertical.config, {
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' }
+    });
   } catch (err) {
     console.error("Error fetching vertical:", err);
     return NextResponse.json(

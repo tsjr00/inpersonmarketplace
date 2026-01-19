@@ -62,7 +62,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch listings' }, { status: 500 })
     }
 
-    return NextResponse.json({ listings: listings || [] })
+    // Cache public listings for 5 minutes, admin queries are not cached
+    const cacheHeaders = admin
+      ? { 'Cache-Control': 'private, no-store' }
+      : { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
+
+    return NextResponse.json({ listings: listings || [] }, { headers: cacheHeaders })
   } catch (error) {
     console.error('Error in listings API:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

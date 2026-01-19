@@ -53,7 +53,11 @@ export async function GET(request: NextRequest) {
     market_vendors: undefined,
   }))
 
-  return NextResponse.json({ markets: transformedMarkets })
+  // Cache markets list for 10 minutes
+  return NextResponse.json(
+    { markets: transformedMarkets },
+    { headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200' } }
+  )
 }
 
 // POST /api/markets - Create new market (admin only)

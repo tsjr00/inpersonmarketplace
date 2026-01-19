@@ -3,6 +3,9 @@ import MarketFilters from './MarketFilters'
 import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
+// Cache page for 10 minutes - markets change infrequently
+export const revalidate = 600
+
 interface MarketsPageProps {
   params: Promise<{ vertical: string }>
   searchParams: Promise<{ type?: string; city?: string; search?: string }>

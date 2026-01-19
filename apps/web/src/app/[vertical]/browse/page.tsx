@@ -7,6 +7,9 @@ import { formatDisplayPrice, CATEGORIES } from '@/lib/constants'
 import TierBadge from '@/components/shared/TierBadge'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
+// Cache page for 5 minutes - listings don't change every second
+export const revalidate = 300
+
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
   searchParams: Promise<{ category?: string; search?: string; view?: string }>
@@ -142,16 +145,27 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       .eq('vertical_id', vertical)
       .eq('active', true)
 
-    // Calculate active subscribers and capacity for each offering
-    const offeringsWithSubs: MarketBoxOffering[] = []
-    for (const offering of marketBoxes || []) {
-      const { count } = await supabase
+    // Get all subscription counts in ONE query instead of N queries (N+1 fix)
+    const offeringIds = (marketBoxes || []).map(o => o.id)
+    const subscriptionCounts = new Map<string, number>()
+
+    if (offeringIds.length > 0) {
+      const { data: subCounts } = await supabase
         .from('market_box_subscriptions')
-        .select('*', { count: 'exact', head: true })
-        .eq('offering_id', offering.id)
+        .select('offering_id')
+        .in('offering_id', offeringIds)
         .eq('status', 'active')
 
-      const activeSubscribers = count || 0
+      // Count subscriptions per offering
+      for (const sub of subCounts || []) {
+        const current = subscriptionCounts.get(sub.offering_id) || 0
+        subscriptionCounts.set(sub.offering_id, current + 1)
+      }
+    }
+
+    // Build offerings with subscriber counts
+    const offeringsWithSubs: MarketBoxOffering[] = (marketBoxes || []).map(offering => {
+      const activeSubscribers = subscriptionCounts.get(offering.id) || 0
       const maxSubs = offering.max_subscribers
 
       // Handle the vendor_profiles and market - Supabase may return as single object or array
@@ -162,14 +176,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         ? offering.market[0]
         : offering.market
 
-      offeringsWithSubs.push({
+      return {
         ...offering,
         active_subscribers: activeSubscribers,
         is_at_capacity: maxSubs !== null && activeSubscribers >= maxSubs,
         vendor_profiles: vendorProfile as MarketBoxOffering['vendor_profiles'],
         market: market as MarketBoxOffering['market'],
-      })
-    }
+      }
+    })
 
     return (
       <div
