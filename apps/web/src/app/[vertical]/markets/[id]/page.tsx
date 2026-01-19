@@ -1,35 +1,35 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { defaultBranding } from '@/lib/branding'
 import ScheduleDisplay from '@/components/markets/ScheduleDisplay'
 import ApplyToMarketButton from './ApplyToMarketButton'
+import MarketVendorsList from './MarketVendorsList'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface MarketDetailPageProps {
   params: Promise<{ vertical: string; id: string }>
 }
 
+interface VendorWithListings {
+  vendor_profile_id: string
+  business_name: string
+  profile_image_url: string | null
+  categories: string[]
+  listing_count: number
+}
+
 export default async function MarketDetailPage({ params }: MarketDetailPageProps) {
   const { vertical, id } = await params
   const supabase = await createClient()
+  const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  // Get market with schedules and approved vendors
+  // Get market with schedules
   const { data: market, error } = await supabase
     .from('markets')
     .select(`
       *,
-      market_schedules(*),
-      market_vendors(
-        id,
-        vendor_profile_id,
-        approved,
-        booth_number,
-        vendor_profiles(
-          id,
-          profile_data,
-          status
-        )
-      )
+      market_schedules(*)
     `)
     .eq('id', id)
     .single()
@@ -38,7 +38,23 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
     notFound()
   }
 
-  // Get current user's vendor profile for this vertical (if any)
+  // Fetch vendors with listings from API
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  let vendorsData: { vendors: VendorWithListings[]; categories: string[] } = { vendors: [], categories: [] }
+
+  try {
+    const response = await fetch(`${baseUrl}/api/markets/${id}/vendors-with-listings`, {
+      cache: 'no-store'
+    })
+    if (response.ok) {
+      const data = await response.json()
+      vendorsData = { vendors: data.vendors || [], categories: data.categories || [] }
+    }
+  } catch {
+    // Silently fail - will show empty vendors
+  }
+
+  // Get current user's vendor profile for this vertical (for apply button)
   const { data: { user } } = await supabase.auth.getUser()
   let userVendorProfile = null
   let hasApplied = false
@@ -60,248 +76,361 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
 
       if (vendorProfile) {
         userVendorProfile = vendorProfile
+
         // Check if already applied
-        hasApplied = market.market_vendors?.some(
-          (mv: { vendor_profile_id: string }) => mv.vendor_profile_id === vendorProfile.id
-        )
+        const { data: existingApplication } = await supabase
+          .from('market_vendors')
+          .select('id')
+          .eq('market_id', id)
+          .eq('vendor_profile_id', vendorProfile.id)
+          .single()
+
+        hasApplied = !!existingApplication
       }
     }
   }
 
-  // Transform vendors
-  const approvedVendors = market.market_vendors
-    ?.filter((mv: { approved: boolean }) => mv.approved)
-    .map((mv: {
-      id: string
-      vendor_profile_id: string
-      booth_number: string | null
-      vendor_profiles: { id: string; profile_data: Record<string, unknown> } | null
-    }) => ({
-      id: mv.id,
-      vendor_profile_id: mv.vendor_profile_id,
-      booth_number: mv.booth_number,
-      business_name: mv.vendor_profiles?.profile_data?.business_name ||
-                     mv.vendor_profiles?.profile_data?.farm_name ||
-                     'Unknown',
-    }))
-
   const locationParts = [market.address, market.city, market.state, market.zip].filter(Boolean)
   const fullAddress = locationParts.join(', ')
 
+  // Get next market date from schedule
+  const getNextMarketDate = () => {
+    const schedules = market.market_schedules || []
+    if (schedules.length === 0) return null
+
+    const now = new Date()
+    const currentDay = now.getDay()
+
+    let nearestDate: Date | null = null
+
+    for (const schedule of schedules) {
+      if (!schedule.active) continue
+
+      const scheduleDay = schedule.day_of_week
+      let daysUntil = scheduleDay - currentDay
+      if (daysUntil < 0) daysUntil += 7
+      if (daysUntil === 0) {
+        // Check if today's market time has passed
+        const [hours, minutes] = (schedule.start_time || '00:00').split(':').map(Number)
+        const marketTime = new Date(now)
+        marketTime.setHours(hours, minutes, 0, 0)
+        if (now > marketTime) daysUntil = 7
+      }
+
+      const nextDate = new Date(now)
+      nextDate.setDate(now.getDate() + daysUntil)
+
+      if (!nearestDate || nextDate < nearestDate) {
+        nearestDate = nextDate
+      }
+    }
+
+    return nearestDate
+  }
+
+  const nextMarketDate = getNextMarketDate()
+
   return (
-    <div style={{
-      maxWidth: containers.xl,
-      margin: '0 auto',
-      padding: spacing.sm,
-      backgroundColor: colors.surfaceBase,
-      minHeight: '100vh'
-    }}>
-      {/* Back link */}
-      <Link
-        href={`/${vertical}/markets`}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: spacing['3xs'],
-          color: colors.primary,
-          textDecoration: 'none',
-          fontSize: typography.sizes.sm,
-          marginBottom: spacing.sm,
-        }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M19 12H5M12 19l-7-7 7-7" />
-        </svg>
-        Back to Markets
-      </Link>
-
-      {/* Header */}
+    <div
+      style={{
+        backgroundColor: colors.surfaceBase,
+        minHeight: '100vh'
+      }}
+      className="market-profile-page"
+    >
+      {/* Back Link */}
       <div style={{
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: radius.lg,
-        padding: spacing.md,
-        marginBottom: spacing.sm,
-        boxShadow: shadows.md,
+        padding: spacing.sm,
+        borderBottom: `1px solid ${colors.border}`,
+        backgroundColor: colors.surfaceElevated
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm }}>
-          <div>
-            <h1 style={{
-              margin: 0,
-              fontSize: typography.sizes['2xl'],
-              fontWeight: typography.weights.semibold,
-              color: colors.textPrimary
-            }}>
-              {market.name}
-            </h1>
-            <span
-              style={{
-                display: 'inline-block',
-                marginTop: spacing['2xs'],
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                borderRadius: radius.full,
-                fontSize: typography.sizes.xs,
-                fontWeight: typography.weights.semibold,
-                backgroundColor: market.type === 'traditional' ? colors.primaryLight : colors.surfaceSubtle,
-                color: market.type === 'traditional' ? colors.primaryDark : colors.accent,
-              }}
-            >
-              {market.type === 'traditional' ? 'Farmers Market' : 'Private Pickup'}
-            </span>
-          </div>
-
-          {/* Apply button for vendors */}
-          {userVendorProfile && !hasApplied && (
-            <ApplyToMarketButton
-              marketId={id}
-              vendorProfileId={userVendorProfile.id}
-            />
-          )}
-          {hasApplied && (
-            <span style={{
-              padding: `${spacing['2xs']} ${spacing.sm}`,
-              backgroundColor: colors.primaryLight,
-              color: colors.primaryDark,
-              borderRadius: radius.md,
+        <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
+          <Link
+            href={`/${vertical}/markets`}
+            style={{
+              color: branding.colors.primary,
+              textDecoration: 'none',
               fontSize: typography.sizes.sm,
-              fontWeight: typography.weights.medium,
-            }}>
-              Applied
-            </span>
-          )}
-        </div>
-
-        {market.description && (
-          <p style={{
-            margin: `0 0 ${spacing.sm} 0`,
-            fontSize: typography.sizes.base,
-            color: colors.textSecondary,
-            lineHeight: typography.leading.relaxed
-          }}>
-            {market.description}
-          </p>
-        )}
-
-        {/* Location */}
-        {fullAddress && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs, marginBottom: spacing.sm }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2" style={{ marginTop: 2 }}>
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: spacing['2xs'],
+              minHeight: 44,
+              padding: `${spacing.xs} 0`
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
-            <div>
-              <div style={{ fontSize: typography.sizes.base, color: colors.textPrimary }}>{fullAddress}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Contact */}
-        {(market.contact_email || market.contact_phone) && (
-          <div style={{ display: 'flex', gap: spacing.md, flexWrap: 'wrap' }}>
-            {market.contact_email && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
-                </svg>
-                <a href={`mailto:${market.contact_email}`} style={{ color: colors.primary, fontSize: typography.sizes.sm }}>
-                  {market.contact_email}
-                </a>
-              </div>
-            )}
-            {market.contact_phone && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                </svg>
-                <a href={`tel:${market.contact_phone}`} style={{ color: colors.primary, fontSize: typography.sizes.sm }}>
-                  {market.contact_phone}
-                </a>
-              </div>
-            )}
-          </div>
-        )}
+            Back to Markets
+          </Link>
+        </div>
       </div>
 
-      {/* Schedule section (for traditional markets) */}
-      {market.type === 'traditional' && (
+      {/* Content */}
+      <div style={{
+        maxWidth: containers.xl,
+        margin: '0 auto',
+        padding: `${spacing.md} ${spacing.sm}`
+      }}>
+        {/* Market Header Card */}
         <div style={{
+          padding: spacing.lg,
           backgroundColor: colors.surfaceElevated,
           borderRadius: radius.lg,
-          padding: spacing.md,
-          marginBottom: spacing.sm,
-          boxShadow: shadows.md,
+          border: `1px solid ${colors.border}`,
+          marginBottom: spacing.md,
+          boxShadow: shadows.sm
         }}>
-          <h2 style={{
-            margin: `0 0 ${spacing.sm} 0`,
-            fontSize: typography.sizes.lg,
-            fontWeight: typography.weights.semibold,
-            color: colors.textPrimary
+          <div className="market-header" style={{
+            display: 'flex',
+            gap: spacing.lg,
+            alignItems: 'flex-start'
           }}>
-            Market Hours
-          </h2>
-          <ScheduleDisplay schedules={market.market_schedules || []} />
-        </div>
-      )}
+            {/* Market Icon */}
+            <div style={{
+              width: 80,
+              height: 80,
+              borderRadius: radius.lg,
+              backgroundColor: colors.primaryLight,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 36,
+              flexShrink: 0
+            }}>
+              🏪
+            </div>
 
-      {/* Vendors section */}
-      <div style={{
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: radius.lg,
-        padding: spacing.md,
-        boxShadow: shadows.md,
-      }}>
-        <h2 style={{
-          margin: `0 0 ${spacing.sm} 0`,
-          fontSize: typography.sizes.lg,
-          fontWeight: typography.weights.semibold,
-          color: colors.textPrimary
-        }}>
-          Vendors ({approvedVendors?.length || 0})
-        </h2>
-
-        {approvedVendors && approvedVendors.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-            {approvedVendors.map((vendor: {
-              id: string
-              vendor_profile_id: string
-              booth_number: string | null
-              business_name: string
-            }) => (
-              <div
-                key={vendor.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: `${spacing.xs} ${spacing.sm}`,
-                  backgroundColor: colors.surfaceMuted,
-                  borderRadius: radius.md,
-                }}
-              >
-                <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>
-                  {vendor.business_name}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Name and Badge */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.sm,
+                marginBottom: spacing.xs,
+                flexWrap: 'wrap'
+              }}>
+                <h1 style={{
+                  color: branding.colors.primary,
+                  margin: 0,
+                  fontSize: typography.sizes['2xl'],
+                  fontWeight: typography.weights.bold,
+                  lineHeight: 1.3
+                }}>
+                  {market.name}
+                </h1>
+                <span style={{
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  borderRadius: radius.full,
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold,
+                  backgroundColor: '#e8f5e9',
+                  color: '#2e7d32'
+                }}>
+                  Farmers Market
                 </span>
-                {vendor.booth_number && (
-                  <span style={{
-                    padding: `${spacing['3xs']} ${spacing.xs}`,
-                    backgroundColor: colors.primaryLight,
-                    color: colors.primaryDark,
-                    borderRadius: radius.sm,
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.medium,
-                  }}>
-                    Booth {vendor.booth_number}
+              </div>
+
+              {/* Description */}
+              {market.description && (
+                <p style={{
+                  margin: `0 0 ${spacing.sm} 0`,
+                  fontSize: typography.sizes.base,
+                  lineHeight: typography.leading.relaxed,
+                  color: colors.textSecondary
+                }}>
+                  {market.description}
+                </p>
+              )}
+
+              {/* Meta info */}
+              <div className="market-meta" style={{
+                display: 'flex',
+                gap: spacing.md,
+                flexWrap: 'wrap',
+                color: colors.textMuted,
+                fontSize: typography.sizes.sm,
+                marginTop: spacing.xs
+              }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                  👥 {vendorsData.vendors.length} vendor{vendorsData.vendors.length !== 1 ? 's' : ''}
+                </span>
+                {nextMarketDate && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                    📅 Next: {nextMarketDate.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric'
+                    })}
                   </span>
                 )}
               </div>
-            ))}
+            </div>
+
+            {/* Apply button for vendors */}
+            {userVendorProfile && !hasApplied && (
+              <ApplyToMarketButton
+                marketId={id}
+                vendorProfileId={userVendorProfile.id}
+              />
+            )}
+            {hasApplied && (
+              <span style={{
+                padding: `${spacing['2xs']} ${spacing.sm}`,
+                backgroundColor: colors.primaryLight,
+                color: colors.primaryDark,
+                borderRadius: radius.md,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.medium,
+              }}>
+                Applied
+              </span>
+            )}
           </div>
-        ) : (
-          <p style={{ color: colors.textSecondary, margin: 0 }}>
-            No vendors at this market yet.
-          </p>
-        )}
+
+          {/* Location */}
+          {fullAddress && (
+            <div style={{
+              marginTop: spacing.md,
+              paddingTop: spacing.md,
+              borderTop: `1px solid ${colors.borderMuted}`
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: spacing.xs
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2" style={{ marginTop: 2, flexShrink: 0 }}>
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <div>
+                  <div style={{ fontSize: typography.sizes.base, color: colors.textPrimary }}>{fullAddress}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Schedule */}
+          {market.market_schedules && market.market_schedules.length > 0 && (
+            <div style={{
+              marginTop: spacing.md,
+              paddingTop: spacing.md,
+              borderTop: `1px solid ${colors.borderMuted}`
+            }}>
+              <h3 style={{
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+                color: colors.textSecondary,
+                margin: `0 0 ${spacing.xs} 0`
+              }}>
+                Market Hours
+              </h3>
+              <ScheduleDisplay schedules={market.market_schedules} />
+            </div>
+          )}
+
+          {/* Contact */}
+          {(market.contact_email || market.contact_phone) && (
+            <div style={{
+              marginTop: spacing.md,
+              paddingTop: spacing.md,
+              borderTop: `1px solid ${colors.borderMuted}`,
+              display: 'flex',
+              gap: spacing.md,
+              flexWrap: 'wrap'
+            }}>
+              {market.contact_email && (
+                <a
+                  href={`mailto:${market.contact_email}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing['2xs'],
+                    color: colors.primary,
+                    fontSize: typography.sizes.sm,
+                    textDecoration: 'none'
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                    <polyline points="22,6 12,13 2,6" />
+                  </svg>
+                  {market.contact_email}
+                </a>
+              )}
+              {market.contact_phone && (
+                <a
+                  href={`tel:${market.contact_phone}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing['2xs'],
+                    color: colors.primary,
+                    fontSize: typography.sizes.sm,
+                    textDecoration: 'none'
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                  {market.contact_phone}
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Vendors Section */}
+        <div style={{
+          padding: spacing.lg,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.lg,
+          border: `1px solid ${colors.border}`,
+          boxShadow: shadows.sm
+        }}>
+          <h2 style={{
+            color: branding.colors.primary,
+            margin: `0 0 ${spacing.md} 0`,
+            fontSize: typography.sizes.xl,
+            fontWeight: typography.weights.semibold
+          }}>
+            Vendors at {market.name}
+          </h2>
+
+          <MarketVendorsList
+            vendors={vendorsData.vendors}
+            categories={vendorsData.categories}
+            vertical={vertical}
+          />
+        </div>
       </div>
+
+      {/* Responsive Styles */}
+      <style>{`
+        .market-profile-page .market-header {
+          flex-direction: column;
+          text-align: center;
+        }
+        .market-profile-page .market-header > div:first-child {
+          margin: 0 auto;
+        }
+        .market-profile-page .market-meta {
+          justify-content: center;
+        }
+        @media (min-width: 640px) {
+          .market-profile-page .market-header {
+            flex-direction: row;
+            text-align: left;
+          }
+          .market-profile-page .market-header > div:first-child {
+            margin: 0;
+          }
+          .market-profile-page .market-meta {
+            justify-content: flex-start;
+          }
+        }
+      `}</style>
     </div>
   )
 }

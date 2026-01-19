@@ -65,6 +65,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   // Get unique markets where this vendor has active listings
   const listingIds = (listings || []).map(l => l.id as string)
   let vendorMarkets: { id: string; name: string; market_type: string }[] = []
+  let privatePickupDetails: {
+    id: string
+    name: string
+    address?: string
+    city?: string
+    state?: string
+    description?: string
+  } | null = null
 
   if (listingIds.length > 0) {
     const { data: listingMarketsData } = await supabase
@@ -74,7 +82,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
         markets (
           id,
           name,
-          market_type
+          market_type,
+          address,
+          city,
+          state,
+          description
         )
       `)
       .in('listing_id', listingIds)
@@ -83,18 +95,40 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     const marketsMap = new Map<string, { id: string; name: string; market_type: string }>()
     if (listingMarketsData) {
       for (const lm of listingMarketsData) {
-        const market = lm.markets as unknown as { id: string; name: string; market_type: string } | null
+        const market = lm.markets as unknown as {
+          id: string
+          name: string
+          market_type: string
+          address?: string
+          city?: string
+          state?: string
+          description?: string
+        } | null
         if (market && !marketsMap.has(market.id)) {
           marketsMap.set(market.id, {
             id: market.id,
             name: market.name,
             market_type: market.market_type
           })
+          // Store private pickup details for callout
+          if (market.market_type === 'private_pickup' && !privatePickupDetails) {
+            privatePickupDetails = {
+              id: market.id,
+              name: market.name,
+              address: market.address,
+              city: market.city,
+              state: market.state,
+              description: market.description
+            }
+          }
         }
       }
     }
     vendorMarkets = Array.from(marketsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
   }
+
+  // Check if vendor has private pickup
+  const hasPrivatePickup = vendorMarkets.some(m => m.market_type === 'private_pickup')
 
   // Check if vendor has active market boxes
   const { count: activeMarketBoxCount } = await supabase
@@ -378,6 +412,81 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             </div>
           )}
         </div>
+
+        {/* Private Pickup Callout - Prominent display when vendor has private pickup */}
+        {hasPrivatePickup && privatePickupDetails && (
+          <div style={{
+            padding: 24,
+            backgroundColor: '#fef3c7',
+            border: '2px solid #f59e0b',
+            borderRadius: 12,
+            marginBottom: 24,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 16
+          }}>
+            <div style={{
+              width: 56,
+              height: 56,
+              borderRadius: 12,
+              backgroundColor: '#f59e0b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 28,
+              flexShrink: 0
+            }}>
+              📦
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{
+                margin: '0 0 8px 0',
+                fontSize: 18,
+                fontWeight: 600,
+                color: '#92400e'
+              }}>
+                Private Pickup Available
+              </h3>
+              <p style={{
+                margin: '0 0 12px 0',
+                fontSize: 15,
+                color: '#78350f',
+                lineHeight: 1.5
+              }}>
+                Order directly from this vendor and pick up at their location.
+              </p>
+              {(privatePickupDetails.address || privatePickupDetails.city) && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 14,
+                  color: '#92400e'
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <span>
+                    {[privatePickupDetails.address, privatePickupDetails.city, privatePickupDetails.state]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </span>
+                </div>
+              )}
+              {privatePickupDetails.description && (
+                <p style={{
+                  margin: '8px 0 0 0',
+                  fontSize: 14,
+                  color: '#92400e',
+                  fontStyle: 'italic'
+                }}>
+                  {privatePickupDetails.description}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Vendor Listings */}
         <div>

@@ -3,18 +3,24 @@
 import { useState, useEffect } from 'react'
 import LocationPrompt from '@/components/location/LocationPrompt'
 import MarketCard from '@/components/markets/MarketCard'
+import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
 interface Market {
   id: string
   name: string
-  type: 'traditional' | 'private_pickup'
+  market_type: 'traditional' | 'private_pickup'
   description?: string
   address?: string
   city?: string
   state?: string
-  market_type?: string
   active: boolean
-  schedules?: any[]
+  schedules?: Array<{
+    id: string
+    day_of_week: number
+    start_time: string
+    end_time: string
+    active: boolean
+  }>
   vendor_count?: number
   distance_miles?: number
 }
@@ -22,14 +28,12 @@ interface Market {
 interface MarketsWithLocationProps {
   vertical: string
   initialMarkets: Market[]
-  type?: string
   cities: string[]
 }
 
 export default function MarketsWithLocation({
   vertical,
   initialMarkets,
-  type,
   cities
 }: MarketsWithLocationProps) {
   const [hasLocation, setHasLocation] = useState<boolean | null>(null)
@@ -71,20 +75,20 @@ export default function MarketsWithLocation({
         lat: lat.toString(),
         lng: lng.toString(),
         vertical,
-        radius: '25'
+        radius: '25',
+        type: 'traditional' // Only fetch traditional markets
       })
-      if (type) params.set('type', type)
 
       const response = await fetch(`/api/markets/nearby?${params}`)
       const data = await response.json()
 
       if (data.markets) {
-        setMarkets(data.markets.map((m: any) => ({
+        setMarkets(data.markets.map((m: Record<string, unknown>) => ({
           ...m,
-          type: m.market_type || m.type,
-          active: m.active ?? (m.status === 'active'),
-          schedules: m.market_schedules,
-          vendor_count: m.market_vendors?.[0]?.count || 0
+          market_type: (m.market_type || 'traditional') as 'traditional' | 'private_pickup',
+          active: (m.active as boolean) ?? ((m.status as string) === 'active'),
+          schedules: m.market_schedules as Market['schedules'],
+          vendor_count: ((m.market_vendors as Array<{ count: number }> | undefined)?.[0]?.count) || 0
         })))
       }
     } catch (error) {
@@ -112,7 +116,7 @@ export default function MarketsWithLocation({
     <div>
       {/* Location Prompt - show if no location and not dismissed */}
       {showLocationPrompt && !locationDismissed && (
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: spacing.md }}>
           <LocationPrompt
             onLocationSet={handleLocationSet}
             onClose={handleDismissLocationPrompt}
@@ -124,27 +128,29 @@ export default function MarketsWithLocation({
       {/* Show button to set location if dismissed */}
       {locationDismissed && !hasLocation && (
         <div style={{
-          marginBottom: 16,
-          padding: '12px 16px',
-          backgroundColor: '#f8fafc',
-          borderRadius: 8,
+          marginBottom: spacing.sm,
+          padding: `${spacing.sm} ${spacing.md}`,
+          backgroundColor: colors.surfaceMuted,
+          borderRadius: radius.md,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <span style={{ color: '#64748b', fontSize: 14 }}>
+          <span style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>
             Set your location to see markets within 25 miles
           </span>
           <button
             onClick={() => { setShowLocationPrompt(true); setLocationDismissed(false); }}
             style={{
-              padding: '8px 16px',
-              backgroundColor: '#3b82f6',
-              color: 'white',
+              padding: `${spacing.xs} ${spacing.md}`,
+              backgroundColor: colors.primary,
+              color: colors.textInverse,
               border: 'none',
-              borderRadius: 6,
-              fontSize: 14,
-              cursor: 'pointer'
+              borderRadius: radius.md,
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.medium,
+              cursor: 'pointer',
+              minHeight: 44
             }}
           >
             Set Location
@@ -155,16 +161,16 @@ export default function MarketsWithLocation({
       {/* Location indicator when location is set */}
       {hasLocation && userLocation && !showLocationPrompt && (
         <div style={{
-          marginBottom: 16,
-          padding: '12px 16px',
+          marginBottom: spacing.sm,
+          padding: `${spacing.sm} ${spacing.md}`,
           backgroundColor: '#f0fdf4',
           border: '1px solid #86efac',
-          borderRadius: 8,
+          borderRadius: radius.md,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <span style={{ color: '#166534', fontSize: 14 }}>
+          <span style={{ color: '#166534', fontSize: typography.sizes.sm }}>
             📍 Showing markets within 25 miles of your location
           </span>
           <button
@@ -174,8 +180,9 @@ export default function MarketsWithLocation({
               border: 'none',
               color: '#16a34a',
               cursor: 'pointer',
-              fontSize: 14,
-              textDecoration: 'underline'
+              fontSize: typography.sizes.sm,
+              textDecoration: 'underline',
+              minHeight: 44
             }}
           >
             Change
@@ -187,8 +194,8 @@ export default function MarketsWithLocation({
       {loading && (
         <div style={{
           textAlign: 'center',
-          padding: 40,
-          color: '#64748b'
+          padding: spacing['3xl'],
+          color: colors.textMuted
         }}>
           Loading nearby markets...
         </div>
@@ -196,7 +203,11 @@ export default function MarketsWithLocation({
 
       {/* Results count */}
       {!loading && (
-        <div style={{ marginBottom: 16, color: '#666' }}>
+        <div style={{
+          marginBottom: spacing.sm,
+          color: colors.textMuted,
+          fontSize: typography.sizes.sm
+        }}>
           {markets.length} market{markets.length !== 1 ? 's' : ''} found
           {hasLocation && ' within 25 miles'}
         </div>
@@ -204,52 +215,60 @@ export default function MarketsWithLocation({
 
       {/* Market grid */}
       {!loading && markets.length > 0 ? (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: 20,
-        }}>
+        <div
+          className="markets-grid"
+          style={{
+            display: 'grid',
+            gap: spacing.md,
+          }}
+        >
           {markets.map(market => (
-            <div key={market.id} style={{ position: 'relative' }}>
-              <MarketCard market={market} vertical={vertical} />
-              {market.distance_miles !== undefined && (
-                <div style={{
-                  position: 'absolute',
-                  top: 12,
-                  right: 12,
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                  color: 'white',
-                  padding: '4px 8px',
-                  borderRadius: 4,
-                  fontSize: 12,
-                  fontWeight: 500
-                }}>
-                  {market.distance_miles} mi
-                </div>
-              )}
-            </div>
+            <MarketCard key={market.id} market={market} vertical={vertical} />
           ))}
         </div>
       ) : !loading ? (
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: 12,
-          padding: 60,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.lg,
+          padding: spacing['3xl'],
           textAlign: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          boxShadow: shadows.sm,
+          border: `1px solid ${colors.border}`
         }}>
-          <p style={{ color: '#666', fontSize: 16 }}>
+          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
             {hasLocation
-              ? 'No markets found within 25 miles of your location.'
-              : 'No markets found matching your filters.'}
+              ? 'No farmers markets found within 25 miles of your location.'
+              : 'No farmers markets found matching your filters.'}
           </p>
-          <p style={{ color: '#999', fontSize: 14, marginTop: 8 }}>
+          <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, marginTop: spacing.xs }}>
             {hasLocation
               ? 'Try changing your location or check back later.'
               : 'Try adjusting your search criteria or check back later.'}
           </p>
         </div>
       ) : null}
+
+      {/* Responsive grid styles */}
+      <style>{`
+        .markets-grid {
+          grid-template-columns: 1fr;
+        }
+        @media (min-width: 640px) {
+          .markets-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        @media (min-width: 1024px) {
+          .markets-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+        @media (min-width: 1280px) {
+          .markets-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+      `}</style>
     </div>
   )
 }

@@ -134,6 +134,18 @@ export function Header({
               Browse Products
             </Link>
 
+            <Link
+              href={`/${vertical}/markets`}
+              style={{
+                color: pathname?.includes('/markets') ? colors.primary : colors.textSecondary,
+                textDecoration: 'none',
+                fontWeight: pathname?.includes('/markets') ? typography.weights.semibold : typography.weights.normal,
+                fontSize: typography.sizes.sm
+              }}
+            >
+              Markets
+            </Link>
+
             {user && (
               <Link
                 href={`/${vertical}/dashboard`}
@@ -446,6 +458,21 @@ export function Header({
               }}
             >
               Browse Products
+            </Link>
+
+            <Link
+              href={`/${vertical}/markets`}
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                display: 'block',
+                padding: `${spacing.xs} 0`,
+                textDecoration: 'none',
+                color: colors.textPrimary,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.medium
+              }}
+            >
+              Markets
             </Link>
 
             {user ? (

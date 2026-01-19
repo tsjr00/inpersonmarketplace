@@ -1,22 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
+import { defaultBranding } from '@/lib/branding'
 import MarketFilters from './MarketFilters'
 import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 
 // Cache page for 10 minutes - markets change infrequently
 export const revalidate = 600
 
 interface MarketsPageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ type?: string; city?: string; search?: string }>
+  searchParams: Promise<{ city?: string; search?: string }>
 }
 
 export default async function MarketsPage({ params, searchParams }: MarketsPageProps) {
   const { vertical } = await params
-  const { type, city, search } = await searchParams
+  const { city, search } = await searchParams
   const supabase = await createClient()
+  const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  // Build query for initial markets (shown before location is set)
+  // Build query for traditional markets only (exclude private pickup)
   let query = supabase
     .from('markets')
     .select(`
@@ -26,11 +28,8 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     `)
     .eq('vertical_id', vertical)
     .eq('status', 'active')
+    .eq('market_type', 'traditional')
     .order('name', { ascending: true })
-
-  if (type) {
-    query = query.eq('market_type', type)
-  }
 
   if (city) {
     query = query.ilike('city', `%${city}%`)
@@ -46,12 +45,13 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     console.error('Error fetching markets:', error)
   }
 
-  // Get unique cities for filter
+  // Get unique cities for filter (only from traditional markets)
   const { data: allMarkets } = await supabase
     .from('markets')
     .select('city')
     .eq('vertical_id', vertical)
     .eq('status', 'active')
+    .eq('market_type', 'traditional')
     .not('city', 'is', null)
 
   const cities = [...new Set(allMarkets?.map(m => m.city).filter(Boolean))] as string[]
@@ -59,7 +59,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   // Transform markets data
   const transformedMarkets = markets?.map(market => ({
     ...market,
-    type: market.market_type as 'traditional' | 'private_pickup',
+    market_type: market.market_type as 'traditional' | 'private_pickup',
     active: market.active ?? (market.status === 'active'),
     schedules: market.market_schedules,
     vendor_count: market.market_vendors?.[0]?.count || 0,
@@ -71,30 +71,32 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     <div style={{
       maxWidth: containers.xl,
       margin: '0 auto',
-      padding: `${spacing.sm} ${spacing.sm}`,
+      padding: `${spacing.md} ${spacing.sm}`,
       backgroundColor: colors.surfaceBase,
       minHeight: '100vh'
     }}>
-      <h1 style={{
-        color: colors.textPrimary,
-        marginBottom: spacing['2xs'],
-        marginTop: 0,
-        fontSize: typography.sizes['2xl'],
-        fontWeight: typography.weights.bold
-      }}>
-        Markets
-      </h1>
-      <p style={{
-        color: colors.textSecondary,
-        marginBottom: spacing.md,
-        fontSize: typography.sizes.base
-      }}>
-        Find farmers markets and pickup locations near you
-      </p>
+      {/* Header */}
+      <div style={{ marginBottom: spacing.md }}>
+        <h1 style={{
+          color: branding.colors.primary,
+          marginBottom: spacing['2xs'],
+          marginTop: 0,
+          fontSize: typography.sizes['2xl'],
+          fontWeight: typography.weights.bold
+        }}>
+          Farmers Markets
+        </h1>
+        <p style={{
+          color: colors.textSecondary,
+          margin: 0,
+          fontSize: typography.sizes.base
+        }}>
+          Discover local farmers markets and shop from vendors in your area
+        </p>
+      </div>
 
       {/* Filters */}
       <MarketFilters
-        currentType={type}
         currentCity={city}
         currentSearch={search}
         cities={cities}
@@ -104,7 +106,6 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
       <MarketsWithLocation
         vertical={vertical}
         initialMarkets={transformedMarkets}
-        type={type}
         cities={cities}
       />
     </div>
