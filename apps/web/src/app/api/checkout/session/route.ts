@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { calculateFees, createCheckoutSession } from '@/lib/stripe/payments'
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 interface CartItem {
   listingId: string
@@ -17,6 +18,14 @@ interface Listing {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit checkout requests - stricter limit to prevent abuse
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`checkout:${clientIp}`, { limit: 5, windowSeconds: 60 })
+
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const supabase = await createClient()
   const { items } = await request.json() as { items: CartItem[] }
 

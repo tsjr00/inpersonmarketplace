@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from "@/lib/rate-limit";
 
 // Use service role for server-side operations (no RLS restrictions)
 const supabaseAdmin = createClient(
@@ -8,13 +10,31 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(request: Request) {
+  // Rate limit by IP address
+  const clientIp = getClientIp(request);
+  const rateLimitResult = checkRateLimit(`submit:${clientIp}`, rateLimits.submit);
+
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult);
+  }
+
   try {
     const body = await request.json();
     const { kind, vertical, user_id, data } = body;
 
     if (kind === "vendor_signup") {
-      // Validate user_id if provided
+      // Validate user_id if provided - must match authenticated user
       if (user_id) {
+        // Verify the authenticated user owns this user_id
+        const supabase = await createServerClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user || user.id !== user_id) {
+          return NextResponse.json(
+            { ok: false, error: "Unauthorized: user_id does not match authenticated user" },
+            { status: 401 }
+          );
+        }
         // Check if vendor profile already exists for this user+vertical
         const { data: existing } = await supabaseAdmin
           .from("vendor_profiles")

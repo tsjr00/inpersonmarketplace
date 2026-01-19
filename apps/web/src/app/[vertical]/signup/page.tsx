@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { Turnstile, useTurnstile } from '@/components/auth/Turnstile'
 
 interface SignupPageProps {
   params: Promise<{ vertical: string }>
@@ -30,6 +31,7 @@ export default function SignupPage({ params }: SignupPageProps) {
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks)
   const router = useRouter()
   const supabase = createClient()
+  const turnstile = useTurnstile()
 
   useEffect(() => {
     async function loadConfig() {
@@ -76,6 +78,7 @@ export default function SignupPage({ params }: SignupPageProps) {
           preferred_vertical: vertical,
           start_with_premium: startWithPremium,
         },
+        captchaToken: turnstile.token || undefined,
       },
     })
 
@@ -370,6 +373,13 @@ export default function SignupPage({ params }: SignupPageProps) {
               </div>
             </div>
           </div>
+
+          {/* Turnstile CAPTCHA */}
+          <Turnstile
+            onVerify={turnstile.handleVerify}
+            onError={turnstile.handleError}
+            onExpire={turnstile.handleExpire}
+          />
 
           <button
             type="submit"

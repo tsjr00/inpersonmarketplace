@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyOrderExpired } from '@/lib/notifications'
+import { timingSafeEqual } from 'crypto'
+
+/**
+ * Timing-safe string comparison to prevent timing attacks
+ */
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Compare against itself to maintain constant time even when lengths differ
+    const buf = Buffer.from(a)
+    timingSafeEqual(buf, buf)
+    return false
+  }
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b))
+}
 
 /**
  * Cron endpoint to expire order items that haven't been confirmed in time
@@ -14,8 +28,14 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
 
-  // In production, verify the cron secret
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // In production, verify the cron secret using timing-safe comparison
+  if (!cronSecret) {
+    console.error('CRON_SECRET not configured')
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+  }
+
+  const expectedAuth = `Bearer ${cronSecret}`
+  if (!authHeader || !safeCompare(authHeader, expectedAuth)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
