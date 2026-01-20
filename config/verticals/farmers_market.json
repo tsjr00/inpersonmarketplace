@@ -76,9 +76,9 @@
     { "key": "business_name", "label": "Farm / Business Name", "type": "text", "required": true },
     {
       "key": "vendor_type",
-      "label": "Vendor Type",
-      "type": "select",
-      "options": ["Produce", "Meat", "Dairy", "Baked Goods", "Prepared Foods", "Other"],
+      "label": "Primary Product Category",
+      "type": "multi_select",
+      "options": ["Produce", "Meat & Poultry", "Dairy & Eggs", "Baked Goods", "Pantry", "Prepared Foods", "Plants & Flowers", "Health & Wellness", "Clothing & Fashion", "Art & Decor", "Home & Functional"],
       "required": true
     },
 
@@ -106,7 +106,7 @@
       "key": "product_categories",
       "label": "Product Categories",
       "type": "multi_select",
-      "options": ["Produce", "Meat", "Dairy", "Baked Goods", "Prepared Foods", "Other"],
+      "options": ["Produce", "Meat & Poultry", "Dairy & Eggs", "Baked Goods", "Pantry", "Prepared Foods", "Plants & Flowers", "Health & Wellness", "Clothing & Fashion", "Art & Decor", "Home & Functional"],
       "required": true
     },
 
@@ -142,7 +142,7 @@
       "key": "product_categories",
       "label": "Product Category",
       "type": "select",
-      "options": ["Produce", "Meat", "Dairy", "Baked Goods", "Prepared Foods"]
+      "options": ["Produce", "Meat & Poultry", "Dairy & Eggs", "Baked Goods", "Pantry", "Prepared Foods", "Plants & Flowers", "Health & Wellness", "Clothing & Fashion", "Art & Decor", "Home & Functional"]
     },
     { "key": "verified_only", "label": "Approved Vendors Only", "type": "boolean" }
   ],

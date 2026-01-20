@@ -28,11 +28,13 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [submitted, setSubmitted] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks);
 
   // Vendor acknowledgments
   const [acknowledgments, setAcknowledgments] = useState({
+    locallyProduced: false,
     legalCompliance: false,
     productSafety: false,
     platformTerms: false,
@@ -153,6 +155,11 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    // Prevent double-submission
+    if (submitting) {
+      return;
+    }
+
     // Check if user is logged in
     if (!user) {
       alert("Please login first to become a vendor");
@@ -204,6 +211,8 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       }
     };
 
+    setSubmitting(true);
+
     try {
       const res = await fetch("/api/submit", {
         method: "POST",
@@ -214,6 +223,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       const result = await res.json();
 
       if (!res.ok) {
+        setSubmitting(false);
         alert(`Save failed: ${result.error || "Unknown error"}`);
         return;
       }
@@ -227,6 +237,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       }, 1500);
     } catch (err) {
       console.error("Submit error:", err);
+      setSubmitting(false);
       alert("Save failed. Check the console for errors.");
     }
   }
@@ -600,6 +611,28 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Locally Produced Products */}
+              <label style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+                padding: 12,
+                backgroundColor: acknowledgments.locallyProduced ? '#f0fdf4' : 'white',
+                border: `1px solid ${acknowledgments.locallyProduced ? '#86efac' : '#e2e8f0'}`,
+                borderRadius: 6
+              }}>
+                <input
+                  type="checkbox"
+                  checked={acknowledgments.locallyProduced}
+                  onChange={(e) => setAcknowledgments(prev => ({ ...prev, locallyProduced: e.target.checked }))}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
+                  <strong>Locally Produced Products:</strong> I understand this platform is designed exclusively for locally produced products. My products are handmade, homemade, home-grown, or personally crafted by me or my business. I am not reselling mass-produced retail items that customers could purchase elsewhere. This is not a flea market or general resale platform.
+                </span>
+              </label>
+
               {/* Independent Business Status */}
               <label style={{
                 display: 'flex',
@@ -692,20 +725,20 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
 
           <button
             type="submit"
-            disabled={!Object.values(acknowledgments).every(v => v)}
+            disabled={!Object.values(acknowledgments).every(v => v) || submitting}
             style={{
               marginTop: 20,
               padding: "12px 14px",
               fontWeight: 800,
-              cursor: Object.values(acknowledgments).every(v => v) ? "pointer" : "not-allowed",
+              cursor: (Object.values(acknowledgments).every(v => v) && !submitting) ? "pointer" : "not-allowed",
               border: "none",
               borderRadius: 8,
-              backgroundColor: Object.values(acknowledgments).every(v => v) ? branding.colors.primary : '#9ca3af',
+              backgroundColor: (Object.values(acknowledgments).every(v => v) && !submitting) ? branding.colors.primary : '#9ca3af',
               color: "white",
               width: "100%"
             }}
           >
-            Submit Application
+            {submitting ? "Submitting..." : "Submit Application"}
           </button>
         </form>
       )}
