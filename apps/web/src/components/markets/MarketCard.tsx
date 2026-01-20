@@ -111,22 +111,24 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
       >
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm, gap: spacing.xs }}>
-          <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, flex: 1 }}>
+          <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, flex: 1, minWidth: 0 }}>
             {market.name}
           </h3>
           <span
             style={{
-              padding: `${spacing['3xs']} ${spacing.xs}`,
-              borderRadius: radius.full,
-              fontSize: typography.sizes.xs,
-              fontWeight: typography.weights.semibold,
+              padding: `${spacing['2xs']} ${spacing.xs}`,
+              borderRadius: radius.md,
+              fontSize: '10px',
+              fontWeight: typography.weights.bold,
               backgroundColor: '#e8f5e9',
               color: '#2e7d32',
-              whiteSpace: 'nowrap',
-              flexShrink: 0
+              textAlign: 'center',
+              lineHeight: 1.3,
+              flexShrink: 0,
+              whiteSpace: 'nowrap'
             }}
           >
-            Farmers Market
+            Farmers<br />Market
           </span>
         </div>
 

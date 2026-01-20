@@ -31,10 +31,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
-    // Get all markets for this vertical
+    // Get all markets for this vertical with schedules
     const { data: allMarkets, error: marketsError } = await supabase
       .from('markets')
-      .select('*')
+      .select(`
+        *,
+        market_schedules (
+          id,
+          day_of_week,
+          start_time,
+          end_time,
+          active
+        )
+      `)
       .eq('vertical_id', vertical)
       .eq('status', 'active')
       .order('name')
@@ -44,10 +53,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
     }
 
-    // Get vendor's private pickup markets
-    const vendorMarkets = (allMarkets || []).filter(m =>
-      m.market_type === 'private_pickup' && m.vendor_profile_id === vendorProfile.id
-    )
+    // Get vendor's private pickup markets with schedules
+    const vendorMarkets = (allMarkets || [])
+      .filter(m => m.market_type === 'private_pickup' && m.vendor_profile_id === vendorProfile.id)
+      .map(m => ({
+        ...m,
+        schedules: m.market_schedules || []
+      }))
 
     // Get traditional markets with home market info
     const tier = vendorProfile.tier || 'standard'
@@ -103,27 +115,51 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { vertical, name, address, city, state, zip } = body
+    const { vertical, name, address, city, state, zip, pickup_windows } = body
 
     if (!vertical || !name || !address || !city || !state || !zip) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Get vendor profile with tier
-    const { data: vendorProfile, error: vpError } = await supabase
+    // Validate pickup_windows - required for private pickup, min 1
+    if (!pickup_windows || !Array.isArray(pickup_windows) || pickup_windows.length === 0) {
+      return NextResponse.json({ error: 'At least one pickup window is required' }, { status: 400 })
+    }
+
+    // Get vendor profile with tier to check window limit
+    const { data: vendorProfileForTier, error: tierError } = await supabase
       .from('vendor_profiles')
       .select('id, tier')
       .eq('user_id', user.id)
       .eq('vertical_id', vertical)
       .single()
 
-    if (vpError || !vendorProfile) {
+    if (tierError || !vendorProfileForTier) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
-    // FEATURE 2.2: Check private pickup location limit
-    const tier = vendorProfile.tier || 'standard'
+    const tier = vendorProfileForTier.tier || 'standard'
     const tierLimits = getTierLimits(tier)
+    const maxWindows = tierLimits.pickupWindowsPerLocation
+
+    if (pickup_windows.length > maxWindows) {
+      return NextResponse.json({
+        error: `Maximum of ${maxWindows} pickup windows allowed for ${tier} tier vendors.${tier === 'standard' ? ' Upgrade to premium for more windows.' : ''}`
+      }, { status: 400 })
+    }
+
+    // Validate each pickup window
+    for (const window of pickup_windows) {
+      if (window.day_of_week === undefined || window.day_of_week === '' ||
+          !window.start_time || !window.end_time) {
+        return NextResponse.json({ error: 'Each pickup window requires day, start time, and end time' }, { status: 400 })
+      }
+    }
+
+    // Use the vendor profile we already fetched for tier check
+    const vendorProfile = vendorProfileForTier
+
+    // FEATURE 2.2: Check private pickup location limit
 
     const { count: currentPrivatePickupCount } = await supabase
       .from('markets')
@@ -157,6 +193,26 @@ export async function POST(request: Request) {
     if (createError) {
       console.error('[/api/vendor/markets] Error creating market:', createError)
       return NextResponse.json({ error: 'Failed to create market' }, { status: 500 })
+    }
+
+    // Create market_schedules for the pickup windows
+    const schedules = pickup_windows.map((window: { day_of_week: number; start_time: string; end_time: string }) => ({
+      market_id: market.id,
+      day_of_week: parseInt(String(window.day_of_week)),
+      start_time: window.start_time,
+      end_time: window.end_time,
+      active: true
+    }))
+
+    const { error: scheduleError } = await supabase
+      .from('market_schedules')
+      .insert(schedules)
+
+    if (scheduleError) {
+      console.error('[/api/vendor/markets] Error creating schedules:', scheduleError)
+      // Market was created but schedules failed - clean up
+      await supabase.from('markets').delete().eq('id', market.id)
+      return NextResponse.json({ error: 'Failed to create pickup schedule' }, { status: 500 })
     }
 
     return NextResponse.json({ market }, { status: 201 })

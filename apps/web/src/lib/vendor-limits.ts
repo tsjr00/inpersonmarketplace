@@ -6,6 +6,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
  * Standard Vendors:
  * - Traditional markets: 1 (home market)
  * - Private pickup locations: 1
+ * - Pickup windows per location: 2
  * - Total Market Boxes: 2 (active + inactive)
  * - Active Market Boxes: 1
  * - Product listings: 5
@@ -13,6 +14,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
  * Premium Vendors:
  * - Traditional markets: 4
  * - Private pickup locations: 5
+ * - Pickup windows per location: 6
  * - Total Market Boxes: 6 (active + inactive)
  * - Active Market Boxes: 4
  * - Product listings: 10
@@ -24,6 +26,7 @@ export const TIER_LIMITS = {
   standard: {
     traditionalMarkets: 1,
     privatePickupLocations: 1,
+    pickupWindowsPerLocation: 2,
     totalMarketBoxes: 2,
     activeMarketBoxes: 1,
     productListings: 5,
@@ -31,6 +34,7 @@ export const TIER_LIMITS = {
   premium: {
     traditionalMarkets: 4,
     privatePickupLocations: 5,
+    pickupWindowsPerLocation: 6,
     totalMarketBoxes: 6,
     activeMarketBoxes: 4,
     productListings: 10,
@@ -39,6 +43,7 @@ export const TIER_LIMITS = {
   featured: {
     traditionalMarkets: 4,
     privatePickupLocations: 5,
+    pickupWindowsPerLocation: 6,
     totalMarketBoxes: 6,
     activeMarketBoxes: 4,
     productListings: 10,
@@ -447,6 +452,7 @@ export async function canUseTraditionalMarket(
 export type TierLimits = {
   traditionalMarkets: number
   privatePickupLocations: number
+  pickupWindowsPerLocation: number
   totalMarketBoxes: number
   activeMarketBoxes: number
   productListings: number

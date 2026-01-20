@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+type Schedule = {
+  id?: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  active?: boolean
+}
+
 type Market = {
   id: string
   name: string
@@ -18,6 +26,7 @@ type Market = {
   isHomeMarket?: boolean
   canUse?: boolean
   homeMarketRestricted?: boolean
+  schedules?: Schedule[]
 }
 
 type MarketLimits = {
@@ -50,7 +59,8 @@ export default function VendorMarketsPage() {
     address: '',
     city: '',
     state: '',
-    zip: ''
+    zip: '',
+    pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
   })
   const [editingMarket, setEditingMarket] = useState<Market | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -118,13 +128,28 @@ export default function VendorMarketsPage() {
     setSubmitting(true)
     setError(null)
 
+    // Validate pickup windows
+    const validWindows = formData.pickup_windows.filter(w => w.day_of_week !== '' && w.start_time && w.end_time)
+    if (validWindows.length === 0) {
+      setError('At least one pickup window is required')
+      setSubmitting(false)
+      return
+    }
+
     try {
       if (editingMarket) {
         // Update
         const res = await fetch(`/api/vendor/markets/${editingMarket.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData })
+          body: JSON.stringify({
+            name: formData.name,
+            address: formData.address,
+            city: formData.city,
+            state: formData.state,
+            zip: formData.zip,
+            pickup_windows: validWindows
+          })
         })
 
         if (res.ok) {
@@ -139,7 +164,15 @@ export default function VendorMarketsPage() {
         const res = await fetch('/api/vendor/markets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vertical, ...formData })
+          body: JSON.stringify({
+            vertical,
+            name: formData.name,
+            address: formData.address,
+            city: formData.city,
+            state: formData.state,
+            zip: formData.zip,
+            pickup_windows: validWindows
+          })
         })
 
         if (res.ok) {
@@ -160,12 +193,20 @@ export default function VendorMarketsPage() {
 
   const handleEdit = (market: Market) => {
     setEditingMarket(market)
+    const windows = market.schedules && market.schedules.length > 0
+      ? market.schedules.map(s => ({
+          day_of_week: String(s.day_of_week),
+          start_time: s.start_time,
+          end_time: s.end_time
+        }))
+      : [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }]
     setFormData({
       name: market.name,
       address: market.address,
       city: market.city,
       state: market.state,
-      zip: market.zip
+      zip: market.zip,
+      pickup_windows: windows
     })
     setShowForm(true)
     setError(null)
@@ -201,9 +242,86 @@ export default function VendorMarketsPage() {
       address: '',
       city: '',
       state: '',
-      zip: ''
+      zip: '',
+      pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }]
     })
     setError(null)
+  }
+
+  // Helper to calculate cutoff time for traditional markets (18 hours before)
+  const getTraditionalCutoffTime = (dayOfWeek: number, startTime: string): string => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const [hours, minutes] = startTime.split(':').map(Number)
+
+    // Calculate cutoff: 18 hours before market
+    let cutoffHours = hours - 18
+    let cutoffDay = dayOfWeek
+
+    if (cutoffHours < 0) {
+      cutoffHours += 24
+      cutoffDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    }
+
+    const cutoffDayName = days[cutoffDay]
+    const cutoffTime = `${cutoffHours % 12 || 12}:${minutes.toString().padStart(2, '0')} ${cutoffHours >= 12 ? 'PM' : 'AM'}`
+    return `${cutoffDayName} at ${cutoffTime}`
+  }
+
+  // Helper to calculate cutoff time from a pickup window
+  // Private pickup has 10-hour cutoff before pickup start time
+  const getCutoffTime = (dayOfWeek: number, startTime: string): string => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const [hours, minutes] = startTime.split(':').map(Number)
+
+    // Calculate cutoff: 10 hours before pickup
+    let cutoffHours = hours - 10
+    let cutoffDay = dayOfWeek
+
+    if (cutoffHours < 0) {
+      cutoffHours += 24
+      cutoffDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    }
+
+    const cutoffDayName = days[cutoffDay]
+    const cutoffTime = `${cutoffHours % 12 || 12}:${minutes.toString().padStart(2, '0')} ${cutoffHours >= 12 ? 'PM' : 'AM'}`
+    return `${cutoffDayName} at ${cutoffTime}`
+  }
+
+  // Helper to format 24h time to 12h
+  const formatTime12h = (time24: string): string => {
+    if (!time24) return ''
+    const [hours, minutes] = time24.split(':').map(Number)
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const hours12 = hours % 12 || 12
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`
+  }
+
+  // Max pickup windows based on tier (standard: 2, premium: 6)
+  const maxPickupWindows = isPremium ? 6 : 2
+
+  // Helper to add a pickup window
+  const addPickupWindow = () => {
+    if (formData.pickup_windows.length < maxPickupWindows) {
+      setFormData({
+        ...formData,
+        pickup_windows: [...formData.pickup_windows, { day_of_week: '', start_time: '09:00', end_time: '12:00' }]
+      })
+    }
+  }
+
+  // Helper to remove a pickup window
+  const removePickupWindow = (index: number) => {
+    if (formData.pickup_windows.length > 1) {
+      const newWindows = formData.pickup_windows.filter((_, i) => i !== index)
+      setFormData({ ...formData, pickup_windows: newWindows })
+    }
+  }
+
+  // Helper to update a pickup window
+  const updatePickupWindow = (index: number, field: string, value: string) => {
+    const newWindows = [...formData.pickup_windows]
+    newWindows[index] = { ...newWindows[index], [field]: value }
+    setFormData({ ...formData, pickup_windows: newWindows })
   }
 
   if (loading) {
@@ -331,9 +449,23 @@ export default function VendorMarketsPage() {
                         {market.address}, {market.city}, {market.state} {market.zip}
                       </p>
                       {market.day_of_week !== null && market.day_of_week !== undefined && (
-                        <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#6b7280' }}>
+                        <p style={{ margin: '0 0 8px 0', fontSize: 14, color: '#6b7280' }}>
                           {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
                         </p>
+                      )}
+                      {/* Cutoff time for traditional markets (18 hours before) */}
+                      {market.day_of_week !== null && market.day_of_week !== undefined && market.start_time && (
+                        <div style={{
+                          padding: '6px 10px',
+                          backgroundColor: '#fef3c7',
+                          borderRadius: 4,
+                          fontSize: 12,
+                          color: '#92400e',
+                          marginBottom: 12,
+                          display: 'inline-block'
+                        }}>
+                          <strong>Order cutoff:</strong> {getTraditionalCutoffTime(market.day_of_week, market.start_time)}
+                        </div>
                       )}
                     </div>
                     {/* Set as Home Market button - only for standard vendors, not on current home market */}
@@ -441,6 +573,27 @@ export default function VendorMarketsPage() {
             )}
           </div>
 
+          {/* Auto-Cutoff Notice */}
+          <div style={{
+            padding: 16,
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: 8,
+            marginBottom: 20
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <span style={{ fontSize: 20 }}>⚠️</span>
+              <div>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#991b1b' }}>
+                  Notice: Automatic Order Cutoff
+                </h4>
+                <p style={{ margin: 0, fontSize: 13, color: '#7f1d1d', lineHeight: 1.5 }}>
+                  All pre-order sales automatically close <strong>10 hours before your pickup time</strong>. This gives you time to prepare orders and know exactly what to bring. When you set your pickup day and time below, your cutoff time will be calculated automatically.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Form */}
           {showForm && (
             <form
@@ -460,7 +613,7 @@ export default function VendorMarketsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                    Location Name
+                    Location Name *
                   </label>
                   <input
                     type="text"
@@ -481,7 +634,7 @@ export default function VendorMarketsPage() {
 
                 <div>
                   <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                    Address
+                    Address *
                   </label>
                   <input
                     type="text"
@@ -503,7 +656,7 @@ export default function VendorMarketsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      City
+                      City *
                     </label>
                     <input
                       type="text"
@@ -522,7 +675,7 @@ export default function VendorMarketsPage() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      State
+                      State *
                     </label>
                     <input
                       type="text"
@@ -543,7 +696,7 @@ export default function VendorMarketsPage() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      ZIP
+                      ZIP *
                     </label>
                     <input
                       type="text"
@@ -561,6 +714,141 @@ export default function VendorMarketsPage() {
                       }}
                     />
                   </div>
+                </div>
+
+                {/* Pickup Windows Section */}
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{ fontSize: 14, fontWeight: 500 }}>
+                      Pickup Windows * <span style={{ fontWeight: 400, color: '#6b7280' }}>(max {maxPickupWindows} per week)</span>
+                    </label>
+                    {formData.pickup_windows.length < maxPickupWindows && (
+                      <button
+                        type="button"
+                        onClick={addPickupWindow}
+                        style={{
+                          padding: '4px 12px',
+                          backgroundColor: '#e0f2fe',
+                          color: '#0369a1',
+                          border: 'none',
+                          borderRadius: 4,
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + Add Another Window
+                      </button>
+                    )}
+                  </div>
+
+                  {formData.pickup_windows.map((window, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        padding: 12,
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        backgroundColor: 'white',
+                        marginBottom: 8
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 120px', minWidth: 120 }}>
+                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                            Day
+                          </label>
+                          <select
+                            value={window.day_of_week}
+                            onChange={(e) => updatePickupWindow(index, 'day_of_week', e.target.value)}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '8px 10px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: 4,
+                              fontSize: 14,
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            <option value="">Select day...</option>
+                            {DAYS.map((day, i) => (
+                              <option key={day} value={i}>{day}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div style={{ flex: '0 0 100px' }}>
+                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            value={window.start_time}
+                            onChange={(e) => updatePickupWindow(index, 'start_time', e.target.value)}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '8px 10px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: 4,
+                              fontSize: 14,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: '0 0 100px' }}>
+                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            value={window.end_time}
+                            onChange={(e) => updatePickupWindow(index, 'end_time', e.target.value)}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '8px 10px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: 4,
+                              fontSize: 14,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                        {formData.pickup_windows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePickupWindow(index)}
+                            style={{
+                              padding: '8px',
+                              backgroundColor: '#fee2e2',
+                              color: '#991b1b',
+                              border: 'none',
+                              borderRadius: 4,
+                              fontSize: 14,
+                              cursor: 'pointer',
+                              alignSelf: 'flex-end'
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      {/* Show calculated cutoff time */}
+                      {window.day_of_week !== '' && window.start_time && (
+                        <div style={{
+                          marginTop: 8,
+                          padding: '6px 10px',
+                          backgroundColor: '#fef3c7',
+                          borderRadius: 4,
+                          fontSize: 12,
+                          color: '#92400e'
+                        }}>
+                          <strong>Cutoff:</strong> {getCutoffTime(parseInt(window.day_of_week), window.start_time)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -622,15 +910,65 @@ export default function VendorMarketsPage() {
                     flexWrap: 'wrap',
                     gap: 12
                   }}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600 }}>
                         {market.name}
                       </h3>
-                      <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+                      <p style={{ margin: '0 0 8px 0', fontSize: 14, color: '#6b7280' }}>
                         {market.address}, {market.city}, {market.state} {market.zip}
                       </p>
+
+                      {/* Schedule Display */}
+                      {market.schedules && market.schedules.length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          {market.schedules.map((schedule, idx) => (
+                            <div
+                              key={idx}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 16,
+                                padding: '8px 12px',
+                                backgroundColor: '#f3f4f6',
+                                borderRadius: 6,
+                                marginBottom: 6,
+                                fontSize: 13
+                              }}
+                            >
+                              <div style={{ flex: 1 }}>
+                                <strong>{DAYS[schedule.day_of_week]}</strong>{' '}
+                                {formatTime12h(schedule.start_time)} - {formatTime12h(schedule.end_time)}
+                              </div>
+                              <div style={{
+                                padding: '4px 8px',
+                                backgroundColor: '#fef3c7',
+                                borderRadius: 4,
+                                fontSize: 12,
+                                color: '#92400e'
+                              }}>
+                                Cutoff: {getCutoffTime(schedule.day_of_week, schedule.start_time)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Warning if no schedules */}
+                      {(!market.schedules || market.schedules.length === 0) && (
+                        <div style={{
+                          marginTop: 8,
+                          padding: '8px 12px',
+                          backgroundColor: '#fef2f2',
+                          border: '1px solid #fecaca',
+                          borderRadius: 6,
+                          fontSize: 13,
+                          color: '#991b1b'
+                        }}>
+                          ⚠️ No pickup schedule set. Edit to add pickup times.
+                        </div>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                       <button
                         onClick={() => handleEdit(market)}
                         style={{

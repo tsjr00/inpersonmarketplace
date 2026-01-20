@@ -114,6 +114,8 @@ export async function PATCH(
     'contact_email',
     'contact_phone',
     'active',
+    'season_start',
+    'season_end',
   ]
 
   // Filter to only allowed fields

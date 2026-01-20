@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getTierLimits } from '@/lib/vendor-limits'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -17,12 +18,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const { name, address, city, state, zip } = body
+    const { name, address, city, state, zip, pickup_windows } = body
 
-    // Get vendor profile
+    // Get vendor profile with tier
     const { data: vendorProfile, error: vpError } = await supabase
       .from('vendor_profiles')
-      .select('id')
+      .select('id, tier')
       .eq('user_id', user.id)
       .single()
 
@@ -42,6 +43,33 @@ export async function PUT(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Market not found or unauthorized' }, { status: 404 })
     }
 
+    // For private pickup markets, validate and update pickup_windows
+    if (market.market_type === 'private_pickup') {
+      // Validate pickup_windows - required for private pickup, min 1
+      if (!pickup_windows || !Array.isArray(pickup_windows) || pickup_windows.length === 0) {
+        return NextResponse.json({ error: 'At least one pickup window is required' }, { status: 400 })
+      }
+
+      // Check tier-based window limit
+      const tier = vendorProfile.tier || 'standard'
+      const tierLimits = getTierLimits(tier)
+      const maxWindows = tierLimits.pickupWindowsPerLocation
+
+      if (pickup_windows.length > maxWindows) {
+        return NextResponse.json({
+          error: `Maximum of ${maxWindows} pickup windows allowed for ${tier} tier vendors.${tier === 'standard' ? ' Upgrade to premium for more windows.' : ''}`
+        }, { status: 400 })
+      }
+
+      // Validate each pickup window
+      for (const window of pickup_windows) {
+        if (window.day_of_week === undefined || window.day_of_week === '' ||
+            !window.start_time || !window.end_time) {
+          return NextResponse.json({ error: 'Each pickup window requires day, start time, and end time' }, { status: 400 })
+        }
+      }
+    }
+
     // Update market
     const { data: updated, error: updateError } = await supabase
       .from('markets')
@@ -59,6 +87,38 @@ export async function PUT(request: Request, { params }: RouteParams) {
     if (updateError) {
       console.error('[/api/vendor/markets/[id]] Error updating market:', updateError)
       return NextResponse.json({ error: 'Failed to update market' }, { status: 500 })
+    }
+
+    // For private pickup markets, update the schedules
+    if (market.market_type === 'private_pickup' && pickup_windows) {
+      // Delete existing schedules
+      const { error: deleteSchedulesError } = await supabase
+        .from('market_schedules')
+        .delete()
+        .eq('market_id', marketId)
+
+      if (deleteSchedulesError) {
+        console.error('[/api/vendor/markets/[id]] Error deleting schedules:', deleteSchedulesError)
+        return NextResponse.json({ error: 'Failed to update pickup schedule' }, { status: 500 })
+      }
+
+      // Create new schedules
+      const schedules = pickup_windows.map((window: { day_of_week: number; start_time: string; end_time: string }) => ({
+        market_id: marketId,
+        day_of_week: parseInt(String(window.day_of_week)),
+        start_time: window.start_time,
+        end_time: window.end_time,
+        active: true
+      }))
+
+      const { error: scheduleError } = await supabase
+        .from('market_schedules')
+        .insert(schedules)
+
+      if (scheduleError) {
+        console.error('[/api/vendor/markets/[id]] Error creating schedules:', scheduleError)
+        return NextResponse.json({ error: 'Failed to update pickup schedule' }, { status: 500 })
+      }
     }
 
     return NextResponse.json({ market: updated })

@@ -97,6 +97,8 @@ export async function POST(request: NextRequest) {
     longitude,
     contact_email,
     contact_phone,
+    season_start,
+    season_end,
   } = body
 
   // Validate required fields
@@ -132,6 +134,8 @@ export async function POST(request: NextRequest) {
       contact_phone,
       active: true,
       status: 'active',
+      season_start: season_start || null,
+      season_end: season_end || null,
     })
     .select()
     .single()

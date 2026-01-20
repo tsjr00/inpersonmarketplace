@@ -316,6 +316,56 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             </div>
           </div>
 
+          {/* Traditional Markets - where this vendor sells */}
+          {vendorMarkets.filter(m => m.market_type === 'traditional').length > 0 && (
+            <div style={{
+              marginTop: 20,
+              paddingTop: 20,
+              borderTop: '1px solid #f3f4f6'
+            }}>
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#374151',
+                margin: '0 0 12px 0'
+              }}>
+                Sells at Markets
+              </h3>
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 8
+              }}>
+                {vendorMarkets
+                  .filter(m => m.market_type === 'traditional')
+                  .map(market => (
+                    <Link
+                      key={market.id}
+                      href={`/${vertical}/markets/${market.id}`}
+                      style={{
+                        padding: '6px 14px',
+                        backgroundColor: '#e0f2fe',
+                        color: '#0369a1',
+                        borderRadius: 16,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                      </svg>
+                      {market.name}
+                    </Link>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {/* Categories - show ALL categories vendor sells */}
           {(allCategories.length > 0 || hasActiveMarketBoxes) && (
             <div style={{
@@ -365,49 +415,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     📦 Market Box
                   </span>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* Pickup Locations - markets and private pickups */}
-          {vendorMarkets.length > 0 && (
-            <div style={{
-              marginTop: 20,
-              paddingTop: 20,
-              borderTop: '1px solid #f3f4f6'
-            }}>
-              <h3 style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#374151',
-                margin: '0 0 12px 0'
-              }}>
-                Pickup Locations
-              </h3>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 8
-              }}>
-                {vendorMarkets.map(market => {
-                  const isPrivate = market.market_type === 'private_pickup'
-                  const prefix = isPrivate ? 'Private Pickup: ' : 'Market: '
-                  return (
-                    <span
-                      key={market.id}
-                      style={{
-                        padding: '6px 14px',
-                        backgroundColor: isPrivate ? '#fef3c7' : '#e0f2fe',
-                        color: isPrivate ? '#92400e' : '#0369a1',
-                        borderRadius: 16,
-                        fontSize: 13,
-                        fontWeight: 500
-                      }}
-                    >
-                      {prefix}{market.name}
-                    </span>
-                  )
-                })}
               </div>
             </div>
           )}

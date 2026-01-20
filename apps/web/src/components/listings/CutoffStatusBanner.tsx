@@ -62,22 +62,34 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
     const hoursLeft = (new Date(cutoffAt).getTime() - Date.now()) / (1000 * 60 * 60)
     if (hoursLeft < 1) {
       const minutes = Math.max(1, Math.round(hoursLeft * 60))
-      return `${minutes}m`
+      return `${minutes} minute${minutes !== 1 ? 's' : ''}`
     }
     if (hoursLeft < 24) {
-      return `${Math.floor(hoursLeft)}h`
+      const hours = Math.floor(hoursLeft)
+      return `${hours} hour${hours !== 1 ? 's' : ''}`
     }
     const days = Math.floor(hoursLeft / 24)
-    return `${days}d`
+    return `${days} day${days !== 1 ? 's' : ''}`
   }
 
-  // Format market date
-  const formatMarketDate = (dateStr: string): string => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    })
+  // Format market date with day, date, and time
+  const formatMarketDateTime = (dateStr: string, timeStr?: string): string => {
+    const date = new Date(dateStr)
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' })
+    const dateFormatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (timeStr) {
+      return `${dayName}, ${dateFormatted} at ${timeStr}`
+    }
+    return `${dayName}, ${dateFormatted}`
+  }
+
+  // Format cutoff date/time
+  const formatCutoffDateTime = (cutoffAt: string): string => {
+    const date = new Date(cutoffAt)
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' })
+    const dateFormatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const timeFormatted = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    return `${dayName}, ${dateFormatted} at ${timeFormatted}`
   }
 
   // Check if we have mixed status (some open, some closed)
@@ -85,7 +97,14 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
   const closedMarkets = availability.markets.filter(m => !m.is_accepting)
   const hasMixedStatus = openMarkets.length > 0 && closedMarkets.length > 0
 
-  // All markets closed
+  // Check if any market is closing soon (within 24 hours)
+  const closingSoonMarkets = availability.markets.filter(m => {
+    if (!m.is_accepting || !m.cutoff_at) return false
+    const hoursUntilCutoff = (new Date(m.cutoff_at).getTime() - Date.now()) / (1000 * 60 * 60)
+    return hoursUntilCutoff < 24
+  })
+
+  // All markets closed - show "Listing Closed" prominently
   if (!availability.is_accepting_orders) {
     return (
       <div style={{
@@ -103,34 +122,90 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
         }}>
           <span style={{ fontSize: 18 }}>🚫</span>
           <span style={{
-            fontWeight: typography.weights.semibold,
-            color: '#991b1b'
+            fontWeight: typography.weights.bold,
+            color: '#991b1b',
+            fontSize: typography.sizes.base
           }}>
-            Orders Closed
+            Listing Closed
           </span>
         </div>
         <div style={{
           fontSize: typography.sizes.sm,
           color: '#7f1d1d'
         }}>
-          All pickup dates for this listing have passed their order cutoff. Vendors are preparing for market.
+          This listing has passed its order cutoff time. The vendor is preparing for market.
+        </div>
+        {/* Show which markets are closed */}
+        {closedMarkets.length > 0 && (
+          <div style={{ marginTop: spacing.xs, fontSize: typography.sizes.xs, color: '#991b1b' }}>
+            Pickup location{closedMarkets.length > 1 ? 's' : ''}: {closedMarkets.map(m => m.market_name).join(', ')}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ONLY show banner if closing soon or mixed status - don't show when everything is open
+  const shouldShow = closingSoonMarkets.length > 0 || hasMixedStatus
+
+  if (!shouldShow) {
+    return null
+  }
+
+  // Closing soon - yellow warning with restructured layout
+  if (closingSoonMarkets.length > 0 && !hasMixedStatus) {
+    const market = closingSoonMarkets[0]
+    return (
+      <div style={{
+        padding: spacing.sm,
+        backgroundColor: '#fef3c7',
+        border: '1px solid #fde68a',
+        borderRadius: radius.md,
+        marginBottom: spacing.sm
+      }}>
+        {/* Row 1: Listing closes in X hours */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.xs,
+          marginBottom: spacing.xs
+        }}>
+          <span style={{ fontSize: 18 }}>⏰</span>
+          <span style={{
+            fontWeight: typography.weights.bold,
+            color: '#92400e',
+            fontSize: typography.sizes.base
+          }}>
+            Listing closes in {formatTimeRemaining(market.cutoff_at!)}
+          </span>
+        </div>
+        {/* Row 2: Day, date, and time */}
+        <div style={{
+          fontSize: typography.sizes.sm,
+          color: '#78350f',
+          paddingLeft: '30px'
+        }}>
+          {formatCutoffDateTime(market.cutoff_at!)}
+        </div>
+        {/* Row 3: Pickup location */}
+        <div style={{
+          fontSize: typography.sizes.xs,
+          color: '#92400e',
+          paddingLeft: '30px',
+          marginTop: spacing['3xs']
+        }}>
+          Pickup at: {market.market_name}
         </div>
       </div>
     )
   }
 
-  // Show per-market status when there are multiple markets or closing soon
-  const showDetails = availability.markets.length > 1 || availability.closing_soon
-
-  if (!showDetails) {
-    return null
-  }
-
+  // Mixed status - some open, some closed
   return (
     <div style={{
       padding: spacing.sm,
-      backgroundColor: hasMixedStatus ? '#fffbeb' : '#f0fdf4',
-      border: `1px solid ${hasMixedStatus ? '#fde68a' : '#bbf7d0'}`,
+      backgroundColor: '#fffbeb',
+      border: '1px solid #fde68a',
       borderRadius: radius.md,
       marginBottom: spacing.sm
     }}>
@@ -140,13 +215,13 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
         gap: spacing.xs,
         marginBottom: spacing.xs
       }}>
-        <span style={{ fontSize: 18 }}>{hasMixedStatus ? '⏰' : '📅'}</span>
+        <span style={{ fontSize: 18 }}>⏰</span>
         <span style={{
           fontWeight: typography.weights.semibold,
-          color: hasMixedStatus ? '#92400e' : '#166534',
+          color: '#92400e',
           fontSize: typography.sizes.sm
         }}>
-          {hasMixedStatus ? 'Some pickup dates closing soon' : 'Pickup Availability'}
+          Pickup Availability
         </span>
       </div>
 
@@ -155,61 +230,83 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
           const isClosingSoon = market.is_accepting && market.cutoff_at &&
             (new Date(market.cutoff_at).getTime() - Date.now()) < 24 * 60 * 60 * 1000
 
-          return (
-            <div
-              key={market.market_id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: market.is_accepting
-                  ? (isClosingSoon ? '#fef3c7' : '#dcfce7')
-                  : '#fee2e2',
-                borderRadius: radius.sm,
-                fontSize: typography.sizes.sm
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <span style={{
-                  color: market.is_accepting
-                    ? (isClosingSoon ? '#92400e' : '#166534')
-                    : '#991b1b',
-                  fontWeight: typography.weights.medium
+          // Closed market row
+          if (!market.is_accepting) {
+            return (
+              <div
+                key={market.market_id}
+                style={{
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: '#fee2e2',
+                  borderRadius: radius.sm,
+                }}
+              >
+                <div style={{
+                  fontWeight: typography.weights.bold,
+                  color: '#991b1b',
+                  fontSize: typography.sizes.sm,
+                  marginBottom: spacing['3xs']
                 }}>
-                  {market.market_name}
-                </span>
-                {market.next_market_at && (
-                  <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                    ({formatMarketDate(market.next_market_at)})
-                  </span>
-                )}
+                  Listing Closed
+                </div>
+                <div style={{
+                  fontSize: typography.sizes.xs,
+                  color: '#991b1b'
+                }}>
+                  Pickup at: {market.market_name}
+                </div>
               </div>
-              <span style={{
-                fontWeight: typography.weights.semibold,
-                fontSize: typography.sizes.xs,
-                color: market.is_accepting
-                  ? (isClosingSoon ? '#92400e' : '#166534')
-                  : '#991b1b'
-              }}>
-                {market.is_accepting
-                  ? (market.cutoff_at && isClosingSoon
-                      ? `Closes in ${formatTimeRemaining(market.cutoff_at)}`
-                      : '✓ Open')
-                  : '✗ Closed'}
-              </span>
-            </div>
-          )
+            )
+          }
+
+          // Closing soon market row
+          if (isClosingSoon && market.cutoff_at) {
+            return (
+              <div
+                key={market.market_id}
+                style={{
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: '#fef3c7',
+                  borderRadius: radius.sm,
+                }}
+              >
+                <div style={{
+                  fontWeight: typography.weights.bold,
+                  color: '#92400e',
+                  fontSize: typography.sizes.sm,
+                  marginBottom: spacing['3xs']
+                }}>
+                  Listing closes in {formatTimeRemaining(market.cutoff_at)}
+                </div>
+                <div style={{
+                  fontSize: typography.sizes.xs,
+                  color: '#78350f'
+                }}>
+                  {formatCutoffDateTime(market.cutoff_at)}
+                </div>
+                <div style={{
+                  fontSize: typography.sizes.xs,
+                  color: '#92400e',
+                  marginTop: spacing['3xs']
+                }}>
+                  Pickup at: {market.market_name}
+                </div>
+              </div>
+            )
+          }
+
+          // Open market (not closing soon) - skip showing these
+          return null
         })}
       </div>
 
-      {hasMixedStatus && (
+      {closedMarkets.length > 0 && openMarkets.length > 0 && (
         <div style={{
           marginTop: spacing.xs,
           fontSize: typography.sizes.xs,
           color: '#78350f'
         }}>
-          Order now to pick up at available markets. Closed markets have passed their cutoff time.
+          Order now for available pickup locations. Some locations have passed their cutoff time.
         </div>
       )}
     </div>

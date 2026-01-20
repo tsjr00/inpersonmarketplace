@@ -29,12 +29,16 @@ interface MarketsWithLocationProps {
   vertical: string
   initialMarkets: Market[]
   cities: string[]
+  currentCity?: string
+  currentSearch?: string
 }
 
 export default function MarketsWithLocation({
   vertical,
   initialMarkets,
-  cities
+  cities,
+  currentCity,
+  currentSearch
 }: MarketsWithLocationProps) {
   const [hasLocation, setHasLocation] = useState<boolean | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -47,6 +51,16 @@ export default function MarketsWithLocation({
   useEffect(() => {
     checkSavedLocation()
   }, [])
+
+  // Re-fetch when city or search filters change (and we have location)
+  useEffect(() => {
+    if (userLocation) {
+      fetchNearbyMarkets(userLocation.lat, userLocation.lng)
+    } else {
+      // No location set, use initial markets (server-filtered)
+      setMarkets(initialMarkets)
+    }
+  }, [currentCity, currentSearch, initialMarkets])
 
   const checkSavedLocation = async () => {
     try {
@@ -78,6 +92,14 @@ export default function MarketsWithLocation({
         radius: '25',
         type: 'traditional' // Only fetch traditional markets
       })
+
+      // Include city and search filters if set
+      if (currentCity) {
+        params.set('city', currentCity)
+      }
+      if (currentSearch) {
+        params.set('search', currentSearch)
+      }
 
       const response = await fetch(`/api/markets/nearby?${params}`)
       const data = await response.json()

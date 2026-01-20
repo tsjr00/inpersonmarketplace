@@ -18,6 +18,8 @@ interface Market {
   contact_email?: string
   contact_phone?: string
   active: boolean
+  season_start?: string | null
+  season_end?: string | null
 }
 
 interface MarketFormProps {
@@ -45,6 +47,8 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
     contact_email: market?.contact_email || '',
     contact_phone: market?.contact_phone || '',
     active: market?.active ?? true,
+    season_start: market?.season_start || '',
+    season_end: market?.season_end || '',
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -64,11 +68,13 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
       const url = mode === 'create' ? '/api/markets' : `/api/markets/${market?.id}`
       const method = mode === 'create' ? 'POST' : 'PATCH'
 
-      // Parse lat/lng as numbers if provided
+      // Parse lat/lng as numbers if provided, handle dates
       const submitData = {
         ...formData,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        season_start: formData.season_start || null,
+        season_end: formData.season_end || null,
       }
 
       const response = await fetch(url, {
@@ -182,6 +188,46 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
             placeholder="Brief description of the market..."
           />
         </div>
+
+        {/* Season Dates - Only for Traditional Markets */}
+        {formData.type === 'traditional' && (
+          <>
+            <h3 style={{ margin: '24px 0 20px 0', fontSize: 16, fontWeight: 600, color: '#333', paddingTop: 20, borderTop: '1px solid #eee' }}>
+              Season Dates
+            </h3>
+            <p style={{ fontSize: 13, color: '#666', marginTop: -12, marginBottom: 16 }}>
+              When does this market open and close for the season?
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+              <div>
+                <label style={labelStyle}>
+                  Season Opens
+                  <span style={{ fontWeight: 400, color: '#666', marginLeft: 6 }}>(optional)</span>
+                </label>
+                <input
+                  type="date"
+                  name="season_start"
+                  value={formData.season_start}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>
+                  Season Closes
+                  <span style={{ fontWeight: 400, color: '#666', marginLeft: 6 }}>(optional)</span>
+                </label>
+                <input
+                  type="date"
+                  name="season_end"
+                  value={formData.season_end}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Location */}
         <h3 style={{ margin: '24px 0 20px 0', fontSize: 16, fontWeight: 600, color: '#333', paddingTop: 20, borderTop: '1px solid #eee' }}>

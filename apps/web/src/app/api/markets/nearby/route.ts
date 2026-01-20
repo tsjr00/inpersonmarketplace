@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     const vertical = searchParams.get('vertical')
     const radiusMiles = parseFloat(searchParams.get('radius') || String(DEFAULT_RADIUS_MILES))
     const type = searchParams.get('type') // 'traditional' or 'farm_stand'
+    const city = searchParams.get('city')
+    const search = searchParams.get('search')
 
     // Validate required params
     if (!lat || !lng) {
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
       // If RPC doesn't exist yet, fall back to basic distance calculation
       if (error.message?.includes('function') || error.code === '42883') {
         console.log('PostGIS function not found, using fallback query')
-        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, type)
+        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, type, city, search)
       }
 
       console.error('Nearby markets query error:', error)
@@ -81,7 +83,9 @@ async function fallbackNearbyQuery(
   longitude: number,
   radiusMiles: number,
   vertical: string | null,
-  type: string | null
+  type: string | null,
+  city: string | null,
+  search: string | null
 ) {
   // Haversine formula approximation using SQL
   // 3959 is Earth's radius in miles
@@ -102,6 +106,14 @@ async function fallbackNearbyQuery(
 
   if (type) {
     query = query.eq('market_type', type)
+  }
+
+  if (city) {
+    query = query.ilike('city', `%${city}%`)
+  }
+
+  if (search) {
+    query = query.ilike('name', `%${search}%`)
   }
 
   const { data: allMarkets, error } = await query

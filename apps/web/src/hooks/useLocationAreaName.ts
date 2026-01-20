@@ -23,7 +23,7 @@ const SESSION_STORAGE_COORDS_KEY = 'userAreaCoords'
 export function useLocationAreaName(
   options: UseLocationAreaNameOptions = {}
 ): UseLocationAreaNameResult {
-  const { enabled = true, timeout = 5000 } = options
+  const { enabled = true, timeout = 10000 } = options
 
   const [areaName, setAreaName] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -110,12 +110,15 @@ export function useLocationAreaName(
 
       setLoadTime(Date.now() - startTime)
     } catch (err: unknown) {
-      // Handle specific geolocation errors silently
+      // Handle specific geolocation errors silently - these are expected on many devices
       if (err instanceof GeolocationPositionError) {
         // User denied or location unavailable - not an error state, just no data
         console.log('Geolocation not available:', err.message)
       } else if (err instanceof Error && err.name === 'AbortError') {
         console.log('Location request aborted')
+      } else if (err instanceof Error && err.message === 'Location timeout') {
+        // Timeout is common on slow connections, don't treat as error
+        console.log('Location request timed out')
       } else {
         console.error('Error getting area name:', err)
         setError(err instanceof Error ? err.message : 'Unknown error')

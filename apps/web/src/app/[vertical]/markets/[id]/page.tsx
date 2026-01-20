@@ -198,7 +198,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               fontSize: 36,
               flexShrink: 0
             }}>
-              🏪
+              🧺
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -330,6 +330,46 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             </div>
           )}
 
+          {/* Season Dates */}
+          {(market.season_start || market.season_end) && (
+            <div style={{
+              marginTop: spacing.md,
+              paddingTop: spacing.md,
+              borderTop: `1px solid ${colors.borderMuted}`
+            }}>
+              <h3 style={{
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+                color: colors.textSecondary,
+                margin: `0 0 ${spacing.xs} 0`
+              }}>
+                Season
+              </h3>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                fontSize: typography.sizes.base,
+                color: colors.textPrimary
+              }}>
+                <span>🗓️</span>
+                <span>
+                  {market.season_start && market.season_end ? (
+                    <>
+                      {new Date(market.season_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                      {' '}&ndash;{' '}
+                      {new Date(market.season_end + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                    </>
+                  ) : market.season_start ? (
+                    <>Opens {new Date(market.season_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>
+                  ) : (
+                    <>Closes {new Date(market.season_end + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Contact */}
           {(market.contact_email || market.contact_phone) && (
             <div style={{
@@ -379,6 +419,25 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               )}
             </div>
           )}
+        </div>
+
+        {/* Legal Disclaimer */}
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: colors.surfaceSubtle,
+          borderRadius: radius.md,
+          border: `1px solid ${colors.borderMuted}`,
+          marginBottom: spacing.md
+        }}>
+          <p style={{
+            margin: 0,
+            fontSize: typography.sizes.xs,
+            color: colors.textMuted,
+            textAlign: 'center',
+            lineHeight: typography.leading.relaxed
+          }}>
+            This market is listed as a pickup location by the vendors shown below. This platform is not affiliated with the management of the market.
+          </p>
         </div>
 
         {/* Vendors Section */}

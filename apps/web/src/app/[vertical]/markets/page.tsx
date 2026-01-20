@@ -107,6 +107,8 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
         vertical={vertical}
         initialMarkets={transformedMarkets}
         cities={cities}
+        currentCity={city}
+        currentSearch={search}
       />
     </div>
   )
