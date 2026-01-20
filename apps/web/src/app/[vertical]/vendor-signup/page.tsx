@@ -7,6 +7,7 @@ import { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { defaultBranding, VerticalBranding } from "@/lib/branding";
 import { getMarketLimit } from "@/lib/constants";
+import { colors, spacing, typography, radius, shadows } from "@/lib/design-tokens";
 
 type Field = {
   key: string;
@@ -242,18 +243,97 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     }
   }
 
+  // Shared styles
+  const pageStyle = {
+    minHeight: '100vh',
+    backgroundColor: colors.surfaceBase,
+    color: colors.textSecondary,
+  };
+
+  const navStyle = {
+    padding: `${spacing.sm} ${spacing.lg}`,
+    borderBottom: `1px solid ${colors.border}`,
+    backgroundColor: colors.surfaceElevated,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  };
+
+  const logoStyle = {
+    fontSize: typography.sizes.xl,
+    fontWeight: typography.weights.bold,
+    color: colors.primary,
+    textDecoration: 'none',
+  };
+
+  const mainStyle = {
+    maxWidth: '680px',
+    margin: "0 auto",
+    padding: spacing.lg,
+  };
+
+  const cardStyle = {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.lg,
+    border: `1px solid ${colors.border}`,
+    padding: spacing.lg,
+    boxShadow: shadows.sm,
+  };
+
+  const headingStyle = {
+    fontSize: typography.sizes['2xl'],
+    fontWeight: typography.weights.bold,
+    color: colors.textPrimary,
+    margin: 0,
+    marginBottom: spacing.sm,
+  };
+
+  const subheadingStyle = {
+    fontSize: typography.sizes.base,
+    color: colors.textMuted,
+    margin: 0,
+    lineHeight: typography.leading.relaxed,
+  };
+
+  const buttonPrimaryStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: `${spacing.sm} ${spacing.md}`,
+    backgroundColor: colors.primary,
+    color: colors.textInverse,
+    border: 'none',
+    borderRadius: radius.md,
+    fontSize: typography.sizes.base,
+    fontWeight: typography.weights.semibold,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    transition: 'all 0.2s ease',
+    boxShadow: shadows.primary,
+  };
+
+  const buttonSecondaryStyle = {
+    ...buttonPrimaryStyle,
+    backgroundColor: colors.surfaceElevated,
+    color: colors.primary,
+    border: `2px solid ${colors.primary}`,
+    boxShadow: 'none',
+  };
+
   // Auth loading state
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
-        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}` }}>
-          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+      <div style={pageStyle}>
+        <nav style={navStyle}>
+          <Link href={`/${vertical}`} style={logoStyle}>
             {branding.brand_name}
           </Link>
         </nav>
-        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Loading...</h1>
-          <p style={{ marginTop: 10, opacity: 0.8 }}>Checking authentication...</p>
+        <main style={mainStyle}>
+          <div style={cardStyle}>
+            <h1 style={headingStyle}>Loading...</h1>
+            <p style={subheadingStyle}>Checking authentication...</p>
+          </div>
         </main>
       </div>
     );
@@ -262,59 +342,51 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   // Market limit reached state
   if (user && marketLimitInfo?.atLimit) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
-        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+      <div style={pageStyle}>
+        <nav style={navStyle}>
+          <Link href={`/${vertical}`} style={logoStyle}>
             {branding.brand_name}
           </Link>
-          <Link href={`/${vertical}/dashboard`} style={{ color: branding.colors.primary, textDecoration: 'none', fontWeight: 600 }}>Dashboard</Link>
-        </nav>
-        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Market Limit Reached</h1>
-          <div style={{
-            marginTop: 20,
-            padding: 20,
-            backgroundColor: '#fff3cd',
-            border: '1px solid #ffc107',
-            borderRadius: 8,
-            color: '#856404'
-          }}>
-            <p style={{ marginTop: 0, fontWeight: 600, fontSize: 16 }}>
-              You&apos;re already registered at {marketLimitInfo.marketCount} market{marketLimitInfo.marketCount > 1 ? 's' : ''}.
-            </p>
-            <p style={{ marginBottom: 0 }}>
-              {marketLimitInfo.tier === 'standard' ? (
-                <>
-                  Standard vendors can participate in 1 traditional market.
-                  <br /><br />
-                  <strong>Upgrade to Premium</strong> to join up to 3 markets.
-                </>
-              ) : (
-                <>
-                  Premium vendors can participate in up to 3 markets.
-                  <br /><br />
-                  Leave an existing market to join this one.
-                </>
-              )}
-            </p>
-          </div>
           <Link
             href={`/${vertical}/dashboard`}
-            style={{
-              display: "inline-block",
-              marginTop: 20,
-              padding: "12px 20px",
-              fontWeight: 800,
-              cursor: "pointer",
-              border: "none",
-              borderRadius: 8,
-              textDecoration: "none",
-              color: "white",
-              backgroundColor: branding.colors.primary
-            }}
+            style={{ color: colors.primary, textDecoration: 'none', fontWeight: typography.weights.semibold }}
           >
-            ← Back to Dashboard
+            Dashboard
           </Link>
+        </nav>
+        <main style={mainStyle}>
+          <div style={cardStyle}>
+            <h1 style={headingStyle}>Market Limit Reached</h1>
+            <div style={{
+              marginTop: spacing.md,
+              padding: spacing.md,
+              backgroundColor: colors.surfaceSubtle,
+              border: `1px solid ${colors.accent}`,
+              borderRadius: radius.md,
+            }}>
+              <p style={{ marginTop: 0, fontWeight: typography.weights.semibold, fontSize: typography.sizes.base, color: colors.textPrimary }}>
+                You&apos;re already registered at {marketLimitInfo.marketCount} market{marketLimitInfo.marketCount > 1 ? 's' : ''}.
+              </p>
+              <p style={{ marginBottom: 0, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                {marketLimitInfo.tier === 'standard' ? (
+                  <>
+                    Standard vendors can participate in 1 traditional market.
+                    <br /><br />
+                    <strong>Upgrade to Premium</strong> to join up to 3 markets.
+                  </>
+                ) : (
+                  <>
+                    Premium vendors can participate in up to 3 markets.
+                    <br /><br />
+                    Leave an existing market to join this one.
+                  </>
+                )}
+              </p>
+            </div>
+            <Link href={`/${vertical}/dashboard`} style={{ ...buttonPrimaryStyle, marginTop: spacing.md }}>
+              ← Back to Dashboard
+            </Link>
+          </div>
         </main>
       </div>
     );
@@ -323,49 +395,27 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   // Not logged in state
   if (!user) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
-        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+      <div style={pageStyle}>
+        <nav style={navStyle}>
+          <Link href={`/${vertical}`} style={logoStyle}>
             {branding.brand_name}
           </Link>
-          <Link href="/" style={{ color: branding.colors.secondary, textDecoration: 'none' }}>Home</Link>
+          <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
         </nav>
-        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Login Required</h1>
-          <p style={{ marginTop: 10, opacity: 0.8 }}>
-            You must be logged in to register as a vendor.
-          </p>
-          <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
-            <Link
-              href={`/${vertical}/login`}
-              style={{
-                padding: "12px 20px",
-                fontWeight: 800,
-                cursor: "pointer",
-                border: `2px solid ${branding.colors.primary}`,
-                borderRadius: 8,
-                textDecoration: "none",
-                color: branding.colors.primary,
-                backgroundColor: "white"
-              }}
-            >
-              Login
-            </Link>
-            <Link
-              href={`/${vertical}/signup`}
-              style={{
-                padding: "12px 20px",
-                fontWeight: 800,
-                cursor: "pointer",
-                border: "none",
-                borderRadius: 8,
-                textDecoration: "none",
-                color: "white",
-                backgroundColor: branding.colors.primary
-              }}
-            >
-              Create Account
-            </Link>
+        <main style={mainStyle}>
+          <div style={cardStyle}>
+            <h1 style={headingStyle}>Login Required</h1>
+            <p style={subheadingStyle}>
+              You must be logged in to register as a vendor.
+            </p>
+            <div style={{ marginTop: spacing.md, display: "flex", gap: spacing.sm }}>
+              <Link href={`/${vertical}/login`} style={buttonSecondaryStyle}>
+                Login
+              </Link>
+              <Link href={`/${vertical}/signup`} style={buttonPrimaryStyle}>
+                Create Account
+              </Link>
+            </div>
           </div>
         </main>
       </div>
@@ -375,15 +425,17 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   // Loading state
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
-        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}` }}>
-          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+      <div style={pageStyle}>
+        <nav style={navStyle}>
+          <Link href={`/${vertical}`} style={logoStyle}>
             {branding.brand_name}
           </Link>
         </nav>
-        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>Loading...</h1>
-          <p style={{ marginTop: 10, opacity: 0.8 }}>Fetching marketplace configuration...</p>
+        <main style={mainStyle}>
+          <div style={cardStyle}>
+            <h1 style={headingStyle}>Loading...</h1>
+            <p style={subheadingStyle}>Fetching marketplace configuration...</p>
+          </div>
         </main>
       </div>
     );
@@ -392,350 +444,383 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   // Error state
   if (error) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
-        <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+      <div style={pageStyle}>
+        <nav style={navStyle}>
+          <Link href={`/${vertical}`} style={logoStyle}>
             {branding.brand_name}
           </Link>
-          <Link href="/" style={{ color: branding.colors.secondary, textDecoration: 'none' }}>Home</Link>
+          <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
         </nav>
-        <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: "crimson" }}>Error</h1>
-          <p style={{ marginTop: 10 }}>
-            Failed to load marketplace configuration: {error}
-          </p>
-          <p style={{ marginTop: 10, opacity: 0.8 }}>
-            Please check that the &quot;{vertical}&quot; marketplace exists and try again.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              marginTop: 20,
-              padding: "12px 14px",
-              fontWeight: 800,
-              cursor: "pointer",
-              border: `2px solid ${branding.colors.primary}`,
-              borderRadius: 8,
-              backgroundColor: 'white',
-              color: branding.colors.primary
-            }}
-          >
-            Retry
-          </button>
+        <main style={mainStyle}>
+          <div style={{ ...cardStyle, borderColor: '#fca5a5' }}>
+            <h1 style={{ ...headingStyle, color: '#dc2626' }}>Error</h1>
+            <p style={{ ...subheadingStyle, marginTop: spacing.sm }}>
+              Failed to load marketplace configuration: {error}
+            </p>
+            <p style={{ ...subheadingStyle, marginTop: spacing.xs }}>
+              Please check that the &quot;{vertical}&quot; marketplace exists and try again.
+            </p>
+            <button onClick={() => window.location.reload()} style={{ ...buttonSecondaryStyle, marginTop: spacing.md }}>
+              Retry
+            </button>
+          </div>
         </main>
       </div>
     );
   }
 
+  // Form input styles
+  const inputStyle = {
+    width: '100%',
+    padding: spacing.sm,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.md,
+    fontSize: typography.sizes.base,
+    backgroundColor: colors.surfaceElevated,
+    color: colors.textSecondary,
+    boxSizing: 'border-box' as const,
+    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontWeight: typography.weights.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing['2xs'],
+    fontSize: typography.sizes.sm,
+  };
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
-      <nav style={{ padding: '15px 40px', borderBottom: `1px solid ${branding.colors.secondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link href={`/${vertical}`} style={{ fontSize: 24, fontWeight: 'bold', color: branding.colors.primary, textDecoration: 'none' }}>
+    <div style={pageStyle}>
+      <nav style={navStyle}>
+        <Link href={`/${vertical}`} style={logoStyle}>
           {branding.brand_name}
         </Link>
-        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-          <Link href="/" style={{ color: branding.colors.secondary, textDecoration: 'none' }}>Home</Link>
-          <Link href={`/${vertical}/dashboard`} style={{ color: branding.colors.primary, textDecoration: 'none', fontWeight: 600 }}>Dashboard</Link>
+        <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center' }}>
+          <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}>Home</Link>
+          <Link href={`/${vertical}/dashboard`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: typography.weights.semibold, fontSize: typography.sizes.sm }}>Dashboard</Link>
         </div>
       </nav>
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: branding.colors.primary }}>{title}</h1>
-        <p style={{ marginTop: 10, opacity: 0.8 }}>
-          Logged in as: <strong>{user.email}</strong>
-        </p>
-        <p style={{ marginTop: 5, opacity: 0.8 }}>
-          Fill out the form below to register as a vendor.
-        </p>
+      <main style={mainStyle}>
+        {/* Header Card */}
+        <div style={{ ...cardStyle, marginBottom: spacing.md }}>
+          <h1 style={headingStyle}>{title}</h1>
+          <p style={subheadingStyle}>
+            Logged in as: <strong style={{ color: colors.textPrimary }}>{user.email}</strong>
+          </p>
+          <p style={{ ...subheadingStyle, marginTop: spacing.xs }}>
+            Fill out the form below to register as a vendor.
+          </p>
+        </div>
 
       {fields.length === 0 ? (
-        <p style={{ marginTop: 20, color: "orange" }}>
-          No form fields configured for this marketplace.
-        </p>
+        <div style={{ ...cardStyle, borderColor: colors.accent }}>
+          <p style={{ margin: 0, color: colors.textSecondary }}>
+            No form fields configured for this marketplace.
+          </p>
+        </div>
       ) : (
-        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14, marginTop: 20 }}>
-          {fields.map((f) => {
-            const value = values[f.key];
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: spacing.md }}>
+          {/* Form Fields Card */}
+          <div style={cardStyle}>
+            <h2 style={{ ...headingStyle, fontSize: typography.sizes.xl, marginBottom: spacing.md }}>
+              Business Information
+            </h2>
+            <div style={{ display: 'grid', gap: spacing.md }}>
+              {fields.map((f) => {
+                const value = values[f.key];
 
-            if (f.type === "textarea") {
-              return (
-                <div key={f.key}>
-                  <label style={{ fontWeight: 600 }}>
-                    {f.label} {f.required ? "(required)" : ""}
-                  </label>
-                  <textarea
-                    value={(value as string) ?? ""}
-                    onChange={(e) => setVal(f.key, e.target.value)}
-                    rows={4}
-                    style={{ width: "100%", padding: 10 }}
-                  />
-                </div>
-              );
-            }
+                if (f.type === "textarea") {
+                  return (
+                    <div key={f.key}>
+                      <label style={labelStyle}>
+                        {f.label} {f.required && <span style={{ color: colors.primary }}>*</span>}
+                      </label>
+                      <textarea
+                        value={(value as string) ?? ""}
+                        onChange={(e) => setVal(f.key, e.target.value)}
+                        rows={4}
+                        style={{ ...inputStyle, resize: 'vertical' }}
+                      />
+                    </div>
+                  );
+                }
 
-            if (f.type === "select") {
-              return (
-                <div key={f.key}>
-                  <label style={{ fontWeight: 600 }}>
-                    {f.label} {f.required ? "(required)" : ""}
-                  </label>
-                  <select
-                    value={(value as string) ?? ""}
-                    onChange={(e) => setVal(f.key, e.target.value)}
-                    style={{ width: "100%", padding: 10 }}
-                  >
-                    <option value="">Select...</option>
-                    {(f.options ?? []).map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              );
-            }
+                if (f.type === "select") {
+                  return (
+                    <div key={f.key}>
+                      <label style={labelStyle}>
+                        {f.label} {f.required && <span style={{ color: colors.primary }}>*</span>}
+                      </label>
+                      <select
+                        value={(value as string) ?? ""}
+                        onChange={(e) => setVal(f.key, e.target.value)}
+                        style={inputStyle}
+                      >
+                        <option value="">Select...</option>
+                        {(f.options ?? []).map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                }
 
-            if (f.type === "multi_select") {
-              const current: string[] = Array.isArray(value) ? (value as string[]) : [];
-              return (
-                <div key={f.key}>
-                  <div style={{ fontWeight: 600 }}>
-                    {f.label} {f.required ? "(required)" : ""}{" "}
-                    <span style={{ fontWeight: 400, fontSize: 14, color: '#666' }}>
-                      — select all that apply
-                    </span>
+                if (f.type === "multi_select") {
+                  const current: string[] = Array.isArray(value) ? (value as string[]) : [];
+                  return (
+                    <div key={f.key}>
+                      <label style={labelStyle}>
+                        {f.label} {f.required && <span style={{ color: colors.primary }}>*</span>}
+                        <span style={{ fontWeight: typography.weights.normal, fontSize: typography.sizes.xs, color: colors.textMuted, marginLeft: spacing['2xs'] }}>
+                          — select all that apply
+                        </span>
+                      </label>
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                        gap: spacing.xs,
+                        marginTop: spacing.xs,
+                        padding: spacing.sm,
+                        backgroundColor: colors.surfaceMuted,
+                        borderRadius: radius.md,
+                      }}>
+                        {(f.options ?? []).map((opt) => {
+                          const checked = current.includes(opt);
+                          return (
+                            <label
+                              key={opt}
+                              style={{
+                                display: "flex",
+                                gap: spacing['2xs'],
+                                alignItems: "center",
+                                cursor: 'pointer',
+                                padding: spacing['2xs'],
+                                backgroundColor: checked ? colors.primaryLight : 'transparent',
+                                borderRadius: radius.sm,
+                                transition: 'background-color 0.15s ease',
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const next = e.target.checked
+                                    ? [...current, opt]
+                                    : current.filter((x) => x !== opt);
+                                  setVal(f.key, next);
+                                }}
+                                style={{ width: 16, height: 16, accentColor: colors.primary }}
+                              />
+                              <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{opt}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (f.type === "file") {
+                  return (
+                    <div key={f.key}>
+                      <label style={labelStyle}>
+                        {f.label} {f.required && <span style={{ color: colors.primary }}>*</span>}
+                      </label>
+                      <input
+                        type="file"
+                        onChange={(e) => setVal(f.key, e.target.files?.[0]?.name ?? "")}
+                        style={{ ...inputStyle, padding: spacing.xs }}
+                      />
+                      <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                        (File upload coming soon - filename recorded only)
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Phone field with validation
+                if (f.type === "phone") {
+                  return (
+                    <div key={f.key}>
+                      <label style={labelStyle}>
+                        {f.label} {f.required && <span style={{ color: colors.primary }}>*</span>}
+                      </label>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        value={(value as string) ?? ""}
+                        onChange={(e) => setVal(f.key, e.target.value)}
+                        pattern="[0-9]{3}-?[0-9]{3}-?[0-9]{4}"
+                        title="Phone number format: 555-555-5555 or 5555555555"
+                        placeholder="555-555-5555"
+                        style={inputStyle}
+                      />
+                    </div>
+                  );
+                }
+
+                const inputType =
+                  f.type === "email" ? "email" : f.type === "date" ? "date" : "text";
+
+                return (
+                  <div key={f.key}>
+                    <label style={labelStyle}>
+                      {f.label} {f.required && <span style={{ color: colors.primary }}>*</span>}
+                    </label>
+                    <input
+                      type={inputType}
+                      value={(value as string) ?? ""}
+                      onChange={(e) => setVal(f.key, e.target.value)}
+                      style={inputStyle}
+                    />
                   </div>
-                  <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
-                    {(f.options ?? []).map((opt) => {
-                      const checked = current.includes(opt);
-                      return (
-                        <label key={opt} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              const next = e.target.checked
-                                ? [...current, opt]
-                                : current.filter((x) => x !== opt);
-                              setVal(f.key, next);
-                            }}
-                          />
-                          <span>{opt}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            }
-
-            if (f.type === "file") {
-              return (
-                <div key={f.key}>
-                  <label style={{ fontWeight: 600 }}>
-                    {f.label} {f.required ? "(required)" : ""}
-                  </label>
-                  <input
-                    type="file"
-                    onChange={(e) => setVal(f.key, e.target.files?.[0]?.name ?? "")}
-                    style={{ width: "100%", padding: 10 }}
-                  />
-                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                    (File upload coming soon - filename recorded only)
-                  </div>
-                </div>
-              );
-            }
-
-            // Phone field with validation
-            if (f.type === "phone") {
-              return (
-                <div key={f.key}>
-                  <label style={{ fontWeight: 600 }}>
-                    {f.label} {f.required ? "(required)" : ""}
-                  </label>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    value={(value as string) ?? ""}
-                    onChange={(e) => setVal(f.key, e.target.value)}
-                    pattern="[0-9]{3}-?[0-9]{3}-?[0-9]{4}"
-                    title="Phone number format: 555-555-5555 or 5555555555"
-                    placeholder="555-555-5555"
-                    style={{ width: "100%", padding: 10 }}
-                  />
-                </div>
-              );
-            }
-
-            const inputType =
-              f.type === "email" ? "email" : f.type === "date" ? "date" : "text";
-
-            return (
-              <div key={f.key}>
-                <label style={{ fontWeight: 600 }}>
-                  {f.label} {f.required ? "(required)" : ""}
-                </label>
-                <input
-                  type={inputType}
-                  value={(value as string) ?? ""}
-                  onChange={(e) => setVal(f.key, e.target.value)}
-                  style={{ width: "100%", padding: 10 }}
-                />
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
 
           {/* Vendor Acknowledgments Section */}
-          <div style={{
-            marginTop: 24,
-            padding: 20,
-            backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: 8
-          }}>
-            <h3 style={{
-              margin: '0 0 16px 0',
-              fontSize: 16,
-              fontWeight: 700,
-              color: '#1e293b'
-            }}>
+          <div style={cardStyle}>
+            <h2 style={{ ...headingStyle, fontSize: typography.sizes.xl, marginBottom: spacing.xs }}>
               Vendor Acknowledgments
-            </h3>
-            <p style={{
-              margin: '0 0 16px 0',
-              fontSize: 13,
-              color: '#64748b',
-              lineHeight: 1.5
-            }}>
+            </h2>
+            <p style={{ ...subheadingStyle, marginBottom: spacing.md }}>
               As an independent vendor, you are the expert on your own business and products. Please review and acknowledge each statement below.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
               {/* Locally Produced Products */}
               <label style={{
                 display: 'flex',
-                gap: 12,
+                gap: spacing.sm,
                 alignItems: 'flex-start',
                 cursor: 'pointer',
-                padding: 12,
-                backgroundColor: acknowledgments.locallyProduced ? '#f0fdf4' : 'white',
-                border: `1px solid ${acknowledgments.locallyProduced ? '#86efac' : '#e2e8f0'}`,
-                borderRadius: 6
+                padding: spacing.sm,
+                backgroundColor: acknowledgments.locallyProduced ? colors.primaryLight : colors.surfaceMuted,
+                border: `1px solid ${acknowledgments.locallyProduced ? colors.primary : colors.border}`,
+                borderRadius: radius.md,
+                transition: 'all 0.2s ease',
               }}>
                 <input
                   type="checkbox"
                   checked={acknowledgments.locallyProduced}
                   onChange={(e) => setAcknowledgments(prev => ({ ...prev, locallyProduced: e.target.checked }))}
-                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
                 />
-                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
-                  <strong>Locally Produced Products:</strong> I understand this platform is designed exclusively for locally produced products. My products are handmade, homemade, home-grown, or personally crafted by me or my business. I am not reselling mass-produced retail items that customers could purchase elsewhere. This is not a flea market or general resale platform.
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                  <strong style={{ color: colors.textPrimary }}>Locally Produced Products:</strong> I understand this platform is designed exclusively for locally produced products. My products are handmade, homemade, home-grown, or personally crafted by me or my business. I am not reselling mass-produced retail items that customers could purchase elsewhere. This is not a flea market or general resale platform.
                 </span>
               </label>
 
               {/* Independent Business Status */}
               <label style={{
                 display: 'flex',
-                gap: 12,
+                gap: spacing.sm,
                 alignItems: 'flex-start',
                 cursor: 'pointer',
-                padding: 12,
-                backgroundColor: acknowledgments.legalCompliance ? '#f0fdf4' : 'white',
-                border: `1px solid ${acknowledgments.legalCompliance ? '#86efac' : '#e2e8f0'}`,
-                borderRadius: 6
+                padding: spacing.sm,
+                backgroundColor: acknowledgments.legalCompliance ? colors.primaryLight : colors.surfaceMuted,
+                border: `1px solid ${acknowledgments.legalCompliance ? colors.primary : colors.border}`,
+                borderRadius: radius.md,
+                transition: 'all 0.2s ease',
               }}>
                 <input
                   type="checkbox"
                   checked={acknowledgments.legalCompliance}
                   onChange={(e) => setAcknowledgments(prev => ({ ...prev, legalCompliance: e.target.checked }))}
-                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
                 />
-                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
-                  <strong>Independent Business:</strong> I understand that I am operating as an independent business or agent. As the expert on my own products and services, I am solely responsible for knowing and complying with all federal, state, and local laws, regulations, and permit requirements that apply to my business. This platform does not and cannot know which specific regulations apply to my situation.
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                  <strong style={{ color: colors.textPrimary }}>Independent Business:</strong> I understand that I am operating as an independent business or agent. As the expert on my own products and services, I am solely responsible for knowing and complying with all federal, state, and local laws, regulations, and permit requirements that apply to my business. This platform does not and cannot know which specific regulations apply to my situation.
                 </span>
               </label>
 
               {/* Product Responsibility */}
               <label style={{
                 display: 'flex',
-                gap: 12,
+                gap: spacing.sm,
                 alignItems: 'flex-start',
                 cursor: 'pointer',
-                padding: 12,
-                backgroundColor: acknowledgments.productSafety ? '#f0fdf4' : 'white',
-                border: `1px solid ${acknowledgments.productSafety ? '#86efac' : '#e2e8f0'}`,
-                borderRadius: 6
+                padding: spacing.sm,
+                backgroundColor: acknowledgments.productSafety ? colors.primaryLight : colors.surfaceMuted,
+                border: `1px solid ${acknowledgments.productSafety ? colors.primary : colors.border}`,
+                borderRadius: radius.md,
+                transition: 'all 0.2s ease',
               }}>
                 <input
                   type="checkbox"
                   checked={acknowledgments.productSafety}
                   onChange={(e) => setAcknowledgments(prev => ({ ...prev, productSafety: e.target.checked }))}
-                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
                 />
-                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
-                  <strong>Product Responsibility:</strong> As the expert on my products, I take full responsibility for ensuring they meet all applicable safety standards, labeling requirements, and preparation regulations. If my products require permits, certifications, or licenses, I have obtained them. This platform relies on my expertise and honesty regarding my own products.
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                  <strong style={{ color: colors.textPrimary }}>Product Responsibility:</strong> As the expert on my products, I take full responsibility for ensuring they meet all applicable safety standards, labeling requirements, and preparation regulations. If my products require permits, certifications, or licenses, I have obtained them. This platform relies on my expertise and honesty regarding my own products.
                 </span>
               </label>
 
               {/* Platform Role & Liability */}
               <label style={{
                 display: 'flex',
-                gap: 12,
+                gap: spacing.sm,
                 alignItems: 'flex-start',
                 cursor: 'pointer',
-                padding: 12,
-                backgroundColor: acknowledgments.platformTerms ? '#f0fdf4' : 'white',
-                border: `1px solid ${acknowledgments.platformTerms ? '#86efac' : '#e2e8f0'}`,
-                borderRadius: 6
+                padding: spacing.sm,
+                backgroundColor: acknowledgments.platformTerms ? colors.primaryLight : colors.surfaceMuted,
+                border: `1px solid ${acknowledgments.platformTerms ? colors.primary : colors.border}`,
+                borderRadius: radius.md,
+                transition: 'all 0.2s ease',
               }}>
                 <input
                   type="checkbox"
                   checked={acknowledgments.platformTerms}
                   onChange={(e) => setAcknowledgments(prev => ({ ...prev, platformTerms: e.target.checked }))}
-                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
                 />
-                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
-                  <strong>Platform Role:</strong> I understand this platform simply connects independent vendors with buyers and does not verify, endorse, or assume responsibility for my products, compliance, or business practices. I agree to indemnify and hold harmless the platform from any claims or liabilities arising from my products or business activities.
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                  <strong style={{ color: colors.textPrimary }}>Platform Role:</strong> I understand this platform simply connects independent vendors with buyers and does not verify, endorse, or assume responsibility for my products, compliance, or business practices. I agree to indemnify and hold harmless the platform from any claims or liabilities arising from my products or business activities.
                 </span>
               </label>
 
               {/* Honesty & Transparency */}
               <label style={{
                 display: 'flex',
-                gap: 12,
+                gap: spacing.sm,
                 alignItems: 'flex-start',
                 cursor: 'pointer',
-                padding: 12,
-                backgroundColor: acknowledgments.accurateInfo ? '#f0fdf4' : 'white',
-                border: `1px solid ${acknowledgments.accurateInfo ? '#86efac' : '#e2e8f0'}`,
-                borderRadius: 6
+                padding: spacing.sm,
+                backgroundColor: acknowledgments.accurateInfo ? colors.primaryLight : colors.surfaceMuted,
+                border: `1px solid ${acknowledgments.accurateInfo ? colors.primary : colors.border}`,
+                borderRadius: radius.md,
+                transition: 'all 0.2s ease',
               }}>
                 <input
                   type="checkbox"
                   checked={acknowledgments.accurateInfo}
                   onChange={(e) => setAcknowledgments(prev => ({ ...prev, accurateInfo: e.target.checked }))}
-                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0 }}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
                 />
-                <span style={{ fontSize: 14, color: '#334155', lineHeight: 1.5 }}>
-                  <strong>Honesty & Transparency:</strong> I commit to being honest and transparent in all my dealings on this platform. All information I provide is true and accurate. I understand this platform relies on vendor integrity, and that misrepresentation may result in account termination.
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                  <strong style={{ color: colors.textPrimary }}>Honesty & Transparency:</strong> I commit to being honest and transparent in all my dealings on this platform. All information I provide is true and accurate. I understand this platform relies on vendor integrity, and that misrepresentation may result in account termination.
                 </span>
               </label>
             </div>
           </div>
 
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={!Object.values(acknowledgments).every(v => v) || submitting}
             style={{
-              marginTop: 20,
-              padding: "12px 14px",
-              fontWeight: 800,
+              ...buttonPrimaryStyle,
+              width: '100%',
+              padding: spacing.md,
+              fontSize: typography.sizes.lg,
+              opacity: (Object.values(acknowledgments).every(v => v) && !submitting) ? 1 : 0.6,
               cursor: (Object.values(acknowledgments).every(v => v) && !submitting) ? "pointer" : "not-allowed",
-              border: "none",
-              borderRadius: 8,
-              backgroundColor: (Object.values(acknowledgments).every(v => v) && !submitting) ? branding.colors.primary : '#9ca3af',
-              color: "white",
-              width: "100%"
+              boxShadow: (Object.values(acknowledgments).every(v => v) && !submitting) ? shadows.primary : 'none',
             }}
           >
             {submitting ? "Submitting..." : "Submit Application"}
@@ -744,32 +829,28 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       )}
 
       {submitted ? (
-        <div style={{ marginTop: 24 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: branding.colors.accent }}>
+        <div style={{ ...cardStyle, marginTop: spacing.md, borderColor: colors.primary, backgroundColor: colors.primaryLight }}>
+          <h2 style={{ ...headingStyle, fontSize: typography.sizes.xl, color: colors.primaryDark }}>
             Submitted Successfully!
           </h2>
-          <p style={{ marginTop: 8, opacity: 0.8 }}>
+          <p style={{ ...subheadingStyle, marginTop: spacing.xs }}>
             Your vendor profile has been created. Redirecting to your vendor dashboard...
           </p>
-          <Link
-            href={`/${vertical}/vendor/dashboard`}
-            style={{
-              display: "inline-block",
-              marginTop: 12,
-              padding: "12px 20px",
-              fontWeight: 800,
-              cursor: "pointer",
-              border: `2px solid ${branding.colors.primary}`,
-              borderRadius: 8,
-              textDecoration: "none",
-              color: branding.colors.primary
-            }}
-          >
+          <Link href={`/${vertical}/vendor/dashboard`} style={{ ...buttonSecondaryStyle, marginTop: spacing.md }}>
             Go to Vendor Dashboard
           </Link>
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ cursor: "pointer" }}>View submitted data</summary>
-            <pre style={{ marginTop: 10, padding: 12, border: `1px solid ${branding.colors.secondary}`, borderRadius: 8, overflow: "auto", backgroundColor: "white" }}>
+          <details style={{ marginTop: spacing.md }}>
+            <summary style={{ cursor: "pointer", color: colors.textMuted, fontSize: typography.sizes.sm }}>View submitted data</summary>
+            <pre style={{
+              marginTop: spacing.xs,
+              padding: spacing.sm,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              overflow: "auto",
+              backgroundColor: colors.surfaceElevated,
+              fontSize: typography.sizes.xs,
+              color: colors.textSecondary,
+            }}>
               {JSON.stringify(submitted, null, 2)}
             </pre>
           </details>
