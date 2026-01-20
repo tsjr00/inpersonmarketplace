@@ -97,6 +97,7 @@ async function fallbackNearbyQuery(
       market_vendors(count)
     `)
     .eq('status', 'active')
+    .eq('approval_status', 'approved')
     .not('latitude', 'is', null)
     .not('longitude', 'is', null)
 

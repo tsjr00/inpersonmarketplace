@@ -34,23 +34,27 @@ export async function PUT(
 
   const { id: marketId } = await params
   const body = await request.json()
-  const { name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, status } = body
+  const { name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, status, approval_status, rejection_reason } = body
+
+  // Build update object - only include defined fields
+  const updateData: Record<string, unknown> = {}
+  if (name !== undefined) updateData.name = name
+  if (address !== undefined) updateData.address = address
+  if (city !== undefined) updateData.city = city
+  if (state !== undefined) updateData.state = state
+  if (zip !== undefined) updateData.zip = zip
+  if (latitude !== undefined) updateData.latitude = latitude
+  if (longitude !== undefined) updateData.longitude = longitude
+  if (day_of_week !== undefined) updateData.day_of_week = parseInt(day_of_week)
+  if (start_time !== undefined) updateData.start_time = start_time
+  if (end_time !== undefined) updateData.end_time = end_time
+  if (status !== undefined) updateData.status = status
+  if (approval_status !== undefined) updateData.approval_status = approval_status
+  if (rejection_reason !== undefined) updateData.rejection_reason = rejection_reason
 
   const { data: market, error: updateError } = await supabase
     .from('markets')
-    .update({
-      name,
-      address,
-      city,
-      state,
-      zip,
-      latitude: latitude !== undefined ? latitude : undefined,
-      longitude: longitude !== undefined ? longitude : undefined,
-      day_of_week: day_of_week !== undefined ? parseInt(day_of_week) : undefined,
-      start_time,
-      end_time,
-      status
-    })
+    .update(updateData)
     .eq('id', marketId)
     .eq('market_type', 'traditional') // Only allow updating traditional markets
     .select()

@@ -83,9 +83,50 @@ export async function GET(request: Request) {
 
     const currentFixedMarketCount = currentCount || 0
 
+    // Get vendor's market suggestions (pending, approved, rejected)
+    const { data: marketSuggestions, error: suggestionsError } = await supabase
+      .from('markets')
+      .select(`
+        id,
+        name,
+        address,
+        city,
+        state,
+        zip,
+        description,
+        website,
+        approval_status,
+        rejection_reason,
+        submitted_at,
+        market_schedules (
+          id,
+          day_of_week,
+          start_time,
+          end_time,
+          active
+        )
+      `)
+      .eq('vertical_id', vertical)
+      .eq('market_type', 'traditional')
+      .eq('submitted_by_vendor_id', vendorProfile.id)
+      .in('approval_status', ['pending', 'rejected'])
+      .order('submitted_at', { ascending: false })
+
+    if (suggestionsError) {
+      console.error('[/api/vendor/markets] Error fetching suggestions:', suggestionsError)
+    }
+
+    // Transform suggestions to include schedules properly
+    const transformedSuggestions = (marketSuggestions || []).map(s => ({
+      ...s,
+      schedules: s.market_schedules || [],
+      market_schedules: undefined
+    }))
+
     return NextResponse.json({
       fixedMarkets,
       privatePickupMarkets: vendorMarkets,
+      marketSuggestions: transformedSuggestions,
       homeMarketId: vendorProfile.home_market_id,
       vendorTier: tier,
       isPremium: isVendorPremium,

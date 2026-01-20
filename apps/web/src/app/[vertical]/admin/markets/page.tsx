@@ -5,6 +5,14 @@ import { useParams, useRouter } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
+type Schedule = {
+  id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  active: boolean
+}
+
 type Market = {
   id: string
   name: string
@@ -19,9 +27,12 @@ type Market = {
   start_time?: string
   end_time?: string
   status: string
-  submitted_by?: string
+  approval_status?: 'pending' | 'approved' | 'rejected'
+  submitted_by_vendor_id?: string
+  submitted_by_name?: string
   submitted_at?: string
   rejection_reason?: string
+  schedules?: Schedule[]
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -39,6 +50,7 @@ export default function AdminMarketsPage() {
   // Filter states
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [approvalFilter, setApprovalFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
 
   const [formData, setFormData] = useState({
@@ -83,11 +95,17 @@ export default function AdminMarketsPage() {
         const nameMatch = market.name.toLowerCase().includes(searchLower)
         const cityMatch = market.city.toLowerCase().includes(searchLower)
         const addressMatch = market.address.toLowerCase().includes(searchLower)
-        if (!nameMatch && !cityMatch && !addressMatch) return false
+        const submitterMatch = market.submitted_by_name?.toLowerCase().includes(searchLower)
+        if (!nameMatch && !cityMatch && !addressMatch && !submitterMatch) return false
       }
 
       // Status filter
       if (statusFilter !== 'all' && market.status !== statusFilter) {
+        return false
+      }
+
+      // Approval status filter
+      if (approvalFilter !== 'all' && market.approval_status !== approvalFilter) {
         return false
       }
 
@@ -98,13 +116,14 @@ export default function AdminMarketsPage() {
 
       return true
     })
-  }, [markets, searchTerm, statusFilter, typeFilter])
+  }, [markets, searchTerm, statusFilter, approvalFilter, typeFilter])
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || approvalFilter !== 'all' || typeFilter !== 'all'
 
   const clearFilters = () => {
     setSearchTerm('')
     setStatusFilter('all')
+    setApprovalFilter('all')
     setTypeFilter('all')
   }
 
@@ -222,7 +241,7 @@ export default function AdminMarketsPage() {
       const res = await fetch(`/api/admin/markets/${marketId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'active' })
+        body: JSON.stringify({ approval_status: 'approved' })
       })
 
       if (res.ok) {
@@ -244,7 +263,7 @@ export default function AdminMarketsPage() {
       const res = await fetch(`/api/admin/markets/${marketId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'rejected', rejection_reason: reason || null })
+        body: JSON.stringify({ approval_status: 'rejected', rejection_reason: reason || null })
       })
 
       if (res.ok) {
@@ -260,7 +279,7 @@ export default function AdminMarketsPage() {
   }
 
   // Count pending for alert badge
-  const pendingCount = markets.filter(m => m.status === 'pending').length
+  const pendingCount = markets.filter(m => m.approval_status === 'pending').length
 
   return (
     <div style={{
@@ -339,10 +358,10 @@ export default function AdminMarketsPage() {
             alignItems: 'center'
           }}>
             <span style={{ color: '#92400e', fontWeight: typography.weights.medium }}>
-              {pendingCount} market{pendingCount !== 1 ? 's' : ''} pending approval
+              {pendingCount} market suggestion{pendingCount !== 1 ? 's' : ''} pending approval
             </span>
             <button
-              onClick={() => setStatusFilter('pending')}
+              onClick={() => setApprovalFilter('pending')}
               style={{
                 padding: `${spacing['3xs']} ${spacing.xs}`,
                 backgroundColor: '#f59e0b',
@@ -688,7 +707,24 @@ export default function AdminMarketsPage() {
                 <option value="all">All Statuses</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
-                <option value="pending">Pending</option>
+              </select>
+
+              {/* Approval Filter */}
+              <select
+                value={approvalFilter}
+                onChange={(e) => setApprovalFilter(e.target.value)}
+                style={{
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  fontSize: typography.sizes.sm,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  backgroundColor: approvalFilter === 'pending' ? '#fef3c7' : 'white',
+                  minWidth: 140
+                }}
+              >
+                <option value="all">All Approvals</option>
+                <option value="pending">Pending Review</option>
+                <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
 
@@ -802,7 +838,7 @@ export default function AdminMarketsPage() {
                         Type
                       </th>
                       <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
-                        Status
+                        Approval
                       </th>
                       <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
                         Actions
@@ -849,29 +885,41 @@ export default function AdminMarketsPage() {
                           </span>
                         </td>
                         <td style={{ padding: spacing.sm }}>
-                          <span style={{
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            fontWeight: typography.weights.semibold,
-                            backgroundColor:
-                              market.status === 'active' ? '#d1fae5' :
-                              market.status === 'pending' ? '#fef3c7' :
-                              market.status === 'rejected' ? '#fee2e2' :
-                              '#f3f4f6',
-                            color:
-                              market.status === 'active' ? '#065f46' :
-                              market.status === 'pending' ? '#92400e' :
-                              market.status === 'rejected' ? '#991b1b' :
-                              '#6b7280'
-                          }}>
-                            {market.status}
-                          </span>
+                          <div>
+                            <span style={{
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              fontWeight: typography.weights.semibold,
+                              backgroundColor:
+                                market.approval_status === 'approved' ? '#d1fae5' :
+                                market.approval_status === 'pending' ? '#fef3c7' :
+                                market.approval_status === 'rejected' ? '#fee2e2' :
+                                '#f3f4f6',
+                              color:
+                                market.approval_status === 'approved' ? '#065f46' :
+                                market.approval_status === 'pending' ? '#92400e' :
+                                market.approval_status === 'rejected' ? '#991b1b' :
+                                '#6b7280'
+                            }}>
+                              {market.approval_status || 'approved'}
+                            </span>
+                            {market.submitted_by_name && (
+                              <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: spacing['3xs'] }}>
+                                by {market.submitted_by_name}
+                              </div>
+                            )}
+                            {market.submitted_at && (
+                              <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary }}>
+                                {new Date(market.submitted_at).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td style={{ padding: spacing.sm, textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                            {/* Approve/Reject for pending */}
-                            {market.status === 'pending' && (
+                            {/* Approve/Reject for pending approval */}
+                            {market.approval_status === 'pending' && (
                               <>
                                 <button
                                   onClick={() => handleApprove(market.id)}
@@ -904,6 +952,24 @@ export default function AdminMarketsPage() {
                                   Reject
                                 </button>
                               </>
+                            )}
+                            {/* Re-approve rejected markets */}
+                            {market.approval_status === 'rejected' && (
+                              <button
+                                onClick={() => handleApprove(market.id)}
+                                style={{
+                                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                                  backgroundColor: '#10b981',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: radius.sm,
+                                  cursor: 'pointer',
+                                  fontSize: typography.sizes.sm,
+                                  fontWeight: typography.weights.medium
+                                }}
+                              >
+                                Approve
+                              </button>
                             )}
                             <button
                               onClick={() => handleEdit(market)}

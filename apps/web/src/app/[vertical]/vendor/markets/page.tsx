@@ -29,6 +29,21 @@ type Market = {
   schedules?: Schedule[]
 }
 
+type MarketSuggestion = {
+  id: string
+  name: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  description?: string
+  website?: string
+  approval_status: 'pending' | 'approved' | 'rejected'
+  rejection_reason?: string
+  submitted_at: string
+  schedules?: Schedule[]
+}
+
 type MarketLimits = {
   traditionalMarkets: number
   privatePickupLocations: number
@@ -47,6 +62,7 @@ export default function VendorMarketsPage() {
 
   const [fixedMarkets, setFixedMarkets] = useState<Market[]>([])
   const [privatePickupMarkets, setPrivatePickupMarkets] = useState<Market[]>([])
+  const [marketSuggestions, setMarketSuggestions] = useState<MarketSuggestion[]>([])
   const [limits, setLimits] = useState<MarketLimits | null>(null)
   const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
   const [vendorTier, setVendorTier] = useState<string>('standard')
@@ -54,6 +70,7 @@ export default function VendorMarketsPage() {
   const [changingHomeMarket, setChangingHomeMarket] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showSuggestionForm, setShowSuggestionForm] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -62,8 +79,19 @@ export default function VendorMarketsPage() {
     zip: '',
     pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
   })
+  const [suggestionFormData, setSuggestionFormData] = useState({
+    name: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    description: '',
+    website: '',
+    schedules: [{ day_of_week: '', start_time: '08:00', end_time: '13:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
+  })
   const [editingMarket, setEditingMarket] = useState<Market | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [submittingSuggestion, setSubmittingSuggestion] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -77,6 +105,7 @@ export default function VendorMarketsPage() {
         const data = await res.json()
         setFixedMarkets(data.fixedMarkets || [])
         setPrivatePickupMarkets(data.privatePickupMarkets || [])
+        setMarketSuggestions(data.marketSuggestions || [])
         setLimits(data.limits)
         setHomeMarketId(data.homeMarketId || null)
         setVendorTier(data.vendorTier || 'standard')
@@ -246,6 +275,95 @@ export default function VendorMarketsPage() {
       pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }]
     })
     setError(null)
+  }
+
+  const handleSuggestionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmittingSuggestion(true)
+    setError(null)
+
+    // Validate schedules
+    const validSchedules = suggestionFormData.schedules.filter(s => s.day_of_week !== '' && s.start_time && s.end_time)
+    if (validSchedules.length === 0) {
+      setError('At least one market day/time is required')
+      setSubmittingSuggestion(false)
+      return
+    }
+
+    try {
+      const res = await fetch('/api/vendor/markets/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vertical,
+          name: suggestionFormData.name,
+          address: suggestionFormData.address,
+          city: suggestionFormData.city,
+          state: suggestionFormData.state,
+          zip: suggestionFormData.zip,
+          description: suggestionFormData.description || null,
+          website: suggestionFormData.website || null,
+          schedules: validSchedules.map(s => ({
+            day_of_week: parseInt(s.day_of_week),
+            start_time: s.start_time,
+            end_time: s.end_time
+          }))
+        })
+      })
+
+      if (res.ok) {
+        await fetchMarkets()
+        resetSuggestionForm()
+      } else {
+        const errData = await res.json()
+        setError(errData.error || 'Failed to submit market suggestion')
+      }
+    } catch (err) {
+      console.error('Error submitting market suggestion:', err)
+      setError('Failed to submit market suggestion')
+    } finally {
+      setSubmittingSuggestion(false)
+    }
+  }
+
+  const resetSuggestionForm = () => {
+    setShowSuggestionForm(false)
+    setSuggestionFormData({
+      name: '',
+      address: '',
+      city: '',
+      state: '',
+      zip: '',
+      description: '',
+      website: '',
+      schedules: [{ day_of_week: '', start_time: '08:00', end_time: '13:00' }]
+    })
+    setError(null)
+  }
+
+  // Helper to add a suggestion schedule
+  const addSuggestionSchedule = () => {
+    if (suggestionFormData.schedules.length < 7) {
+      setSuggestionFormData({
+        ...suggestionFormData,
+        schedules: [...suggestionFormData.schedules, { day_of_week: '', start_time: '08:00', end_time: '13:00' }]
+      })
+    }
+  }
+
+  // Helper to remove a suggestion schedule
+  const removeSuggestionSchedule = (index: number) => {
+    if (suggestionFormData.schedules.length > 1) {
+      const newSchedules = suggestionFormData.schedules.filter((_, i) => i !== index)
+      setSuggestionFormData({ ...suggestionFormData, schedules: newSchedules })
+    }
+  }
+
+  // Helper to update a suggestion schedule
+  const updateSuggestionSchedule = (index: number, field: string, value: string) => {
+    const newSchedules = [...suggestionFormData.schedules]
+    newSchedules[index] = { ...newSchedules[index], [field]: value }
+    setSuggestionFormData({ ...suggestionFormData, schedules: newSchedules })
   }
 
   // Helper to calculate cutoff time for traditional markets (18 hours before)
@@ -505,6 +623,480 @@ export default function VendorMarketsPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Suggest a Farmers Market Section */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: 8,
+          border: '1px solid #e5e7eb',
+          padding: 24,
+          marginBottom: 24
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: 16,
+            flexWrap: 'wrap',
+            gap: 12
+          }}>
+            <div>
+              <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
+                Suggest a Farmers Market
+              </h2>
+              <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+                Know of a farmers market that isn&apos;t listed? Submit it for review and help grow our community.
+              </p>
+            </div>
+            {!showSuggestionForm && (
+              <button
+                onClick={() => setShowSuggestionForm(true)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#7c3aed',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Suggest a Market
+              </button>
+            )}
+          </div>
+
+          {/* Info Notice */}
+          <div style={{
+            padding: 16,
+            backgroundColor: '#f5f3ff',
+            border: '1px solid #ddd6fe',
+            borderRadius: 8,
+            marginBottom: 20
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <span style={{ fontSize: 20 }}>ℹ️</span>
+              <div>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#5b21b6' }}>
+                  How Market Suggestions Work
+                </h4>
+                <p style={{ margin: 0, fontSize: 13, color: '#6b21a8', lineHeight: 1.5 }}>
+                  When you suggest a farmers market, our team will review it to verify the information.
+                  Once approved, the market will appear in the public markets list and all vendors can join it.
+                  This helps ensure we only list real, verified markets.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Suggestion Form */}
+          {showSuggestionForm && (
+            <form
+              onSubmit={handleSuggestionSubmit}
+              style={{
+                padding: 20,
+                border: '1px solid #e5e7eb',
+                borderRadius: 8,
+                backgroundColor: '#f9fafb',
+                marginBottom: 20
+              }}
+            >
+              <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600 }}>
+                New Market Suggestion
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                    Market Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={suggestionFormData.name}
+                    onChange={(e) => setSuggestionFormData({ ...suggestionFormData, name: e.target.value })}
+                    placeholder="e.g., Downtown Saturday Market"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 6,
+                      fontSize: 14,
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                    Address *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={suggestionFormData.address}
+                    onChange={(e) => setSuggestionFormData({ ...suggestionFormData, address: e.target.value })}
+                    placeholder="Street address or location description"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 6,
+                      fontSize: 14,
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={suggestionFormData.city}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, city: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={suggestionFormData.state}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, state: e.target.value })}
+                      maxLength={2}
+                      placeholder="TX"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      ZIP *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={suggestionFormData.zip}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, zip: e.target.value })}
+                      maxLength={10}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                    Description <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                  </label>
+                  <textarea
+                    value={suggestionFormData.description}
+                    onChange={(e) => setSuggestionFormData({ ...suggestionFormData, description: e.target.value })}
+                    placeholder="Any additional details about this market..."
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 6,
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                    Website <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={suggestionFormData.website}
+                    onChange={(e) => setSuggestionFormData({ ...suggestionFormData, website: e.target.value })}
+                    placeholder="https://..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 6,
+                      fontSize: 14,
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Market Schedule Section */}
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <label style={{ fontSize: 14, fontWeight: 500 }}>
+                      Market Days/Times *
+                    </label>
+                    {suggestionFormData.schedules.length < 7 && (
+                      <button
+                        type="button"
+                        onClick={addSuggestionSchedule}
+                        style={{
+                          padding: '4px 12px',
+                          backgroundColor: '#e0f2fe',
+                          color: '#0369a1',
+                          border: 'none',
+                          borderRadius: 4,
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        + Add Another Day
+                      </button>
+                    )}
+                  </div>
+
+                  {suggestionFormData.schedules.map((schedule, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        padding: 12,
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        backgroundColor: 'white',
+                        marginBottom: 8
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 120px', minWidth: 120 }}>
+                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                            Day
+                          </label>
+                          <select
+                            value={schedule.day_of_week}
+                            onChange={(e) => updateSuggestionSchedule(index, 'day_of_week', e.target.value)}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '8px 10px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: 4,
+                              fontSize: 14,
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            <option value="">Select day...</option>
+                            {DAYS.map((day, i) => (
+                              <option key={day} value={i}>{day}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div style={{ flex: '0 0 100px' }}>
+                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            value={schedule.start_time}
+                            onChange={(e) => updateSuggestionSchedule(index, 'start_time', e.target.value)}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '8px 10px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: 4,
+                              fontSize: 14,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: '0 0 100px' }}>
+                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            value={schedule.end_time}
+                            onChange={(e) => updateSuggestionSchedule(index, 'end_time', e.target.value)}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '8px 10px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: 4,
+                              fontSize: 14,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                        {suggestionFormData.schedules.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSuggestionSchedule(index)}
+                            style={{
+                              padding: '8px',
+                              backgroundColor: '#fee2e2',
+                              color: '#991b1b',
+                              border: 'none',
+                              borderRadius: 4,
+                              fontSize: 14,
+                              cursor: 'pointer',
+                              alignSelf: 'flex-end'
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                <button
+                  type="submit"
+                  disabled={submittingSuggestion}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: submittingSuggestion ? '#9ca3af' : '#7c3aed',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    cursor: submittingSuggestion ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {submittingSuggestion ? 'Submitting...' : 'Submit for Review'}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetSuggestionForm}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#e5e7eb',
+                    color: '#374151',
+                    border: 'none',
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* My Suggestions List */}
+          {marketSuggestions.length > 0 && (
+            <div>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 600 }}>
+                My Suggestions
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {marketSuggestions.map(suggestion => (
+                  <div
+                    key={suggestion.id}
+                    style={{
+                      padding: 16,
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 8,
+                      backgroundColor: suggestion.approval_status === 'rejected' ? '#fef2f2' :
+                                       suggestion.approval_status === 'approved' ? '#f0fdf4' : '#fffbeb'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+                            {suggestion.name}
+                          </h4>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '2px 8px',
+                            backgroundColor: suggestion.approval_status === 'rejected' ? '#dc2626' :
+                                           suggestion.approval_status === 'approved' ? '#16a34a' : '#d97706',
+                            color: 'white',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            textTransform: 'capitalize'
+                          }}>
+                            {suggestion.approval_status === 'pending' ? 'Pending Review' : suggestion.approval_status}
+                          </span>
+                        </div>
+                        <p style={{ margin: '0 0 4px 0', fontSize: 14, color: '#6b7280' }}>
+                          {suggestion.address}, {suggestion.city}, {suggestion.state} {suggestion.zip}
+                        </p>
+                        {suggestion.schedules && suggestion.schedules.length > 0 && (
+                          <p style={{ margin: '0 0 4px 0', fontSize: 14, color: '#6b7280' }}>
+                            {suggestion.schedules.map((s, i) => (
+                              <span key={i}>
+                                {i > 0 && ', '}
+                                {DAYS[s.day_of_week]} {formatTime12h(s.start_time)} - {formatTime12h(s.end_time)}
+                              </span>
+                            ))}
+                          </p>
+                        )}
+                        <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>
+                          Submitted {new Date(suggestion.submitted_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    {suggestion.approval_status === 'rejected' && suggestion.rejection_reason && (
+                      <div style={{
+                        marginTop: 12,
+                        padding: '10px 12px',
+                        backgroundColor: '#fee2e2',
+                        borderRadius: 6,
+                        fontSize: 13,
+                        color: '#991b1b'
+                      }}>
+                        <strong>Reason:</strong> {suggestion.rejection_reason}
+                      </div>
+                    )}
+                    {suggestion.approval_status === 'approved' && (
+                      <div style={{
+                        marginTop: 12,
+                        padding: '10px 12px',
+                        backgroundColor: '#dcfce7',
+                        borderRadius: 6,
+                        fontSize: 13,
+                        color: '#166534'
+                      }}>
+                        This market has been approved and is now available in the Traditional Markets list above.
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

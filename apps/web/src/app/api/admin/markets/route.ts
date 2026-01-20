@@ -39,10 +39,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Vertical not found' }, { status: 404 })
   }
 
-  // Get all markets for this vertical
+  // Get all markets for this vertical with schedules
   const { data: markets, error: marketsError } = await supabase
     .from('markets')
-    .select('*')
+    .select(`
+      *,
+      market_schedules (
+        id,
+        day_of_week,
+        start_time,
+        end_time,
+        active
+      )
+    `)
     .eq('vertical_id', verticalData.id)
     .order('market_type')
     .order('name')
@@ -52,7 +61,37 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
   }
 
-  return NextResponse.json({ markets: markets || [] })
+  // Get vendor names for any submitted markets
+  const vendorIds = (markets || [])
+    .filter(m => m.submitted_by_vendor_id)
+    .map(m => m.submitted_by_vendor_id)
+
+  let vendorMap: Record<string, string> = {}
+  if (vendorIds.length > 0) {
+    const { data: vendors } = await supabase
+      .from('vendor_profiles')
+      .select('id, profile_data')
+      .in('id', vendorIds)
+
+    if (vendors) {
+      vendors.forEach(v => {
+        const profileData = v.profile_data as Record<string, unknown>
+        vendorMap[v.id] = (profileData?.business_name as string) ||
+                         (profileData?.farm_name as string) ||
+                         'Unknown'
+      })
+    }
+  }
+
+  // Transform to include submitter name
+  const transformedMarkets = (markets || []).map(market => ({
+    ...market,
+    submitted_by_name: market.submitted_by_vendor_id ? vendorMap[market.submitted_by_vendor_id] : null,
+    schedules: market.market_schedules || [],
+    market_schedules: undefined
+  }))
+
+  return NextResponse.json({ markets: transformedMarkets })
 }
 
 // POST - Create traditional market (admin only)

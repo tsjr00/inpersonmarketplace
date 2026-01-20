@@ -19,6 +19,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
   // Build query for traditional markets only (exclude private pickup)
+  // Only show approved markets (vendor submissions need admin approval)
   let query = supabase
     .from('markets')
     .select(`
@@ -29,6 +30,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     .eq('vertical_id', vertical)
     .eq('status', 'active')
     .eq('market_type', 'traditional')
+    .eq('approval_status', 'approved')
     .order('name', { ascending: true })
 
   if (city) {
@@ -45,13 +47,14 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     console.error('Error fetching markets:', error)
   }
 
-  // Get unique cities for filter (only from traditional markets)
+  // Get unique cities for filter (only from approved traditional markets)
   const { data: allMarkets } = await supabase
     .from('markets')
     .select('city')
     .eq('vertical_id', vertical)
     .eq('status', 'active')
     .eq('market_type', 'traditional')
+    .eq('approval_status', 'approved')
     .not('city', 'is', null)
 
   const cities = [...new Set(allMarkets?.map(m => m.city).filter(Boolean))] as string[]
