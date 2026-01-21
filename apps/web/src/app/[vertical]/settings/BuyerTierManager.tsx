@@ -90,9 +90,10 @@ export default function BuyerTierManager({
           color: '#1e3a8a',
           lineHeight: 1.6
         }}>
-          <li>Early access to new listings</li>
+          <li><strong>Market Box Subscriptions</strong> - exclusive access to vendor bundles</li>
+          <li>Early access to new & seasonal listings</li>
           <li>Priority customer support</li>
-          <li>Order history & insights</li>
+          <li>Order insights dashboard</li>
           <li>Premium member badge</li>
         </ul>
 
@@ -152,9 +153,10 @@ export default function BuyerTierManager({
           color: '#166534',
           lineHeight: 1.6
         }}>
-          <li><strong>Early access</strong> to new listings before other shoppers</li>
+          <li><strong>Market Box Subscriptions</strong> - exclusive access to vendor bundles</li>
+          <li><strong>Early access</strong> to new and seasonal listings</li>
           <li><strong>Priority support</strong> for faster response times</li>
-          <li><strong>Order insights</strong> and purchase history analytics</li>
+          <li><strong>Order insights</strong> dashboard and purchase analytics</li>
           <li><strong>Premium badge</strong> on your profile</li>
         </ul>
 
@@ -229,10 +231,14 @@ export default function BuyerTierManager({
               color: '#6b7280',
               lineHeight: 1.6
             }}>
+              <li><strong>Market Box Subscriptions</strong> - no longer able to subscribe</li>
               <li>Early access to new listings</li>
+              <li>Early access to seasonal products</li>
               <li>Priority customer support</li>
-              <li>Order history & insights</li>
-              <li>Premium member badge</li>
+              <li>Order insights and analytics</li>
+              <li>Favorites management</li>
+              <li>Premium shopper badge</li>
+              <li>Priority access to limited items</li>
             </ul>
 
             {hasActiveSubscription && (

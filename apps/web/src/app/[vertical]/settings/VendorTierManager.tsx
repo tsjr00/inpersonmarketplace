@@ -95,12 +95,14 @@ export default function VendorTierManager({
           color: '#78350f',
           lineHeight: 1.6
         }}>
-          <li><strong>10 product listings</strong> (Standard: 5 listings)</li>
-          <li><strong>Multiple markets</strong> - sell at multiple locations (Standard: 1 market only)</li>
-          <li><strong>Priority placement</strong> in search results and browse pages</li>
-          <li><strong>Featured sections</strong> on homepage and category pages</li>
-          <li><strong>Premium badge</strong> on your vendor profile</li>
-          <li><strong>Advanced analytics</strong> - detailed sales and performance insights</li>
+          <li><strong>10 product listings</strong> (Standard: 5)</li>
+          <li><strong>4 traditional markets</strong> (Standard: 1)</li>
+          <li><strong>5 private pickup locations</strong> (Standard: 1)</li>
+          <li><strong>6 pickup windows/location</strong> (Standard: 2)</li>
+          <li><strong>6 Market Box offerings, unlimited subscribers</strong></li>
+          <li><strong>Priority placement</strong> in search results</li>
+          <li><strong>Featured</strong> on homepage, browse, and market pages</li>
+          <li><strong>Premium badge</strong> and <strong>advanced analytics</strong></li>
         </ul>
 
         <Link
@@ -136,12 +138,14 @@ export default function VendorTierManager({
           Premium Benefits Active
         </p>
         <ul style={{ margin: '0 0 16px 0', paddingLeft: 20, fontSize: 13, color: '#92400e', lineHeight: 1.6 }}>
-          <li><strong>10 product listings</strong> (Standard tier: 5 listings)</li>
-          <li><strong>Multiple market availability</strong> - sell at multiple markets and pickup locations (Standard tier: 1 market only)</li>
-          <li><strong>Priority placement</strong> in search results and category pages</li>
-          <li><strong>Featured sections</strong> on homepage and browse pages</li>
-          <li><strong>Premium badge</strong> displayed on your vendor profile</li>
-          <li><strong>Advanced analytics</strong> - detailed insights on views, sales, and trends</li>
+          <li><strong>10 product listings</strong> (Standard: 5)</li>
+          <li><strong>4 traditional markets + 5 private pickup locations</strong></li>
+          <li><strong>6 pickup windows per location</strong> (Standard: 2)</li>
+          <li><strong>6 Market Boxes, unlimited subscribers</strong> (Standard: 2 boxes, 2 max)</li>
+          <li><strong>Priority placement</strong> in search results</li>
+          <li><strong>Featured</strong> on homepage, browse, and market pages</li>
+          <li><strong>Premium badge</strong> on profile and all listings</li>
+          <li><strong>Advanced analytics</strong> - sales trends, top products, customer insights</li>
         </ul>
 
         <button
@@ -197,20 +201,30 @@ export default function VendorTierManager({
               You will lose the following benefits:
             </p>
 
-            <ul style={{
-              margin: '0 0 16px 0',
-              paddingLeft: 20,
-              fontSize: 14,
-              color: '#6b7280',
-              lineHeight: 1.6
-            }}>
-              <li><strong>Listing limit reduced to 5</strong> (from 10) - excess listings will be unpublished</li>
-              <li><strong>Single market only</strong> - you will need to choose one market/pickup location</li>
-              <li>Priority placement in search results</li>
-              <li>Featured sections on homepage and browse pages</li>
-              <li>Premium badge on your vendor profile</li>
-              <li>Advanced analytics access</li>
-            </ul>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>Listing & Location Limits:</p>
+              <ul style={{ margin: '0 0 12px 0', paddingLeft: 20, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
+                <li>Product listings reduced to <strong>5</strong> (excess unpublished)</li>
+                <li>Traditional markets reduced to <strong>1</strong> (must select home market)</li>
+                <li>Private pickup locations reduced to <strong>1</strong></li>
+                <li>Pickup windows reduced to <strong>2 per location</strong></li>
+              </ul>
+
+              <p style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>Market Box Restrictions:</p>
+              <ul style={{ margin: '0 0 12px 0', paddingLeft: 20, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
+                <li>Market Boxes reduced to <strong>2 total, 1 active</strong></li>
+                <li>Subscriber limit drops to <strong>2 per box</strong></li>
+                <li>Existing subscribers over limit cannot renew</li>
+              </ul>
+
+              <p style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>Visibility & Analytics:</p>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
+                <li>Priority search placement removed</li>
+                <li>Removed from featured sections</li>
+                <li>Premium badge removed</li>
+                <li>Advanced analytics no longer accessible</li>
+              </ul>
+            </div>
 
             {/* No refund warning for subscriptions */}
             {hasActiveSubscription && (

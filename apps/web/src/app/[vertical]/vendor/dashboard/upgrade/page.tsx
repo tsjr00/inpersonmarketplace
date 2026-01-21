@@ -85,63 +85,97 @@ export default function VendorUpgradePage() {
             Premium Benefits
           </h2>
 
+          {/* Featured Benefit - Market Box */}
+          <div style={{
+            padding: 20,
+            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+            borderRadius: 12,
+            border: '2px solid #22c55e',
+            marginBottom: 24
+          }}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <div style={{
+                width: 56,
+                height: 56,
+                backgroundColor: '#22c55e',
+                borderRadius: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 28,
+                flexShrink: 0,
+                color: 'white'
+              }}>
+                📦
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#166534' }}>
+                    Market Box Subscriptions
+                  </h3>
+                  <span style={{
+                    padding: '2px 8px',
+                    backgroundColor: '#22c55e',
+                    color: 'white',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 600
+                  }}>
+                    REVENUE BOOSTER
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: 14, color: '#166534', lineHeight: 1.5 }}>
+                  Create 6 Market Box offerings with 4 active simultaneously. <strong>Unlimited subscribers</strong> (Standard: 2 max). Guaranteed recurring revenue with 4-week prepaid subscriptions.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Comparison Table */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr 1fr',
+            gap: 1,
+            backgroundColor: '#e5e7eb',
+            borderRadius: 8,
+            overflow: 'hidden',
+            marginBottom: 24,
+            fontSize: 13
+          }}>
+            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#374151' }}>Feature</div>
+            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#374151', textAlign: 'center' }}>Standard</div>
+            <div style={{ padding: '10px 16px', backgroundColor: '#dbeafe', fontWeight: 600, color: '#1e40af', textAlign: 'center' }}>Premium</div>
+
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563' }}>Product Listings</div>
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center' }}>5</div>
+            <div style={{ padding: '8px 16px', backgroundColor: '#eff6ff', color: '#1e40af', textAlign: 'center', fontWeight: 600 }}>10</div>
+
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563' }}>Traditional Markets</div>
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center' }}>1</div>
+            <div style={{ padding: '8px 16px', backgroundColor: '#eff6ff', color: '#1e40af', textAlign: 'center', fontWeight: 600 }}>4</div>
+
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563' }}>Private Pickup Locations</div>
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center' }}>1</div>
+            <div style={{ padding: '8px 16px', backgroundColor: '#eff6ff', color: '#1e40af', textAlign: 'center', fontWeight: 600 }}>5</div>
+
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563' }}>Pickup Windows/Location</div>
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center' }}>2</div>
+            <div style={{ padding: '8px 16px', backgroundColor: '#eff6ff', color: '#1e40af', textAlign: 'center', fontWeight: 600 }}>6</div>
+
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563' }}>Market Box Offerings</div>
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center' }}>2</div>
+            <div style={{ padding: '8px 16px', backgroundColor: '#eff6ff', color: '#1e40af', textAlign: 'center', fontWeight: 600 }}>6</div>
+
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563' }}>Max Subscribers/Box</div>
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center' }}>2</div>
+            <div style={{ padding: '8px 16px', backgroundColor: '#eff6ff', color: '#1e40af', textAlign: 'center', fontWeight: 600 }}>Unlimited</div>
+          </div>
+
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: 24
+            gap: 20
           }}>
-            {/* 10 Listings */}
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{
-                width: 44,
-                height: 44,
-                backgroundColor: '#dbeafe',
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 18,
-                fontWeight: 700,
-                color: '#1e40af',
-                flexShrink: 0
-              }}>
-                10
-              </div>
-              <div>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  10 Product Listings
-                </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Double your catalog size - list up to 10 products (Standard: 5 listings)
-                </p>
-              </div>
-            </div>
-
-            {/* Multiple Markets */}
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{
-                width: 44,
-                height: 44,
-                backgroundColor: '#d1fae5',
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 20,
-                flexShrink: 0
-              }}>
-                <span style={{ fontSize: 16 }}>+++</span>
-              </div>
-              <div>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Multiple Market Availability
-                </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Sell at multiple markets and pickup locations simultaneously (Standard: 1 market only)
-                </p>
-              </div>
-            </div>
-
             {/* Priority Placement */}
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{
@@ -152,17 +186,17 @@ export default function VendorUpgradePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
                 flexShrink: 0
               }}>
-                <span style={{ fontSize: 18 }}>^</span>
+                🔝
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Priority Placement
+                  Priority Search Placement
                 </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Your listings appear higher in search results and category pages
+                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+                  Listings appear higher in search results and category pages for more visibility.
                 </p>
               </div>
             </div>
@@ -177,17 +211,17 @@ export default function VendorUpgradePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
                 flexShrink: 0
               }}>
-                <span style={{ fontSize: 18 }}>*</span>
+                ⭐
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Featured Sections
+                  Featured Everywhere
                 </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Get featured on the homepage and browse pages to attract more buyers
+                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+                  Get highlighted on homepage, browse pages, and market pages.
                 </p>
               </div>
             </div>
@@ -202,17 +236,17 @@ export default function VendorUpgradePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
                 flexShrink: 0
               }}>
-                <span style={{ fontSize: 16 }}>P</span>
+                🏆
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
                   Premium Badge
                 </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Stand out with a premium badge displayed on your vendor profile
+                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+                  Badge on your profile and all listings builds trust with shoppers.
                 </p>
               </div>
             </div>
@@ -227,17 +261,17 @@ export default function VendorUpgradePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
                 flexShrink: 0
               }}>
-                <span style={{ fontSize: 16 }}>//</span>
+                📊
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
                   Advanced Analytics
                 </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Detailed insights on listing views, sales performance, and market trends
+                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+                  Sales trends, top products, customer insights, and order analytics.
                 </p>
               </div>
             </div>
@@ -400,26 +434,26 @@ export default function VendorUpgradePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
+                What are Market Boxes?
+              </h4>
+              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
+                Market Boxes let you offer 4-week prepaid subscription bundles to buyers. You get guaranteed recurring revenue and can build customer loyalty with weekly pickups.
+              </p>
+            </div>
+            <div>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
+                What happens if I downgrade?
+              </h4>
+              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
+                Excess listings/markets/boxes will be managed automatically. You&apos;ll need to select which ones to keep active within standard limits.
+              </p>
+            </div>
+            <div>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
                 Can I cancel anytime?
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Yes! You can cancel your subscription at any time. Your premium features will remain active until the end of your billing period.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                How soon will I see results?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Premium features are activated immediately. You&apos;ll see improved placement in search results right away.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                Is there a free trial?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                We don&apos;t offer a free trial, but you can cancel within the first 30 days for a full refund if you&apos;re not satisfied.
+                Yes! Cancel anytime - premium features remain active until billing period ends. No refunds for unused time.
               </p>
             </div>
           </div>

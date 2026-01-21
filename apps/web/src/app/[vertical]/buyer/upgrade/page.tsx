@@ -87,10 +87,56 @@ export default function BuyerUpgradePage() {
             Premium Member Benefits
           </h2>
 
+          {/* Featured Benefit - Market Box */}
+          <div style={{
+            padding: 20,
+            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+            borderRadius: 12,
+            border: '2px solid #22c55e',
+            marginBottom: 24
+          }}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <div style={{
+                width: 56,
+                height: 56,
+                backgroundColor: '#22c55e',
+                borderRadius: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 28,
+                flexShrink: 0,
+                color: 'white'
+              }}>
+                📦
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#166534' }}>
+                    Market Box Subscriptions
+                  </h3>
+                  <span style={{
+                    padding: '2px 8px',
+                    backgroundColor: '#22c55e',
+                    color: 'white',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 600
+                  }}>
+                    EXCLUSIVE
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: 14, color: '#166534', lineHeight: 1.5 }}>
+                  Subscribe to 4-week prepaid bundles from your favorite vendors. Weekly pickups guaranteed with priority access to limited subscriber spots.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: 24
+            gap: 20
           }}>
             {/* Early Access */}
             <div style={{ display: 'flex', gap: 12 }}>
@@ -102,17 +148,17 @@ export default function BuyerUpgradePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
                 flexShrink: 0
               }}>
-                <span style={{ fontSize: 18 }}>⏰</span>
+                ⏰
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Early Access
+                  Early Access to Listings
                 </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  See new listings before everyone else - get first pick on limited items
+                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+                  See new products before standard shoppers. Get first pick on limited and seasonal items.
                 </p>
               </div>
             </div>
@@ -127,17 +173,17 @@ export default function BuyerUpgradePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
                 flexShrink: 0
               }}>
-                <span style={{ fontSize: 18 }}>💬</span>
+                💬
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
                   Priority Support
                 </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Get faster responses and dedicated support for any questions or issues
+                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+                  Faster response times with dedicated support for questions and order issues.
                 </p>
               </div>
             </div>
@@ -152,17 +198,17 @@ export default function BuyerUpgradePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
                 flexShrink: 0
               }}>
-                <span style={{ fontSize: 18 }}>📊</span>
+                📊
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Order Insights
+                  Order Insights Dashboard
                 </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Track your purchases, view order history analytics, and manage favorites
+                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+                  Track spending trends, view purchase history analytics, and manage favorites.
                 </p>
               </div>
             </div>
@@ -177,7 +223,7 @@ export default function BuyerUpgradePage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 20,
+                fontSize: 18,
                 flexShrink: 0
               }}>
                 ⭐
@@ -186,8 +232,8 @@ export default function BuyerUpgradePage() {
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
                   Premium Badge
                 </h3>
-                <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                  Show your support for local vendors with a premium member badge on your profile
+                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
+                  Display badge on your profile showing support for local vendors.
                 </p>
               </div>
             </div>
@@ -350,10 +396,18 @@ export default function BuyerUpgradePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
+                What are Market Boxes?
+              </h4>
+              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
+                Market Boxes are 4-week prepaid subscription bundles from vendors. You get guaranteed weekly pickups with curated items. Only premium shoppers can subscribe!
+              </p>
+            </div>
+            <div>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
                 Can I cancel anytime?
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Yes! You can cancel your subscription at any time. Your premium benefits will remain active until the end of your billing period.
+                Yes! Cancel your membership anytime. Benefits remain active until your billing period ends. Market Box subscriptions are separate commitments.
               </p>
             </div>
             <div>
@@ -361,15 +415,7 @@ export default function BuyerUpgradePage() {
                 What is early access?
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Premium members can see new listings before they&apos;re visible to other shoppers, giving you first pick on limited or seasonal items.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                Will more benefits be added?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Yes! We&apos;re continuously adding new premium features. Your membership automatically includes all new benefits as they&apos;re released.
+                Premium members see new listings before standard shoppers, giving you first pick on limited or seasonal items.
               </p>
             </div>
           </div>
