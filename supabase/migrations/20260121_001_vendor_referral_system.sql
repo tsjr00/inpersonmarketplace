@@ -162,8 +162,8 @@ DECLARE
   year_credits_cents INTEGER;
   max_annual_credits INTEGER := 10000; -- $100/year cap
 BEGIN
-  -- Only process completed orders
-  IF NEW.status != 'fulfilled' THEN
+  -- Only process completed orders (order_status uses 'completed', not 'fulfilled')
+  IF NEW.status != 'completed' THEN
     RETURN NEW;
   END IF;
 
@@ -191,7 +191,7 @@ BEGIN
     SELECT 1 FROM orders o
     JOIN order_items oi ON oi.order_id = o.id
     WHERE oi.vendor_profile_id = seller_vendor_id
-      AND o.status = 'fulfilled'
+      AND o.status = 'completed'
       AND o.id != NEW.id
   ) INTO has_previous_sale;
 
@@ -237,7 +237,7 @@ DROP TRIGGER IF EXISTS referral_credit_on_sale_trigger ON orders;
 CREATE TRIGGER referral_credit_on_sale_trigger
   AFTER UPDATE ON orders
   FOR EACH ROW
-  WHEN (OLD.status IS DISTINCT FROM NEW.status AND NEW.status = 'fulfilled')
+  WHEN (OLD.status IS DISTINCT FROM NEW.status AND NEW.status = 'completed')
   EXECUTE FUNCTION award_referral_credit_on_first_sale();
 
 -- ============================================================================
