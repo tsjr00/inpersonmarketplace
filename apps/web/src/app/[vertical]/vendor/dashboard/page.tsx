@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import EditProfileButton from './EditProfileButton'
 import ReferralCard from './ReferralCard'
+import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface VendorDashboardPageProps {
@@ -36,12 +37,16 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     redirect(`/${vertical}/vendor-signup`)
   }
 
-  // Get user profile for display name
+  // Get user profile for display name and tutorial status
   const { data: userProfile } = await supabase
     .from('user_profiles')
-    .select('display_name, email')
+    .select('display_name, email, vendor_tutorial_completed_at, vendor_tutorial_skipped_at')
     .eq('user_id', user.id)
     .single()
+
+  // Check if vendor tutorial should be shown
+  const hasSeenVendorTutorial = !!(userProfile?.vendor_tutorial_completed_at || userProfile?.vendor_tutorial_skipped_at)
+  const showVendorTutorial = !hasSeenVendorTutorial
 
   // Parse profile_data JSON
   const profileData = vendorProfile.profile_data as Record<string, unknown>
@@ -724,6 +729,9 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           }
         }
       `}</style>
+
+      {/* Vendor Onboarding Tutorial */}
+      <TutorialWrapper vertical={vertical} mode="vendor" showTutorial={showVendorTutorial} />
     </div>
   )
 }

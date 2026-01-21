@@ -31,6 +31,7 @@ export async function POST(
     .from('vendor_profiles')
     .update({
       status: 'approved',
+      approved_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
     .eq('id', vendorId)

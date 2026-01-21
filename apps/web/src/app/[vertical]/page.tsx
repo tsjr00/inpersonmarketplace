@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import {
@@ -104,6 +105,12 @@ async function getVerticalStats(supabase: Awaited<ReturnType<typeof createClient
 export default async function VerticalHomePage({ params }: VerticalHomePageProps) {
   const { vertical } = await params
   const supabase = await createClient()
+
+  // Redirect logged-in users to their dashboard (2-3 click goal)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    redirect(`/${vertical}/dashboard`)
+  }
 
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks

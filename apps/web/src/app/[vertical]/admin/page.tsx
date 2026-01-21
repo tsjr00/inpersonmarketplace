@@ -99,6 +99,18 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     return daysPending >= 2
   }).length || 0
 
+  // Vendor Activity Flags data
+  const { data: activityFlags } = await supabase
+    .from('vendor_activity_flags')
+    .select('id, reason, status')
+    .eq('vertical_id', vertical)
+
+  const pendingFlags = activityFlags?.filter(f => f.status === 'pending') || []
+  const pendingFlagsByReason: Record<string, number> = {}
+  pendingFlags.forEach(flag => {
+    pendingFlagsByReason[flag.reason] = (pendingFlagsByReason[flag.reason] || 0) + 1
+  })
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -195,7 +207,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm }}>
-              <span style={{ fontSize: typography.sizes['2xl'] }}>🏪</span>
+              <span style={{ fontSize: typography.sizes['2xl'] }}>🧺</span>
               <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.primary }}>
                 Manage Markets
               </h3>
@@ -361,8 +373,136 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
           </Link>
         </div>
 
-        {/* Manage Vertical Admins Card */}
-        <div style={{ marginTop: spacing.md }}>
+        {/* Bottom Row: Activity + Admins */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gap: spacing.md,
+          marginTop: spacing.md
+        }}>
+          {/* Vendor Activity Card */}
+          <Link
+            href={`/${vertical}/admin/vendor-activity`}
+            style={{
+              display: 'block',
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              border: pendingFlags.length > 0 ? '2px solid #ef4444' : `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              textDecoration: 'none',
+              color: 'inherit',
+              boxShadow: shadows.sm
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm }}>
+              <span style={{ fontSize: typography.sizes['2xl'] }}>🚩</span>
+              <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.primary }}>
+                Vendor Activity
+              </h3>
+              {pendingFlags.length > 0 && (
+                <span style={{
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  borderRadius: radius.full,
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.bold
+                }}>
+                  {pendingFlags.length} needs attention
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: `0 0 ${spacing.sm} 0` }}>
+              Monitor inactive vendors and referral program
+            </p>
+            {pendingFlags.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                {pendingFlagsByReason['no_recent_login'] && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    padding: spacing.xs,
+                    backgroundColor: '#fef3c7',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs
+                  }}>
+                    <span style={{ color: '#92400e' }}>⏰</span>
+                    <span style={{ color: '#92400e' }}>{pendingFlagsByReason['no_recent_login']} not logged in recently</span>
+                  </div>
+                )}
+                {pendingFlagsByReason['no_published_listings'] && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    padding: spacing.xs,
+                    backgroundColor: '#fef2f2',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs
+                  }}>
+                    <span style={{ color: '#991b1b' }}>📭</span>
+                    <span style={{ color: '#991b1b' }}>{pendingFlagsByReason['no_published_listings']} with no listings</span>
+                  </div>
+                )}
+                {pendingFlagsByReason['incomplete_onboarding'] && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    padding: spacing.xs,
+                    backgroundColor: '#ffedd5',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs
+                  }}>
+                    <span style={{ color: '#c2410c' }}>🚧</span>
+                    <span style={{ color: '#c2410c' }}>{pendingFlagsByReason['incomplete_onboarding']} incomplete onboarding</span>
+                  </div>
+                )}
+                {pendingFlagsByReason['no_recent_orders'] && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    padding: spacing.xs,
+                    backgroundColor: '#f3e8ff',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs
+                  }}>
+                    <span style={{ color: '#7c3aed' }}>📉</span>
+                    <span style={{ color: '#7c3aed' }}>{pendingFlagsByReason['no_recent_orders']} no recent orders</span>
+                  </div>
+                )}
+                {pendingFlagsByReason['no_recent_listing_activity'] && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    padding: spacing.xs,
+                    backgroundColor: '#dbeafe',
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs
+                  }}>
+                    <span style={{ color: '#1e40af' }}>📝</span>
+                    <span style={{ color: '#1e40af' }}>{pendingFlagsByReason['no_recent_listing_activity']} no listing updates</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: '#d1fae5',
+                borderRadius: radius.sm,
+                textAlign: 'center'
+              }}>
+                <span style={{ color: '#065f46', fontSize: typography.sizes.sm }}>
+                  ✓ All vendors active
+                </span>
+              </div>
+            )}
+          </Link>
+
+          {/* Manage Vertical Admins Card */}
           <Link
             href={`/${vertical}/admin/admins`}
             style={{
@@ -373,8 +513,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
               borderRadius: radius.md,
               textDecoration: 'none',
               color: 'inherit',
-              boxShadow: shadows.sm,
-              maxWidth: 400
+              boxShadow: shadows.sm
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>

@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import { hasAdminRole } from '@/lib/auth/admin'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -33,16 +34,20 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const isVendor = !!vendorProfile
   const isApprovedVendor = vendorProfile?.status === 'approved'
 
-  // Get user profile to check for admin role and buyer tier
+  // Get user profile to check for admin role, buyer tier, and tutorial status
   const { data: userProfile } = await supabase
     .from('user_profiles')
-    .select('role, roles, buyer_tier, buyer_tier_expires_at')
+    .select('role, roles, buyer_tier, buyer_tier_expires_at, tutorial_completed_at, tutorial_skipped_at, created_at')
     .eq('user_id', user.id)
     .single()
 
   const isAdmin = userProfile ? hasAdminRole(userProfile) : false
   const buyerTier = (userProfile?.buyer_tier as string) || 'free'
   const isPremiumBuyer = buyerTier === 'premium'
+
+  // Show tutorial for new users who haven't completed or skipped it
+  const hasSeenTutorial = !!(userProfile?.tutorial_completed_at || userProfile?.tutorial_skipped_at)
+  const showTutorial = !hasSeenTutorial
 
   // Get recent orders count (as buyer)
   const { count: orderCount } = await supabase
@@ -276,7 +281,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                             color: colors.textSecondary
                           }}>
                             <span style={{ fontSize: typography.sizes.xs }}>
-                              {pickup.market?.market_type === 'private_pickup' ? '🏠' : '🏪'}
+                              {pickup.market?.market_type === 'private_pickup' ? '🏠' : '🧺'}
                             </span>
                             <span style={{ fontWeight: typography.weights.medium }}>
                               {pickup.market?.name || 'Pickup'}
@@ -499,6 +504,72 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           </div>
         )}
       </section>
+
+      {/* ========== VENDOR SECTION PLACEHOLDER (for non-vendors) ========== */}
+      {!isVendor && (
+        <>
+          {/* Separator between Shopper and Vendor sections */}
+          <div style={{
+            borderTop: `1px solid ${colors.border}`,
+            marginBottom: spacing.lg
+          }} />
+
+          <section style={{ marginBottom: spacing.lg }}>
+            <h2 style={{
+              fontSize: typography.sizes.xl,
+              fontWeight: typography.weights.semibold,
+              marginBottom: spacing.sm,
+              color: colors.textMuted,
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing['2xs']
+            }}>
+              <span>🏪</span> Vendor
+            </h2>
+
+            {/* Greyed-out Vendor Dashboard Placeholder */}
+            <div style={{
+              padding: spacing.lg,
+              backgroundColor: colors.surfaceMuted,
+              border: `1px dashed ${colors.border}`,
+              borderRadius: radius.md,
+              textAlign: 'center',
+              opacity: 0.7
+            }}>
+              <h3 style={{
+                margin: `0 0 ${spacing.md}`,
+                fontSize: typography.sizes.lg,
+                fontWeight: typography.weights.semibold,
+                color: colors.textMuted
+              }}>
+                Vendor Dashboard
+              </h3>
+              <p style={{
+                margin: `0 0 ${spacing.md}`,
+                fontSize: typography.sizes.base,
+                color: colors.textMuted
+              }}>
+                Ready to start selling?
+              </p>
+              <Link
+                href={`/${vertical}/vendor-signup`}
+                style={{
+                  display: 'inline-block',
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: colors.primary,
+                  color: colors.textInverse,
+                  textDecoration: 'none',
+                  borderRadius: radius.md,
+                  fontWeight: typography.weights.semibold,
+                  fontSize: typography.sizes.sm
+                }}
+              >
+                Become a Vendor
+              </Link>
+            </div>
+          </section>
+        </>
+      )}
 
       {/* ========== VENDOR SECTION ========== */}
       {isVendor && (
@@ -752,6 +823,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           </p>
         </section>
       )}
+
+      {/* ========== ONBOARDING TUTORIAL ========== */}
+      <TutorialWrapper vertical={vertical} showTutorial={showTutorial} />
     </div>
   )
 }

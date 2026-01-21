@@ -21,8 +21,9 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
   const verticalLinks = vertical ? [
     { label: 'Dashboard', href: `/${vertical}/admin`, icon: '📊' },
     { label: 'Analytics', href: `/${vertical}/admin/analytics`, icon: '📈' },
-    { label: 'Markets', href: `/${vertical}/admin/markets`, icon: '🏪' },
+    { label: 'Markets', href: `/${vertical}/admin/markets`, icon: '🧺' },
     { label: 'Vendors', href: `/${vertical}/admin/vendors`, icon: '🧑‍🌾' },
+    { label: 'Activity', href: `/${vertical}/admin/vendor-activity`, icon: '🔍' },
     { label: 'Listings', href: `/${vertical}/admin/listings`, icon: '📦' },
     { label: 'Users', href: `/${vertical}/admin/users`, icon: '👥' },
   ] : []
@@ -34,7 +35,7 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
     { label: 'Vendors', href: '/admin/vendors', icon: '🏪' },
     { label: 'Pending', href: '/admin/vendors/pending', icon: '⏳' },
     { label: 'Listings', href: '/admin/listings', icon: '📦' },
-    { label: 'Markets', href: '/admin/markets', icon: '🗺️' },
+    { label: 'Markets', href: '/admin/markets', icon: '🧺' },
     { label: 'Users', href: '/admin/users', icon: '👥' },
   ]
 
