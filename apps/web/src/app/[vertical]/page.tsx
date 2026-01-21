@@ -176,11 +176,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
 
       <main>
         {/* Hero Section */}
-        <Hero
-          vertical={vertical}
-          listingCount={stats.listingCount}
-          marketCount={stats.marketCount}
-        />
+        <Hero vertical={vertical} />
 
         {/* Trust Statistics */}
         <TrustStats stats={stats} />

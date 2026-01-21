@@ -1,21 +1,32 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { MapPin, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { LocationEntry } from './LocationEntry'
 
 interface HeroProps {
   vertical: string
-  listingCount: number
-  marketCount: number
+  initialCity?: string | null
 }
 
-export function Hero({ vertical, listingCount, marketCount }: HeroProps) {
+export function Hero({ vertical, initialCity }: HeroProps) {
   const isFarmersMarket = vertical === 'farmers_market'
+  const [userZipCode, setUserZipCode] = useState<string | null>(null)
+
+  // Build browse URL with location if available
+  const browseUrl = userZipCode
+    ? `/${vertical}/browse?zip=${userZipCode}`
+    : `/${vertical}/browse`
+
+  const marketsUrl = userZipCode
+    ? `/${vertical}/markets?zip=${userZipCode}`
+    : `/${vertical}/markets`
 
   return (
     <section
-      className="relative min-h-[600px] flex items-center justify-center"
+      className="relative min-h-[650px] flex items-center justify-center"
       style={{
         background: `linear-gradient(180deg, ${colors.surfaceSubtle} 0%, ${colors.surfaceBase} 100%)`,
         paddingTop: 'clamp(100px, 15vh, 140px)',
@@ -34,23 +45,12 @@ export function Hero({ vertical, listingCount, marketCount }: HeroProps) {
           className="mx-auto text-center"
           style={{ maxWidth: '650px' }}
         >
-          {/* Badge */}
-          <div
-            className="inline-flex items-center gap-2 rounded-full"
-            style={{
-              padding: `${spacing['2xs']} ${spacing.sm}`,
-              marginBottom: spacing.lg,
-              backgroundColor: colors.primaryLight,
-              color: colors.primaryDark,
-              fontSize: typography.sizes.sm,
-              fontWeight: typography.weights.medium,
-            }}
-          >
-            <MapPin style={{ width: 16, height: 16 }} />
-            <span>
-              {marketCount} {isFarmersMarket ? 'Markets' : 'Locations'} &bull; {listingCount}+ Products
-            </span>
-          </div>
+          {/* Location Entry - Above everything */}
+          <LocationEntry
+            vertical={vertical}
+            initialCity={initialCity}
+            onLocationSet={setUserZipCode}
+          />
 
           {/* Headline */}
           <h1
@@ -103,7 +103,7 @@ export function Hero({ vertical, listingCount, marketCount }: HeroProps) {
           >
             {/* Primary CTA */}
             <Link
-              href={`/${vertical}/browse`}
+              href={browseUrl}
               className="inline-flex items-center justify-center gap-2 transition-all"
               style={{
                 backgroundColor: colors.primary,
@@ -130,7 +130,7 @@ export function Hero({ vertical, listingCount, marketCount }: HeroProps) {
 
             {/* Secondary CTA */}
             <Link
-              href={`/${vertical}/markets`}
+              href={marketsUrl}
               className="inline-flex items-center justify-center gap-2 transition-all"
               style={{
                 backgroundColor: 'transparent',

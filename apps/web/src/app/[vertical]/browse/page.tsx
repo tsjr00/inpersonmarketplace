@@ -12,7 +12,7 @@ export const revalidate = 300
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ category?: string; search?: string; view?: string }>
+  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string }>
 }
 
 interface Listing {
@@ -106,7 +106,7 @@ function groupListingsByCategory(listings: Listing[]): Record<string, Listing[]>
 
 export default async function BrowsePage({ params, searchParams }: BrowsePageProps) {
   const { vertical } = await params
-  const { category, search, view } = await searchParams
+  const { category, search, view, zip } = await searchParams
   const supabase = await createClient()
 
   // Get branding
@@ -383,15 +383,42 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       }}>
         {/* Header */}
         <div style={{ marginBottom: spacing.md }}>
-          <h1 style={{
-            color: colors.textPrimary,
-            marginBottom: spacing['2xs'],
-            marginTop: 0,
-            fontSize: typography.sizes['2xl'],
-            fontWeight: typography.weights.bold
-          }}>
-            Browse
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.xs }}>
+            <h1 style={{
+              color: colors.textPrimary,
+              marginBottom: spacing['2xs'],
+              marginTop: 0,
+              fontSize: typography.sizes['2xl'],
+              fontWeight: typography.weights.bold
+            }}>
+              Browse
+            </h1>
+            {zip && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                padding: `${spacing['2xs']} ${spacing.sm}`,
+                backgroundColor: colors.primaryLight,
+                color: colors.primaryDark,
+                borderRadius: radius.full,
+                fontSize: typography.sizes.sm,
+              }}>
+                <span>📍</span>
+                <span>Near {zip}</span>
+                <Link
+                  href={`/${vertical}/browse${category ? `?category=${category}` : ''}${search ? `${category ? '&' : '?'}search=${search}` : ''}`}
+                  style={{
+                    color: colors.primaryDark,
+                    fontSize: typography.sizes.xs,
+                    marginLeft: spacing['2xs'],
+                  }}
+                >
+                  ✕
+                </Link>
+              </div>
+            )}
+          </div>
           <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
             Discover products and subscriptions from verified vendors
           </p>

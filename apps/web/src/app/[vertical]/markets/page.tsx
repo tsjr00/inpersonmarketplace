@@ -9,12 +9,12 @@ export const revalidate = 600
 
 interface MarketsPageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ city?: string; search?: string }>
+  searchParams: Promise<{ city?: string; search?: string; zip?: string }>
 }
 
 export default async function MarketsPage({ params, searchParams }: MarketsPageProps) {
   const { vertical } = await params
-  const { city, search } = await searchParams
+  const { city, search, zip } = await searchParams
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
