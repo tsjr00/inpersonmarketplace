@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { vertical, name, address, city, state, zip, description, website, schedules } = body
+    const { vertical, name, address, city, state, zip, description, website, season_start, season_end, schedules } = body
 
     if (!vertical || !name || !address || !city || !state || !zip) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -90,6 +90,8 @@ export async function POST(request: Request) {
         zip: zip.trim(),
         description: description?.trim() || null,
         website: website?.trim() || null,
+        season_start: season_start || null,
+        season_end: season_end || null,
         status: 'active',
         approval_status: 'pending',
         submitted_by_vendor_id: vendorProfile.id,

@@ -50,6 +50,75 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .select('id', { count: 'exact', head: true })
     .eq('buyer_user_id', user.id)
 
+  // Get orders with items ready for pickup (up to 3)
+  const { data: readyOrders } = await supabase
+    .from('orders')
+    .select(`
+      id,
+      order_number,
+      created_at,
+      order_items!inner (
+        id,
+        status,
+        pickup_date,
+        market:markets (
+          id,
+          name,
+          market_type,
+          city,
+          state
+        ),
+        listing:listings (
+          id,
+          title,
+          vendor_profiles (
+            id,
+            profile_data
+          )
+        )
+      )
+    `)
+    .eq('buyer_user_id', user.id)
+    .eq('order_items.status', 'ready')
+    .is('order_items.cancelled_at', null)
+    .order('created_at', { ascending: false })
+    .limit(3)
+
+  // Transform ready orders to get unique orders with their ready items grouped by vendor+market
+  const ordersReadyForPickup = (readyOrders || []).map(order => {
+    const readyItems = (order.order_items || []).filter((item: any) => item.status === 'ready')
+    // Group by vendor+market combination for clear pickup grouping
+    const pickupGroups = readyItems.reduce((acc: any, item: any) => {
+      const vendorProfile = item.listing?.vendor_profiles
+      const profileData = vendorProfile?.profile_data as Record<string, unknown> | null
+      const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+      const vendorId = vendorProfile?.id || 'unknown'
+      const marketId = item.market?.id || 'unknown'
+      const groupKey = `${vendorId}-${marketId}`
+
+      if (!acc[groupKey]) {
+        acc[groupKey] = {
+          vendor_name: vendorName,
+          market: item.market,
+          pickup_date: item.pickup_date,
+          items: []
+        }
+      }
+      acc[groupKey].items.push({
+        id: item.id,
+        title: item.listing?.title || 'Item'
+      })
+      return acc
+    }, {})
+    return {
+      id: order.id,
+      order_number: order.order_number,
+      created_at: order.created_at,
+      ready_item_count: readyItems.length,
+      pickups: Object.values(pickupGroups)
+    }
+  })
+
   return (
     <div style={{
       maxWidth: containers.xl,
@@ -99,6 +168,152 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           <span>🛒</span> Shopper
         </h2>
 
+        {/* Ready for Pickup Alert - show prominently if there are orders ready */}
+        {ordersReadyForPickup.length > 0 && (
+          <div style={{
+            padding: spacing.md,
+            backgroundColor: '#dcfce7',
+            border: '2px solid #16a34a',
+            borderRadius: radius.lg,
+            marginBottom: spacing.md
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs,
+              marginBottom: spacing.sm
+            }}>
+              <span style={{ fontSize: typography.sizes['2xl'] }}>📦</span>
+              <h3 style={{
+                margin: 0,
+                fontSize: typography.sizes.xl,
+                fontWeight: typography.weights.bold,
+                color: '#166534'
+              }}>
+                Ready for Pickup!
+              </h3>
+              <span style={{
+                backgroundColor: '#16a34a',
+                color: 'white',
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                borderRadius: radius.full,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.bold
+              }}>
+                {ordersReadyForPickup.length}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+              {ordersReadyForPickup.map((order: any) => (
+                <Link
+                  key={order.id}
+                  href={`/${vertical}/buyer/orders/${order.id}`}
+                  style={{
+                    display: 'block',
+                    padding: spacing.sm,
+                    backgroundColor: 'white',
+                    borderRadius: radius.md,
+                    textDecoration: 'none',
+                    border: '1px solid #bbf7d0'
+                  }}
+                >
+                  {/* Order header */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: spacing.xs,
+                    paddingBottom: spacing.xs,
+                    borderBottom: '1px solid #dcfce7'
+                  }}>
+                    <div style={{
+                      fontWeight: typography.weights.bold,
+                      color: colors.textPrimary,
+                      fontSize: typography.sizes.base,
+                      fontFamily: 'monospace'
+                    }}>
+                      {order.order_number}
+                    </div>
+                    <div style={{
+                      color: '#166534',
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold
+                    }}>
+                      {order.ready_item_count} item{order.ready_item_count !== 1 ? 's' : ''} ready
+                    </div>
+                  </div>
+
+                  {/* Pickup details by vendor */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                    {order.pickups.map((pickup: any, idx: number) => (
+                      <div key={idx} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        gap: spacing.sm,
+                        fontSize: typography.sizes.sm
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{
+                            fontWeight: typography.weights.semibold,
+                            color: colors.textPrimary
+                          }}>
+                            {pickup.vendor_name}
+                          </div>
+                          <div style={{
+                            color: colors.textMuted,
+                            fontSize: typography.sizes.xs
+                          }}>
+                            {pickup.items.map((item: any) => item.title).join(', ')}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: spacing['3xs'],
+                            color: colors.textSecondary
+                          }}>
+                            <span style={{ fontSize: typography.sizes.xs }}>
+                              {pickup.market?.market_type === 'private_pickup' ? '🏠' : '🏪'}
+                            </span>
+                            <span style={{ fontWeight: typography.weights.medium }}>
+                              {pickup.market?.name || 'Pickup'}
+                            </span>
+                          </div>
+                          {pickup.pickup_date && (
+                            <div style={{
+                              color: colors.textMuted,
+                              fontSize: typography.sizes.xs
+                            }}>
+                              {new Date(pickup.pickup_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <Link
+              href={`/${vertical}/buyer/orders?status=ready`}
+              style={{
+                display: 'inline-block',
+                marginTop: spacing.sm,
+                color: '#166534',
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+                textDecoration: 'none'
+              }}
+            >
+              View all ready orders →
+            </Link>
+          </div>
+        )}
+
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
@@ -125,7 +340,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             </p>
           </Link>
 
-          {/* My Orders Card */}
+          {/* My Orders Card - enhanced to show status summary */}
           <Link
             href={`/${vertical}/buyer/orders`}
             style={{
@@ -133,7 +348,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               padding: spacing.md,
               backgroundColor: colors.surfaceElevated,
               color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
+              border: ordersReadyForPickup.length > 0 ? `2px solid #16a34a` : `1px solid ${colors.border}`,
               borderRadius: radius.md,
               textDecoration: 'none'
             }}
@@ -143,6 +358,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
               {orderCount || 0} order{orderCount !== 1 ? 's' : ''} placed
+              {ordersReadyForPickup.length > 0 && (
+                <span style={{
+                  marginLeft: spacing.xs,
+                  color: '#16a34a',
+                  fontWeight: typography.weights.semibold
+                }}>
+                  • {ordersReadyForPickup.length} ready
+                </span>
+              )}
             </p>
           </Link>
         </div>

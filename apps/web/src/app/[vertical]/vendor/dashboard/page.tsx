@@ -218,7 +218,27 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               }}>
                 Business & Contact Info
               </h2>
-              <EditProfileButton vertical={vertical} />
+              <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
+                <Link
+                  href={`/${vertical}/vendor/${vendorProfile.id}/profile`}
+                  target="_blank"
+                  style={{
+                    fontSize: typography.sizes.xs,
+                    color: colors.textSecondary,
+                    textDecoration: 'none',
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: colors.surfaceMuted,
+                    borderRadius: radius.sm,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing['3xs']
+                  }}
+                  title="Preview your public profile"
+                >
+                  👁 Preview
+                </Link>
+                <EditProfileButton vertical={vertical} />
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.xs }}>

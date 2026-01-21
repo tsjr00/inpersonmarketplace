@@ -15,6 +15,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  console.log('[/api/buyer/orders/[id]] User ID:', user.id, 'Order ID:', orderId)
+
   // Fetch order
   const { data: order, error } = await supabase
     .from('orders')
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       id,
       order_number,
       status,
-      total_amount_cents,
+      total_cents,
       created_at,
       updated_at,
       order_items (
@@ -73,6 +75,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .single()
 
   if (error || !order) {
+    console.log('[/api/buyer/orders/[id]] Error:', error?.message, 'Order found:', !!order)
+
+    // Debug: check if order exists at all (without buyer filter)
+    const { data: anyOrder } = await supabase
+      .from('orders')
+      .select('id, buyer_user_id, order_number')
+      .eq('id', orderId)
+      .single()
+    console.log('[/api/buyer/orders/[id]] Order exists?', anyOrder ? `Yes, buyer_user_id: ${anyOrder.buyer_user_id}` : 'No')
+
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
 
@@ -81,7 +93,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     id: order.id,
     order_number: order.order_number,
     status: order.status,
-    total_cents: order.total_amount_cents,
+    total_cents: order.total_cents,
     created_at: order.created_at,
     updated_at: order.updated_at,
     items: (order.order_items || []).map((item: any) => {

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         id,
         order_number,
         status,
-        total_amount_cents,
+        total_cents,
         created_at,
         buyer_user_id,
         buyer:user_profiles!orders_buyer_user_id_fkey(
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
         order_number: order?.order_number || orderId.slice(0, 8),
         order_status: order?.status || 'pending',
         customer_name: order?.buyer?.display_name || 'Customer',
-        total_cents: order?.total_amount_cents || 0,
+        total_cents: order?.total_cents || 0,
         created_at: order?.created_at || item.created_at,
         items: []
       })

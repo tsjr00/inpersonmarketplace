@@ -242,6 +242,12 @@ export default async function AdminDashboardPage() {
           href="/admin/listings"
           color="#8b5cf6"
         />
+        <QuickAction
+          title="Manage Platform Admins"
+          description="Add or remove platform administrators"
+          href="/admin/admins"
+          color="#dc2626"
+        />
       </div>
     </div>
   )

@@ -9,7 +9,7 @@ interface OrderDetails {
   id: string
   order_number: string
   status: string
-  total_amount_cents: number
+  total_cents: number
   created_at: string
   items: Array<{
     title: string
@@ -189,7 +189,7 @@ export default function CheckoutSuccessPage() {
               <div>
                 <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `0 0 ${spacing['3xs']} 0` }}>Total</p>
                 <p style={{ fontWeight: typography.weights.semibold, margin: 0, fontSize: typography.sizes.lg, color: colors.primary }}>
-                  ${(order.total_amount_cents / 100).toFixed(2)}
+                  ${(order.total_cents / 100).toFixed(2)}
                 </p>
               </div>
             </div>

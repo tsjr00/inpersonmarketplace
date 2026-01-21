@@ -361,6 +361,34 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
           </Link>
         </div>
 
+        {/* Manage Vertical Admins Card */}
+        <div style={{ marginTop: spacing.md }}>
+          <Link
+            href={`/${vertical}/admin/admins`}
+            style={{
+              display: 'block',
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              textDecoration: 'none',
+              color: 'inherit',
+              boxShadow: shadows.sm,
+              maxWidth: 400
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+              <span style={{ fontSize: typography.sizes['2xl'] }}>🔐</span>
+              <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.primary }}>
+                Manage Admins
+              </h3>
+            </div>
+            <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: 0 }}>
+              Add or remove vertical administrators
+            </p>
+          </Link>
+        </div>
+
         {/* Link to Platform Admin - only visible to platform admins */}
         {isPlatformAdmin && (
           <div style={{

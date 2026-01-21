@@ -20,6 +20,7 @@ export default function LoginPage({ params }: LoginPageProps) {
   const { vertical } = use(params)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [configLoading, setConfigLoading] = useState(true)
@@ -177,21 +178,43 @@ export default function LoginPage({ params }: LoginPageProps) {
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
               Password
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: spacing.xs,
-                fontSize: typography.sizes.base,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                boxSizing: 'border-box'
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: spacing.xs,
+                  paddingRight: '44px',
+                  fontSize: typography.sizes.base,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  boxSizing: 'border-box'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  color: colors.textMuted,
+                  fontSize: typography.sizes.lg
+                }}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
 
           <button

@@ -295,16 +295,20 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                   </span>
                 </div>
 
-                {/* Markets */}
+                {/* Markets/Pickup Locations */}
                 {listing.listing_markets && listing.listing_markets.length > 0 && (
                   <div style={{
                     marginBottom: spacing.sm,
                     fontSize: typography.sizes.xs,
                     color: colors.textMuted
                   }}>
-                    <strong>Markets:</strong>{' '}
+                    <strong>Available at:</strong>{' '}
                     {listing.listing_markets
-                      .map(lm => lm.markets?.name)
+                      .map(lm => {
+                        if (!lm.markets) return null
+                        const typeLabel = lm.markets.market_type === 'private_pickup' ? '(Private Pickup)' : '(Market)'
+                        return `${lm.markets.name} ${typeLabel}`
+                      })
                       .filter(Boolean)
                       .join(', ') || 'None'}
                   </div>

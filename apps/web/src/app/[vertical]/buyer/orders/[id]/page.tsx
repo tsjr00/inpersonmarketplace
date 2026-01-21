@@ -270,8 +270,8 @@ export default function BuyerOrderDetailPage() {
         />
 
         {/* Items by Market */}
-        {Object.values(marketGroups).map((group) => (
-          <div key={group.market.id} style={{ marginBottom: spacing.md }}>
+        {Object.entries(marketGroups).map(([marketId, group]) => (
+          <div key={marketId} style={{ marginBottom: spacing.md }}>
             {/* Pickup Details */}
             <PickupDetails
               market={group.market}

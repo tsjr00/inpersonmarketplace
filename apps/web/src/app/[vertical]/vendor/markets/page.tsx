@@ -23,6 +23,8 @@ type Market = {
   day_of_week?: number
   start_time?: string
   end_time?: string
+  season_start?: string
+  season_end?: string
   isHomeMarket?: boolean
   canUse?: boolean
   homeMarketRestricted?: boolean
@@ -77,6 +79,8 @@ export default function VendorMarketsPage() {
     city: '',
     state: '',
     zip: '',
+    season_start: '',
+    season_end: '',
     pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
   })
   const [suggestionFormData, setSuggestionFormData] = useState({
@@ -87,6 +91,8 @@ export default function VendorMarketsPage() {
     zip: '',
     description: '',
     website: '',
+    season_start: '',
+    season_end: '',
     schedules: [{ day_of_week: '', start_time: '08:00', end_time: '13:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
   })
   const [editingMarket, setEditingMarket] = useState<Market | null>(null)
@@ -177,6 +183,8 @@ export default function VendorMarketsPage() {
             city: formData.city,
             state: formData.state,
             zip: formData.zip,
+            season_start: formData.season_start || null,
+            season_end: formData.season_end || null,
             pickup_windows: validWindows
           })
         })
@@ -200,6 +208,8 @@ export default function VendorMarketsPage() {
             city: formData.city,
             state: formData.state,
             zip: formData.zip,
+            season_start: formData.season_start || null,
+            season_end: formData.season_end || null,
             pickup_windows: validWindows
           })
         })
@@ -235,6 +245,8 @@ export default function VendorMarketsPage() {
       city: market.city,
       state: market.state,
       zip: market.zip,
+      season_start: market.season_start || '',
+      season_end: market.season_end || '',
       pickup_windows: windows
     })
     setShowForm(true)
@@ -272,6 +284,8 @@ export default function VendorMarketsPage() {
       city: '',
       state: '',
       zip: '',
+      season_start: '',
+      season_end: '',
       pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }]
     })
     setError(null)
@@ -303,6 +317,8 @@ export default function VendorMarketsPage() {
           zip: suggestionFormData.zip,
           description: suggestionFormData.description || null,
           website: suggestionFormData.website || null,
+          season_start: suggestionFormData.season_start || null,
+          season_end: suggestionFormData.season_end || null,
           schedules: validSchedules.map(s => ({
             day_of_week: parseInt(s.day_of_week),
             start_time: s.start_time,
@@ -336,6 +352,8 @@ export default function VendorMarketsPage() {
       zip: '',
       description: '',
       website: '',
+      season_start: '',
+      season_end: '',
       schedules: [{ day_of_week: '', start_time: '08:00', end_time: '13:00' }]
     })
     setError(null)
@@ -855,6 +873,55 @@ export default function VendorMarketsPage() {
                   />
                 </div>
 
+                {/* Season Dates */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      Season Start <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={suggestionFormData.season_start}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, season_start: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                      When does this market&apos;s season begin?
+                    </p>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      Season End <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={suggestionFormData.season_end}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, season_end: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                      When does this market&apos;s season end?
+                    </p>
+                  </div>
+                </div>
+                <p style={{ margin: '4px 0 12px 0', fontSize: 13, color: '#6b7280', fontStyle: 'italic' }}>
+                  Leave blank if the market operates year-round.
+                </p>
+
                 {/* Market Schedule Section */}
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -1307,6 +1374,55 @@ export default function VendorMarketsPage() {
                     />
                   </div>
                 </div>
+
+                {/* Season Dates */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      Season Start <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.season_start}
+                      onChange={(e) => setFormData({ ...formData, season_start: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                      When does this location open for the season?
+                    </p>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      Season End <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.season_end}
+                      onChange={(e) => setFormData({ ...formData, season_end: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                      When does this location close for the season?
+                    </p>
+                  </div>
+                </div>
+                <p style={{ margin: '4px 0 12px 0', fontSize: 13, color: '#6b7280', fontStyle: 'italic' }}>
+                  Leave blank if open year-round.
+                </p>
 
                 {/* Pickup Windows Section */}
                 <div style={{ marginTop: 8 }}>

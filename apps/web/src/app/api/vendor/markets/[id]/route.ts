@@ -18,7 +18,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const { name, address, city, state, zip, pickup_windows } = body
+    const { name, address, city, state, zip, season_start, season_end, pickup_windows } = body
 
     // Get vendor profile with tier
     const { data: vendorProfile, error: vpError } = await supabase
@@ -78,7 +78,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
         address,
         city,
         state,
-        zip
+        zip,
+        season_start: season_start || null,
+        season_end: season_end || null
       })
       .eq('id', marketId)
       .select()
