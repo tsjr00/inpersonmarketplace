@@ -671,5 +671,317 @@ ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'partner';
 
 ---
 
+---
+
+## 16. Founding Vendor Program
+
+### Overview
+Reward early adopters with permanently reduced premium pricing to create urgency and build loyal community.
+
+### Program Details
+
+| Aspect | Specification |
+|--------|---------------|
+| **Discount** | 50% off premium forever ($12.50/mo or $104/yr) |
+| **Eligibility** | First 100 vendors per vertical OR first 6 months from launch |
+| **Lock-in** | Rate locked as long as subscription stays active (lapse = lose status) |
+| **Badge** | "Founding Vendor" badge on profile |
+| **Requirement** | Must complete profile + 1 approved listing within 30 days |
+
+### Database Changes
+```sql
+ALTER TABLE vendor_profiles ADD COLUMN is_founding_vendor BOOLEAN DEFAULT FALSE;
+ALTER TABLE vendor_profiles ADD COLUMN founding_vendor_granted_at TIMESTAMPTZ;
+```
+
+### Benefits
+- Creates urgency ("only 47 founding spots left!")
+- Early vendors take the most risk - reward them
+- Locked rate incentivizes retention
+- Badge creates visible community of early adopters
+
+---
+
+## 17. Vendor-to-Vendor Referral Program
+
+### Overview
+Vendors earn credit toward platform fees when they refer other vendors who become active sellers.
+
+### Program Details
+
+| Aspect | Specification |
+|--------|---------------|
+| **Reward** | $10 credit per successful referral |
+| **Trigger** | Applied after referred vendor's **first completed sale** |
+| **Cap per referral** | $10 one-time per referred vendor |
+| **Cap per referrer** | $100/year (10 referrals max earning per year) |
+| **Credit usage** | Platform fees, premium subscription |
+| **Expiration** | Credits expire 12 months after earning |
+
+### Why "First Sale" Trigger
+- Prevents gaming (signing up fake vendors)
+- Ensures referred vendor is real and active
+- Aligns incentives with platform success
+
+### Referral Code System
+```
+Each vendor gets unique code: FARM-JANE-2024 or UUID
+Shareable link: farm2table.com/vendor-signup?ref=FARM-JANE-2024
+```
+
+### Database Schema
+```sql
+-- Add to vendor_profiles
+ALTER TABLE vendor_profiles ADD COLUMN referral_code TEXT UNIQUE;
+ALTER TABLE vendor_profiles ADD COLUMN referred_by_vendor_id UUID REFERENCES vendor_profiles(id);
+
+-- Referral credits tracking
+CREATE TABLE vendor_referral_credits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  referrer_vendor_id UUID NOT NULL REFERENCES vendor_profiles(id),
+  referred_vendor_id UUID NOT NULL REFERENCES vendor_profiles(id),
+  credit_amount_cents INTEGER NOT NULL DEFAULT 1000, -- $10.00
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'earned', 'applied', 'expired', 'voided')),
+
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  earned_at TIMESTAMPTZ,        -- when first sale triggered credit
+  applied_at TIMESTAMPTZ,       -- when credit was used
+  expires_at TIMESTAMPTZ,       -- 12 months after earned_at
+
+  -- Audit
+  applied_to TEXT,              -- 'subscription', 'platform_fee', etc.
+  voided_reason TEXT,
+
+  UNIQUE(referrer_vendor_id, referred_vendor_id)
+);
+
+-- Track annual cap
+CREATE INDEX idx_referral_credits_referrer ON vendor_referral_credits(referrer_vendor_id);
+CREATE INDEX idx_referral_credits_status ON vendor_referral_credits(status);
+```
+
+### UI Touchpoints
+
+**1. Vendor Dashboard - "Invite a Vendor" Card**
+```
+┌─────────────────────────────────────────────┐
+│  🎁 Invite a Vendor, Earn $10              │
+│                                             │
+│  Share your link with fellow vendors:       │
+│  ┌─────────────────────────────────────┐   │
+│  │ farm2table.com/vendor-signup?ref=X  │ 📋│
+│  └─────────────────────────────────────┘   │
+│                                             │
+│  You earn $10 credit when they make their  │
+│  first sale. Max $100/year.                │
+│                                             │
+│  Your referrals: 3 pending, 2 earned ($20) │
+│  [View Details]                             │
+└─────────────────────────────────────────────┘
+```
+
+**2. Vendor Signup - Referral Recognition**
+```
+┌─────────────────────────────────────────────┐
+│  🎉 You were invited by Jane's Farm!       │
+│  Complete signup and make your first sale  │
+│  to earn them a referral bonus.            │
+└─────────────────────────────────────────────┘
+```
+
+**3. Vendor Dashboard - Referral Details Page**
+```
+┌─────────────────────────────────────────────┐
+│  Your Referral Credits                      │
+│                                             │
+│  Available Balance: $20.00                  │
+│  Pending: $30.00 (3 vendors awaiting sale)  │
+│  Earned This Year: $50.00 / $100.00 cap    │
+│                                             │
+│  ── Referral History ─────────────────────  │
+│  Jane's Farm    Earned   $10   Jan 15      │
+│  Bob's Produce  Earned   $10   Jan 10      │
+│  New Vendor     Pending   -    Jan 20      │
+│  Old Vendor     Expired  $10   (Dec 2025)  │
+└─────────────────────────────────────────────┘
+```
+
+### Attribution Flow
+```
+1. Vendor A copies referral link from dashboard
+2. Vendor A shares with friend (Vendor B)
+3. Vendor B clicks link, lands on signup with ?ref= param
+4. Signup page shows "Invited by [Vendor A]"
+5. Vendor B completes signup → referred_by_vendor_id = Vendor A
+6. System creates referral_credit record (status: 'pending')
+7. Vendor B gets approved, creates listing
+8. Vendor B makes first sale (order completed)
+9. Trigger updates referral_credit to 'earned', sets earned_at and expires_at
+10. Vendor A sees credit in dashboard
+11. Credit auto-applies to next subscription charge
+```
+
+### Abuse Prevention
+- $100/year cap prevents making referrals a "business"
+- First-sale trigger prevents fake signups
+- Monitor for suspicious patterns (same IP, similar emails)
+- Admin can void credits if fraud detected
+- Referred vendor must remain active 30 days or credit voided
+
+---
+
+## 18. Geographic Rollout Strategy
+
+### Approach: Soft Focus (Recommended)
+
+**Philosophy:** Don't hard-gate signups by geography. Instead, focus marketing efforts while allowing organic growth anywhere.
+
+**How it works:**
+- Anyone can sign up from anywhere
+- Marketing/outreach concentrates on target metros
+- Homepage shows "Featured Markets" in active areas
+- Browse defaults to user's location
+- If no vendors nearby: "Be the first vendor in [City]!"
+
+### Density Strategy
+Focus on **market density** rather than geographic gates:
+- Partner with specific farmers markets to onboard their vendors
+- Goal: 5-10 vendors per market before promoting to buyers
+- Launch buyer marketing only after vendor threshold met
+
+### Suggested Texas Rollout
+```
+Phase 1: Austin metro (home base, in-person support)
+Phase 2: San Antonio, Houston (large markets, driving distance)
+Phase 3: Dallas-Fort Worth (largest Texas metro)
+Phase 4: Secondary Texas cities (Waco, Lubbock, El Paso)
+Phase 5: Other states (when Texas is solid)
+```
+
+### Benefits of Soft Focus
+- Organic growth isn't blocked
+- Vendor in "non-target" area might bring entire farmers market
+- Captures demand data for expansion planning
+- No awkward rejection of eager users
+
+---
+
+## 19. State-Specific Landing Pages
+
+### For Users Outside Active Areas
+
+**URL Structure:**
+```
+/texas          → Active state, full experience
+/oklahoma       → Coming soon page
+/california     → Coming soon page
+/               → Detects location, routes appropriately
+```
+
+### Coming Soon Page Content
+```
+┌─────────────────────────────────────────────────────┐
+│  [Logo] Farm2Table is coming to Oklahoma!           │
+│                                                     │
+│  We're growing fast and will be in your area soon.  │
+│                                                     │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ Get Founding Status When We Launch          │   │
+│  │                                             │   │
+│  │ [Email address          ]                   │   │
+│  │ I am a:  ○ Vendor  ○ Shopper  ○ Both       │   │
+│  │ [Join Waitlist]                             │   │
+│  └─────────────────────────────────────────────┘   │
+│                                                     │
+│  Founding vendors get 50% off premium - forever.   │
+│                                                     │
+│  ── Meanwhile, explore resources ────────────────  │
+│  [National resources that apply anywhere]           │
+└─────────────────────────────────────────────────────┘
+```
+
+### Waitlist Database
+```sql
+CREATE TABLE launch_waitlist (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT NOT NULL,
+  state TEXT NOT NULL,
+  city TEXT,
+  user_type TEXT CHECK (user_type IN ('vendor', 'shopper', 'both')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  notified_at TIMESTAMPTZ,  -- when we emailed about launch
+  converted_at TIMESTAMPTZ  -- when they actually signed up
+);
+
+CREATE INDEX idx_waitlist_state ON launch_waitlist(state);
+CREATE INDEX idx_waitlist_email ON launch_waitlist(email);
+```
+
+### Benefits
+- Captures demand data by state (prioritize expansion)
+- Builds launch list for each state
+- Creates anticipation
+- SEO value for state-specific pages
+
+---
+
+## 20. Partner Filtering by Location
+
+### Filtering Hierarchy
+```
+State → Region/Metro → City
+```
+
+### Default Behavior
+1. Detect user's location (browser geolocation or IP)
+2. Default filter to their metro/region
+3. Allow expanding to statewide or narrowing to city
+4. "Show national resources" toggle
+
+### Service Area Options
+```sql
+-- In partner_profiles.service_areas
+['austin', 'san-antonio']     -- specific metros
+['central-texas']             -- region
+['texas']                     -- statewide
+['national']                  -- anywhere
+```
+
+### Query Logic with Relevance Sorting
+```sql
+-- User in Austin sees partners sorted by proximity
+SELECT * FROM partner_profiles
+WHERE 'austin' = ANY(service_areas)
+   OR 'central-texas' = ANY(service_areas)
+   OR 'texas' = ANY(service_areas)
+   OR 'national' = ANY(service_areas)
+ORDER BY
+  CASE
+    WHEN 'austin' = ANY(service_areas) THEN 1
+    WHEN 'central-texas' = ANY(service_areas) THEN 2
+    WHEN 'texas' = ANY(service_areas) THEN 3
+    WHEN 'national' = ANY(service_areas) THEN 4
+  END,
+  tier DESC  -- premium first within each proximity tier
+LIMIT 20 OFFSET 0;
+```
+
+### Pagination
+- 20 partners per page
+- "Load more" button
+- Reduces initial payload
+- Better UX - most relevant first
+
+### Avoiding Dead Profiles
+- Partners must select specific service areas
+- Flag inactive partners (no profile views in 6 months)
+- Consider "last active" indicator
+- National resources should be truly national
+
+---
+
 *Document created: January 21, 2026*
+*Updated: January 21, 2026 - Added sections 16-20*
 *Status: Ready for review, pending implementation after Phase O*

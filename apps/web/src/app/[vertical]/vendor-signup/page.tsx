@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { defaultBranding, VerticalBranding } from "@/lib/branding";
@@ -20,6 +20,7 @@ type Field = {
 export default function VendorSignup({ params }: { params: Promise<{ vertical: string }> }) {
   const { vertical } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [user, setUser] = useState<User | null>(null);
@@ -32,6 +33,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks);
+
+  // Referral tracking
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referrerName, setReferrerName] = useState<string | null>(null);
 
   // Vendor acknowledgments
   const [acknowledgments, setAcknowledgments] = useState({
@@ -48,6 +53,30 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     marketCount: number;
     limit: number;
   } | null>(null);
+
+  // Check for referral code in URL
+  useEffect(() => {
+    async function checkReferral() {
+      const ref = searchParams.get('ref');
+      if (ref) {
+        setReferralCode(ref);
+        // Look up the referring vendor
+        const { data: referrer } = await supabase
+          .from('vendor_profiles')
+          .select('profile_data')
+          .eq('referral_code', ref)
+          .single();
+
+        if (referrer?.profile_data) {
+          const name = (referrer.profile_data as Record<string, unknown>).farm_name ||
+                       (referrer.profile_data as Record<string, unknown>).business_name ||
+                       'A fellow vendor';
+          setReferrerName(name as string);
+        }
+      }
+    }
+    checkReferral();
+  }, [searchParams, supabase]);
 
   // Check authentication and market limits
   useEffect(() => {
@@ -199,7 +228,13 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       return;
     }
 
-    const payload = {
+    const payload: {
+      kind: string;
+      vertical: string;
+      user_id: string;
+      data: Record<string, unknown>;
+      referral_code?: string;
+    } = {
       kind: "vendor_signup",
       vertical,
       user_id: user.id,
@@ -211,6 +246,11 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         }
       }
     };
+
+    // Include referral code if present
+    if (referralCode) {
+      payload.referral_code = referralCode;
+    }
 
     setSubmitting(true);
 
@@ -502,6 +542,42 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         </div>
       </nav>
       <main style={mainStyle}>
+        {/* Referral Banner */}
+        {referrerName && (
+          <div style={{
+            marginBottom: spacing.md,
+            padding: spacing.md,
+            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+            borderRadius: radius.lg,
+            border: `2px solid ${colors.primary}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.sm,
+          }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              backgroundColor: colors.primary,
+              borderRadius: radius.full,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 24,
+              flexShrink: 0,
+            }}>
+              🎉
+            </div>
+            <div>
+              <p style={{ margin: 0, fontWeight: typography.weights.bold, color: '#166534', fontSize: typography.sizes.base }}>
+                You were invited by {referrerName}!
+              </p>
+              <p style={{ margin: 0, color: '#166534', fontSize: typography.sizes.sm, marginTop: spacing['3xs'] }}>
+                Complete your signup and make your first sale to earn them a referral bonus.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header Card */}
         <div style={{ ...cardStyle, marginBottom: spacing.md }}>
           <h1 style={headingStyle}>{title}</h1>

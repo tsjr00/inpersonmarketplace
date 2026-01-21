@@ -51,12 +51,27 @@ export async function POST(request: Request) {
         }
       }
 
+      // Check for referral code
+      let referredByVendorId: string | null = null;
+      if (body.referral_code) {
+        const { data: referrer } = await supabaseAdmin
+          .from("vendor_profiles")
+          .select("id")
+          .eq("referral_code", body.referral_code)
+          .single();
+
+        if (referrer) {
+          referredByVendorId = referrer.id;
+        }
+      }
+
       // Create vendor profile with user_id (if provided)
       const insertData: {
         vertical_id: string;
         profile_data: unknown;
         status: string;
         user_id?: string;
+        referred_by_vendor_id?: string;
       } = {
         vertical_id: vertical,
         profile_data: data,
@@ -67,11 +82,27 @@ export async function POST(request: Request) {
         insertData.user_id = user_id;
       }
 
+      if (referredByVendorId) {
+        insertData.referred_by_vendor_id = referredByVendorId;
+      }
+
       const { data: vendor, error } = await supabaseAdmin
         .from("vendor_profiles")
         .insert(insertData)
         .select()
         .single();
+
+      // If vendor was referred, create pending referral credit
+      if (!error && vendor && referredByVendorId) {
+        await supabaseAdmin
+          .from("vendor_referral_credits")
+          .insert({
+            referrer_vendor_id: referredByVendorId,
+            referred_vendor_id: vendor.id,
+            credit_amount_cents: 1000, // $10.00
+            status: "pending",
+          });
+      }
 
       if (error) {
         console.error("Supabase error:", error);

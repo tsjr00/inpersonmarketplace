@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import EditProfileButton from './EditProfileButton'
+import ReferralCard from './ReferralCard'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface VendorDashboardPageProps {
@@ -541,6 +542,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </Link>
         </div>
+
+        {/* Referral Card - Full width above bottom grid */}
+        {vendorProfile.status === 'approved' && (
+          <div style={{ marginBottom: spacing.md }}>
+            <ReferralCard vertical={vertical} />
+          </div>
+        )}
 
         {/* BOTTOM ROW - Your Plan + Payment Settings */}
         <div className="bottom-grid" style={{
