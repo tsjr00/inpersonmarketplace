@@ -26,6 +26,7 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
     { label: 'Activity', href: `/${vertical}/admin/vendor-activity`, icon: '🔍' },
     { label: 'Listings', href: `/${vertical}/admin/listings`, icon: '📦' },
     { label: 'Users', href: `/${vertical}/admin/users`, icon: '👥' },
+    { label: 'Feedback', href: `/${vertical}/admin/feedback`, icon: '💬' },
   ] : []
 
   // Platform admin links

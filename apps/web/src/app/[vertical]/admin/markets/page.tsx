@@ -32,6 +32,7 @@ type Market = {
   submitted_by_name?: string
   submitted_at?: string
   rejection_reason?: string
+  vendor_sells_at_market?: boolean
   schedules?: Schedule[]
 }
 
@@ -912,6 +913,21 @@ export default function AdminMarketsPage() {
                             {market.submitted_at && (
                               <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary }}>
                                 {new Date(market.submitted_at).toLocaleDateString()}
+                              </div>
+                            )}
+                            {/* Show if vendor sells here or just a lead */}
+                            {market.submitted_by_vendor_id && (
+                              <div style={{
+                                marginTop: spacing['3xs'],
+                                padding: `${spacing['3xs']} ${spacing.xs}`,
+                                borderRadius: radius.sm,
+                                fontSize: typography.sizes.xs,
+                                fontWeight: typography.weights.medium,
+                                display: 'inline-block',
+                                backgroundColor: market.vendor_sells_at_market !== false ? '#dbeafe' : '#fef3c7',
+                                color: market.vendor_sells_at_market !== false ? '#1e40af' : '#92400e'
+                              }}>
+                                {market.vendor_sells_at_market !== false ? 'Vendor sells here' : 'Lead only'}
                               </div>
                             )}
                           </div>

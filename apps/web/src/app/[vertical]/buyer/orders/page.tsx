@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import ShopperFeedbackForm from '@/components/buyer/ShopperFeedbackForm'
 
 interface Order {
   id: string
@@ -45,6 +46,7 @@ export default function BuyerOrdersPage() {
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [marketFilter, setMarketFilter] = useState<string>('')
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false)
 
   useEffect(() => {
     fetchOrders()
@@ -422,7 +424,68 @@ export default function BuyerOrdersPage() {
             })}
           </div>
         )}
+
+        {/* Feedback Card */}
+        <div style={{
+          marginTop: spacing.xl,
+          padding: spacing.lg,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.lg,
+          border: `1px solid ${colors.border}`,
+          boxShadow: shadows.sm,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: spacing.md
+        }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <h3 style={{
+              margin: 0,
+              fontSize: typography.sizes.lg,
+              fontWeight: typography.weights.semibold,
+              color: colors.text,
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs
+            }}>
+              <span>💬</span> Share Your Feedback
+            </h3>
+            <p style={{
+              margin: `${spacing.xs} 0 0 0`,
+              fontSize: typography.sizes.sm,
+              color: colors.textSecondary
+            }}>
+              Suggest a market, report a problem, or let us know how we can improve
+            </p>
+          </div>
+          <button
+            onClick={() => setShowFeedbackForm(true)}
+            style={{
+              padding: `${spacing.sm} ${spacing.lg}`,
+              backgroundColor: colors.primary,
+              color: 'white',
+              border: 'none',
+              borderRadius: radius.md,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              cursor: 'pointer',
+              minHeight: 44,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Give Feedback
+          </button>
+        </div>
       </div>
+
+      {/* Feedback Form Modal */}
+      {showFeedbackForm && (
+        <ShopperFeedbackForm
+          vertical={vertical}
+          onClose={() => setShowFeedbackForm(false)}
+        />
+      )}
     </div>
   )
 }

@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { vertical, name, address, city, state, zip, description, website, season_start, season_end, schedules } = body
+    const { vertical, name, address, city, state, zip, description, website, season_start, season_end, schedules, vendor_sells_at_market = true } = body
 
     if (!vertical || !name || !address || !city || !state || !zip) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -95,7 +95,8 @@ export async function POST(request: Request) {
         status: 'active',
         approval_status: 'pending',
         submitted_by_vendor_id: vendorProfile.id,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        vendor_sells_at_market: vendor_sells_at_market === true
       })
       .select()
       .single()

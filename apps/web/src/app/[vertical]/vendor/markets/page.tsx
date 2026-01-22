@@ -93,7 +93,8 @@ export default function VendorMarketsPage() {
     website: '',
     season_start: '',
     season_end: '',
-    schedules: [{ day_of_week: '', start_time: '08:00', end_time: '13:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
+    schedules: [{ day_of_week: '', start_time: '08:00', end_time: '13:00' }] as { day_of_week: string; start_time: string; end_time: string }[],
+    vendor_sells_at_market: true
   })
   const [editingMarket, setEditingMarket] = useState<Market | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -323,7 +324,8 @@ export default function VendorMarketsPage() {
             day_of_week: parseInt(s.day_of_week),
             start_time: s.start_time,
             end_time: s.end_time
-          }))
+          })),
+          vendor_sells_at_market: suggestionFormData.vendor_sells_at_market
         })
       })
 
@@ -354,7 +356,8 @@ export default function VendorMarketsPage() {
       website: '',
       season_start: '',
       season_end: '',
-      schedules: [{ day_of_week: '', start_time: '08:00', end_time: '13:00' }]
+      schedules: [{ day_of_week: '', start_time: '08:00', end_time: '13:00' }],
+      vendor_sells_at_market: true
     })
     setError(null)
   }
@@ -746,6 +749,64 @@ export default function VendorMarketsPage() {
                       boxSizing: 'border-box'
                     }}
                   />
+                </div>
+
+                {/* Do you sell at this market? */}
+                <div style={{
+                  padding: 16,
+                  backgroundColor: suggestionFormData.vendor_sells_at_market ? '#f0fdf4' : '#fef3c7',
+                  border: `1px solid ${suggestionFormData.vendor_sells_at_market ? '#86efac' : '#fcd34d'}`,
+                  borderRadius: 8
+                }}>
+                  <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#374151' }}>
+                    Do you sell at this market? *
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 12px',
+                      backgroundColor: suggestionFormData.vendor_sells_at_market ? '#dcfce7' : 'white',
+                      border: `2px solid ${suggestionFormData.vendor_sells_at_market ? '#16a34a' : '#e5e7eb'}`,
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}>
+                      <input
+                        type="radio"
+                        name="vendor_sells_at_market"
+                        checked={suggestionFormData.vendor_sells_at_market === true}
+                        onChange={() => setSuggestionFormData({ ...suggestionFormData, vendor_sells_at_market: true })}
+                        style={{ width: 18, height: 18, cursor: 'pointer' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 500, color: '#166534' }}>Yes, I sell at this market</div>
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>I&apos;ll be associated with this market when approved</div>
+                      </div>
+                    </label>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 12px',
+                      backgroundColor: !suggestionFormData.vendor_sells_at_market ? '#fef9c3' : 'white',
+                      border: `2px solid ${!suggestionFormData.vendor_sells_at_market ? '#ca8a04' : '#e5e7eb'}`,
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}>
+                      <input
+                        type="radio"
+                        name="vendor_sells_at_market"
+                        checked={suggestionFormData.vendor_sells_at_market === false}
+                        onChange={() => setSuggestionFormData({ ...suggestionFormData, vendor_sells_at_market: false })}
+                        style={{ width: 18, height: 18, cursor: 'pointer' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 500, color: '#854d0e' }}>No, but I think it should be on the platform</div>
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>This is a lead/referral for the platform to pursue</div>
+                      </div>
+                    </label>
+                  </div>
                 </div>
 
                 <div>
