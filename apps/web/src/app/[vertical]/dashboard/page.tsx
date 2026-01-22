@@ -5,6 +5,7 @@ import { hasAdminRole } from '@/lib/auth/admin'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
+import FeedbackCard from '@/components/buyer/FeedbackCard'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -374,6 +375,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               )}
             </p>
           </Link>
+
+          {/* Share Feedback Card */}
+          <FeedbackCard vertical={vertical} />
         </div>
 
         {/* Upgrade to Premium Card - only show for free tier */}
