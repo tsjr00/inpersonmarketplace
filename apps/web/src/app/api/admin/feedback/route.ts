@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // GET - Get all feedback (admin only)
+// Supports both shopper and vendor feedback via 'source' param
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
@@ -26,9 +27,13 @@ export async function GET(request: Request) {
     const vertical = searchParams.get('vertical')
     const category = searchParams.get('category')
     const status = searchParams.get('status')
+    const source = searchParams.get('source') || 'shopper' // 'shopper' or 'vendor'
+
+    // Choose table based on source
+    const tableName = source === 'vendor' ? 'vendor_feedback' : 'shopper_feedback'
 
     let query = supabase
-      .from('shopper_feedback')
+      .from(tableName)
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -45,7 +50,7 @@ export async function GET(request: Request) {
     const { data: feedback, error: fetchError } = await query
 
     if (fetchError) {
-      console.error('[/api/admin/feedback] Error fetching feedback:', fetchError)
+      console.error(`[/api/admin/feedback] Error fetching ${source} feedback:`, fetchError)
       return NextResponse.json({ error: 'Failed to fetch feedback' }, { status: 500 })
     }
 
@@ -66,10 +71,30 @@ export async function GET(request: Request) {
       }
     }
 
-    // Transform to include user email
+    // For vendor feedback, also get vendor business names
+    let vendorMap: Record<string, string> = {}
+    if (source === 'vendor') {
+      const vendorProfileIds = [...new Set((feedback || []).map(f => f.vendor_profile_id).filter(Boolean))]
+      if (vendorProfileIds.length > 0) {
+        const { data: vendors } = await supabase
+          .from('vendor_profiles')
+          .select('id, profile_data')
+          .in('id', vendorProfileIds)
+
+        if (vendors) {
+          vendors.forEach(v => {
+            const profileData = v.profile_data as Record<string, unknown> | null
+            vendorMap[v.id] = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+          })
+        }
+      }
+    }
+
+    // Transform to include user email and vendor name (for vendor feedback)
     const transformedFeedback = (feedback || []).map(f => ({
       ...f,
-      user_email: userMap[f.user_id] || 'Unknown'
+      user_email: userMap[f.user_id] || 'Unknown',
+      vendor_name: source === 'vendor' ? (vendorMap[f.vendor_profile_id] || 'Unknown Vendor') : undefined
     }))
 
     // Get counts by status
@@ -81,7 +106,7 @@ export async function GET(request: Request) {
       total: (feedback || []).length
     }
 
-    return NextResponse.json({ feedback: transformedFeedback, counts })
+    return NextResponse.json({ feedback: transformedFeedback, counts, source })
 
   } catch (error) {
     console.error('[/api/admin/feedback] Unexpected error:', error)
@@ -90,6 +115,7 @@ export async function GET(request: Request) {
 }
 
 // PATCH - Update feedback status/notes (admin only)
+// Supports both shopper and vendor feedback via 'source' param
 export async function PATCH(request: Request) {
   try {
     const supabase = await createClient()
@@ -111,11 +137,14 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
-    const { id, status, admin_notes } = body
+    const { id, status, admin_notes, source } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Feedback ID required' }, { status: 400 })
     }
+
+    // Choose table based on source
+    const tableName = source === 'vendor' ? 'vendor_feedback' : 'shopper_feedback'
 
     const updateData: Record<string, unknown> = {}
     if (status) {
@@ -134,14 +163,14 @@ export async function PATCH(request: Request) {
     }
 
     const { data: feedback, error: updateError } = await supabase
-      .from('shopper_feedback')
+      .from(tableName)
       .update(updateData)
       .eq('id', id)
       .select()
       .single()
 
     if (updateError) {
-      console.error('[/api/admin/feedback] Error updating feedback:', updateError)
+      console.error(`[/api/admin/feedback] Error updating ${source || 'shopper'} feedback:`, updateError)
       return NextResponse.json({ error: 'Failed to update feedback' }, { status: 500 })
     }
 

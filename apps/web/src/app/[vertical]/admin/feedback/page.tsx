@@ -5,13 +5,18 @@ import { useParams } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
-type FeedbackCategory = 'suggest_market' | 'technical_problem' | 'feature_request' | 'vendor_concern' | 'general_feedback'
+type ShopperCategory = 'suggest_market' | 'technical_problem' | 'feature_request' | 'vendor_concern' | 'general_feedback'
+type VendorCategory = 'suggest_market' | 'technical_problem' | 'feature_request' | 'payment_issue' | 'order_management' | 'listing_help' | 'general_feedback'
+type FeedbackCategory = ShopperCategory | VendorCategory
 type FeedbackStatus = 'new' | 'in_review' | 'resolved' | 'closed'
+type FeedbackSource = 'shopper' | 'vendor'
 
 interface Feedback {
   id: string
   user_id: string
   user_email: string
+  vendor_name?: string  // For vendor feedback
+  vendor_profile_id?: string  // For vendor feedback
   vertical_id: string
   category: FeedbackCategory
   message: string
@@ -32,11 +37,21 @@ interface Counts {
   total: number
 }
 
-const CATEGORY_CONFIG: Record<FeedbackCategory, { label: string; icon: string; color: string; bgColor: string }> = {
+const SHOPPER_CATEGORY_CONFIG: Record<ShopperCategory, { label: string; icon: string; color: string; bgColor: string }> = {
   suggest_market: { label: 'Market Suggestion', icon: '🏪', color: '#166534', bgColor: '#dcfce7' },
   technical_problem: { label: 'Technical Problem', icon: '🔧', color: '#991b1b', bgColor: '#fee2e2' },
   feature_request: { label: 'Feature Request', icon: '💡', color: '#1e40af', bgColor: '#dbeafe' },
   vendor_concern: { label: 'Vendor Concern', icon: '⚠️', color: '#92400e', bgColor: '#fef3c7' },
+  general_feedback: { label: 'General Feedback', icon: '💬', color: '#6b7280', bgColor: '#f3f4f6' }
+}
+
+const VENDOR_CATEGORY_CONFIG: Record<VendorCategory, { label: string; icon: string; color: string; bgColor: string }> = {
+  suggest_market: { label: 'Market Suggestion', icon: '🏪', color: '#166534', bgColor: '#dcfce7' },
+  technical_problem: { label: 'Technical Problem', icon: '🔧', color: '#991b1b', bgColor: '#fee2e2' },
+  listing_help: { label: 'Listing Help', icon: '📦', color: '#7c3aed', bgColor: '#f5f3ff' },
+  order_management: { label: 'Order Management', icon: '📋', color: '#0891b2', bgColor: '#cffafe' },
+  payment_issue: { label: 'Payment Issue', icon: '💳', color: '#dc2626', bgColor: '#fef2f2' },
+  feature_request: { label: 'Feature Request', icon: '💡', color: '#1e40af', bgColor: '#dbeafe' },
   general_feedback: { label: 'General Feedback', icon: '💬', color: '#6b7280', bgColor: '#f3f4f6' }
 }
 
@@ -51,6 +66,7 @@ export default function AdminFeedbackPage() {
   const params = useParams()
   const vertical = params.vertical as string
 
+  const [feedbackSource, setFeedbackSource] = useState<FeedbackSource>('shopper')
   const [feedback, setFeedback] = useState<Feedback[]>([])
   const [counts, setCounts] = useState<Counts>({ new: 0, in_review: 0, resolved: 0, closed: 0, total: 0 })
   const [loading, setLoading] = useState(true)
@@ -63,13 +79,17 @@ export default function AdminFeedbackPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
+  // Get the right category config based on source
+  const CATEGORY_CONFIG = feedbackSource === 'vendor' ? VENDOR_CATEGORY_CONFIG : SHOPPER_CATEGORY_CONFIG
+
   useEffect(() => {
     fetchFeedback()
-  }, [vertical])
+  }, [vertical, feedbackSource])
 
   const fetchFeedback = async () => {
+    setLoading(true)
     try {
-      const res = await fetch(`/api/admin/feedback?vertical=${vertical}`)
+      const res = await fetch(`/api/admin/feedback?vertical=${vertical}&source=${feedbackSource}`)
       if (res.ok) {
         const data = await res.json()
         setFeedback(data.feedback || [])
@@ -103,7 +123,7 @@ export default function AdminFeedbackPage() {
       const res = await fetch('/api/admin/feedback', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: newStatus })
+        body: JSON.stringify({ id, status: newStatus, source: feedbackSource })
       })
 
       if (res.ok) {
@@ -127,7 +147,7 @@ export default function AdminFeedbackPage() {
       const res = await fetch('/api/admin/feedback', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selectedFeedback.id, admin_notes: adminNotes })
+        body: JSON.stringify({ id: selectedFeedback.id, admin_notes: adminNotes, source: feedbackSource })
       })
 
       if (res.ok) {
@@ -165,11 +185,65 @@ export default function AdminFeedbackPage() {
         {/* Header */}
         <div style={{ marginBottom: spacing.lg }}>
           <h1 style={{ margin: 0, fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold }}>
-            Shopper Feedback
+            Feedback Management
           </h1>
           <p style={{ margin: `${spacing.xs} 0 0 0`, color: colors.textSecondary }}>
-            View and manage feedback from shoppers
+            View and manage feedback from shoppers and vendors
           </p>
+        </div>
+
+        {/* Source Tabs */}
+        <div style={{
+          display: 'flex',
+          gap: spacing.xs,
+          marginBottom: spacing.lg,
+          borderBottom: `1px solid ${colors.border}`,
+          paddingBottom: spacing.xs
+        }}>
+          <button
+            onClick={() => {
+              setFeedbackSource('shopper')
+              setCategoryFilter('all')
+              setSelectedFeedback(null)
+            }}
+            style={{
+              padding: `${spacing.sm} ${spacing.lg}`,
+              backgroundColor: feedbackSource === 'shopper' ? colors.primary : 'transparent',
+              color: feedbackSource === 'shopper' ? 'white' : colors.textSecondary,
+              border: 'none',
+              borderRadius: radius.md,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs
+            }}
+          >
+            <span>🛒</span> Shopper Feedback
+          </button>
+          <button
+            onClick={() => {
+              setFeedbackSource('vendor')
+              setCategoryFilter('all')
+              setSelectedFeedback(null)
+            }}
+            style={{
+              padding: `${spacing.sm} ${spacing.lg}`,
+              backgroundColor: feedbackSource === 'vendor' ? colors.accent : 'transparent',
+              color: feedbackSource === 'vendor' ? 'white' : colors.textSecondary,
+              border: 'none',
+              borderRadius: radius.md,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs
+            }}
+          >
+            <span>🏪</span> Vendor Feedback
+          </button>
         </div>
 
         {/* Stats Cards */}
@@ -274,13 +348,13 @@ export default function AdminFeedbackPage() {
             <p style={{ margin: `${spacing.sm} 0 0 0`, color: colors.textMuted }}>
               {searchTerm || categoryFilter !== 'all' || statusFilter !== 'all'
                 ? 'Try adjusting your filters'
-                : 'No shopper feedback has been submitted yet'}
+                : `No ${feedbackSource} feedback has been submitted yet`}
             </p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
             {filteredFeedback.map(f => {
-              const categoryConfig = CATEGORY_CONFIG[f.category]
+              const categoryConfig = CATEGORY_CONFIG[f.category as keyof typeof CATEGORY_CONFIG] || { label: f.category, icon: '📝', color: '#6b7280', bgColor: '#f3f4f6' }
               const statusConfig = STATUS_CONFIG[f.status]
 
               return (
@@ -340,6 +414,16 @@ export default function AdminFeedbackPage() {
                       )}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      {feedbackSource === 'vendor' && f.vendor_name && (
+                        <div style={{
+                          fontSize: typography.sizes.sm,
+                          fontWeight: typography.weights.semibold,
+                          color: colors.accent,
+                          marginBottom: spacing['3xs']
+                        }}>
+                          {f.vendor_name}
+                        </div>
+                      )}
                       <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                         {f.user_email}
                       </div>
@@ -397,16 +481,21 @@ export default function AdminFeedbackPage() {
               alignItems: 'center'
             }}>
               <div>
-                <span style={{
-                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: CATEGORY_CONFIG[selectedFeedback.category].bgColor,
-                  color: CATEGORY_CONFIG[selectedFeedback.category].color,
-                  borderRadius: radius.sm,
-                  fontSize: typography.sizes.sm,
-                  fontWeight: typography.weights.semibold
-                }}>
-                  {CATEGORY_CONFIG[selectedFeedback.category].icon} {CATEGORY_CONFIG[selectedFeedback.category].label}
-                </span>
+                {(() => {
+                  const catConfig = CATEGORY_CONFIG[selectedFeedback.category as keyof typeof CATEGORY_CONFIG] || { label: selectedFeedback.category, icon: '📝', color: '#6b7280', bgColor: '#f3f4f6' }
+                  return (
+                    <span style={{
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: catConfig.bgColor,
+                      color: catConfig.color,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold
+                    }}>
+                      {catConfig.icon} {catConfig.label}
+                    </span>
+                  )
+                })()}
               </div>
               <button
                 onClick={() => setSelectedFeedback(null)}
@@ -429,8 +518,18 @@ export default function AdminFeedbackPage() {
               {/* From */}
               <div style={{ marginBottom: spacing.md }}>
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing['3xs'] }}>
-                  From
+                  From {feedbackSource === 'vendor' ? '(Vendor)' : '(Shopper)'}
                 </div>
+                {feedbackSource === 'vendor' && selectedFeedback.vendor_name && (
+                  <div style={{
+                    fontSize: typography.sizes.lg,
+                    fontWeight: typography.weights.semibold,
+                    color: colors.accent,
+                    marginBottom: spacing['3xs']
+                  }}>
+                    {selectedFeedback.vendor_name}
+                  </div>
+                )}
                 <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium }}>
                   {selectedFeedback.user_email}
                 </div>

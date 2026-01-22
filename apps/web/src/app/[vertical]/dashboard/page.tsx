@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import FeedbackCard from '@/components/buyer/FeedbackCard'
+import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -665,6 +666,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   Create subscription bundles for premium buyers
                 </p>
               </Link>
+
+              {/* Vendor Feedback Card */}
+              <VendorFeedbackCard vertical={vertical} />
             </div>
           ) : (
             <div>
@@ -756,6 +760,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     Available after approval - create subscription bundles
                   </p>
                 </div>
+
+                {/* Vendor Feedback Card */}
+                <VendorFeedbackCard vertical={vertical} />
               </div>
 
               <p style={{ margin: `${spacing.xs} 0 0 0`, color: colors.accent, fontSize: typography.sizes.sm, fontStyle: 'italic' }}>
