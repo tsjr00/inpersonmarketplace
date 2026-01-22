@@ -102,7 +102,12 @@ export async function POST(request: Request) {
 
     if (createError) {
       console.error('[/api/vendor/markets/suggest] Error creating market:', createError)
-      return NextResponse.json({ error: 'Failed to submit market suggestion' }, { status: 500 })
+      // Return more specific error message for debugging
+      return NextResponse.json({
+        error: 'Failed to submit market suggestion',
+        details: createError.message,
+        code: createError.code
+      }, { status: 500 })
     }
 
     // Create market_schedules
