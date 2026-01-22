@@ -28,10 +28,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Vertical required' }, { status: 400 })
   }
 
-  // Get vertical
+  // Verify vertical exists
   const { data: verticalData, error: vertError } = await supabase
     .from('verticals')
-    .select('id')
+    .select('vertical_id')
     .eq('vertical_id', vertical)
     .single()
 
@@ -40,6 +40,7 @@ export async function GET(request: Request) {
   }
 
   // Get all markets for this vertical with schedules
+  // Note: markets.vertical_id is TEXT (e.g., "farmers_market"), not UUID
   const { data: markets, error: marketsError } = await supabase
     .from('markets')
     .select(`
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
         active
       )
     `)
-    .eq('vertical_id', verticalData.id)
+    .eq('vertical_id', vertical)
     .order('market_type')
     .order('name')
 
@@ -121,22 +122,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Get vertical
-  const { data: verticalData, error: vertError } = await supabase
+  // Verify vertical exists
+  const { data: verticalExists, error: vertError } = await supabase
     .from('verticals')
-    .select('id')
+    .select('vertical_id')
     .eq('vertical_id', vertical)
     .single()
 
-  if (vertError || !verticalData) {
+  if (vertError || !verticalExists) {
     return NextResponse.json({ error: 'Vertical not found' }, { status: 404 })
   }
 
   // Create traditional market (vendor_profile_id is NULL for traditional markets)
+  // Note: markets.vertical_id is TEXT (e.g., "farmers_market"), not UUID
   const { data: market, error: createError } = await supabase
     .from('markets')
     .insert({
-      vertical_id: verticalData.id,
+      vertical_id: vertical,
       vendor_profile_id: null, // Traditional markets have no owner
       name,
       market_type: 'traditional',
