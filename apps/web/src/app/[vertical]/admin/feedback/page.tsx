@@ -149,7 +149,7 @@ export default function AdminFeedbackPage() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
-        <AdminNav vertical={vertical} />
+        <AdminNav type="vertical" vertical={vertical} />
         <div style={{ padding: spacing.xl, textAlign: 'center' }}>
           <p style={{ color: colors.textSecondary }}>Loading feedback...</p>
         </div>
@@ -159,7 +159,7 @@ export default function AdminFeedbackPage() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
-      <AdminNav vertical={vertical} />
+      <AdminNav type="vertical" vertical={vertical} />
 
       <div style={{ maxWidth: containers.xl, margin: '0 auto', padding: spacing.xl }}>
         {/* Header */}
@@ -324,7 +324,7 @@ export default function AdminFeedbackPage() {
                       <p style={{
                         margin: 0,
                         fontSize: typography.sizes.base,
-                        color: colors.text,
+                        color: colors.textPrimary,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         display: '-webkit-box',

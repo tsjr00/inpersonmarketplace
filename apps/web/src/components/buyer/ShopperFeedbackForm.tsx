@@ -238,7 +238,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               fontSize: typography.sizes.sm,
               fontWeight: typography.weights.semibold,
               marginBottom: spacing.sm,
-              color: colors.text
+              color: colors.textPrimary
             }}>
               What would you like to share? *
             </label>
@@ -269,7 +269,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                       <span style={{ fontSize: typography.sizes.lg }}>{cat.icon}</span>
-                      <span style={{ fontWeight: typography.weights.medium, color: colors.text }}>{cat.label}</span>
+                      <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>{cat.label}</span>
                     </div>
                     <p style={{ margin: `${spacing.xs} 0 0 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                       {cat.description}
@@ -380,7 +380,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               fontSize: typography.sizes.sm,
               fontWeight: typography.weights.semibold,
               marginBottom: spacing.sm,
-              color: colors.text
+              color: colors.textPrimary
             }}>
               {category === 'suggest_market' ? 'Additional details (optional)' : 'Your message *'}
             </label>
@@ -421,7 +421,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               style={{
                 padding: `${spacing.sm} ${spacing.lg}`,
                 backgroundColor: colors.surfaceMuted,
-                color: colors.text,
+                color: colors.textPrimary,
                 border: 'none',
                 borderRadius: radius.md,
                 fontSize: typography.sizes.base,

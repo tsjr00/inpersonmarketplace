@@ -444,7 +444,7 @@ export default function BuyerOrdersPage() {
               margin: 0,
               fontSize: typography.sizes.lg,
               fontWeight: typography.weights.semibold,
-              color: colors.text,
+              color: colors.textPrimary,
               display: 'flex',
               alignItems: 'center',
               gap: spacing.xs
