@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { timingSafeEqual } from 'crypto'
 
+interface ScanResult {
+  scan_id: string
+  vendors_scanned: number
+  new_flags: number
+  auto_resolved: number
+}
+
 /**
  * Timing-safe string comparison to prevent timing attacks
  */
@@ -68,14 +75,16 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log(`[VENDOR-ACTIVITY-SCAN] Scan complete: ${data.vendors_scanned} vendors scanned, ${data.new_flags} new flags, ${data.auto_resolved} auto-resolved`)
+    const result = data as ScanResult
+
+    console.log(`[VENDOR-ACTIVITY-SCAN] Scan complete: ${result.vendors_scanned} vendors scanned, ${result.new_flags} new flags, ${result.auto_resolved} auto-resolved`)
 
     return NextResponse.json({
       success: true,
-      scanId: data.scan_id,
-      vendorsScanned: data.vendors_scanned,
-      newFlags: data.new_flags,
-      autoResolved: data.auto_resolved,
+      scanId: result.scan_id,
+      vendorsScanned: result.vendors_scanned,
+      newFlags: result.new_flags,
+      autoResolved: result.auto_resolved,
       verticalId: verticalId || 'all'
     })
 

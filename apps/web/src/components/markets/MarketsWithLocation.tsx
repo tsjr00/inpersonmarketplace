@@ -257,15 +257,37 @@ export default function MarketsWithLocation({
           boxShadow: shadows.sm,
           border: `1px solid ${colors.border}`
         }}>
-          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
+          <div style={{ fontSize: '3rem', marginBottom: spacing.sm }}>🧺</div>
+          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.lg, margin: 0, fontWeight: typography.weights.medium }}>
             {hasLocation
-              ? 'No farmers markets found within 25 miles of your location.'
-              : 'No farmers markets found matching your filters.'}
+              ? 'No farmers markets found within 25 miles'
+              : 'No farmers markets found matching your filters'}
           </p>
-          <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, marginTop: spacing.xs }}>
-            {hasLocation
-              ? 'Try changing your location or check back later.'
-              : 'Try adjusting your search criteria or check back later.'}
+          <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, marginTop: spacing.sm, maxWidth: 400, marginLeft: 'auto', marginRight: 'auto' }}>
+            Don't worry! Many vendors offer private pickup locations where you can meet them directly to pick up your order.
+          </p>
+          <a
+            href={`/${vertical}/browse`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: spacing.xs,
+              marginTop: spacing.md,
+              padding: `${spacing.sm} ${spacing.lg}`,
+              backgroundColor: colors.primary,
+              color: colors.textInverse,
+              borderRadius: radius.full,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              textDecoration: 'none',
+              minHeight: 44,
+            }}
+          >
+            Browse Available Products →
+          </a>
+          <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, marginTop: spacing.md }}>
+            Look for listings with "Private Pickup" to connect directly with vendors
           </p>
         </div>
       ) : null}
