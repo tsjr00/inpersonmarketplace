@@ -21,6 +21,7 @@ export function Footer({ vertical }: FooterProps) {
       links: [
         { label: 'Browse Markets', href: `/${vertical}/markets` },
         { label: 'Browse Products', href: `/${vertical}/browse` },
+        { label: 'Features & Benefits', href: `/${vertical}/features` },
         { label: 'How It Works', href: `/${vertical}#how-it-works` },
         { label: 'Sign Up', href: `/${vertical}/signup` },
       ]
@@ -29,6 +30,7 @@ export function Footer({ vertical }: FooterProps) {
       title: 'For Vendors',
       links: [
         { label: 'Become a Vendor', href: `/${vertical}/vendor-signup` },
+        { label: 'Why Sell With Us', href: `/${vertical}/features#vendors` },
         { label: 'Vendor FAQ', href: `/about#vendor-faq` },
       ]
     },

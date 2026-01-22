@@ -10,7 +10,8 @@ import {
   VendorPitch,
   Features,
   FinalCTA,
-  Footer
+  Footer,
+  GetTheApp
 } from '@/components/landing'
 
 interface VerticalHomePageProps {
@@ -192,6 +193,9 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
 
         {/* Vendor Pitch */}
         <VendorPitch vertical={vertical} />
+
+        {/* Get The App */}
+        <GetTheApp vertical={vertical} />
 
         {/* Final CTA */}
         <FinalCTA vertical={vertical} />
