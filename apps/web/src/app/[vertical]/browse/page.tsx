@@ -874,10 +874,10 @@ function MarketBoxCard({
         color: colors.primary,
         marginBottom: spacing['3xs']
       }}>
-        {formatPrice(offering.price_cents)}
+        {formatDisplayPrice(offering.price_cents)}
       </div>
       <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['2xs'] }}>
-        for 4 weeks ({formatPrice(offering.price_cents / 4)}/week)
+        for 4 weeks ({formatDisplayPrice(offering.price_cents / 4)}/week)
       </div>
 
       {/* Pickup Info */}

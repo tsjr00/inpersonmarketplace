@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { formatDisplayPrice, calculateDisplayPrice } from '@/lib/constants'
 
 interface AvailableTerm {
   weeks: number
@@ -122,11 +123,9 @@ export default function MarketBoxDetailPage() {
     }
   }
 
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(cents / 100)
+  // Use shared formatDisplayPrice for buyer-facing prices (includes 6.5% markup)
+  const formatPrice = (vendorPriceCents: number) => {
+    return formatDisplayPrice(vendorPriceCents)
   }
 
   const formatTime = (time: string) => {

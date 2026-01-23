@@ -6,7 +6,7 @@ import Link from 'next/link'
 import OrderStatusSummary from '@/components/buyer/OrderStatusSummary'
 import OrderTimeline from '@/components/buyer/OrderTimeline'
 import PickupDetails from '@/components/buyer/PickupDetails'
-import { formatPrice } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface Market {
@@ -346,7 +346,7 @@ export default function BuyerOrderDetailPage() {
                         by {item.vendor_name}
                       </p>
                       <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        Quantity: {item.quantity} × {formatPrice(item.unit_price_cents)} = <strong>{formatPrice(item.subtotal_cents)}</strong>
+                        Quantity: {item.quantity} × {formatPrice(calculateDisplayPrice(item.unit_price_cents))} = <strong>{formatPrice(calculateDisplayPrice(item.subtotal_cents))}</strong>
                       </p>
 
                       {/* Item Status & Confirmation */}
@@ -498,23 +498,36 @@ export default function BuyerOrderDetailPage() {
           </div>
         ))}
 
-        {/* Order Total */}
-        <div style={{
-          padding: spacing.md,
-          backgroundColor: colors.surfaceElevated,
-          border: `1px solid ${colors.border}`,
-          borderRadius: radius.md,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
-            Order Total
-          </span>
-          <span style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-            {formatPrice(order.total_cents)}
-          </span>
-        </div>
+        {/* Order Total with Breakdown */}
+        {(() => {
+          // Calculate totals from items (using buyer-facing prices)
+          const itemsSubtotal = order.items.reduce((sum, item) =>
+            sum + calculateDisplayPrice(item.subtotal_cents), 0
+          )
+          return (
+            <div style={{
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingTop: spacing.xs,
+                borderTop: `2px solid ${colors.border}`,
+              }}>
+                <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                  Total
+                </span>
+                <span style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                  {formatPrice(itemsSubtotal)}
+                </span>
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

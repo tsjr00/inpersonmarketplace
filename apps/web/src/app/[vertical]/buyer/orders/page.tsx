@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatPrice } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface Order {
@@ -262,6 +262,8 @@ export default function BuyerOrdersPage() {
               const config = statusConfig[order.status] || statusConfig.pending
               const isCompletedOrder = order.status === 'completed'
               const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
+              // Calculate buyer-facing total from items
+              const orderTotal = order.items?.reduce((sum, item) => sum + calculateDisplayPrice(item.subtotal_cents), 0) || 0
 
               return (
                 <div
@@ -352,7 +354,7 @@ export default function BuyerOrdersPage() {
                       </div>
                     </div>
                     <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-                      {formatPrice(order.total_cents)}
+                      {formatPrice(orderTotal)}
                     </span>
                   </div>
 
@@ -387,7 +389,7 @@ export default function BuyerOrdersPage() {
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                   <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.base }}>
-                                    {formatPrice(item.subtotal_cents)}
+                                    {formatPrice(calculateDisplayPrice(item.subtotal_cents))}
                                   </p>
                                   <span style={{
                                     padding: `2px ${spacing['2xs']}`,

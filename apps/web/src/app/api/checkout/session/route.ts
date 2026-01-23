@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate totals
     let subtotalCents = 0
+    let buyerFeeCents = 0
     let platformFeeCents = 0
 
     const orderItems = items.map((item) => {
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest) {
       const fees = calculateFees(itemSubtotal)
 
       subtotalCents += fees.basePriceCents
+      buyerFeeCents += fees.buyerFeeCents
       platformFeeCents += fees.platformFeeCents
 
       return {
@@ -149,7 +151,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const totalCents = subtotalCents + platformFeeCents
+    // Buyer pays: base price + buyer fee only (vendor fee is deducted from vendor payout)
+    const totalCents = subtotalCents + buyerFeeCents
 
     // Create order record
     const orderNumber = `FW-${new Date().getFullYear()}-${Math.random().toString().slice(2, 7)}`
