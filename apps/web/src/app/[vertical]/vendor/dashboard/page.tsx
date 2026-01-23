@@ -150,13 +150,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           }}>
             Vendor Dashboard
           </h1>
-          <p style={{
-            fontSize: typography.sizes.sm,
-            color: colors.textSecondary,
-            margin: `${spacing['3xs']} 0 0 0`
-          }}>
-            {branding.brand_name}
-          </p>
         </div>
 
         {/* Draft Listings Notice - for approved vendors with drafts */}
@@ -222,7 +215,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold
               }}>
-                Business & Contact Info
+                Vendor Business Profile
               </h2>
               <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
                 <Link
@@ -304,7 +297,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 style={{
                   fontSize: typography.sizes.xs,
                   color: colors.primary,
-                  textDecoration: 'none'
+                  textDecoration: 'none',
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: colors.primaryLight,
+                  borderRadius: radius.sm,
+                  fontWeight: typography.weights.semibold
                 }}
               >
                 Manage
@@ -604,11 +601,48 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 </div>
               </div>
 
+              {/* Current Plan Features */}
+              <div style={{
+                padding: spacing.xs,
+                backgroundColor: colors.surfaceMuted,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs
+              }}>
+                <p style={{ margin: 0, fontWeight: typography.weights.semibold, color: colors.textSecondary, marginBottom: spacing['3xs'] }}>
+                  Your Plan Includes:
+                </p>
+                <ul style={{ margin: 0, paddingLeft: 16, color: colors.textMuted }}>
+                  <li>Up to {vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured' ? '10' : '3'} product listings</li>
+                  <li>{vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured' ? 'Multiple' : 'Home'} market locations</li>
+                  <li>Order management tools</li>
+                  {(vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured') && (
+                    <>
+                      <li style={{ color: colors.primary }}>Priority search placement</li>
+                      <li style={{ color: colors.primary }}>Market Box subscriptions</li>
+                      <li style={{ color: colors.primary }}>Social links on profile</li>
+                      <li style={{ color: colors.primary }}>Profile image upload</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
               {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
-                <div>
-                  <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                    Upgrade to Premium for priority placement and more visibility!
+                <div style={{
+                  padding: spacing.xs,
+                  backgroundColor: colors.primaryLight,
+                  borderRadius: radius.sm,
+                  border: `1px solid ${colors.primary}`
+                }}>
+                  <p style={{ margin: 0, fontWeight: typography.weights.semibold, color: colors.primaryDark, marginBottom: spacing['3xs'], fontSize: typography.sizes.sm }}>
+                    Upgrade to Premium
                   </p>
+                  <ul style={{ margin: `0 0 ${spacing.xs} 0`, paddingLeft: 16, color: colors.primaryDark, fontSize: typography.sizes.xs }}>
+                    <li>10 listings instead of 3</li>
+                    <li>Sell at multiple markets</li>
+                    <li>Priority placement in search</li>
+                    <li>Market Box subscriptions</li>
+                    <li>Custom profile with social links</li>
+                  </ul>
                   <Link
                     href={`/${vertical}/vendor/dashboard/upgrade`}
                     style={{
@@ -622,14 +656,14 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                       fontSize: typography.sizes.sm
                     }}
                   >
-                    Upgrade to Premium
+                    Upgrade Now
                   </Link>
                 </div>
               )}
 
               {vendorProfile.tier === 'premium' && (
                 <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.accent }}>
-                  You have priority placement in search results and featured sections.
+                  You have full access to all premium vendor features.
                 </p>
               )}
 

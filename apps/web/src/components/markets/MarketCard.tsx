@@ -27,53 +27,16 @@ interface MarketCardProps {
     vendor_count?: number
     schedules?: Schedule[]
     distance_miles?: number
+    season_start?: string | null
+    season_end?: string | null
   }
   vertical: string
 }
 
-// Calculate next market date from schedules
-function getNextMarketDate(schedules: Schedule[] | undefined): { date: Date; time: string } | null {
-  if (!schedules || schedules.length === 0) return null
-
-  const now = new Date()
-  const currentDay = now.getDay()
-
-  let nearestResult: { date: Date; time: string } | null = null
-
-  for (const schedule of schedules) {
-    if (!schedule.active) continue
-
-    const scheduleDay = schedule.day_of_week
-    let daysUntil = scheduleDay - currentDay
-    if (daysUntil < 0) daysUntil += 7
-    if (daysUntil === 0) {
-      // Check if today's market time has passed
-      const [hours, minutes] = (schedule.start_time || '00:00').split(':').map(Number)
-      const marketTime = new Date(now)
-      marketTime.setHours(hours, minutes, 0, 0)
-      if (now > marketTime) daysUntil = 7
-    }
-
-    const nextDate = new Date(now)
-    nextDate.setDate(now.getDate() + daysUntil)
-
-    if (!nearestResult || nextDate < nearestResult.date) {
-      nearestResult = {
-        date: nextDate,
-        time: schedule.start_time
-      }
-    }
-  }
-
-  return nearestResult
-}
-
-// Format time from 24h to 12h
-function formatTime(time24: string): string {
-  const [hours, minutes] = time24.split(':').map(Number)
-  const period = hours >= 12 ? 'PM' : 'AM'
-  const hours12 = hours % 12 || 12
-  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`
+// Format season date (e.g., "2026-03-15" -> "Mar 15")
+function formatSeasonDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 export default function MarketCard({ market, vertical }: MarketCardProps) {
@@ -120,13 +83,30 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
           {market.name}
         </h3>
 
-        {/* Address - Full address shown */}
+        {/* Description - Right below title */}
+        {market.description && (
+          <p style={{
+            margin: `0 0 ${spacing.xs} 0`,
+            fontSize: typography.sizes.sm,
+            color: colors.textSecondary,
+            lineHeight: typography.leading.relaxed,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical'
+          }}>
+            {market.description}
+          </p>
+        )}
+
+        {/* Address */}
         {displayAddress && (
           <div style={{
             display: 'flex',
             alignItems: 'flex-start',
             gap: spacing['2xs'],
-            marginBottom: spacing.xs
+            marginBottom: spacing['2xs']
           }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -155,44 +135,33 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
           </div>
         )}
 
-        {/* Schedule - Days & Hours (prominent) */}
+        {/* Schedule - Plain text, no icon */}
         {market.schedules && market.schedules.length > 0 && (
           <div style={{
-            padding: `${spacing['2xs']} ${spacing.xs}`,
-            backgroundColor: colors.primaryLight,
-            borderRadius: radius.sm,
-            marginBottom: spacing.xs
+            fontSize: typography.sizes.sm,
+            color: colors.textSecondary,
+            marginBottom: spacing['2xs']
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing['2xs'],
-              fontSize: typography.sizes.sm,
-              color: colors.primaryDark,
-              fontWeight: typography.weights.medium
-            }}>
-              <span>🕐</span>
-              <ScheduleDisplay schedules={market.schedules} compact />
-            </div>
+            <ScheduleDisplay schedules={market.schedules} compact />
           </div>
         )}
 
-        {/* Description - Show if available, limit to 2 lines */}
-        {market.description && (
-          <p style={{
-            margin: `0 0 ${spacing.xs} 0`,
+        {/* Season dates */}
+        {(market.season_start || market.season_end) && (
+          <div style={{
             fontSize: typography.sizes.sm,
-            color: colors.textSecondary,
-            lineHeight: typography.leading.relaxed,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
+            color: colors.textMuted,
+            marginBottom: spacing.xs,
             flex: 1
           }}>
-            {market.description}
-          </p>
+            {market.season_start && market.season_end ? (
+              <>Season: {formatSeasonDate(market.season_start)} – {formatSeasonDate(market.season_end)}</>
+            ) : market.season_start ? (
+              <>Opens {formatSeasonDate(market.season_start)}</>
+            ) : (
+              <>Closes {formatSeasonDate(market.season_end!)}</>
+            )}
+          </div>
         )}
 
         {/* Footer stats */}

@@ -98,9 +98,10 @@ export function Header({
               <Image
                 src={branding.logo_path}
                 alt={branding.brand_name}
-                width={180}
-                height={60}
-                style={{ height: 'auto', maxHeight: 60 }}
+                width={0}
+                height={0}
+                sizes="200px"
+                style={{ width: 'auto', height: 44 }}
                 priority
               />
             ) : (

@@ -107,13 +107,6 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
           }}>
             My Listings
           </h1>
-          <p style={{
-            fontSize: typography.sizes.sm,
-            color: colors.textSecondary,
-            margin: `${spacing['3xs']} 0 ${spacing.sm} 0`
-          }}>
-            {branding.brand_name}
-          </p>
 
           {/* Buttons - stack on mobile, inline on desktop */}
           <div className="header-buttons" style={{

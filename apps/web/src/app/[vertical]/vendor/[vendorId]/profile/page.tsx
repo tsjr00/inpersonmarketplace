@@ -152,7 +152,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     >
       {/* Back Link - uses browser history to go back to previous page */}
       <div style={{
-        padding: '16px',
+        padding: '8px 16px',
         borderBottom: '1px solid #eee',
         backgroundColor: 'white'
       }}>
@@ -162,7 +162,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             fallbackLabel="Back"
             style={{
               color: branding.colors.primary,
-              fontSize: 14
+              fontSize: 14,
+              fontWeight: 600
             }}
           />
         </div>
@@ -486,113 +487,56 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           )}
         </div>
 
-        {/* Private Pickup Callout - Show ALL private pickup locations */}
+        {/* Private Pickup - Compact bulleted list */}
         {privatePickupLocations.length > 0 && (
           <div style={{
-            padding: 24,
+            padding: '12px 16px',
             backgroundColor: '#fef3c7',
-            border: '2px solid #f59e0b',
-            borderRadius: 12,
-            marginBottom: 24
+            border: '1px solid #fcd34d',
+            borderRadius: 8,
+            marginBottom: 16
           }}>
             <div style={{
               display: 'flex',
-              alignItems: 'flex-start',
-              gap: 16,
-              marginBottom: privatePickupLocations.length > 1 ? 16 : 0
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 8
             }}>
-              <div style={{
-                width: 56,
-                height: 56,
-                borderRadius: 12,
-                backgroundColor: '#f59e0b',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 28,
-                flexShrink: 0
+              <span style={{ fontSize: 16 }}>📦</span>
+              <span style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#92400e'
               }}>
-                📦
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{
-                  margin: '0 0 8px 0',
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: '#92400e'
-                }}>
-                  Private Pickup Available
-                </h3>
-                <p style={{
-                  margin: 0,
-                  fontSize: 15,
-                  color: '#78350f',
-                  lineHeight: 1.5
-                }}>
-                  Order directly from this vendor and pick up at {privatePickupLocations.length === 1 ? 'their location' : 'one of their locations'}.
-                </p>
-              </div>
+                Private Pickup Available
+              </span>
             </div>
-
-            {/* List all pickup locations */}
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-              marginTop: 16,
-              paddingTop: 16,
-              borderTop: '1px solid #fcd34d'
+            <ul style={{
+              margin: 0,
+              paddingLeft: 24,
+              listStyle: 'disc'
             }}>
               {privatePickupLocations.map((location) => (
-                <div
+                <li
                   key={location.id}
                   style={{
-                    padding: 12,
-                    backgroundColor: 'rgba(255,255,255,0.6)',
-                    borderRadius: 8,
-                    border: '1px solid #fcd34d'
+                    fontSize: 13,
+                    color: '#78350f',
+                    marginBottom: 2
                   }}
                 >
-                  <div style={{
-                    fontWeight: 600,
-                    fontSize: 14,
-                    color: '#92400e',
-                    marginBottom: 4
-                  }}>
-                    {location.name}
-                  </div>
+                  <strong>{location.name}</strong>
                   {(location.address || location.city) && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 13,
-                      color: '#b45309'
-                    }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                        <circle cx="12" cy="10" r="3" />
-                      </svg>
-                      <span>
-                        {[location.address, location.city, location.state]
-                          .filter(Boolean)
-                          .join(', ')}
-                      </span>
-                    </div>
+                    <span style={{ color: '#92400e' }}>
+                      {' — '}
+                      {[location.address, location.city, location.state]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </span>
                   )}
-                  {location.description && (
-                    <p style={{
-                      margin: '6px 0 0 0',
-                      fontSize: 13,
-                      color: '#92400e',
-                      fontStyle: 'italic'
-                    }}>
-                      {location.description}
-                    </p>
-                  )}
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         )}
 

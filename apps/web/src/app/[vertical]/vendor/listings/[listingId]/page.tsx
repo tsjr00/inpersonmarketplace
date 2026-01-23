@@ -63,12 +63,9 @@ export default async function ViewListingPage({ params }: ViewListingPageProps) 
         borderBottom: `2px solid ${branding.colors.primary}`
       }}>
         <div>
-          <h1 style={{ color: branding.colors.primary, marginBottom: 5, marginTop: 0 }}>
+          <h1 style={{ color: branding.colors.primary, marginBottom: 0, marginTop: 0 }}>
             {listing.title}
           </h1>
-          <p style={{ fontSize: 14, color: branding.colors.secondary, margin: 0 }}>
-            {branding.brand_name}
-          </p>
         </div>
         <Link
           href={`/${vertical}/vendor/listings`}

@@ -48,12 +48,9 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         paddingBottom: 20,
         borderBottom: `2px solid ${branding.colors.primary}`
       }}>
-        <h1 style={{ color: branding.colors.primary, marginBottom: 5, marginTop: 0 }}>
+        <h1 style={{ color: branding.colors.primary, marginBottom: 0, marginTop: 0 }}>
           Edit Vendor Profile
         </h1>
-        <p style={{ fontSize: 14, color: branding.colors.secondary, margin: 0 }}>
-          {branding.brand_name}
-        </p>
       </div>
 
       {/* Profile Image Section */}

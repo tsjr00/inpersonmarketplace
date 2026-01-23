@@ -226,13 +226,6 @@ export default function VendorAnalyticsPage() {
               }}>
                 Analytics Dashboard
               </h1>
-              <p style={{
-                fontSize: typography.sizes.sm,
-                color: colors.textSecondary,
-                margin: `${spacing['3xs']} 0 0 0`
-              }}>
-                {branding.brand_name}
-              </p>
             </div>
             <Link
               href={`/${vertical}/vendor/dashboard`}

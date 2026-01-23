@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { hasAdminRole } from '@/lib/auth/admin'
 import Link from 'next/link'
+import Image from 'next/image'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import FeedbackCard from '@/components/buyer/FeedbackCard'
@@ -142,9 +143,20 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         marginBottom: spacing.lg,
         paddingBottom: spacing.md,
         borderBottom: `2px solid ${colors.primary}`,
-        fontSize: typography.sizes['2xl']
+        fontSize: typography.sizes['2xl'],
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs
       }}>
-        {branding.brand_name} Dashboard
+        <Image
+          src="/logos/logo-icon-color.png"
+          alt=""
+          width={0}
+          height={0}
+          sizes="40px"
+          style={{ width: 'auto', height: 32 }}
+        />
+        User Dashboard
       </h1>
 
       {/* Welcome Section */}
