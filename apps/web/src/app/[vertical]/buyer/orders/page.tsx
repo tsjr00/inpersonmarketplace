@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
-import ShopperFeedbackForm from '@/components/buyer/ShopperFeedbackForm'
 
 interface Order {
   id: string
@@ -46,7 +45,6 @@ export default function BuyerOrdersPage() {
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [marketFilter, setMarketFilter] = useState<string>('')
-  const [showFeedbackForm, setShowFeedbackForm] = useState(false)
 
   useEffect(() => {
     fetchOrders()
@@ -81,10 +79,10 @@ export default function BuyerOrdersPage() {
   }
 
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-    pending: { label: 'Pending Payment', color: colors.accent, bgColor: colors.surfaceSubtle },
-    paid: { label: 'Paid', color: colors.primaryDark, bgColor: colors.primaryLight },
+    pending: { label: 'Order Placed', color: colors.accent, bgColor: colors.surfaceSubtle },
+    paid: { label: 'Order Placed', color: colors.accent, bgColor: colors.surfaceSubtle },
     confirmed: { label: 'Confirmed', color: colors.primaryDark, bgColor: colors.primaryLight },
-    ready: { label: 'Ready for Pickup', color: colors.accent, bgColor: colors.surfaceSubtle },
+    ready: { label: 'Ready for Pickup', color: '#166534', bgColor: '#dcfce7' },
     completed: { label: 'Completed', color: colors.primaryDark, bgColor: colors.primaryLight },
     fulfilled: { label: 'Picked Up', color: colors.primaryDark, bgColor: colors.primaryLight },
     cancelled: { label: 'Cancelled', color: '#991b1b', bgColor: '#fee2e2' },
@@ -158,8 +156,7 @@ export default function BuyerOrdersPage() {
               }}
             >
               <option value="">All Orders</option>
-              <option value="pending">Pending</option>
-              <option value="paid">Paid</option>
+              <option value="pending">Order Placed</option>
               <option value="confirmed">Confirmed</option>
               <option value="ready">Ready for Pickup</option>
               <option value="completed">Completed</option>
@@ -263,6 +260,8 @@ export default function BuyerOrdersPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
             {orders.map(order => {
               const config = statusConfig[order.status] || statusConfig.pending
+              const isCompletedOrder = ['completed', 'fulfilled'].includes(order.status)
+              const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
 
               return (
                 <div
@@ -271,7 +270,7 @@ export default function BuyerOrdersPage() {
                   style={{
                     backgroundColor: colors.surfaceElevated,
                     borderRadius: radius.md,
-                    border: `1px solid ${colors.border}`,
+                    border: order.status === 'ready' ? `2px solid #166534` : `1px solid ${colors.border}`,
                     overflow: 'hidden',
                     cursor: 'pointer',
                     transition: 'box-shadow 0.2s',
@@ -283,21 +282,21 @@ export default function BuyerOrdersPage() {
                     e.currentTarget.style.boxShadow = 'none'
                   }}
                 >
-                  {/* Order Header */}
+                  {/* Order Header - Always shown */}
                   <div style={{
                     padding: `${spacing.sm} ${spacing.md}`,
-                    borderBottom: `1px solid ${colors.borderMuted}`,
+                    borderBottom: isCompletedOrder ? 'none' : `1px solid ${colors.borderMuted}`,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    backgroundColor: colors.surfaceMuted,
+                    backgroundColor: order.status === 'ready' ? '#dcfce7' : colors.surfaceMuted,
                     gap: spacing.xs,
                     flexWrap: 'wrap'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap', flex: 1 }}>
                       {/* Prominent Order Number */}
                       <div style={{
-                        backgroundColor: colors.textPrimary,
+                        backgroundColor: order.status === 'ready' ? '#166534' : colors.textPrimary,
                         color: colors.textInverse,
                         padding: `${spacing['2xs']} ${spacing.sm}`,
                         borderRadius: radius.sm,
@@ -317,24 +316,39 @@ export default function BuyerOrdersPage() {
                           {order.order_number || order.id.slice(0, 8).toUpperCase()}
                         </span>
                       </div>
-                      <div>
-                        <span style={{
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: config.bgColor,
-                          color: config.color,
-                          borderRadius: radius.full,
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.semibold,
-                        }}>
-                          {config.label}
-                        </span>
-                        <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `${spacing['3xs']} 0 0 0` }}>
-                          {new Date(order.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </p>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+                          <span style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: config.bgColor,
+                            color: config.color,
+                            borderRadius: radius.full,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                          }}>
+                            {config.label}
+                          </span>
+                          <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
+                            {new Date(order.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                        {/* Show item names inline for completed orders */}
+                        {isCompletedOrder && itemNames && (
+                          <p style={{
+                            margin: `${spacing['3xs']} 0 0 0`,
+                            fontSize: typography.sizes.xs,
+                            color: colors.textMuted,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {itemNames}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
@@ -342,62 +356,86 @@ export default function BuyerOrdersPage() {
                     </span>
                   </div>
 
-                  {/* Order Items */}
-                  <div style={{ padding: `${spacing.md} ${spacing.md}` }}>
-                    {order.items && order.items.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                        {order.items.map((item, index) => {
-                          const itemConfig = statusConfig[item.status] || statusConfig.pending
+                  {/* Order Items - Only show for non-completed orders */}
+                  {!isCompletedOrder && (
+                    <div style={{ padding: `${spacing.md} ${spacing.md}` }}>
+                      {order.items && order.items.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                          {order.items.map((item, index) => {
+                            const itemConfig = statusConfig[item.status] || statusConfig.pending
 
-                          return (
-                            <div
-                              key={item.id || index}
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: `${spacing.xs} ${spacing.sm}`,
-                                backgroundColor: colors.surfaceMuted,
-                                borderRadius: radius.sm,
-                              }}
-                            >
-                              <div>
-                                <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary, fontSize: typography.sizes.base }}>
-                                  {item.listing_title}
-                                </p>
-                                <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                                  {item.vendor_name} • Qty: {item.quantity}
-                                  {item.market && ` • ${item.market.name}`}
-                                </p>
+                            return (
+                              <div
+                                key={item.id || index}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  padding: `${spacing.xs} ${spacing.sm}`,
+                                  backgroundColor: colors.surfaceMuted,
+                                  borderRadius: radius.sm,
+                                }}
+                              >
+                                <div>
+                                  <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary, fontSize: typography.sizes.base }}>
+                                    {item.listing_title}
+                                  </p>
+                                  <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                                    {item.vendor_name} • Qty: {item.quantity}
+                                    {item.market && ` • ${item.market.name}`}
+                                  </p>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                  <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.base }}>
+                                    {formatPrice(item.subtotal_cents)}
+                                  </p>
+                                  <span style={{
+                                    padding: `2px ${spacing['2xs']}`,
+                                    backgroundColor: itemConfig.bgColor,
+                                    color: itemConfig.color,
+                                    borderRadius: radius.full,
+                                    fontSize: typography.sizes.xs,
+                                    fontWeight: typography.weights.medium,
+                                  }}>
+                                    {itemConfig.label}
+                                  </span>
+                                </div>
                               </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.base }}>
-                                  {formatPrice(item.subtotal_cents)}
-                                </p>
-                                <span style={{
-                                  padding: `2px ${spacing['2xs']}`,
-                                  backgroundColor: itemConfig.bgColor,
-                                  color: itemConfig.color,
-                                  borderRadius: radius.full,
-                                  fontSize: typography.sizes.xs,
-                                  fontWeight: typography.weights.medium,
-                                }}>
-                                  {itemConfig.label}
-                                </span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>
-                        No item details available
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>
+                          No item details available
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Ready for Pickup Banner - Highlighted */}
+                  {order.status === 'ready' && (
+                    <div style={{
+                      padding: `${spacing.sm} ${spacing.md}`,
+                      borderTop: `1px solid #86efac`,
+                      backgroundColor: '#dcfce7',
+                    }}>
+                      <p style={{
+                        margin: 0,
+                        fontSize: typography.sizes.base,
+                        fontWeight: typography.weights.semibold,
+                        color: '#166534',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing['2xs'],
+                      }}>
+                        <span style={{ fontSize: typography.sizes.xl }}>📍</span>
+                        Your order is ready for pickup!
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
-                  {/* Order Actions */}
-                  {(order.status === 'ready' || order.status === 'confirmed') && (
+                  {/* Confirmed Banner */}
+                  {order.status === 'confirmed' && (
                     <div style={{
                       padding: `${spacing.sm} ${spacing.md}`,
                       borderTop: `1px solid ${colors.borderMuted}`,
@@ -411,11 +449,8 @@ export default function BuyerOrdersPage() {
                         alignItems: 'center',
                         gap: spacing['2xs'],
                       }}>
-                        <span style={{ fontSize: typography.sizes.lg }}>📍</span>
-                        {order.status === 'ready'
-                          ? 'Your order is ready for pickup!'
-                          : 'Your order has been confirmed by the vendor'
-                        }
+                        <span style={{ fontSize: typography.sizes.lg }}>✓</span>
+                        Your order has been confirmed by the vendor
                       </p>
                     </div>
                   )}
@@ -425,67 +460,7 @@ export default function BuyerOrdersPage() {
           </div>
         )}
 
-        {/* Feedback Card */}
-        <div style={{
-          marginTop: spacing.xl,
-          padding: spacing.lg,
-          backgroundColor: colors.surfaceElevated,
-          borderRadius: radius.lg,
-          border: `1px solid ${colors.border}`,
-          boxShadow: shadows.sm,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: spacing.md
-        }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <h3 style={{
-              margin: 0,
-              fontSize: typography.sizes.lg,
-              fontWeight: typography.weights.semibold,
-              color: colors.textPrimary,
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing.xs
-            }}>
-              <span>💬</span> Share Your Feedback
-            </h3>
-            <p style={{
-              margin: `${spacing.xs} 0 0 0`,
-              fontSize: typography.sizes.sm,
-              color: colors.textSecondary
-            }}>
-              Suggest a market, report a problem, or let us know how we can improve
-            </p>
-          </div>
-          <button
-            onClick={() => setShowFeedbackForm(true)}
-            style={{
-              padding: `${spacing.sm} ${spacing.lg}`,
-              backgroundColor: colors.primary,
-              color: 'white',
-              border: 'none',
-              borderRadius: radius.md,
-              fontSize: typography.sizes.base,
-              fontWeight: typography.weights.semibold,
-              cursor: 'pointer',
-              minHeight: 44,
-              whiteSpace: 'nowrap'
-            }}
-          >
-            Give Feedback
-          </button>
-        </div>
       </div>
-
-      {/* Feedback Form Modal */}
-      {showFeedbackForm && (
-        <ShopperFeedbackForm
-          vertical={vertical}
-          onClose={() => setShowFeedbackForm(false)}
-        />
-      )}
     </div>
   )
 }

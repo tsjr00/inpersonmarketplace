@@ -5,8 +5,13 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
+// Cancellation fee constants
+const PLATFORM_CANCELLATION_FEE_PERCENT = 5 // Platform always gets 5%
+const MAX_VENDOR_CANCELLATION_FEE_PERCENT = 45 // Vendor can charge up to 45% more
+
 // POST /api/buyer/orders/[id]/cancel - Buyer cancels an order item
-// Only allowed before vendor confirms (status = 'pending' or 'paid')
+// Before confirmation: Full refund
+// After confirmation: Cancellation fee applies (5% platform minimum)
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderItemId } = await context.params
   const supabase = await createClient()
@@ -26,7 +31,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // No body provided, that's fine
   }
 
-  // Get the order item and verify it belongs to this buyer's order
+  // Get the order item with vendor info
   const { data: orderItem, error: fetchError } = await supabase
     .from('order_items')
     .select(`
@@ -34,6 +39,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       status,
       subtotal_cents,
       cancelled_at,
+      listing:listings (
+        id,
+        vendor_profile_id,
+        vendor_profiles (
+          id,
+          user_id,
+          profile_data
+        )
+      ),
       order:orders!inner (
         id,
         buyer_user_id,
@@ -62,18 +76,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // Check if item is in a cancellable state (only before vendor confirms)
-  // Allowed states: pending, paid
-  // Not allowed: confirmed, ready, fulfilled (vendor has already started processing)
-  const cancellableStatuses = ['pending', 'paid']
-  if (!cancellableStatuses.includes(orderItem.status)) {
+  // Determine cancellation fees based on status
+  const preConfirmationStatuses = ['pending', 'paid']
+  const postConfirmationStatuses = ['confirmed', 'ready']
+  const nonCancellableStatuses = ['fulfilled', 'completed']
+
+  // Cannot cancel fulfilled/completed orders
+  if (nonCancellableStatuses.includes(orderItem.status)) {
     return NextResponse.json(
       {
-        error: 'Cannot cancel - vendor has already confirmed this item. Please contact the vendor directly.',
+        error: 'Cannot cancel - this order has already been picked up.',
         current_status: orderItem.status
       },
       { status: 400 }
     )
+  }
+
+  let refundAmount = orderItem.subtotal_cents
+  let platformFee = 0
+  let cancellationFeeApplied = false
+
+  // After vendor confirms, apply cancellation fee
+  if (postConfirmationStatuses.includes(orderItem.status)) {
+    // Platform takes minimum 5%
+    platformFee = Math.round(orderItem.subtotal_cents * (PLATFORM_CANCELLATION_FEE_PERCENT / 100))
+    refundAmount = orderItem.subtotal_cents - platformFee
+    cancellationFeeApplied = true
+
+    // Note: In a full implementation, vendor would be notified and could add their portion
+    // For now, we only apply the platform minimum fee
   }
 
   // Update the order item as cancelled
@@ -84,7 +115,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       cancelled_at: new Date().toISOString(),
       cancelled_by: 'buyer',
       cancellation_reason: reason || 'Cancelled by buyer',
-      refund_amount_cents: orderItem.subtotal_cents // Full refund for buyer-initiated cancellation
+      refund_amount_cents: refundAmount
     })
     .eq('id', orderItemId)
 
@@ -108,13 +139,44 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', (order as { id: string }).id)
   }
 
+  // Get vendor info for notification
+  const listing = orderItem.listing as any
+  const vendorProfile = listing?.vendor_profiles
+  const vendorUserId = vendorProfile?.user_id
+
+  // Create notification for vendor about cancellation
+  if (vendorUserId) {
+    await supabase
+      .from('notifications')
+      .insert({
+        user_id: vendorUserId,
+        type: 'order_cancelled',
+        title: 'Order Item Cancelled',
+        message: reason
+          ? `A buyer cancelled an item. Reason: ${reason}`
+          : 'A buyer cancelled an item from their order.',
+        data: {
+          order_item_id: orderItemId,
+          cancellation_reason: reason,
+          refund_amount_cents: refundAmount,
+          cancellation_fee_cents: platformFee
+        }
+      })
+      .select()
+      .single()
+  }
+
   // TODO: In production, trigger Stripe refund here
   // For now, we just track the refund amount
 
   return NextResponse.json({
     success: true,
-    message: 'Item cancelled successfully',
+    message: cancellationFeeApplied
+      ? `Item cancelled. A ${PLATFORM_CANCELLATION_FEE_PERCENT}% cancellation fee was applied.`
+      : 'Item cancelled successfully. Full refund will be processed.',
     cancelled_at: new Date().toISOString(),
-    refund_amount_cents: orderItem.subtotal_cents
+    refund_amount_cents: refundAmount,
+    cancellation_fee_cents: platformFee,
+    cancellation_fee_applied: cancellationFeeApplied
   })
 }

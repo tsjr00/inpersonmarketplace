@@ -17,10 +17,10 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  // Get vendor profile
+  // Get vendor profile with rating info
   const { data: vendor, error } = await supabase
     .from('vendor_profiles')
-    .select('*')
+    .select('*, average_rating, rating_count')
     .eq('id', vendorId)
     .eq('vertical_id', vertical)
     .eq('status', 'approved')
@@ -36,6 +36,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   const vendorDescription = vendor.description as string | null
   const vendorImageUrl = vendor.profile_image_url as string | null
   const socialLinks = vendor.social_links as Record<string, string> | null
+  const averageRating = vendor.average_rating as number | null
+  const ratingCount = vendor.rating_count as number | null
 
   // Get vendor_type from profile (could be array or string)
   const profileTypes = profileData?.vendor_type
@@ -212,6 +214,32 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 </h1>
                 {vendorTier !== 'standard' && (
                   <TierBadge tier={vendorTier} size="lg" />
+                )}
+                {/* Rating Display */}
+                {averageRating && ratingCount && ratingCount > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '4px 10px',
+                    backgroundColor: '#fef3c7',
+                    borderRadius: 16
+                  }}>
+                    <span style={{ fontSize: 16 }}>⭐</span>
+                    <span style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: '#92400e'
+                    }}>
+                      {averageRating.toFixed(1)}
+                    </span>
+                    <span style={{
+                      fontSize: 12,
+                      color: '#b45309'
+                    }}>
+                      ({ratingCount})
+                    </span>
+                  </div>
                 )}
               </div>
 

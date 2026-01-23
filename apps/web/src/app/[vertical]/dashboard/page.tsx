@@ -7,6 +7,7 @@ import { colors, spacing, typography, radius, shadows, containers } from '@/lib/
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import FeedbackCard from '@/components/buyer/FeedbackCard'
 import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
+import RateOrderCard from '@/components/buyer/RateOrderCard'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -321,6 +322,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           </div>
         )}
 
+        {/* Rate Recent Order Card */}
+        <RateOrderCard vertical={vertical} />
+
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
@@ -532,45 +536,85 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               <span>🏪</span> Vendor
             </h2>
 
-            {/* Greyed-out Vendor Dashboard Placeholder */}
+            {/* Vendor Signup Card - Encouraging */}
             <div style={{
               padding: spacing.lg,
-              backgroundColor: colors.surfaceMuted,
-              border: `1px dashed ${colors.border}`,
-              borderRadius: radius.md,
-              textAlign: 'center',
-              opacity: 0.7
+              backgroundColor: colors.surfaceElevated,
+              border: `2px dashed ${colors.accent}`,
+              borderRadius: radius.lg,
             }}>
-              <h3 style={{
-                margin: `0 0 ${spacing.md}`,
-                fontSize: typography.sizes.lg,
-                fontWeight: typography.weights.semibold,
-                color: colors.textMuted
+              <div style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: spacing.md,
+                flexWrap: 'wrap'
               }}>
-                Vendor Dashboard
-              </h3>
-              <p style={{
-                margin: `0 0 ${spacing.md}`,
-                fontSize: typography.sizes.base,
-                color: colors.textMuted
-              }}>
-                Ready to start selling?
-              </p>
-              <Link
-                href={`/${vertical}/vendor-signup`}
-                style={{
-                  display: 'inline-block',
-                  padding: `${spacing.xs} ${spacing.md}`,
-                  backgroundColor: colors.primary,
-                  color: colors.textInverse,
-                  textDecoration: 'none',
-                  borderRadius: radius.md,
-                  fontWeight: typography.weights.semibold,
-                  fontSize: typography.sizes.sm
-                }}
-              >
-                Become a Vendor
-              </Link>
+                <div style={{ flex: 1, minWidth: 250 }}>
+                  <h3 style={{
+                    margin: `0 0 ${spacing.xs}`,
+                    fontSize: typography.sizes.xl,
+                    fontWeight: typography.weights.bold,
+                    color: colors.accent
+                  }}>
+                    Turn Your Passion Into Profit
+                  </h3>
+                  <p style={{
+                    margin: `0 0 ${spacing.sm}`,
+                    fontSize: typography.sizes.base,
+                    color: colors.textSecondary
+                  }}>
+                    Join local vendors already selling on our platform. Easy setup, flexible schedule, direct connection to customers.
+                  </p>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: spacing['2xs'],
+                    marginBottom: spacing.md
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                      <span style={{ color: colors.accent }}>✓</span>
+                      <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                        Sell your homemade baked goods, garden produce, or handcrafted items
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                      <span style={{ color: colors.accent }}>✓</span>
+                      <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                        Set your own prices and availability
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                      <span style={{ color: colors.accent }}>✓</span>
+                      <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                        Get paid directly - no complicated setup
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                      <span style={{ color: colors.accent }}>✓</span>
+                      <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                        Start selling in minutes
+                      </span>
+                    </div>
+                  </div>
+
+                  <Link
+                    href={`/${vertical}/vendor-signup`}
+                    style={{
+                      display: 'inline-block',
+                      padding: `${spacing.sm} ${spacing.lg}`,
+                      backgroundColor: colors.accent,
+                      color: colors.textInverse,
+                      textDecoration: 'none',
+                      borderRadius: radius.md,
+                      fontWeight: typography.weights.semibold,
+                      fontSize: typography.sizes.base
+                    }}
+                  >
+                    Become a Vendor →
+                  </Link>
+                </div>
+              </div>
             </div>
           </section>
         </>
@@ -809,29 +853,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               Manage vendors, listings, and users
             </p>
           </Link>
-        </section>
-      )}
-
-      {/* ========== BECOME A VENDOR (small, at bottom) ========== */}
-      {!isVendor && (
-        <section style={{
-          borderTop: `1px solid ${colors.border}`,
-          paddingTop: spacing.md,
-          marginTop: spacing.md
-        }}>
-          <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-            Interested in selling?{' '}
-            <Link
-              href={`/${vertical}/vendor-signup`}
-              style={{
-                color: colors.primary,
-                textDecoration: 'none',
-                fontWeight: typography.weights.medium
-              }}
-            >
-              Become a vendor →
-            </Link>
-          </p>
         </section>
       )}
 

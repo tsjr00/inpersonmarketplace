@@ -119,14 +119,20 @@ export default function BuyerOrderDetailPage() {
     }
   }
 
-  const handleCancelItem = async (itemId: string) => {
+  const handleCancelItem = async (itemId: string, itemStatus: string) => {
+    const isConfirmed = ['confirmed', 'ready'].includes(itemStatus)
+
     const reason = prompt('Why do you want to cancel this item? (optional)')
     if (reason === null) {
       // User clicked Cancel on prompt
       return
     }
 
-    if (!confirm('Are you sure you want to cancel this item? You will receive a refund.')) {
+    const confirmMessage = isConfirmed
+      ? 'This order has been confirmed by the vendor. A cancellation fee of up to 50% may apply. Are you sure you want to cancel?'
+      : 'Are you sure you want to cancel this item? You will receive a full refund.'
+
+    if (!confirm(confirmMessage)) {
       return
     }
 
@@ -138,9 +144,15 @@ export default function BuyerOrderDetailPage() {
         body: JSON.stringify({ reason })
       })
 
+      const data = await res.json()
+
       if (!res.ok) {
-        const data = await res.json()
         throw new Error(data.error || 'Failed to cancel item')
+      }
+
+      // Show result message
+      if (data.cancellation_fee_applied) {
+        alert(`Item cancelled. A cancellation fee was applied. Refund amount: $${(data.refund_amount_cents / 100).toFixed(2)}`)
       }
 
       // Refresh order to get updated status
@@ -442,27 +454,40 @@ export default function BuyerOrderDetailPage() {
                           </button>
                         )}
 
-                        {/* Cancel Button - show when pending/paid (before vendor confirms) */}
-                        {['pending', 'paid'].includes(item.status) && !item.cancelled_at && (
-                          <button
-                            onClick={() => handleCancelItem(item.id)}
-                            disabled={cancellingItemId === item.id}
-                            style={{
-                              padding: `${spacing['2xs']} ${spacing.sm}`,
-                              backgroundColor: cancellingItemId === item.id ? colors.textMuted : '#dc2626',
-                              color: colors.textInverse,
-                              border: 'none',
-                              borderRadius: radius.sm,
-                              fontSize: typography.sizes.sm,
-                              fontWeight: typography.weights.semibold,
-                              cursor: cancellingItemId === item.id ? 'not-allowed' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: spacing['3xs']
-                            }}
-                          >
-                            {cancellingItemId === item.id ? 'Cancelling...' : 'Cancel Item'}
-                          </button>
+                        {/* Cancel Button - show for pending/paid (free cancel) and confirmed/ready (with fee) */}
+                        {!['completed', 'fulfilled', 'cancelled'].includes(order.status) &&
+                         ['pending', 'paid', 'confirmed', 'ready'].includes(item.status) &&
+                         !item.cancelled_at && (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: spacing['3xs'] }}>
+                            <button
+                              onClick={() => handleCancelItem(item.id, item.status)}
+                              disabled={cancellingItemId === item.id}
+                              style={{
+                                padding: `${spacing['2xs']} ${spacing.sm}`,
+                                backgroundColor: cancellingItemId === item.id ? colors.textMuted : '#dc2626',
+                                color: colors.textInverse,
+                                border: 'none',
+                                borderRadius: radius.sm,
+                                fontSize: typography.sizes.sm,
+                                fontWeight: typography.weights.semibold,
+                                cursor: cancellingItemId === item.id ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: spacing['3xs']
+                              }}
+                            >
+                              {cancellingItemId === item.id ? 'Cancelling...' : 'Cancel Item'}
+                            </button>
+                            {['confirmed', 'ready'].includes(item.status) && (
+                              <span style={{
+                                fontSize: typography.sizes.xs,
+                                color: '#991b1b',
+                                fontStyle: 'italic'
+                              }}>
+                                Cancellation fee may apply
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
