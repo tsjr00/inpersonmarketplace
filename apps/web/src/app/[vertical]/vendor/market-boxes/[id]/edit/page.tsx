@@ -22,6 +22,8 @@ interface MarketBoxOffering {
   name: string
   description: string | null
   price_cents: number
+  price_4week_cents: number
+  price_8week_cents: number | null
   pickup_market_id: string
   pickup_day_of_week: number
   pickup_start_time: string
@@ -56,7 +58,9 @@ export default function EditMarketBoxPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price_dollars: '',
+    price_4week_dollars: '',
+    offer_8week: false,
+    price_8week_dollars: '',
     pickup_market_id: '',
     pickup_day_of_week: '',
     pickup_start_time: '08:00',
@@ -85,10 +89,13 @@ export default function EditMarketBoxPage() {
 
     const o = data.offering
     setOffering(o)
+    const price4Week = o.price_4week_cents || o.price_cents
     setFormData({
       name: o.name,
       description: o.description || '',
-      price_dollars: (o.price_cents / 100).toFixed(2),
+      price_4week_dollars: (price4Week / 100).toFixed(2),
+      offer_8week: !!o.price_8week_cents,
+      price_8week_dollars: o.price_8week_cents ? (o.price_8week_cents / 100).toFixed(2) : '',
       pickup_market_id: o.pickup_market_id,
       pickup_day_of_week: String(o.pickup_day_of_week),
       pickup_start_time: o.pickup_start_time.slice(0, 5),
@@ -108,10 +115,18 @@ export default function EditMarketBoxPage() {
     setError(null)
 
     try {
-      const priceCents = Math.round(parseFloat(formData.price_dollars) * 100)
+      const price4WeekCents = Math.round(parseFloat(formData.price_4week_dollars) * 100)
 
-      if (isNaN(priceCents) || priceCents <= 0) {
-        throw new Error('Please enter a valid price')
+      if (isNaN(price4WeekCents) || price4WeekCents <= 0) {
+        throw new Error('Please enter a valid 1-month price')
+      }
+
+      let price8WeekCents: number | null = null
+      if (formData.offer_8week) {
+        price8WeekCents = Math.round(parseFloat(formData.price_8week_dollars) * 100)
+        if (isNaN(price8WeekCents) || price8WeekCents <= 0) {
+          throw new Error('Please enter a valid 2-month price')
+        }
       }
 
       const res = await fetch(`/api/vendor/market-boxes/${offeringId}`, {
@@ -120,7 +135,8 @@ export default function EditMarketBoxPage() {
         body: JSON.stringify({
           name: formData.name,
           description: formData.description || null,
-          price_cents: priceCents,
+          price_4week_cents: price4WeekCents,
+          price_8week_cents: price8WeekCents,
           pickup_market_id: formData.pickup_market_id,
           pickup_day_of_week: parseInt(formData.pickup_day_of_week),
           pickup_start_time: formData.pickup_start_time,
@@ -268,10 +284,10 @@ export default function EditMarketBoxPage() {
               />
             </div>
 
-            {/* Price */}
+            {/* 4-Week Price */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
-                Total Price (for all 4 weeks) *
+                1-Month Price (4 weeks) *
               </label>
               <div style={{ position: 'relative' }}>
                 <span style={{
@@ -285,8 +301,8 @@ export default function EditMarketBoxPage() {
                   type="number"
                   step="0.01"
                   min="1"
-                  value={formData.price_dollars}
-                  onChange={(e) => setFormData({ ...formData, price_dollars: e.target.value })}
+                  value={formData.price_4week_dollars}
+                  onChange={(e) => setFormData({ ...formData, price_4week_dollars: e.target.value })}
                   placeholder="100.00"
                   required
                   style={{
@@ -299,6 +315,62 @@ export default function EditMarketBoxPage() {
                   }}
                 />
               </div>
+              <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                Total charged for 4 weekly pickups
+              </p>
+            </div>
+
+            {/* 8-Week Price Option */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.offer_8week}
+                  onChange={(e) => setFormData({ ...formData, offer_8week: e.target.checked })}
+                  style={{ width: 18, height: 18 }}
+                />
+                <span style={{ fontWeight: 500, color: '#374151' }}>
+                  Also offer 2-month (8 week) option
+                </span>
+              </label>
+              {formData.offer_8week && (
+                <div style={{ marginTop: 12, paddingLeft: 26 }}>
+                  <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
+                    2-Month Price (8 weeks) *
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#6b7280'
+                    }}>$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={formData.price_8week_dollars}
+                      onChange={(e) => setFormData({ ...formData, price_8week_dollars: e.target.value })}
+                      placeholder="180.00"
+                      required={formData.offer_8week}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px 10px 28px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  {formData.price_4week_dollars && (
+                    <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                      Suggested: ${(parseFloat(formData.price_4week_dollars) * 2 * 0.9).toFixed(2)} (10% discount)
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Pickup Location */}

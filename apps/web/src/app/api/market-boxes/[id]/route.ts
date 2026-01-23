@@ -28,6 +28,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       description,
       image_urls,
       price_cents,
+      price_4week_cents,
+      price_8week_cents,
       pickup_market_id,
       pickup_day_of_week,
       pickup_start_time,
@@ -139,13 +141,46 @@ export async function GET(request: NextRequest, context: RouteContext) {
   nextStartDate.setDate(today.getDate() + daysUntilPickup)
   const nextStartDateStr = nextStartDate.toISOString().split('T')[0]
 
+  // Build available terms
+  const price4Week = offering.price_4week_cents || offering.price_cents
+  const price8Week = offering.price_8week_cents
+
+  const availableTerms = [
+    {
+      weeks: 4,
+      label: '1 Month',
+      price_cents: price4Week,
+      price_per_week_cents: Math.round(price4Week / 4),
+      savings_cents: 0,
+      savings_percent: 0,
+    }
+  ]
+
+  if (price8Week) {
+    // Calculate savings vs buying 2x 4-week terms
+    const twoTermPrice = price4Week * 2
+    const savingsCents = twoTermPrice - price8Week
+    const savingsPercent = Math.round((savingsCents / twoTermPrice) * 100)
+
+    availableTerms.push({
+      weeks: 8,
+      label: '2 Months',
+      price_cents: price8Week,
+      price_per_week_cents: Math.round(price8Week / 8),
+      savings_cents: savingsCents,
+      savings_percent: savingsPercent,
+    })
+  }
+
   return NextResponse.json({
     offering: {
       id: offering.id,
       name: offering.name,
       description: offering.description,
       image_urls: offering.image_urls,
-      price_cents: offering.price_cents,
+      price_cents: price4Week,
+      price_4week_cents: price4Week,
+      price_8week_cents: price8Week,
       pickup_day_of_week: offering.pickup_day_of_week,
       pickup_start_time: offering.pickup_start_time,
       pickup_end_time: offering.pickup_end_time,
@@ -165,12 +200,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
       max_subscribers: maxSubscribers,
       spots_remaining: maxSubscribers === null ? null : Math.max(0, maxSubscribers - activeSubscribers),
     },
+    available_terms: availableTerms,
     purchase: {
       can_purchase: canPurchase,
       block_reason: purchaseBlockReason,
       next_start_date: nextStartDateStr,
       weeks: 4,
-      total_price_cents: offering.price_cents,
+      total_price_cents: price4Week,
     },
   })
 }

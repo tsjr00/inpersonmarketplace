@@ -50,8 +50,13 @@ interface Pickup {
   missed_at: string | null
   rescheduled_to: string | null
   vendor_notes: string | null
+  is_extension: boolean
+  skipped_by_vendor_at: string | null
+  skip_reason: string | null
   subscription: {
     id: string
+    term_weeks: number
+    extended_weeks: number
     buyer: {
       display_name: string
       email: string
@@ -77,6 +82,9 @@ export default function VendorMarketBoxDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'subscribers' | 'pickups'>('overview')
   const [updatingPickup, setUpdatingPickup] = useState<string | null>(null)
+  const [skipModalPickup, setSkipModalPickup] = useState<Pickup | null>(null)
+  const [skipReason, setSkipReason] = useState('')
+  const [skipping, setSkipping] = useState(false)
 
   const fetchOffering = useCallback(async () => {
     try {
@@ -139,6 +147,31 @@ export default function VendorMarketBoxDetailPage() {
     }
   }
 
+  const handleSkipWeek = async () => {
+    if (!skipModalPickup) return
+    setSkipping(true)
+    try {
+      const res = await fetch(`/api/vendor/market-boxes/pickups/${skipModalPickup.id}/skip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: skipReason || null }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to skip week')
+      }
+
+      setSkipModalPickup(null)
+      setSkipReason('')
+      fetchPickups()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to skip week')
+    } finally {
+      setSkipping(false)
+    }
+  }
+
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -169,6 +202,7 @@ export default function VendorMarketBoxDetailPage() {
       case 'picked_up': return { bg: '#dcfce7', text: '#166534' }
       case 'missed': return { bg: '#fee2e2', text: '#991b1b' }
       case 'rescheduled': return { bg: '#f3e8ff', text: '#6b21a8' }
+      case 'skipped': return { bg: '#f3f4f6', text: '#6b7280' }
       default: return { bg: '#f3f4f6', text: '#374151' }
     }
   }
@@ -441,7 +475,7 @@ export default function VendorMarketBoxDetailPage() {
                         backgroundColor: 'white',
                         border: `1px solid ${isToday ? branding.colors.primary : '#e5e7eb'}`,
                         borderRadius: 8,
-                        opacity: pickup.status === 'picked_up' || pickup.status === 'missed' ? 0.7 : 1
+                        opacity: pickup.status === 'picked_up' || pickup.status === 'missed' || pickup.status === 'skipped' ? 0.7 : 1
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
@@ -475,11 +509,29 @@ export default function VendorMarketBoxDetailPage() {
                             </span>
                           </div>
                           <div style={{ fontSize: 13, color: '#6b7280' }}>
-                            Week {pickup.week_number} • {pickup.subscription.buyer.display_name}
+                            Week {pickup.week_number} of {(pickup.subscription.term_weeks || 4) + (pickup.subscription.extended_weeks || 0)} • {pickup.subscription.buyer.display_name}
+                            {pickup.is_extension && (
+                              <span style={{
+                                marginLeft: 8,
+                                padding: '2px 6px',
+                                backgroundColor: '#e0e7ff',
+                                color: '#3730a3',
+                                borderRadius: 4,
+                                fontSize: 10,
+                                fontWeight: 600
+                              }}>
+                                EXTENSION
+                              </span>
+                            )}
                           </div>
                           {pickup.rescheduled_to && (
                             <div style={{ fontSize: 13, color: '#6b21a8', marginTop: 4 }}>
                               Rescheduled to {formatDate(pickup.rescheduled_to)}
+                            </div>
+                          )}
+                          {pickup.status === 'skipped' && pickup.skip_reason && (
+                            <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontStyle: 'italic' }}>
+                              Skip reason: {pickup.skip_reason}
                             </div>
                           )}
                         </div>
@@ -520,6 +572,23 @@ export default function VendorMarketBoxDetailPage() {
                                 >
                                   Picked Up
                                 </button>
+                                {!pickup.is_extension && (
+                                  <button
+                                    onClick={() => setSkipModalPickup(pickup)}
+                                    disabled={updatingPickup === pickup.id}
+                                    style={{
+                                      padding: '6px 12px',
+                                      backgroundColor: '#f3f4f6',
+                                      color: '#374151',
+                                      border: '1px solid #d1d5db',
+                                      borderRadius: 4,
+                                      fontSize: 13,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Skip Week
+                                  </button>
+                                )}
                                 {isPast && (
                                   <button
                                     onClick={() => handlePickupAction(pickup.id, 'missed')}
@@ -547,6 +616,96 @@ export default function VendorMarketBoxDetailPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Skip Week Modal */}
+        {skipModalPickup && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 16
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: 12,
+              padding: 24,
+              maxWidth: 400,
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>Skip This Week?</h3>
+              <p style={{ color: '#6b7280', margin: '0 0 16px 0', fontSize: 14 }}>
+                Skipping Week {skipModalPickup.week_number} for {skipModalPickup.subscription.buyer.display_name} will:
+              </p>
+              <ul style={{ color: '#6b7280', fontSize: 14, margin: '0 0 16px 0', paddingLeft: 20 }}>
+                <li>Mark this pickup as skipped</li>
+                <li>Add an extra week to the end of their subscription</li>
+                <li>The subscriber will be notified</li>
+              </ul>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151', fontSize: 14 }}>
+                  Reason (optional)
+                </label>
+                <input
+                  type="text"
+                  value={skipReason}
+                  onChange={(e) => setSkipReason(e.target.value)}
+                  placeholder="e.g., Weather delay, crop shortage..."
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { setSkipModalPickup(null); setSkipReason('') }}
+                  disabled={skipping}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSkipWeek}
+                  disabled={skipping}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: skipping ? '#9ca3af' : branding.colors.primary,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: skipping ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {skipping ? 'Skipping...' : 'Skip Week'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

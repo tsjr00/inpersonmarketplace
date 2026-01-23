@@ -5,12 +5,23 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 
+interface AvailableTerm {
+  weeks: number
+  label: string
+  price_cents: number
+  price_per_week_cents: number
+  savings_cents: number
+  savings_percent: number
+}
+
 interface MarketBoxData {
   offering: {
     id: string
     name: string
     description: string | null
     price_cents: number
+    price_4week_cents?: number
+    price_8week_cents?: number | null
     pickup_day_of_week: number
     pickup_start_time: string
     pickup_end_time: string
@@ -36,6 +47,7 @@ interface MarketBoxData {
     max_subscribers: number | null
     spots_remaining: number | null
   }
+  available_terms: AvailableTerm[]
   purchase: {
     can_purchase: boolean
     block_reason: string | null
@@ -58,6 +70,7 @@ export default function MarketBoxDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [subscribing, setSubscribing] = useState(false)
+  const [selectedTermWeeks, setSelectedTermWeeks] = useState<number>(4)
 
   const fetchOffering = useCallback(async () => {
     try {
@@ -88,7 +101,10 @@ export default function MarketBoxDetailPage() {
       const res = await fetch('/api/buyer/market-boxes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ offering_id: offeringId }),
+        body: JSON.stringify({
+          offering_id: offeringId,
+          term_weeks: selectedTermWeeks,
+        }),
       })
 
       const data = await res.json()
@@ -170,8 +186,10 @@ export default function MarketBoxDetailPage() {
     )
   }
 
-  const { offering, vendor, market, availability, purchase } = data
+  const { offering, vendor, market, availability, available_terms, purchase } = data
   const isAtCapacity = !availability.is_available
+  const hasMultipleTerms = available_terms && available_terms.length > 1
+  const selectedTerm = available_terms?.find(t => t.weeks === selectedTermWeeks) || available_terms?.[0]
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
@@ -211,7 +229,7 @@ export default function MarketBoxDetailPage() {
                 fontSize: 12,
                 fontWeight: 600
               }}>
-                4-Week Subscription
+                Weekly Subscription
               </span>
               {isAtCapacity && (
                 <span style={{
@@ -232,12 +250,66 @@ export default function MarketBoxDetailPage() {
             <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
               by {vendor.name}
             </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: branding.colors.primary }}>
-              {formatPrice(offering.price_cents)}
-            </div>
-            <div style={{ fontSize: 14, color: '#6b7280' }}>
-              for 4 weeks ({formatPrice(offering.price_cents / 4)}/week)
-            </div>
+
+            {/* Term Selection */}
+            {hasMultipleTerms ? (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 12 }}>
+                  Choose your subscription length:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                  {available_terms.map(term => (
+                    <button
+                      key={term.weeks}
+                      onClick={() => setSelectedTermWeeks(term.weeks)}
+                      style={{
+                        padding: 16,
+                        backgroundColor: selectedTermWeeks === term.weeks ? '#eff6ff' : 'white',
+                        border: `2px solid ${selectedTermWeeks === term.weeks ? branding.colors.primary : '#e5e7eb'}`,
+                        borderRadius: 12,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        position: 'relative'
+                      }}
+                    >
+                      {term.savings_cents > 0 && (
+                        <span style={{
+                          position: 'absolute',
+                          top: -8,
+                          right: 8,
+                          padding: '2px 8px',
+                          backgroundColor: '#dcfce7',
+                          color: '#166534',
+                          borderRadius: 12,
+                          fontSize: 11,
+                          fontWeight: 600
+                        }}>
+                          Save {formatPrice(term.savings_cents)}
+                        </span>
+                      )}
+                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 16 }}>
+                        {term.label}
+                      </div>
+                      <div style={{ fontWeight: 700, color: branding.colors.primary, fontSize: 24, marginTop: 4 }}>
+                        {formatPrice(term.price_cents)}
+                      </div>
+                      <div style={{ fontSize: 13, color: '#6b7280' }}>
+                        {formatPrice(term.price_per_week_cents)}/week
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 32, fontWeight: 700, color: branding.colors.primary }}>
+                  {formatPrice(selectedTerm?.price_cents || offering.price_cents)}
+                </div>
+                <div style={{ fontSize: 14, color: '#6b7280' }}>
+                  for 4 weeks ({formatPrice((selectedTerm?.price_cents || offering.price_cents) / 4)}/week)
+                </div>
+              </>
+            )}
           </div>
 
           {/* Description */}
@@ -312,10 +384,11 @@ export default function MarketBoxDetailPage() {
           }}>
             <h3 style={{ margin: '0 0 16px 0', color: '#1e40af', fontSize: 16 }}>How It Works</h3>
             <ol style={{ margin: 0, paddingLeft: 20, color: '#1e40af', fontSize: 14, lineHeight: 1.8 }}>
-              <li>Pay the full amount today ({formatPrice(offering.price_cents)})</li>
+              <li>Pay the full amount today ({formatPrice(selectedTerm?.price_cents || offering.price_cents)})</li>
               <li>Pick up your first box on {getNextPickupDate(offering.pickup_day_of_week)}</li>
-              <li>Return every {DAYS[offering.pickup_day_of_week]} for 4 consecutive weeks</li>
+              <li>Return every {DAYS[offering.pickup_day_of_week]} for {selectedTermWeeks} consecutive weeks</li>
               <li>Each pickup contains fresh products from {vendor.name}</li>
+              <li style={{ color: '#059669' }}>If vendor needs to skip a week (weather, etc.), your subscription extends automatically</li>
             </ol>
           </div>
 
@@ -363,11 +436,11 @@ export default function MarketBoxDetailPage() {
                 cursor: subscribing || !purchase.can_purchase ? 'not-allowed' : 'pointer'
               }}
             >
-              {subscribing ? 'Processing...' : `Subscribe for ${formatPrice(offering.price_cents)}`}
+              {subscribing ? 'Processing...' : `Subscribe for ${formatPrice(selectedTerm?.price_cents || offering.price_cents)}`}
             </button>
 
             <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: '#6b7280' }}>
-              Premium membership required. You&apos;ll be charged the full amount today.
+              Premium membership required. You&apos;ll be charged the full amount today for {selectedTermWeeks} weeks.
             </p>
           </div>
         </div>

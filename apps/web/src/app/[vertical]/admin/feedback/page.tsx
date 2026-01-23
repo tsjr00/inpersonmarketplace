@@ -88,15 +88,22 @@ export default function AdminFeedbackPage() {
 
   const fetchFeedback = async () => {
     setLoading(true)
+    console.log('[Admin Feedback] Fetching feedback for:', { vertical, feedbackSource })
     try {
-      const res = await fetch(`/api/admin/feedback?vertical=${vertical}&source=${feedbackSource}`)
+      const url = `/api/admin/feedback?vertical=${vertical}&source=${feedbackSource}`
+      console.log('[Admin Feedback] Calling:', url)
+      const res = await fetch(url)
+      console.log('[Admin Feedback] Response status:', res.status)
+      const data = await res.json()
+      console.log('[Admin Feedback] Response data:', data)
       if (res.ok) {
-        const data = await res.json()
         setFeedback(data.feedback || [])
         setCounts(data.counts || { new: 0, in_review: 0, resolved: 0, closed: 0, total: 0 })
+      } else {
+        console.error('[Admin Feedback] API error:', data.error)
       }
     } catch (error) {
-      console.error('Error fetching feedback:', error)
+      console.error('[Admin Feedback] Fetch error:', error)
     } finally {
       setLoading(false)
     }

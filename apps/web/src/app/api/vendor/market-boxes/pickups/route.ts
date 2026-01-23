@@ -73,10 +73,15 @@ export async function GET(request: NextRequest) {
       missed_at,
       rescheduled_to,
       vendor_notes,
+      is_extension,
+      skipped_by_vendor_at,
+      skip_reason,
       subscription:market_box_subscriptions (
         id,
         start_date,
         status,
+        term_weeks,
+        extended_weeks,
         buyer:user_profiles!market_box_subscriptions_buyer_user_id_fkey (
           display_name,
           email

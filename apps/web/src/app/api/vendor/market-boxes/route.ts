@@ -46,6 +46,8 @@ export async function GET() {
       description,
       image_urls,
       price_cents,
+      price_4week_cents,
+      price_8week_cents,
       pickup_market_id,
       pickup_day_of_week,
       pickup_start_time,
@@ -164,7 +166,9 @@ export async function POST(request: NextRequest) {
     name,
     description,
     image_urls,
-    price_cents,
+    price_cents,  // Legacy field - still accepted for backward compatibility
+    price_4week_cents,
+    price_8week_cents,
     pickup_market_id,
     pickup_day_of_week,
     pickup_start_time,
@@ -172,11 +176,22 @@ export async function POST(request: NextRequest) {
     max_subscribers,
   } = body
 
+  // Support both old (price_cents) and new (price_4week_cents) field names
+  const finalPrice4Week = price_4week_cents ?? price_cents
+
   // Validate required fields
-  if (!name || !price_cents || !pickup_market_id || pickup_day_of_week === undefined || !pickup_start_time || !pickup_end_time) {
+  if (!name || !finalPrice4Week || !pickup_market_id || pickup_day_of_week === undefined || !pickup_start_time || !pickup_end_time) {
     return NextResponse.json({
-      error: 'Missing required fields: name, price_cents, pickup_market_id, pickup_day_of_week, pickup_start_time, pickup_end_time',
+      error: 'Missing required fields: name, price_4week_cents (or price_cents), pickup_market_id, pickup_day_of_week, pickup_start_time, pickup_end_time',
     }, { status: 400 })
+  }
+
+  // Validate price values
+  if (finalPrice4Week < 100) {
+    return NextResponse.json({ error: '4-week price must be at least $1.00' }, { status: 400 })
+  }
+  if (price_8week_cents !== undefined && price_8week_cents !== null && price_8week_cents < 100) {
+    return NextResponse.json({ error: '8-week price must be at least $1.00' }, { status: 400 })
   }
 
   // Verify market exists and vendor has access
@@ -199,7 +214,9 @@ export async function POST(request: NextRequest) {
       name,
       description: description || null,
       image_urls: image_urls || [],
-      price_cents,
+      price_cents: finalPrice4Week,  // Legacy field for backward compatibility
+      price_4week_cents: finalPrice4Week,
+      price_8week_cents: price_8week_cents || null,
       pickup_market_id,
       pickup_day_of_week,
       pickup_start_time,

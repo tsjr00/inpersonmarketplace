@@ -43,7 +43,9 @@ export default function NewMarketBoxPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price_dollars: '',
+    price_4week_dollars: '',
+    offer_8week: false,
+    price_8week_dollars: '',
     pickup_market_id: '',
     pickup_day_of_week: '',
     pickup_start_time: '08:00',
@@ -86,10 +88,18 @@ export default function NewMarketBoxPage() {
     setError(null)
 
     try {
-      const priceCents = Math.round(parseFloat(formData.price_dollars) * 100)
+      const price4WeekCents = Math.round(parseFloat(formData.price_4week_dollars) * 100)
 
-      if (isNaN(priceCents) || priceCents <= 0) {
-        throw new Error('Please enter a valid price')
+      if (isNaN(price4WeekCents) || price4WeekCents <= 0) {
+        throw new Error('Please enter a valid 1-month price')
+      }
+
+      let price8WeekCents: number | null = null
+      if (formData.offer_8week) {
+        price8WeekCents = Math.round(parseFloat(formData.price_8week_dollars) * 100)
+        if (isNaN(price8WeekCents) || price8WeekCents <= 0) {
+          throw new Error('Please enter a valid 2-month price')
+        }
       }
 
       if (!formData.pickup_market_id) {
@@ -106,7 +116,8 @@ export default function NewMarketBoxPage() {
         body: JSON.stringify({
           name: formData.name,
           description: formData.description || null,
-          price_cents: priceCents,
+          price_4week_cents: price4WeekCents,
+          price_8week_cents: price8WeekCents,
           pickup_market_id: formData.pickup_market_id,
           pickup_day_of_week: parseInt(formData.pickup_day_of_week),
           pickup_start_time: formData.pickup_start_time,
@@ -153,7 +164,7 @@ export default function NewMarketBoxPage() {
             Create Market Box
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Set up a 4-week subscription bundle for premium buyers
+            Set up a weekly subscription bundle for premium buyers (1 or 2 month terms)
           </p>
         </div>
 
@@ -248,10 +259,10 @@ export default function NewMarketBoxPage() {
                 />
               </div>
 
-              {/* Price */}
+              {/* 1-Month Price */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
-                  Total Price (for all 4 weeks) *
+                  1-Month Price (4 weeks) *
                 </label>
                 <div style={{ position: 'relative' }}>
                   <span style={{
@@ -265,8 +276,8 @@ export default function NewMarketBoxPage() {
                     type="number"
                     step="0.01"
                     min="1"
-                    value={formData.price_dollars}
-                    onChange={(e) => setFormData({ ...formData, price_dollars: e.target.value })}
+                    value={formData.price_4week_dollars}
+                    onChange={(e) => setFormData({ ...formData, price_4week_dollars: e.target.value })}
                     placeholder="100.00"
                     required
                     style={{
@@ -280,8 +291,68 @@ export default function NewMarketBoxPage() {
                   />
                 </div>
                 <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                  This is the total amount the buyer pays upfront for 4 weekly pickups
+                  Total for 4 weekly pickups ({formData.price_4week_dollars ? `$${(parseFloat(formData.price_4week_dollars) / 4).toFixed(2)}/week` : '$0.00/week'})
                 </p>
+              </div>
+
+              {/* 2-Month Option */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  marginBottom: formData.offer_8week ? 12 : 0
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.offer_8week}
+                    onChange={(e) => setFormData({ ...formData, offer_8week: e.target.checked })}
+                    style={{ width: 18, height: 18, cursor: 'pointer' }}
+                  />
+                  <span style={{ fontWeight: 500, color: '#374151' }}>
+                    Also offer 2-month (8 weeks) option
+                  </span>
+                </label>
+
+                {formData.offer_8week && (
+                  <div style={{ marginLeft: 26 }}>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{
+                        position: 'absolute',
+                        left: 12,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#6b7280'
+                      }}>$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="1"
+                        value={formData.price_8week_dollars}
+                        onChange={(e) => setFormData({ ...formData, price_8week_dollars: e.target.value })}
+                        placeholder="180.00"
+                        required={formData.offer_8week}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px 10px 28px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: 6,
+                          fontSize: 14,
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                      Total for 8 weekly pickups ({formData.price_8week_dollars ? `$${(parseFloat(formData.price_8week_dollars) / 8).toFixed(2)}/week` : '$0.00/week'})
+                    </p>
+                    {formData.price_4week_dollars && (
+                      <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#059669' }}>
+                        Suggested: ${(parseFloat(formData.price_4week_dollars) * 1.8).toFixed(2)} (10% discount from 2x 1-month price)
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Pickup Location */}
@@ -398,10 +469,11 @@ export default function NewMarketBoxPage() {
               }}>
                 <h4 style={{ margin: '0 0 8px 0', color: '#1e40af', fontSize: 14 }}>How Market Boxes Work</h4>
                 <ul style={{ margin: 0, paddingLeft: 20, color: '#1e40af', fontSize: 13 }}>
+                  <li>Offer 1-month (4 weeks) or 2-month (8 weeks) subscriptions</li>
                   <li>Premium buyers pay the full price upfront</li>
-                  <li>They pick up one box each week for 4 consecutive weeks</li>
+                  <li>They pick up one box each week</li>
                   <li>Same day, time, and location every week</li>
-                  <li>You receive the full payment immediately</li>
+                  <li>If you need to skip a week (weather, etc.), their subscription extends automatically</li>
                 </ul>
               </div>
 

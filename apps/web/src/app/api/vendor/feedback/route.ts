@@ -66,6 +66,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to submit feedback' }, { status: 500 })
     }
 
+    console.log('[/api/vendor/feedback] Feedback submitted successfully:', {
+      id: feedback.id,
+      user_id: user.id,
+      vendor_profile_id: vendorProfile.id,
+      vertical_id: vertical,
+      category: feedback.category
+    })
+
     return NextResponse.json({
       success: true,
       feedback: {

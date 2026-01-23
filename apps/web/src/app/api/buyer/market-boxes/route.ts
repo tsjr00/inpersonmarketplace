@@ -28,6 +28,9 @@ export async function GET() {
       start_date,
       status,
       weeks_completed,
+      term_weeks,
+      extended_weeks,
+      original_end_date,
       created_at,
       completed_at,
       cancelled_at,
@@ -37,6 +40,8 @@ export async function GET() {
         description,
         image_urls,
         price_cents,
+        price_4week_cents,
+        price_8week_cents,
         pickup_day_of_week,
         pickup_start_time,
         pickup_end_time,
@@ -61,7 +66,10 @@ export async function GET() {
         ready_at,
         picked_up_at,
         missed_at,
-        rescheduled_to
+        rescheduled_to,
+        is_extension,
+        skipped_by_vendor_at,
+        skip_reason
       )
     `)
     .eq('buyer_user_id', user.id)
@@ -90,12 +98,20 @@ export async function GET() {
       p.scheduled_date >= today && ['scheduled', 'ready'].includes(p.status)
     )
 
+    const termWeeks = (sub as any).term_weeks || 4
+    const extendedWeeks = (sub as any).extended_weeks || 0
+    const totalWeeks = termWeeks + extendedWeeks
+
     return {
       id: sub.id,
       status: sub.status,
       total_paid_cents: sub.total_paid_cents,
       start_date: sub.start_date,
       weeks_completed: sub.weeks_completed,
+      term_weeks: termWeeks,
+      extended_weeks: extendedWeeks,
+      total_weeks: totalWeeks,
+      original_end_date: (sub as any).original_end_date,
       created_at: sub.created_at,
       completed_at: sub.completed_at,
       cancelled_at: sub.cancelled_at,
@@ -160,10 +176,15 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { offering_id, start_date } = body
+  const { offering_id, start_date, term_weeks = 4 } = body
 
   if (!offering_id) {
     return NextResponse.json({ error: 'offering_id is required' }, { status: 400 })
+  }
+
+  // Validate term_weeks
+  if (![4, 8].includes(term_weeks)) {
+    return NextResponse.json({ error: 'term_weeks must be 4 or 8' }, { status: 400 })
   }
 
   // Get offering
@@ -173,6 +194,8 @@ export async function POST(request: NextRequest) {
       id,
       name,
       price_cents,
+      price_4week_cents,
+      price_8week_cents,
       max_subscribers,
       active,
       pickup_day_of_week,
@@ -186,6 +209,19 @@ export async function POST(request: NextRequest) {
 
   if (!offering || !offering.active) {
     return NextResponse.json({ error: 'Offering not found or not available' }, { status: 404 })
+  }
+
+  // Validate term availability and get price
+  let priceCents: number
+  if (term_weeks === 8) {
+    if (!offering.price_8week_cents) {
+      return NextResponse.json({
+        error: 'This market box does not offer an 8-week subscription option'
+      }, { status: 400 })
+    }
+    priceCents = offering.price_8week_cents
+  } else {
+    priceCents = offering.price_4week_cents || offering.price_cents
   }
 
   // Check capacity
@@ -243,8 +279,9 @@ export async function POST(request: NextRequest) {
     .insert({
       offering_id,
       buyer_user_id: user.id,
-      total_paid_cents: offering.price_cents,
+      total_paid_cents: priceCents,
       start_date: subscriptionStartDate,
+      term_weeks,
       status: 'active',
       weeks_completed: 0,
     })

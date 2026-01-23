@@ -39,6 +39,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       description,
       image_urls,
       price_cents,
+      price_4week_cents,
+      price_8week_cents,
       pickup_market_id,
       pickup_day_of_week,
       pickup_start_time,
@@ -74,6 +76,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       start_date,
       status,
       weeks_completed,
+      term_weeks,
+      extended_weeks,
+      original_end_date,
       created_at,
       buyer:user_profiles!market_box_subscriptions_buyer_user_id_fkey (
         display_name,
@@ -88,7 +93,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         picked_up_at,
         missed_at,
         rescheduled_to,
-        vendor_notes
+        vendor_notes,
+        is_extension,
+        skipped_by_vendor_at,
+        skip_reason
       )
     `)
     .eq('offering_id', offeringId)
@@ -148,7 +156,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     name,
     description,
     image_urls,
-    price_cents,
+    price_cents,  // Legacy field
+    price_4week_cents,
+    price_8week_cents,
     pickup_market_id,
     pickup_day_of_week,
     pickup_start_time,
@@ -190,7 +200,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (name !== undefined) updates.name = name
   if (description !== undefined) updates.description = description
   if (image_urls !== undefined) updates.image_urls = image_urls
-  if (price_cents !== undefined) updates.price_cents = price_cents
+
+  // Handle pricing updates - support both old and new field names
+  if (price_4week_cents !== undefined) {
+    updates.price_4week_cents = price_4week_cents
+    updates.price_cents = price_4week_cents  // Keep legacy field in sync
+  } else if (price_cents !== undefined) {
+    updates.price_cents = price_cents
+    updates.price_4week_cents = price_cents  // Keep new field in sync
+  }
+
+  // 8-week price can be set to null to disable the option
+  if (price_8week_cents !== undefined) {
+    updates.price_8week_cents = price_8week_cents
+  }
+
   if (pickup_market_id !== undefined) updates.pickup_market_id = pickup_market_id
   if (pickup_day_of_week !== undefined) updates.pickup_day_of_week = pickup_day_of_week
   if (pickup_start_time !== undefined) updates.pickup_start_time = pickup_start_time

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 // GET - Get all feedback (admin only)
 // Supports both shopper and vendor feedback via 'source' param
 export async function GET(request: Request) {
+  console.log('[/api/admin/feedback] GET request received')
   try {
     const supabase = await createClient()
 
@@ -20,8 +21,18 @@ export async function GET(request: Request) {
       .single()
 
     if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
+      console.log('[/api/admin/feedback] Admin check failed:', { profileError, userProfile })
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
+
+    console.log('[/api/admin/feedback] Admin verified, user:', user.id)
+
+    // Use service client to bypass RLS for admin queries
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('[/api/admin/feedback] SUPABASE_SERVICE_ROLE_KEY not configured')
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+    const serviceClient = createServiceClient()
 
     const { searchParams } = new URL(request.url)
     const vertical = searchParams.get('vertical')
@@ -29,10 +40,13 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
     const source = searchParams.get('source') || 'shopper' // 'shopper' or 'vendor'
 
+    console.log('[/api/admin/feedback] Fetching feedback:', { vertical, category, status, source })
+
     // Choose table based on source
     const tableName = source === 'vendor' ? 'vendor_feedback' : 'shopper_feedback'
 
-    let query = supabase
+    // Use service client to bypass RLS - we've already verified admin access above
+    let query = serviceClient
       .from(tableName)
       .select('*')
       .order('created_at', { ascending: false })
@@ -54,12 +68,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch feedback' }, { status: 500 })
     }
 
+    console.log(`[/api/admin/feedback] Found ${(feedback || []).length} ${source} feedback items for vertical: ${vertical || 'all'}`)
+
     // Get user emails for feedback items
     const userIds = [...new Set((feedback || []).map(f => f.user_id))]
     let userMap: Record<string, string> = {}
 
     if (userIds.length > 0) {
-      const { data: users } = await supabase
+      const { data: users } = await serviceClient
         .from('user_profiles')
         .select('user_id, email')
         .in('user_id', userIds)
@@ -76,7 +92,7 @@ export async function GET(request: Request) {
     if (source === 'vendor') {
       const vendorProfileIds = [...new Set((feedback || []).map(f => f.vendor_profile_id).filter(Boolean))]
       if (vendorProfileIds.length > 0) {
-        const { data: vendors } = await supabase
+        const { data: vendors } = await serviceClient
           .from('vendor_profiles')
           .select('id, profile_data')
           .in('id', vendorProfileIds)
@@ -136,6 +152,13 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
+    // Use service client to bypass RLS for admin operations
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('[/api/admin/feedback] SUPABASE_SERVICE_ROLE_KEY not configured')
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+    const serviceClient = createServiceClient()
+
     const body = await request.json()
     const { id, status, admin_notes, source } = body
 
@@ -162,7 +185,7 @@ export async function PATCH(request: Request) {
       updateData.admin_notes = admin_notes
     }
 
-    const { data: feedback, error: updateError } = await supabase
+    const { data: feedback, error: updateError } = await serviceClient
       .from(tableName)
       .update(updateData)
       .eq('id', id)
