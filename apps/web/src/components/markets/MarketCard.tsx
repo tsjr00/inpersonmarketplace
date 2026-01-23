@@ -77,10 +77,11 @@ function formatTime(time24: string): string {
 }
 
 export default function MarketCard({ market, vertical }: MarketCardProps) {
-  const locationParts = [market.city, market.state].filter(Boolean)
-  const location = locationParts.join(', ')
-
-  const nextMarket = getNextMarketDate(market.schedules)
+  // Build full address: address, city, state
+  const addressParts = [market.address, market.city, market.state].filter(Boolean)
+  const fullAddress = addressParts.join(', ')
+  // Fallback to just city, state if no street address
+  const displayAddress = fullAddress || [market.city, market.state].filter(Boolean).join(', ')
 
   return (
     <Link
@@ -109,60 +110,77 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
           e.currentTarget.style.transform = 'translateY(0)'
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm, gap: spacing.xs }}>
-          <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary, flex: 1, minWidth: 0 }}>
-            {market.name}
-          </h3>
-          <span
-            style={{
-              padding: `${spacing['2xs']} ${spacing.xs}`,
-              borderRadius: radius.md,
-              fontSize: '10px',
-              fontWeight: typography.weights.bold,
-              backgroundColor: '#e8f5e9',
-              color: '#2e7d32',
-              textAlign: 'center',
-              lineHeight: 1.3,
-              flexShrink: 0,
-              whiteSpace: 'nowrap'
-            }}
-          >
-            Farmers<br />Market
-          </span>
-        </div>
+        {/* Header - Market name */}
+        <h3 style={{
+          margin: `0 0 ${spacing['2xs']} 0`,
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary
+        }}>
+          {market.name}
+        </h3>
 
-        {/* Next Market Date - Prominent */}
-        {nextMarket && (
+        {/* Address - Full address shown */}
+        {displayAddress && (
           <div style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: spacing.xs,
-            padding: `${spacing.xs} ${spacing.sm}`,
-            backgroundColor: colors.primaryLight,
-            borderRadius: radius.md,
-            marginBottom: spacing.sm
+            alignItems: 'flex-start',
+            gap: spacing['2xs'],
+            marginBottom: spacing.xs
           }}>
-            <span style={{ fontSize: typography.sizes.lg }}>📅</span>
-            <div>
-              <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.primaryDark }}>
-                {nextMarket.date.toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric'
-                })}
-              </div>
-              <div style={{ fontSize: typography.sizes.xs, color: colors.primary }}>
-                {formatTime(nextMarket.time)}
-              </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span style={{
+              fontSize: typography.sizes.sm,
+              color: colors.textMuted,
+              flex: 1
+            }}>
+              {displayAddress}
+            </span>
+            {market.distance_miles !== undefined && (
+              <span style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: colors.surfaceSubtle,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                color: colors.textMuted,
+                fontWeight: typography.weights.medium,
+                flexShrink: 0
+              }}>
+                {market.distance_miles.toFixed(1)} mi
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Schedule - Days & Hours (prominent) */}
+        {market.schedules && market.schedules.length > 0 && (
+          <div style={{
+            padding: `${spacing['2xs']} ${spacing.xs}`,
+            backgroundColor: colors.primaryLight,
+            borderRadius: radius.sm,
+            marginBottom: spacing.xs
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing['2xs'],
+              fontSize: typography.sizes.sm,
+              color: colors.primaryDark,
+              fontWeight: typography.weights.medium
+            }}>
+              <span>🕐</span>
+              <ScheduleDisplay schedules={market.schedules} compact />
             </div>
           </div>
         )}
 
-        {/* Description */}
+        {/* Description - Show if available, limit to 2 lines */}
         {market.description && (
           <p style={{
-            margin: `0 0 ${spacing.sm} 0`,
+            margin: `0 0 ${spacing.xs} 0`,
             fontSize: typography.sizes.sm,
             color: colors.textSecondary,
             lineHeight: typography.leading.relaxed,
@@ -177,43 +195,12 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
           </p>
         )}
 
-        {/* Location */}
-        {location && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing.sm }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>{location}</span>
-            {market.distance_miles !== undefined && (
-              <span style={{
-                marginLeft: 'auto',
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: colors.surfaceSubtle,
-                borderRadius: radius.sm,
-                fontSize: typography.sizes.xs,
-                color: colors.textMuted,
-                fontWeight: typography.weights.medium
-              }}>
-                {market.distance_miles.toFixed(1)} mi
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Schedule (compact) */}
-        {market.schedules && market.schedules.length > 0 && (
-          <div style={{ marginBottom: spacing.sm, fontSize: typography.sizes.sm }}>
-            <ScheduleDisplay schedules={market.schedules} compact />
-          </div>
-        )}
-
         {/* Footer stats */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          paddingTop: spacing.sm,
+          paddingTop: spacing.xs,
           borderTop: `1px solid ${colors.borderMuted}`,
           marginTop: 'auto'
         }}>

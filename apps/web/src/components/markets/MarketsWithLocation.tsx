@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import LocationPrompt from '@/components/location/LocationPrompt'
+import LocationSearchInline from '@/components/location/LocationSearchInline'
 import MarketCard from '@/components/markets/MarketCard'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -42,10 +42,9 @@ export default function MarketsWithLocation({
 }: MarketsWithLocationProps) {
   const [hasLocation, setHasLocation] = useState<boolean | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [locationText, setLocationText] = useState('')
   const [markets, setMarkets] = useState<Market[]>(initialMarkets)
   const [loading, setLoading] = useState(false)
-  const [showLocationPrompt, setShowLocationPrompt] = useState(false)
-  const [locationDismissed, setLocationDismissed] = useState(false)
 
   // Check for saved location on mount
   useEffect(() => {
@@ -70,11 +69,11 @@ export default function MarketsWithLocation({
       if (data.hasLocation) {
         setHasLocation(true)
         setUserLocation({ lat: data.latitude, lng: data.longitude })
+        setLocationText(data.locationText || 'Your location')
         // Fetch nearby markets
         fetchNearbyMarkets(data.latitude, data.longitude)
       } else {
         setHasLocation(false)
-        setShowLocationPrompt(true)
       }
     } catch (error) {
       console.error('Error checking location:', error)
@@ -122,95 +121,38 @@ export default function MarketsWithLocation({
     }
   }
 
-  const handleLocationSet = (lat: number, lng: number) => {
+  const handleLocationSet = async (lat: number, lng: number) => {
     setUserLocation({ lat, lng })
     setHasLocation(true)
-    setShowLocationPrompt(false)
+    // Get location text from API
+    try {
+      const response = await fetch('/api/buyer/location')
+      const data = await response.json()
+      setLocationText(data.locationText || 'Your location')
+    } catch {
+      setLocationText('Your location')
+    }
     fetchNearbyMarkets(lat, lng)
   }
 
-  const handleDismissLocationPrompt = () => {
-    setLocationDismissed(true)
-    setShowLocationPrompt(false)
+  const handleClearLocation = () => {
+    setHasLocation(false)
+    setUserLocation(null)
+    setLocationText('')
+    setMarkets(initialMarkets)
   }
 
   return (
     <div>
-      {/* Location Prompt - show if no location and not dismissed */}
-      {showLocationPrompt && !locationDismissed && (
-        <div style={{ marginBottom: spacing.md }}>
-          <LocationPrompt
-            onLocationSet={handleLocationSet}
-            onClose={handleDismissLocationPrompt}
-            showCloseButton={true}
-          />
-        </div>
-      )}
-
-      {/* Show button to set location if dismissed */}
-      {locationDismissed && !hasLocation && (
-        <div style={{
-          marginBottom: spacing.sm,
-          padding: `${spacing.sm} ${spacing.md}`,
-          backgroundColor: colors.surfaceMuted,
-          borderRadius: radius.md,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <span style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}>
-            Set your location to see markets within 25 miles
-          </span>
-          <button
-            onClick={() => { setShowLocationPrompt(true); setLocationDismissed(false); }}
-            style={{
-              padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: colors.primary,
-              color: colors.textInverse,
-              border: 'none',
-              borderRadius: radius.md,
-              fontSize: typography.sizes.sm,
-              fontWeight: typography.weights.medium,
-              cursor: 'pointer',
-              minHeight: 44
-            }}
-          >
-            Set Location
-          </button>
-        </div>
-      )}
-
-      {/* Location indicator when location is set */}
-      {hasLocation && userLocation && !showLocationPrompt && (
-        <div style={{
-          marginBottom: spacing.sm,
-          padding: `${spacing.sm} ${spacing.md}`,
-          backgroundColor: '#f0fdf4',
-          border: '1px solid #86efac',
-          borderRadius: radius.md,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <span style={{ color: '#166534', fontSize: typography.sizes.sm }}>
-            📍 Showing markets within 25 miles of your location
-          </span>
-          <button
-            onClick={() => setShowLocationPrompt(true)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#16a34a',
-              cursor: 'pointer',
-              fontSize: typography.sizes.sm,
-              textDecoration: 'underline',
-              minHeight: 44
-            }}
-          >
-            Change
-          </button>
-        </div>
-      )}
+      {/* Compact Inline Location Search */}
+      <div style={{ marginBottom: spacing.sm }}>
+        <LocationSearchInline
+          onLocationSet={handleLocationSet}
+          hasLocation={hasLocation || false}
+          locationText={locationText}
+          onClear={handleClearLocation}
+        />
+      </div>
 
       {/* Loading indicator */}
       {loading && (

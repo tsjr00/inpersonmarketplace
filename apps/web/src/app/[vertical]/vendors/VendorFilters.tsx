@@ -188,7 +188,6 @@ export default function VendorFilters({
           >
             <option value="rating">Top Rated</option>
             <option value="name">Name A-Z</option>
-            <option value="newest">Newest</option>
             <option value="listings">Most Listings</option>
           </select>
         </div>

@@ -455,9 +455,11 @@ export default function BuyerOrderDetailPage() {
                         )}
 
                         {/* Cancel Button - show for pending/paid (free cancel) and confirmed/ready (with fee) */}
-                        {!['completed', 'cancelled'].includes(order.status) &&
+                        {/* Not available for completed orders, fulfilled items, or after buyer confirms receipt */}
+                        {!['completed', 'cancelled', 'fulfilled'].includes(order.status) &&
                          ['pending', 'paid', 'confirmed', 'ready'].includes(item.status) &&
-                         !item.cancelled_at && (
+                         !item.cancelled_at &&
+                         !item.buyer_confirmed_at && (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: spacing['3xs'] }}>
                             <button
                               onClick={() => handleCancelItem(item.id, item.status)}
