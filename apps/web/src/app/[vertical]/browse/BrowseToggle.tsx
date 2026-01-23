@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { VerticalBranding } from '@/lib/branding'
 
 interface BrowseToggleProps {
@@ -15,13 +15,22 @@ export default function BrowseToggle({
   branding
 }: BrowseToggleProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const handleToggle = (view: 'listings' | 'market-boxes') => {
-    if (view === 'listings') {
-      router.push(`/${vertical}/browse`)
-    } else {
-      router.push(`/${vertical}/browse?view=market-boxes`)
+    const params = new URLSearchParams()
+
+    // Preserve zip parameter
+    const zip = searchParams.get('zip')
+    if (zip) params.set('zip', zip)
+
+    // Set view parameter for market-boxes
+    if (view === 'market-boxes') {
+      params.set('view', 'market-boxes')
     }
+
+    const queryString = params.toString()
+    router.push(`/${vertical}/browse${queryString ? '?' + queryString : ''}`)
   }
 
   return (

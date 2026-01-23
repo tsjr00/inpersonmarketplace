@@ -433,6 +433,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           categories={uniqueCategories as string[]}
           currentCategory={category}
           currentSearch={search}
+          currentZip={zip}
           branding={branding}
         />
 

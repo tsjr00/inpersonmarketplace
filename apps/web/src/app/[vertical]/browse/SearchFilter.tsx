@@ -9,6 +9,7 @@ interface SearchFilterProps {
   categories: string[]
   currentCategory?: string
   currentSearch?: string
+  currentZip?: string
   branding: VerticalBranding
 }
 
@@ -17,6 +18,7 @@ export default function SearchFilter({
   categories,
   currentCategory,
   currentSearch,
+  currentZip,
   branding
 }: SearchFilterProps) {
   const router = useRouter()
@@ -27,6 +29,7 @@ export default function SearchFilter({
     const params = new URLSearchParams()
     if (search) params.set('search', search)
     if (currentCategory) params.set('category', currentCategory)
+    if (currentZip) params.set('zip', currentZip)
     router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
   }
 
@@ -34,12 +37,16 @@ export default function SearchFilter({
     const params = new URLSearchParams()
     if (currentSearch) params.set('search', currentSearch)
     if (category) params.set('category', category)
+    if (currentZip) params.set('zip', currentZip)
     router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
   }
 
   const clearFilters = () => {
     setSearch('')
-    router.push(`/${vertical}/browse`)
+    // Preserve zip when clearing other filters
+    const params = new URLSearchParams()
+    if (currentZip) params.set('zip', currentZip)
+    router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
   }
 
   return (
