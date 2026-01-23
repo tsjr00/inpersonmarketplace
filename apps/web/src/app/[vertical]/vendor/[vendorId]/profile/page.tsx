@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { formatDisplayPrice, VendorTierType } from '@/lib/constants'
 import VendorAvatar from '@/components/shared/VendorAvatar'
 import TierBadge from '@/components/shared/TierBadge'
+import BackLink from '@/components/shared/BackLink'
 
 interface VendorProfilePageProps {
   params: Promise<{ vertical: string; vendorId: string }>
@@ -150,27 +151,21 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
       }}
       className="vendor-profile-page"
     >
-      {/* Back Link */}
+      {/* Back Link - uses browser history to go back to previous page */}
       <div style={{
         padding: '16px',
         borderBottom: '1px solid #eee',
         backgroundColor: 'white'
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <Link
-            href={`/${vertical}/browse`}
+          <BackLink
+            fallbackHref={`/${vertical}/browse`}
+            fallbackLabel="Back"
             style={{
               color: branding.colors.primary,
-              textDecoration: 'none',
-              fontSize: 14,
-              display: 'inline-flex',
-              alignItems: 'center',
-              minHeight: 44,
-              padding: '8px 0'
+              fontSize: 14
             }}
-          >
-            ← Back to Browse
-          </Link>
+          />
         </div>
       </div>
 
@@ -215,32 +210,76 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 {vendorTier !== 'standard' && (
                   <TierBadge tier={vendorTier} size="lg" />
                 )}
-                {/* Rating Display */}
-                {averageRating && ratingCount && ratingCount > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '4px 10px',
-                    backgroundColor: '#fef3c7',
-                    borderRadius: 16
-                  }}>
-                    <span style={{ fontSize: 16 }}>⭐</span>
-                    <span style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: '#92400e'
-                    }}>
-                      {averageRating.toFixed(1)}
-                    </span>
+                {/* Rating Display - Always show stars */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 10px',
+                  backgroundColor: ratingCount && ratingCount > 0 ? '#fef3c7' : '#f3f4f6',
+                  borderRadius: 16
+                }}>
+                  {/* 5 Star Display */}
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const rating = averageRating || 0
+                      const filled = star <= Math.floor(rating)
+                      const partial = star === Math.ceil(rating) && rating % 1 !== 0
+                      const fillPercent = partial ? (rating % 1) * 100 : 0
+
+                      return (
+                        <span
+                          key={star}
+                          style={{
+                            fontSize: 18,
+                            position: 'relative',
+                            color: filled ? '#f59e0b' : '#d1d5db'
+                          }}
+                        >
+                          {filled ? '★' : partial ? (
+                            <span style={{ position: 'relative' }}>
+                              <span style={{ color: '#d1d5db' }}>★</span>
+                              <span style={{
+                                position: 'absolute',
+                                left: 0,
+                                top: 0,
+                                overflow: 'hidden',
+                                width: `${fillPercent}%`,
+                                color: '#f59e0b'
+                              }}>★</span>
+                            </span>
+                          ) : '★'}
+                        </span>
+                      )
+                    })}
+                  </div>
+                  {ratingCount && ratingCount > 0 ? (
+                    <>
+                      <span style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: '#92400e',
+                        marginLeft: 4
+                      }}>
+                        {(averageRating || 0).toFixed(1)}
+                      </span>
+                      <span style={{
+                        fontSize: 12,
+                        color: '#b45309'
+                      }}>
+                        ({ratingCount} review{ratingCount !== 1 ? 's' : ''})
+                      </span>
+                    </>
+                  ) : (
                     <span style={{
                       fontSize: 12,
-                      color: '#b45309'
+                      color: '#6b7280',
+                      marginLeft: 4
                     }}>
-                      ({ratingCount})
+                      No reviews yet
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Description */}

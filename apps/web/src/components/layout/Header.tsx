@@ -131,19 +131,31 @@ export function Header({
                 fontSize: typography.sizes.sm
               }}
             >
-              Browse Products
+              Products
             </Link>
 
             <Link
               href={`/${vertical}/markets`}
               style={{
-                color: pathname?.includes('/markets') ? colors.primary : colors.textSecondary,
+                color: pathname?.includes('/markets') && !pathname?.includes('/market-box') ? colors.primary : colors.textSecondary,
                 textDecoration: 'none',
-                fontWeight: pathname?.includes('/markets') ? typography.weights.semibold : typography.weights.normal,
+                fontWeight: pathname?.includes('/markets') && !pathname?.includes('/market-box') ? typography.weights.semibold : typography.weights.normal,
                 fontSize: typography.sizes.sm
               }}
             >
               Markets
+            </Link>
+
+            <Link
+              href={`/${vertical}/vendors`}
+              style={{
+                color: pathname?.includes('/vendors') && !pathname?.includes('/vendor/') ? colors.primary : colors.textSecondary,
+                textDecoration: 'none',
+                fontWeight: pathname?.includes('/vendors') && !pathname?.includes('/vendor/') ? typography.weights.semibold : typography.weights.normal,
+                fontSize: typography.sizes.sm
+              }}
+            >
+              Vendors
             </Link>
 
             {user && (
@@ -457,7 +469,7 @@ export function Header({
                 fontWeight: typography.weights.medium
               }}
             >
-              Browse Products
+              Products
             </Link>
 
             <Link
@@ -473,6 +485,21 @@ export function Header({
               }}
             >
               Markets
+            </Link>
+
+            <Link
+              href={`/${vertical}/vendors`}
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                display: 'block',
+                padding: `${spacing.xs} 0`,
+                textDecoration: 'none',
+                color: colors.textPrimary,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.medium
+              }}
+            >
+              Vendors
             </Link>
 
             {user ? (
