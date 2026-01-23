@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       )
     `)
     .eq('buyer_user_id', user.id)
-    .in('status', ['completed', 'fulfilled'])
+    .eq('status', 'completed')
     .order('created_at', { ascending: false })
     .limit(10)
 

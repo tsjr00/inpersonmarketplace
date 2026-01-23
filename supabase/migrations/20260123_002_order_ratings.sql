@@ -73,7 +73,7 @@ CREATE POLICY "Buyers can create ratings for their orders"
       SELECT 1 FROM orders
       WHERE orders.id = order_id
       AND orders.buyer_user_id = auth.uid()
-      AND orders.status IN ('completed', 'fulfilled')
+      AND orders.status = 'completed'
     )
   );
 

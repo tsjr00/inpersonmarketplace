@@ -260,7 +260,7 @@ export default function BuyerOrdersPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
             {orders.map(order => {
               const config = statusConfig[order.status] || statusConfig.pending
-              const isCompletedOrder = ['completed', 'fulfilled'].includes(order.status)
+              const isCompletedOrder = order.status === 'completed'
               const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
 
               return (

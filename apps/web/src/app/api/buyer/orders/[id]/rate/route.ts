@@ -53,7 +53,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
   }
 
-  if (!['completed', 'fulfilled'].includes(order.status)) {
+  if (order.status !== 'completed') {
     return NextResponse.json({ error: 'Can only rate completed orders' }, { status: 400 })
   }
 
