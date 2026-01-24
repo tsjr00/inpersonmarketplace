@@ -654,8 +654,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           justify-content: center;
         }
         .vendor-profile-page .listings-grid {
-          grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
-          justify-content: center;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
         @media (min-width: 640px) {
           .vendor-profile-page .vendor-header {

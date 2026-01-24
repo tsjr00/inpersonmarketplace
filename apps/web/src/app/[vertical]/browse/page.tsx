@@ -264,11 +264,10 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           )}
         </div>
 
-        {/* Responsive Grid with consistent card widths */}
+        {/* Responsive Grid - cards fill available space with minimum width */}
         <style>{`
           .browse-page .listings-grid {
-            grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
-            justify-content: center;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
           }
         `}</style>
       </div>

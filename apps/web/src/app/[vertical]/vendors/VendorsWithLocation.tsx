@@ -416,11 +416,10 @@ export default function VendorsWithLocation({
         </div>
       ) : null}
 
-      {/* Responsive grid with consistent card widths */}
+      {/* Responsive grid - cards fill available space with minimum width */}
       <style>{`
         .vendors-grid {
-          grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
-          justify-content: center;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
         .vendor-card:hover {
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);

@@ -271,11 +271,10 @@ export default function MarketsWithLocation({
         </div>
       ) : null}
 
-      {/* Responsive grid with consistent card widths */}
+      {/* Responsive grid - cards fill available space with minimum width */}
       <style>{`
         .markets-grid {
-          grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
-          justify-content: center;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
       `}</style>
     </div>
