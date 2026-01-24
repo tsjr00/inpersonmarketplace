@@ -116,7 +116,7 @@ export default function MarketsWithLocation({
           market_type: (m.market_type || 'traditional') as 'traditional' | 'private_pickup',
           active: (m.active as boolean) ?? ((m.status as string) === 'active'),
           schedules: m.market_schedules as Market['schedules'],
-          vendor_count: ((m.market_vendors as Array<{ count: number }> | undefined)?.[0]?.count) || 0
+          vendor_count: (m.vendor_count as number) || 0
         })))
       }
     } catch (error) {

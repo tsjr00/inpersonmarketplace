@@ -3,6 +3,7 @@ import { defaultBranding } from '@/lib/branding'
 import MarketFilters from './MarketFilters'
 import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { getMarketVendorCounts, mergeVendorCounts } from '@/lib/db/markets'
 
 // Cache page for 10 minutes - markets change infrequently
 export const revalidate = 600
@@ -24,8 +25,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     .from('markets')
     .select(`
       *,
-      market_schedules(*),
-      market_vendors(count)
+      market_schedules(*)
     `)
     .eq('vertical_id', vertical)
     .eq('status', 'active')
@@ -72,15 +72,20 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   })
   const cities = Array.from(cityMap.values()).sort()
 
-  // Transform markets data
+  // Fetch true vendor counts from the market_vendor_counts view
+  const marketIds = markets?.map(m => m.id) || []
+  const vendorCounts = marketIds.length > 0
+    ? await getMarketVendorCounts(supabase, marketIds)
+    : new Map<string, number>()
+
+  // Transform markets data with true vendor counts
   const transformedMarkets = markets?.map(market => ({
     ...market,
     market_type: market.market_type as 'traditional' | 'private_pickup',
     active: market.active ?? (market.status === 'active'),
     schedules: market.market_schedules,
-    vendor_count: market.market_vendors?.[0]?.count || 0,
+    vendor_count: vendorCounts.get(market.id) || 0,
     market_schedules: undefined,
-    market_vendors: undefined,
   })) || []
 
   return (

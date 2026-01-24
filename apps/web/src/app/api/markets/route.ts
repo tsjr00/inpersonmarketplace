@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getMarketVendorCounts } from '@/lib/db/markets'
 
 // GET /api/markets - List all markets
 export async function GET(request: NextRequest) {
@@ -16,8 +17,7 @@ export async function GET(request: NextRequest) {
     .from('markets')
     .select(`
       *,
-      market_schedules(count),
-      market_vendors(count)
+      market_schedules(count)
     `)
     .order('name', { ascending: true })
 
@@ -44,13 +44,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Fetch true vendor counts from the market_vendor_counts view
+  const marketIds = markets?.map(m => m.id) || []
+  const vendorCounts = marketIds.length > 0
+    ? await getMarketVendorCounts(supabase, marketIds)
+    : new Map<string, number>()
+
   // Transform to include counts
   const transformedMarkets = markets?.map(market => ({
     ...market,
     schedule_count: market.market_schedules?.[0]?.count || 0,
-    vendor_count: market.market_vendors?.[0]?.count || 0,
+    vendor_count: vendorCounts.get(market.id) || 0,
     market_schedules: undefined,
-    market_vendors: undefined,
   }))
 
   // Cache markets list for 10 minutes

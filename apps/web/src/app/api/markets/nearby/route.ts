@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getMarketVendorCounts } from '@/lib/db/markets'
 
 const MILES_TO_METERS = 1609.344
 const DEFAULT_RADIUS_MILES = 25
@@ -96,8 +97,7 @@ async function fallbackNearbyQuery(
     .from('markets')
     .select(`
       *,
-      market_schedules(*),
-      market_vendors(count)
+      market_schedules(*)
     `)
     .eq('status', 'active')
     .eq('approval_status', 'approved')
@@ -150,8 +150,20 @@ async function fallbackNearbyQuery(
 
   console.log('[Markets Nearby Fallback] Markets within radius:', marketsWithDistance.length)
 
+  // Fetch true vendor counts from the market_vendor_counts view
+  const marketIds = marketsWithDistance.map((m: any) => m.id)
+  const vendorCounts = marketIds.length > 0
+    ? await getMarketVendorCounts(supabase, marketIds)
+    : new Map<string, number>()
+
+  // Merge vendor counts into market data
+  const marketsWithVendorCounts = marketsWithDistance.map((market: any) => ({
+    ...market,
+    vendor_count: vendorCounts.get(market.id) || 0
+  }))
+
   return NextResponse.json({
-    markets: marketsWithDistance,
+    markets: marketsWithVendorCounts,
     center: { latitude, longitude },
     radiusMiles,
     fallback: true
