@@ -416,25 +416,11 @@ export default function VendorsWithLocation({
         </div>
       ) : null}
 
-      {/* Responsive grid and hover styles */}
+      {/* Responsive grid with consistent card widths */}
       <style>{`
         .vendors-grid {
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 640px) {
-          .vendors-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        @media (min-width: 1024px) {
-          .vendors-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        @media (min-width: 1280px) {
-          .vendors-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
+          grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
+          justify-content: center;
         }
         .vendor-card:hover {
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);

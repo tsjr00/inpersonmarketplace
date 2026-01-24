@@ -271,25 +271,11 @@ export default function MarketsWithLocation({
         </div>
       ) : null}
 
-      {/* Responsive grid styles */}
+      {/* Responsive grid with consistent card widths */}
       <style>{`
         .markets-grid {
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 640px) {
-          .markets-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        @media (min-width: 1024px) {
-          .markets-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        @media (min-width: 1280px) {
-          .markets-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
+          grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
+          justify-content: center;
         }
       `}</style>
     </div>

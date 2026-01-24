@@ -264,25 +264,11 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           )}
         </div>
 
-        {/* Responsive Grid Styles */}
+        {/* Responsive Grid with consistent card widths */}
         <style>{`
           .browse-page .listings-grid {
-            grid-template-columns: minmax(0, 1fr);
-          }
-          @media (min-width: 640px) {
-            .browse-page .listings-grid {
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-          }
-          @media (min-width: 1024px) {
-            .browse-page .listings-grid {
-              grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-          }
-          @media (min-width: 1280px) {
-            .browse-page .listings-grid {
-              grid-template-columns: repeat(4, minmax(0, 1fr));
-            }
+            grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
+            justify-content: center;
           }
         `}</style>
       </div>

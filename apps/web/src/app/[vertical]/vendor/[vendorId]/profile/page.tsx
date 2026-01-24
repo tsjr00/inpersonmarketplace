@@ -654,7 +654,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           justify-content: center;
         }
         .vendor-profile-page .listings-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 320px));
+          justify-content: center;
         }
         @media (min-width: 640px) {
           .vendor-profile-page .vendor-header {
@@ -663,19 +664,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           }
           .vendor-profile-page .vendor-meta {
             justify-content: flex-start;
-          }
-          .vendor-profile-page .listings-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        @media (min-width: 1024px) {
-          .vendor-profile-page .listings-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        @media (min-width: 1280px) {
-          .vendor-profile-page .listings-grid {
-            grid-template-columns: repeat(4, 1fr);
           }
         }
       `}</style>
