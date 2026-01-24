@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import VendorActions from './VendorActions'
+import VendorLocationEditor from './VendorLocationEditor'
 
 interface VendorDetailPageProps {
   params: Promise<{ vendorId: string }>
@@ -38,6 +39,8 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
   const verticalId = vendor.vertical_id as string
   const createdAt = vendor.created_at as string
   const updatedAt = vendor.updated_at as string
+  const vendorLatitude = vendor.latitude as number | null
+  const vendorLongitude = vendor.longitude as number | null
 
   // Get vendor's listings count
   const { count: listingsCount } = await supabase
@@ -216,6 +219,13 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
               {vendorId}
             </code>
           </div>
+
+          {/* Location Editor */}
+          <VendorLocationEditor
+            vendorId={vendorId}
+            currentLatitude={vendorLatitude}
+            currentLongitude={vendorLongitude}
+          />
         </div>
       </div>
     </div>

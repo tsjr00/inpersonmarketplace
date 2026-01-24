@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get all approved vendors for this vertical
+    // Get all approved vendors for this vertical (including their direct coordinates)
     let query = supabase
       .from('vendor_profiles')
       .select(`
@@ -46,7 +46,9 @@ export async function GET(request: NextRequest) {
         tier,
         created_at,
         average_rating,
-        rating_count
+        rating_count,
+        latitude,
+        longitude
       `)
       .eq('status', 'approved')
 
@@ -103,6 +105,14 @@ export async function GET(request: NextRequest) {
       const listingCount = vendorListings.length
       const categories = [...new Set(vendorListings.map(l => l.category).filter(Boolean))] as string[]
 
+      // Check if vendor has direct coordinates (set by admin)
+      const vendorLat = vendor.latitude ? parseFloat(String(vendor.latitude)) : null
+      const vendorLng = vendor.longitude ? parseFloat(String(vendor.longitude)) : null
+      const hasDirectCoords = vendorLat !== null && vendorLng !== null && !isNaN(vendorLat) && !isNaN(vendorLng)
+      const directDistance = hasDirectCoords
+        ? haversineDistance(latitude, longitude, vendorLat!, vendorLng!)
+        : null
+
       // Get markets with their distances
       const vendorMarkets = (marketVendors || [])
         .filter(mv => mv.vendor_profile_id === vendor.id && mv.markets)
@@ -117,11 +127,19 @@ export async function GET(request: NextRequest) {
           return { id: m.id, name: m.name, distance }
         })
 
-      // Get minimum distance to any of vendor's markets
-      const distances = vendorMarkets
+      // Get minimum distance: prefer vendor's direct coords, fall back to market distance
+      const marketDistances = vendorMarkets
         .map(m => m.distance)
         .filter((d): d is number => d !== null)
-      const minDistance = distances.length > 0 ? Math.min(...distances) : null
+      const minMarketDistance = marketDistances.length > 0 ? Math.min(...marketDistances) : null
+
+      // Use direct vendor distance if available, otherwise use nearest market distance
+      let finalDistance: number | null = null
+      if (directDistance !== null) {
+        finalDistance = directDistance
+      } else if (minMarketDistance !== null) {
+        finalDistance = minMarketDistance
+      }
 
       return {
         id: vendor.id,
@@ -135,7 +153,8 @@ export async function GET(request: NextRequest) {
         listingCount,
         categories,
         markets: vendorMarkets.filter(m => m.distance === null || m.distance <= radiusMiles),
-        distance_miles: minDistance !== null ? Math.round(minDistance * 10) / 10 : null
+        distance_miles: finalDistance !== null ? Math.round(finalDistance * 10) / 10 : null,
+        hasDirectLocation: hasDirectCoords
       }
     })
 
