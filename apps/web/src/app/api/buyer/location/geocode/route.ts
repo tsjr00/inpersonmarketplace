@@ -20,8 +20,11 @@ const ZIP_LOOKUP: Record<string, { lat: number; lng: number; city: string; state
   '79106': { lat: 35.1992, lng: -101.8451, city: 'Amarillo', state: 'TX' },
   '79101': { lat: 35.2220, lng: -101.8313, city: 'Amarillo', state: 'TX' },
   '79102': { lat: 35.1958, lng: -101.8568, city: 'Amarillo', state: 'TX' },
+  '79107': { lat: 35.2283, lng: -101.7897, city: 'Amarillo', state: 'TX' },
   '79109': { lat: 35.1731, lng: -101.8779, city: 'Amarillo', state: 'TX' },
   '79110': { lat: 35.1542, lng: -101.9156, city: 'Amarillo', state: 'TX' },
+  '79118': { lat: 35.1089, lng: -101.8010, city: 'Amarillo', state: 'TX' },
+  '79119': { lat: 35.1456, lng: -101.9456, city: 'Amarillo', state: 'TX' },
 }
 
 export async function POST(request: NextRequest) {
