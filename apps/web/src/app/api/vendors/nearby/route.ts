@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'published')
       .is('deleted_at', null)
 
-    // Get market associations with locations
+    // Get market associations with locations from market_vendors table
     const { data: marketVendors } = await supabase
       .from('market_vendors')
       .select(`
@@ -97,6 +97,24 @@ export async function GET(request: NextRequest) {
       `)
       .in('vendor_profile_id', vendorIds)
       .eq('status', 'approved')
+
+    // ALSO get market associations from listing_markets (where listings are available)
+    // This is the primary source of vendor-market relationships in practice
+    const { data: listingMarkets } = await supabase
+      .from('listing_markets')
+      .select(`
+        market_id,
+        listings!inner (
+          vendor_profile_id
+        ),
+        markets (
+          id,
+          name,
+          latitude,
+          longitude
+        )
+      `)
+      .in('listings.vendor_profile_id', vendorIds)
 
     // Calculate distances and enrich vendor data
     const enrichedVendors = (vendors || []).map(vendor => {
@@ -118,19 +136,43 @@ export async function GET(request: NextRequest) {
         ? haversineDistance(latitude, longitude, vendorLat!, vendorLng!)
         : null
 
-      // Get markets with their distances
-      const vendorMarkets = (marketVendors || [])
+      // Get markets with their distances from BOTH sources:
+      // 1. market_vendors (explicit vendor-market relationships)
+      // 2. listing_markets (markets where vendor's listings are available)
+      const marketMap = new Map<string, { id: string; name: string; distance: number | null }>()
+
+      // Add markets from market_vendors
+      ;(marketVendors || [])
         .filter(mv => mv.vendor_profile_id === vendor.id && mv.markets)
-        .map(mv => {
+        .forEach(mv => {
           const m = mv.markets as unknown as { id: string; name: string; latitude: string | number | null; longitude: string | number | null }
-          // Parse lat/lng - DECIMAL types from PostgreSQL can come back as strings
           const mLat = m.latitude ? parseFloat(String(m.latitude)) : null
           const mLng = m.longitude ? parseFloat(String(m.longitude)) : null
           const distance = (mLat && mLng && !isNaN(mLat) && !isNaN(mLng))
             ? haversineDistance(latitude, longitude, mLat, mLng)
             : null
-          return { id: m.id, name: m.name, distance }
+          marketMap.set(m.id, { id: m.id, name: m.name, distance })
         })
+
+      // Add markets from listing_markets (primary source of vendor-market relationships)
+      ;(listingMarkets || [])
+        .filter(lm => {
+          const listing = lm.listings as unknown as { vendor_profile_id: string }
+          return listing?.vendor_profile_id === vendor.id && lm.markets
+        })
+        .forEach(lm => {
+          const m = lm.markets as unknown as { id: string; name: string; latitude: string | number | null; longitude: string | number | null }
+          if (!marketMap.has(m.id)) {
+            const mLat = m.latitude ? parseFloat(String(m.latitude)) : null
+            const mLng = m.longitude ? parseFloat(String(m.longitude)) : null
+            const distance = (mLat && mLng && !isNaN(mLat) && !isNaN(mLng))
+              ? haversineDistance(latitude, longitude, mLat, mLng)
+              : null
+            marketMap.set(m.id, { id: m.id, name: m.name, distance })
+          }
+        })
+
+      const vendorMarkets = Array.from(marketMap.values())
 
       // Get minimum distance across ALL locations: vendor's direct coords + all associated markets
       // This ensures vendors with private pickups closer to buyers appear in results
