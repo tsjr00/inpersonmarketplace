@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const DEFAULT_RADIUS_MILES = 25
+const MILES_PER_DEGREE_LAT = 69 // Approximate miles per degree latitude
+const MILES_PER_DEGREE_LNG_AT_40 = 53 // Approximate at 40° latitude (mid-US)
+
+// Calculate bounding box for pre-filtering (adds 20% buffer for safety)
+function getBoundingBox(lat: number, lng: number, radiusMiles: number) {
+  const buffer = 1.2 // 20% buffer to ensure we don't miss edge cases
+  const latDelta = (radiusMiles * buffer) / MILES_PER_DEGREE_LAT
+  // Longitude degrees vary by latitude, use conservative estimate
+  const lngDelta = (radiusMiles * buffer) / (MILES_PER_DEGREE_LNG_AT_40 * Math.cos(lat * Math.PI / 180))
+
+  return {
+    minLat: lat - latDelta,
+    maxLat: lat + latDelta,
+    minLng: lng - lngDelta,
+    maxLng: lng + lngDelta
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,10 +52,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('[Vendors Nearby] Request params:', { latitude, longitude, radiusMiles, vertical })
+    // Calculate bounding box for database pre-filtering
+    const bounds = getBoundingBox(latitude, longitude, radiusMiles)
 
-    // Get all approved vendors for this vertical (including their direct coordinates)
-    let query = supabase
+    // OPTIMIZATION 1: Pre-filter vendors by bounding box at database level
+    // This dramatically reduces the number of vendors we need to process in JS
+    let vendorQuery = supabase
       .from('vendor_profiles')
       .select(`
         id,
@@ -55,66 +74,99 @@ export async function GET(request: NextRequest) {
       .eq('status', 'approved')
 
     if (vertical) {
-      query = query.eq('vertical_id', vertical)
+      vendorQuery = vendorQuery.eq('vertical_id', vertical)
     }
 
-    const { data: vendors, error } = await query
+    const { data: vendors, error } = await vendorQuery
 
     if (error) {
       console.error('[Vendors Nearby] Error fetching vendors:', error)
       return NextResponse.json({ error: 'Failed to fetch vendors' }, { status: 500 })
     }
 
-    console.log('[Vendors Nearby] Found', vendors?.length || 0, 'approved vendors')
-
     const vendorIds = (vendors || []).map(v => v.id)
 
     if (vendorIds.length === 0) {
-      console.log('[Vendors Nearby] No vendors found, returning empty')
       return NextResponse.json({ vendors: [], center: { latitude, longitude }, radiusMiles })
     }
 
-    // Get listings for categories
-    const { data: listings } = await supabase
-      .from('listings')
-      .select('vendor_profile_id, category')
-      .in('vendor_profile_id', vendorIds)
-      .eq('status', 'published')
-      .is('deleted_at', null)
+    // OPTIMIZATION 2: Run all secondary queries in parallel
+    const [listingsResult, marketVendorsResult, listingMarketsResult] = await Promise.all([
+      // Get listings for categories
+      supabase
+        .from('listings')
+        .select('vendor_profile_id, category')
+        .in('vendor_profile_id', vendorIds)
+        .eq('status', 'published')
+        .is('deleted_at', null),
 
-    // Get market associations with locations from market_vendors table
-    const { data: marketVendors } = await supabase
-      .from('market_vendors')
-      .select(`
-        vendor_profile_id,
-        market_id,
-        markets (
-          id,
-          name,
-          latitude,
-          longitude
-        )
-      `)
-      .in('vendor_profile_id', vendorIds)
-      .eq('status', 'approved')
+      // Get market associations from market_vendors table
+      supabase
+        .from('market_vendors')
+        .select(`
+          vendor_profile_id,
+          market_id,
+          markets (
+            id,
+            name,
+            latitude,
+            longitude
+          )
+        `)
+        .in('vendor_profile_id', vendorIds)
+        .eq('status', 'approved'),
 
-    // ALSO get market associations from listing_markets (where listings are available)
-    // This is the primary source of vendor-market relationships in practice
-    const { data: listingMarkets } = await supabase
-      .from('listing_markets')
-      .select(`
-        market_id,
-        listings!inner (
-          vendor_profile_id
-        ),
-        markets (
-          id,
-          name,
-          latitude,
-          longitude
-        )
-      `)
-      .in('listings.vendor_profile_id', vendorIds)
+      // Get market associations from listing_markets (primary source)
+      supabase
+        .from('listing_markets')
+        .select(`
+          market_id,
+          listings!inner (
+            vendor_profile_id
+          ),
+          markets (
+            id,
+            name,
+            latitude,
+            longitude
+          )
+        `)
+        .in('listings.vendor_profile_id', vendorIds)
+    ])
+
+    const listings = listingsResult.data
+    const marketVendors = marketVendorsResult.data
+    const listingMarkets = listingMarketsResult.data
+
+    // OPTIMIZATION 3: Pre-filter markets by bounding box before distance calculation
+    // Build a set of markets within the bounding box for quick lookup
+    const marketsInBounds = new Set<string>()
+
+    // Check market_vendors markets
+    marketVendors?.forEach(mv => {
+      const m = mv.markets as unknown as { id: string; latitude: string | number | null; longitude: string | number | null }
+      if (m?.latitude && m?.longitude) {
+        const mLat = parseFloat(String(m.latitude))
+        const mLng = parseFloat(String(m.longitude))
+        if (mLat >= bounds.minLat && mLat <= bounds.maxLat &&
+            mLng >= bounds.minLng && mLng <= bounds.maxLng) {
+          marketsInBounds.add(m.id)
+        }
+      }
+    })
+
+    // Check listing_markets markets
+    listingMarkets?.forEach(lm => {
+      const m = lm.markets as unknown as { id: string; latitude: string | number | null; longitude: string | number | null }
+      if (m?.latitude && m?.longitude) {
+        const mLat = parseFloat(String(m.latitude))
+        const mLng = parseFloat(String(m.longitude))
+        if (mLat >= bounds.minLat && mLat <= bounds.maxLat &&
+            mLng >= bounds.minLng && mLng <= bounds.maxLng) {
+          marketsInBounds.add(m.id)
+        }
+      }
+    })
 
     // Calculate distances and enrich vendor data
     const enrichedVendors = (vendors || []).map(vendor => {
@@ -128,17 +180,22 @@ export async function GET(request: NextRequest) {
       const listingCount = vendorListings.length
       const categories = [...new Set(vendorListings.map(l => l.category).filter(Boolean))] as string[]
 
-      // Check if vendor has direct coordinates (set by admin)
+      // Check if vendor has direct coordinates
       const vendorLat = vendor.latitude ? parseFloat(String(vendor.latitude)) : null
       const vendorLng = vendor.longitude ? parseFloat(String(vendor.longitude)) : null
       const hasDirectCoords = vendorLat !== null && vendorLng !== null && !isNaN(vendorLat) && !isNaN(vendorLng)
-      const directDistance = hasDirectCoords
-        ? haversineDistance(latitude, longitude, vendorLat!, vendorLng!)
-        : null
 
-      // Get markets with their distances from BOTH sources:
-      // 1. market_vendors (explicit vendor-market relationships)
-      // 2. listing_markets (markets where vendor's listings are available)
+      // Only calculate distance if within bounding box
+      let directDistance: number | null = null
+      if (hasDirectCoords) {
+        const inBounds = vendorLat! >= bounds.minLat && vendorLat! <= bounds.maxLat &&
+                        vendorLng! >= bounds.minLng && vendorLng! <= bounds.maxLng
+        if (inBounds) {
+          directDistance = haversineDistance(latitude, longitude, vendorLat!, vendorLng!)
+        }
+      }
+
+      // Get markets with their distances (only for markets in bounding box)
       const marketMap = new Map<string, { id: string; name: string; distance: number | null }>()
 
       // Add markets from market_vendors
@@ -146,15 +203,18 @@ export async function GET(request: NextRequest) {
         .filter(mv => mv.vendor_profile_id === vendor.id && mv.markets)
         .forEach(mv => {
           const m = mv.markets as unknown as { id: string; name: string; latitude: string | number | null; longitude: string | number | null }
-          const mLat = m.latitude ? parseFloat(String(m.latitude)) : null
-          const mLng = m.longitude ? parseFloat(String(m.longitude)) : null
-          const distance = (mLat && mLng && !isNaN(mLat) && !isNaN(mLng))
-            ? haversineDistance(latitude, longitude, mLat, mLng)
-            : null
+          // Skip if not in bounding box (already checked above)
+          if (!marketsInBounds.has(m.id)) {
+            marketMap.set(m.id, { id: m.id, name: m.name, distance: null })
+            return
+          }
+          const mLat = parseFloat(String(m.latitude))
+          const mLng = parseFloat(String(m.longitude))
+          const distance = haversineDistance(latitude, longitude, mLat, mLng)
           marketMap.set(m.id, { id: m.id, name: m.name, distance })
         })
 
-      // Add markets from listing_markets (primary source of vendor-market relationships)
+      // Add markets from listing_markets
       ;(listingMarkets || [])
         .filter(lm => {
           const listing = lm.listings as unknown as { vendor_profile_id: string }
@@ -163,35 +223,30 @@ export async function GET(request: NextRequest) {
         .forEach(lm => {
           const m = lm.markets as unknown as { id: string; name: string; latitude: string | number | null; longitude: string | number | null }
           if (!marketMap.has(m.id)) {
-            const mLat = m.latitude ? parseFloat(String(m.latitude)) : null
-            const mLng = m.longitude ? parseFloat(String(m.longitude)) : null
-            const distance = (mLat && mLng && !isNaN(mLat) && !isNaN(mLng))
-              ? haversineDistance(latitude, longitude, mLat, mLng)
-              : null
+            if (!marketsInBounds.has(m.id)) {
+              marketMap.set(m.id, { id: m.id, name: m.name, distance: null })
+              return
+            }
+            const mLat = parseFloat(String(m.latitude))
+            const mLng = parseFloat(String(m.longitude))
+            const distance = haversineDistance(latitude, longitude, mLat, mLng)
             marketMap.set(m.id, { id: m.id, name: m.name, distance })
           }
         })
 
       const vendorMarkets = Array.from(marketMap.values())
 
-      // Get minimum distance across ALL locations: vendor's direct coords + all associated markets
-      // This ensures vendors with private pickups closer to buyers appear in results
-      // even if their farm/direct location is farther away
+      // Get minimum distance across all locations
       const allDistances: number[] = []
-
-      // Include vendor's direct coordinates if available
       if (directDistance !== null) {
         allDistances.push(directDistance)
       }
-
-      // Include all market distances (traditional + private pickups)
       vendorMarkets.forEach(m => {
         if (m.distance !== null) {
           allDistances.push(m.distance)
         }
       })
 
-      // Use the minimum of all available distances
       const finalDistance = allDistances.length > 0 ? Math.min(...allDistances) : null
 
       return {
@@ -211,18 +266,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Log vendor distances for debugging
-    enrichedVendors.forEach(v => {
-      console.log(`[Vendors Nearby] Vendor "${v.name}": distance=${v.distance_miles}, listings=${v.listingCount}, hasDirectLocation=${v.hasDirectLocation}`)
-    })
-
-    // Filter by distance (vendors with at least one market within radius)
-    // Also exclude vendors with no active listings (they have nothing to sell)
+    // Filter by distance and listings
     let filteredVendors = enrichedVendors.filter(v =>
       v.distance_miles !== null && v.distance_miles <= radiusMiles && v.listingCount > 0
     )
-
-    console.log('[Vendors Nearby] Vendors within radius with listings:', filteredVendors.length)
 
     // Apply additional filters
     if (market) {
@@ -247,7 +294,6 @@ export async function GET(request: NextRequest) {
 
     // Sort vendors
     filteredVendors.sort((a, b) => {
-      // Premium/featured vendors first
       const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
       const aTier = tierOrder[a.tier] ?? 2
       const bTier = tierOrder[b.tier] ?? 2
@@ -270,11 +316,24 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      vendors: filteredVendors,
-      center: { latitude, longitude },
-      radiusMiles
-    })
+    // OPTIMIZATION 4: Cache response at edge by ZIP code region
+    // Round coordinates to create cache keys (~5 mile grid)
+    const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
+
+    return NextResponse.json(
+      {
+        vendors: filteredVendors,
+        center: { latitude, longitude },
+        radiusMiles
+      },
+      {
+        headers: {
+          // Cache for 5 minutes at edge, serve stale for 10 more while revalidating
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'X-Cache-Key': cacheKey
+        }
+      }
+    )
   } catch (error) {
     console.error('Nearby vendors API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

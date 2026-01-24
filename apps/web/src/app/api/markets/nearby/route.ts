@@ -4,6 +4,21 @@ import { getMarketVendorCounts } from '@/lib/db/markets'
 
 const MILES_TO_METERS = 1609.344
 const DEFAULT_RADIUS_MILES = 25
+const MILES_PER_DEGREE_LAT = 69
+
+// Calculate bounding box for pre-filtering
+function getBoundingBox(lat: number, lng: number, radiusMiles: number) {
+  const buffer = 1.2 // 20% buffer
+  const latDelta = (radiusMiles * buffer) / MILES_PER_DEGREE_LAT
+  const lngDelta = (radiusMiles * buffer) / (MILES_PER_DEGREE_LAT * Math.cos(lat * Math.PI / 180))
+
+  return {
+    minLat: lat - latDelta,
+    maxLat: lat + latDelta,
+    minLng: lng - lngDelta,
+    maxLng: lng + lngDelta
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +29,7 @@ export async function GET(request: NextRequest) {
     const lng = searchParams.get('lng')
     const vertical = searchParams.get('vertical')
     const radiusMiles = parseFloat(searchParams.get('radius') || String(DEFAULT_RADIUS_MILES))
-    const type = searchParams.get('type') // 'traditional' or 'farm_stand'
+    const type = searchParams.get('type')
     const city = searchParams.get('city')
     const search = searchParams.get('search')
 
@@ -45,10 +60,7 @@ export async function GET(request: NextRequest) {
 
     const radiusMeters = radiusMiles * MILES_TO_METERS
 
-    console.log('[Markets Nearby] Request params:', { latitude, longitude, radiusMiles, vertical, type })
-
-    // Use PostGIS ST_DWithin for efficient radius query
-    // ST_DWithin uses a geography type for accurate distance calculations in meters
+    // Try PostGIS RPC first (fastest)
     const { data: markets, error } = await supabase.rpc('get_markets_within_radius', {
       user_lat: latitude,
       user_lng: longitude,
@@ -58,29 +70,33 @@ export async function GET(request: NextRequest) {
     })
 
     if (error) {
-      // Log the actual error for debugging
-      console.error('[Markets Nearby] RPC error:', error.code, error.message, error)
-
-      // Fall back to JavaScript-based distance calculation on ANY RPC error
-      // This handles: function not found, PostGIS not installed, permission errors, etc.
-      console.log('[Markets Nearby] RPC failed, using fallback query')
+      // Fall back to JavaScript-based calculation
       return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, type, city, search)
     }
 
-    console.log('[Markets Nearby] PostGIS returned', markets?.length || 0, 'markets')
+    // Cache key for edge caching
+    const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
 
-    return NextResponse.json({
-      markets: markets || [],
-      center: { latitude, longitude },
-      radiusMiles
-    })
+    return NextResponse.json(
+      {
+        markets: markets || [],
+        center: { latitude, longitude },
+        radiusMiles
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'X-Cache-Key': cacheKey
+        }
+      }
+    )
   } catch (error) {
     console.error('Nearby markets API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// Fallback if PostGIS function isn't set up yet
+// Fallback with bounding box optimization
 async function fallbackNearbyQuery(
   supabase: any,
   latitude: number,
@@ -91,8 +107,10 @@ async function fallbackNearbyQuery(
   city: string | null,
   search: string | null
 ) {
-  // Haversine formula approximation using SQL
-  // 3959 is Earth's radius in miles
+  // Calculate bounding box for database pre-filter
+  const bounds = getBoundingBox(latitude, longitude, radiusMiles)
+
+  // OPTIMIZATION: Pre-filter by bounding box at database level
   let query = supabase
     .from('markets')
     .select(`
@@ -103,6 +121,10 @@ async function fallbackNearbyQuery(
     .eq('approval_status', 'approved')
     .not('latitude', 'is', null)
     .not('longitude', 'is', null)
+    .gte('latitude', bounds.minLat)
+    .lte('latitude', bounds.maxLat)
+    .gte('longitude', bounds.minLng)
+    .lte('longitude', bounds.maxLng)
 
   if (vertical) {
     query = query.eq('vertical_id', vertical)
@@ -127,47 +149,45 @@ async function fallbackNearbyQuery(
     return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
   }
 
-  console.log('[Markets Nearby Fallback] Found', allMarkets?.length || 0, 'markets with coordinates')
-
-  // Log each market's coordinates for debugging
-  if (allMarkets && allMarkets.length > 0) {
-    allMarkets.forEach((m: any) => {
-      console.log(`[Markets Nearby Fallback] Market "${m.name}": lat=${m.latitude}, lng=${m.longitude}`)
-    })
-  }
-
-  // Filter by distance in JavaScript (less efficient but works without PostGIS function)
+  // Calculate exact distances and filter by radius
   const marketsWithDistance = (allMarkets || [])
     .map((market: any) => {
       const mLat = parseFloat(market.latitude)
       const mLng = parseFloat(market.longitude)
       const distance = haversineDistance(latitude, longitude, mLat, mLng)
-      console.log(`[Markets Nearby Fallback] Distance to "${market.name}": ${distance.toFixed(2)} miles`)
       return { ...market, distance_miles: Math.round(distance * 10) / 10 }
     })
     .filter((market: any) => market.distance_miles <= radiusMiles)
     .sort((a: any, b: any) => a.distance_miles - b.distance_miles)
 
-  console.log('[Markets Nearby Fallback] Markets within radius:', marketsWithDistance.length)
-
-  // Fetch true vendor counts from the market_vendor_counts view
+  // Fetch vendor counts
   const marketIds = marketsWithDistance.map((m: any) => m.id)
   const vendorCounts = marketIds.length > 0
     ? await getMarketVendorCounts(supabase, marketIds)
     : new Map<string, number>()
 
-  // Merge vendor counts into market data
   const marketsWithVendorCounts = marketsWithDistance.map((market: any) => ({
     ...market,
     vendor_count: vendorCounts.get(market.id) || 0
   }))
 
-  return NextResponse.json({
-    markets: marketsWithVendorCounts,
-    center: { latitude, longitude },
-    radiusMiles,
-    fallback: true
-  })
+  // Cache key for edge caching
+  const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
+
+  return NextResponse.json(
+    {
+      markets: marketsWithVendorCounts,
+      center: { latitude, longitude },
+      radiusMiles,
+      fallback: true
+    },
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'X-Cache-Key': cacheKey
+      }
+    }
+  )
 }
 
 // Haversine formula for distance between two points
