@@ -43,7 +43,8 @@ export default function MarketsWithLocation({
   const [hasLocation, setHasLocation] = useState<boolean | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [locationText, setLocationText] = useState('')
-  const [markets, setMarkets] = useState<Market[]>(initialMarkets)
+  // Start with empty array - only show markets after location-based search
+  const [markets, setMarkets] = useState<Market[]>([])
   const [loading, setLoading] = useState(false)
   const [locationChecked, setLocationChecked] = useState(false)
 
@@ -60,10 +61,10 @@ export default function MarketsWithLocation({
     if (userLocation) {
       fetchNearbyMarkets(userLocation.lat, userLocation.lng)
     } else {
-      // No location set, use initial markets (server-filtered)
-      setMarkets(initialMarkets)
+      // No location set - show empty state (user needs to enter location)
+      setMarkets([])
     }
-  }, [currentCity, currentSearch, initialMarkets, locationChecked])
+  }, [currentCity, currentSearch, locationChecked])
 
   const checkSavedLocation = async () => {
     try {
@@ -120,8 +121,8 @@ export default function MarketsWithLocation({
       }
     } catch (error) {
       console.error('Error fetching nearby markets:', error)
-      // Fall back to initial markets
-      setMarkets(initialMarkets)
+      // On error, show empty state rather than unfiltered markets
+      setMarkets([])
     } finally {
       setLoading(false)
     }
@@ -151,7 +152,8 @@ export default function MarketsWithLocation({
     setHasLocation(false)
     setUserLocation(null)
     setLocationText('')
-    setMarkets(initialMarkets)
+    // Clear markets - user needs to enter new location
+    setMarkets([])
   }
 
   return (
@@ -163,6 +165,7 @@ export default function MarketsWithLocation({
           hasLocation={hasLocation || false}
           locationText={locationText}
           onClear={handleClearLocation}
+          labelPrefix="Markets nearby"
         />
       </div>
 

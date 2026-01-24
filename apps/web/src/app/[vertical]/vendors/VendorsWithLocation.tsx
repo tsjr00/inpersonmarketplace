@@ -43,7 +43,8 @@ export default function VendorsWithLocation({
   const [hasLocation, setHasLocation] = useState<boolean | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [locationText, setLocationText] = useState('')
-  const [vendors, setVendors] = useState<EnrichedVendor[]>(initialVendors)
+  // Start with empty array - only show vendors after location-based search
+  const [vendors, setVendors] = useState<EnrichedVendor[]>([])
   const [loading, setLoading] = useState(false)
   const [locationChecked, setLocationChecked] = useState(false)
 
@@ -60,9 +61,10 @@ export default function VendorsWithLocation({
     if (userLocation) {
       fetchNearbyVendors(userLocation.lat, userLocation.lng)
     } else {
-      setVendors(initialVendors)
+      // No location set - show empty state (user needs to enter location)
+      setVendors([])
     }
-  }, [currentMarket, currentCategory, currentSearch, currentSort, initialVendors, locationChecked])
+  }, [currentMarket, currentCategory, currentSearch, currentSort, locationChecked])
 
   const checkSavedLocation = async () => {
     try {
@@ -112,7 +114,8 @@ export default function VendorsWithLocation({
       }
     } catch (error) {
       console.error('Error fetching nearby vendors:', error)
-      setVendors(initialVendors)
+      // On error, show empty state rather than unfiltered vendors
+      setVendors([])
     } finally {
       setLoading(false)
     }
@@ -142,7 +145,8 @@ export default function VendorsWithLocation({
     setHasLocation(false)
     setUserLocation(null)
     setLocationText('')
-    setVendors(initialVendors)
+    // Clear vendors - user needs to enter new location
+    setVendors([])
   }
 
   return (
@@ -154,6 +158,7 @@ export default function VendorsWithLocation({
           hasLocation={hasLocation || false}
           locationText={locationText}
           onClear={handleClearLocation}
+          labelPrefix="Vendors nearby"
         />
       </div>
 

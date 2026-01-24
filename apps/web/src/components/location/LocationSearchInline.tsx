@@ -8,13 +8,16 @@ interface LocationSearchInlineProps {
   hasLocation?: boolean
   locationText?: string
   onClear?: () => void
+  /** Label prefix for green bar, e.g., "Markets nearby" or "Vendors nearby" */
+  labelPrefix?: string
 }
 
 export default function LocationSearchInline({
   onLocationSet,
   hasLocation,
   locationText,
-  onClear
+  onClear,
+  labelPrefix = 'Nearby'
 }: LocationSearchInlineProps) {
   const [mode, setMode] = useState<'input' | 'loading'>('input')
   const [zipCode, setZipCode] = useState('')
@@ -108,7 +111,8 @@ export default function LocationSearchInline({
   if (hasLocation && locationText) {
     // Check if it's a ZIP code (5 digits)
     const isZipCode = /^\d{5}$/.test(locationText)
-    const displayText = isZipCode ? `ZIP ${locationText}` : locationText
+    // Format: "Markets nearby ZIP 46746 (25mi)" or "Vendors nearby Current location (25mi)"
+    const locationDisplay = isZipCode ? `ZIP ${locationText}` : locationText
 
     return (
       <div style={{
@@ -121,7 +125,7 @@ export default function LocationSearchInline({
         borderRadius: radius.md,
         fontSize: typography.sizes.sm
       }}>
-        <span style={{ color: '#166534' }}>📍 {displayText} (25mi radius)</span>
+        <span style={{ color: '#166534' }}>📍 {labelPrefix} {locationDisplay} (25mi)</span>
         <button
           onClick={onClear}
           style={{
