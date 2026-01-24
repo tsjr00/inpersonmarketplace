@@ -34,7 +34,7 @@ export async function PUT(
 
   const { id: marketId } = await params
   const body = await request.json()
-  const { name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, status, approval_status, rejection_reason } = body
+  const { name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, season_start, season_end, status, approval_status, rejection_reason } = body
 
   // Build update object - only include defined fields
   const updateData: Record<string, unknown> = {}
@@ -48,6 +48,8 @@ export async function PUT(
   if (day_of_week !== undefined) updateData.day_of_week = parseInt(day_of_week)
   if (start_time !== undefined) updateData.start_time = start_time
   if (end_time !== undefined) updateData.end_time = end_time
+  if (season_start !== undefined) updateData.season_start = season_start || null
+  if (season_end !== undefined) updateData.season_end = season_end || null
   if (status !== undefined) updateData.status = status
   if (approval_status !== undefined) updateData.approval_status = approval_status
   if (rejection_reason !== undefined) updateData.rejection_reason = rejection_reason

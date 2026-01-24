@@ -116,7 +116,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, status = 'active' } = body
+  const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, season_start, season_end, status = 'active' } = body
 
   if (!vertical || !name || !address || !city || !state || !zip || day_of_week === undefined || !start_time || !end_time) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -135,6 +135,7 @@ export async function POST(request: Request) {
 
   // Create traditional market (vendor_profile_id is NULL for traditional markets)
   // Note: markets.vertical_id is TEXT (e.g., "farmers_market"), not UUID
+  // Admin-created markets are automatically approved
   const { data: market, error: createError } = await supabase
     .from('markets')
     .insert({
@@ -151,7 +152,10 @@ export async function POST(request: Request) {
       day_of_week: parseInt(day_of_week),
       start_time,
       end_time,
-      status
+      season_start: season_start || null,
+      season_end: season_end || null,
+      status,
+      approval_status: 'approved' // Admin-created markets are pre-approved
     })
     .select()
     .single()
