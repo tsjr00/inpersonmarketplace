@@ -26,6 +26,8 @@ type Market = {
   day_of_week?: number
   start_time?: string
   end_time?: string
+  season_start?: string | null
+  season_end?: string | null
   status: string
   approval_status?: 'pending' | 'approved' | 'rejected'
   submitted_by_vendor_id?: string
@@ -65,6 +67,8 @@ export default function AdminMarketsPage() {
     day_of_week: 6, // Saturday default
     start_time: '08:00',
     end_time: '13:00',
+    season_start: '',
+    season_end: '',
     status: 'active'
   })
   const [submitting, setSubmitting] = useState(false)
@@ -154,11 +158,13 @@ export default function AdminMarketsPage() {
       return
     }
 
-    // Parse lat/lng as numbers
+    // Parse lat/lng as numbers, handle season dates
     const submitData = {
       ...formData,
       latitude: lat,
       longitude: lng,
+      season_start: formData.season_start || null,
+      season_end: formData.season_end || null,
     }
 
     try {
@@ -214,6 +220,8 @@ export default function AdminMarketsPage() {
       day_of_week: market.day_of_week ?? 6,
       start_time: market.start_time || '08:00',
       end_time: market.end_time || '13:00',
+      season_start: market.season_start || '',
+      season_end: market.season_end || '',
       status: market.status
     })
     setShowForm(true)
@@ -255,6 +263,8 @@ export default function AdminMarketsPage() {
       day_of_week: 6,
       start_time: '08:00',
       end_time: '13:00',
+      season_start: '',
+      season_end: '',
       status: 'active'
     })
   }
@@ -646,6 +656,49 @@ export default function AdminMarketsPage() {
                   />
                 </div>
               </div>
+
+              {/* Season Dates */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
+                    Season Start <span style={{ fontWeight: typography.weights.normal, color: colors.textSecondary }}>(optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.season_start}
+                    onChange={(e) => setFormData({ ...formData, season_start: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: `${spacing.xs} ${spacing.sm}`,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.sm,
+                      boxSizing: 'border-box',
+                      fontSize: typography.sizes.sm
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
+                    Season End <span style={{ fontWeight: typography.weights.normal, color: colors.textSecondary }}>(optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.season_end}
+                    onChange={(e) => setFormData({ ...formData, season_end: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: `${spacing.xs} ${spacing.sm}`,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.sm,
+                      boxSizing: 'border-box',
+                      fontSize: typography.sizes.sm
+                    }}
+                  />
+                </div>
+              </div>
+              <p style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: `-${spacing.xs}` }}>
+                Leave blank for year-round markets. Set dates if the market is seasonal.
+              </p>
 
               <div>
                 <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
