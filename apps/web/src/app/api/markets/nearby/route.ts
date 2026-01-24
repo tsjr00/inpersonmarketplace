@@ -57,14 +57,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (error) {
-      // If RPC doesn't exist yet, fall back to basic distance calculation
-      if (error.message?.includes('function') || error.code === '42883') {
-        console.log('[Markets Nearby] PostGIS function not found, using fallback query')
-        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, type, city, search)
-      }
+      // Log the actual error for debugging
+      console.error('[Markets Nearby] RPC error:', error.code, error.message, error)
 
-      console.error('[Markets Nearby] RPC error:', error)
-      return NextResponse.json({ error: 'Failed to fetch nearby markets' }, { status: 500 })
+      // Fall back to JavaScript-based distance calculation on ANY RPC error
+      // This handles: function not found, PostGIS not installed, permission errors, etc.
+      console.log('[Markets Nearby] RPC failed, using fallback query')
+      return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, type, city, search)
     }
 
     console.log('[Markets Nearby] PostGIS returned', markets?.length || 0, 'markets')
