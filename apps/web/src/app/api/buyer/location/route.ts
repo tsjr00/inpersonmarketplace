@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     const body = await request.json()
-    const { latitude, longitude, source } = body
+    const { latitude, longitude, source, zipCode, locationText: providedLocationText } = body
 
     // Validate inputs
     if (typeof latitude !== 'number' || typeof longitude !== 'number') {
@@ -24,14 +24,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Coordinates out of range' }, { status: 400 })
     }
 
+    // Determine location text for display
+    // Priority: provided locationText > zipCode > default based on source
+    let locationText = providedLocationText || ''
+    if (!locationText && zipCode) {
+      locationText = zipCode // Show just the ZIP code
+    }
+    if (!locationText) {
+      locationText = source === 'gps' ? 'Current location' : 'Your location'
+    }
+
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser()
-
-    // Generate location text for display
-    let locationText = 'your location'
-    if (source === 'gps') {
-      locationText = 'your current location'
-    }
 
     // If authenticated, save to user profile
     if (user) {
@@ -41,6 +45,7 @@ export async function POST(request: NextRequest) {
           preferred_latitude: latitude,
           preferred_longitude: longitude,
           location_source: source,
+          location_text: locationText,
           location_updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // For anonymous users (or if profile update failed), store in cookie
-    const locationData = JSON.stringify({ latitude, longitude, source })
+    const locationData = JSON.stringify({ latitude, longitude, source, locationText })
     const response = NextResponse.json({
       success: true,
       locationText,
@@ -93,7 +98,7 @@ export async function GET(request: NextRequest) {
     if (user) {
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('preferred_latitude, preferred_longitude, location_source, location_updated_at')
+        .select('preferred_latitude, preferred_longitude, location_source, location_text, location_updated_at')
         .eq('user_id', user.id)
         .single()
 
@@ -103,6 +108,7 @@ export async function GET(request: NextRequest) {
           latitude: profile.preferred_latitude,
           longitude: profile.preferred_longitude,
           source: profile.location_source,
+          locationText: profile.location_text || (profile.location_source === 'gps' ? 'Current location' : 'Your location'),
           updatedAt: profile.location_updated_at
         })
       }
@@ -112,13 +118,14 @@ export async function GET(request: NextRequest) {
     const locationCookie = request.cookies.get(LOCATION_COOKIE_NAME)
     if (locationCookie) {
       try {
-        const { latitude, longitude, source } = JSON.parse(locationCookie.value)
+        const { latitude, longitude, source, locationText } = JSON.parse(locationCookie.value)
         if (typeof latitude === 'number' && typeof longitude === 'number') {
           return NextResponse.json({
             hasLocation: true,
             latitude,
             longitude,
-            source
+            source,
+            locationText: locationText || (source === 'gps' ? 'Current location' : 'Your location')
           })
         }
       } catch {

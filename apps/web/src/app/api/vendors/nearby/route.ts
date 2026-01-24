@@ -107,9 +107,12 @@ export async function GET(request: NextRequest) {
       const vendorMarkets = (marketVendors || [])
         .filter(mv => mv.vendor_profile_id === vendor.id && mv.markets)
         .map(mv => {
-          const m = mv.markets as unknown as { id: string; name: string; latitude: number | null; longitude: number | null }
-          const distance = (m.latitude && m.longitude)
-            ? haversineDistance(latitude, longitude, m.latitude, m.longitude)
+          const m = mv.markets as unknown as { id: string; name: string; latitude: string | number | null; longitude: string | number | null }
+          // Parse lat/lng - DECIMAL types from PostgreSQL can come back as strings
+          const mLat = m.latitude ? parseFloat(String(m.latitude)) : null
+          const mLng = m.longitude ? parseFloat(String(m.longitude)) : null
+          const distance = (mLat && mLng && !isNaN(mLat) && !isNaN(mLng))
+            ? haversineDistance(latitude, longitude, mLat, mLng)
             : null
           return { id: m.id, name: m.name, distance }
         })

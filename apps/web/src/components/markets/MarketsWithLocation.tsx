@@ -127,16 +127,22 @@ export default function MarketsWithLocation({
     }
   }
 
-  const handleLocationSet = async (lat: number, lng: number) => {
+  const handleLocationSet = async (lat: number, lng: number, source: 'gps' | 'manual', providedLocationText?: string) => {
     setUserLocation({ lat, lng })
     setHasLocation(true)
-    // Get location text from API
-    try {
-      const response = await fetch('/api/buyer/location')
-      const data = await response.json()
-      setLocationText(data.locationText || 'Your location')
-    } catch {
-      setLocationText('Your location')
+
+    // Use provided location text if available, otherwise fetch from API
+    if (providedLocationText) {
+      setLocationText(providedLocationText)
+    } else {
+      // Get location text from API for GPS-based location
+      try {
+        const response = await fetch('/api/buyer/location')
+        const data = await response.json()
+        setLocationText(data.locationText || (source === 'gps' ? 'Current location' : 'Your location'))
+      } catch {
+        setLocationText(source === 'gps' ? 'Current location' : 'Your location')
+      }
     }
     fetchNearbyMarkets(lat, lng)
   }
@@ -159,6 +165,28 @@ export default function MarketsWithLocation({
           onClear={handleClearLocation}
         />
       </div>
+
+      {/* Location prompt card - show when no location is set and location check is complete */}
+      {locationChecked && !hasLocation && (
+        <div style={{
+          padding: spacing.md,
+          marginBottom: spacing.md,
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: radius.lg,
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: 24, marginBottom: spacing.xs }}>📍</div>
+          <p style={{
+            margin: 0,
+            color: '#1e40af',
+            fontSize: typography.sizes.base,
+            fontWeight: typography.weights.medium
+          }}>
+            Enter your ZIP code above to find markets within 25 miles
+          </p>
+        </div>
+      )}
 
       {/* Loading indicator */}
       {loading && (

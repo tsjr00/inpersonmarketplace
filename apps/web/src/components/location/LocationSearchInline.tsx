@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
 interface LocationSearchInlineProps {
-  onLocationSet?: (lat: number, lng: number, source: 'gps' | 'manual') => void
+  onLocationSet?: (lat: number, lng: number, source: 'gps' | 'manual', locationText?: string) => void
   hasLocation?: boolean
   locationText?: string
   onClear?: () => void
@@ -37,11 +37,16 @@ export default function LocationSearchInline({
           const response = await fetch('/api/buyer/location', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ latitude, longitude, source: 'gps' })
+            body: JSON.stringify({
+              latitude,
+              longitude,
+              source: 'gps',
+              locationText: 'Current location'
+            })
           })
           if (!response.ok) throw new Error('Failed to save location')
           setMode('input')
-          onLocationSet?.(latitude, longitude, 'gps')
+          onLocationSet?.(latitude, longitude, 'gps', 'Current location')
         } catch {
           setError('Failed to save location')
           setMode('input')
@@ -74,20 +79,24 @@ export default function LocationSearchInline({
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Invalid ZIP')
 
+      // Save with the ZIP code for display
       const saveResponse = await fetch('/api/buyer/location', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           latitude: data.latitude,
           longitude: data.longitude,
-          source: 'manual'
+          source: 'manual',
+          zipCode: zipCode,
+          locationText: zipCode // Display the ZIP code in the green bar
         })
       })
       if (!saveResponse.ok) throw new Error('Failed to save')
 
+      const savedZip = zipCode
       setZipCode('')
       setMode('input')
-      onLocationSet?.(data.latitude, data.longitude, 'manual')
+      onLocationSet?.(data.latitude, data.longitude, 'manual', savedZip)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Invalid ZIP code'
       setError(message)
@@ -95,8 +104,12 @@ export default function LocationSearchInline({
     }
   }
 
-  // Show current location with change option
+  // Show current location with change option (green bar)
   if (hasLocation && locationText) {
+    // Check if it's a ZIP code (5 digits)
+    const isZipCode = /^\d{5}$/.test(locationText)
+    const displayText = isZipCode ? `ZIP ${locationText}` : locationText
+
     return (
       <div style={{
         display: 'flex',
@@ -108,7 +121,7 @@ export default function LocationSearchInline({
         borderRadius: radius.md,
         fontSize: typography.sizes.sm
       }}>
-        <span style={{ color: '#166534' }}>📍 {locationText} (25mi)</span>
+        <span style={{ color: '#166534' }}>📍 {displayText} (25mi radius)</span>
         <button
           onClick={onClear}
           style={{
