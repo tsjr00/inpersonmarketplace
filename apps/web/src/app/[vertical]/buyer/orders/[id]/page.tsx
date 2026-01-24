@@ -129,7 +129,7 @@ export default function BuyerOrderDetailPage() {
     }
 
     const confirmMessage = isConfirmed
-      ? 'This order has been confirmed by the vendor. A cancellation fee of up to 50% may apply. Are you sure you want to cancel?'
+      ? 'This order has been confirmed by the vendor. A cancellation/restocking fee of up to 50% may apply. Are you sure you want to cancel?'
       : 'Are you sure you want to cancel this item? You will receive a full refund.'
 
     if (!confirm(confirmMessage)) {
@@ -486,7 +486,7 @@ export default function BuyerOrderDetailPage() {
                                 color: '#991b1b',
                                 fontStyle: 'italic'
                               }}>
-                                Cancellation fee may apply
+                                Cancellation/restocking fee may apply
                               </span>
                             )}
                           </div>

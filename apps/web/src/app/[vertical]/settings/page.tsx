@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import SettingsForm from './SettingsForm'
+import ChangePasswordForm from './ChangePasswordForm'
+import NotificationPreferences from './NotificationPreferences'
+import DeleteAccountSection from './DeleteAccountSection'
 import VendorTierManager from './VendorTierManager'
 import BuyerTierManager from './BuyerTierManager'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -215,32 +218,66 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         </div>
       )}
 
-      {/* Coming Soon */}
+      {/* Change Password */}
       <div style={{
-        backgroundColor: colors.surfaceMuted,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: radius.md,
         border: `1px solid ${colors.border}`,
+        padding: spacing.md,
+        marginBottom: spacing.md
+      }}>
+        <h2 style={{
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+          marginTop: 0,
+          marginBottom: spacing.md
+        }}>
+          Change Password
+        </h2>
+
+        <ChangePasswordForm primaryColor={branding.colors.primary} />
+      </div>
+
+      {/* Notification Preferences */}
+      <div style={{
+        backgroundColor: colors.surfaceElevated,
+        borderRadius: radius.md,
+        border: `1px solid ${colors.border}`,
+        padding: spacing.md,
+        marginBottom: spacing.md
+      }}>
+        <h2 style={{
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+          marginTop: 0,
+          marginBottom: spacing.md
+        }}>
+          Notification Preferences
+        </h2>
+
+        <NotificationPreferences primaryColor={branding.colors.primary} />
+      </div>
+
+      {/* Delete Account */}
+      <div style={{
+        backgroundColor: colors.surfaceElevated,
+        borderRadius: radius.md,
+        border: `1px solid #fecaca`,
         padding: spacing.md
       }}>
         <h2 style={{
           fontSize: typography.sizes.lg,
           fontWeight: typography.weights.semibold,
-          color: colors.textMuted,
+          color: '#dc2626',
           marginTop: 0,
-          marginBottom: spacing.xs
+          marginBottom: spacing.md
         }}>
-          Coming Soon
+          Delete Account
         </h2>
-        <ul style={{
-          margin: 0,
-          paddingLeft: spacing.md,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm
-        }}>
-          <li>Notification preferences</li>
-          <li>Email settings</li>
-          <li>Privacy settings</li>
-        </ul>
+
+        <DeleteAccountSection vertical={vertical} userEmail={user.email || ''} />
       </div>
     </div>
   )

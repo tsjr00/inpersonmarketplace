@@ -57,7 +57,20 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     .eq('approval_status', 'approved')
     .not('city', 'is', null)
 
-  const cities = [...new Set(allMarkets?.map(m => m.city).filter(Boolean))] as string[]
+  // Proper-case and deduplicate cities (case-insensitive)
+  const properCase = (str: string) =>
+    str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+
+  const cityMap = new Map<string, string>()
+  allMarkets?.forEach(m => {
+    if (m.city) {
+      const key = m.city.toLowerCase().trim()
+      if (!cityMap.has(key)) {
+        cityMap.set(key, properCase(m.city.trim()))
+      }
+    }
+  })
+  const cities = Array.from(cityMap.values()).sort()
 
   // Transform markets data
   const transformedMarkets = markets?.map(market => ({

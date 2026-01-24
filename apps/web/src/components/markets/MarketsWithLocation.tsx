@@ -45,6 +45,7 @@ export default function MarketsWithLocation({
   const [locationText, setLocationText] = useState('')
   const [markets, setMarkets] = useState<Market[]>(initialMarkets)
   const [loading, setLoading] = useState(false)
+  const [locationChecked, setLocationChecked] = useState(false)
 
   // Check for saved location on mount
   useEffect(() => {
@@ -52,14 +53,17 @@ export default function MarketsWithLocation({
   }, [])
 
   // Re-fetch when city or search filters change (and we have location)
+  // Only run after initial location check to avoid race condition
   useEffect(() => {
+    if (!locationChecked) return // Wait for initial location check
+
     if (userLocation) {
       fetchNearbyMarkets(userLocation.lat, userLocation.lng)
     } else {
       // No location set, use initial markets (server-filtered)
       setMarkets(initialMarkets)
     }
-  }, [currentCity, currentSearch, initialMarkets])
+  }, [currentCity, currentSearch, initialMarkets, locationChecked])
 
   const checkSavedLocation = async () => {
     try {
@@ -70,14 +74,16 @@ export default function MarketsWithLocation({
         setHasLocation(true)
         setUserLocation({ lat: data.latitude, lng: data.longitude })
         setLocationText(data.locationText || 'Your location')
-        // Fetch nearby markets
-        fetchNearbyMarkets(data.latitude, data.longitude)
+        // Fetch nearby markets and then mark location as checked
+        await fetchNearbyMarkets(data.latitude, data.longitude)
       } else {
         setHasLocation(false)
       }
     } catch (error) {
       console.error('Error checking location:', error)
       setHasLocation(false)
+    } finally {
+      setLocationChecked(true)
     }
   }
 

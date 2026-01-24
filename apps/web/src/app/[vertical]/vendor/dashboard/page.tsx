@@ -458,9 +458,9 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           >
             <div style={{
               padding: spacing.sm,
-              backgroundColor: vendorProfile.tier === 'premium' ? colors.surfaceSubtle : colors.surfaceElevated,
+              backgroundColor: colors.surfaceElevated,
               color: colors.textPrimary,
-              border: `1px solid ${vendorProfile.tier === 'premium' ? colors.accent : colors.border}`,
+              border: `1px solid ${colors.border}`,
               borderRadius: radius.md,
               cursor: 'pointer',
               height: '100%',
@@ -540,6 +540,37 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </h3>
               <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
                 View sales trends, top products, and insights
+              </p>
+            </div>
+          </Link>
+
+          {/* Reviews */}
+          <Link
+            href={`/${vertical}/vendor/reviews`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              cursor: 'pointer',
+              height: '100%',
+              minHeight: 120,
+              boxShadow: shadows.sm
+            }}>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>⭐</div>
+              <h3 style={{
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Reviews
+              </h3>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                See feedback from your customers
               </p>
             </div>
           </Link>

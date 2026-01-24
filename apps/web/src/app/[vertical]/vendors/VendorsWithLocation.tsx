@@ -45,6 +45,7 @@ export default function VendorsWithLocation({
   const [locationText, setLocationText] = useState('')
   const [vendors, setVendors] = useState<EnrichedVendor[]>(initialVendors)
   const [loading, setLoading] = useState(false)
+  const [locationChecked, setLocationChecked] = useState(false)
 
   // Check for saved location on mount
   useEffect(() => {
@@ -52,13 +53,16 @@ export default function VendorsWithLocation({
   }, [])
 
   // Re-fetch when filters change (and we have location)
+  // Only run after initial location check is complete to avoid race condition
   useEffect(() => {
+    if (!locationChecked) return // Wait for initial location check
+
     if (userLocation) {
       fetchNearbyVendors(userLocation.lat, userLocation.lng)
     } else {
       setVendors(initialVendors)
     }
-  }, [currentMarket, currentCategory, currentSearch, currentSort, initialVendors])
+  }, [currentMarket, currentCategory, currentSearch, currentSort, initialVendors, locationChecked])
 
   const checkSavedLocation = async () => {
     try {
@@ -69,13 +73,16 @@ export default function VendorsWithLocation({
         setHasLocation(true)
         setUserLocation({ lat: data.latitude, lng: data.longitude })
         setLocationText(data.locationText || 'Your location')
-        fetchNearbyVendors(data.latitude, data.longitude)
+        // Fetch nearby vendors and then mark location as checked
+        await fetchNearbyVendors(data.latitude, data.longitude)
       } else {
         setHasLocation(false)
       }
     } catch (error) {
       console.error('Error checking location:', error)
       setHasLocation(false)
+    } finally {
+      setLocationChecked(true)
     }
   }
 

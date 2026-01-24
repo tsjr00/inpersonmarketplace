@@ -256,211 +256,308 @@ export default function BuyerOrdersPage() {
               </div>
             )}
           </>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-            {orders.map(order => {
-              const config = statusConfig[order.status] || statusConfig.pending
-              const isCompletedOrder = order.status === 'completed'
-              const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
-              // Calculate buyer-facing total from items
-              const orderTotal = order.items?.reduce((sum, item) => sum + calculateDisplayPrice(item.subtotal_cents), 0) || 0
+        ) : (() => {
+          // Group orders into 4 sections
+          const readyOrders = orders
+            .filter(o => o.status === 'ready')
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          const pendingOrders = orders
+            .filter(o => ['pending', 'paid', 'confirmed'].includes(o.status))
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          const cancelledOrders = orders
+            .filter(o => ['cancelled', 'refunded'].includes(o.status))
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          const completedOrders = orders
+            .filter(o => ['completed', 'fulfilled'].includes(o.status))
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
-              return (
-                <div
-                  key={order.id}
-                  onClick={() => router.push(`/${vertical}/buyer/orders/${order.id}`)}
-                  style={{
-                    backgroundColor: colors.surfaceElevated,
-                    borderRadius: radius.md,
-                    border: order.status === 'ready' ? `2px solid #166534` : `1px solid ${colors.border}`,
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    transition: 'box-shadow 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = shadows.md
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none'
-                  }}
-                >
-                  {/* Order Header - Always shown */}
-                  <div style={{
-                    padding: `${spacing.sm} ${spacing.md}`,
-                    borderBottom: isCompletedOrder ? 'none' : `1px solid ${colors.borderMuted}`,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    backgroundColor: order.status === 'ready' ? '#dcfce7' : colors.surfaceMuted,
-                    gap: spacing.xs,
-                    flexWrap: 'wrap'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap', flex: 1 }}>
-                      {/* Prominent Order Number */}
-                      <div style={{
-                        backgroundColor: order.status === 'ready' ? '#166534' : colors.textPrimary,
-                        color: colors.textInverse,
-                        padding: `${spacing['2xs']} ${spacing.sm}`,
-                        borderRadius: radius.sm,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center'
+          const SectionHeader = ({ title, count, color, bgColor }: { title: string; count: number; color: string; bgColor: string }) => (
+            count > 0 ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                padding: `${spacing.xs} 0`,
+                marginBottom: spacing.xs,
+                borderBottom: `2px solid ${color}`,
+              }}>
+                <span style={{
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: bgColor,
+                  color: color,
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.bold,
+                }}>
+                  {title}
+                </span>
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                  ({count} order{count !== 1 ? 's' : ''})
+                </span>
+              </div>
+            ) : null
+          )
+
+          const renderOrder = (order: Order) => {
+            const config = statusConfig[order.status] || statusConfig.pending
+            const isCompletedOrder = ['completed', 'fulfilled'].includes(order.status)
+            const isCancelledOrder = ['cancelled', 'refunded'].includes(order.status)
+            const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
+            // Calculate buyer-facing total from items
+            const orderTotal = order.items?.reduce((sum, item) => sum + calculateDisplayPrice(item.subtotal_cents), 0) || 0
+
+            return (
+              <div
+                key={order.id}
+                onClick={() => router.push(`/${vertical}/buyer/orders/${order.id}`)}
+                style={{
+                  backgroundColor: colors.surfaceElevated,
+                  borderRadius: radius.md,
+                  border: order.status === 'ready' ? `2px solid #166534` : `1px solid ${colors.border}`,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'box-shadow 0.2s',
+                  marginBottom: spacing.sm,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = shadows.md
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              >
+                {/* Order Header - Always shown */}
+                <div style={{
+                  padding: `${spacing.sm} ${spacing.md}`,
+                  borderBottom: (isCompletedOrder || isCancelledOrder) ? 'none' : `1px solid ${colors.borderMuted}`,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: order.status === 'ready' ? '#dcfce7' : colors.surfaceMuted,
+                  gap: spacing.xs,
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap', flex: 1 }}>
+                    {/* Prominent Order Number */}
+                    <div style={{
+                      backgroundColor: order.status === 'ready' ? '#166534' : colors.textPrimary,
+                      color: colors.textInverse,
+                      padding: `${spacing['2xs']} ${spacing.sm}`,
+                      borderRadius: radius.sm,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
+                        Order
+                      </span>
+                      <span style={{
+                        fontSize: typography.sizes.lg,
+                        fontWeight: typography.weights.bold,
+                        fontFamily: 'monospace',
+                        letterSpacing: 1
                       }}>
-                        <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
-                          Order
-                        </span>
-                        <span style={{
-                          fontSize: typography.sizes.lg,
-                          fontWeight: typography.weights.bold,
-                          fontFamily: 'monospace',
-                          letterSpacing: 1
-                        }}>
-                          {order.order_number || order.id.slice(0, 8).toUpperCase()}
-                        </span>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
-                          <span style={{
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            backgroundColor: config.bgColor,
-                            color: config.color,
-                            borderRadius: radius.full,
-                            fontSize: typography.sizes.xs,
-                            fontWeight: typography.weights.semibold,
-                          }}>
-                            {config.label}
-                          </span>
-                          <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                            {new Date(order.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                          </span>
-                        </div>
-                        {/* Show item names inline for completed orders */}
-                        {isCompletedOrder && itemNames && (
-                          <p style={{
-                            margin: `${spacing['3xs']} 0 0 0`,
-                            fontSize: typography.sizes.xs,
-                            color: colors.textMuted,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}>
-                            {itemNames}
-                          </p>
-                        )}
-                      </div>
+                        {order.order_number || order.id.slice(0, 8).toUpperCase()}
+                      </span>
                     </div>
-                    <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-                      {formatPrice(orderTotal)}
-                    </span>
-                  </div>
-
-                  {/* Order Items - Only show for non-completed orders */}
-                  {!isCompletedOrder && (
-                    <div style={{ padding: `${spacing.md} ${spacing.md}` }}>
-                      {order.items && order.items.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                          {order.items.map((item, index) => {
-                            const itemConfig = statusConfig[item.status] || statusConfig.pending
-
-                            return (
-                              <div
-                                key={item.id || index}
-                                style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  padding: `${spacing.xs} ${spacing.sm}`,
-                                  backgroundColor: colors.surfaceMuted,
-                                  borderRadius: radius.sm,
-                                }}
-                              >
-                                <div>
-                                  <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary, fontSize: typography.sizes.base }}>
-                                    {item.listing_title}
-                                  </p>
-                                  <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                                    {item.vendor_name} • Qty: {item.quantity}
-                                    {item.market && ` • ${item.market.name}`}
-                                  </p>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                  <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.base }}>
-                                    {formatPrice(calculateDisplayPrice(item.subtotal_cents))}
-                                  </p>
-                                  <span style={{
-                                    padding: `2px ${spacing['2xs']}`,
-                                    backgroundColor: itemConfig.bgColor,
-                                    color: itemConfig.color,
-                                    borderRadius: radius.full,
-                                    fontSize: typography.sizes.xs,
-                                    fontWeight: typography.weights.medium,
-                                  }}>
-                                    {itemConfig.label}
-                                  </span>
-                                </div>
-                              </div>
-                            )
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+                        <span style={{
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          backgroundColor: config.bgColor,
+                          color: config.color,
+                          borderRadius: radius.full,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
+                        }}>
+                          {config.label}
+                        </span>
+                        <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
+                          {new Date(order.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
                           })}
-                        </div>
-                      ) : (
-                        <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>
-                          No item details available
+                        </span>
+                      </div>
+                      {/* Show item names inline for completed/cancelled orders */}
+                      {(isCompletedOrder || isCancelledOrder) && itemNames && (
+                        <p style={{
+                          margin: `${spacing['3xs']} 0 0 0`,
+                          fontSize: typography.sizes.xs,
+                          color: colors.textMuted,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {itemNames}
                         </p>
                       )}
                     </div>
-                  )}
-
-                  {/* Ready for Pickup Banner - Highlighted */}
-                  {order.status === 'ready' && (
-                    <div style={{
-                      padding: `${spacing.sm} ${spacing.md}`,
-                      borderTop: `1px solid #86efac`,
-                      backgroundColor: '#dcfce7',
-                    }}>
-                      <p style={{
-                        margin: 0,
-                        fontSize: typography.sizes.base,
-                        fontWeight: typography.weights.semibold,
-                        color: '#166534',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: spacing['2xs'],
-                      }}>
-                        <span style={{ fontSize: typography.sizes.xl }}>📍</span>
-                        Your order is ready for pickup!
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Confirmed Banner */}
-                  {order.status === 'confirmed' && (
-                    <div style={{
-                      padding: `${spacing.sm} ${spacing.md}`,
-                      borderTop: `1px solid ${colors.borderMuted}`,
-                      backgroundColor: colors.primaryLight,
-                    }}>
-                      <p style={{
-                        margin: 0,
-                        fontSize: typography.sizes.sm,
-                        color: colors.primaryDark,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: spacing['2xs'],
-                      }}>
-                        <span style={{ fontSize: typography.sizes.lg }}>✓</span>
-                        Your order has been confirmed by the vendor
-                      </p>
-                    </div>
-                  )}
+                  </div>
+                  <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                    {formatPrice(orderTotal)}
+                  </span>
                 </div>
-              )
-            })}
-          </div>
-        )}
+
+                {/* Order Items - Only show for active orders (not completed/cancelled) */}
+                {!isCompletedOrder && !isCancelledOrder && (
+                  <div style={{ padding: `${spacing.md} ${spacing.md}` }}>
+                    {order.items && order.items.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                        {order.items.map((item, index) => {
+                          const itemConfig = statusConfig[item.status] || statusConfig.pending
+
+                          return (
+                            <div
+                              key={item.id || index}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: `${spacing.xs} ${spacing.sm}`,
+                                backgroundColor: colors.surfaceMuted,
+                                borderRadius: radius.sm,
+                              }}
+                            >
+                              <div>
+                                <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary, fontSize: typography.sizes.base }}>
+                                  {item.listing_title}
+                                </p>
+                                <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                                  {item.vendor_name} • Qty: {item.quantity}
+                                  {item.market && ` • ${item.market.name}`}
+                                </p>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.base }}>
+                                  {formatPrice(calculateDisplayPrice(item.subtotal_cents))}
+                                </p>
+                                <span style={{
+                                  padding: `2px ${spacing['2xs']}`,
+                                  backgroundColor: itemConfig.bgColor,
+                                  color: itemConfig.color,
+                                  borderRadius: radius.full,
+                                  fontSize: typography.sizes.xs,
+                                  fontWeight: typography.weights.medium,
+                                }}>
+                                  {itemConfig.label}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>
+                        No item details available
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Ready for Pickup Banner - Highlighted */}
+                {order.status === 'ready' && (
+                  <div style={{
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    borderTop: `1px solid #86efac`,
+                    backgroundColor: '#dcfce7',
+                  }}>
+                    <p style={{
+                      margin: 0,
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.semibold,
+                      color: '#166534',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing['2xs'],
+                    }}>
+                      <span style={{ fontSize: typography.sizes.xl }}>📍</span>
+                      Your order is ready for pickup!
+                    </p>
+                  </div>
+                )}
+
+                {/* Confirmed Banner */}
+                {order.status === 'confirmed' && (
+                  <div style={{
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    borderTop: `1px solid ${colors.borderMuted}`,
+                    backgroundColor: colors.primaryLight,
+                  }}>
+                    <p style={{
+                      margin: 0,
+                      fontSize: typography.sizes.sm,
+                      color: colors.primaryDark,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing['2xs'],
+                    }}>
+                      <span style={{ fontSize: typography.sizes.lg }}>✓</span>
+                      Your order has been confirmed by the vendor
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          return (
+            <div>
+              {/* Section 1: Ready for Pickup */}
+              {readyOrders.length > 0 && (
+                <div style={{ marginBottom: spacing.lg }}>
+                  <SectionHeader
+                    title="Ready for Pickup"
+                    count={readyOrders.length}
+                    color="#166534"
+                    bgColor="#dcfce7"
+                  />
+                  {readyOrders.map(renderOrder)}
+                </div>
+              )}
+
+              {/* Section 2: Pending / In Progress */}
+              {pendingOrders.length > 0 && (
+                <div style={{ marginBottom: spacing.lg }}>
+                  <SectionHeader
+                    title="In Progress"
+                    count={pendingOrders.length}
+                    color={colors.primaryDark}
+                    bgColor={colors.primaryLight}
+                  />
+                  {pendingOrders.map(renderOrder)}
+                </div>
+              )}
+
+              {/* Section 3: Cancelled */}
+              {cancelledOrders.length > 0 && (
+                <div style={{ marginBottom: spacing.lg }}>
+                  <SectionHeader
+                    title="Cancelled"
+                    count={cancelledOrders.length}
+                    color="#991b1b"
+                    bgColor="#fee2e2"
+                  />
+                  {cancelledOrders.map(renderOrder)}
+                </div>
+              )}
+
+              {/* Section 4: Completed */}
+              {completedOrders.length > 0 && (
+                <div style={{ marginBottom: spacing.lg }}>
+                  <SectionHeader
+                    title="Completed"
+                    count={completedOrders.length}
+                    color={colors.textMuted}
+                    bgColor={colors.surfaceMuted}
+                  />
+                  {completedOrders.map(renderOrder)}
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
       </div>
     </div>
