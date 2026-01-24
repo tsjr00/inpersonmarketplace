@@ -132,11 +132,33 @@ export default function AdminMarketsPage() {
     e.preventDefault()
     setSubmitting(true)
 
-    // Parse lat/lng as numbers if provided
+    // Validate lat/lng are required for traditional markets
+    if (!formData.latitude || !formData.longitude) {
+      alert('Latitude and Longitude are required. Without coordinates, this market will not appear in buyer location searches.')
+      setSubmitting(false)
+      return
+    }
+
+    const lat = parseFloat(formData.latitude)
+    const lng = parseFloat(formData.longitude)
+
+    if (isNaN(lat) || isNaN(lng)) {
+      alert('Please enter valid numeric values for Latitude and Longitude.')
+      setSubmitting(false)
+      return
+    }
+
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      alert('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.')
+      setSubmitting(false)
+      return
+    }
+
+    // Parse lat/lng as numbers
     const submitData = {
       ...formData,
-      latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-      longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+      latitude: lat,
+      longitude: lng,
     }
 
     try {
@@ -496,19 +518,40 @@ export default function AdminMarketsPage() {
                 </div>
               </div>
 
+              {/* Coordinates Required Warning */}
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: '#fef3c7',
+                border: '1px solid #f59e0b',
+                borderRadius: radius.sm,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
+                  <span style={{ fontSize: 16 }}>⚠️</span>
+                  <div>
+                    <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#92400e' }}>
+                      Coordinates Required
+                    </p>
+                    <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xs, color: '#92400e' }}>
+                      Latitude and Longitude are <strong>mandatory</strong>. Without valid coordinates, this market will not appear in buyer location searches (25-mile radius filter).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
                 <div>
                   <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
-                    Latitude <span style={{ fontWeight: typography.weights.normal, color: colors.textSecondary }}>(optional)</span>
+                    Latitude *
                   </label>
                   <input
                     type="text"
+                    required
                     value={formData.latitude}
                     onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
                     style={{
                       width: '100%',
                       padding: `${spacing.xs} ${spacing.sm}`,
-                      border: `1px solid ${colors.border}`,
+                      border: `1px solid ${!formData.latitude ? '#f59e0b' : colors.border}`,
                       borderRadius: radius.sm,
                       boxSizing: 'border-box',
                       fontSize: typography.sizes.sm
@@ -518,16 +561,17 @@ export default function AdminMarketsPage() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
-                    Longitude <span style={{ fontWeight: typography.weights.normal, color: colors.textSecondary }}>(optional)</span>
+                    Longitude *
                   </label>
                   <input
                     type="text"
+                    required
                     value={formData.longitude}
                     onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
                     style={{
                       width: '100%',
                       padding: `${spacing.xs} ${spacing.sm}`,
-                      border: `1px solid ${colors.border}`,
+                      border: `1px solid ${!formData.longitude ? '#f59e0b' : colors.border}`,
                       borderRadius: radius.sm,
                       boxSizing: 'border-box',
                       fontSize: typography.sizes.sm
@@ -536,8 +580,8 @@ export default function AdminMarketsPage() {
                   />
                 </div>
               </div>
-              <p style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: `-${spacing.xs}` }}>
-                Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>latlong.net</a> - enables 25-mile radius filtering for buyers
+              <p style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, marginTop: spacing['3xs'] }}>
+                Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>latlong.net</a> - enter the market address to find its coordinates
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: spacing.sm }}>
