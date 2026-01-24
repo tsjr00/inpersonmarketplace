@@ -7,6 +7,7 @@ import { VerticalBranding } from '@/lib/branding'
 import { CATEGORIES } from '@/lib/constants'
 import Link from 'next/link'
 import MarketSelector from '@/components/vendor/MarketSelector'
+import { ListingImageUpload, ListingImage } from '@/components/vendor/ListingImageUpload'
 
 // Category descriptions to help vendors categorize their products
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -79,6 +80,9 @@ export default function ListingForm({
   const [error, setError] = useState('')
   const [hasDraft, setHasDraft] = useState(false)
 
+  // Image management (only used in edit mode)
+  const [images, setImages] = useState<ListingImage[]>([])
+
   // Session storage key for draft persistence (only for create mode)
   const storageKey = mode === 'create' ? `listing-draft-${vendorProfileId}` : null
 
@@ -118,6 +122,25 @@ export default function ListingForm({
 
     return () => clearTimeout(timer)
   }, [formData, containsAllergens, ingredients, storageKey])
+
+  // Load images when editing an existing listing
+  useEffect(() => {
+    if (mode !== 'edit' || !listing?.id) return
+
+    const fetchImages = async () => {
+      try {
+        const response = await fetch(`/api/vendor/listings/${listing.id}/images`)
+        if (response.ok) {
+          const data = await response.json()
+          setImages(data.images || [])
+        }
+      } catch (err) {
+        console.error('Failed to load listing images:', err)
+      }
+    }
+
+    fetchImages()
+  }, [mode, listing?.id])
 
   // Clear draft function
   const clearDraft = () => {
@@ -408,6 +431,33 @@ export default function ListingForm({
               <><br /><strong>If your product contains potential allergens</strong>, check the allergen box below and list the ingredients.</>
             )}
           </p>
+        </div>
+
+        {/* Product Images */}
+        <div style={{ marginBottom: 20 }}>
+          {mode === 'edit' && listing?.id ? (
+            <ListingImageUpload
+              listingId={listing.id as string}
+              images={images}
+              onImagesChange={setImages}
+              maxImages={5}
+              disabled={loading}
+            />
+          ) : (
+            <div style={{
+              padding: 16,
+              backgroundColor: '#f9fafb',
+              border: '1px solid #e5e7eb',
+              borderRadius: 6
+            }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: '#374151' }}>
+                Product Images
+              </label>
+              <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
+                Save this listing first, then you can add photos by editing it.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Allergen Section - only for farmers market */}

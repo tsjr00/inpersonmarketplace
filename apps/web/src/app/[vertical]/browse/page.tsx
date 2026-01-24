@@ -22,7 +22,6 @@ interface Listing {
   price_cents: number
   quantity: number
   category: string | null
-  image_urls: string[] | null
   created_at: string
   vendor_profile_id: string
   listing_data?: {
@@ -42,6 +41,12 @@ interface Listing {
       name: string
       market_type: string
     } | null
+  }[]
+  listing_images?: {
+    id: string
+    url: string
+    is_primary: boolean
+    display_order: number
   }[]
 }
 
@@ -285,7 +290,6 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       price_cents,
       quantity,
       category,
-      image_urls,
       created_at,
       vendor_profile_id,
       listing_data,
@@ -302,6 +306,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           name,
           market_type
         )
+      ),
+      listing_images (
+        id,
+        url,
+        is_primary,
+        display_order
       )
     `)
     .eq('vertical_id', vertical)
@@ -567,6 +577,10 @@ function ListingCard({
                      (vendorData?.farm_name as string) || 'Vendor'
   const listingDesc = listing.description || 'No description'
 
+  // Get primary image or first image
+  const primaryImage = listing.listing_images?.find(img => img.is_primary)
+    || listing.listing_images?.[0]
+
   return (
     <Link
       href={`/${vertical}/listing/${listing.id}`}
@@ -625,18 +639,32 @@ function ListingCard({
           </span>
         )}
 
-        {/* Image placeholder */}
-        <div style={{
-          height: 140,
-          backgroundColor: colors.surfaceMuted,
-          borderRadius: radius.sm,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: colors.textMuted
-        }}>
-          <span style={{ fontSize: 36 }}>📦</span>
-        </div>
+        {/* Product Image or Placeholder */}
+        {primaryImage?.url ? (
+          <img
+            src={primaryImage.url}
+            alt={listing.title}
+            style={{
+              width: '100%',
+              height: 140,
+              objectFit: 'cover',
+              borderRadius: radius.sm,
+              backgroundColor: colors.surfaceMuted
+            }}
+          />
+        ) : (
+          <div style={{
+            height: 140,
+            backgroundColor: colors.surfaceMuted,
+            borderRadius: radius.sm,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.textMuted
+          }}>
+            <span style={{ fontSize: 36 }}>📦</span>
+          </div>
+        )}
       </div>
 
       {/* Title */}
