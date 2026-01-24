@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { MarketBoxImageUpload } from '@/components/vendor/MarketBoxImageUpload'
 
 interface Market {
   id: string
@@ -51,6 +52,8 @@ export default function NewMarketBoxPage() {
     pickup_start_time: '08:00',
     pickup_end_time: '12:00',
   })
+
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (vertical) {
@@ -122,6 +125,7 @@ export default function NewMarketBoxPage() {
           pickup_day_of_week: parseInt(formData.pickup_day_of_week),
           pickup_start_time: formData.pickup_start_time,
           pickup_end_time: formData.pickup_end_time,
+          image_urls: imageUrl ? [imageUrl] : [],
         }),
       })
 
@@ -258,6 +262,13 @@ export default function NewMarketBoxPage() {
                   }}
                 />
               </div>
+
+              {/* Box Image */}
+              <MarketBoxImageUpload
+                imageUrl={imageUrl}
+                onImageChange={setImageUrl}
+                disabled={submitting}
+              />
 
               {/* 1-Month Price */}
               <div style={{ marginBottom: 20 }}>

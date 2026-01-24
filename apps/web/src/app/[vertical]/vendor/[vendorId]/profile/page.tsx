@@ -46,10 +46,18 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     ? (Array.isArray(profileTypes) ? profileTypes as string[] : [profileTypes as string])
     : []
 
-  // Get vendor's published listings
+  // Get vendor's published listings with images
   const { data: listings } = await supabase
     .from('listings')
-    .select('*')
+    .select(`
+      *,
+      listing_images (
+        id,
+        url,
+        is_primary,
+        display_order
+      )
+    `)
     .eq('vendor_profile_id', vendorId)
     .eq('status', 'published')
     .is('deleted_at', null)
@@ -561,6 +569,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const listingTitle = listing.title as string
                 const listingCategory = listing.category as string | null
                 const listingPriceCents = (listing.price_cents as number) || 0
+                const listingImages = listing.listing_images as { id: string; url: string; is_primary: boolean; display_order: number }[] | null
+                const primaryImage = listingImages?.find(img => img.is_primary) || listingImages?.[0]
 
                 return (
                   <Link
@@ -576,7 +586,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       textDecoration: 'none'
                     }}
                   >
-                    {/* Image Placeholder with Category Badge */}
+                    {/* Image with Category Badge */}
                     <div style={{ position: 'relative', marginBottom: 12 }}>
                       {listingCategory && (
                         <span style={{
@@ -595,16 +605,30 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         </span>
                       )}
 
-                      <div style={{
-                        height: 140,
-                        backgroundColor: '#f3f4f6',
-                        borderRadius: 6,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <span style={{ fontSize: 36, color: '#ccc' }}>📦</span>
-                      </div>
+                      {primaryImage?.url ? (
+                        <img
+                          src={primaryImage.url}
+                          alt={listingTitle}
+                          style={{
+                            width: '100%',
+                            height: 140,
+                            objectFit: 'cover',
+                            borderRadius: 6,
+                            backgroundColor: '#f3f4f6'
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          height: 140,
+                          backgroundColor: '#f3f4f6',
+                          borderRadius: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <span style={{ fontSize: 36, color: '#ccc' }}>📦</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Title */}

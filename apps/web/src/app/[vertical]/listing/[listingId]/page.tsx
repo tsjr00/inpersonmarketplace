@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import ListingPurchaseSection from '@/components/listings/ListingPurchaseSection'
+import ListingImageGallery from '@/components/listings/ListingImageGallery'
 import { formatDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -50,15 +51,8 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
   const vendorId = vendorProfile?.id as string
 
-  // Get listing images sorted by display order
+  // Get listing images
   const listingImages = (listing.listing_images as { id: string; url: string; is_primary: boolean; display_order: number }[] || [])
-    .sort((a, b) => {
-      // Primary first, then by display order
-      if (a.is_primary && !b.is_primary) return -1
-      if (!a.is_primary && b.is_primary) return 1
-      return a.display_order - b.display_order
-    })
-  const primaryImage = listingImages[0]
 
   // Get other listings from same vendor
   const { data: otherListings } = await supabase
@@ -124,61 +118,12 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           display: 'grid',
           gap: spacing.md
         }}>
-          {/* Left: Image */}
+          {/* Left: Image Gallery */}
           <div>
-            {primaryImage?.url ? (
-              <img
-                src={primaryImage.url}
-                alt={listing.title}
-                style={{
-                  width: '100%',
-                  aspectRatio: '1',
-                  objectFit: 'cover',
-                  borderRadius: radius.md,
-                  backgroundColor: colors.surfaceMuted,
-                  maxHeight: 500
-                }}
-              />
-            ) : (
-              <div style={{
-                aspectRatio: '1',
-                backgroundColor: colors.surfaceMuted,
-                borderRadius: radius.md,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                maxHeight: 500
-              }}>
-                <span style={{ fontSize: 80, color: colors.textMuted }}>📦</span>
-              </div>
-            )}
-
-            {/* Additional images thumbnail strip */}
-            {listingImages.length > 1 && (
-              <div style={{
-                display: 'flex',
-                gap: spacing.xs,
-                marginTop: spacing.xs,
-                overflowX: 'auto'
-              }}>
-                {listingImages.map((img, idx) => (
-                  <img
-                    key={img.id}
-                    src={img.url}
-                    alt={`${listing.title} - image ${idx + 1}`}
-                    style={{
-                      width: 60,
-                      height: 60,
-                      objectFit: 'cover',
-                      borderRadius: radius.sm,
-                      border: idx === 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
-                      cursor: 'pointer',
-                      flexShrink: 0
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+            <ListingImageGallery
+              images={listingImages}
+              title={listing.title}
+            />
           </div>
 
           {/* Right: Details */}

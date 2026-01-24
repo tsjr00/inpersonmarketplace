@@ -436,13 +436,24 @@ export default function ListingForm({
         {/* Product Images */}
         <div style={{ marginBottom: 20 }}>
           {mode === 'edit' && listing?.id ? (
-            <ListingImageUpload
-              listingId={listing.id as string}
-              images={images}
-              onImagesChange={setImages}
-              maxImages={5}
-              disabled={loading}
-            />
+            <>
+              <ListingImageUpload
+                listingId={listing.id as string}
+                images={images}
+                onImagesChange={setImages}
+                maxImages={vendorTier === 'standard' ? 1 : 3}
+                disabled={loading}
+              />
+              {vendorTier === 'standard' && (
+                <p style={{ fontSize: 13, color: '#6b7280', marginTop: 8 }}>
+                  Standard vendors can add 1 image per listing.{' '}
+                  <Link href={`/${vertical}/vendor/upgrade`} style={{ color: branding.colors.primary }}>
+                    Upgrade to Premium
+                  </Link>{' '}
+                  for up to 3 images.
+                </p>
+              )}
+            </>
           ) : (
             <div style={{
               padding: 16,
