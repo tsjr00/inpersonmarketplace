@@ -10,11 +10,13 @@ CREATE TABLE IF NOT EXISTS vendor_location_cache (
   location_source TEXT NOT NULL CHECK (location_source IN ('direct', 'market')),
   source_market_id UUID REFERENCES markets(id) ON DELETE CASCADE,
   vertical_id TEXT,
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  -- Each vendor can have multiple location entries (one per market + direct)
-  UNIQUE(vendor_profile_id, COALESCE(source_market_id, '00000000-0000-0000-0000-000000000000'::uuid))
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Unique index to prevent duplicate entries per vendor+market combo
+-- Uses COALESCE to treat NULL source_market_id as a known value for uniqueness
+CREATE UNIQUE INDEX idx_vlc_vendor_market_unique
+ON vendor_location_cache(vendor_profile_id, COALESCE(source_market_id, '00000000-0000-0000-0000-000000000000'::uuid));
 
 -- Indexes for fast bounding box queries
 CREATE INDEX idx_vlc_lat ON vendor_location_cache(latitude);
@@ -69,10 +71,7 @@ BEGIN
     AND m.latitude IS NOT NULL
     AND m.longitude IS NOT NULL
     AND vp.status = 'approved'
-  ON CONFLICT (vendor_profile_id, COALESCE(source_market_id, '00000000-0000-0000-0000-000000000000'::uuid)) DO UPDATE
-  SET latitude = EXCLUDED.latitude,
-      longitude = EXCLUDED.longitude,
-      updated_at = NOW();
+  ON CONFLICT DO NOTHING;
 END;
 $$;
 
@@ -115,10 +114,7 @@ BEGIN
     AND m.latitude IS NOT NULL
     AND m.longitude IS NOT NULL
     AND vp.status = 'approved'
-  ON CONFLICT (vendor_profile_id, COALESCE(source_market_id, '00000000-0000-0000-0000-000000000000'::uuid)) DO UPDATE
-  SET latitude = EXCLUDED.latitude,
-      longitude = EXCLUDED.longitude,
-      updated_at = NOW();
+  ON CONFLICT DO NOTHING;
 END;
 $$;
 
