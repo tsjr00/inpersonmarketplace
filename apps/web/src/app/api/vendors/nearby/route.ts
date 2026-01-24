@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    console.log('[Vendors Nearby] Request params:', { latitude, longitude, radiusMiles, vertical })
+
     // Get all approved vendors for this vertical (including their direct coordinates)
     let query = supabase
       .from('vendor_profiles')
@@ -59,13 +61,16 @@ export async function GET(request: NextRequest) {
     const { data: vendors, error } = await query
 
     if (error) {
-      console.error('Error fetching vendors:', error)
+      console.error('[Vendors Nearby] Error fetching vendors:', error)
       return NextResponse.json({ error: 'Failed to fetch vendors' }, { status: 500 })
     }
+
+    console.log('[Vendors Nearby] Found', vendors?.length || 0, 'approved vendors')
 
     const vendorIds = (vendors || []).map(v => v.id)
 
     if (vendorIds.length === 0) {
+      console.log('[Vendors Nearby] No vendors found, returning empty')
       return NextResponse.json({ vendors: [], center: { latitude, longitude }, radiusMiles })
     }
 
@@ -158,11 +163,18 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // Log vendor distances for debugging
+    enrichedVendors.forEach(v => {
+      console.log(`[Vendors Nearby] Vendor "${v.name}": distance=${v.distance_miles}, listings=${v.listingCount}, hasDirectLocation=${v.hasDirectLocation}`)
+    })
+
     // Filter by distance (vendors with at least one market within radius)
     // Also exclude vendors with no active listings (they have nothing to sell)
     let filteredVendors = enrichedVendors.filter(v =>
       v.distance_miles !== null && v.distance_miles <= radiusMiles && v.listingCount > 0
     )
+
+    console.log('[Vendors Nearby] Vendors within radius with listings:', filteredVendors.length)
 
     // Apply additional filters
     if (market) {

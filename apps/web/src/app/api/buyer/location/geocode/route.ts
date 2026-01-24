@@ -16,6 +16,12 @@ const ZIP_LOOKUP: Record<string, { lat: number; lng: number; city: string; state
   '92101': { lat: 32.7157, lng: -117.1611, city: 'San Diego', state: 'CA' },
   '75201': { lat: 32.7767, lng: -96.7970, city: 'Dallas', state: 'TX' },
   '95101': { lat: 37.3382, lng: -121.8863, city: 'San Jose', state: 'CA' },
+  // Amarillo, TX area
+  '79106': { lat: 35.1992, lng: -101.8451, city: 'Amarillo', state: 'TX' },
+  '79101': { lat: 35.2220, lng: -101.8313, city: 'Amarillo', state: 'TX' },
+  '79102': { lat: 35.1958, lng: -101.8568, city: 'Amarillo', state: 'TX' },
+  '79109': { lat: 35.1731, lng: -101.8779, city: 'Amarillo', state: 'TX' },
+  '79110': { lat: 35.1542, lng: -101.9156, city: 'Amarillo', state: 'TX' },
 }
 
 export async function POST(request: NextRequest) {

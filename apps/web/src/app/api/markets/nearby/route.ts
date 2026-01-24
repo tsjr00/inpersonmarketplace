@@ -44,6 +44,8 @@ export async function GET(request: NextRequest) {
 
     const radiusMeters = radiusMiles * MILES_TO_METERS
 
+    console.log('[Markets Nearby] Request params:', { latitude, longitude, radiusMiles, vertical, type })
+
     // Use PostGIS ST_DWithin for efficient radius query
     // ST_DWithin uses a geography type for accurate distance calculations in meters
     const { data: markets, error } = await supabase.rpc('get_markets_within_radius', {
@@ -57,13 +59,15 @@ export async function GET(request: NextRequest) {
     if (error) {
       // If RPC doesn't exist yet, fall back to basic distance calculation
       if (error.message?.includes('function') || error.code === '42883') {
-        console.log('PostGIS function not found, using fallback query')
+        console.log('[Markets Nearby] PostGIS function not found, using fallback query')
         return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, type, city, search)
       }
 
-      console.error('Nearby markets query error:', error)
+      console.error('[Markets Nearby] RPC error:', error)
       return NextResponse.json({ error: 'Failed to fetch nearby markets' }, { status: 500 })
     }
+
+    console.log('[Markets Nearby] PostGIS returned', markets?.length || 0, 'markets')
 
     return NextResponse.json({
       markets: markets || [],
@@ -120,20 +124,32 @@ async function fallbackNearbyQuery(
   const { data: allMarkets, error } = await query
 
   if (error) {
+    console.error('[Markets Nearby Fallback] Query error:', error)
     return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
+  }
+
+  console.log('[Markets Nearby Fallback] Found', allMarkets?.length || 0, 'markets with coordinates')
+
+  // Log each market's coordinates for debugging
+  if (allMarkets && allMarkets.length > 0) {
+    allMarkets.forEach((m: any) => {
+      console.log(`[Markets Nearby Fallback] Market "${m.name}": lat=${m.latitude}, lng=${m.longitude}`)
+    })
   }
 
   // Filter by distance in JavaScript (less efficient but works without PostGIS function)
   const marketsWithDistance = (allMarkets || [])
     .map((market: any) => {
-      const distance = haversineDistance(
-        latitude, longitude,
-        parseFloat(market.latitude), parseFloat(market.longitude)
-      )
+      const mLat = parseFloat(market.latitude)
+      const mLng = parseFloat(market.longitude)
+      const distance = haversineDistance(latitude, longitude, mLat, mLng)
+      console.log(`[Markets Nearby Fallback] Distance to "${market.name}": ${distance.toFixed(2)} miles`)
       return { ...market, distance_miles: Math.round(distance * 10) / 10 }
     })
     .filter((market: any) => market.distance_miles <= radiusMiles)
     .sort((a: any, b: any) => a.distance_miles - b.distance_miles)
+
+  console.log('[Markets Nearby Fallback] Markets within radius:', marketsWithDistance.length)
 
   return NextResponse.json({
     markets: marketsWithDistance,
