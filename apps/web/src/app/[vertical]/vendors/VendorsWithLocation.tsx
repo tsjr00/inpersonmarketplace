@@ -229,7 +229,9 @@ export default function VendorsWithLocation({
                 borderRadius: radius.lg,
                 textDecoration: 'none',
                 transition: 'box-shadow 0.2s, transform 0.2s',
-                height: '100%'
+                height: '100%',
+                minWidth: 0,
+                overflow: 'hidden'
               }}
               className="vendor-card"
             >
