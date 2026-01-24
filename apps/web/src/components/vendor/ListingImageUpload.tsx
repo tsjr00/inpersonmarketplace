@@ -200,6 +200,7 @@ export function ListingImageUpload({
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
           {error}
           <button
+            type="button"
             onClick={() => setError(null)}
             className="ml-2 text-red-800 hover:underline"
           >
@@ -234,6 +235,7 @@ export function ListingImageUpload({
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 {!image.is_primary && (
                   <button
+                    type="button"
                     onClick={() => handleSetPrimary(image.id)}
                     className="p-2 bg-white rounded-full hover:bg-gray-100"
                     title="Set as primary"
@@ -244,6 +246,7 @@ export function ListingImageUpload({
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => handleDelete(image.id)}
                   className="p-2 bg-white rounded-full hover:bg-red-100 text-red-600"
                   title="Delete"
@@ -276,6 +279,7 @@ export function ListingImageUpload({
                 </svg>
                 <span className="text-xs text-red-600 text-center">{item.error}</span>
                 <button
+                  type="button"
                   onClick={() => removeUploadingItem(item.id)}
                   className="mt-1 text-xs text-red-800 hover:underline"
                 >
@@ -293,6 +297,7 @@ export function ListingImageUpload({
         {/* Add Button */}
         {canAddMore && !disabled && (
           <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
             className="aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-green-500 hover:bg-green-50 transition-colors flex flex-col items-center justify-center text-gray-400 hover:text-green-600"
           >
