@@ -89,6 +89,8 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
         <VendorActions
           vendorId={vendorId}
           currentStatus={vendorStatus}
+          vendorLatitude={vendorLatitude}
+          vendorLongitude={vendorLongitude}
         />
       </div>
 

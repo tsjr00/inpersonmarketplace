@@ -132,19 +132,25 @@ export async function GET(request: NextRequest) {
           return { id: m.id, name: m.name, distance }
         })
 
-      // Get minimum distance: prefer vendor's direct coords, fall back to market distance
-      const marketDistances = vendorMarkets
-        .map(m => m.distance)
-        .filter((d): d is number => d !== null)
-      const minMarketDistance = marketDistances.length > 0 ? Math.min(...marketDistances) : null
+      // Get minimum distance across ALL locations: vendor's direct coords + all associated markets
+      // This ensures vendors with private pickups closer to buyers appear in results
+      // even if their farm/direct location is farther away
+      const allDistances: number[] = []
 
-      // Use direct vendor distance if available, otherwise use nearest market distance
-      let finalDistance: number | null = null
+      // Include vendor's direct coordinates if available
       if (directDistance !== null) {
-        finalDistance = directDistance
-      } else if (minMarketDistance !== null) {
-        finalDistance = minMarketDistance
+        allDistances.push(directDistance)
       }
+
+      // Include all market distances (traditional + private pickups)
+      vendorMarkets.forEach(m => {
+        if (m.distance !== null) {
+          allDistances.push(m.distance)
+        }
+      })
+
+      // Use the minimum of all available distances
+      const finalDistance = allDistances.length > 0 ? Math.min(...allDistances) : null
 
       return {
         id: vendor.id,

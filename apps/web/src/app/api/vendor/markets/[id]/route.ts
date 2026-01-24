@@ -18,7 +18,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const { name, address, city, state, zip, season_start, season_end, pickup_windows } = body
+    const { name, address, city, state, zip, latitude, longitude, season_start, season_end, pickup_windows } = body
+
+    // Validate coordinates if provided
+    let parsedLat: number | null = null
+    let parsedLng: number | null = null
+    if (latitude !== null && latitude !== undefined && longitude !== null && longitude !== undefined) {
+      parsedLat = typeof latitude === 'number' ? latitude : parseFloat(latitude)
+      parsedLng = typeof longitude === 'number' ? longitude : parseFloat(longitude)
+      if (isNaN(parsedLat) || isNaN(parsedLng)) {
+        return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 })
+      }
+      if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
+        return NextResponse.json({ error: 'Coordinates out of range' }, { status: 400 })
+      }
+    }
 
     // Get vendor profile with tier
     const { data: vendorProfile, error: vpError } = await supabase
@@ -79,6 +93,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
         city,
         state,
         zip,
+        latitude: parsedLat,
+        longitude: parsedLng,
         season_start: season_start || null,
         season_end: season_end || null
       })

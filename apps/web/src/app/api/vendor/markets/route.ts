@@ -156,10 +156,24 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { vertical, name, address, city, state, zip, season_start, season_end, pickup_windows } = body
+    const { vertical, name, address, city, state, zip, latitude, longitude, season_start, season_end, pickup_windows } = body
 
     if (!vertical || !name || !address || !city || !state || !zip) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Validate coordinates if provided
+    let parsedLat: number | null = null
+    let parsedLng: number | null = null
+    if (latitude !== null && latitude !== undefined && longitude !== null && longitude !== undefined) {
+      parsedLat = typeof latitude === 'number' ? latitude : parseFloat(latitude)
+      parsedLng = typeof longitude === 'number' ? longitude : parseFloat(longitude)
+      if (isNaN(parsedLat) || isNaN(parsedLng)) {
+        return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 })
+      }
+      if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
+        return NextResponse.json({ error: 'Coordinates out of range' }, { status: 400 })
+      }
     }
 
     // Validate pickup_windows - required for private pickup, min 1
@@ -226,6 +240,8 @@ export async function POST(request: Request) {
         city,
         state,
         zip,
+        latitude: parsedLat,
+        longitude: parsedLng,
         season_start: season_start || null,
         season_end: season_end || null,
         status: 'active'

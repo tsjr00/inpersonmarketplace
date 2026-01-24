@@ -64,6 +64,36 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
     setLoading(true)
     setError('')
 
+    const isTraditionalMarket = formData.type === 'traditional'
+
+    // Validate lat/lng are provided for traditional markets (required)
+    // For private pickups, coordinates are optional but recommended
+    if (isTraditionalMarket && (!formData.latitude || !formData.longitude)) {
+      setError('Latitude and Longitude are required for traditional markets. Without coordinates, this market will not appear in location-based searches.')
+      setLoading(false)
+      return
+    }
+
+    let lat: number | null = null
+    let lng: number | null = null
+
+    if (formData.latitude && formData.longitude) {
+      lat = parseFloat(formData.latitude)
+      lng = parseFloat(formData.longitude)
+
+      if (isNaN(lat) || isNaN(lng)) {
+        setError('Please enter valid numeric values for Latitude and Longitude.')
+        setLoading(false)
+        return
+      }
+
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        setError('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.')
+        setLoading(false)
+        return
+      }
+    }
+
     try {
       const url = mode === 'create' ? '/api/markets' : `/api/markets/${market?.id}`
       const method = mode === 'create' ? 'POST' : 'PATCH'
@@ -71,8 +101,8 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
       // Parse lat/lng as numbers if provided, handle dates
       const submitData = {
         ...formData,
-        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
-        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        latitude: lat,
+        longitude: lng,
         season_start: formData.season_start || null,
         season_end: formData.season_end || null,
       }
@@ -284,41 +314,90 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
           </div>
         </div>
 
+        {/* Coordinates Notice - Different for traditional vs private pickup */}
+        {formData.type === 'traditional' ? (
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: 8,
+            marginBottom: 16,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#92400e' }}>
+                  Coordinates Required
+                </p>
+                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#92400e' }}>
+                  Latitude and Longitude are <strong>mandatory</strong> for traditional markets. Without valid coordinates, this market will not appear in buyer location searches (25-mile radius filter).
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: '#eff6ff',
+            border: '1px solid #3b82f6',
+            borderRadius: 8,
+            marginBottom: 16,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>ℹ️</span>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#1e40af' }}>
+                  Coordinates Recommended
+                </p>
+                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#1e40af' }}>
+                  Coordinates are optional for private pickup locations but <strong>highly recommended</strong>. Without them, buyers near the edge of the 25-mile search radius may not see products available at this pickup location.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Coordinates for location filtering */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={labelStyle}>
-              Latitude
-              <span style={{ fontWeight: 400, color: '#666', marginLeft: 6 }}>(optional)</span>
+              Latitude {formData.type === 'traditional' ? '*' : ''}
             </label>
             <input
               type="text"
               name="latitude"
               value={formData.latitude}
               onChange={handleChange}
-              style={inputStyle}
+              required={formData.type === 'traditional'}
+              style={{
+                ...inputStyle,
+                borderColor: formData.type === 'traditional' && !formData.latitude ? '#f59e0b' : '#ddd'
+              }}
               placeholder="e.g., 30.2672"
             />
           </div>
 
           <div>
             <label style={labelStyle}>
-              Longitude
-              <span style={{ fontWeight: 400, color: '#666', marginLeft: 6 }}>(optional)</span>
+              Longitude {formData.type === 'traditional' ? '*' : ''}
             </label>
             <input
               type="text"
               name="longitude"
               value={formData.longitude}
               onChange={handleChange}
-              style={inputStyle}
+              required={formData.type === 'traditional'}
+              style={{
+                ...inputStyle,
+                borderColor: formData.type === 'traditional' && !formData.longitude ? '#f59e0b' : '#ddd'
+              }}
               placeholder="e.g., -97.7431"
             />
           </div>
         </div>
-        <p style={{ fontSize: 12, color: '#666', marginTop: -12, marginBottom: 20 }}>
+        <p style={{ fontSize: 12, color: '#666', marginTop: 0, marginBottom: 20 }}>
           Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: '#0070f3' }}>latlong.net</a> -
-          enables 25-mile radius filtering for buyers
+          Enter the address to find its coordinates
         </p>
 
         {/* Contact */}

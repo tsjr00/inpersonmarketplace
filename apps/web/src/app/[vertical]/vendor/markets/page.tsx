@@ -20,6 +20,8 @@ type Market = {
   city: string
   state: string
   zip: string
+  latitude?: number | null
+  longitude?: number | null
   day_of_week?: number
   start_time?: string
   end_time?: string
@@ -79,6 +81,8 @@ export default function VendorMarketsPage() {
     city: '',
     state: '',
     zip: '',
+    latitude: '',
+    longitude: '',
     season_start: '',
     season_end: '',
     pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
@@ -172,6 +176,24 @@ export default function VendorMarketsPage() {
       return
     }
 
+    // Parse lat/lng if provided
+    const latitude = formData.latitude ? parseFloat(formData.latitude) : null
+    const longitude = formData.longitude ? parseFloat(formData.longitude) : null
+
+    // Validate coordinates if provided
+    if (formData.latitude && formData.longitude) {
+      if (isNaN(latitude!) || isNaN(longitude!)) {
+        setError('Please enter valid numeric values for Latitude and Longitude.')
+        setSubmitting(false)
+        return
+      }
+      if (latitude! < -90 || latitude! > 90 || longitude! < -180 || longitude! > 180) {
+        setError('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.')
+        setSubmitting(false)
+        return
+      }
+    }
+
     try {
       if (editingMarket) {
         // Update
@@ -184,6 +206,8 @@ export default function VendorMarketsPage() {
             city: formData.city,
             state: formData.state,
             zip: formData.zip,
+            latitude,
+            longitude,
             season_start: formData.season_start || null,
             season_end: formData.season_end || null,
             pickup_windows: validWindows
@@ -209,6 +233,8 @@ export default function VendorMarketsPage() {
             city: formData.city,
             state: formData.state,
             zip: formData.zip,
+            latitude,
+            longitude,
             season_start: formData.season_start || null,
             season_end: formData.season_end || null,
             pickup_windows: validWindows
@@ -246,6 +272,8 @@ export default function VendorMarketsPage() {
       city: market.city,
       state: market.state,
       zip: market.zip,
+      latitude: market.latitude?.toString() || '',
+      longitude: market.longitude?.toString() || '',
       season_start: market.season_start || '',
       season_end: market.season_end || '',
       pickup_windows: windows
@@ -285,6 +313,8 @@ export default function VendorMarketsPage() {
       city: '',
       state: '',
       zip: '',
+      latitude: '',
+      longitude: '',
       season_start: '',
       season_end: '',
       pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }]
@@ -1424,6 +1454,72 @@ export default function VendorMarketsPage() {
                       value={formData.zip}
                       onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
                       maxLength={10}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Coordinates Info Notice */}
+                <div style={{
+                  padding: 16,
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #3b82f6',
+                  borderRadius: 8,
+                  marginTop: 12
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{ fontSize: 20 }}>📍</span>
+                    <div>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#1e40af' }}>
+                        Improve Your Visibility with Coordinates
+                      </h4>
+                      <p style={{ margin: 0, fontSize: 13, color: '#1e40af', lineHeight: 1.5 }}>
+                        Adding coordinates helps buyers find your pickup location more accurately. Without coordinates, buyers searching near the edge of the 25-mile radius may not see your products at this location.
+                      </p>
+                      <p style={{ margin: '8px 0 0 0', fontSize: 12, color: '#3b82f6' }}>
+                        Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: 500 }}>latlong.net</a> - enter your address to find the coordinates.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Latitude/Longitude Fields */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      Latitude <span style={{ fontWeight: 400, color: '#6b7280' }}>(recommended)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.latitude}
+                      onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                      placeholder="e.g., 35.1992"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      Longitude <span style={{ fontWeight: 400, color: '#6b7280' }}>(recommended)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.longitude}
+                      onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                      placeholder="e.g., -101.8451"
                       style={{
                         width: '100%',
                         padding: '10px 12px',
