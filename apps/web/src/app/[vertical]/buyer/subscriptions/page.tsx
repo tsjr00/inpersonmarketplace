@@ -12,6 +12,9 @@ interface Pickup {
   status: string
   picked_up_at: string | null
   missed_at: string | null
+  is_extension?: boolean
+  skipped_by_vendor_at?: string | null
+  skip_reason?: string | null
 }
 
 interface Subscription {
@@ -19,6 +22,9 @@ interface Subscription {
   start_date: string
   status: string
   weeks_completed: number
+  term_weeks: number
+  extended_weeks: number
+  total_weeks: number
   total_paid_cents: number
   offering: {
     id: string
@@ -112,6 +118,7 @@ export default function BuyerSubscriptionsPage() {
       case 'ready': return { bg: '#fef3c7', text: '#92400e' }
       case 'picked_up': return { bg: '#dcfce7', text: '#166534' }
       case 'missed': return { bg: '#fee2e2', text: '#991b1b' }
+      case 'skipped': return { bg: '#e5e7eb', text: '#6b7280' }
       default: return { bg: '#f3f4f6', text: '#374151' }
     }
   }
@@ -310,7 +317,12 @@ export default function BuyerSubscriptionsPage() {
                         {formatPrice(subscription.total_paid_cents)}
                       </div>
                       <div style={{ fontSize: 12, color: '#6b7280' }}>
-                        {subscription.weeks_completed} of 4 weeks
+                        {subscription.weeks_completed} of {subscription.total_weeks || subscription.term_weeks || 4} weeks
+                        {subscription.extended_weeks > 0 && (
+                          <span style={{ display: 'block', fontSize: 11, color: '#059669' }}>
+                            (+{subscription.extended_weeks} extended)
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -343,6 +355,9 @@ export default function BuyerSubscriptionsPage() {
                         >
                           <div style={{ fontSize: 11, color: pickupColor.text, fontWeight: 600 }}>
                             Week {pickup.week_number}
+                            {pickup.is_extension && (
+                              <span style={{ fontSize: 9, display: 'block', color: '#6b21a8' }}>+ext</span>
+                            )}
                           </div>
                           <div style={{ fontSize: 12, color: pickupColor.text }}>
                             {formatDate(pickup.scheduled_date)}
@@ -357,6 +372,9 @@ export default function BuyerSubscriptionsPage() {
                           )}
                           {pickup.status === 'missed' && (
                             <div style={{ fontSize: 10, marginTop: 2 }}>✗</div>
+                          )}
+                          {pickup.status === 'skipped' && (
+                            <div style={{ fontSize: 10, marginTop: 2, color: '#6b7280' }}>SKIPPED</div>
                           )}
                         </div>
                       )
