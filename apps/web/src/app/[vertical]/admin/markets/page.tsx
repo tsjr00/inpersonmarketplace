@@ -23,9 +23,6 @@ type Market = {
   zip: string
   latitude?: number | null
   longitude?: number | null
-  day_of_week?: number
-  start_time?: string
-  end_time?: string
   season_start?: string | null
   season_end?: string | null
   status: string
@@ -36,6 +33,12 @@ type Market = {
   rejection_reason?: string
   vendor_sells_at_market?: boolean
   schedules?: Schedule[]
+}
+
+type FormSchedule = {
+  day_of_week: number
+  start_time: string
+  end_time: string
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -64,9 +67,7 @@ export default function AdminMarketsPage() {
     zip: '',
     latitude: '',
     longitude: '',
-    day_of_week: 6, // Saturday default
-    start_time: '08:00',
-    end_time: '13:00',
+    schedules: [{ day_of_week: 6, start_time: '08:00', end_time: '13:00' }] as FormSchedule[],
     season_start: '',
     season_end: '',
     status: 'active'
@@ -158,13 +159,26 @@ export default function AdminMarketsPage() {
       return
     }
 
+    // Validate schedules
+    if (formData.schedules.length === 0) {
+      alert('At least one market day/time is required.')
+      setSubmitting(false)
+      return
+    }
+
     // Parse lat/lng as numbers, handle season dates
     const submitData = {
-      ...formData,
+      name: formData.name,
+      address: formData.address,
+      city: formData.city,
+      state: formData.state,
+      zip: formData.zip,
       latitude: lat,
       longitude: lng,
+      schedules: formData.schedules,
       season_start: formData.season_start || null,
       season_end: formData.season_end || null,
+      status: formData.status
     }
 
     try {
@@ -209,6 +223,15 @@ export default function AdminMarketsPage() {
 
   const handleEdit = (market: Market) => {
     setEditingMarket(market)
+    // Load schedules from market data, or create default if none exist
+    const schedules: FormSchedule[] = market.schedules && market.schedules.length > 0
+      ? market.schedules.map(s => ({
+          day_of_week: s.day_of_week,
+          start_time: s.start_time,
+          end_time: s.end_time
+        }))
+      : [{ day_of_week: 6, start_time: '08:00', end_time: '13:00' }]
+
     setFormData({
       name: market.name,
       address: market.address,
@@ -217,9 +240,7 @@ export default function AdminMarketsPage() {
       zip: market.zip,
       latitude: market.latitude?.toString() || '',
       longitude: market.longitude?.toString() || '',
-      day_of_week: market.day_of_week ?? 6,
-      start_time: market.start_time || '08:00',
-      end_time: market.end_time || '13:00',
+      schedules,
       season_start: market.season_start || '',
       season_end: market.season_end || '',
       status: market.status
@@ -260,13 +281,36 @@ export default function AdminMarketsPage() {
       zip: '',
       latitude: '',
       longitude: '',
-      day_of_week: 6,
-      start_time: '08:00',
-      end_time: '13:00',
+      schedules: [{ day_of_week: 6, start_time: '08:00', end_time: '13:00' }],
       season_start: '',
       season_end: '',
       status: 'active'
     })
+  }
+
+  // Schedule management helpers
+  const addSchedule = () => {
+    setFormData({
+      ...formData,
+      schedules: [...formData.schedules, { day_of_week: 6, start_time: '08:00', end_time: '13:00' }]
+    })
+  }
+
+  const removeSchedule = (index: number) => {
+    if (formData.schedules.length <= 1) {
+      alert('At least one market day/time is required.')
+      return
+    }
+    setFormData({
+      ...formData,
+      schedules: formData.schedules.filter((_, i) => i !== index)
+    })
+  }
+
+  const updateSchedule = (index: number, field: keyof FormSchedule, value: number | string) => {
+    const updatedSchedules = [...formData.schedules]
+    updatedSchedules[index] = { ...updatedSchedules[index], [field]: value }
+    setFormData({ ...formData, schedules: updatedSchedules })
   }
 
   const handleApprove = async (marketId: string) => {
@@ -622,67 +666,120 @@ export default function AdminMarketsPage() {
                 Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>latlong.net</a> - enter the market address to find its coordinates
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: spacing.sm }}>
-                <div>
-                  <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
-                    Day of Week *
+              {/* Market Schedules */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                  <label style={{ fontWeight: typography.weights.medium, fontSize: typography.sizes.sm }}>
+                    Market Days & Times *
                   </label>
-                  <select
-                    required
-                    value={formData.day_of_week}
-                    onChange={(e) => setFormData({ ...formData, day_of_week: parseInt(e.target.value) })}
+                  <button
+                    type="button"
+                    onClick={addSchedule}
                     style={{
-                      width: '100%',
-                      padding: `${spacing.xs} ${spacing.sm}`,
-                      border: `1px solid ${colors.border}`,
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: colors.primary,
+                      color: 'white',
+                      border: 'none',
                       borderRadius: radius.sm,
-                      boxSizing: 'border-box',
-                      fontSize: typography.sizes.sm
+                      cursor: 'pointer',
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.medium
                     }}
                   >
-                    {DAYS.map((day, index) => (
-                      <option key={index} value={index}>{day}</option>
-                    ))}
-                  </select>
+                    + Add Day
+                  </button>
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
-                    Start Time *
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={formData.start_time}
-                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: `${spacing.xs} ${spacing.sm}`,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: radius.sm,
-                      boxSizing: 'border-box',
-                      fontSize: typography.sizes.sm
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
-                    End Time *
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: `${spacing.xs} ${spacing.sm}`,
-                      border: `1px solid ${colors.border}`,
-                      borderRadius: radius.sm,
-                      boxSizing: 'border-box',
-                      fontSize: typography.sizes.sm
-                    }}
-                  />
-                </div>
+
+                {formData.schedules.map((schedule, index) => (
+                  <div key={index} style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 1fr auto',
+                    gap: spacing.sm,
+                    marginBottom: spacing.sm,
+                    padding: spacing.sm,
+                    backgroundColor: colors.surfaceSubtle,
+                    borderRadius: radius.sm
+                  }}>
+                    <div>
+                      <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing['3xs'], fontSize: typography.sizes.xs, color: colors.textSecondary }}>
+                        Day
+                      </label>
+                      <select
+                        required
+                        value={schedule.day_of_week}
+                        onChange={(e) => updateSchedule(index, 'day_of_week', parseInt(e.target.value))}
+                        style={{
+                          width: '100%',
+                          padding: `${spacing.xs} ${spacing.sm}`,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: radius.sm,
+                          boxSizing: 'border-box',
+                          fontSize: typography.sizes.sm
+                        }}
+                      >
+                        {DAYS.map((day, i) => (
+                          <option key={i} value={i}>{day}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing['3xs'], fontSize: typography.sizes.xs, color: colors.textSecondary }}>
+                        Start
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={schedule.start_time}
+                        onChange={(e) => updateSchedule(index, 'start_time', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: `${spacing.xs} ${spacing.sm}`,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: radius.sm,
+                          boxSizing: 'border-box',
+                          fontSize: typography.sizes.sm
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing['3xs'], fontSize: typography.sizes.xs, color: colors.textSecondary }}>
+                        End
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={schedule.end_time}
+                        onChange={(e) => updateSchedule(index, 'end_time', e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: `${spacing.xs} ${spacing.sm}`,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: radius.sm,
+                          boxSizing: 'border-box',
+                          fontSize: typography.sizes.sm
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={() => removeSchedule(index)}
+                        disabled={formData.schedules.length <= 1}
+                        style={{
+                          padding: `${spacing.xs} ${spacing.sm}`,
+                          backgroundColor: formData.schedules.length <= 1 ? colors.surfaceSubtle : '#fee2e2',
+                          color: formData.schedules.length <= 1 ? colors.textSecondary : '#991b1b',
+                          border: `1px solid ${formData.schedules.length <= 1 ? colors.border : '#fecaca'}`,
+                          borderRadius: radius.sm,
+                          cursor: formData.schedules.length <= 1 ? 'not-allowed' : 'pointer',
+                          fontSize: typography.sizes.sm
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {/* Season Dates */}
@@ -992,14 +1089,17 @@ export default function AdminMarketsPage() {
                           </div>
                         </td>
                         <td style={{ padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
-                          {market.day_of_week !== null && market.day_of_week !== undefined ? (
-                            <>
-                              {DAYS[market.day_of_week]}
-                              <br />
-                              <span style={{ fontSize: typography.sizes.xs }}>
-                                {market.start_time} - {market.end_time}
-                              </span>
-                            </>
+                          {market.schedules && market.schedules.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+                              {market.schedules.filter(s => s.active !== false).map((schedule, idx) => (
+                                <div key={idx}>
+                                  {DAYS[schedule.day_of_week]}
+                                  <span style={{ fontSize: typography.sizes.xs, marginLeft: spacing['3xs'] }}>
+                                    {schedule.start_time} - {schedule.end_time}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           ) : '—'}
                         </td>
                         <td style={{ padding: spacing.sm }}>

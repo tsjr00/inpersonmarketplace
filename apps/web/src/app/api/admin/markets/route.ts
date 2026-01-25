@@ -116,10 +116,28 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, season_start, season_end, status = 'active' } = body
+  const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, schedules, season_start, season_end, status = 'active' } = body
 
-  if (!vertical || !name || !address || !city || !state || !zip || day_of_week === undefined || !start_time || !end_time) {
+  if (!vertical || !name || !address || !city || !state || !zip) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  // Validate schedules - either new schedules array or legacy single schedule fields
+  const hasSchedulesArray = schedules && Array.isArray(schedules) && schedules.length > 0
+  const hasLegacySchedule = day_of_week !== undefined && start_time && end_time
+
+  if (!hasSchedulesArray && !hasLegacySchedule) {
+    return NextResponse.json({ error: 'At least one market day/time is required' }, { status: 400 })
+  }
+
+  // Validate each schedule entry if using schedules array
+  if (hasSchedulesArray) {
+    for (const schedule of schedules) {
+      if (schedule.day_of_week === undefined || schedule.day_of_week === null ||
+          !schedule.start_time || !schedule.end_time) {
+        return NextResponse.json({ error: 'Each schedule requires day, start time, and end time' }, { status: 400 })
+      }
+    }
   }
 
   // Verify vertical exists
@@ -136,6 +154,7 @@ export async function POST(request: Request) {
   // Create traditional market (vendor_profile_id is NULL for traditional markets)
   // Note: markets.vertical_id is TEXT (e.g., "farmers_market"), not UUID
   // Admin-created markets are automatically approved
+  // Don't store day_of_week/start_time/end_time on markets table - use market_schedules
   const { data: market, error: createError } = await supabase
     .from('markets')
     .insert({
@@ -149,9 +168,6 @@ export async function POST(request: Request) {
       zip,
       latitude: latitude || null,
       longitude: longitude || null,
-      day_of_week: parseInt(day_of_week),
-      start_time,
-      end_time,
       season_start: season_start || null,
       season_end: season_end || null,
       status,
@@ -165,5 +181,49 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create market' }, { status: 500 })
   }
 
-  return NextResponse.json({ market }, { status: 201 })
+  // Create market_schedules
+  const scheduleInserts = hasSchedulesArray
+    ? schedules.map((s: { day_of_week: number | string; start_time: string; end_time: string }) => ({
+        market_id: market.id,
+        day_of_week: typeof s.day_of_week === 'string' ? parseInt(s.day_of_week) : s.day_of_week,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        active: true
+      }))
+    : [{
+        market_id: market.id,
+        day_of_week: typeof day_of_week === 'string' ? parseInt(day_of_week) : day_of_week,
+        start_time,
+        end_time,
+        active: true
+      }]
+
+  const { error: scheduleError } = await supabase
+    .from('market_schedules')
+    .insert(scheduleInserts)
+
+  if (scheduleError) {
+    console.error('Error creating market schedules:', scheduleError)
+    // Clean up the market if schedules failed
+    await supabase.from('markets').delete().eq('id', market.id)
+    return NextResponse.json({ error: 'Failed to create market schedules' }, { status: 500 })
+  }
+
+  // Fetch the market with schedules to return
+  const { data: marketWithSchedules } = await supabase
+    .from('markets')
+    .select(`
+      *,
+      market_schedules (
+        id,
+        day_of_week,
+        start_time,
+        end_time,
+        active
+      )
+    `)
+    .eq('id', market.id)
+    .single()
+
+  return NextResponse.json({ market: marketWithSchedules }, { status: 201 })
 }

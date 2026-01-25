@@ -34,7 +34,7 @@ export async function PUT(
 
   const { id: marketId } = await params
   const body = await request.json()
-  const { name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, season_start, season_end, status, approval_status, rejection_reason } = body
+  const { name, address, city, state, zip, latitude, longitude, schedules, season_start, season_end, status, approval_status, rejection_reason } = body
 
   // First, get the market to check its type
   const { data: existingMarket, error: fetchError } = await supabase
@@ -81,26 +81,89 @@ export async function PUT(
   if (zip !== undefined) updateData.zip = zip
   if (latitude !== undefined) updateData.latitude = latitude
   if (longitude !== undefined) updateData.longitude = longitude
-  if (day_of_week !== undefined) updateData.day_of_week = parseInt(day_of_week)
-  if (start_time !== undefined) updateData.start_time = start_time
-  if (end_time !== undefined) updateData.end_time = end_time
   if (season_start !== undefined) updateData.season_start = season_start || null
   if (season_end !== undefined) updateData.season_end = season_end || null
   if (status !== undefined) updateData.status = status
   if (approval_status !== undefined) updateData.approval_status = approval_status
   if (rejection_reason !== undefined) updateData.rejection_reason = rejection_reason
 
-  const { data: market, error: updateError } = await supabase
+  // Update market fields if any
+  if (Object.keys(updateData).length > 0) {
+    const { error: updateError } = await supabase
+      .from('markets')
+      .update(updateData)
+      .eq('id', marketId)
+      .eq('market_type', 'traditional')
+
+    if (updateError) {
+      console.error('Error updating market:', updateError)
+      return NextResponse.json({ error: 'Failed to update market' }, { status: 500 })
+    }
+  }
+
+  // Handle schedules update if provided
+  if (schedules && Array.isArray(schedules)) {
+    // Validate schedules
+    if (schedules.length === 0) {
+      return NextResponse.json({ error: 'At least one market day/time is required' }, { status: 400 })
+    }
+
+    for (const schedule of schedules) {
+      if (schedule.day_of_week === undefined || schedule.day_of_week === null ||
+          !schedule.start_time || !schedule.end_time) {
+        return NextResponse.json({ error: 'Each schedule requires day, start time, and end time' }, { status: 400 })
+      }
+    }
+
+    // Delete existing schedules and insert new ones
+    const { error: deleteError } = await supabase
+      .from('market_schedules')
+      .delete()
+      .eq('market_id', marketId)
+
+    if (deleteError) {
+      console.error('Error deleting old schedules:', deleteError)
+      return NextResponse.json({ error: 'Failed to update schedules' }, { status: 500 })
+    }
+
+    // Insert new schedules
+    const scheduleInserts = schedules.map((s: { day_of_week: number | string; start_time: string; end_time: string; active?: boolean }) => ({
+      market_id: marketId,
+      day_of_week: typeof s.day_of_week === 'string' ? parseInt(s.day_of_week) : s.day_of_week,
+      start_time: s.start_time,
+      end_time: s.end_time,
+      active: s.active !== false
+    }))
+
+    const { error: insertError } = await supabase
+      .from('market_schedules')
+      .insert(scheduleInserts)
+
+    if (insertError) {
+      console.error('Error inserting schedules:', insertError)
+      return NextResponse.json({ error: 'Failed to create schedules' }, { status: 500 })
+    }
+  }
+
+  // Fetch the updated market with schedules
+  const { data: market, error: fetchUpdatedError } = await supabase
     .from('markets')
-    .update(updateData)
+    .select(`
+      *,
+      market_schedules (
+        id,
+        day_of_week,
+        start_time,
+        end_time,
+        active
+      )
+    `)
     .eq('id', marketId)
-    .eq('market_type', 'traditional')
-    .select()
     .single()
 
-  if (updateError) {
-    console.error('Error updating market:', updateError)
-    return NextResponse.json({ error: 'Failed to update market' }, { status: 500 })
+  if (fetchUpdatedError) {
+    console.error('Error fetching updated market:', fetchUpdatedError)
+    return NextResponse.json({ error: 'Market updated but failed to fetch' }, { status: 500 })
   }
 
   return NextResponse.json({ market })
