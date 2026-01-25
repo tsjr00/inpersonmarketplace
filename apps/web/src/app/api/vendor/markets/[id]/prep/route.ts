@@ -107,11 +107,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         order_number,
         status,
         created_at,
-        buyer_user_id,
-        buyer:user_profiles!orders_buyer_user_id_fkey(
-          display_name,
-          phone
-        )
+        buyer_user_id
       )
     `)
     .in('vendor_profile_id', vendorProfileIds)
@@ -119,6 +115,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .in('status', ['pending', 'confirmed', 'ready'])
     .is('cancelled_at', null)
     .order('created_at', { ascending: true })
+
+  // Fetch buyer info separately
+  const buyerUserIds = [...new Set((orderItems || []).map((item: any) => item.order?.buyer_user_id).filter(Boolean))]
+  let buyerMap: Record<string, { display_name: string; phone: string | null }> = {}
+
+  if (buyerUserIds.length > 0) {
+    const { data: buyers } = await supabase
+      .from('user_profiles')
+      .select('user_id, display_name, phone')
+      .in('user_id', buyerUserIds)
+
+    if (buyers) {
+      buyers.forEach((b: any) => {
+        buyerMap[b.user_id] = { display_name: b.display_name || 'Customer', phone: b.phone }
+      })
+    }
+  }
 
   if (itemsError) {
     console.error('[/api/vendor/markets/[id]/prep] Error:', itemsError)
@@ -130,13 +143,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
   orderItems?.forEach((item: any) => {
     const orderId = item.order_id
     const order = item.order
+    const buyer = order?.buyer_user_id ? buyerMap[order.buyer_user_id] : null
 
     if (!ordersMap.has(orderId)) {
       ordersMap.set(orderId, {
         id: orderId,
         order_number: order?.order_number || orderId.slice(0, 8),
-        customer_name: order?.buyer?.display_name || 'Customer',
-        customer_phone: order?.buyer?.phone || null,
+        customer_name: buyer?.display_name || 'Customer',
+        customer_phone: buyer?.phone || null,
         created_at: order?.created_at || item.created_at,
         items: []
       })
