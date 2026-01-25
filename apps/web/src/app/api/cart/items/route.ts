@@ -11,10 +11,15 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { vertical, listingId, quantity = 1 } = body
+  const { vertical, listingId, quantity = 1, marketId } = body
 
   if (!vertical || !listingId) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  // Market ID is required for new cart items
+  if (!marketId) {
+    return NextResponse.json({ error: 'Please select a pickup location' }, { status: 400 })
   }
 
   if (quantity < 1) {
@@ -50,6 +55,30 @@ export async function POST(request: Request) {
     }, { status: 400 })
   }
 
+  // Validate market selection - ensure listing is available at this market
+  const { data: marketValid } = await supabase
+    .from('listing_markets')
+    .select('market_id')
+    .eq('listing_id', listingId)
+    .eq('market_id', marketId)
+    .single()
+
+  if (!marketValid) {
+    return NextResponse.json({
+      error: 'This item is not available at the selected pickup location'
+    }, { status: 400 })
+  }
+
+  // Check if the market is still accepting orders
+  const { data: marketOpen } = await supabase
+    .rpc('is_listing_accepting_orders', { p_listing_id: listingId })
+
+  if (marketOpen === false) {
+    return NextResponse.json({
+      error: 'Orders are closed for this pickup location. Please try a different location or check back later.'
+    }, { status: 400 })
+  }
+
   // Get or create cart
   const { data: cartId, error: cartError } = await supabase
     .rpc('get_or_create_cart', {
@@ -62,12 +91,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to get cart' }, { status: 500 })
   }
 
-  // Check if item already in cart
+  // Check if item already in cart (same listing AND same market)
   const { data: existingItem, error: checkError } = await supabase
     .from('cart_items')
     .select('id, quantity')
     .eq('cart_id', cartId)
     .eq('listing_id', listingId)
+    .eq('market_id', marketId)
     .single()
 
   if (checkError && checkError.code !== 'PGRST116') {
@@ -102,13 +132,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to update cart item' }, { status: 500 })
     }
   } else {
-    // Insert new item
+    // Insert new item with market selection
     const { error: insertError } = await supabase
       .from('cart_items')
       .insert({
         cart_id: cartId,
         listing_id: listingId,
-        quantity: quantity
+        quantity: quantity,
+        market_id: marketId
       })
 
     if (insertError) {

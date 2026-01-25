@@ -11,6 +11,11 @@ export interface CartItem {
   vendor_name?: string
   quantity_available?: number | null
   status?: string
+  market_id?: string
+  market_name?: string
+  market_type?: string
+  market_city?: string
+  market_state?: string
 }
 
 interface CartSummary {
@@ -23,7 +28,7 @@ interface CartContextType {
   items: CartItem[]
   summary: CartSummary
   loading: boolean
-  addToCart: (listingId: string, quantity?: number) => Promise<void>
+  addToCart: (listingId: string, quantity?: number, marketId?: string) => Promise<void>
   removeFromCart: (cartItemId: string) => Promise<void>
   updateQuantity: (cartItemId: string, quantity: number) => Promise<void>
   clearCart: () => void
@@ -31,6 +36,7 @@ interface CartContextType {
   itemCount: number
   isOpen: boolean
   setIsOpen: (open: boolean) => void
+  hasMultiplePickupLocations: boolean
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -87,12 +93,12 @@ export function CartProvider({
     refreshCart()
   }, [refreshCart])
 
-  const addToCart = async (listingId: string, quantity: number = 1) => {
+  const addToCart = async (listingId: string, quantity: number = 1, marketId?: string) => {
     try {
       const res = await fetch('/api/cart/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vertical, listingId, quantity })
+        body: JSON.stringify({ vertical, listingId, quantity, marketId })
       })
 
       if (!res.ok) {
@@ -204,6 +210,12 @@ export function CartProvider({
 
   const itemCount = summary.total_items
 
+  // Check if cart has items from multiple pickup locations
+  const hasMultiplePickupLocations = (() => {
+    const marketIds = new Set(items.map(item => item.market_id).filter(Boolean))
+    return marketIds.size > 1
+  })()
+
   return (
     <CartContext.Provider value={{
       items,
@@ -216,7 +228,8 @@ export function CartProvider({
       refreshCart,
       itemCount,
       isOpen,
-      setIsOpen
+      setIsOpen,
+      hasMultiplePickupLocations
     }}>
       {children}
     </CartContext.Provider>

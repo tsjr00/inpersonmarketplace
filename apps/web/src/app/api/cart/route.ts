@@ -12,10 +12,20 @@ interface CartItemListing {
   } | null
 }
 
+interface CartItemMarket {
+  id: string
+  name: string
+  market_type: string
+  city: string
+  state: string
+}
+
 interface CartItemResult {
   id: string
   quantity: number
+  market_id: string | null
   listings: CartItemListing
+  markets: CartItemMarket | null
 }
 
 // GET - Get user's cart with items
@@ -57,12 +67,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to get cart' }, { status: 500 })
   }
 
-  // Get cart items with listing details
+  // Get cart items with listing and market details
+  // Use explicit relationship hint for the new market_id FK
   const { data: items, error: itemsError } = await supabase
     .from('cart_items')
     .select(`
       id,
       quantity,
+      market_id,
       listings (
         id,
         title,
@@ -72,6 +84,13 @@ export async function GET(request: Request) {
         vendor_profiles (
           profile_data
         )
+      ),
+      markets!market_id (
+        id,
+        name,
+        market_type,
+        city,
+        state
       )
     `)
     .eq('cart_id', cartId)
@@ -103,7 +122,12 @@ export async function GET(request: Request) {
       price_cents: item.listings.price_cents,
       vendor_name: vendorName,
       quantity_available: item.listings.quantity,
-      status: item.listings.status
+      status: item.listings.status,
+      market_id: item.market_id,
+      market_name: item.markets?.name,
+      market_type: item.markets?.market_type,
+      market_city: item.markets?.city,
+      market_state: item.markets?.state
     }
   })
 

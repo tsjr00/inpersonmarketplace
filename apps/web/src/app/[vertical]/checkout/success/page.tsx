@@ -5,18 +5,25 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
+interface OrderItem {
+  title: string
+  quantity: number
+  subtotal_cents: number
+  vendor_name: string
+  market_id?: string
+  market_name?: string
+  market_type?: string
+  market_city?: string
+  market_state?: string
+}
+
 interface OrderDetails {
   id: string
   order_number: string
   status: string
   total_cents: number
   created_at: string
-  items: Array<{
-    title: string
-    quantity: number
-    subtotal_cents: number
-    vendor_name: string
-  }>
+  items: OrderItem[]
 }
 
 export default function CheckoutSuccessPage() {
@@ -202,22 +209,44 @@ export default function CheckoutSuccessPage() {
                     <div
                       key={index}
                       style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
                         padding: `${spacing.xs} ${spacing.sm}`,
                         backgroundColor: colors.surfaceMuted,
                         borderRadius: radius.sm,
                       }}
                     >
-                      <div>
-                        <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>{item.title}</p>
-                        <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                          {item.vendor_name} • Qty: {item.quantity}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                      }}>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>{item.title}</p>
+                          <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                            {item.vendor_name} • Qty: {item.quantity}
+                          </p>
+                        </div>
+                        <p style={{ margin: 0, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                          ${(item.subtotal_cents / 100).toFixed(2)}
                         </p>
                       </div>
-                      <p style={{ margin: 0, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                        ${(item.subtotal_cents / 100).toFixed(2)}
-                      </p>
+                      {item.market_name && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: spacing['2xs'],
+                          marginTop: spacing['2xs'],
+                          padding: `${spacing['2xs']} ${spacing.xs}`,
+                          backgroundColor: colors.primaryLight,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          color: colors.textSecondary,
+                        }}>
+                          <span>{item.market_type === 'traditional' ? '🏪' : '📦'}</span>
+                          <span>
+                            <strong>Pickup:</strong> {item.market_name}
+                            {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -240,6 +269,90 @@ export default function CheckoutSuccessPage() {
           </div>
         )}
 
+        {/* Pickup Locations Summary */}
+        {order && order.items && (() => {
+          const locations = [...new Map(
+            order.items
+              .filter(item => item.market_name)
+              .map(item => [item.market_id, item])
+          ).values()]
+
+          if (locations.length === 0) return null
+
+          return (
+            <div style={{
+              backgroundColor: locations.length > 1 ? '#fff3cd' : colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: locations.length > 1 ? '2px solid #ffc107' : `1px solid ${colors.border}`,
+              padding: spacing.md,
+              marginBottom: spacing.lg,
+              boxShadow: shadows.sm,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
+                <span style={{ fontSize: typography.sizes.xl }}>📍</span>
+                <div style={{ flex: 1 }}>
+                  <h2 style={{
+                    marginTop: 0,
+                    marginBottom: spacing.sm,
+                    fontSize: typography.sizes.lg,
+                    color: locations.length > 1 ? '#856404' : colors.textPrimary,
+                  }}>
+                    {locations.length > 1 ? 'Multiple Pickup Locations' : 'Pickup Location'}
+                  </h2>
+
+                  {locations.length > 1 && (
+                    <p style={{
+                      margin: `0 0 ${spacing.sm} 0`,
+                      color: '#856404',
+                      fontSize: typography.sizes.sm,
+                    }}>
+                      Your order includes items from <strong>{locations.length} different locations</strong>.
+                      Please visit each location to pick up your items.
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                    {locations.map((item, idx) => (
+                      <div
+                        key={item.market_id || idx}
+                        style={{
+                          padding: spacing.sm,
+                          backgroundColor: locations.length > 1 ? 'rgba(255,255,255,0.5)' : colors.surfaceMuted,
+                          borderRadius: radius.sm,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                          <span style={{ fontSize: typography.sizes.lg }}>
+                            {item.market_type === 'traditional' ? '🏪' : '📦'}
+                          </span>
+                          <div>
+                            <p style={{
+                              margin: 0,
+                              fontWeight: typography.weights.semibold,
+                              color: locations.length > 1 ? '#856404' : colors.textPrimary,
+                            }}>
+                              {item.market_name}
+                            </p>
+                            {item.market_city && (
+                              <p style={{
+                                margin: `${spacing['3xs']} 0 0`,
+                                fontSize: typography.sizes.xs,
+                                color: locations.length > 1 ? '#856404' : colors.textMuted,
+                              }}>
+                                {item.market_city}, {item.market_state}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Next Steps */}
         <div style={{
           backgroundColor: colors.surfaceElevated,
@@ -260,7 +373,7 @@ export default function CheckoutSuccessPage() {
           <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary, lineHeight: typography.leading.loose }}>
             <li>You&apos;ll receive a confirmation email with your order details</li>
             <li>The vendor will be notified of your order</li>
-            <li>Pick up your items at the designated market location</li>
+            <li>Pick up your items at the designated market location{order?.items && [...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : ''}</li>
             <li>Track your order status in your dashboard</li>
           </ul>
         </div>

@@ -18,6 +18,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   console.log('[/api/buyer/orders/[id]] User ID:', user.id, 'Order ID:', orderId)
 
   // Fetch order
+  // Use explicit relationship hint for market_id FK
   const { data: order, error } = await supabase
     .from('orders')
     .select(`
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             profile_data
           )
         ),
-        market:markets (
+        market:markets!market_id (
           id,
           name,
           market_type,

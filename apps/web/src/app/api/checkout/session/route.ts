@@ -6,6 +6,7 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit
 interface CartItem {
   listingId: string
   quantity: number
+  marketId?: string
 }
 
 interface Listing {
@@ -15,6 +16,14 @@ interface Listing {
   price_cents: number
   vertical_id: string
   vendor_profile_id: string
+}
+
+interface CartItemFromDB {
+  id: string
+  listing_id: string
+  quantity: number
+  market_id: string | null
+  markets: { id: string; name: string; market_type: string; city: string; state: string } | null
 }
 
 export async function POST(request: NextRequest) {
@@ -27,7 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient()
-  const { items } = await request.json() as { items: CartItem[] }
+  const { items, vertical } = await request.json() as { items: CartItem[]; vertical?: string }
 
   const {
     data: { user },
@@ -38,7 +47,74 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Fetch listings with vendor and market info
+    // Get cart items with market selections from database
+    let cartItemsFromDB: CartItemFromDB[] = []
+
+    if (vertical) {
+      // Get vertical ID
+      const { data: verticalData } = await supabase
+        .from('verticals')
+        .select('id')
+        .eq('vertical_id', vertical)
+        .single()
+
+      if (verticalData) {
+        // Get cart ID
+        const { data: cartId } = await supabase
+          .rpc('get_or_create_cart', {
+            p_user_id: user.id,
+            p_vertical_id: verticalData.id
+          })
+
+        if (cartId) {
+          // Get cart items with market info
+          // Use explicit relationship hint for market_id FK
+          const { data: dbItems } = await supabase
+            .from('cart_items')
+            .select(`
+              id,
+              listing_id,
+              quantity,
+              market_id,
+              markets!market_id (
+                id,
+                name,
+                market_type,
+                city,
+                state
+              )
+            `)
+            .eq('cart_id', cartId)
+
+          cartItemsFromDB = (dbItems || []) as unknown as CartItemFromDB[]
+        }
+      }
+    }
+
+    // Build a map of listing -> market from cart items
+    const listingMarketMap = new Map<string, { marketId: string; marketName: string; marketType: string }>()
+    for (const cartItem of cartItemsFromDB) {
+      if (cartItem.market_id && cartItem.markets) {
+        listingMarketMap.set(cartItem.listing_id, {
+          marketId: cartItem.market_id,
+          marketName: cartItem.markets.name,
+          marketType: cartItem.markets.market_type
+        })
+      }
+    }
+
+    // Also check items passed in request (fallback for backwards compatibility)
+    for (const item of items) {
+      if (item.marketId && !listingMarketMap.has(item.listingId)) {
+        listingMarketMap.set(item.listingId, {
+          marketId: item.marketId,
+          marketName: 'Selected Location',
+          marketType: 'unknown'
+        })
+      }
+    }
+
+    // Fetch listings with vendor info
     const listingIds = items.map((i) => i.listingId)
     const { data: listings } = await supabase
       .from('listings')
@@ -59,40 +135,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid items' }, { status: 400 })
     }
 
-    // Validate market compatibility
-    const marketTypes = new Set<string>()
-    const marketIds = new Set<string>()
-
+    // Validate that all items have market selections
     for (const listing of listings) {
-      const listingMarkets = listing.listing_markets as unknown as Array<{
-        market_id: string
-        markets: { id: string; name: string; market_type: string }
-      }> | null
+      if (!listingMarketMap.has(listing.id)) {
+        // Check if listing has available markets
+        const listingMarkets = listing.listing_markets as unknown as Array<{
+          market_id: string
+          markets: { id: string; name: string; market_type: string }
+        }> | null
 
-      if (!listingMarkets || listingMarkets.length === 0) {
-        return NextResponse.json({
-          error: `"${listing.title}" is not available at any markets`
-        }, { status: 400 })
+        if (!listingMarkets || listingMarkets.length === 0) {
+          return NextResponse.json({
+            error: `"${listing.title}" is not available at any pickup locations`
+          }, { status: 400 })
+        }
+
+        // For backwards compatibility, use the first market if not specified
+        const market = listingMarkets[0].markets
+        listingMarketMap.set(listing.id, {
+          marketId: market.id,
+          marketName: market.name,
+          marketType: market.market_type
+        })
       }
-
-      const market = listingMarkets[0].markets
-      marketTypes.add(market.market_type)
-      marketIds.add(market.id)
     }
 
-    // Check for mixed market types
-    if (marketTypes.size > 1) {
-      return NextResponse.json({
-        error: 'Cannot checkout with items from both traditional markets and private pickup'
-      }, { status: 400 })
-    }
-
-    // Check traditional markets use same market
-    const marketType = Array.from(marketTypes)[0]
-    if (marketType === 'traditional' && marketIds.size > 1) {
-      return NextResponse.json({
-        error: 'All traditional market items must be from the same market'
-      }, { status: 400 })
+    // Collect market info for validation and display
+    const selectedMarkets = new Map<string, { name: string; type: string }>()
+    for (const [listingId, marketInfo] of listingMarketMap) {
+      if (!selectedMarkets.has(marketInfo.marketId)) {
+        selectedMarkets.set(marketInfo.marketId, {
+          name: marketInfo.marketName,
+          type: marketInfo.marketType
+        })
+      }
     }
 
     // Check cutoff times for all market types (traditional: 18hr, private_pickup: 10hr)
@@ -140,6 +216,9 @@ export async function POST(request: NextRequest) {
       buyerFeeCents += fees.buyerFeeCents
       platformFeeCents += fees.platformFeeCents
 
+      // Get the market_id from the cart selection
+      const marketInfo = listingMarketMap.get(listing.id)
+
       return {
         listing_id: listing.id,
         vendor_profile_id: listing.vendor_profile_id,
@@ -148,6 +227,7 @@ export async function POST(request: NextRequest) {
         subtotal_cents: fees.basePriceCents,
         platform_fee_cents: fees.platformFeeCents,
         vendor_payout_cents: fees.vendorGetsCents,
+        market_id: marketInfo?.marketId || null,
       }
     })
 

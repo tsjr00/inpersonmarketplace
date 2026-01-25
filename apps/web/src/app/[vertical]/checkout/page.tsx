@@ -16,6 +16,11 @@ interface CheckoutItem {
   vendor_profile_id?: string
   available: boolean
   available_quantity: number | null
+  market_id?: string
+  market_name?: string
+  market_type?: string
+  market_city?: string
+  market_state?: string
 }
 
 interface SuggestedProduct {
@@ -34,7 +39,7 @@ export default function CheckoutPage() {
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
-  const { items, clearCart, removeFromCart, updateQuantity } = useCart()
+  const { items, clearCart, removeFromCart, updateQuantity, hasMultiplePickupLocations } = useCart()
 
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,6 +49,7 @@ export default function CheckoutPage() {
   const [marketWarnings, setMarketWarnings] = useState<string[]>([])
   const [marketValid, setMarketValid] = useState(true)
   const [suggestedProducts, setSuggestedProducts] = useState<SuggestedProduct[]>([])
+  const [multiLocationAcknowledged, setMultiLocationAcknowledged] = useState(false)
 
   // Check auth and validate cart items
   useEffect(() => {
@@ -76,7 +82,19 @@ export default function CheckoutPage() {
 
         if (response.ok) {
           const data = await response.json()
-          setCheckoutItems(data.items || [])
+          // Merge with cart item market info
+          const mergedItems = (data.items || []).map((validatedItem: CheckoutItem) => {
+            const cartItem = items.find(i => i.listingId === validatedItem.listingId)
+            return {
+              ...validatedItem,
+              market_id: cartItem?.market_id,
+              market_name: cartItem?.market_name,
+              market_type: cartItem?.market_type,
+              market_city: cartItem?.market_city,
+              market_state: cartItem?.market_state,
+            }
+          })
+          setCheckoutItems(mergedItems)
         } else {
           // Fall back to local cart data
           setCheckoutItems(items.map(item => ({
@@ -87,6 +105,11 @@ export default function CheckoutPage() {
             vendor_name: item.vendor_name || 'Unknown Vendor',
             available: true,
             available_quantity: null,
+            market_id: item.market_id,
+            market_name: item.market_name,
+            market_type: item.market_type,
+            market_city: item.market_city,
+            market_state: item.market_state,
           })))
         }
       } catch (err) {
@@ -99,6 +122,11 @@ export default function CheckoutPage() {
           vendor_name: item.vendor_name || 'Unknown Vendor',
           available: true,
           available_quantity: null,
+          market_id: item.market_id,
+          market_name: item.market_name,
+          market_type: item.market_type,
+          market_city: item.market_city,
+          market_state: item.market_state,
         })))
       } finally {
         setLoading(false)
@@ -412,6 +440,27 @@ export default function CheckoutPage() {
                         {item.vendor_name}
                       </p>
 
+                      {/* Pickup Location */}
+                      {item.market_name && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: spacing['2xs'],
+                          padding: `${spacing['2xs']} ${spacing.xs}`,
+                          backgroundColor: colors.primaryLight,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          marginBottom: spacing['2xs'],
+                          color: colors.textSecondary,
+                        }}>
+                          <span>{item.market_type === 'traditional' ? '🏪' : '📦'}</span>
+                          <span>
+                            <strong>Pickup:</strong> {item.market_name}
+                            {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
+                          </span>
+                        </div>
+                      )}
+
                       {!item.available && (
                         <div style={{
                           padding: `${spacing['2xs']} ${spacing.xs}`,
@@ -698,9 +747,83 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {/* Multi-Location Acknowledgment Notice */}
+              {hasMultiplePickupLocations && !multiLocationAcknowledged && (
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: '#fff3cd',
+                  border: '2px solid #ffc107',
+                  borderRadius: radius.md,
+                  marginBottom: spacing.sm,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
+                    <span style={{ fontSize: typography.sizes.xl }}>📍</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{
+                        margin: `0 0 ${spacing.xs} 0`,
+                        fontWeight: typography.weights.bold,
+                        color: '#856404',
+                        fontSize: typography.sizes.sm,
+                      }}>
+                        Multiple Pickup Locations
+                      </p>
+                      <p style={{
+                        margin: `0 0 ${spacing.sm} 0`,
+                        color: '#856404',
+                        fontSize: typography.sizes.sm,
+                        lineHeight: typography.leading.relaxed,
+                      }}>
+                        Your order includes items from <strong>different pickup locations</strong>.
+                        You will need to visit each location to collect all your items.
+                      </p>
+                      <div style={{
+                        backgroundColor: 'rgba(255,255,255,0.5)',
+                        padding: spacing.xs,
+                        borderRadius: radius.sm,
+                        marginBottom: spacing.sm,
+                      }}>
+                        <p style={{
+                          margin: 0,
+                          fontSize: typography.sizes.xs,
+                          color: '#856404',
+                          fontWeight: typography.weights.semibold,
+                        }}>
+                          Pickup locations in your order:
+                        </p>
+                        <ul style={{ margin: `${spacing['2xs']} 0 0 0`, paddingLeft: spacing.md }}>
+                          {[...new Map(checkoutItems.filter(i => i.market_name).map(i => [i.market_id, i])).values()].map(item => (
+                            <li key={item.market_id} style={{ fontSize: typography.sizes.xs, color: '#856404' }}>
+                              {item.market_type === 'traditional' ? '🏪' : '📦'} {item.market_name}
+                              {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing.xs,
+                        cursor: 'pointer',
+                        fontSize: typography.sizes.sm,
+                        color: '#856404',
+                        fontWeight: typography.weights.semibold,
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={multiLocationAcknowledged}
+                          onChange={(e) => setMultiLocationAcknowledged(e.target.checked)}
+                          style={{ width: 18, height: 18, cursor: 'pointer' }}
+                        />
+                        I understand I will visit multiple locations for pickup
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={handleCheckout}
-                disabled={processing || hasUnavailableItems || !marketValid}
+                disabled={processing || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged)}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -709,16 +832,16 @@ export default function CheckoutPage() {
                   padding: `${spacing.sm} ${spacing.md}`,
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold,
-                  backgroundColor: processing || hasUnavailableItems || !marketValid ? colors.border : colors.primary,
+                  backgroundColor: processing || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? colors.border : colors.primary,
                   color: colors.textInverse,
                   border: 'none',
                   borderRadius: radius.sm,
-                  cursor: processing || hasUnavailableItems || !marketValid ? 'not-allowed' : 'pointer',
+                  cursor: processing || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'not-allowed' : 'pointer',
                   minHeight: 48,
-                  boxShadow: processing || hasUnavailableItems || !marketValid ? 'none' : shadows.primary,
+                  boxShadow: processing || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'none' : shadows.primary,
                 }}
               >
-                {processing ? 'Processing...' : !marketValid ? 'Fix Market Issues' : user ? 'Pay Now' : 'Sign In to Checkout'}
+                {processing ? 'Processing...' : !marketValid ? 'Fix Market Issues' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : user ? 'Pay Now' : 'Sign In to Checkout'}
               </button>
 
               {/* Security messaging */}

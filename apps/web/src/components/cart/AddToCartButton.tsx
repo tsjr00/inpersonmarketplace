@@ -1,8 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCart } from '@/lib/hooks/useCart'
 import { useToast } from '@/lib/hooks/useToast'
+
+export interface AvailableMarket {
+  market_id: string
+  market_name: string
+  market_type: 'traditional' | 'private_pickup'
+  address?: string
+  city?: string
+  state?: string
+  is_accepting: boolean
+  next_pickup_at?: string
+}
 
 interface AddToCartButtonProps {
   listingId: string
@@ -10,6 +21,7 @@ interface AddToCartButtonProps {
   primaryColor?: string
   vertical?: string
   ordersClosed?: boolean
+  markets?: AvailableMarket[]
 }
 
 export function AddToCartButton({
@@ -17,16 +29,31 @@ export function AddToCartButton({
   maxQuantity,
   primaryColor = '#333',
   vertical = 'farmers_market',
-  ordersClosed = false
+  ordersClosed = false,
+  markets = []
 }: AddToCartButtonProps) {
   const { addToCart, items } = useCart()
   const { showToast, ToastContainer } = useToast()
   const [quantity, setQuantity] = useState(1)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null)
 
-  // Check how many of this item are already in cart
-  const inCartQty = items.find(i => i.listingId === listingId)?.quantity || 0
+  // Filter to only open markets
+  const openMarkets = markets.filter(m => m.is_accepting)
+  const hasMultipleMarkets = openMarkets.length > 1
+  const hasNoOpenMarkets = openMarkets.length === 0
+
+  // Auto-select if only one open market
+  useEffect(() => {
+    if (openMarkets.length === 1 && !selectedMarketId) {
+      setSelectedMarketId(openMarkets[0].market_id)
+    }
+  }, [openMarkets, selectedMarketId])
+
+  // Check how many of this item are already in cart (across all markets)
+  const inCartItems = items.filter(i => i.listingId === listingId)
+  const inCartQty = inCartItems.reduce((sum, i) => sum + i.quantity, 0)
   const availableToAdd = maxQuantity !== null && maxQuantity !== undefined
     ? Math.max(0, maxQuantity - inCartQty)
     : 999
@@ -37,12 +64,18 @@ export function AddToCartButton({
       return
     }
 
+    if (!selectedMarketId) {
+      showToast('Please select a pickup location', 'warning')
+      return
+    }
+
     setAdding(true)
     setError(null)
 
     try {
-      await addToCart(listingId, quantity)
-      showToast('Added to cart!', 'success')
+      await addToCart(listingId, quantity, selectedMarketId)
+      const selectedMarket = openMarkets.find(m => m.market_id === selectedMarketId)
+      showToast(`Added to cart! Pickup at ${selectedMarket?.market_name || 'selected location'}`, 'success')
       setQuantity(1) // Reset quantity after adding
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add to cart'
@@ -65,13 +98,129 @@ export function AddToCartButton({
   }
 
   const isSoldOut = maxQuantity !== null && maxQuantity !== undefined && maxQuantity <= 0
-  const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed
+  const needsMarketSelection = hasMultipleMarkets && !selectedMarketId
+  const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed || hasNoOpenMarkets || needsMarketSelection
+
+  // Format next pickup date
+  const formatNextPickup = (dateStr?: string) => {
+    if (!dateStr) return null
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
 
   return (
     <div>
       <ToastContainer />
+
+      {/* Market Selection - Show when multiple open markets */}
+      {openMarkets.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <label style={{
+            display: 'block',
+            fontSize: 14,
+            fontWeight: 600,
+            color: '#374151',
+            marginBottom: 8
+          }}>
+            Select Pickup Location *
+          </label>
+
+          {hasMultipleMarkets ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {openMarkets.map(market => (
+                <button
+                  key={market.market_id}
+                  type="button"
+                  onClick={() => setSelectedMarketId(market.market_id)}
+                  style={{
+                    padding: 12,
+                    border: selectedMarketId === market.market_id
+                      ? `2px solid ${primaryColor}`
+                      : '1px solid #e5e7eb',
+                    borderRadius: 8,
+                    backgroundColor: selectedMarketId === market.market_id ? '#f0fdf4' : 'white',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>
+                      {market.market_type === 'traditional' ? '🏪' : '📦'}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
+                        {market.market_name}
+                      </div>
+                      {market.city && (
+                        <div style={{ fontSize: 12, color: '#6b7280' }}>
+                          {market.city}, {market.state}
+                        </div>
+                      )}
+                      {market.next_pickup_at && (
+                        <div style={{ fontSize: 11, color: '#059669', marginTop: 2 }}>
+                          Next: {formatNextPickup(market.next_pickup_at)}
+                        </div>
+                      )}
+                    </div>
+                    {selectedMarketId === market.market_id && (
+                      <span style={{ color: primaryColor, fontSize: 18 }}>✓</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            // Single market - show as info
+            <div style={{
+              padding: 12,
+              border: '1px solid #e5e7eb',
+              borderRadius: 8,
+              backgroundColor: '#f9fafb'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>
+                  {openMarkets[0]?.market_type === 'traditional' ? '🏪' : '📦'}
+                </span>
+                <div>
+                  <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
+                    {openMarkets[0]?.market_name}
+                  </div>
+                  {openMarkets[0]?.city && (
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>
+                      {openMarkets[0].city}, {openMarkets[0].state}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Show closed markets notice */}
+      {hasNoOpenMarkets && markets.length > 0 && (
+        <div style={{
+          padding: 12,
+          marginBottom: 16,
+          backgroundColor: '#fef3c7',
+          border: '1px solid #fcd34d',
+          borderRadius: 8,
+          color: '#92400e',
+          fontSize: 13
+        }}>
+          <strong>Orders Closed</strong>
+          <p style={{ margin: '4px 0 0 0' }}>
+            All pickup locations for this item are currently closed. Check back later or view other listings.
+          </p>
+        </div>
+      )}
+
       {/* Quantity Selector */}
-      {!isSoldOut && availableToAdd > 0 && (
+      {!isSoldOut && availableToAdd > 0 && !hasNoOpenMarkets && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -81,6 +230,7 @@ export function AddToCartButton({
           <span style={{ fontSize: 14, color: '#666' }}>Quantity:</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <button
+              type="button"
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               disabled={quantity <= 1}
               style={{
@@ -105,6 +255,7 @@ export function AddToCartButton({
               {quantity}
             </span>
             <button
+              type="button"
               onClick={() => setQuantity(Math.min(availableToAdd, quantity + 1))}
               disabled={quantity >= availableToAdd}
               style={{
@@ -126,6 +277,7 @@ export function AddToCartButton({
 
       {/* Add to Cart Button */}
       <button
+        type="button"
         onClick={handleAddToCart}
         disabled={isDisabled}
         style={{
@@ -146,12 +298,14 @@ export function AddToCartButton({
       >
         {adding ? (
           'Adding...'
-        ) : ordersClosed ? (
+        ) : ordersClosed || hasNoOpenMarkets ? (
           'Orders Closed'
         ) : isSoldOut ? (
           'Sold Out'
         ) : availableToAdd <= 0 ? (
           'Max in Cart'
+        ) : needsMarketSelection ? (
+          'Select Pickup Location'
         ) : (
           <>
             <span style={{ fontSize: 20 }}>🛒</span>
@@ -173,17 +327,25 @@ export function AddToCartButton({
         </p>
       )}
 
-      {/* Already in cart notice */}
-      {inCartQty > 0 && (
-        <p style={{
-          color: '#28a745',
-          fontSize: 14,
-          marginTop: 10,
-          marginBottom: 0,
-          textAlign: 'center',
+      {/* Already in cart notice - show with market info */}
+      {inCartItems.length > 0 && (
+        <div style={{
+          marginTop: 12,
+          padding: 10,
+          backgroundColor: '#dcfce7',
+          border: '1px solid #bbf7d0',
+          borderRadius: 6,
+          fontSize: 13
         }}>
-          {inCartQty} already in cart
-        </p>
+          <p style={{ margin: 0, color: '#166534', fontWeight: 600 }}>
+            In your cart:
+          </p>
+          {inCartItems.map(item => (
+            <p key={item.id} style={{ margin: '4px 0 0 0', color: '#166534' }}>
+              • {item.quantity}x at {item.market_name || 'selected location'}
+            </p>
+          ))}
+        </div>
       )}
     </div>
   )

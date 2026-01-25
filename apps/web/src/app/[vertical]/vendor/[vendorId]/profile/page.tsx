@@ -140,14 +140,31 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     privatePickupLocations = Array.from(privatePickupsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
   }
 
-  // Check if vendor has active market boxes
-  const { count: activeMarketBoxCount } = await supabase
+  // Get vendor's active market boxes with details
+  const { data: marketBoxes } = await supabase
     .from('market_box_offerings')
-    .select('*', { count: 'exact', head: true })
+    .select(`
+      id,
+      name,
+      description,
+      image_urls,
+      price_cents,
+      price_4week_cents,
+      pickup_day_of_week,
+      pickup_start_time,
+      pickup_end_time,
+      market:markets (
+        id,
+        name,
+        city,
+        state
+      )
+    `)
     .eq('vendor_profile_id', vendorId)
     .eq('active', true)
+    .order('created_at', { ascending: false })
 
-  const hasActiveMarketBoxes = (activeMarketBoxCount || 0) > 0
+  const hasActiveMarketBoxes = (marketBoxes?.length || 0) > 0
 
   return (
     <div
@@ -545,6 +562,153 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* Market Boxes Section */}
+        {hasActiveMarketBoxes && marketBoxes && (
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{
+              color: branding.colors.primary,
+              margin: '0 0 20px 0',
+              fontSize: 20,
+              fontWeight: 600
+            }}>
+              📦 Market Box Subscriptions
+            </h2>
+
+            <div className="listings-grid" style={{
+              display: 'grid',
+              gap: 16
+            }}>
+              {marketBoxes.map((box) => {
+                const boxId = box.id as string
+                const boxName = box.name as string
+                const boxDescription = box.description as string | null
+                const boxImageUrls = box.image_urls as string[] | null
+                const boxPriceCents = (box.price_4week_cents || box.price_cents) as number
+                const boxDay = box.pickup_day_of_week as number
+                const boxStartTime = box.pickup_start_time as string
+                const rawMarket = box.market as { id: string; name: string; city: string; state: string } | { id: string; name: string; city: string; state: string }[] | null
+                const boxMarket = Array.isArray(rawMarket) ? rawMarket[0] : rawMarket
+                const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+                const formatTime = (time: string) => {
+                  const [hours, minutes] = time.split(':')
+                  const hour = parseInt(hours)
+                  const ampm = hour >= 12 ? 'PM' : 'AM'
+                  const displayHour = hour % 12 || 12
+                  return `${displayHour}:${minutes} ${ampm}`
+                }
+
+                return (
+                  <Link
+                    key={boxId}
+                    href={`/${vertical}/market-box/${boxId}`}
+                    style={{
+                      display: 'block',
+                      padding: 16,
+                      backgroundColor: 'white',
+                      color: '#333',
+                      border: '1px solid #dbeafe',
+                      borderRadius: 8,
+                      textDecoration: 'none'
+                    }}
+                  >
+                    {/* Image with Market Box Badge */}
+                    <div style={{ position: 'relative', marginBottom: 12 }}>
+                      <span style={{
+                        position: 'absolute',
+                        top: 8,
+                        left: 8,
+                        padding: '4px 10px',
+                        backgroundColor: '#dbeafe',
+                        color: '#1e40af',
+                        borderRadius: 12,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        zIndex: 1
+                      }}>
+                        📦 Market Box
+                      </span>
+
+                      {boxImageUrls && boxImageUrls.length > 0 ? (
+                        <img
+                          src={boxImageUrls[0]}
+                          alt={boxName}
+                          style={{
+                            width: '100%',
+                            height: 140,
+                            objectFit: 'cover',
+                            borderRadius: 6,
+                            backgroundColor: '#f3f4f6'
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          height: 140,
+                          backgroundColor: '#eff6ff',
+                          borderRadius: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <span style={{ fontSize: 48 }}>📦</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Title */}
+                    <h3 style={{
+                      marginBottom: 8,
+                      marginTop: 0,
+                      color: branding.colors.primary,
+                      fontSize: 16,
+                      fontWeight: 600
+                    }}>
+                      {boxName}
+                    </h3>
+
+                    {/* Description */}
+                    {boxDescription && (
+                      <p style={{
+                        margin: '0 0 8px 0',
+                        fontSize: 13,
+                        color: '#6b7280',
+                        lineHeight: 1.4,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}>
+                        {boxDescription}
+                      </p>
+                    )}
+
+                    {/* Pickup Info */}
+                    <div style={{
+                      fontSize: 12,
+                      color: '#6b7280',
+                      marginBottom: 8
+                    }}>
+                      {DAYS[boxDay]}s at {formatTime(boxStartTime)}
+                      {boxMarket && ` • ${boxMarket.name}`}
+                    </div>
+
+                    {/* Price */}
+                    <div style={{
+                      fontSize: 18,
+                      fontWeight: 'bold',
+                      color: branding.colors.primary
+                    }}>
+                      ${(boxPriceCents / 100).toFixed(2)}
+                      <span style={{ fontSize: 12, fontWeight: 'normal', color: '#6b7280' }}> / 4 weeks</span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
         )}
 

@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     console.log('[/api/buyer/orders] Fetching orders for user:', user.id, 'status:', status, 'market:', marketId)
 
     // Get buyer's orders with items
+    // Use explicit relationship hint for market_id FK on order_items
     let query = supabase
       .from('orders')
       .select(`
@@ -43,6 +44,16 @@ export async function GET(request: NextRequest) {
           status,
           expires_at,
           cancelled_at,
+          market_id,
+          markets!market_id(
+            id,
+            name,
+            market_type,
+            address,
+            city,
+            state,
+            zip
+          ),
           listing:listings(
             id,
             title,
@@ -103,9 +114,10 @@ export async function GET(request: NextRequest) {
         const profileData = vendorProfiles?.profile_data as Record<string, unknown> | null
         const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
 
-        // Get market from listing_markets (first one)
+        // Get market from order_item.market_id (preferred) or fall back to listing_markets (first one)
+        const orderItemMarket = item.markets as Record<string, unknown> | null
         const listingMarkets = listing?.listing_markets as Array<{ markets: Record<string, unknown> }> | null
-        const market = listingMarkets?.[0]?.markets || null
+        const market = orderItemMarket || listingMarkets?.[0]?.markets || null
 
         // Add market to map for filter dropdown
         if (market && market.id) {
