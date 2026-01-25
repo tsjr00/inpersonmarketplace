@@ -268,7 +268,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </div>
 
-          {/* Your Markets - Prep & Pickup */}
+          {/* Active Pickup Locations Card */}
           <div style={{
             padding: spacing.sm,
             backgroundColor: colors.surfaceElevated,
@@ -290,7 +290,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold
               }}>
-                Your Markets
+                Active Pickup Locations
               </h2>
               <Link
                 href={`/${vertical}/vendor/markets`}
@@ -304,7 +304,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                   fontWeight: typography.weights.semibold
                 }}
               >
-                Manage Products
+                Manage
               </Link>
             </div>
 
@@ -329,92 +329,73 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 </Link>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-                {/* All Markets with Prep/Pickup buttons */}
-                {activeMarkets.map(market => (
-                  <div key={market.id} style={{
-                    padding: spacing.xs,
-                    backgroundColor: colors.surfaceMuted,
-                    borderRadius: radius.sm,
-                    border: `1px solid ${colors.border}`
-                  }}>
-                    <div style={{ marginBottom: spacing.xs }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: spacing['3xs'],
-                        marginBottom: 2
-                      }}>
-                        <span style={{ fontSize: typography.sizes.xs }}>
-                          {market.market_type === 'traditional' ? '🏪' : '📦'}
-                        </span>
-                        <span style={{
-                          fontWeight: typography.weights.semibold,
-                          fontSize: typography.sizes.sm
-                        }}>
-                          {market.name}
-                        </span>
-                      </div>
-                      <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                        {market.market_type === 'traditional' ? (
-                          <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                {/* Traditional Markets */}
+                {traditionalMarkets.length > 0 && (
+                  <div>
+                    <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold, textTransform: 'uppercase' }}>
+                      Markets ({traditionalMarkets.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+                      {traditionalMarkets.map(market => (
+                        <Link
+                          key={market.id}
+                          href={`/${vertical}/vendor/markets/${market.id}/prep`}
+                          style={{
+                            padding: spacing['2xs'],
+                            backgroundColor: colors.surfaceMuted,
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.sm,
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            display: 'block',
+                            border: `1px solid transparent`,
+                            transition: 'border-color 0.15s'
+                          }}
+                        >
+                          <div style={{ fontWeight: typography.weights.medium, marginBottom: 2, color: colors.textPrimary }}>{market.name}</div>
+                          <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                             {market.day_of_week !== null && `${DAYS[market.day_of_week]} `}
                             {market.start_time && market.end_time && `${market.start_time}-${market.end_time}`}
-                          </>
-                        ) : (
-                          <>{market.city}, {market.state}</>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{
-                      display: 'flex',
-                      gap: spacing['2xs']
-                    }}>
-                      <Link
-                        href={`/${vertical}/vendor/markets/${market.id}/prep`}
-                        style={{
-                          flex: 1,
-                          padding: `${spacing['2xs']} ${spacing.xs}`,
-                          backgroundColor: colors.surfaceElevated,
-                          color: colors.textPrimary,
-                          border: `1px solid ${colors.border}`,
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.medium,
-                          textDecoration: 'none',
-                          textAlign: 'center',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: spacing['3xs']
-                        }}
-                      >
-                        <span>📋</span> Prep
-                      </Link>
-                      <Link
-                        href={`/${vertical}/vendor/pickup?market=${market.id}`}
-                        style={{
-                          flex: 1,
-                          padding: `${spacing['2xs']} ${spacing.xs}`,
-                          backgroundColor: '#111827',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.medium,
-                          textDecoration: 'none',
-                          textAlign: 'center',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: spacing['3xs']
-                        }}
-                      >
-                        <span>📱</span> Pickup
-                      </Link>
+                            <span style={{ marginLeft: spacing.xs, color: colors.primary }}>→ Prep</span>
+                          </div>
+                        </Link>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Private Pickups */}
+                {privatePickups.length > 0 && (
+                  <div>
+                    <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold, textTransform: 'uppercase' }}>
+                      Private Pickup ({privatePickups.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+                      {privatePickups.map(pickup => (
+                        <Link
+                          key={pickup.id}
+                          href={`/${vertical}/vendor/markets/${pickup.id}/prep`}
+                          style={{
+                            padding: spacing['2xs'],
+                            backgroundColor: colors.surfaceMuted,
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.sm,
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            display: 'block'
+                          }}
+                        >
+                          <div style={{ fontWeight: typography.weights.medium, marginBottom: 2, color: colors.textPrimary }}>{pickup.name}</div>
+                          <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
+                            {pickup.city}, {pickup.state}
+                            <span style={{ marginLeft: spacing.xs, color: colors.primary }}>→ Prep</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
