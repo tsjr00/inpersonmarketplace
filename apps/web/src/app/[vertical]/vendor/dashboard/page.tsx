@@ -187,13 +187,44 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </div>
         )}
 
-        {/* TOP ROW - Info Cards: Business Info, Pickup Locations, Pickup Mode */}
+        {/* TOP ROW - Market Day Focus: Manage Locations, Prep for Market, Pickup Mode */}
         <div className="info-grid" style={{
           display: 'grid',
           gap: spacing.sm,
           marginBottom: spacing.md
         }}>
-          {/* Combined Business & Contact Information */}
+          {/* Manage Locations */}
+          <Link
+            href={`/${vertical}/vendor/markets`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              cursor: 'pointer',
+              height: '100%',
+              minHeight: 140,
+              boxShadow: shadows.sm
+            }}>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📍</div>
+              <h3 style={{
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Manage Locations
+              </h3>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                Set up markets and pickup locations for your products
+              </p>
+            </div>
+          </Link>
+
+          {/* Prep for Market */}
           <div style={{
             padding: spacing.sm,
             backgroundColor: colors.surfaceElevated,
@@ -202,200 +233,52 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             borderRadius: radius.md,
             boxShadow: shadows.sm
           }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              marginBottom: spacing.sm,
-              gap: spacing['2xs']
+            <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📋</div>
+            <h3 style={{
+              color: colors.primary,
+              margin: `0 0 ${spacing.xs} 0`,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold
             }}>
-              <h2 style={{
-                color: colors.primary,
-                margin: 0,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Vendor Business Profile
-              </h2>
-              <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
-                <Link
-                  href={`/${vertical}/vendor/${vendorProfile.id}/profile`}
-                  target="_blank"
-                  style={{
-                    fontSize: typography.sizes.xs,
-                    color: colors.textSecondary,
-                    textDecoration: 'none',
-                    padding: `${spacing['3xs']} ${spacing.xs}`,
-                    backgroundColor: colors.surfaceMuted,
-                    borderRadius: radius.sm,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing['3xs']
-                  }}
-                  title="Preview your public profile"
-                >
-                  👁 Preview
-                </Link>
-                <EditProfileButton vertical={vertical} />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.xs }}>
-              <div>
-                <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Business Name</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: typography.sizes.sm }}>
-                  {(profileData.business_name as string) || (profileData.farm_name as string) || 'Not provided'}
-                </p>
-              </div>
-              <div>
-                <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Legal Name</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: typography.sizes.sm }}>
-                  {(profileData.legal_name as string) || 'Not provided'}
-                </p>
-              </div>
-              <div>
-                <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Phone</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: typography.sizes.sm }}>
-                  {(profileData.phone as string) || 'Not provided'}
-                </p>
-              </div>
-              <div>
-                <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Email</p>
-                <p style={{ margin: '2px 0 0 0', fontSize: typography.sizes.sm }}>
-                  {(profileData.email as string) || userProfile?.email || 'Not provided'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Active Pickup Locations Card */}
-          <div style={{
-            padding: spacing.sm,
-            backgroundColor: colors.surfaceElevated,
-            color: colors.textPrimary,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.md,
-            boxShadow: shadows.sm
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              marginBottom: spacing.sm,
-              gap: spacing['2xs']
-            }}>
-              <h2 style={{
-                color: colors.primary,
-                margin: 0,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Active Pickup Locations
-              </h2>
-              <Link
-                href={`/${vertical}/vendor/markets`}
-                style={{
-                  fontSize: typography.sizes.xs,
-                  color: colors.primary,
-                  textDecoration: 'none',
-                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: colors.primaryLight,
-                  borderRadius: radius.sm,
-                  fontWeight: typography.weights.semibold
-                }}
-              >
-                Manage
-              </Link>
-            </div>
+              Prep for Market
+            </h3>
 
             {vendorProfile.status !== 'approved' ? (
               <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                 Available after approval
               </p>
             ) : activeMarkets.length === 0 ? (
-              <div>
-                <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                  No active listings with pickup locations yet.
-                </p>
-                <Link
-                  href={`/${vertical}/vendor/markets`}
-                  style={{
-                    fontSize: typography.sizes.sm,
-                    color: colors.primary,
-                    textDecoration: 'underline'
-                  }}
-                >
-                  Set up markets
-                </Link>
-              </div>
+              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                No active markets yet
+              </p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                {/* Traditional Markets */}
-                {traditionalMarkets.length > 0 && (
-                  <div>
-                    <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold, textTransform: 'uppercase' }}>
-                      Markets ({traditionalMarkets.length})
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
-                      {traditionalMarkets.map(market => (
-                        <Link
-                          key={market.id}
-                          href={`/${vertical}/vendor/markets/${market.id}/prep`}
-                          style={{
-                            padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                            backgroundColor: colors.surfaceMuted,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.sm,
-                            textDecoration: 'none',
-                            color: 'inherit',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: spacing.xs
-                          }}
-                        >
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>{market.name}</span>
-                            <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs, marginLeft: spacing.xs }}>
-                              {market.day_of_week !== null && DAYS[market.day_of_week]}
-                            </span>
-                          </div>
-                          <span style={{ color: colors.primary, fontSize: typography.sizes.xs, flexShrink: 0 }}>Prep →</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Private Pickups */}
-                {privatePickups.length > 0 && (
-                  <div>
-                    <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold, textTransform: 'uppercase' }}>
-                      Private Pickup ({privatePickups.length})
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
-                      {privatePickups.map(pickup => (
-                        <Link
-                          key={pickup.id}
-                          href={`/${vertical}/vendor/markets/${pickup.id}/prep`}
-                          style={{
-                            padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                            backgroundColor: colors.surfaceMuted,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.sm,
-                            textDecoration: 'none',
-                            color: 'inherit',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                          }}
-                        >
-                          <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>{pickup.name}</span>
-                          <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>Prep →</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
+                {activeMarkets.slice(0, 5).map(market => (
+                  <Link
+                    key={market.id}
+                    href={`/${vertical}/vendor/markets/${market.id}/prep`}
+                    style={{
+                      padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                      backgroundColor: colors.surfaceMuted,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.sm,
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>
+                      {market.name}
+                    </span>
+                    <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>→</span>
+                  </Link>
+                ))}
+                {activeMarkets.length > 5 && (
+                  <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, textAlign: 'center' }}>
+                    +{activeMarkets.length - 5} more
+                  </p>
                 )}
               </div>
             )}
@@ -433,12 +316,66 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </Link>
         </div>
 
-        {/* MIDDLE ROW - Action Cards: Your Listings, Market Boxes, Orders */}
+        {/* MIDDLE ROW - Action Cards: Business Profile, Listings, Market Boxes, Orders, etc */}
         <div className="action-grid" style={{
           display: 'grid',
           gap: spacing.sm,
           marginBottom: spacing.md
         }}>
+          {/* Business Profile */}
+          <div style={{
+            padding: spacing.sm,
+            backgroundColor: colors.surfaceElevated,
+            color: colors.textPrimary,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            boxShadow: shadows.sm
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              marginBottom: spacing.xs,
+              gap: spacing['2xs']
+            }}>
+              <h3 style={{
+                color: colors.primary,
+                margin: 0,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Business Profile
+              </h3>
+              <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
+                <Link
+                  href={`/${vertical}/vendor/${vendorProfile.id}/profile`}
+                  target="_blank"
+                  style={{
+                    fontSize: typography.sizes.xs,
+                    color: colors.textSecondary,
+                    textDecoration: 'none',
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: colors.surfaceMuted,
+                    borderRadius: radius.sm
+                  }}
+                  title="Preview your public profile"
+                >
+                  👁
+                </Link>
+                <EditProfileButton vertical={vertical} />
+              </div>
+            </div>
+
+            <div style={{ fontSize: typography.sizes.sm }}>
+              <p style={{ margin: 0, fontWeight: typography.weights.medium }}>
+                {(profileData.business_name as string) || (profileData.farm_name as string) || 'Not provided'}
+              </p>
+              <p style={{ margin: `${spacing['3xs']} 0 0 0`, color: colors.textMuted, fontSize: typography.sizes.xs }}>
+                {(profileData.phone as string) || 'No phone'} · {(profileData.email as string) || userProfile?.email || 'No email'}
+              </p>
+            </div>
+          </div>
+
           {/* Your Listings */}
           <Link
             href={`/${vertical}/vendor/listings`}
