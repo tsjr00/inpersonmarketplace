@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 interface OrderItem {
@@ -35,11 +35,13 @@ function formatPrice(cents: number): string {
 
 export default function VendorPickupPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const vertical = params.vertical as string
+  const preselectedMarket = searchParams.get('market')
 
   const [orders, setOrders] = useState<Order[]>([])
   const [markets, setMarkets] = useState<Market[]>([])
-  const [selectedMarket, setSelectedMarket] = useState<string>('')
+  const [selectedMarket, setSelectedMarket] = useState<string>(preselectedMarket || '')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [processingItem, setProcessingItem] = useState<string | null>(null)
@@ -74,12 +76,17 @@ export default function VendorPickupPage() {
           isHomeMarket: m.isHomeMarket || false,
           canUse: m.canUse !== false
         })))
-        // Auto-select home market if available, otherwise first market
-        const homeMarket = allMarkets.find((m: any) => m.isHomeMarket)
-        if (homeMarket) {
-          setSelectedMarket(homeMarket.id)
-        } else if (allMarkets.length > 0) {
-          setSelectedMarket(allMarkets[0].id)
+        // Use preselected market from URL if provided and valid
+        if (preselectedMarket && allMarkets.some((m: any) => m.id === preselectedMarket)) {
+          setSelectedMarket(preselectedMarket)
+        } else if (!selectedMarket) {
+          // Auto-select home market if available, otherwise first market
+          const homeMarket = allMarkets.find((m: any) => m.isHomeMarket)
+          if (homeMarket) {
+            setSelectedMarket(homeMarket.id)
+          } else if (allMarkets.length > 0) {
+            setSelectedMarket(allMarkets[0].id)
+          }
         }
       }
     } catch (error) {
