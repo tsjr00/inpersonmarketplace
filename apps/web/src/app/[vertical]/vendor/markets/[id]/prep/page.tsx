@@ -92,10 +92,14 @@ export default function VendorPrepPage() {
 
   const fetchPrepData = async () => {
     try {
-      const res = await fetch(`/api/vendor/markets/${marketId}/prep`)
+      const res = await fetch(`/api/vendor/markets/${marketId}/prep`, {
+        credentials: 'include'
+      })
       if (res.ok) {
         const prepData = await res.json()
         setData(prepData)
+      } else {
+        console.error('Prep API error:', res.status, await res.text())
       }
     } catch (error) {
       console.error('Error fetching prep data:', error)

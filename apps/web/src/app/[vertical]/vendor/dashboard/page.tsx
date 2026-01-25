@@ -342,23 +342,25 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                           key={market.id}
                           href={`/${vertical}/vendor/markets/${market.id}/prep`}
                           style={{
-                            padding: spacing['2xs'],
+                            padding: `${spacing['3xs']} ${spacing['2xs']}`,
                             backgroundColor: colors.surfaceMuted,
                             borderRadius: radius.sm,
                             fontSize: typography.sizes.sm,
                             textDecoration: 'none',
                             color: 'inherit',
-                            display: 'block',
-                            border: `1px solid transparent`,
-                            transition: 'border-color 0.15s'
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: spacing.xs
                           }}
                         >
-                          <div style={{ fontWeight: typography.weights.medium, marginBottom: 2, color: colors.textPrimary }}>{market.name}</div>
-                          <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                            {market.day_of_week !== null && `${DAYS[market.day_of_week]} `}
-                            {market.start_time && market.end_time && `${market.start_time}-${market.end_time}`}
-                            <span style={{ marginLeft: spacing.xs, color: colors.primary }}>→ Prep</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>{market.name}</span>
+                            <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs, marginLeft: spacing.xs }}>
+                              {market.day_of_week !== null && DAYS[market.day_of_week]}
+                            </span>
                           </div>
+                          <span style={{ color: colors.primary, fontSize: typography.sizes.xs, flexShrink: 0 }}>Prep →</span>
                         </Link>
                       ))}
                     </div>
@@ -377,20 +379,19 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                           key={pickup.id}
                           href={`/${vertical}/vendor/markets/${pickup.id}/prep`}
                           style={{
-                            padding: spacing['2xs'],
+                            padding: `${spacing['3xs']} ${spacing['2xs']}`,
                             backgroundColor: colors.surfaceMuted,
                             borderRadius: radius.sm,
                             fontSize: typography.sizes.sm,
                             textDecoration: 'none',
                             color: 'inherit',
-                            display: 'block'
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
                           }}
                         >
-                          <div style={{ fontWeight: typography.weights.medium, marginBottom: 2, color: colors.textPrimary }}>{pickup.name}</div>
-                          <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                            {pickup.city}, {pickup.state}
-                            <span style={{ marginLeft: spacing.xs, color: colors.primary }}>→ Prep</span>
-                          </div>
+                          <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>{pickup.name}</span>
+                          <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>Prep →</span>
                         </Link>
                       ))}
                     </div>

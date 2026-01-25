@@ -14,16 +14,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get vendor profile
-  const { data: vendorProfile } = await supabase
+  // Get vendor profile (user may have profiles in multiple verticals)
+  const { data: vendorProfiles } = await supabase
     .from('vendor_profiles')
-    .select('id')
+    .select('id, vertical_id')
     .eq('user_id', user.id)
-    .single()
 
-  if (!vendorProfile) {
+  if (!vendorProfiles || vendorProfiles.length === 0) {
     return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
   }
+
+  // We'll use the first vendor profile for now, or match by market's vertical
+  const vendorProfileIds = vendorProfiles.map(vp => vp.id)
 
   // Get market info
   const { data: market, error: marketError } = await supabase
@@ -112,7 +114,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         )
       )
     `)
-    .eq('vendor_profile_id', vendorProfile.id)
+    .in('vendor_profile_id', vendorProfileIds)
     .eq('market_id', marketId)
     .in('status', ['pending', 'confirmed', 'ready'])
     .is('cancelled_at', null)
