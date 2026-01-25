@@ -88,22 +88,28 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
       borderRadius: radius.md,
       boxShadow: shadows.sm,
     }}>
+      {/* Title + Description on same row */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: spacing.sm,
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+        flexWrap: 'wrap',
+        gap: spacing.xs,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-          <span style={{ fontSize: typography.sizes.xl }}>🎁</span>
+          <span style={{ fontSize: typography.sizes.lg }}>🎁</span>
           <h3 style={{
             margin: 0,
-            fontSize: typography.sizes.base,
+            fontSize: typography.sizes.sm,
             fontWeight: typography.weights.semibold,
             color: '#166534',
           }}>
             Invite a Vendor, Earn $10
           </h3>
+          <span style={{ fontSize: typography.sizes.xs, color: '#166534' }}>
+            — Share your link. Earn $10 when they make their first sale.
+          </span>
         </div>
         {hasCredits && (
           <Link
@@ -119,72 +125,65 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
         )}
       </div>
 
-      <p style={{
-        margin: `0 0 ${spacing.sm} 0`,
-        fontSize: typography.sizes.sm,
-        color: '#166534',
-        lineHeight: typography.leading.relaxed,
-      }}>
-        Share your link with fellow vendors. You earn $10 credit when they make their first sale.
-      </p>
-
-      {/* Referral Link */}
+      {/* Referral Link + Stats on same row */}
       <div style={{
         display: 'flex',
-        gap: spacing.xs,
-        marginBottom: spacing.sm,
-      }}>
-        <input
-          type="text"
-          readOnly
-          value={referralLink}
-          style={{
-            flex: 1,
-            padding: spacing.xs,
-            border: `1px solid ${colors.primary}`,
-            borderRadius: radius.sm,
-            fontSize: typography.sizes.xs,
-            backgroundColor: 'white',
-            color: colors.textSecondary,
-            minWidth: 0,
-          }}
-          onClick={(e) => (e.target as HTMLInputElement).select()}
-        />
-        <button
-          onClick={handleCopy}
-          style={{
-            padding: `${spacing.xs} ${spacing.sm}`,
-            backgroundColor: colors.primary,
-            color: 'white',
-            border: 'none',
-            borderRadius: radius.sm,
-            fontSize: typography.sizes.sm,
-            fontWeight: typography.weights.semibold,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {copied ? '✓ Copied!' : '📋 Copy'}
-        </button>
-      </div>
-
-      {/* Stats Summary */}
-      <div style={{
-        display: 'flex',
-        gap: spacing.md,
+        gap: spacing.sm,
+        alignItems: 'center',
         flexWrap: 'wrap',
-        fontSize: typography.sizes.xs,
-        color: '#166534',
       }}>
-        {data.summary.pendingCount > 0 && (
-          <span>⏳ {data.summary.pendingCount} pending</span>
-        )}
-        {data.summary.availableBalanceCents > 0 && (
-          <span>💰 ${(data.summary.availableBalanceCents / 100).toFixed(2)} available</span>
-        )}
-        <span>
-          📊 ${(data.summary.yearEarnedCents / 100).toFixed(0)} / $100 earned this year
-        </span>
+        <div style={{ display: 'flex', gap: spacing.xs, flex: 1, minWidth: 200 }}>
+          <input
+            type="text"
+            readOnly
+            value={referralLink}
+            style={{
+              flex: 1,
+              padding: `${spacing['2xs']} ${spacing.xs}`,
+              border: `1px solid ${colors.primary}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs,
+              backgroundColor: 'white',
+              color: colors.textSecondary,
+              minWidth: 0,
+            }}
+            onClick={(e) => (e.target as HTMLInputElement).select()}
+          />
+          <button
+            onClick={handleCopy}
+            style={{
+              padding: `${spacing['2xs']} ${spacing.sm}`,
+              backgroundColor: colors.primary,
+              color: 'white',
+              border: 'none',
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs,
+              fontWeight: typography.weights.semibold,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {copied ? '✓ Copied!' : 'Copy'}
+          </button>
+        </div>
+
+        {/* Stats Summary - inline */}
+        <div style={{
+          display: 'flex',
+          gap: spacing.sm,
+          fontSize: typography.sizes.xs,
+          color: '#166534',
+        }}>
+          {data.summary.pendingCount > 0 && (
+            <span>⏳ {data.summary.pendingCount} pending</span>
+          )}
+          {data.summary.availableBalanceCents > 0 && (
+            <span>💰 ${(data.summary.availableBalanceCents / 100).toFixed(2)}</span>
+          )}
+          <span>
+            ${(data.summary.yearEarnedCents / 100).toFixed(0)}/$100 this year
+          </span>
+        </div>
       </div>
     </div>
   )

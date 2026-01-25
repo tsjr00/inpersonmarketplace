@@ -623,137 +623,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
-        </div>
-
-        {/* Referral Card - Full width above bottom grid */}
-        {vendorProfile.status === 'approved' && (
-          <div style={{ marginBottom: spacing.md }}>
-            <ReferralCard vertical={vertical} />
-          </div>
-        )}
-
-        {/* BOTTOM ROW - Your Plan + Payment Settings */}
-        <div className="bottom-grid" style={{
-          display: 'grid',
-          gap: spacing.sm,
-          marginBottom: spacing.md
-        }}>
-          {/* Your Plan / Tier Card - includes status */}
-          <div style={{
-            padding: spacing.sm,
-            backgroundColor: vendorProfile.tier === 'premium' ? colors.surfaceSubtle : vendorProfile.tier === 'featured' ? colors.primaryLight : colors.surfaceElevated,
-            color: colors.textPrimary,
-            border: `1px solid ${vendorProfile.tier === 'premium' ? colors.accent : vendorProfile.tier === 'featured' ? colors.primary : colors.border}`,
-            borderRadius: radius.md,
-            boxShadow: shadows.sm
-          }}>
-            <h2 style={{
-              color: colors.primary,
-              margin: `0 0 ${spacing.sm} 0`,
-              fontSize: typography.sizes.base,
-              fontWeight: typography.weights.semibold
-            }}>
-              Your Plan
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>Current Tier</p>
-                  <p style={{
-                    margin: '2px 0 0 0',
-                    fontSize: typography.sizes.base,
-                    fontWeight: typography.weights.semibold,
-                    color: vendorProfile.tier === 'premium' ? colors.accent : vendorProfile.tier === 'featured' ? colors.primary : colors.textPrimary
-                  }}>
-                    {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'}
-                  </p>
-                </div>
-                <div style={{
-                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: vendorProfile.status === 'approved' ? colors.primaryLight : colors.surfaceSubtle,
-                  color: vendorProfile.status === 'approved' ? colors.primaryDark : colors.accent,
-                  borderRadius: radius.full,
-                  fontSize: typography.sizes.xs,
-                  fontWeight: typography.weights.semibold
-                }}>
-                  {vendorProfile.status.charAt(0).toUpperCase() + vendorProfile.status.slice(1)}
-                </div>
-              </div>
-
-              {/* Current Plan Features */}
-              <div style={{
-                padding: spacing.xs,
-                backgroundColor: colors.surfaceMuted,
-                borderRadius: radius.sm,
-                fontSize: typography.sizes.xs
-              }}>
-                <p style={{ margin: 0, fontWeight: typography.weights.semibold, color: colors.textSecondary, marginBottom: spacing['3xs'] }}>
-                  Your Plan Includes:
-                </p>
-                <ul style={{ margin: 0, paddingLeft: 16, color: colors.textMuted }}>
-                  <li>Up to {vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured' ? '10' : '3'} product listings</li>
-                  <li>{vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured' ? 'Multiple' : 'Home'} market locations</li>
-                  <li>Order management tools</li>
-                  {(vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured') && (
-                    <>
-                      <li style={{ color: colors.primary }}>Priority search placement</li>
-                      <li style={{ color: colors.primary }}>Market Box subscriptions</li>
-                      <li style={{ color: colors.primary }}>Social links on profile</li>
-                      <li style={{ color: colors.primary }}>Profile image upload</li>
-                    </>
-                  )}
-                </ul>
-              </div>
-
-              {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
-                <div style={{
-                  padding: spacing.xs,
-                  backgroundColor: colors.primaryLight,
-                  borderRadius: radius.sm,
-                  border: `1px solid ${colors.primary}`
-                }}>
-                  <p style={{ margin: 0, fontWeight: typography.weights.semibold, color: colors.primaryDark, marginBottom: spacing['3xs'], fontSize: typography.sizes.sm }}>
-                    Upgrade to Premium
-                  </p>
-                  <ul style={{ margin: `0 0 ${spacing.xs} 0`, paddingLeft: 16, color: colors.primaryDark, fontSize: typography.sizes.xs }}>
-                    <li>10 listings instead of 3</li>
-                    <li>Sell at multiple markets</li>
-                    <li>Priority placement in search</li>
-                    <li>Market Box subscriptions</li>
-                    <li>Custom profile with social links</li>
-                  </ul>
-                  <Link
-                    href={`/${vertical}/vendor/dashboard/upgrade`}
-                    style={{
-                      display: 'inline-block',
-                      padding: `${spacing['2xs']} ${spacing.sm}`,
-                      backgroundColor: colors.primary,
-                      color: colors.textInverse,
-                      textDecoration: 'none',
-                      borderRadius: radius.sm,
-                      fontWeight: typography.weights.semibold,
-                      fontSize: typography.sizes.sm
-                    }}
-                  >
-                    Upgrade Now
-                  </Link>
-                </div>
-              )}
-
-              {vendorProfile.tier === 'premium' && (
-                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.accent }}>
-                  You have full access to all premium vendor features.
-                </p>
-              )}
-
-              {vendorProfile.tier === 'featured' && (
-                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.primary }}>
-                  Your listings are featured prominently across the marketplace.
-                </p>
-              )}
-            </div>
-          </div>
 
           {/* Payment Settings */}
           <Link
@@ -787,6 +656,92 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </Link>
         </div>
 
+        {/* Referral Card - Compact row */}
+        {vendorProfile.status === 'approved' && (
+          <div style={{ marginBottom: spacing.md }}>
+            <ReferralCard vertical={vertical} />
+          </div>
+        )}
+
+        {/* Your Plan - Full width, compact */}
+        <div style={{
+          padding: spacing.sm,
+          marginBottom: spacing.md,
+          backgroundColor: vendorProfile.tier === 'premium' ? colors.surfaceSubtle : vendorProfile.tier === 'featured' ? colors.primaryLight : colors.surfaceElevated,
+          color: colors.textPrimary,
+          border: `1px solid ${vendorProfile.tier === 'premium' ? colors.accent : vendorProfile.tier === 'featured' ? colors.primary : colors.border}`,
+          borderRadius: radius.md,
+          boxShadow: shadows.sm
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm }}>
+            {/* Left: Tier info */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
+              <div>
+                <h3 style={{
+                  color: colors.primary,
+                  margin: 0,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold
+                }}>
+                  Your Plan
+                </h3>
+                <p style={{
+                  margin: '2px 0 0 0',
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold,
+                  color: vendorProfile.tier === 'premium' ? colors.accent : vendorProfile.tier === 'featured' ? colors.primary : colors.textPrimary
+                }}>
+                  {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'}
+                </p>
+              </div>
+              <div style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: vendorProfile.status === 'approved' ? colors.primaryLight : colors.surfaceSubtle,
+                color: vendorProfile.status === 'approved' ? colors.primaryDark : colors.accent,
+                borderRadius: radius.full,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold
+              }}>
+                {vendorProfile.status.charAt(0).toUpperCase() + vendorProfile.status.slice(1)}
+              </div>
+            </div>
+
+            {/* Middle: Plan features summary */}
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, display: 'flex', gap: spacing.md, flexWrap: 'wrap' }}>
+              <span>{vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured' ? '10' : '3'} listings</span>
+              <span>{vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured' ? 'Multiple markets' : 'Home market'}</span>
+              {(vendorProfile.tier === 'premium' || vendorProfile.tier === 'featured') && (
+                <>
+                  <span style={{ color: colors.primary }}>Market Boxes</span>
+                  <span style={{ color: colors.primary }}>Priority search</span>
+                </>
+              )}
+            </div>
+
+            {/* Right: Upgrade button or status */}
+            {(!vendorProfile.tier || vendorProfile.tier === 'standard') ? (
+              <Link
+                href={`/${vertical}/vendor/dashboard/upgrade`}
+                style={{
+                  padding: `${spacing['2xs']} ${spacing.sm}`,
+                  backgroundColor: colors.primary,
+                  color: colors.textInverse,
+                  textDecoration: 'none',
+                  borderRadius: radius.sm,
+                  fontWeight: typography.weights.semibold,
+                  fontSize: typography.sizes.sm
+                }}
+              >
+                Upgrade to Premium
+              </Link>
+            ) : (
+              <span style={{ fontSize: typography.sizes.xs, color: vendorProfile.tier === 'premium' ? colors.accent : colors.primary }}>
+                {vendorProfile.tier === 'premium' ? 'Full premium access' : 'Featured vendor'}
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Coming Soon */}
         <div style={{
           padding: spacing.sm,
@@ -817,17 +772,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .vendor-dashboard .action-grid {
           grid-template-columns: 1fr;
         }
-        .vendor-dashboard .bottom-grid {
-          grid-template-columns: 1fr;
-        }
         @media (min-width: 640px) {
           .vendor-dashboard .info-grid {
             grid-template-columns: repeat(2, 1fr);
           }
           .vendor-dashboard .action-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .vendor-dashboard .bottom-grid {
             grid-template-columns: repeat(2, 1fr);
           }
         }
@@ -837,9 +786,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           }
           .vendor-dashboard .action-grid {
             grid-template-columns: repeat(4, 1fr);
-          }
-          .vendor-dashboard .bottom-grid {
-            grid-template-columns: repeat(2, 1fr);
           }
         }
       `}</style>
