@@ -202,8 +202,15 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             borderRadius: radius.md,
             boxShadow: shadows.sm
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing['2xs'] }}>
-              <div style={{ fontSize: typography.sizes['2xl'] }}>📍</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+              <h3 style={{
+                color: colors.primary,
+                margin: 0,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Manage Locations
+              </h3>
               <Link
                 href={`/${vertical}/vendor/markets`}
                 style={{
@@ -218,14 +225,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 Edit →
               </Link>
             </div>
-            <h3 style={{
-              color: colors.primary,
-              margin: `0 0 ${spacing.xs} 0`,
-              fontSize: typography.sizes.base,
-              fontWeight: typography.weights.semibold
-            }}>
-              Manage Locations
-            </h3>
 
             {vendorProfile.status !== 'approved' ? (
               <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
@@ -248,34 +247,28 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 + Add your first location
               </Link>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
-                {activeMarkets.slice(0, 4).map(market => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {activeMarkets.slice(0, 8).map(market => (
                   <Link
                     key={market.id}
                     href={`/${vertical}/vendor/markets`}
                     style={{
-                      padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                      backgroundColor: colors.surfaceMuted,
-                      borderRadius: radius.sm,
                       fontSize: typography.sizes.sm,
                       textDecoration: 'none',
-                      color: 'inherit',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
+                      color: colors.textPrimary,
+                      display: 'block',
+                      lineHeight: 1.4
                     }}
                   >
-                    <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>
-                      {market.market_type === 'private_pickup' ? '🏠 ' : '🛒 '}{market.name}
-                    </span>
+                    {market.market_type === 'private_pickup' ? '🏠 ' : '🛒 '}{market.name}
                   </Link>
                 ))}
-                {activeMarkets.length > 4 && (
+                {activeMarkets.length > 8 && (
                   <Link
                     href={`/${vertical}/vendor/markets`}
-                    style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.primary, textAlign: 'center', textDecoration: 'none' }}
+                    style={{ fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'none' }}
                   >
-                    +{activeMarkets.length - 4} more →
+                    +{activeMarkets.length - 8} more →
                   </Link>
                 )}
               </div>
@@ -291,7 +284,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             borderRadius: radius.md,
             boxShadow: shadows.sm
           }}>
-            <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📋</div>
             <h3 style={{
               color: colors.primary,
               margin: `0 0 ${spacing['3xs']} 0`,
@@ -312,86 +304,74 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             ) : (
               <>
                 {/* Summary counts */}
-                <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
                   {traditionalMarkets.length > 0 && `${traditionalMarkets.length} Market${traditionalMarkets.length !== 1 ? 's' : ''}`}
                   {traditionalMarkets.length > 0 && privatePickups.length > 0 && ' · '}
                   {privatePickups.length > 0 && `${privatePickups.length} Private`}
                 </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
                   {/* Traditional Markets Section */}
                   {traditionalMarkets.length > 0 && (
                     <div>
-                      <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold }}>
+                      <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold }}>
                         Markets
                       </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
-                        {traditionalMarkets.slice(0, 3).map(market => (
-                          <Link
-                            key={market.id}
-                            href={`/${vertical}/vendor/markets/${market.id}/prep`}
-                            style={{
-                              padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                              backgroundColor: colors.surfaceMuted,
-                              borderRadius: radius.sm,
-                              fontSize: typography.sizes.sm,
-                              textDecoration: 'none',
-                              color: 'inherit',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>
-                              {market.name}
-                            </span>
-                            <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>→</span>
-                          </Link>
-                        ))}
-                        {traditionalMarkets.length > 3 && (
-                          <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, paddingLeft: spacing['2xs'] }}>
-                            +{traditionalMarkets.length - 3} more
-                          </p>
-                        )}
-                      </div>
+                      {traditionalMarkets.slice(0, 4).map(market => (
+                        <Link
+                          key={market.id}
+                          href={`/${vertical}/vendor/markets/${market.id}/prep`}
+                          style={{
+                            fontSize: typography.sizes.sm,
+                            textDecoration: 'none',
+                            color: colors.textPrimary,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            lineHeight: 1.5
+                          }}
+                        >
+                          <span>{market.name}</span>
+                          <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>→</span>
+                        </Link>
+                      ))}
+                      {traditionalMarkets.length > 4 && (
+                        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                          +{traditionalMarkets.length - 4} more
+                        </span>
+                      )}
                     </div>
                   )}
 
                   {/* Private Pickup Section */}
                   {privatePickups.length > 0 && (
                     <div>
-                      <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold }}>
-                        Private Pickup
+                      <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold }}>
+                        Private
                       </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
-                        {privatePickups.slice(0, 3).map(market => (
-                          <Link
-                            key={market.id}
-                            href={`/${vertical}/vendor/markets/${market.id}/prep`}
-                            style={{
-                              padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                              backgroundColor: colors.surfaceMuted,
-                              borderRadius: radius.sm,
-                              fontSize: typography.sizes.sm,
-                              textDecoration: 'none',
-                              color: 'inherit',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <span style={{ fontWeight: typography.weights.medium, color: colors.textPrimary }}>
-                              {market.name}
-                            </span>
-                            <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>→</span>
-                          </Link>
-                        ))}
-                        {privatePickups.length > 3 && (
-                          <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, paddingLeft: spacing['2xs'] }}>
-                            +{privatePickups.length - 3} more
-                          </p>
-                        )}
-                      </div>
+                      {privatePickups.slice(0, 4).map(market => (
+                        <Link
+                          key={market.id}
+                          href={`/${vertical}/vendor/markets/${market.id}/prep`}
+                          style={{
+                            fontSize: typography.sizes.sm,
+                            textDecoration: 'none',
+                            color: colors.textPrimary,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            lineHeight: 1.5
+                          }}
+                        >
+                          <span>{market.name}</span>
+                          <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>→</span>
+                        </Link>
+                      ))}
+                      {privatePickups.length > 4 && (
+                        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                          +{privatePickups.length - 4} more
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -412,10 +392,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               borderRadius: radius.md,
               cursor: 'pointer',
               height: '100%',
-              minHeight: 140,
               boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📲</div>
               <h3 style={{
                 color: colors.primaryDark,
                 margin: `0 0 ${spacing['2xs']} 0`,
