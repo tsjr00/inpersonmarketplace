@@ -36,7 +36,43 @@ export async function PUT(
   const body = await request.json()
   const { name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, season_start, season_end, status, approval_status, rejection_reason } = body
 
-  // Build update object - only include defined fields
+  // First, get the market to check its type
+  const { data: existingMarket, error: fetchError } = await supabase
+    .from('markets')
+    .select('market_type')
+    .eq('id', marketId)
+    .single()
+
+  if (fetchError || !existingMarket) {
+    return NextResponse.json({ error: 'Market not found' }, { status: 404 })
+  }
+
+  // For private_pickup markets, admin can ONLY change status (suspend/unsuspend)
+  // All other fields are vendor-managed
+  if (existingMarket.market_type === 'private_pickup') {
+    if (status === undefined) {
+      return NextResponse.json({
+        error: 'Admin can only suspend/unsuspend private pickup locations'
+      }, { status: 400 })
+    }
+
+    // Only allow status changes for private pickups
+    const { data: market, error: updateError } = await supabase
+      .from('markets')
+      .update({ status })
+      .eq('id', marketId)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error('Error updating market status:', updateError)
+      return NextResponse.json({ error: 'Failed to update market' }, { status: 500 })
+    }
+
+    return NextResponse.json({ market })
+  }
+
+  // For traditional markets, admin can update all fields
   const updateData: Record<string, unknown> = {}
   if (name !== undefined) updateData.name = name
   if (address !== undefined) updateData.address = address
@@ -58,7 +94,7 @@ export async function PUT(
     .from('markets')
     .update(updateData)
     .eq('id', marketId)
-    .eq('market_type', 'traditional') // Only allow updating traditional markets
+    .eq('market_type', 'traditional')
     .select()
     .single()
 
@@ -102,16 +138,15 @@ export async function DELETE(
 
   if (listingMarkets && listingMarkets.length > 0) {
     return NextResponse.json({
-      error: 'Cannot delete market with active listings'
+      error: 'Cannot delete market with active listings. Suspend it instead or remove the listings first.'
     }, { status: 400 })
   }
 
-  // Delete market
+  // Delete market (both traditional and private_pickup allowed for admin)
   const { error: deleteError } = await supabase
     .from('markets')
     .delete()
     .eq('id', marketId)
-    .eq('market_type', 'traditional') // Only allow deleting traditional markets
 
   if (deleteError) {
     console.error('Error deleting market:', deleteError)

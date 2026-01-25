@@ -311,6 +311,34 @@ export default function AdminMarketsPage() {
     }
   }
 
+  const handleSuspend = async (market: Market) => {
+    const isSuspended = market.status === 'suspended'
+    const action = isSuspended ? 'unsuspend' : 'suspend'
+    const newStatus = isSuspended ? 'active' : 'suspended'
+
+    if (!confirm(`Are you sure you want to ${action} "${market.name}"? ${!isSuspended ? 'This will prevent buyers from seeing this pickup location.' : ''}`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/admin/markets/${market.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      })
+
+      if (res.ok) {
+        await fetchMarkets()
+      } else {
+        const error = await res.json()
+        alert(error.error || `Failed to ${action} market`)
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing market:`, error)
+      alert(`Failed to ${action} market`)
+    }
+  }
+
   // Count pending for alert badge
   const pendingCount = markets.filter(m => m.approval_status === 'pending').length
 
@@ -805,6 +833,7 @@ export default function AdminMarketsPage() {
                 <option value="all">All Statuses</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
+                <option value="suspended">Suspended</option>
               </select>
 
               {/* Approval Filter */}
@@ -936,6 +965,9 @@ export default function AdminMarketsPage() {
                         Type
                       </th>
                       <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
+                        Status
+                      </th>
+                      <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
                         Approval
                       </th>
                       <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
@@ -980,6 +1012,26 @@ export default function AdminMarketsPage() {
                             color: market.market_type === 'traditional' ? '#065f46' : '#92400e'
                           }}>
                             {market.market_type === 'traditional' ? 'Traditional' : 'Private Pickup'}
+                          </span>
+                        </td>
+                        <td style={{ padding: spacing.sm }}>
+                          <span style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                            backgroundColor:
+                              market.status === 'active' ? '#d1fae5' :
+                              market.status === 'suspended' ? '#fee2e2' :
+                              market.status === 'inactive' ? '#f3f4f6' :
+                              '#fef3c7',
+                            color:
+                              market.status === 'active' ? '#065f46' :
+                              market.status === 'suspended' ? '#991b1b' :
+                              market.status === 'inactive' ? '#6b7280' :
+                              '#92400e'
+                          }}>
+                            {market.status === 'suspended' ? 'SUSPENDED' : market.status}
                           </span>
                         </td>
                         <td style={{ padding: spacing.sm }}>
@@ -1084,20 +1136,41 @@ export default function AdminMarketsPage() {
                                 Approve
                               </button>
                             )}
-                            <button
-                              onClick={() => handleEdit(market)}
-                              style={{
-                                padding: `${spacing['3xs']} ${spacing.xs}`,
-                                backgroundColor: colors.primary,
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: radius.sm,
-                                cursor: 'pointer',
-                                fontSize: typography.sizes.sm
-                              }}
-                            >
-                              Edit
-                            </button>
+                            {/* Traditional markets: show Edit button */}
+                            {market.market_type === 'traditional' && (
+                              <button
+                                onClick={() => handleEdit(market)}
+                                style={{
+                                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                                  backgroundColor: colors.primary,
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: radius.sm,
+                                  cursor: 'pointer',
+                                  fontSize: typography.sizes.sm
+                                }}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {/* Private pickup: show Suspend/Unsuspend button */}
+                            {market.market_type === 'private_pickup' && (
+                              <button
+                                onClick={() => handleSuspend(market)}
+                                style={{
+                                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                                  backgroundColor: market.status === 'suspended' ? '#10b981' : '#f59e0b',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: radius.sm,
+                                  cursor: 'pointer',
+                                  fontSize: typography.sizes.sm,
+                                  fontWeight: typography.weights.medium
+                                }}
+                              >
+                                {market.status === 'suspended' ? 'Unsuspend' : 'Suspend'}
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(market.id, market.name)}
                               style={{
