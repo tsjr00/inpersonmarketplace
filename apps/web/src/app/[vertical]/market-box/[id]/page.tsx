@@ -20,6 +20,7 @@ interface MarketBoxData {
     id: string
     name: string
     description: string | null
+    image_urls: string[] | null
     price_cents: number
     price_4week_cents?: number
     price_8week_cents?: number | null
@@ -203,19 +204,33 @@ export default function MarketBoxDetailPage() {
 
         {/* Main Content */}
         <div style={{ marginTop: 24, display: 'grid', gap: 24 }}>
-          {/* Image Placeholder */}
-          <div style={{
-            height: 300,
-            backgroundColor: '#eff6ff',
-            borderRadius: 12,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#3b82f6',
-            fontSize: 80
-          }}>
-            📦
-          </div>
+          {/* Market Box Image */}
+          {offering.image_urls && offering.image_urls.length > 0 ? (
+            <img
+              src={offering.image_urls[0]}
+              alt={offering.name}
+              style={{
+                width: '100%',
+                height: 300,
+                objectFit: 'cover',
+                borderRadius: 12,
+                backgroundColor: '#f3f4f6'
+              }}
+            />
+          ) : (
+            <div style={{
+              height: 300,
+              backgroundColor: '#eff6ff',
+              borderRadius: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#3b82f6',
+              fontSize: 80
+            }}>
+              📦
+            </div>
+          )}
 
           {/* Title & Price */}
           <div>
@@ -246,9 +261,18 @@ export default function MarketBoxDetailPage() {
             <h1 style={{ color: branding.colors.primary, margin: '0 0 8px 0', fontSize: 32 }}>
               {offering.name}
             </h1>
-            <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
-              by {vendor.name}
-            </div>
+            <Link
+              href={`/${vertical}/vendor/${vendor.id}/profile`}
+              style={{
+                fontSize: 14,
+                color: branding.colors.primary,
+                textDecoration: 'none',
+                marginBottom: 16,
+                display: 'inline-block'
+              }}
+            >
+              by <span style={{ fontWeight: 600 }}>{vendor.name}</span> →
+            </Link>
 
             {/* Term Selection */}
             {hasMultipleTerms ? (
@@ -372,6 +396,89 @@ export default function MarketBoxDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Vendor Info */}
+          <div style={{
+            padding: 20,
+            backgroundColor: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: 8
+          }}>
+            <h3 style={{ margin: '0 0 16px 0', color: '#374151', fontSize: 16 }}>Sold by</h3>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              {vendor.profile_image_url ? (
+                <img
+                  src={vendor.profile_image_url}
+                  alt={vendor.name}
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '2px solid #e5e7eb'
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: '50%',
+                  backgroundColor: '#f3f4f6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 24,
+                  color: '#9ca3af'
+                }}>
+                  🧑‍🌾
+                </div>
+              )}
+              <div style={{ flex: 1 }}>
+                <Link
+                  href={`/${vertical}/vendor/${vendor.id}/profile`}
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 600,
+                    color: branding.colors.primary,
+                    textDecoration: 'none'
+                  }}
+                >
+                  {vendor.name}
+                </Link>
+                {vendor.description && (
+                  <p style={{
+                    margin: '4px 0 0 0',
+                    fontSize: 13,
+                    color: '#6b7280',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
+                  }}>
+                    {vendor.description}
+                  </p>
+                )}
+              </div>
+            </div>
+            <Link
+              href={`/${vertical}/vendor/${vendor.id}/profile`}
+              style={{
+                display: 'block',
+                marginTop: 16,
+                padding: '12px 16px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 14,
+                textAlign: 'center'
+              }}
+            >
+              View Vendor Profile
+            </Link>
           </div>
 
           {/* How It Works */}

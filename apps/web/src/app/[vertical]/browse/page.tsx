@@ -54,6 +54,7 @@ interface MarketBoxOffering {
   id: string
   name: string
   description: string | null
+  image_urls: string[] | null
   price_cents: number
   pickup_day_of_week: number
   pickup_start_time: string
@@ -128,6 +129,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         id,
         name,
         description,
+        image_urls,
         price_cents,
         pickup_day_of_week,
         pickup_start_time,
@@ -824,18 +826,32 @@ function MarketBoxCard({
           </span>
         )}
 
-        {/* Image placeholder */}
-        <div style={{
-          height: 140,
-          backgroundColor: colors.primaryLight,
-          borderRadius: radius.sm,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: colors.primary
-        }}>
-          <span style={{ fontSize: 36 }}>📦</span>
-        </div>
+        {/* Image */}
+        {offering.image_urls && offering.image_urls.length > 0 ? (
+          <img
+            src={offering.image_urls[0]}
+            alt={offering.name}
+            style={{
+              width: '100%',
+              height: 140,
+              objectFit: 'cover',
+              borderRadius: radius.sm,
+              backgroundColor: colors.surfaceSubtle
+            }}
+          />
+        ) : (
+          <div style={{
+            height: 140,
+            backgroundColor: colors.primaryLight,
+            borderRadius: radius.sm,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: colors.primary
+          }}>
+            <span style={{ fontSize: 36 }}>📦</span>
+          </div>
+        )}
       </div>
 
       {/* Title */}

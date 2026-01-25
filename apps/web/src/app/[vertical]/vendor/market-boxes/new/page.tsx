@@ -6,6 +6,14 @@ import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { MarketBoxImageUpload } from '@/components/vendor/MarketBoxImageUpload'
 
+interface MarketSchedule {
+  id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  active: boolean
+}
+
 interface Market {
   id: string
   name: string
@@ -16,6 +24,7 @@ interface Market {
   isHomeMarket?: boolean
   canUse?: boolean
   homeMarketRestricted?: boolean
+  market_schedules?: MarketSchedule[]
 }
 
 const DAYS = [
@@ -27,6 +36,14 @@ const DAYS = [
   { value: 5, label: 'Friday' },
   { value: 6, label: 'Saturday' },
 ]
+
+function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':')
+  const hour = parseInt(hours)
+  const ampm = hour >= 12 ? 'PM' : 'AM'
+  const hour12 = hour % 12 || 12
+  return `${hour12}:${minutes} ${ampm}`
+}
 
 export default function NewMarketBoxPage() {
   const params = useParams()
@@ -54,6 +71,51 @@ export default function NewMarketBoxPage() {
   })
 
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+
+  // Get selected market and determine if it's traditional
+  const selectedMarket = markets.find(m => m.id === formData.pickup_market_id)
+  const isTraditionalMarket = selectedMarket?.market_type === 'traditional'
+  const marketSchedules = selectedMarket?.market_schedules?.filter(s => s.active) || []
+
+  // Handle market selection change
+  const handleMarketChange = (marketId: string) => {
+    const market = markets.find(m => m.id === marketId)
+    if (market?.market_type === 'traditional' && market.market_schedules?.length) {
+      // For traditional markets, auto-select first schedule
+      const firstSchedule = market.market_schedules.find(s => s.active)
+      if (firstSchedule) {
+        setFormData({
+          ...formData,
+          pickup_market_id: marketId,
+          pickup_day_of_week: String(firstSchedule.day_of_week),
+          pickup_start_time: firstSchedule.start_time.slice(0, 5),
+          pickup_end_time: firstSchedule.end_time.slice(0, 5),
+        })
+        return
+      }
+    }
+    // For private pickup or no schedules, just set the market and clear day/time
+    setFormData({
+      ...formData,
+      pickup_market_id: marketId,
+      pickup_day_of_week: '',
+      pickup_start_time: '08:00',
+      pickup_end_time: '12:00',
+    })
+  }
+
+  // Handle schedule selection for traditional markets
+  const handleScheduleChange = (scheduleId: string) => {
+    const schedule = marketSchedules.find(s => s.id === scheduleId)
+    if (schedule) {
+      setFormData({
+        ...formData,
+        pickup_day_of_week: String(schedule.day_of_week),
+        pickup_start_time: schedule.start_time.slice(0, 5),
+        pickup_end_time: schedule.end_time.slice(0, 5),
+      })
+    }
+  }
 
   useEffect(() => {
     if (vertical) {
@@ -373,7 +435,7 @@ export default function NewMarketBoxPage() {
                 </label>
                 <select
                   value={formData.pickup_market_id}
-                  onChange={(e) => setFormData({ ...formData, pickup_market_id: e.target.value })}
+                  onChange={(e) => handleMarketChange(e.target.value)}
                   required
                   style={{
                     width: '100%',
@@ -404,71 +466,109 @@ export default function NewMarketBoxPage() {
                   })}
                 </select>
                 <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                  This location will be fixed for all 4 weeks of the subscription
+                  This location will be fixed for all weeks of the subscription
                 </p>
               </div>
 
-              {/* Pickup Day */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
-                  Pickup Day *
-                </label>
-                <select
-                  value={formData.pickup_day_of_week}
-                  onChange={(e) => setFormData({ ...formData, pickup_day_of_week: e.target.value })}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 6,
-                    fontSize: 14,
-                    boxSizing: 'border-box',
-                    backgroundColor: 'white'
-                  }}
-                >
-                  <option value="">Select a day...</option>
-                  {DAYS.map(day => (
-                    <option key={day.value} value={day.value}>
-                      {day.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Pickup Time */}
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
-                  Pickup Window *
-                </label>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <input
-                    type="time"
-                    value={formData.pickup_start_time}
-                    onChange={(e) => setFormData({ ...formData, pickup_start_time: e.target.value })}
+              {/* Pickup Day & Time - Different UI based on market type */}
+              {isTraditionalMarket && marketSchedules.length > 0 ? (
+                // Traditional market: Select from market's operating schedule
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
+                    Market Day & Hours *
+                  </label>
+                  <select
+                    value={marketSchedules.find(s =>
+                      s.day_of_week === parseInt(formData.pickup_day_of_week) &&
+                      s.start_time.slice(0, 5) === formData.pickup_start_time
+                    )?.id || ''}
+                    onChange={(e) => handleScheduleChange(e.target.value)}
                     required
                     style={{
+                      width: '100%',
                       padding: '10px 12px',
                       border: '1px solid #d1d5db',
                       borderRadius: 6,
-                      fontSize: 14
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                      backgroundColor: 'white'
                     }}
-                  />
-                  <span style={{ color: '#6b7280' }}>to</span>
-                  <input
-                    type="time"
-                    value={formData.pickup_end_time}
-                    onChange={(e) => setFormData({ ...formData, pickup_end_time: e.target.value })}
-                    required
-                    style={{
-                      padding: '10px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: 6,
-                      fontSize: 14
-                    }}
-                  />
+                  >
+                    {marketSchedules.length === 1 ? null : <option value="">Select market day...</option>}
+                    {marketSchedules.map(schedule => (
+                      <option key={schedule.id} value={schedule.id}>
+                        {DAYS.find(d => d.value === schedule.day_of_week)?.label} - {formatTime(schedule.start_time)} to {formatTime(schedule.end_time)}
+                      </option>
+                    ))}
+                  </select>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                    Pickup times are set by the market&apos;s operating schedule
+                  </p>
                 </div>
-              </div>
+              ) : (
+                // Private pickup: Vendor chooses day and time
+                <>
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
+                      Pickup Day *
+                    </label>
+                    <select
+                      value={formData.pickup_day_of_week}
+                      onChange={(e) => setFormData({ ...formData, pickup_day_of_week: e.target.value })}
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box',
+                        backgroundColor: 'white'
+                      }}
+                    >
+                      <option value="">Select a day...</option>
+                      {DAYS.map(day => (
+                        <option key={day.value} value={day.value}>
+                          {day.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: 24 }}>
+                    <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
+                      Pickup Window *
+                    </label>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <input
+                        type="time"
+                        value={formData.pickup_start_time}
+                        onChange={(e) => setFormData({ ...formData, pickup_start_time: e.target.value })}
+                        required
+                        style={{
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: 6,
+                          fontSize: 14
+                        }}
+                      />
+                      <span style={{ color: '#6b7280' }}>to</span>
+                      <input
+                        type="time"
+                        value={formData.pickup_end_time}
+                        onChange={(e) => setFormData({ ...formData, pickup_end_time: e.target.value })}
+                        required
+                        style={{
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: 6,
+                          fontSize: 14
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Info Box */}
               <div style={{

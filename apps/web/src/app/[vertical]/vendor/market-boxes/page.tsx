@@ -269,6 +269,20 @@ export default function VendorMarketBoxesPage() {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                  {/* Image */}
+                  {offering.image_urls && offering.image_urls.length > 0 && (
+                    <img
+                      src={offering.image_urls[0]}
+                      alt={offering.name}
+                      style={{
+                        width: 100,
+                        height: 100,
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                        flexShrink: 0
+                      }}
+                    />
+                  )}
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <h3 style={{ margin: 0, fontSize: 18, color: '#374151' }}>{offering.name}</h3>
