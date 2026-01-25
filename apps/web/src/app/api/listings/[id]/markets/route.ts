@@ -2,15 +2,15 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface RouteContext {
-  params: Promise<{ listingId: string }>
+  params: Promise<{ id: string }>
 }
 
 /**
- * GET /api/listings/[listingId]/markets
+ * GET /api/listings/[id]/markets
  * Get available pickup locations for a listing with accepting status
  */
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { listingId } = await context.params
+  const { id: listingId } = await context.params
   const supabase = await createClient()
 
   // Get all markets where this listing is available
