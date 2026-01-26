@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPrice, calculateDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 
 interface Order {
   id: string
@@ -42,7 +43,7 @@ export default function BuyerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [markets, setMarkets] = useState<Market[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [marketFilter, setMarketFilter] = useState<string>('')
 
@@ -57,12 +58,24 @@ export default function BuyerOrdersPage() {
       if (statusFilter) queryParams.set('status', statusFilter)
       if (marketFilter) queryParams.set('market', marketFilter)
       const response = await fetch(`/api/buyer/orders?${queryParams.toString()}`)
+
       if (!response.ok) {
         if (response.status === 401) {
           router.push(`/${vertical}/login?redirect=/${vertical}/buyer/orders`)
           return
         }
-        throw new Error('Failed to fetch orders')
+        // Try to extract error details from response
+        try {
+          const errorData = await response.json()
+          setError({
+            message: errorData.error || 'Failed to fetch orders',
+            code: errorData.code,
+            traceId: errorData.traceId
+          })
+        } catch {
+          setError({ message: 'Failed to fetch orders' })
+        }
+        return
       }
 
       const data = await response.json()
@@ -72,7 +85,7 @@ export default function BuyerOrdersPage() {
         setMarkets(data.markets)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load orders')
+      setError({ message: err instanceof Error ? err.message : 'Failed to load orders' })
     } finally {
       setLoading(false)
     }
@@ -193,17 +206,8 @@ export default function BuyerOrdersPage() {
       </div>
 
       {error && (
-        <div style={{
-          maxWidth: containers.xl,
-          margin: `0 auto ${spacing.md}`,
-          padding: spacing.sm,
-          backgroundColor: '#fee2e2',
-          border: '1px solid #fecaca',
-          borderRadius: radius.md,
-          color: '#991b1b',
-          fontSize: typography.sizes.sm,
-        }}>
-          {error}
+        <div style={{ maxWidth: containers.xl, margin: `0 auto ${spacing.md}` }}>
+          <ErrorDisplay error={error} />
         </div>
       )}
 

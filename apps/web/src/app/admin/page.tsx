@@ -248,6 +248,12 @@ export default async function AdminDashboardPage() {
           href="/admin/admins"
           color="#dc2626"
         />
+        <QuickAction
+          title="Error Reports"
+          description="Review escalated errors across all verticals"
+          href="/admin/errors"
+          color="#ef4444"
+        />
       </div>
     </div>
   )

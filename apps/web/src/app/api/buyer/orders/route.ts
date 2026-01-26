@@ -1,32 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
 export async function GET(request: NextRequest) {
-  try {
+  return withErrorTracing('/api/buyer/orders', 'GET', async () => {
     const supabase = await createClient()
 
     // Check auth
+    crumb.auth('Checking authentication')
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError) {
-      console.error('[/api/buyer/orders] Auth error:', authError)
-      return NextResponse.json({ error: 'Authentication failed' }, { status: 401 })
+      throw traced.auth('ERR_AUTH_001', 'Authentication failed', {
+        originalError: authError,
+      })
     }
 
     if (!user) {
-      console.error('[/api/buyer/orders] No user found')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
+
+    crumb.auth('User authenticated', user.id)
 
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const marketId = searchParams.get('market')
 
-    console.log('[/api/buyer/orders] Fetching orders for user:', user.id, 'status:', status, 'market:', marketId)
+    crumb.logic('Fetching orders', { userId: user.id, status, marketId })
 
     // Get buyer's orders with items
     // Use explicit relationship hint for market_id FK on order_items
+    crumb.supabase('select', 'orders', { userId: user.id })
     let query = supabase
       .from('orders')
       .select(`
@@ -88,14 +93,14 @@ export async function GET(request: NextRequest) {
     const { data: orders, error } = await query
 
     if (error) {
-      console.error('[/api/buyer/orders] Database error:', JSON.stringify(error, null, 2))
-      return NextResponse.json(
-        { error: 'Failed to fetch orders', details: error.message },
-        { status: 500 }
-      )
+      throw traced.fromSupabase(error, {
+        table: 'orders',
+        operation: 'select',
+        userId: user.id,
+      })
     }
 
-    console.log('[/api/buyer/orders] Found orders:', orders?.length || 0)
+    crumb.logic('Orders fetched', { count: orders?.length || 0 })
 
     // Collect unique markets from all orders for the filter dropdown
     const marketsMap = new Map<string, { id: string; name: string; type: string }>()
@@ -168,12 +173,5 @@ export async function GET(request: NextRequest) {
     const markets = Array.from(marketsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
 
     return NextResponse.json({ orders: filteredOrders, markets })
-
-  } catch (error) {
-    console.error('[/api/buyer/orders] Unexpected error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
-      { status: 500 }
-    )
-  }
+  })
 }

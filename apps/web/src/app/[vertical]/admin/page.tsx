@@ -373,10 +373,10 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
           </Link>
         </div>
 
-        {/* Bottom Row: Activity + Admins */}
+        {/* Bottom Row: Activity + Admins + Errors */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
           gap: spacing.md,
           marginTop: spacing.md
         }}>
@@ -524,6 +524,31 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             </div>
             <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: 0 }}>
               Add or remove vertical administrators
+            </p>
+          </Link>
+
+          {/* Error Reports Card */}
+          <Link
+            href={`/${vertical}/admin/errors`}
+            style={{
+              display: 'block',
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              textDecoration: 'none',
+              color: 'inherit',
+              boxShadow: shadows.sm
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+              <span style={{ fontSize: typography.sizes['2xl'] }}>🐛</span>
+              <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.primary }}>
+                Error Reports
+              </h3>
+            </div>
+            <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: 0 }}>
+              Review user-reported errors and issues
             </p>
           </Link>
         </div>
