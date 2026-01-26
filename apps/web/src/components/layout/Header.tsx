@@ -39,6 +39,25 @@ export function Header({
   const pathname = usePathname()
   const supabase = createClient()
 
+  // Listen for auth state changes to detect user switching
+  // This handles the case where a user logs out in another tab or duplicates a tab
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // If the user changed (different user ID or logged out/in), refresh the page
+      const currentUserId = session?.user?.id || null
+      const propsUserId = user?.id || null
+
+      if (currentUserId !== propsUserId) {
+        // User has changed - refresh to get correct header data
+        router.refresh()
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [user?.id, router, supabase.auth])
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

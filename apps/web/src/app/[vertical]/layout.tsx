@@ -1,6 +1,10 @@
 import { HeaderWrapper } from '@/components/layout/HeaderWrapper'
 import { CartProviderWrapper } from '@/components/cart/CartProviderWrapper'
 
+// Force dynamic rendering to ensure header always reflects current user
+// This prevents caching issues when users switch accounts or duplicate tabs
+export const dynamic = 'force-dynamic'
+
 interface VerticalLayoutProps {
   children: React.ReactNode
   params: Promise<{ vertical: string }>
