@@ -33,15 +33,24 @@ export async function GET(request: NextRequest) {
       .update({ status: 'paid' })
       .eq('id', orderId)
 
-    // Create payment record
-    await supabase.from('payments').insert({
-      order_id: orderId,
-      stripe_payment_intent_id: session.payment_intent as string,
-      amount_cents: session.amount_total!,
-      platform_fee_cents: order?.platform_fee_cents || 0,
-      status: 'succeeded',
-      paid_at: new Date().toISOString(),
-    })
+    // Create payment record (idempotent - skip if already created by webhook)
+    const paymentIntentId = session.payment_intent as string
+    const { data: existingPayment } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('stripe_payment_intent_id', paymentIntentId)
+      .single()
+
+    if (!existingPayment) {
+      await supabase.from('payments').insert({
+        order_id: orderId,
+        stripe_payment_intent_id: paymentIntentId,
+        amount_cents: session.amount_total!,
+        platform_fee_cents: order?.platform_fee_cents || 0,
+        status: 'succeeded',
+        paid_at: new Date().toISOString(),
+      })
+    }
 
     return NextResponse.json({ success: true, orderId })
   } catch (error) {

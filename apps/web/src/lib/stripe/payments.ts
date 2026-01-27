@@ -4,12 +4,15 @@ import { stripe, STRIPE_CONFIG } from './config'
  * Calculate fees for transaction
  */
 export function calculateFees(basePriceCents: number) {
-  const buyerFeeCents = Math.round(
+  const buyerPercentFeeCents = Math.round(
     basePriceCents * (STRIPE_CONFIG.buyerFeePercent / 100)
   )
-  const vendorFeeCents = Math.round(
+  const vendorPercentFeeCents = Math.round(
     basePriceCents * (STRIPE_CONFIG.vendorFeePercent / 100)
   )
+
+  const buyerFeeCents = buyerPercentFeeCents + STRIPE_CONFIG.buyerFlatFeeCents
+  const vendorFeeCents = vendorPercentFeeCents + STRIPE_CONFIG.vendorFlatFeeCents
 
   const buyerPaysCents = basePriceCents + buyerFeeCents
   const vendorGetsCents = basePriceCents - vendorFeeCents

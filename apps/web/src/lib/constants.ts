@@ -49,13 +49,17 @@ export type VendorTierType = keyof typeof TIER_BADGES
 
 // Platform fee as decimal (6.5% = 0.065)
 export const PLATFORM_FEE_RATE = 0.065
+// Flat fee in cents added to buyer price
+export const PLATFORM_FLAT_FEE_CENTS = 15
+// Minimum order total in cents (before fees)
+export const MINIMUM_ORDER_CENTS = 1000
 
 /**
  * Calculate display price (what buyer sees)
- * Applies platform fee to base price
+ * Applies platform percentage fee + flat fee to base price
  */
 export function calculateDisplayPrice(basePriceCents: number): number {
-  return Math.round(basePriceCents * (1 + PLATFORM_FEE_RATE))
+  return Math.round(basePriceCents * (1 + PLATFORM_FEE_RATE)) + PLATFORM_FLAT_FEE_CENTS
 }
 
 /**
@@ -63,7 +67,7 @@ export function calculateDisplayPrice(basePriceCents: number): number {
  * Useful for understanding vendor's share
  */
 export function calculateBasePrice(displayPriceCents: number): number {
-  return Math.round(displayPriceCents / (1 + PLATFORM_FEE_RATE))
+  return Math.round((displayPriceCents - PLATFORM_FLAT_FEE_CENTS) / (1 + PLATFORM_FEE_RATE))
 }
 
 /**

@@ -15,4 +15,7 @@ export const STRIPE_CONFIG = {
   applicationFeePercent: 13.0, // 6.5% buyer + 6.5% vendor
   buyerFeePercent: 6.5,
   vendorFeePercent: 6.5,
+  buyerFlatFeeCents: 15, // $0.15 flat fee added to buyer price
+  vendorFlatFeeCents: 15, // $0.15 flat fee deducted from vendor payout
+  minimumOrderCents: 1000, // $10.00 minimum cart total (before fees)
 }

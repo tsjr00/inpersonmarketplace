@@ -58,14 +58,31 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     .update({ status: 'paid' })
     .eq('id', orderId)
 
-  await supabase.from('payments').insert({
-    order_id: orderId,
-    stripe_payment_intent_id: session.payment_intent as string,
-    amount_cents: session.amount_total!,
-    platform_fee_cents: 0, // Will be calculated from order
-    status: 'succeeded',
-    paid_at: new Date().toISOString(),
-  })
+  // Idempotent insert - skip if success route already created the record
+  const paymentIntentId = session.payment_intent as string
+  const { data: existingPayment } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .single()
+
+  if (!existingPayment) {
+    // Get platform fee from order for accurate record
+    const { data: order } = await supabase
+      .from('orders')
+      .select('platform_fee_cents')
+      .eq('id', orderId)
+      .single()
+
+    await supabase.from('payments').insert({
+      order_id: orderId,
+      stripe_payment_intent_id: paymentIntentId,
+      amount_cents: session.amount_total!,
+      platform_fee_cents: order?.platform_fee_cents || 0,
+      status: 'succeeded',
+      paid_at: new Date().toISOString(),
+    })
+  }
 }
 
 async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {

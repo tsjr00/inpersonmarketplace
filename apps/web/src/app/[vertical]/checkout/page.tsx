@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
-import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
+import { calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface CheckoutItem {
@@ -244,6 +244,13 @@ export default function CheckoutPage() {
   const total = checkoutItems.reduce((sum, item) => {
     return sum + calculateDisplayPrice(item.price_cents) * item.quantity
   }, 0)
+
+  // Calculate base subtotal (before fees) for minimum order check
+  const baseSubtotal = checkoutItems.reduce((sum, item) => {
+    return sum + item.price_cents * item.quantity
+  }, 0)
+  const belowMinimum = baseSubtotal < MINIMUM_ORDER_CENTS
+  const amountNeeded = belowMinimum ? ((MINIMUM_ORDER_CENTS - baseSubtotal) / 100).toFixed(2) : '0'
 
   // Check if all items are available
   const hasUnavailableItems = checkoutItems.some(item => !item.available)
@@ -747,6 +754,20 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {belowMinimum && (
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffc107',
+                  borderRadius: radius.md,
+                  marginBottom: spacing.sm,
+                  fontSize: typography.sizes.sm,
+                  color: '#856404',
+                }}>
+                  Minimum order is $10.00. Add ${amountNeeded} more to your cart.
+                </div>
+              )}
+
               {/* Multi-Location Acknowledgment Notice */}
               {hasMultiplePickupLocations && !multiLocationAcknowledged && (
                 <div style={{
@@ -823,7 +844,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={processing || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged)}
+                disabled={processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged)}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -832,16 +853,16 @@ export default function CheckoutPage() {
                   padding: `${spacing.sm} ${spacing.md}`,
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold,
-                  backgroundColor: processing || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? colors.border : colors.primary,
+                  backgroundColor: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? colors.border : colors.primary,
                   color: colors.textInverse,
                   border: 'none',
                   borderRadius: radius.sm,
-                  cursor: processing || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'not-allowed' : 'pointer',
+                  cursor: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'not-allowed' : 'pointer',
                   minHeight: 48,
-                  boxShadow: processing || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'none' : shadows.primary,
+                  boxShadow: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'none' : shadows.primary,
                 }}
               >
-                {processing ? 'Processing...' : !marketValid ? 'Fix Market Issues' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : user ? 'Pay Now' : 'Sign In to Checkout'}
+                {processing ? 'Processing...' : belowMinimum ? `Add $${amountNeeded} More` : !marketValid ? 'Fix Market Issues' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : user ? 'Pay Now' : 'Sign In to Checkout'}
               </button>
 
               {/* Security messaging */}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createRefund } from '@/lib/stripe/payments'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -166,8 +167,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
   }
 
-  // TODO: In production, trigger Stripe refund here
-  // For now, we just track the refund amount
+  // Execute Stripe refund if payment exists
+  let stripeRefundId: string | null = null
+  const orderId = (order as { id: string }).id
+
+  const { data: payment } = await supabase
+    .from('payments')
+    .select('stripe_payment_intent_id, status')
+    .eq('order_id', orderId)
+    .eq('status', 'succeeded')
+    .single()
+
+  if (payment?.stripe_payment_intent_id) {
+    try {
+      const refund = await createRefund(payment.stripe_payment_intent_id, refundAmount)
+      stripeRefundId = refund.id
+    } catch (refundError) {
+      console.error('Stripe refund failed:', refundError)
+      // DB is already updated as cancelled. Log the failure but don't block the response.
+      // Admin will need to manually process this refund.
+    }
+  }
 
   return NextResponse.json({
     success: true,
@@ -177,6 +197,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     cancelled_at: new Date().toISOString(),
     refund_amount_cents: refundAmount,
     cancellation_fee_cents: platformFee,
-    cancellation_fee_applied: cancellationFeeApplied
+    cancellation_fee_applied: cancellationFeeApplied,
+    stripe_refund_id: stripeRefundId
   })
 }

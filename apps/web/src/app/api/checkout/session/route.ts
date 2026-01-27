@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { calculateFees, createCheckoutSession } from '@/lib/stripe/payments'
+import { STRIPE_CONFIG } from '@/lib/stripe/config'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 interface CartItem {
@@ -230,6 +231,15 @@ export async function POST(request: NextRequest) {
         market_id: marketInfo?.marketId || null,
       }
     })
+
+    // Enforce minimum order total (before fees)
+    if (subtotalCents < STRIPE_CONFIG.minimumOrderCents) {
+      const remaining = ((STRIPE_CONFIG.minimumOrderCents - subtotalCents) / 100).toFixed(2)
+      return NextResponse.json({
+        error: `Minimum order is $${(STRIPE_CONFIG.minimumOrderCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`,
+        code: 'BELOW_MINIMUM'
+      }, { status: 400 })
+    }
 
     // Buyer pays: base price + buyer fee only (vendor fee is deducted from vendor payout)
     const totalCents = subtotalCents + buyerFeeCents
