@@ -27,10 +27,11 @@ export async function GET(request: NextRequest) {
       .eq('id', orderId)
       .single()
 
-    // Update order status
+    // Update order status and set grace period (1 hour from now)
+    const gracePeriodEndsAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
     await supabase
       .from('orders')
-      .update({ status: 'paid' })
+      .update({ status: 'paid', grace_period_ends_at: gracePeriodEndsAt })
       .eq('id', orderId)
 
     // Create payment record (idempotent - skip if already created by webhook)
