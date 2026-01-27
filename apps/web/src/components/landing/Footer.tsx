@@ -22,7 +22,7 @@ export function Footer({ vertical }: FooterProps) {
         { label: 'Browse Markets', href: `/${vertical}/markets` },
         { label: 'Browse Products', href: `/${vertical}/browse` },
         { label: 'Features & Benefits', href: `/${vertical}/features` },
-        { label: 'How It Works', href: `/${vertical}#how-it-works` },
+        { label: 'How It Works', href: `/${vertical}/how-it-works` },
         { label: 'Sign Up', href: `/${vertical}/signup` },
       ]
     },

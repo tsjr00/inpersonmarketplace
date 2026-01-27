@@ -11,8 +11,9 @@ interface RouteContext {
 const CANCELLATION_FEE_PERCENT = 25
 
 // POST /api/buyer/orders/[id]/cancel - Buyer cancels an order item
-// Within grace period (1 hour): Full refund
-// After grace period: 25% cancellation fee, buyer gets 75% back
+// Layer 1: Within 1-hour grace period → full refund (always wins)
+// Layer 2: After grace period AND vendor has confirmed/prepared → 25% cancellation fee
+// If within grace period, no penalty regardless of vendor confirmation status
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderItemId } = await context.params
   const supabase = await createClient()
@@ -93,12 +94,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // Determine if within grace period
+  // Determine cancellation penalty eligibility
+  // Layer 1: 1-hour grace period — always wins, no penalty
+  // Layer 2: After grace period, penalty only applies if vendor has confirmed the order
   const typedOrder = order as { id: string; grace_period_ends_at: string | null }
   const gracePeriodEndsAt = typedOrder.grace_period_ends_at
     ? new Date(typedOrder.grace_period_ends_at)
     : null
   const withinGracePeriod = gracePeriodEndsAt ? new Date() < gracePeriodEndsAt : true
+  const vendorHasConfirmed = ['confirmed', 'ready', 'fulfilled'].includes(orderItem.status)
 
   // Calculate what buyer originally paid for this item
   // subtotal_cents is the base price, buyer paid base + buyer fee portion
@@ -112,13 +116,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
   let cancellationFeeApplied = false
 
   if (withinGracePeriod) {
-    // Full refund - buyer gets everything back
+    // Layer 1: Within 1-hour grace — full refund, no questions asked
+    refundAmountCents = buyerPaidForItem
+    cancellationFeeCents = 0
+    vendorShareCents = 0
+    platformShareCents = 0
+  } else if (!vendorHasConfirmed) {
+    // After grace but vendor hasn't confirmed yet — still full refund
     refundAmountCents = buyerPaidForItem
     cancellationFeeCents = 0
     vendorShareCents = 0
     platformShareCents = 0
   } else {
-    // After grace period: buyer gets 75% of what they paid
+    // After grace period AND vendor has confirmed: buyer gets 75% of what they paid
     cancellationFeeApplied = true
     refundAmountCents = Math.round(buyerPaidForItem * (1 - CANCELLATION_FEE_PERCENT / 100))
     cancellationFeeCents = buyerPaidForItem - refundAmountCents
@@ -228,6 +238,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     platform_share_cents: platformShareCents,
     cancellation_fee_applied: cancellationFeeApplied,
     within_grace_period: withinGracePeriod,
+    vendor_had_confirmed: vendorHasConfirmed,
     stripe_refund_id: stripeRefundId
   })
 }
