@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { transferToVendor } from '@/lib/stripe/payments'
 
 export async function POST(
   request: NextRequest,
@@ -20,12 +19,41 @@ export async function POST(
   // Get vendor profile
   const { data: vendorProfile } = await supabase
     .from('vendor_profiles')
-    .select('id, stripe_account_id')
+    .select('id')
     .eq('user_id', user.id)
     .single()
 
   if (!vendorProfile) {
     return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+  }
+
+  // Check for unresolved pickup confirmations (lockdown check)
+  const { data: unresolvedItems } = await supabase
+    .from('order_items')
+    .select('id')
+    .eq('vendor_profile_id', vendorProfile.id)
+    .not('buyer_confirmed_at', 'is', null)
+    .is('vendor_confirmed_at', null)
+    .is('issue_reported_at', null)
+
+  if (unresolvedItems && unresolvedItems.length > 0) {
+    // Check if any have been pending over 5 minutes (hard lockdown)
+    const { data: hardLockedItems } = await supabase
+      .from('order_items')
+      .select('id, confirmation_window_expires_at')
+      .eq('vendor_profile_id', vendorProfile.id)
+      .not('buyer_confirmed_at', 'is', null)
+      .is('vendor_confirmed_at', null)
+      .is('issue_reported_at', null)
+      .lt('confirmation_window_expires_at', new Date(Date.now() - 4.5 * 60 * 1000).toISOString())
+
+    if (hardLockedItems && hardLockedItems.length > 0) {
+      return NextResponse.json({
+        error: 'You have unresolved pickup confirmations. Please confirm or report an issue for pending handoffs before fulfilling other orders.',
+        code: 'LOCKDOWN_ACTIVE',
+        unresolved_count: hardLockedItems.length
+      }, { status: 403 })
+    }
   }
 
   // Get order item
@@ -40,15 +68,8 @@ export async function POST(
     return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
   }
 
-  const isDev = process.env.NODE_ENV !== 'production'
-  const hasStripe = !!vendorProfile.stripe_account_id
-
-  if (!hasStripe && !isDev) {
-    return NextResponse.json({ error: 'Stripe account not connected' }, { status: 400 })
-  }
-
   try {
-    // Update status
+    // Mark as fulfilled - transfer happens later when both parties confirm pickup
     await supabase
       .from('order_items')
       .update({
@@ -56,52 +77,6 @@ export async function POST(
         pickup_confirmed_at: new Date().toISOString(),
       })
       .eq('id', orderItemId)
-
-    // Initiate payout to vendor (skip in dev mode if no Stripe account)
-    if (hasStripe) {
-      const transfer = await transferToVendor({
-        amount: orderItem.vendor_payout_cents,
-        destination: vendorProfile.stripe_account_id,
-        orderId: orderItem.order_id,
-        orderItemId: orderItem.id,
-      })
-
-      // Create payout record
-      await supabase.from('vendor_payouts').insert({
-        order_item_id: orderItem.id,
-        vendor_profile_id: vendorProfile.id,
-        amount_cents: orderItem.vendor_payout_cents,
-        stripe_transfer_id: transfer.id,
-        status: 'processing',
-      })
-    } else {
-      // Dev mode without Stripe - create placeholder payout record
-      console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId} - no Stripe account`)
-      await supabase.from('vendor_payouts').insert({
-        order_item_id: orderItem.id,
-        vendor_profile_id: vendorProfile.id,
-        amount_cents: orderItem.vendor_payout_cents,
-        stripe_transfer_id: `dev_skip_${orderItemId}`,
-        status: 'skipped_dev',
-      })
-    }
-
-    // Check if all non-cancelled items in order are fulfilled
-    const { data: allItems } = await supabase
-      .from('order_items')
-      .select('status')
-      .eq('order_id', orderItem.order_id)
-
-    // Filter out cancelled items and check if remaining are all fulfilled
-    const activeItems = allItems?.filter((item) => item.status !== 'cancelled') || []
-    const allFulfilled = activeItems.length > 0 && activeItems.every((item) => item.status === 'fulfilled')
-
-    if (allFulfilled) {
-      await supabase
-        .from('orders')
-        .update({ status: 'completed' })
-        .eq('id', orderItem.order_id)
-    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

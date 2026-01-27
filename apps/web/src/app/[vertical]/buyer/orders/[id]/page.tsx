@@ -47,6 +47,11 @@ interface OrderItem {
   cancelled_by: string | null
   cancellation_reason: string | null
   refund_amount_cents: number | null
+  confirmation_window_expires_at: string | null
+  lockdown_active: boolean
+  issue_reported_at: string | null
+  issue_reported_by: string | null
+  issue_description: string | null
 }
 
 interface OrderDetail {
@@ -70,6 +75,7 @@ export default function BuyerOrderDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmingItemId, setConfirmingItemId] = useState<string | null>(null)
   const [cancellingItemId, setCancellingItemId] = useState<string | null>(null)
+  const [reportingItemId, setReportingItemId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchOrder()
@@ -161,6 +167,30 @@ export default function BuyerOrderDetailPage() {
       alert(err instanceof Error ? err.message : 'Failed to cancel item')
     } finally {
       setCancellingItemId(null)
+    }
+  }
+
+  const handleReportIssue = async (itemId: string) => {
+    const description = prompt('Describe the issue (e.g., "I did not receive this item", "Wrong item received"):')
+    if (description === null) return
+
+    setReportingItemId(itemId)
+    try {
+      const res = await fetch(`/api/buyer/orders/${itemId}/report-issue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: description || 'Item not received' })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to report issue')
+
+      alert('Issue reported. Our support team will review and contact you.')
+      fetchOrder()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to report issue')
+    } finally {
+      setReportingItemId(null)
     }
   }
 
@@ -259,55 +289,196 @@ export default function BuyerOrderDetailPage() {
     return acc
   }, {} as Record<string, { market: Market; items: OrderItem[]; pickupDate: string | null }>)
 
+  // Is this order in a pickup-ready state? Show the mobile pickup presentation
+  const isPickupReady = ['ready', 'handed_off'].includes(effectiveStatus)
+  // Get primary vendor/market for the hero section
+  const primaryItem = order.items.find(i => !i.cancelled_at)
+  const primaryVendor = primaryItem?.vendor_name || 'Vendor'
+  const primaryMarket = primaryItem?.market?.name || 'Market'
+  // Count items needing confirmation
+  const itemsNeedingConfirm = order.items.filter(
+    i => ['ready', 'fulfilled'].includes(i.status) && !i.buyer_confirmed_at && !i.cancelled_at
+  )
+
   return (
     <div style={{
       minHeight: '100vh',
       backgroundColor: colors.surfaceBase,
-      padding: `${spacing.xl} ${spacing.md}`
+      padding: isPickupReady ? `0 0 ${spacing.xl} 0` : `${spacing.xl} ${spacing.md}`
     }}>
       <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
-        {/* Back Link */}
-        <Link
-          href={`/${vertical}/buyer/orders`}
-          style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
-        >
-          ← Back to Orders
-        </Link>
 
-        {/* Header with Prominent Order Number */}
-        <div style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
-          {/* Large Order Number Box */}
-          <div style={{
-            backgroundColor: colors.textPrimary,
-            color: colors.textInverse,
-            padding: `${spacing.sm} ${spacing.md}`,
-            borderRadius: radius.md,
-            marginBottom: spacing.sm,
-            display: 'inline-block'
-          }}>
-            <p style={{ margin: 0, fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7 }}>
-              Order Number
-            </p>
-            <p style={{
-              margin: `${spacing['3xs']} 0 0 0`,
-              fontSize: typography.sizes['3xl'],
-              fontWeight: typography.weights.bold,
-              fontFamily: 'monospace',
-              letterSpacing: 2
+        {/* === PICKUP PRESENTATION MODE === */}
+        {isPickupReady && (
+          <>
+            {/* Green Hero Section - designed for showing to vendor */}
+            <div style={{
+              background: 'linear-gradient(135deg, #166534 0%, #15803d 50%, #16a34a 100%)',
+              color: 'white',
+              padding: `${spacing.lg} ${spacing.md} ${spacing.md}`,
+              textAlign: 'center',
             }}>
-              {order.order_number || order.id.slice(0, 8).toUpperCase()}
-            </p>
-          </div>
-          <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
-            Placed on {new Date(order.created_at).toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric'
-            })}
-          </p>
-        </div>
+              {/* Back link - subtle */}
+              <div style={{ textAlign: 'left', marginBottom: spacing.sm }}>
+                <Link
+                  href={`/${vertical}/buyer/orders`}
+                  style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: typography.sizes.sm }}
+                >
+                  ← Back to Orders
+                </Link>
+              </div>
 
+              {/* Status badge */}
+              <div style={{
+                display: 'inline-block',
+                padding: `${spacing['3xs']} ${spacing.sm}`,
+                backgroundColor: effectiveStatus === 'handed_off' ? '#f59e0b' : 'rgba(255,255,255,0.2)',
+                borderRadius: radius.full,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.bold,
+                marginBottom: spacing.sm,
+                color: effectiveStatus === 'handed_off' ? '#000' : '#fff',
+              }}>
+                {effectiveStatus === 'handed_off' ? 'CONFIRM YOUR PICKUP' : 'READY FOR PICKUP'}
+              </div>
+
+              {/* Order Number - very prominent */}
+              <p style={{
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.xs,
+                textTransform: 'uppercase',
+                letterSpacing: 2,
+                opacity: 0.8
+              }}>
+                Order Number
+              </p>
+              <p style={{
+                margin: `0 0 ${spacing.sm} 0`,
+                fontSize: '2.5rem',
+                fontWeight: typography.weights.bold,
+                fontFamily: 'monospace',
+                letterSpacing: 3
+              }}>
+                {order.order_number || order.id.slice(0, 8).toUpperCase()}
+              </p>
+
+              {/* Market & Vendor - large text */}
+              <p style={{
+                margin: `0 0 ${spacing['3xs']} 0`,
+                fontSize: typography.sizes.xl,
+                fontWeight: typography.weights.bold
+              }}>
+                {primaryMarket}
+              </p>
+              <p style={{
+                margin: `0 0 ${spacing.sm} 0`,
+                fontSize: typography.sizes.lg,
+                opacity: 0.9
+              }}>
+                Vendor: {primaryVendor}
+              </p>
+
+              {/* Item count */}
+              <p style={{
+                margin: 0,
+                fontSize: typography.sizes.sm,
+                opacity: 0.8
+              }}>
+                {order.items.filter(i => !i.cancelled_at).length} item{order.items.filter(i => !i.cancelled_at).length !== 1 ? 's' : ''} in this order
+              </p>
+            </div>
+
+            {/* Big Confirm Receipt Button - immediately below hero */}
+            {itemsNeedingConfirm.length > 0 && (
+              <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: '#f0fdf4', borderBottom: '2px solid #16a34a' }}>
+                <button
+                  onClick={() => {
+                    // Confirm all ready items at once
+                    if (confirm('Confirm you have received all items from this order? This cannot be undone.')) {
+                      itemsNeedingConfirm.forEach(item => handleConfirmPickup(item.id))
+                    }
+                  }}
+                  disabled={confirmingItemId !== null}
+                  style={{
+                    width: '100%',
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    fontSize: typography.sizes.lg,
+                    fontWeight: typography.weights.bold,
+                    backgroundColor: confirmingItemId ? '#9ca3af' : '#16a34a',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: radius.md,
+                    cursor: confirmingItemId ? 'not-allowed' : 'pointer',
+                    minHeight: 56,
+                    boxShadow: '0 4px 14px rgba(22, 163, 74, 0.4)',
+                  }}
+                >
+                  {confirmingItemId ? 'Confirming...' : `Confirm Receipt (${itemsNeedingConfirm.length} item${itemsNeedingConfirm.length !== 1 ? 's' : ''})`}
+                </button>
+                <p style={{
+                  margin: `${spacing.xs} 0 0 0`,
+                  fontSize: typography.sizes.sm,
+                  color: '#166534',
+                  textAlign: 'center',
+                  fontStyle: 'italic'
+                }}>
+                  Only confirm after you have all items in hand.
+                </p>
+              </div>
+            )}
+
+          </>
+        )}
+
+        {/* === STANDARD HEADER (non-pickup states) === */}
+        {!isPickupReady && (
+          <>
+            {/* Back Link */}
+            <Link
+              href={`/${vertical}/buyer/orders`}
+              style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
+            >
+              ← Back to Orders
+            </Link>
+
+            {/* Header with Prominent Order Number */}
+            <div style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
+              {/* Large Order Number Box */}
+              <div style={{
+                backgroundColor: colors.textPrimary,
+                color: colors.textInverse,
+                padding: `${spacing.sm} ${spacing.md}`,
+                borderRadius: radius.md,
+                marginBottom: spacing.sm,
+                display: 'inline-block'
+              }}>
+                <p style={{ margin: 0, fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7 }}>
+                  Order Number
+                </p>
+                <p style={{
+                  margin: `${spacing['3xs']} 0 0 0`,
+                  fontSize: typography.sizes['3xl'],
+                  fontWeight: typography.weights.bold,
+                  fontFamily: 'monospace',
+                  letterSpacing: 2
+                }}>
+                  {order.order_number || order.id.slice(0, 8).toUpperCase()}
+                </p>
+              </div>
+              <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
+                Placed on {new Date(order.created_at).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Content below hero gets horizontal padding in pickup mode */}
+        <div style={isPickupReady ? { padding: `${spacing.sm} ${spacing.md} 0` } : undefined}>
         {/* Status Summary */}
         <OrderStatusSummary status={effectiveStatus} updatedAt={order.updated_at} />
 
@@ -505,8 +676,25 @@ export default function BuyerOrderDetailPage() {
                             }}>
                               {item.status === 'fulfilled'
                                 ? 'Vendor marked this as handed to you. Please confirm if you received it.'
-                                : 'Only confirm after you have the item in hand. Early confirmation may cause vendor to skip bringing it.'}
+                                : 'Only confirm after you have the item in hand.'}
                             </span>
+                            {/* Report Issue button - alternative to confirming */}
+                            <button
+                              onClick={() => handleReportIssue(item.id)}
+                              disabled={reportingItemId === item.id}
+                              style={{
+                                padding: `${spacing['3xs']} ${spacing.xs}`,
+                                backgroundColor: 'transparent',
+                                color: '#991b1b',
+                                border: '1px solid #fca5a5',
+                                borderRadius: radius.sm,
+                                fontSize: typography.sizes.xs,
+                                cursor: reportingItemId === item.id ? 'not-allowed' : 'pointer',
+                                marginTop: spacing['2xs']
+                              }}
+                            >
+                              {reportingItemId === item.id ? 'Reporting...' : 'I Did Not Receive This'}
+                            </button>
                           </div>
                         )}
 
@@ -586,6 +774,8 @@ export default function BuyerOrderDetailPage() {
             </div>
           )
         })()}
+        </div>{/* end content padding wrapper */}
+
       </div>
     </div>
   )
