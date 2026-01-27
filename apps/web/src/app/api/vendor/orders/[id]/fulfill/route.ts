@@ -40,7 +40,10 @@ export async function POST(
     return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
   }
 
-  if (!vendorProfile.stripe_account_id) {
+  const isDev = process.env.NODE_ENV !== 'production'
+  const hasStripe = !!vendorProfile.stripe_account_id
+
+  if (!hasStripe && !isDev) {
     return NextResponse.json({ error: 'Stripe account not connected' }, { status: 400 })
   }
 
@@ -54,22 +57,34 @@ export async function POST(
       })
       .eq('id', orderItemId)
 
-    // Initiate payout to vendor
-    const transfer = await transferToVendor({
-      amount: orderItem.vendor_payout_cents,
-      destination: vendorProfile.stripe_account_id,
-      orderId: orderItem.order_id,
-      orderItemId: orderItem.id,
-    })
+    // Initiate payout to vendor (skip in dev mode if no Stripe account)
+    if (hasStripe) {
+      const transfer = await transferToVendor({
+        amount: orderItem.vendor_payout_cents,
+        destination: vendorProfile.stripe_account_id,
+        orderId: orderItem.order_id,
+        orderItemId: orderItem.id,
+      })
 
-    // Create payout record
-    await supabase.from('vendor_payouts').insert({
-      order_item_id: orderItem.id,
-      vendor_profile_id: vendorProfile.id,
-      amount_cents: orderItem.vendor_payout_cents,
-      stripe_transfer_id: transfer.id,
-      status: 'processing',
-    })
+      // Create payout record
+      await supabase.from('vendor_payouts').insert({
+        order_item_id: orderItem.id,
+        vendor_profile_id: vendorProfile.id,
+        amount_cents: orderItem.vendor_payout_cents,
+        stripe_transfer_id: transfer.id,
+        status: 'processing',
+      })
+    } else {
+      // Dev mode without Stripe - create placeholder payout record
+      console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId} - no Stripe account`)
+      await supabase.from('vendor_payouts').insert({
+        order_item_id: orderItem.id,
+        vendor_profile_id: vendorProfile.id,
+        amount_cents: orderItem.vendor_payout_cents,
+        stripe_transfer_id: `dev_skip_${orderItemId}`,
+        status: 'skipped_dev',
+      })
+    }
 
     // Check if all non-cancelled items in order are fulfilled
     const { data: allItems } = await supabase

@@ -26,6 +26,7 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
     { label: 'Activity', href: `/${vertical}/admin/vendor-activity`, icon: '🔍' },
     { label: 'Listings', href: `/${vertical}/admin/listings`, icon: '📦' },
     { label: 'Users', href: `/${vertical}/admin/users`, icon: '👥' },
+    { label: 'Reports', href: `/${vertical}/admin/reports`, icon: '📋' },
     { label: 'Feedback', href: `/${vertical}/admin/feedback`, icon: '💬' },
   ] : []
 
@@ -38,6 +39,7 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
     { label: 'Listings', href: '/admin/listings', icon: '📦' },
     { label: 'Markets', href: '/admin/markets', icon: '🧺' },
     { label: 'Users', href: '/admin/users', icon: '👥' },
+    { label: 'Reports', href: '/admin/reports', icon: '📋' },
   ]
 
   const links = type === 'vertical' ? verticalLinks : platformLinks
@@ -76,51 +78,6 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
         </Link>
       ))}
 
-      {/* Switch to other admin type */}
-      <div style={{ marginLeft: 'auto', paddingLeft: 16 }}>
-        {type === 'vertical' && vertical && (
-          <Link
-            href="/admin"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 16px',
-              borderRadius: 6,
-              textDecoration: 'none',
-              fontSize: 14,
-              fontWeight: 500,
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              border: '1px solid #d1d5db'
-            }}
-          >
-            <span>🌐</span>
-            <span>Platform Admin</span>
-          </Link>
-        )}
-        {type === 'platform' && (
-          <Link
-            href="/farmers_market/admin"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 16px',
-              borderRadius: 6,
-              textDecoration: 'none',
-              fontSize: 14,
-              fontWeight: 500,
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              border: '1px solid #d1d5db'
-            }}
-          >
-            <span>🌾</span>
-            <span>Vertical Admin</span>
-          </Link>
-        )}
-      </div>
     </nav>
   )
 }

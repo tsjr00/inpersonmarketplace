@@ -254,6 +254,12 @@ export default async function AdminDashboardPage() {
           href="/admin/errors"
           color="#ef4444"
         />
+        <QuickAction
+          title="CSV Reports"
+          description="Export sales, vendors, and customer data"
+          href="/admin/reports"
+          color="#3b82f6"
+        />
       </div>
     </div>
   )

@@ -373,10 +373,10 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
           </Link>
         </div>
 
-        {/* Bottom Row: Activity + Admins + Errors */}
+        {/* Bottom Row: Activity + Admins + Errors + Reports */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
           gap: spacing.md,
           marginTop: spacing.md
         }}>
@@ -551,10 +551,35 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
               Review user-reported errors and issues
             </p>
           </Link>
+
+          {/* CSV Reports Card */}
+          <Link
+            href={`/${vertical}/admin/reports`}
+            style={{
+              display: 'block',
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              textDecoration: 'none',
+              color: 'inherit',
+              boxShadow: shadows.sm
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+              <span style={{ fontSize: typography.sizes['2xl'] }}>📋</span>
+              <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.primary }}>
+                CSV Reports
+              </h3>
+            </div>
+            <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: 0 }}>
+              Export sales, vendors, and customer data
+            </p>
+          </Link>
         </div>
 
-        {/* Link to Platform Admin - only visible to platform admins */}
-        {isPlatformAdmin && (
+        {/* Link to Platform Admin - visible to all admins, platform page handles auth */}
+        {isAdmin && (
           <div style={{
             borderTop: `1px solid ${colors.border}`,
             paddingTop: spacing.md,
@@ -563,13 +588,21 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             <Link
               href="/admin"
               style={{
-                color: '#7c3aed',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                padding: `${spacing.sm} ${spacing.md}`,
+                backgroundColor: '#f3f4f6',
+                border: '1px solid #d1d5db',
+                borderRadius: radius.md,
                 textDecoration: 'none',
-                fontWeight: typography.weights.medium,
-                fontSize: typography.sizes.sm
+                color: '#374151',
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.medium
               }}
             >
-              Go to Platform Admin Dashboard →
+              <span>🌐</span>
+              <span>Platform Admin Dashboard</span>
             </Link>
           </div>
         )}

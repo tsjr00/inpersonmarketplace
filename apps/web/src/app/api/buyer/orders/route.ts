@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
           status,
           expires_at,
           cancelled_at,
+          buyer_confirmed_at,
           market_id,
           markets!market_id(
             id,
@@ -106,14 +107,62 @@ export async function GET(request: NextRequest) {
     const marketsMap = new Map<string, { id: string; name: string; type: string }>()
 
     // Transform data to match frontend expected format
-    const transformedOrders = (orders || []).map(order => ({
-      id: order.id,
-      order_number: order.order_number,
-      status: order.status,
-      total_cents: order.total_cents,
-      created_at: order.created_at,
-      updated_at: order.updated_at,
-      items: (order.order_items || []).map((item: Record<string, unknown>) => {
+    const transformedOrders = (orders || []).map(order => {
+      // Compute effective order status from item statuses
+      // Handles three fulfillment scenarios:
+      // 1. Buyer confirmed receipt → 'fulfilled'
+      // 2. Vendor fulfilled but buyer hasn't confirmed → 'handed_off'
+      // 3. Neither → use item.status as-is
+      const items = order.order_items || []
+      let effectiveStatus = order.status // Default to payment status
+
+      if (order.status === 'cancelled') {
+        effectiveStatus = 'cancelled'
+      } else if (items.length > 0) {
+        // Compute effective status per item
+        const effectiveStatuses = items.map((i: Record<string, unknown>) => {
+          const buyerConfirmed = i.buyer_confirmed_at as string | null
+          const cancelled = i.cancelled_at as string | null
+          const itemStatus = i.status as string
+          if (cancelled) return 'cancelled'
+          // Buyer confirmed = fully fulfilled
+          if (buyerConfirmed) return 'fulfilled'
+          // Vendor fulfilled but buyer hasn't confirmed = handed_off
+          if (itemStatus === 'fulfilled') return 'handed_off'
+          return itemStatus
+        })
+
+        // If ALL items are fulfilled (buyer confirmed), order is fulfilled
+        if (effectiveStatuses.every(s => s === 'fulfilled')) {
+          effectiveStatus = 'fulfilled'
+        }
+        // If ANY item is handed_off (vendor fulfilled, awaiting buyer), show handed_off
+        else if (effectiveStatuses.some(s => s === 'handed_off')) {
+          effectiveStatus = 'handed_off'
+        }
+        // If ANY item is ready (and none cancelled), show ready
+        else if (effectiveStatuses.some(s => s === 'ready') && !effectiveStatuses.some(s => s === 'cancelled')) {
+          effectiveStatus = 'ready'
+        }
+        // If ANY item is confirmed (and none cancelled/ready), show confirmed
+        else if (effectiveStatuses.some(s => s === 'confirmed') && !effectiveStatuses.some(s => ['cancelled', 'ready'].includes(s))) {
+          effectiveStatus = 'confirmed'
+        }
+        // If all items pending and order is paid, show pending (awaiting vendor confirmation)
+        else if (effectiveStatuses.every(s => s === 'pending') && order.status === 'paid') {
+          effectiveStatus = 'pending' // Will show "Order Placed"
+        }
+      }
+
+      return {
+        id: order.id,
+        order_number: order.order_number,
+        status: effectiveStatus,
+        payment_status: order.status, // Keep original for reference
+        total_cents: order.total_cents,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+        items: items.map((item: Record<string, unknown>) => {
         const listing = item.listing as Record<string, unknown> | null
         const vendorProfiles = listing?.vendor_profiles as Record<string, unknown> | null
         const profileData = vendorProfiles?.profile_data as Record<string, unknown> | null
@@ -160,7 +209,8 @@ export async function GET(request: NextRequest) {
           } : null
         }
       })
-    }))
+    }
+  })
 
     // Filter by market if specified
     const filteredOrders = marketId

@@ -208,6 +208,43 @@ export default function BuyerOrderDetailPage() {
     )
   }
 
+  // Compute effective order status from item statuses
+  // Handles three fulfillment scenarios:
+  // 1. Buyer confirmed receipt → 'fulfilled' (buyer initiated completion)
+  // 2. Vendor fulfilled but buyer hasn't confirmed → 'handed_off' (needs buyer confirmation)
+  // 3. Neither fulfilled → use item.status as-is
+  const computeEffectiveStatus = () => {
+    if (order.status === 'cancelled') return 'cancelled'
+    if (order.items.length === 0) return order.status
+
+    // Compute effective status per item
+    const effectiveStatuses = order.items.map(i => {
+      if (i.cancelled_at) return 'cancelled'
+      // Buyer confirmed = fully fulfilled
+      if (i.buyer_confirmed_at) return 'fulfilled'
+      // Vendor fulfilled but buyer hasn't confirmed = handed_off
+      if (i.status === 'fulfilled') return 'handed_off'
+      return i.status
+    })
+
+    // If ALL items are fulfilled (buyer confirmed), order is fulfilled
+    if (effectiveStatuses.every(s => s === 'fulfilled')) return 'fulfilled'
+
+    // If ANY item is handed_off (vendor fulfilled, awaiting buyer), show handed_off
+    if (effectiveStatuses.some(s => s === 'handed_off')) return 'handed_off'
+
+    // If ANY item is ready (and none cancelled), show ready
+    if (effectiveStatuses.some(s => s === 'ready') && !effectiveStatuses.some(s => s === 'cancelled')) return 'ready'
+
+    // If ANY item is confirmed (and none cancelled/ready), show confirmed
+    if (effectiveStatuses.some(s => s === 'confirmed') && !effectiveStatuses.some(s => ['cancelled', 'ready'].includes(s))) return 'confirmed'
+
+    // Default to payment status (pending/paid)
+    return order.status
+  }
+
+  const effectiveStatus = computeEffectiveStatus()
+
   // Group items by market
   const marketGroups = order.items.reduce((acc, item) => {
     const marketId = item.market.id
@@ -272,11 +309,11 @@ export default function BuyerOrderDetailPage() {
         </div>
 
         {/* Status Summary */}
-        <OrderStatusSummary status={order.status} updatedAt={order.updated_at} />
+        <OrderStatusSummary status={effectiveStatus} updatedAt={order.updated_at} />
 
         {/* Timeline */}
         <OrderTimeline
-          status={order.status}
+          status={effectiveStatus}
           createdAt={order.created_at}
           updatedAt={order.updated_at}
         />
@@ -356,31 +393,51 @@ export default function BuyerOrderDetailPage() {
                         gap: spacing.xs,
                         flexWrap: 'wrap'
                       }}>
-                        {/* Status Badge */}
-                        <span style={{
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.semibold,
-                          backgroundColor:
-                            item.status === 'cancelled' ? '#fee2e2' :
-                            item.status === 'fulfilled' ? colors.primaryLight :
-                            item.status === 'ready' ? colors.surfaceSubtle :
-                            item.status === 'confirmed' ? colors.surfaceSubtle :
-                            colors.surfaceMuted,
-                          color:
-                            item.status === 'cancelled' ? '#991b1b' :
-                            item.status === 'fulfilled' ? colors.primaryDark :
-                            item.status === 'ready' ? colors.accent :
-                            item.status === 'confirmed' ? colors.accent :
-                            colors.textSecondary
-                        }}>
-                          {item.status === 'cancelled' ? 'Cancelled' :
-                           item.status === 'fulfilled' ? 'Picked Up' :
-                           item.status === 'ready' ? 'Ready for Pickup' :
-                           item.status === 'confirmed' ? 'Preparing' :
-                           item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                        </span>
+                        {/* Status Badge - show effective status considering buyer confirmation */}
+                        {(() => {
+                          // Determine effective item status:
+                          // - If buyer confirmed → fulfilled (picked up)
+                          // - If vendor fulfilled but buyer hasn't confirmed → handed_off
+                          // - Otherwise use item.status
+                          let effectiveItemStatus = item.status
+                          if (item.cancelled_at) {
+                            effectiveItemStatus = 'cancelled'
+                          } else if (item.buyer_confirmed_at) {
+                            effectiveItemStatus = 'fulfilled'
+                          } else if (item.status === 'fulfilled') {
+                            effectiveItemStatus = 'handed_off'
+                          }
+
+                          return (
+                            <span style={{
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              fontWeight: typography.weights.semibold,
+                              backgroundColor:
+                                effectiveItemStatus === 'cancelled' ? '#fee2e2' :
+                                effectiveItemStatus === 'fulfilled' ? colors.primaryLight :
+                                effectiveItemStatus === 'handed_off' ? '#fef3c7' :
+                                effectiveItemStatus === 'ready' ? colors.surfaceSubtle :
+                                effectiveItemStatus === 'confirmed' ? colors.surfaceSubtle :
+                                colors.surfaceMuted,
+                              color:
+                                effectiveItemStatus === 'cancelled' ? '#991b1b' :
+                                effectiveItemStatus === 'fulfilled' ? colors.primaryDark :
+                                effectiveItemStatus === 'handed_off' ? '#b45309' :
+                                effectiveItemStatus === 'ready' ? colors.accent :
+                                effectiveItemStatus === 'confirmed' ? colors.accent :
+                                colors.textSecondary
+                            }}>
+                              {effectiveItemStatus === 'cancelled' ? 'Cancelled' :
+                               effectiveItemStatus === 'fulfilled' ? 'Picked Up' :
+                               effectiveItemStatus === 'handed_off' ? 'Vendor Handed Off' :
+                               effectiveItemStatus === 'ready' ? 'Ready for Pickup' :
+                               effectiveItemStatus === 'confirmed' ? 'Preparing' :
+                               effectiveItemStatus.charAt(0).toUpperCase() + effectiveItemStatus.slice(1)}
+                            </span>
+                          )
+                        })()}
 
                         {/* Cancellation Info */}
                         {item.cancelled_at && (
@@ -408,55 +465,54 @@ export default function BuyerOrderDetailPage() {
                           </div>
                         )}
 
-                        {/* Buyer Confirmed Badge */}
-                        {item.buyer_confirmed_at && !item.cancelled_at && (
-                          <span style={{
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            fontWeight: typography.weights.semibold,
-                            backgroundColor: colors.primaryLight,
-                            color: colors.primaryDark,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: spacing['3xs']
-                          }}>
-                            <span>✓</span> You confirmed receipt
-                          </span>
-                        )}
+                        {/* Buyer Confirmed Badge - only show if status badge doesn't already indicate pickup */}
+                        {/* Since we now show "Picked Up" when buyer confirmed, this would be redundant */}
+                        {/* Keeping this hidden but can be re-enabled if needed for clarity */}
 
                         {/* Confirm Button - show when ready/fulfilled and not yet confirmed */}
                         {['ready', 'fulfilled'].includes(item.status) && !item.buyer_confirmed_at && !item.cancelled_at && (
-                          <button
-                            onClick={() => handleConfirmPickup(item.id)}
-                            disabled={confirmingItemId === item.id}
-                            style={{
-                              padding: `${spacing['2xs']} ${spacing.sm}`,
-                              backgroundColor: confirmingItemId === item.id ? colors.textMuted : colors.primary,
-                              color: colors.textInverse,
-                              border: 'none',
-                              borderRadius: radius.sm,
-                              fontSize: typography.sizes.sm,
-                              fontWeight: typography.weights.semibold,
-                              cursor: confirmingItemId === item.id ? 'not-allowed' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: spacing['3xs']
-                            }}
-                          >
-                            {confirmingItemId === item.id ? (
-                              'Confirming...'
-                            ) : (
-                              <>
-                                <span>✓</span> Confirm Receipt
-                              </>
-                            )}
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: spacing['3xs'] }}>
+                            <button
+                              onClick={() => handleConfirmPickup(item.id)}
+                              disabled={confirmingItemId === item.id}
+                              style={{
+                                padding: `${spacing['2xs']} ${spacing.sm}`,
+                                backgroundColor: confirmingItemId === item.id ? colors.textMuted : (item.status === 'fulfilled' ? '#f59e0b' : colors.primary),
+                                color: colors.textInverse,
+                                border: 'none',
+                                borderRadius: radius.sm,
+                                fontSize: typography.sizes.sm,
+                                fontWeight: typography.weights.semibold,
+                                cursor: confirmingItemId === item.id ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: spacing['3xs']
+                              }}
+                            >
+                              {confirmingItemId === item.id ? (
+                                'Confirming...'
+                              ) : (
+                                <>
+                                  <span>✓</span> {item.status === 'fulfilled' ? 'Yes, I Received It' : 'Confirm Receipt'}
+                                </>
+                              )}
+                            </button>
+                            <span style={{
+                              fontSize: typography.sizes.xs,
+                              color: item.status === 'fulfilled' ? '#b45309' : colors.textMuted,
+                              fontStyle: 'italic',
+                              maxWidth: 220
+                            }}>
+                              {item.status === 'fulfilled'
+                                ? 'Vendor marked this as handed to you. Please confirm if you received it.'
+                                : 'Only confirm after you have the item in hand. Early confirmation may cause vendor to skip bringing it.'}
+                            </span>
+                          </div>
                         )}
 
                         {/* Cancel Button - show for pending/paid (free cancel) and confirmed/ready (with fee) */}
                         {/* Not available for completed orders, fulfilled items, or after buyer confirms receipt */}
-                        {!['completed', 'cancelled', 'fulfilled'].includes(order.status) &&
+                        {!['completed', 'cancelled', 'fulfilled'].includes(effectiveStatus) &&
                          ['pending', 'paid', 'confirmed', 'ready'].includes(item.status) &&
                          !item.cancelled_at &&
                          !item.buyer_confirmed_at && (

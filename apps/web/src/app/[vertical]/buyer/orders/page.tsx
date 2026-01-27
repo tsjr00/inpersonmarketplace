@@ -96,6 +96,7 @@ export default function BuyerOrdersPage() {
     paid: { label: 'Order Placed', color: colors.accent, bgColor: colors.surfaceSubtle },
     confirmed: { label: 'Confirmed', color: colors.primaryDark, bgColor: colors.primaryLight },
     ready: { label: 'Ready for Pickup', color: '#166534', bgColor: '#dcfce7' },
+    handed_off: { label: 'Confirm Your Pickup', color: '#b45309', bgColor: '#fef3c7' },
     completed: { label: 'Completed', color: colors.primaryDark, bgColor: colors.primaryLight },
     fulfilled: { label: 'Picked Up', color: colors.primaryDark, bgColor: colors.primaryLight },
     cancelled: { label: 'Cancelled', color: '#991b1b', bgColor: '#fee2e2' },
@@ -262,9 +263,15 @@ export default function BuyerOrdersPage() {
           </>
         ) : (() => {
           // Group orders into 4 sections
+          // handed_off goes with ready since it needs buyer attention
           const readyOrders = orders
-            .filter(o => o.status === 'ready')
-            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            .filter(o => ['ready', 'handed_off'].includes(o.status))
+            .sort((a, b) => {
+              // handed_off orders first (need immediate confirmation)
+              if (a.status === 'handed_off' && b.status !== 'handed_off') return -1
+              if (b.status === 'handed_off' && a.status !== 'handed_off') return 1
+              return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            })
           const pendingOrders = orders
             .filter(o => ['pending', 'paid', 'confirmed'].includes(o.status))
             .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
@@ -310,6 +317,11 @@ export default function BuyerOrdersPage() {
             // Calculate buyer-facing total from items
             const orderTotal = order.items?.reduce((sum, item) => sum + calculateDisplayPrice(item.subtotal_cents), 0) || 0
 
+            // Determine visual urgency styling
+            const isReady = order.status === 'ready'
+            const isHandedOff = order.status === 'handed_off'
+            const needsAttention = isReady || isHandedOff
+
             return (
               <div
                 key={order.id}
@@ -317,7 +329,9 @@ export default function BuyerOrdersPage() {
                 style={{
                   backgroundColor: colors.surfaceElevated,
                   borderRadius: radius.md,
-                  border: order.status === 'ready' ? `2px solid #166534` : `1px solid ${colors.border}`,
+                  border: needsAttention
+                    ? `2px solid ${isHandedOff ? '#b45309' : '#166534'}`
+                    : `1px solid ${colors.border}`,
                   overflow: 'hidden',
                   cursor: 'pointer',
                   transition: 'box-shadow 0.2s',
@@ -337,14 +351,18 @@ export default function BuyerOrdersPage() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  backgroundColor: order.status === 'ready' ? '#dcfce7' : colors.surfaceMuted,
+                  backgroundColor: needsAttention
+                    ? (isHandedOff ? '#fef3c7' : '#dcfce7')
+                    : colors.surfaceMuted,
                   gap: spacing.xs,
                   flexWrap: 'wrap'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap', flex: 1 }}>
                     {/* Prominent Order Number */}
                     <div style={{
-                      backgroundColor: order.status === 'ready' ? '#166534' : colors.textPrimary,
+                      backgroundColor: needsAttention
+                        ? (isHandedOff ? '#b45309' : '#166534')
+                        : colors.textPrimary,
                       color: colors.textInverse,
                       padding: `${spacing['2xs']} ${spacing.sm}`,
                       borderRadius: radius.sm,
@@ -478,6 +496,28 @@ export default function BuyerOrdersPage() {
                     }}>
                       <span style={{ fontSize: typography.sizes.xl }}>📍</span>
                       Your order is ready for pickup!
+                    </p>
+                  </div>
+                )}
+
+                {/* Handed Off Banner - Needs buyer confirmation */}
+                {order.status === 'handed_off' && (
+                  <div style={{
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    borderTop: `1px solid #fcd34d`,
+                    backgroundColor: '#fef3c7',
+                  }}>
+                    <p style={{
+                      margin: 0,
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.semibold,
+                      color: '#b45309',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing['2xs'],
+                    }}>
+                      <span style={{ fontSize: typography.sizes.xl }}>🤝</span>
+                      Vendor marked as handed off - please confirm you received it
                     </p>
                   </div>
                 )}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -7,6 +7,7 @@ interface RouteContext {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const supabase = await createClient()
+  const supabaseService = createServiceClient() // Bypass RLS for order data
   const { id: marketId } = await context.params
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -85,6 +86,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   // Get order items for this vendor at this market
   // Filter to items that are pending, confirmed, or ready (not yet fulfilled/cancelled)
+  // Also exclude items where buyer has already confirmed pickup
+  // Note: Orders fetched separately using service client (vendors don't have RLS access)
   const { data: orderItems, error: itemsError } = await supabase
     .from('order_items')
     .select(`
@@ -101,27 +104,35 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id,
         title,
         image_urls
-      ),
-      order:orders(
-        id,
-        order_number,
-        status,
-        created_at,
-        buyer_user_id
       )
     `)
     .in('vendor_profile_id', vendorProfileIds)
     .eq('market_id', marketId)
     .in('status', ['pending', 'confirmed', 'ready'])
     .is('cancelled_at', null)
+    .is('buyer_confirmed_at', null)  // Exclude items buyer already picked up
     .order('created_at', { ascending: true })
 
+  // Fetch order data separately using service client (bypasses RLS)
+  const orderIds = [...new Set((orderItems || []).map((item: any) => item.order_id).filter(Boolean))]
+  const ordersData: Record<string, any> = {}
+  if (orderIds.length > 0) {
+    const { data: orders } = await supabaseService
+      .from('orders')
+      .select('id, order_number, status, created_at, buyer_user_id')
+      .in('id', orderIds)
+
+    orders?.forEach((o: any) => {
+      ordersData[o.id] = o
+    })
+  }
+
   // Fetch buyer info separately
-  const buyerUserIds = [...new Set((orderItems || []).map((item: any) => item.order?.buyer_user_id).filter(Boolean))]
+  const buyerUserIds = [...new Set(Object.values(ordersData).map((o: any) => o.buyer_user_id).filter(Boolean))]
   let buyerMap: Record<string, { display_name: string; phone: string | null }> = {}
 
   if (buyerUserIds.length > 0) {
-    const { data: buyers } = await supabase
+    const { data: buyers } = await supabaseService
       .from('user_profiles')
       .select('user_id, display_name, phone')
       .in('user_id', buyerUserIds)
@@ -142,7 +153,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const ordersMap = new Map()
   orderItems?.forEach((item: any) => {
     const orderId = item.order_id
-    const order = item.order
+    const order = ordersData[orderId] // Use separately fetched order data
     const buyer = order?.buyer_user_id ? buyerMap[order.buyer_user_id] : null
 
     if (!ordersMap.has(orderId)) {
