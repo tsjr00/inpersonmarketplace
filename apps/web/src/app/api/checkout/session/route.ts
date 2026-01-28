@@ -275,8 +275,9 @@ export async function POST(request: NextRequest) {
 
     // Create Stripe checkout session
     const baseUrl = request.nextUrl.origin
-    const successUrl = `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
-    const cancelUrl = `${baseUrl}/checkout/cancel`
+    const verticalPrefix = vertical ? `/${vertical}` : ''
+    const successUrl = `${baseUrl}${verticalPrefix}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
+    const cancelUrl = `${baseUrl}${verticalPrefix}/checkout`
 
     const checkoutItems = listings.map((listing) => {
       const item = items.find((i) => i.listingId === listing.id)!
