@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 
 // GET - Get all markets (admin view)
 export async function GET(request: Request) {
@@ -224,6 +225,9 @@ export async function POST(request: Request) {
     `)
     .eq('id', market.id)
     .single()
+
+  // Invalidate cached market pages so new market appears immediately
+  revalidatePath('/[vertical]/markets', 'page')
 
   return NextResponse.json({ market: marketWithSchedules }, { status: 201 })
 }

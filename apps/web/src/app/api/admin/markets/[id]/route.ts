@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { SupabaseClient } from '@supabase/supabase-js'
+import { revalidatePath } from 'next/cache'
 
 async function verifyAdmin(supabase: SupabaseClient, userId: string) {
   const { data: userProfile, error } = await supabase
@@ -68,6 +69,10 @@ export async function PUT(
       console.error('Error updating market status:', updateError)
       return NextResponse.json({ error: 'Failed to update market' }, { status: 500 })
     }
+
+    // Invalidate cached market pages
+    revalidatePath('/[vertical]/markets', 'page')
+    revalidatePath(`/[vertical]/markets/${marketId}`, 'page')
 
     return NextResponse.json({ market })
   }
@@ -166,6 +171,10 @@ export async function PUT(
     return NextResponse.json({ error: 'Market updated but failed to fetch' }, { status: 500 })
   }
 
+  // Invalidate cached market pages so changes appear immediately
+  revalidatePath('/[vertical]/markets', 'page')
+  revalidatePath(`/[vertical]/markets/${marketId}`, 'page')
+
   return NextResponse.json({ market })
 }
 
@@ -215,6 +224,9 @@ export async function DELETE(
     console.error('Error deleting market:', deleteError)
     return NextResponse.json({ error: 'Failed to delete market' }, { status: 500 })
   }
+
+  // Invalidate cached market pages so deletion is reflected immediately
+  revalidatePath('/[vertical]/markets', 'page')
 
   return NextResponse.json({ success: true })
 }
