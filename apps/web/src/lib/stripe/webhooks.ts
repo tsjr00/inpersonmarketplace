@@ -130,7 +130,7 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
   console.log(`[webhook] Activating ${subscriptionType} premium for user ${userId}, subscription ${subscriptionId}`)
 
   // Retrieve subscription details from Stripe
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
   const currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
 
   if (subscriptionType === 'vendor') {
@@ -279,7 +279,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   const subscriptionId = invoice.subscription as string
 
   // Get subscription to find metadata
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
   const userId = subscription.metadata?.user_id
   const subscriptionType = subscription.metadata?.type as 'vendor' | 'buyer' | undefined
 
@@ -320,7 +320,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const subscriptionId = invoice.subscription as string
 
   // Get subscription to find metadata
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
   const userId = subscription.metadata?.user_id
   const subscriptionType = subscription.metadata?.type as 'vendor' | 'buyer' | undefined
 
