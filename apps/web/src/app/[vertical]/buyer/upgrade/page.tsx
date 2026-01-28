@@ -9,14 +9,40 @@ export default function BuyerUpgradePage() {
   const vertical = params.vertical as string
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('monthly')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleUpgrade = async () => {
     setIsProcessing(true)
+    setError(null)
 
-    // For now, show a message that Stripe integration is coming
-    // In the future, this will redirect to Stripe Checkout
-    alert('Stripe payment integration coming soon! For now, contact support to upgrade your account.')
-    setIsProcessing(false)
+    try {
+      const res = await fetch('/api/subscriptions/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'buyer',
+          cycle: selectedPlan,
+          vertical: vertical,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create checkout session')
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        throw new Error('No checkout URL returned')
+      }
+    } catch (err) {
+      console.error('Upgrade error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to start checkout')
+      setIsProcessing(false)
+    }
   }
 
   return (
@@ -347,6 +373,21 @@ export default function BuyerUpgradePage() {
             </p>
           </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            padding: 16,
+            marginBottom: 16,
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: 8,
+            color: '#991b1b',
+            textAlign: 'center'
+          }}>
+            {error}
+          </div>
+        )}
 
         {/* Upgrade Button */}
         <div style={{ textAlign: 'center' }}>

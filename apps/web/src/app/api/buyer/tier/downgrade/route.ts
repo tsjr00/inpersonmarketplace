@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const supabase = await createClient()
 
@@ -12,61 +12,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { vendorId } = await request.json()
-
-    if (!vendorId) {
-      return NextResponse.json({ error: 'Vendor ID is required' }, { status: 400 })
-    }
-
-    // Verify this vendor belongs to the authenticated user
-    const { data: vendorProfile, error: vendorError } = await supabase
-      .from('vendor_profiles')
-      .select('id, user_id, tier, stripe_subscription_id')
-      .eq('id', vendorId)
+    // Get user profile with subscription info
+    const { data: userProfile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('id, user_id, buyer_tier, stripe_subscription_id')
+      .eq('user_id', user.id)
       .single()
 
-    if (vendorError || !vendorProfile) {
-      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
-    }
-
-    if (vendorProfile.user_id !== user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    if (profileError || !userProfile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
     }
 
     // Check if already standard
-    if (!vendorProfile.tier || vendorProfile.tier === 'standard') {
+    if (!userProfile.buyer_tier || userProfile.buyer_tier === 'standard') {
       return NextResponse.json({ error: 'Already on Standard tier' }, { status: 400 })
     }
 
     // Cancel Stripe subscription if active
-    if (vendorProfile.stripe_subscription_id && stripe) {
+    if (userProfile.stripe_subscription_id && stripe) {
       try {
         // Cancel at period end (user keeps premium until billing period ends)
-        await stripe.subscriptions.update(vendorProfile.stripe_subscription_id, {
+        await stripe.subscriptions.update(userProfile.stripe_subscription_id, {
           cancel_at_period_end: true
         })
-        console.log(`[downgrade] Cancelled subscription ${vendorProfile.stripe_subscription_id} for vendor ${vendorId}`)
+        console.log(`[buyer-downgrade] Cancelled subscription ${userProfile.stripe_subscription_id} for user ${user.id}`)
       } catch (stripeError) {
         console.error('Error cancelling Stripe subscription:', stripeError)
         // Continue with downgrade even if Stripe fails
       }
     }
 
-    // Update vendor tier to standard
+    // Update user profile to standard tier
     // Note: If subscription was cancelled at period end, the webhook will handle final tier change
     // For immediate downgrade, we update now
     const { error: updateError } = await supabase
-      .from('vendor_profiles')
+      .from('user_profiles')
       .update({
-        tier: 'standard',
+        buyer_tier: 'standard',
         stripe_subscription_id: null,
         subscription_status: 'canceled',
         updated_at: new Date().toISOString()
       })
-      .eq('id', vendorId)
+      .eq('user_id', user.id)
 
     if (updateError) {
-      console.error('Error downgrading vendor tier:', updateError)
+      console.error('Error downgrading buyer tier:', updateError)
       return NextResponse.json({ error: 'Failed to downgrade tier' }, { status: 500 })
     }
 
@@ -75,7 +65,7 @@ export async function POST(request: NextRequest) {
       message: 'Successfully downgraded to Standard tier'
     })
   } catch (error) {
-    console.error('Downgrade error:', error)
+    console.error('Buyer downgrade error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -19,3 +19,38 @@ export const STRIPE_CONFIG = {
   vendorFlatFeeCents: 15, // $0.15 flat fee deducted from vendor payout
   minimumOrderCents: 1000, // $10.00 minimum cart total (before fees)
 }
+
+// Subscription pricing for premium tiers
+// Price IDs must be created in Stripe Dashboard and added to environment variables
+export const SUBSCRIPTION_PRICES = {
+  vendor: {
+    monthly: {
+      priceId: process.env.STRIPE_VENDOR_MONTHLY_PRICE_ID || '',
+      amountCents: 2499, // $24.99/month
+    },
+    annual: {
+      priceId: process.env.STRIPE_VENDOR_ANNUAL_PRICE_ID || '',
+      amountCents: 20815, // $208.15/year (saves 30%)
+    },
+  },
+  buyer: {
+    monthly: {
+      priceId: process.env.STRIPE_BUYER_MONTHLY_PRICE_ID || '',
+      amountCents: 999, // $9.99/month
+    },
+    annual: {
+      priceId: process.env.STRIPE_BUYER_ANNUAL_PRICE_ID || '',
+      amountCents: 8150, // $81.50/year (saves 32%)
+    },
+  },
+}
+
+// Helper to check if subscription prices are configured
+export function areSubscriptionPricesConfigured(): boolean {
+  return !!(
+    SUBSCRIPTION_PRICES.vendor.monthly.priceId &&
+    SUBSCRIPTION_PRICES.vendor.annual.priceId &&
+    SUBSCRIPTION_PRICES.buyer.monthly.priceId &&
+    SUBSCRIPTION_PRICES.buyer.annual.priceId
+  )
+}
