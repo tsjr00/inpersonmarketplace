@@ -49,17 +49,19 @@ export default function VendorOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [marketFilter, setMarketFilter] = useState<string | null>(null)
+  const [dateRangeFilter, setDateRangeFilter] = useState<string | null>('30days') // Default to last 30 days
 
   useEffect(() => {
     fetchOrders()
     fetchMarkets()
-  }, [statusFilter, marketFilter])
+  }, [statusFilter, marketFilter, dateRangeFilter])
 
   const fetchOrders = async () => {
     try {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
       if (marketFilter) params.set('market_id', marketFilter)
+      if (dateRangeFilter) params.set('date_range', dateRangeFilter)
 
       const res = await fetch(`/api/vendor/orders?${params.toString()}`)
       if (res.ok) {
@@ -169,6 +171,7 @@ export default function VendorOrdersPage() {
   const handleClearFilters = () => {
     setStatusFilter(null)
     setMarketFilter(null)
+    setDateRangeFilter('30days') // Reset to default
   }
 
   // Count items by status
@@ -176,16 +179,18 @@ export default function VendorOrdersPage() {
     pending: allItems.filter(i => i.status === 'pending').length,
     confirmed: allItems.filter(i => i.status === 'confirmed').length,
     ready: allItems.filter(i => i.status === 'ready').length,
-    fulfilled: allItems.filter(i => i.status === 'fulfilled').length
+    fulfilled: allItems.filter(i => i.status === 'fulfilled').length,
+    cancelled: allItems.filter(i => i.status === 'cancelled').length
   }
 
-  // Sort orders by most urgent item status: ready > confirmed > pending > fulfilled/cancelled
+  // Sort orders by most urgent item status: ready > confirmed > pending > fulfilled > cancelled
   const getOrderPriority = (order: Order): number => {
     const itemStatuses = order.items.map(i => i.status)
     if (itemStatuses.includes('ready')) return 1      // Highest - customer waiting
     if (itemStatuses.includes('confirmed')) return 2  // Needs preparation
     if (itemStatuses.includes('pending')) return 3    // Needs confirmation
-    return 4                                          // Completed/cancelled
+    if (itemStatuses.includes('fulfilled')) return 4  // Completed
+    return 5                                          // Cancelled (lowest priority)
   }
 
   const getOrderPriorityLabel = (order: Order): string => {
@@ -193,7 +198,8 @@ export default function VendorOrdersPage() {
     if (itemStatuses.includes('ready')) return 'ready'
     if (itemStatuses.includes('confirmed')) return 'confirmed'
     if (itemStatuses.includes('pending')) return 'pending'
-    return 'fulfilled'
+    if (itemStatuses.includes('fulfilled')) return 'fulfilled'
+    return 'cancelled'
   }
 
   const sortedOrders = [...orders].sort((a, b) => {
@@ -208,7 +214,8 @@ export default function VendorOrdersPage() {
     pending: { bg: '#fef3c7', text: '#92400e' },
     confirmed: { bg: '#dbeafe', text: '#1e40af' },
     ready: { bg: '#d1fae5', text: '#065f46' },
-    fulfilled: { bg: '#e0e7ff', text: '#4338ca' }
+    fulfilled: { bg: '#e0e7ff', text: '#4338ca' },
+    cancelled: { bg: '#fee2e2', text: '#991b1b' }
   }
 
   if (loading) {
@@ -254,9 +261,11 @@ export default function VendorOrdersPage() {
         <OrderFilters
           currentStatus={statusFilter}
           currentMarketId={marketFilter}
+          currentDateRange={dateRangeFilter}
           markets={markets}
           onStatusChange={setStatusFilter}
           onMarketChange={setMarketFilter}
+          onDateRangeChange={setDateRangeFilter}
           onClearFilters={handleClearFilters}
         />
       </div>
@@ -264,7 +273,7 @@ export default function VendorOrdersPage() {
       {/* Stats - compact with matching pill colors */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
         gap: spacing.xs,
         marginBottom: spacing.md
       }}>
@@ -330,6 +339,22 @@ export default function VendorOrdersPage() {
           </span>
           <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: STATUS_COLORS.fulfilled.text }}>
             {statusCounts.fulfilled}
+          </span>
+        </div>
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          backgroundColor: STATUS_COLORS.cancelled.bg,
+          borderRadius: radius.md,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: spacing.xs
+        }}>
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: STATUS_COLORS.cancelled.text }}>
+            Cancelled
+          </span>
+          <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: STATUS_COLORS.cancelled.text }}>
+            {statusCounts.cancelled}
           </span>
         </div>
       </div>

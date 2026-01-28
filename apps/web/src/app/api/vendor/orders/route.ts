@@ -28,6 +28,31 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
   const marketId = searchParams.get('market_id')
+  const dateRange = searchParams.get('date_range') // 'today', 'week', 'month', '30days', 'all'
+
+  // Calculate date filter based on range
+  let dateFilter: Date | null = null
+  const now = new Date()
+  switch (dateRange) {
+    case 'today':
+      dateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      break
+    case 'week':
+      dateFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      break
+    case 'month':
+      dateFilter = new Date(now.getFullYear(), now.getMonth(), 1)
+      break
+    case '30days':
+    case null:
+    case '':
+      // Default to last 30 days for performance
+      dateFilter = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      break
+    case 'all':
+      dateFilter = null // No date filter
+      break
+  }
 
   // Get order items for this vendor with related data
   // Note: Orders are fetched separately using service client to bypass RLS
@@ -74,6 +99,9 @@ export async function GET(request: NextRequest) {
   }
   if (marketId) {
     query = query.eq('market_id', marketId)
+  }
+  if (dateFilter) {
+    query = query.gte('created_at', dateFilter.toISOString())
   }
 
   const { data: orderItems, error } = await query
