@@ -180,9 +180,11 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
  */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subData = subscription as any
 
-  const userId = subscription.metadata?.user_id
-  const subscriptionType = subscription.metadata?.type as 'vendor' | 'buyer' | undefined
+  const userId = subData.metadata?.user_id
+  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
 
   if (!userId || !subscriptionType) {
     console.log('[webhook] Subscription updated without user metadata:', subscription.id)
@@ -190,7 +192,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 
   const status = subscription.status
-  const currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+  const currentPeriodEnd = new Date(subData.current_period_end * 1000).toISOString()
 
   console.log(`[webhook] Subscription ${subscription.id} updated: status=${status}`)
 
@@ -234,9 +236,11 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subData = subscription as any
 
-  const userId = subscription.metadata?.user_id
-  const subscriptionType = subscription.metadata?.type as 'vendor' | 'buyer' | undefined
+  const userId = subData.metadata?.user_id
+  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
 
   if (!userId || !subscriptionType) {
     console.log('[webhook] Subscription deleted without user metadata:', subscription.id)
