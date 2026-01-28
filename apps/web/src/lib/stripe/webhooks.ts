@@ -277,11 +277,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
  * Handle successful invoice payment (subscription renewals)
  */
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const invoiceData = invoice as any
   // Only handle subscription invoices
-  if (!invoice.subscription) return
+  if (!invoiceData.subscription) return
 
   const supabase = await createClient()
-  const subscriptionId = invoice.subscription as string
+  const subscriptionId = invoiceData.subscription as string
 
   // Get subscription to find metadata
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
@@ -320,11 +322,13 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
  * Handle failed invoice payment (renewal failures)
  */
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const invoiceData = invoice as any
   // Only handle subscription invoices
-  if (!invoice.subscription) return
+  if (!invoiceData.subscription) return
 
   const supabase = await createClient()
-  const subscriptionId = invoice.subscription as string
+  const subscriptionId = invoiceData.subscription as string
 
   // Get subscription to find metadata
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
