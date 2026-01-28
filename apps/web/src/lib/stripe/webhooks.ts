@@ -130,8 +130,9 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
   console.log(`[webhook] Activating ${subscriptionType} premium for user ${userId}, subscription ${subscriptionId}`)
 
   // Retrieve subscription details from Stripe
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
-  const currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000).toISOString()
 
   if (subscriptionType === 'vendor') {
     // Update vendor profile to premium
@@ -279,13 +280,15 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   const subscriptionId = invoice.subscription as string
 
   // Get subscription to find metadata
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
-  const userId = subscription.metadata?.user_id
-  const subscriptionType = subscription.metadata?.type as 'vendor' | 'buyer' | undefined
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subData = subscription as any
+  const userId = subData.metadata?.user_id
+  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
 
   if (!userId || !subscriptionType) return
 
-  const currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+  const currentPeriodEnd = new Date(subData.current_period_end * 1000).toISOString()
 
   console.log(`[webhook] Invoice paid for ${subscriptionType} ${userId}, extends to ${currentPeriodEnd}`)
 
@@ -320,9 +323,11 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const subscriptionId = invoice.subscription as string
 
   // Get subscription to find metadata
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
-  const userId = subscription.metadata?.user_id
-  const subscriptionType = subscription.metadata?.type as 'vendor' | 'buyer' | undefined
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subData = subscription as any
+  const userId = subData.metadata?.user_id
+  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
 
   if (!userId || !subscriptionType) return
 
