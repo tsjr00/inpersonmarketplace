@@ -50,50 +50,70 @@ export async function POST(request: NextRequest) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get cart items with market selections from database
+    // OPTIMIZATION: Parallel fetch - listings query doesn't depend on cart/vertical
+    crumb.supabase('select', 'listings + verticals (parallel)')
+    const listingIds = items.map((i) => i.listingId)
+
+    const [listingsResult, verticalResult] = await Promise.all([
+      // Fetch listings with vendor info
+      supabase
+        .from('listings')
+        .select(`
+          id, title, description, price_cents, vertical_id, vendor_profile_id,
+          listing_markets (
+            market_id,
+            markets (
+              id,
+              name,
+              market_type
+            )
+          )
+        `)
+        .in('id', listingIds),
+      // Fetch vertical ID (if provided)
+      vertical
+        ? supabase.from('verticals').select('id').eq('vertical_id', vertical).single()
+        : Promise.resolve({ data: null })
+    ])
+
+    const listings = listingsResult.data
+    const verticalData = verticalResult.data
+
+    if (!listings || listings.length !== items.length) {
+      throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: items.length, got: listings?.length ?? 0 })
+    }
+
+    // Get cart items with market selections (sequential - depends on vertical)
     let cartItemsFromDB: CartItemFromDB[] = []
 
-    if (vertical) {
-      crumb.supabase('select', 'verticals')
-      // Get vertical ID
-      const { data: verticalData } = await supabase
-        .from('verticals')
-        .select('id')
-        .eq('vertical_id', vertical)
-        .single()
+    if (verticalData) {
+      crumb.supabase('rpc', 'get_or_create_cart')
+      const { data: cartId } = await supabase
+        .rpc('get_or_create_cart', {
+          p_user_id: user.id,
+          p_vertical_id: verticalData.id
+        })
 
-      if (verticalData) {
-        // Get cart ID
-        crumb.supabase('rpc', 'get_or_create_cart')
-        const { data: cartId } = await supabase
-          .rpc('get_or_create_cart', {
-            p_user_id: user.id,
-            p_vertical_id: verticalData.id
-          })
-
-        if (cartId) {
-          crumb.supabase('select', 'cart_items')
-          // Get cart items with market info
-          // Use explicit relationship hint for market_id FK
-          const { data: dbItems } = await supabase
-            .from('cart_items')
-            .select(`
+      if (cartId) {
+        crumb.supabase('select', 'cart_items')
+        const { data: dbItems } = await supabase
+          .from('cart_items')
+          .select(`
+            id,
+            listing_id,
+            quantity,
+            market_id,
+            markets!market_id (
               id,
-              listing_id,
-              quantity,
-              market_id,
-              markets!market_id (
-                id,
-                name,
-                market_type,
-                city,
-                state
-              )
-            `)
-            .eq('cart_id', cartId)
+              name,
+              market_type,
+              city,
+              state
+            )
+          `)
+          .eq('cart_id', cartId)
 
-          cartItemsFromDB = (dbItems || []) as unknown as CartItemFromDB[]
-        }
+        cartItemsFromDB = (dbItems || []) as unknown as CartItemFromDB[]
       }
     }
 
@@ -118,28 +138,6 @@ export async function POST(request: NextRequest) {
           marketType: 'unknown'
         })
       }
-    }
-
-    // Fetch listings with vendor info
-    crumb.supabase('select', 'listings')
-    const listingIds = items.map((i) => i.listingId)
-    const { data: listings } = await supabase
-      .from('listings')
-      .select(`
-        id, title, description, price_cents, vertical_id, vendor_profile_id,
-        listing_markets (
-          market_id,
-          markets (
-            id,
-            name,
-            market_type
-          )
-        )
-      `)
-      .in('id', listingIds)
-
-    if (!listings || listings.length !== items.length) {
-      throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: items.length, got: listings?.length ?? 0 })
     }
 
     // Validate that all items have market selections
@@ -177,17 +175,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check cutoff times for all market types (traditional: 18hr, private_pickup: 10hr)
-    crumb.logic('Checking cutoff times for listings')
-    for (const listing of listings) {
-      const { data: isAccepting, error: cutoffError } = await supabase
-        .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
+    // OPTIMIZATION: Parallel cutoff checks for all listings at once
+    crumb.logic('Checking cutoff times for listings (parallel)')
+    const cutoffResults = await Promise.all(
+      listings.map(listing =>
+        supabase
+          .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
+          .then(result => ({ listing, ...result }))
+      )
+    )
 
+    // Check for any closed listings
+    for (const { listing, data: isAccepting, error: cutoffError } of cutoffResults) {
       if (cutoffError) {
         console.error('Cutoff check error:', cutoffError)
         // Continue if function doesn't exist yet (migration not applied)
       } else if (isAccepting === false) {
-        // Get detailed availability info for better error message
+        // Get detailed availability info for better error message (only for the failed one)
         const { data: availability } = await supabase
           .rpc('get_listing_market_availability', { p_listing_id: listing.id })
 
