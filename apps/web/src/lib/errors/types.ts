@@ -67,6 +67,9 @@ export interface ErrorContext {
   pgCode?: string // PostgreSQL error code
   pgDetail?: string // PostgreSQL detail
   pgHint?: string // PostgreSQL hint
+
+  // Catch-all for additional context data
+  [key: string]: unknown
 }
 
 /**

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
+import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -11,56 +12,56 @@ interface RouteContext {
 // This triggers the Stripe transfer to the vendor.
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderItemId } = await context.params
-  const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  return withErrorTracing('/api/vendor/orders/[id]/confirm-handoff', 'POST', async () => {
+    const supabase = await createClient()
 
-  // Get vendor profile
-  const { data: vendorProfile } = await supabase
-    .from('vendor_profiles')
-    .select('id, stripe_account_id')
-    .eq('user_id', user.id)
-    .single()
+    crumb.auth('Checking user authentication')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      throw traced.auth('ERR_AUTH_001', 'Not authenticated')
+    }
 
-  if (!vendorProfile) {
-    return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
-  }
+    // Get vendor profile
+    crumb.supabase('select', 'vendor_profiles')
+    const { data: vendorProfile } = await supabase
+      .from('vendor_profiles')
+      .select('id, stripe_account_id')
+      .eq('user_id', user.id)
+      .single()
 
-  // Get order item - must belong to this vendor and buyer must have confirmed
-  const { data: orderItem, error: fetchError } = await supabase
-    .from('order_items')
-    .select('id, status, vendor_payout_cents, order_id, buyer_confirmed_at, vendor_confirmed_at, vendor_profile_id')
-    .eq('id', orderItemId)
-    .eq('vendor_profile_id', vendorProfile.id)
-    .single()
+    if (!vendorProfile) {
+      throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
+    }
 
-  if (fetchError || !orderItem) {
-    return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
-  }
+    // Get order item - must belong to this vendor and buyer must have confirmed
+    crumb.supabase('select', 'order_items')
+    const { data: orderItem, error: fetchError } = await supabase
+      .from('order_items')
+      .select('id, status, vendor_payout_cents, order_id, buyer_confirmed_at, vendor_confirmed_at, vendor_profile_id')
+      .eq('id', orderItemId)
+      .eq('vendor_profile_id', vendorProfile.id)
+      .single()
 
-  // Buyer must have confirmed first
-  if (!orderItem.buyer_confirmed_at) {
-    return NextResponse.json(
-      { error: 'Buyer has not confirmed receipt yet. Wait for buyer to confirm first.' },
-      { status: 400 }
-    )
-  }
+    if (fetchError || !orderItem) {
+      throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
+    }
 
-  // Already confirmed
-  if (orderItem.vendor_confirmed_at) {
-    return NextResponse.json(
-      { error: 'Already confirmed', vendor_confirmed_at: orderItem.vendor_confirmed_at },
-      { status: 400 }
-    )
-  }
+    // Buyer must have confirmed first
+    crumb.logic('Checking buyer confirmation status')
+    if (!orderItem.buyer_confirmed_at) {
+      throw traced.validation('ERR_ORDER_004', 'Buyer has not confirmed receipt yet. Wait for buyer to confirm first.')
+    }
 
-  const now = new Date()
+    // Already confirmed
+    if (orderItem.vendor_confirmed_at) {
+      throw traced.validation('ERR_ORDER_004', 'Already confirmed', { vendor_confirmed_at: orderItem.vendor_confirmed_at })
+    }
 
-  try {
+    const now = new Date()
+
     // Set vendor confirmation and clear lockdown
+    crumb.supabase('update', 'order_items')
     await supabase
       .from('order_items')
       .update({
@@ -72,27 +73,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', orderItemId)
 
     // Trigger Stripe transfer to vendor
+    crumb.logic('Processing vendor payout')
     const isDev = process.env.NODE_ENV !== 'production'
     const hasStripe = !!vendorProfile.stripe_account_id
 
     if (hasStripe) {
-      const transfer = await transferToVendor({
-        amount: orderItem.vendor_payout_cents,
-        destination: vendorProfile.stripe_account_id,
-        orderId: orderItem.order_id,
-        orderItemId: orderItem.id,
-      })
+      try {
+        const transfer = await transferToVendor({
+          amount: orderItem.vendor_payout_cents,
+          destination: vendorProfile.stripe_account_id,
+          orderId: orderItem.order_id,
+          orderItemId: orderItem.id,
+        })
 
-      await supabase.from('vendor_payouts').insert({
-        order_item_id: orderItem.id,
-        vendor_profile_id: vendorProfile.id,
-        amount_cents: orderItem.vendor_payout_cents,
-        stripe_transfer_id: transfer.id,
-        status: 'processing',
-      })
+        crumb.supabase('insert', 'vendor_payouts')
+        await supabase.from('vendor_payouts').insert({
+          order_item_id: orderItem.id,
+          vendor_profile_id: vendorProfile.id,
+          amount_cents: orderItem.vendor_payout_cents,
+          stripe_transfer_id: transfer.id,
+          status: 'processing',
+        })
+      } catch (transferError) {
+        console.error('Stripe transfer failed:', transferError)
+        throw traced.external('ERR_ORDER_004', 'Failed to process vendor payout', { orderItemId })
+      }
     } else if (isDev) {
       // Dev mode without Stripe
       console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)
+      crumb.supabase('insert', 'vendor_payouts')
       await supabase.from('vendor_payouts').insert({
         order_item_id: orderItem.id,
         vendor_profile_id: vendorProfile.id,
@@ -101,10 +110,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         status: 'skipped_dev',
       })
     } else {
-      return NextResponse.json({ error: 'Stripe account not connected' }, { status: 400 })
+      throw traced.validation('ERR_ORDER_004', 'Stripe account not connected')
     }
 
     // Check if all items in order are now fully confirmed (both parties)
+    crumb.supabase('select', 'order_items')
     const { data: allItems } = await supabase
       .from('order_items')
       .select('status, buyer_confirmed_at, vendor_confirmed_at, cancelled_at')
@@ -115,6 +125,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       activeItems.every(i => i.buyer_confirmed_at && i.vendor_confirmed_at)
 
     if (allFullyConfirmed) {
+      crumb.supabase('update', 'orders')
       await supabase
         .from('orders')
         .update({ status: 'completed' })
@@ -126,8 +137,5 @@ export async function POST(request: NextRequest, context: RouteContext) {
       message: 'Handoff confirmed. Payment is being transferred to your account.',
       vendor_confirmed_at: now.toISOString()
     })
-  } catch (error) {
-    console.error('Confirm handoff error:', error)
-    return NextResponse.json({ error: 'Failed to confirm handoff' }, { status: 500 })
-  }
+  })
 }

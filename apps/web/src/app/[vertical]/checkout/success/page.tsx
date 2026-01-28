@@ -15,6 +15,7 @@ interface OrderItem {
   market_id?: string
   market_name?: string
   market_type?: string
+  market_address?: string
   market_city?: string
   market_state?: string
 }
@@ -226,18 +227,10 @@ export default function CheckoutSuccessPage() {
                         borderRadius: radius.sm,
                       }}
                     >
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                      }}>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>{item.title}</p>
-                          <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                            {item.vendor_name} &bull; Qty: {item.quantity}
-                          </p>
-                        </div>
-                        <p style={{ margin: 0, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                          ${(item.subtotal_cents / 100).toFixed(2)}
+                      <div>
+                        <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>{item.title}</p>
+                        <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                          {item.vendor_name} &bull; Qty: {item.quantity}
                         </p>
                       </div>
                       {item.market_name && (
@@ -255,7 +248,8 @@ export default function CheckoutSuccessPage() {
                           <span>{item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
                           <span>
                             <strong>Pickup:</strong> {item.market_name}
-                            {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
+                            {item.market_address && ` - ${item.market_address}`}
+                            {item.market_city && `, ${item.market_city}, ${item.market_state}`}
                           </span>
                         </div>
                       )}
@@ -345,13 +339,14 @@ export default function CheckoutSuccessPage() {
                             }}>
                               {item.market_name}
                             </p>
-                            {item.market_city && (
+                            {(item.market_address || item.market_city) && (
                               <p style={{
                                 margin: `${spacing['3xs']} 0 0`,
                                 fontSize: typography.sizes.xs,
                                 color: locations.length > 1 ? '#856404' : colors.textMuted,
                               }}>
-                                {item.market_city}, {item.market_state}
+                                {item.market_address && <>{item.market_address}<br /></>}
+                                {item.market_city && <>{item.market_city}, {item.market_state}</>}
                               </p>
                             )}
                           </div>
@@ -448,6 +443,7 @@ function transformOrder(raw: Record<string, unknown>): OrderDetails {
       market_id: market?.id as string | undefined,
       market_name: market?.name as string | undefined,
       market_type: market?.market_type as string | undefined,
+      market_address: market?.address as string | undefined,
       market_city: market?.city as string | undefined,
       market_state: market?.state as string | undefined,
     }

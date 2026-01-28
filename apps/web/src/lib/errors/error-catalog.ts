@@ -9,6 +9,8 @@ import { ErrorCatalogEntry } from './types'
 import { AUTH_ERRORS } from './catalog/auth-errors'
 import { RLS_ERRORS } from './catalog/rls-errors'
 import { DB_ERRORS } from './catalog/db-errors'
+import { CART_ERRORS } from './catalog/cart-errors'
+import { ORDER_ERRORS, CHECKOUT_ERRORS } from './catalog/order-errors'
 
 /**
  * Complete error catalog - aggregates all error definitions
@@ -17,6 +19,9 @@ export const ERROR_CATALOG: Map<string, ErrorCatalogEntry> = new Map([
   ...AUTH_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
   ...RLS_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
   ...DB_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
+  ...CART_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
+  ...ORDER_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
+  ...CHECKOUT_ERRORS.map((e): [string, ErrorCatalogEntry] => [e.code, e]),
 ])
 
 /**

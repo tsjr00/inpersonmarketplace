@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { calculateFees, createCheckoutSession } from '@/lib/stripe/payments'
 import { STRIPE_CONFIG } from '@/lib/stripe/config'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
 interface CartItem {
   listingId: string
@@ -36,22 +37,24 @@ export async function POST(request: NextRequest) {
     return rateLimitResponse(rateLimitResult)
   }
 
-  const supabase = await createClient()
-  const { items, vertical } = await request.json() as { items: CartItem[]; vertical?: string }
+  return withErrorTracing('/api/checkout/session', 'POST', async () => {
+    const supabase = await createClient()
+    const { items, vertical } = await request.json() as { items: CartItem[]; vertical?: string }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    crumb.auth('Checking user authentication')
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+    if (!user) {
+      throw traced.auth('ERR_AUTH_001', 'Not authenticated')
+    }
 
-  try {
     // Get cart items with market selections from database
     let cartItemsFromDB: CartItemFromDB[] = []
 
     if (vertical) {
+      crumb.supabase('select', 'verticals')
       // Get vertical ID
       const { data: verticalData } = await supabase
         .from('verticals')
@@ -61,6 +64,7 @@ export async function POST(request: NextRequest) {
 
       if (verticalData) {
         // Get cart ID
+        crumb.supabase('rpc', 'get_or_create_cart')
         const { data: cartId } = await supabase
           .rpc('get_or_create_cart', {
             p_user_id: user.id,
@@ -68,6 +72,7 @@ export async function POST(request: NextRequest) {
           })
 
         if (cartId) {
+          crumb.supabase('select', 'cart_items')
           // Get cart items with market info
           // Use explicit relationship hint for market_id FK
           const { data: dbItems } = await supabase
@@ -116,6 +121,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch listings with vendor info
+    crumb.supabase('select', 'listings')
     const listingIds = items.map((i) => i.listingId)
     const { data: listings } = await supabase
       .from('listings')
@@ -133,10 +139,11 @@ export async function POST(request: NextRequest) {
       .in('id', listingIds)
 
     if (!listings || listings.length !== items.length) {
-      return NextResponse.json({ error: 'Invalid items' }, { status: 400 })
+      throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: items.length, got: listings?.length ?? 0 })
     }
 
     // Validate that all items have market selections
+    crumb.logic('Validating market selections for all items')
     for (const listing of listings) {
       if (!listingMarketMap.has(listing.id)) {
         // Check if listing has available markets
@@ -146,9 +153,7 @@ export async function POST(request: NextRequest) {
         }> | null
 
         if (!listingMarkets || listingMarkets.length === 0) {
-          return NextResponse.json({
-            error: `"${listing.title}" is not available at any pickup locations`
-          }, { status: 400 })
+          throw traced.validation('ERR_CHECKOUT_001', `"${listing.title}" is not available at any pickup locations`)
         }
 
         // For backwards compatibility, use the first market if not specified
@@ -173,6 +178,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check cutoff times for all market types (traditional: 18hr, private_pickup: 10hr)
+    crumb.logic('Checking cutoff times for listings')
     for (const listing of listings) {
       const { data: isAccepting, error: cutoffError } = await supabase
         .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
@@ -196,14 +202,12 @@ export async function POST(request: NextRequest) {
           ? ` for ${closedMarket.market_name} on ${new Date(closedMarket.next_market_at).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`
           : ''
 
-        return NextResponse.json({
-          error: `Orders for "${listing.title}" are now closed${marketInfo}. ${prepMessage}`,
-          code: 'CUTOFF_PASSED'
-        }, { status: 400 })
+        throw traced.validation('ERR_CHECKOUT_001', `Orders for "${listing.title}" are now closed${marketInfo}. ${prepMessage}`, { code: 'CUTOFF_PASSED' })
       }
     }
 
     // Calculate totals
+    crumb.logic('Calculating order totals and fees')
     let subtotalCents = 0
     let buyerFeeCents = 0
     let platformFeeCents = 0
@@ -235,16 +239,14 @@ export async function POST(request: NextRequest) {
     // Enforce minimum order total (before fees)
     if (subtotalCents < STRIPE_CONFIG.minimumOrderCents) {
       const remaining = ((STRIPE_CONFIG.minimumOrderCents - subtotalCents) / 100).toFixed(2)
-      return NextResponse.json({
-        error: `Minimum order is $${(STRIPE_CONFIG.minimumOrderCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`,
-        code: 'BELOW_MINIMUM'
-      }, { status: 400 })
+      throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(STRIPE_CONFIG.minimumOrderCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
     }
 
     // Buyer pays: base price + buyer fee only (vendor fee is deducted from vendor payout)
     const totalCents = subtotalCents + buyerFeeCents
 
     // Create order record
+    crumb.supabase('insert', 'orders')
     const orderNumber = `FW-${new Date().getFullYear()}-${Math.random().toString().slice(2, 7)}`
 
     const { data: order, error: orderError } = await supabase
@@ -261,9 +263,10 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (orderError) throw orderError
+    if (orderError) throw traced.fromSupabase(orderError, { table: 'orders', operation: 'insert' })
 
     // Create order items
+    crumb.supabase('insert', 'order_items')
     const { error: itemsError } = await supabase.from('order_items').insert(
       orderItems.map((item) => ({
         ...item,
@@ -271,9 +274,10 @@ export async function POST(request: NextRequest) {
       }))
     )
 
-    if (itemsError) throw itemsError
+    if (itemsError) throw traced.fromSupabase(itemsError, { table: 'order_items', operation: 'insert' })
 
     // Create Stripe checkout session
+    crumb.logic('Creating Stripe checkout session')
     const baseUrl = request.nextUrl.origin
     const verticalPrefix = vertical ? `/${vertical}` : ''
     const successUrl = `${baseUrl}${verticalPrefix}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
@@ -299,15 +303,17 @@ export async function POST(request: NextRequest) {
       cancelUrl,
     })
 
+    if (!session) {
+      throw traced.external('ERR_CHECKOUT_002', 'Stripe checkout session creation failed')
+    }
+
     // Save session ID
+    crumb.supabase('update', 'orders')
     await supabase
       .from('orders')
       .update({ stripe_checkout_session_id: session.id })
       .eq('id', order.id)
 
     return NextResponse.json({ sessionId: session.id, url: session.url })
-  } catch (error) {
-    console.error('Checkout error:', error)
-    return NextResponse.json({ error: 'Checkout failed' }, { status: 500 })
-  }
+  })
 }

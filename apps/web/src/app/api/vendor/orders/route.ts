@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
+  const supabaseService = createServiceClient() // Bypass RLS for order data
 
   const {
     data: { user },
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest) {
   const marketId = searchParams.get('market_id')
 
   // Get order items for this vendor with related data
+  // Note: Orders are fetched separately using service client to bypass RLS
+  // (vendors don't have direct RLS access to orders table)
   let query = supabase
     .from('order_items')
     .select(`
@@ -37,6 +40,8 @@ export async function GET(request: NextRequest) {
       quantity,
       unit_price_cents,
       subtotal_cents,
+      platform_fee_cents,
+      vendor_payout_cents,
       status,
       market_id,
       pickup_date,
@@ -50,17 +55,6 @@ export async function GET(request: NextRequest) {
         id,
         title,
         image_urls
-      ),
-      order:orders(
-        id,
-        order_number,
-        status,
-        total_cents,
-        created_at,
-        buyer_user_id,
-        buyer:user_profiles!orders_buyer_user_id_fkey(
-          display_name
-        )
       ),
       market:markets(
         id,
@@ -89,19 +83,54 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Get unique order IDs to fetch order data separately (bypasses RLS)
+  const orderIds = [...new Set(orderItems?.map((item: any) => item.order_id).filter(Boolean) || [])]
+
+  // Fetch order data using service client (vendors can't access orders table via RLS)
+  const ordersData: Record<string, any> = {}
+  if (orderIds.length > 0) {
+    const { data: orders } = await supabaseService
+      .from('orders')
+      .select('id, order_number, status, total_cents, created_at, buyer_user_id')
+      .in('id', orderIds)
+
+    orders?.forEach((o: any) => {
+      ordersData[o.id] = o
+    })
+  }
+
+  // Get unique buyer IDs to fetch display names
+  const buyerIds = [...new Set(
+    Object.values(ordersData).map((o: any) => o.buyer_user_id).filter(Boolean)
+  )]
+
+  // Fetch buyer display names from user_profiles (use service client to bypass RLS)
+  const buyerNames: Record<string, string> = {}
+  if (buyerIds.length > 0) {
+    const { data: profiles } = await supabaseService
+      .from('user_profiles')
+      .select('user_id, display_name')
+      .in('user_id', buyerIds)
+
+    profiles?.forEach((p: any) => {
+      buyerNames[p.user_id] = p.display_name || 'Customer'
+    })
+  }
+
   // Transform to a more usable format - group by order
   const ordersMap = new Map()
 
   orderItems?.forEach((item: any) => {
     const orderId = item.order_id
-    const order = item.order
+    const order = ordersData[orderId] // Use separately fetched order data
+    const buyerId = order?.buyer_user_id
 
     if (!ordersMap.has(orderId)) {
       ordersMap.set(orderId, {
         id: orderId,
         order_number: order?.order_number || orderId.slice(0, 8),
         order_status: order?.status || 'pending',
-        customer_name: order?.buyer?.display_name || 'Customer',
+        customer_name: buyerNames[buyerId] || 'Customer',
         total_cents: order?.total_cents || 0,
         created_at: order?.created_at || item.created_at,
         items: []
@@ -134,9 +163,19 @@ export async function GET(request: NextRequest) {
 
   const orders = Array.from(ordersMap.values())
 
-  // Also return raw items for per-item management
+  // Add order data and customer name to raw items for per-item management views
+  const enrichedItems = (orderItems || []).map((item: any) => {
+    const order = ordersData[item.order_id]
+    const buyerId = order?.buyer_user_id
+    return {
+      ...item,
+      order: order || null,
+      customer_name: buyerNames[buyerId] || 'Customer'
+    }
+  })
+
   return NextResponse.json({
     orders,
-    orderItems: orderItems || []
+    orderItems: enrichedItems
   })
 }

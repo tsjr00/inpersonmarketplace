@@ -163,4 +163,11 @@ export const traced = {
    */
   error: (code: string, message: string, context?: Partial<ErrorContext>) =>
     new TracedError(code, message, context),
+
+  /**
+   * Create external service error (Stripe, etc.)
+   * Usage: traced.external('ERR_CHECKOUT_003', 'Payment not completed')
+   */
+  external: (code: string, message: string, context?: Partial<ErrorContext>) =>
+    new TracedError(code, message, context),
 }
