@@ -97,8 +97,8 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
           {/* Prominent Order Number - colored by most urgent status */}
           <div style={{
-            backgroundColor: orderBoxColor.text,
-            color: 'white',
+            backgroundColor: orderBoxColor.bg,
+            color: orderBoxColor.text,
             padding: '10px 16px',
             borderRadius: 6,
             display: 'flex',
@@ -106,7 +106,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
             alignItems: 'center',
             flexShrink: 0
           }}>
-            <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.8 }}>
+            <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
               Order
             </span>
             <span style={{
