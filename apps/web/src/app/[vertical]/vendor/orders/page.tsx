@@ -179,6 +179,38 @@ export default function VendorOrdersPage() {
     fulfilled: allItems.filter(i => i.status === 'fulfilled').length
   }
 
+  // Sort orders by most urgent item status: ready > confirmed > pending > fulfilled/cancelled
+  const getOrderPriority = (order: Order): number => {
+    const itemStatuses = order.items.map(i => i.status)
+    if (itemStatuses.includes('ready')) return 1      // Highest - customer waiting
+    if (itemStatuses.includes('confirmed')) return 2  // Needs preparation
+    if (itemStatuses.includes('pending')) return 3    // Needs confirmation
+    return 4                                          // Completed/cancelled
+  }
+
+  const getOrderPriorityLabel = (order: Order): string => {
+    const itemStatuses = order.items.map(i => i.status)
+    if (itemStatuses.includes('ready')) return 'ready'
+    if (itemStatuses.includes('confirmed')) return 'confirmed'
+    if (itemStatuses.includes('pending')) return 'pending'
+    return 'fulfilled'
+  }
+
+  const sortedOrders = [...orders].sort((a, b) => {
+    const priorityDiff = getOrderPriority(a) - getOrderPriority(b)
+    if (priorityDiff !== 0) return priorityDiff
+    // Within same priority, sort by created_at (newest first)
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+
+  // Status colors matching the pills
+  const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+    pending: { bg: '#fef3c7', text: '#92400e' },
+    confirmed: { bg: '#dbeafe', text: '#1e40af' },
+    ready: { bg: '#d1fae5', text: '#065f46' },
+    fulfilled: { bg: '#e0e7ff', text: '#4338ca' }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: spacing.xl, textAlign: 'center', backgroundColor: colors.surfaceBase, minHeight: '100vh' }}>
@@ -229,60 +261,130 @@ export default function VendorOrdersPage() {
         />
       </div>
 
-      {/* Stats */}
+      {/* Stats - compact with matching pill colors */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
         gap: spacing.xs,
         marginBottom: spacing.md
       }}>
-        <div style={{ padding: spacing.sm, backgroundColor: colors.surfaceSubtle, borderRadius: radius.md, boxShadow: shadows.sm }}>
-          <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.accent }}>
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          backgroundColor: STATUS_COLORS.pending.bg,
+          borderRadius: radius.md,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: spacing.xs
+        }}>
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: STATUS_COLORS.pending.text }}>
             Pending
-          </p>
-          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.accent }}>
+          </span>
+          <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: STATUS_COLORS.pending.text }}>
             {statusCounts.pending}
-          </p>
+          </span>
         </div>
-        <div style={{ padding: spacing.sm, backgroundColor: colors.primaryLight, borderRadius: radius.md, boxShadow: shadows.sm }}>
-          <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.primary }}>
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          backgroundColor: STATUS_COLORS.confirmed.bg,
+          borderRadius: radius.md,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: spacing.xs
+        }}>
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: STATUS_COLORS.confirmed.text }}>
             Confirmed
-          </p>
-          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primary }}>
+          </span>
+          <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: STATUS_COLORS.confirmed.text }}>
             {statusCounts.confirmed}
-          </p>
+          </span>
         </div>
-        <div style={{ padding: spacing.sm, backgroundColor: colors.primaryLight, borderRadius: radius.md, boxShadow: shadows.sm }}>
-          <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.primaryDark }}>
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          backgroundColor: STATUS_COLORS.ready.bg,
+          borderRadius: radius.md,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: spacing.xs
+        }}>
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: STATUS_COLORS.ready.text }}>
             Ready
-          </p>
-          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primaryDark }}>
+          </span>
+          <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: STATUS_COLORS.ready.text }}>
             {statusCounts.ready}
-          </p>
+          </span>
         </div>
-        <div style={{ padding: spacing.sm, backgroundColor: colors.surfaceMuted, borderRadius: radius.md, boxShadow: shadows.sm }}>
-          <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          backgroundColor: STATUS_COLORS.fulfilled.bg,
+          borderRadius: radius.md,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: spacing.xs
+        }}>
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: STATUS_COLORS.fulfilled.text }}>
             Fulfilled
-          </p>
-          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.textSecondary }}>
+          </span>
+          <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: STATUS_COLORS.fulfilled.text }}>
             {statusCounts.fulfilled}
-          </p>
+          </span>
         </div>
       </div>
 
-      {/* Orders List */}
-      {orders.length > 0 ? (
+      {/* Orders List - sorted by urgency: ready > confirmed > pending > fulfilled */}
+      {sortedOrders.length > 0 ? (
         <div>
-          {orders.map(order => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onConfirmItem={handleConfirmItem}
-              onReadyItem={handleReadyItem}
-              onFulfillItem={handleFulfillItem}
-              onRejectItem={handleRejectItem}
-            />
-          ))}
+          {sortedOrders.map((order, index) => {
+            const currentPriority = getOrderPriorityLabel(order)
+            const prevOrder = index > 0 ? sortedOrders[index - 1] : null
+            const prevPriority = prevOrder ? getOrderPriorityLabel(prevOrder) : null
+            const showSeparator = prevPriority && prevPriority !== currentPriority
+
+            return (
+              <div key={order.id}>
+                {showSeparator && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                    margin: `${spacing.md} 0`,
+                  }}>
+                    <div style={{
+                      flex: 1,
+                      height: 1,
+                      backgroundColor: STATUS_COLORS[currentPriority]?.text || colors.border,
+                      opacity: 0.3
+                    }} />
+                    <span style={{
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      color: STATUS_COLORS[currentPriority]?.text || colors.textMuted,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}>
+                      {currentPriority}
+                    </span>
+                    <div style={{
+                      flex: 1,
+                      height: 1,
+                      backgroundColor: STATUS_COLORS[currentPriority]?.text || colors.border,
+                      opacity: 0.3
+                    }} />
+                  </div>
+                )}
+                <OrderCard
+                  order={order}
+                  onConfirmItem={handleConfirmItem}
+                  onReadyItem={handleReadyItem}
+                  onFulfillItem={handleFulfillItem}
+                  onRejectItem={handleRejectItem}
+                />
+              </div>
+            )
+          })}
         </div>
       ) : (
         <div style={{
