@@ -104,14 +104,15 @@ export default function BuyerOrdersPage() {
     }
   }
 
+  // Status colors matching vendor OrderCard for consistency
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-    pending: { label: 'Order Placed', color: colors.accent, bgColor: colors.surfaceSubtle },
-    paid: { label: 'Order Placed', color: colors.accent, bgColor: colors.surfaceSubtle },
-    confirmed: { label: 'Confirmed', color: colors.primaryDark, bgColor: colors.primaryLight },
-    ready: { label: 'Ready for Pickup', color: '#166534', bgColor: '#dcfce7' },
+    pending: { label: 'Order Placed', color: '#92400e', bgColor: '#fef3c7' },
+    paid: { label: 'Order Placed', color: '#92400e', bgColor: '#fef3c7' },
+    confirmed: { label: 'Confirmed', color: '#1e40af', bgColor: '#dbeafe' },
+    ready: { label: 'Ready for Pickup', color: '#065f46', bgColor: '#d1fae5' },
     handed_off: { label: 'Confirm Your Pickup', color: '#b45309', bgColor: '#fef3c7' },
-    completed: { label: 'Completed', color: colors.primaryDark, bgColor: colors.primaryLight },
-    fulfilled: { label: 'Picked Up', color: colors.primaryDark, bgColor: colors.primaryLight },
+    completed: { label: 'Completed', color: '#7e22ce', bgColor: '#f3e8ff' },
+    fulfilled: { label: 'Picked Up', color: '#7e22ce', bgColor: '#f3e8ff' },
     cancelled: { label: 'Cancelled', color: '#991b1b', bgColor: '#fee2e2' },
     refunded: { label: 'Refunded', color: '#991b1b', bgColor: '#fee2e2' },
   }
