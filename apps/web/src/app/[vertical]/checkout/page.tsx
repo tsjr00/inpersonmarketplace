@@ -226,8 +226,7 @@ export default function CheckoutPage() {
       }
 
       if (data.url) {
-        // Redirect to Stripe Checkout
-        clearCart()
+        // Redirect to Stripe Checkout — cart is cleared server-side on success
         window.location.href = data.url
       } else if (data.orderId) {
         // Direct success (free order or test mode)

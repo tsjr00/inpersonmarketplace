@@ -53,7 +53,44 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ success: true, orderId })
+    // Clear the buyer's cart after successful payment
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: cart } = await supabase
+        .from('carts')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+      if (cart) {
+        await supabase.from('cart_items').delete().eq('cart_id', cart.id)
+      }
+    }
+
+    // Fetch full order details for the success page
+    const { data: fullOrder } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        status,
+        total_cents,
+        created_at,
+        order_items(
+          id,
+          quantity,
+          subtotal_cents,
+          market_id,
+          markets!market_id(id, name, market_type, city, state),
+          listing:listings(
+            title,
+            vendor_profiles(profile_data)
+          )
+        )
+      `)
+      .eq('id', orderId)
+      .single()
+
+    return NextResponse.json({ success: true, orderId, order: fullOrder })
   } catch (error) {
     console.error('Success handler error:', error)
     return NextResponse.json({ error: 'Failed to process success' }, { status: 500 })

@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { useCart } from '@/lib/hooks/useCart'
 
 interface OrderItem {
+  id: string
   title: string
   quantity: number
   subtotal_cents: number
@@ -30,43 +32,53 @@ export default function CheckoutSuccessPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const vertical = params.vertical as string
-  const orderId = searchParams.get('order')
   const sessionId = searchParams.get('session_id')
+  const orderId = searchParams.get('order')
 
   const [order, setOrder] = useState<OrderDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { refreshCart } = useCart()
+  const hasFetched = useRef(false)
 
   useEffect(() => {
-    async function fetchOrder() {
-      try {
-        // Try to get order details
-        let url = '/api/buyer/orders'
-        if (orderId) {
-          url = `/api/buyer/orders/${orderId}`
-        } else if (sessionId) {
-          url = `/api/buyer/orders?session_id=${sessionId}`
-        }
+    if (hasFetched.current) return
+    hasFetched.current = true
 
-        const response = await fetch(url)
-        if (response.ok) {
-          const data = await response.json()
-          setOrder(data.order || data)
+    async function processSuccess() {
+      try {
+        if (sessionId) {
+          // Call API success route to verify payment, clear cart, get order
+          const response = await fetch(`/api/checkout/success?session_id=${sessionId}`)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.order) {
+              setOrder(transformOrder(data.order))
+            }
+            // Refresh client-side cart state (server already cleared DB cart)
+            refreshCart()
+          } else {
+            const data = await response.json()
+            setError(data.error || 'Could not verify payment')
+          }
+        } else if (orderId) {
+          // Direct order ID — fetch from buyer orders API
+          const response = await fetch(`/api/buyer/orders/${orderId}`)
+          if (response.ok) {
+            const data = await response.json()
+            setOrder(data.order || data)
+          }
         }
       } catch (err) {
-        console.error('Failed to fetch order:', err)
+        console.error('Failed to process success:', err)
         setError('Could not load order details')
       } finally {
         setLoading(false)
       }
     }
 
-    if (orderId || sessionId) {
-      fetchOrder()
-    } else {
-      setLoading(false)
-    }
-  }, [orderId, sessionId])
+    processSuccess()
+  }, [sessionId, orderId, refreshCart])
 
   if (loading) {
     return (
@@ -87,7 +99,7 @@ export default function CheckoutSuccessPage() {
             animation: 'spin 1s linear infinite',
             margin: `0 auto ${spacing.sm}`,
           }} />
-          <p style={{ color: colors.textSecondary }}>Loading order details...</p>
+          <p style={{ color: colors.textSecondary }}>Processing your order...</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -126,7 +138,7 @@ export default function CheckoutSuccessPage() {
             fontSize: 40,
             color: colors.primary,
           }}>
-            ✓
+            &#10003;
           </div>
 
           <h1 style={{
@@ -134,10 +146,10 @@ export default function CheckoutSuccessPage() {
             fontSize: typography.sizes['2xl'],
             color: colors.textPrimary,
           }}>
-            Order Confirmed!
+            Order Placed!
           </h1>
           <p style={{ color: colors.textSecondary, marginBottom: 0 }}>
-            Thank you for your purchase. Your order has been placed successfully.
+            Thank you for your purchase. Your order has been submitted and the vendor will be notified.
           </p>
         </div>
 
@@ -184,13 +196,13 @@ export default function CheckoutSuccessPage() {
                 <span style={{
                   display: 'inline-block',
                   padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                  backgroundColor: order.status === 'paid' ? colors.primaryLight : colors.surfaceSubtle,
-                  color: order.status === 'paid' ? colors.primaryDark : colors.textSecondary,
+                  backgroundColor: colors.primaryLight,
+                  color: colors.primaryDark,
                   borderRadius: radius.full,
                   fontSize: typography.sizes.xs,
                   fontWeight: typography.weights.semibold,
                 }}>
-                  {order.status === 'paid' ? 'Paid' : order.status}
+                  Order Placed
                 </span>
               </div>
               <div>
@@ -207,7 +219,7 @@ export default function CheckoutSuccessPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                   {order.items.map((item, index) => (
                     <div
-                      key={index}
+                      key={item.id || index}
                       style={{
                         padding: `${spacing.xs} ${spacing.sm}`,
                         backgroundColor: colors.surfaceMuted,
@@ -221,7 +233,7 @@ export default function CheckoutSuccessPage() {
                         <div>
                           <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>{item.title}</p>
                           <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                            {item.vendor_name} • Qty: {item.quantity}
+                            {item.vendor_name} &bull; Qty: {item.quantity}
                           </p>
                         </div>
                         <p style={{ margin: 0, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
@@ -240,7 +252,7 @@ export default function CheckoutSuccessPage() {
                           fontSize: typography.sizes.xs,
                           color: colors.textSecondary,
                         }}>
-                          <span>{item.market_type === 'traditional' ? '🏪' : '📦'}</span>
+                          <span>{item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
                           <span>
                             <strong>Pickup:</strong> {item.market_name}
                             {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
@@ -289,7 +301,7 @@ export default function CheckoutSuccessPage() {
               boxShadow: shadows.sm,
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
-                <span style={{ fontSize: typography.sizes.xl }}>📍</span>
+                <span style={{ fontSize: typography.sizes.xl }}>{'\u{1F4CD}'}</span>
                 <div style={{ flex: 1 }}>
                   <h2 style={{
                     marginTop: 0,
@@ -323,7 +335,7 @@ export default function CheckoutSuccessPage() {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                           <span style={{ fontSize: typography.sizes.lg }}>
-                            {item.market_type === 'traditional' ? '🏪' : '📦'}
+                            {item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}
                           </span>
                           <div>
                             <p style={{
@@ -371,10 +383,10 @@ export default function CheckoutSuccessPage() {
             What&apos;s Next?
           </h2>
           <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary, lineHeight: typography.leading.loose }}>
-            <li>You&apos;ll receive a confirmation email with your order details</li>
-            <li>The vendor will be notified of your order</li>
+            <li>The vendor will be notified and will confirm your order</li>
+            <li>You&apos;ll receive a notification when your items are ready for pickup</li>
             <li>Pick up your items at the designated market location{order?.items && [...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : ''}</li>
-            <li>Track your order status in your dashboard</li>
+            <li>Track your order status in your orders page</li>
           </ul>
         </div>
 
@@ -416,4 +428,37 @@ export default function CheckoutSuccessPage() {
       </div>
     </div>
   )
+}
+
+/** Transform raw Supabase order data into the display format */
+function transformOrder(raw: Record<string, unknown>): OrderDetails {
+  const items = (raw.order_items as Array<Record<string, unknown>> || []).map(item => {
+    const listing = item.listing as Record<string, unknown> | null
+    const vendorProfiles = listing?.vendor_profiles as Record<string, unknown> | null
+    const profileData = vendorProfiles?.profile_data as Record<string, unknown> | null
+    const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+    const market = item.markets as Record<string, unknown> | null
+
+    return {
+      id: item.id as string,
+      title: (listing?.title as string) || 'Unknown Item',
+      quantity: item.quantity as number,
+      subtotal_cents: item.subtotal_cents as number,
+      vendor_name: vendorName,
+      market_id: market?.id as string | undefined,
+      market_name: market?.name as string | undefined,
+      market_type: market?.market_type as string | undefined,
+      market_city: market?.city as string | undefined,
+      market_state: market?.state as string | undefined,
+    }
+  })
+
+  return {
+    id: raw.id as string,
+    order_number: raw.order_number as string,
+    status: raw.status as string,
+    total_cents: raw.total_cents as number,
+    created_at: raw.created_at as string,
+    items,
+  }
 }
