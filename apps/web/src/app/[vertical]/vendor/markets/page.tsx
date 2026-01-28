@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 
 type Schedule = {
   id?: string
@@ -104,6 +105,7 @@ export default function VendorMarketsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submittingSuggestion, setSubmittingSuggestion] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedMarketForSchedule, setSelectedMarketForSchedule] = useState<Market | null>(null)
 
   useEffect(() => {
     fetchMarkets()
@@ -657,21 +659,49 @@ export default function VendorMarketsPage() {
                       </button>
                     )}
                   </div>
-                  <button
-                    onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: '#2563eb',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: 6,
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Manage Listings at This Market
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                    <button
+                      onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#2563eb',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Manage Listings
+                    </button>
+                    <button
+                      onClick={() => setSelectedMarketForSchedule(market)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#059669',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Manage Schedule
+                    </button>
+                  </div>
+
+                  {/* Schedule Selector - shown inline when this market is selected */}
+                  {selectedMarketForSchedule?.id === market.id && (
+                    <div style={{ marginTop: 16 }}>
+                      <MarketScheduleSelector
+                        marketId={market.id}
+                        marketName={market.name}
+                        onClose={() => setSelectedMarketForSchedule(null)}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

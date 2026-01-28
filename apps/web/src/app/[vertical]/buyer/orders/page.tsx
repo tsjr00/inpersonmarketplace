@@ -21,12 +21,25 @@ interface Order {
     quantity: number
     subtotal_cents: number
     status: string
+    pickup_date: string | null
     market: {
       id: string
       name: string
       type: string
     } | null
   }>
+}
+
+// Format pickup date for display
+function formatPickupDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return null
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 interface Market {
@@ -358,17 +371,16 @@ export default function BuyerOrdersPage() {
                   flexWrap: 'wrap'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap', flex: 1 }}>
-                    {/* Prominent Order Number */}
+                    {/* Prominent Order Number - colored by status */}
                     <div style={{
-                      backgroundColor: needsAttention
-                        ? (isHandedOff ? '#b45309' : '#166534')
-                        : colors.textPrimary,
-                      color: colors.textInverse,
+                      backgroundColor: config.bgColor,
+                      color: config.color,
                       padding: `${spacing['2xs']} ${spacing.sm}`,
                       borderRadius: radius.sm,
                       display: 'flex',
                       flexDirection: 'column',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      border: `2px solid ${config.color}20`
                     }}>
                       <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
                         Order
@@ -450,6 +462,16 @@ export default function BuyerOrdersPage() {
                                   {item.vendor_name} • Qty: {item.quantity}
                                   {item.market && ` • ${item.market.name}`}
                                 </p>
+                                {item.pickup_date && (
+                                  <p style={{
+                                    margin: `${spacing['3xs']} 0 0`,
+                                    fontSize: typography.sizes.sm,
+                                    color: '#1e40af',
+                                    fontWeight: typography.weights.medium
+                                  }}>
+                                    Pickup: {formatPickupDate(item.pickup_date)}
+                                  </p>
+                                )}
                               </div>
                               <div style={{ textAlign: 'right' }}>
                                 <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.base }}>

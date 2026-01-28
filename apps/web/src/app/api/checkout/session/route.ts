@@ -249,6 +249,27 @@ export async function POST(request: NextRequest) {
     // Buyer pays: base price + buyer fee only (vendor fee is deducted from vendor payout)
     const totalCents = subtotalCents + buyerFeeCents
 
+    // Calculate pickup dates for each order item
+    crumb.logic('Calculating pickup dates for order items')
+    const pickupDatePromises = orderItems.map(async (item) => {
+      if (!item.market_id) return { ...item, pickup_date: null }
+
+      const { data: pickupDate, error } = await supabase.rpc('get_vendor_next_pickup_date', {
+        p_vendor_profile_id: item.vendor_profile_id,
+        p_market_id: item.market_id
+      })
+
+      if (error) {
+        // Log but don't fail - pickup date is nice-to-have
+        console.warn('[checkout] Could not calculate pickup date:', error)
+        return { ...item, pickup_date: null }
+      }
+
+      return { ...item, pickup_date: pickupDate }
+    })
+
+    const orderItemsWithPickupDates = await Promise.all(pickupDatePromises)
+
     // Create order record
     crumb.supabase('insert', 'orders')
     const orderNumber = `FW-${new Date().getFullYear()}-${Math.random().toString().slice(2, 7)}`
@@ -269,10 +290,10 @@ export async function POST(request: NextRequest) {
 
     if (orderError) throw traced.fromSupabase(orderError, { table: 'orders', operation: 'insert' })
 
-    // Create order items
+    // Create order items with pickup dates
     crumb.supabase('insert', 'order_items')
     const { error: itemsError } = await supabase.from('order_items').insert(
-      orderItems.map((item) => ({
+      orderItemsWithPickupDates.map((item) => ({
         ...item,
         order_id: order.id,
       }))

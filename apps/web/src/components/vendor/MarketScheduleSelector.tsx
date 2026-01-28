@@ -1,0 +1,276 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+interface Schedule {
+  id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  is_attending: boolean
+}
+
+interface MarketScheduleSelectorProps {
+  marketId: string
+  marketName: string
+  onClose?: () => void
+}
+
+// Format 24h time to 12h
+function formatTime12h(time24: string): string {
+  if (!time24) return ''
+  const [hours, minutes] = time24.split(':').map(Number)
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const hours12 = hours % 12 || 12
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`
+}
+
+export default function MarketScheduleSelector({
+  marketId,
+  marketName,
+  onClose
+}: MarketScheduleSelectorProps) {
+  const [schedules, setSchedules] = useState<Schedule[]>([])
+  const [hasAnyActive, setHasAnyActive] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState<string | null>(null) // schedule ID being saved
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchSchedules()
+  }, [marketId])
+
+  const fetchSchedules = async () => {
+    try {
+      const res = await fetch(`/api/vendor/markets/${marketId}/schedules`)
+      if (res.ok) {
+        const data = await res.json()
+        setSchedules(data.schedules || [])
+        setHasAnyActive(data.hasAnyActive)
+      } else {
+        const errData = await res.json()
+        setError(errData.error || 'Failed to load schedules')
+      }
+    } catch (err) {
+      console.error('Error fetching schedules:', err)
+      setError('Failed to load schedules')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleToggleSchedule = async (scheduleId: string, currentlyAttending: boolean) => {
+    setSaving(scheduleId)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/vendor/markets/${marketId}/schedules`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scheduleId,
+          isActive: !currentlyAttending
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        // Update local state
+        setSchedules(prev =>
+          prev.map(s =>
+            s.id === scheduleId ? { ...s, is_attending: !currentlyAttending } : s
+          )
+        )
+        setHasAnyActive(data.hasAnyActive)
+
+        if (data.warning) {
+          setError(data.warning)
+        }
+      } else {
+        setError(data.error || 'Failed to update schedule')
+      }
+    } catch (err) {
+      console.error('Error toggling schedule:', err)
+      setError('Failed to update schedule')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div style={{
+        padding: 20,
+        backgroundColor: 'white',
+        borderRadius: 8,
+        border: '1px solid #e5e7eb'
+      }}>
+        <p style={{ margin: 0, color: '#6b7280' }}>Loading schedules...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      padding: 20,
+      backgroundColor: 'white',
+      borderRadius: 8,
+      border: '1px solid #e5e7eb'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 16
+      }}>
+        <div>
+          <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600 }}>
+            {marketName}
+          </h3>
+          <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+            Select the days you attend this market
+          </p>
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              border: 'none',
+              borderRadius: 6,
+              fontSize: 13,
+              cursor: 'pointer'
+            }}
+          >
+            Close
+          </button>
+        )}
+      </div>
+
+      {/* Warning if no schedules selected */}
+      {!hasAnyActive && (
+        <div style={{
+          padding: 12,
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: 6,
+          marginBottom: 16,
+          fontSize: 13,
+          color: '#991b1b'
+        }}>
+          You haven't selected any days. Your listings won't appear for this market until you select at least one day.
+        </div>
+      )}
+
+      {/* Error message */}
+      {error && (
+        <div style={{
+          padding: 12,
+          backgroundColor: '#fef3c7',
+          border: '1px solid #fcd34d',
+          borderRadius: 6,
+          marginBottom: 16,
+          fontSize: 13,
+          color: '#92400e'
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* Schedule checkboxes */}
+      {schedules.length === 0 ? (
+        <p style={{ margin: 0, color: '#6b7280', fontStyle: 'italic' }}>
+          No schedules found for this market.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {schedules.map(schedule => (
+            <label
+              key={schedule.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 16px',
+                backgroundColor: schedule.is_attending ? '#f0fdf4' : '#f9fafb',
+                border: `2px solid ${schedule.is_attending ? '#22c55e' : '#e5e7eb'}`,
+                borderRadius: 8,
+                cursor: saving === schedule.id ? 'wait' : 'pointer',
+                opacity: saving === schedule.id ? 0.7 : 1,
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={schedule.is_attending}
+                disabled={saving === schedule.id}
+                onChange={() => handleToggleSchedule(schedule.id, schedule.is_attending)}
+                style={{
+                  width: 20,
+                  height: 20,
+                  accentColor: '#22c55e',
+                  cursor: saving === schedule.id ? 'wait' : 'pointer'
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontWeight: 600,
+                  fontSize: 15,
+                  color: schedule.is_attending ? '#166534' : '#374151'
+                }}>
+                  {DAYS[schedule.day_of_week]}
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  color: schedule.is_attending ? '#15803d' : '#6b7280'
+                }}>
+                  {formatTime12h(schedule.start_time)} - {formatTime12h(schedule.end_time)}
+                </div>
+              </div>
+              {schedule.is_attending && (
+                <span style={{
+                  padding: '4px 10px',
+                  backgroundColor: '#22c55e',
+                  color: 'white',
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  Attending
+                </span>
+              )}
+              {saving === schedule.id && (
+                <span style={{
+                  fontSize: 12,
+                  color: '#6b7280'
+                }}>
+                  Saving...
+                </span>
+              )}
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Info about pickup dates */}
+      <div style={{
+        marginTop: 16,
+        padding: 12,
+        backgroundColor: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: 6,
+        fontSize: 13,
+        color: '#1e40af'
+      }}>
+        <strong>How this works:</strong> When buyers order from you at this market,
+        their pickup date will be calculated based on the days you've selected.
+        Orders will be assigned to your next available market day.
+      </div>
+    </div>
+  )
+}

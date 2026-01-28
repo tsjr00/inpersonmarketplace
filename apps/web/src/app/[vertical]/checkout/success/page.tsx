@@ -6,6 +6,18 @@ import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { useCart } from '@/lib/hooks/useCart'
 
+// Format pickup date for display
+function formatPickupDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return null
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
 interface OrderItem {
   id: string
   title: string
@@ -18,6 +30,7 @@ interface OrderItem {
   market_address?: string
   market_city?: string
   market_state?: string
+  pickup_date?: string | null
 }
 
 interface OrderDetails {
@@ -233,7 +246,7 @@ export default function CheckoutSuccessPage() {
                           {item.vendor_name} &bull; Qty: {item.quantity}
                         </p>
                       </div>
-                      {item.market_name && (
+                      {(item.market_name || item.pickup_date) && (
                         <div style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -244,12 +257,13 @@ export default function CheckoutSuccessPage() {
                           borderRadius: radius.sm,
                           fontSize: typography.sizes.xs,
                           color: colors.textSecondary,
+                          flexWrap: 'wrap',
                         }}>
                           <span>{item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
                           <span>
-                            <strong>Pickup:</strong> {item.market_name}
-                            {item.market_address && ` - ${item.market_address}`}
-                            {item.market_city && `, ${item.market_city}, ${item.market_state}`}
+                            <strong>Pickup:</strong> {formatPickupDate(item.pickup_date) || 'Date TBD'}
+                            {item.market_name && ` at ${item.market_name}`}
+                            {item.market_city && `, ${item.market_city}`}
                           </span>
                         </div>
                       )}
@@ -339,6 +353,16 @@ export default function CheckoutSuccessPage() {
                             }}>
                               {item.market_name}
                             </p>
+                            {item.pickup_date && (
+                              <p style={{
+                                margin: `${spacing['3xs']} 0 0`,
+                                fontSize: typography.sizes.sm,
+                                fontWeight: typography.weights.semibold,
+                                color: colors.primary,
+                              }}>
+                                {formatPickupDate(item.pickup_date)}
+                              </p>
+                            )}
                             {(item.market_address || item.market_city) && (
                               <p style={{
                                 margin: `${spacing['3xs']} 0 0`,
@@ -446,6 +470,7 @@ function transformOrder(raw: Record<string, unknown>): OrderDetails {
       market_address: market?.address as string | undefined,
       market_city: market?.city as string | undefined,
       market_state: market?.state as string | undefined,
+      pickup_date: item.pickup_date as string | null | undefined,
     }
   })
 

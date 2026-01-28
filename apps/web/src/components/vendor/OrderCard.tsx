@@ -15,11 +15,23 @@ interface OrderItem {
   market_type: string
   market_address?: string
   market_city?: string
-  pickup_date?: string
+  pickup_date?: string | null
   buyer_confirmed_at?: string | null
   cancelled_at?: string | null
   cancelled_by?: string | null
   cancellation_reason?: string | null
+}
+
+// Format pickup date for display
+function formatPickupDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return null
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 interface OrderCardProps {
@@ -77,6 +89,13 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
   const urgentStatus = getMostUrgentStatus(order.items)
   const orderBoxColor = STATUS_COLORS[urgentStatus] || STATUS_COLORS.pending
 
+  // Get earliest pickup date from items
+  const pickupDates = order.items
+    .map(item => item.pickup_date)
+    .filter((d): d is string => !!d)
+    .sort()
+  const earliestPickupDate = pickupDates[0] ? formatPickupDate(pickupDates[0]) : null
+
   return (
     <div style={{
       backgroundColor: 'white',
@@ -123,11 +142,25 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               {order.customer_name}
             </p>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#6b7280' }}>
-              {orderDate} at {orderTime}
+              Ordered: {orderDate} at {orderTime}
             </p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
+          {earliestPickupDate && (
+            <div style={{
+              marginBottom: 6,
+              padding: '4px 10px',
+              backgroundColor: '#dbeafe',
+              borderRadius: 4,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#1e40af',
+              display: 'inline-block'
+            }}>
+              Pickup: {earliestPickupDate}
+            </div>
+          )}
           <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
             {formatPrice(vendorSubtotal)}
           </div>
