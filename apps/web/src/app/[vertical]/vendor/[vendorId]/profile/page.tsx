@@ -46,7 +46,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     ? (Array.isArray(profileTypes) ? profileTypes as string[] : [profileTypes as string])
     : []
 
-  // Get vendor's published listings with images
+  // Get vendor's published listings with images and markets
   const { data: listings } = await supabase
     .from('listings')
     .select(`
@@ -56,6 +56,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
         url,
         is_primary,
         display_order
+      ),
+      listing_markets (
+        market_id,
+        markets (
+          id,
+          name,
+          market_type
+        )
       )
     `)
     .eq('vendor_profile_id', vendorId)
@@ -731,9 +739,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               {listings.map((listing) => {
                 const listingId = listing.id as string
                 const listingTitle = listing.title as string
+                const listingDescription = listing.description as string | null
                 const listingCategory = listing.category as string | null
                 const listingPriceCents = (listing.price_cents as number) || 0
                 const listingImages = listing.listing_images as { id: string; url: string; is_primary: boolean; display_order: number }[] | null
+                const listingMarkets = listing.listing_markets as { market_id: string; markets: { id: string; name: string; market_type: string } | null }[] | null
                 const primaryImage = listingImages?.find(img => img.is_primary) || listingImages?.[0]
 
                 return (
@@ -747,7 +757,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       color: '#333',
                       border: '1px solid #e5e7eb',
                       borderRadius: 8,
-                      textDecoration: 'none'
+                      textDecoration: 'none',
+                      height: '100%'
                     }}
                   >
                     {/* Image with Category Badge */}
@@ -797,23 +808,61 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
                     {/* Title */}
                     <h3 style={{
-                      marginBottom: 8,
+                      marginBottom: 4,
                       marginTop: 0,
                       color: branding.colors.primary,
                       fontSize: 16,
-                      fontWeight: 600
+                      fontWeight: 600,
+                      lineHeight: 1.3
                     }}>
                       {listingTitle}
                     </h3>
+
+                    {/* Description */}
+                    {listingDescription && (
+                      <p style={{
+                        fontSize: 13,
+                        color: '#6b7280',
+                        marginBottom: 8,
+                        marginTop: 0,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.4,
+                        minHeight: 36
+                      }}>
+                        {listingDescription}
+                      </p>
+                    )}
 
                     {/* Price (includes platform fee) */}
                     <div style={{
                       fontSize: 20,
                       fontWeight: 'bold',
-                      color: branding.colors.primary
+                      color: branding.colors.primary,
+                      marginBottom: 4
                     }}>
                       {formatDisplayPrice(listingPriceCents)}
                     </div>
+
+                    {/* Market/Location */}
+                    {listingMarkets && listingMarkets.length > 0 && (
+                      <div style={{
+                        fontSize: 12,
+                        color: '#6b7280',
+                        marginTop: 4
+                      }}>
+                        {listingMarkets.length === 1
+                          ? (() => {
+                              const market = listingMarkets[0].markets
+                              const prefix = market?.market_type === 'private_pickup' ? 'Private Pickup: ' : 'Market: '
+                              return prefix + (market?.name || 'Location')
+                            })()
+                          : `${listingMarkets.length} pickup locations`
+                        }
+                      </div>
+                    )}
                   </Link>
                 )
               })}
