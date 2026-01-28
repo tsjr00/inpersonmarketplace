@@ -42,6 +42,25 @@ function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
 }
 
+// Status colors matching the pills
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  pending: { bg: '#fef3c7', text: '#92400e' },
+  confirmed: { bg: '#dbeafe', text: '#1e40af' },
+  ready: { bg: '#d1fae5', text: '#065f46' },
+  fulfilled: { bg: '#f3e8ff', text: '#7e22ce' },
+  cancelled: { bg: '#fee2e2', text: '#991b1b' }
+}
+
+// Get the most urgent status for an order (for order number box color)
+function getMostUrgentStatus(items: OrderItem[]): string {
+  const statuses = items.map(i => i.status)
+  if (statuses.includes('ready')) return 'ready'
+  if (statuses.includes('confirmed')) return 'confirmed'
+  if (statuses.includes('pending')) return 'pending'
+  if (statuses.includes('fulfilled')) return 'fulfilled'
+  return 'cancelled'
+}
+
 export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem }: OrderCardProps) {
   const orderDate = new Date(order.created_at).toLocaleDateString()
   const orderTime = new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -53,6 +72,10 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
   const vendorSubtotal = order.items
     .filter(item => item.status !== 'cancelled')
     .reduce((sum, item) => sum + item.subtotal_cents, 0)
+
+  // Get order box color based on most urgent item
+  const urgentStatus = getMostUrgentStatus(order.items)
+  const orderBoxColor = STATUS_COLORS[urgentStatus] || STATUS_COLORS.pending
 
   return (
     <div style={{
@@ -72,9 +95,9 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
         gap: 12
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-          {/* Prominent Order Number */}
+          {/* Prominent Order Number - colored by most urgent status */}
           <div style={{
-            backgroundColor: '#111827',
+            backgroundColor: orderBoxColor.text,
             color: 'white',
             padding: '10px 16px',
             borderRadius: 6,
@@ -83,7 +106,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
             alignItems: 'center',
             flexShrink: 0
           }}>
-            <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
+            <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.8 }}>
               Order
             </span>
             <span style={{
@@ -223,8 +246,8 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                     </div>
                   )}
 
-                  {/* Item Actions */}
-                  {!item.cancelled_at && (
+                  {/* Item Actions - hide for cancelled or fulfilled items */}
+                  {!item.cancelled_at && item.status !== 'cancelled' && item.status !== 'fulfilled' && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {item.status === 'pending' && onConfirmItem && (
                         <button
@@ -283,8 +306,8 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                         </button>
                       )}
 
-                      {/* Reject Button - available until item is fulfilled */}
-                      {item.status !== 'fulfilled' && onRejectItem && (
+                      {/* Reject Button - available for pending/confirmed/ready items */}
+                      {onRejectItem && (
                         <button
                           onClick={() => {
                             const reason = prompt('Why can\'t you fulfill this item?')
