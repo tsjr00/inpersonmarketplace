@@ -468,49 +468,14 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
 
-            {/* Account Status & Tier */}
-            <div style={{
-              marginTop: spacing.xs,
-              paddingTop: spacing.xs,
-              borderTop: `1px solid ${colors.border}`,
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing.sm,
-              flexWrap: 'wrap'
+            {/* Tier */}
+            <p style={{
+              margin: `${spacing.xs} 0 0 0`,
+              fontSize: typography.sizes.xs,
+              color: vendorProfile.tier === 'premium' ? colors.accent : colors.textMuted
             }}>
-              <div style={{
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: vendorProfile.status === 'approved' ? colors.primaryLight : colors.surfaceSubtle,
-                color: vendorProfile.status === 'approved' ? colors.primaryDark : colors.accent,
-                borderRadius: radius.full,
-                fontSize: typography.sizes.xs,
-                fontWeight: typography.weights.semibold
-              }}>
-                {vendorProfile.status.charAt(0).toUpperCase() + vendorProfile.status.slice(1)}
-              </div>
-              <div style={{
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: vendorProfile.tier === 'premium' ? colors.accent + '20' : colors.surfaceMuted,
-                color: vendorProfile.tier === 'premium' ? colors.accent : colors.textSecondary,
-                borderRadius: radius.full,
-                fontSize: typography.sizes.xs,
-                fontWeight: typography.weights.semibold
-              }}>
-                {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'} Plan
-              </div>
-              {vendorProfile.tier === 'premium' && (
-                <Link
-                  href={`/${vertical}/settings`}
-                  style={{
-                    fontSize: typography.sizes.xs,
-                    color: colors.textMuted,
-                    textDecoration: 'none'
-                  }}
-                >
-                  Manage →
-                </Link>
-              )}
-            </div>
+              {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'} Plan
+            </p>
           </div>
 
           {/* Your Listings */}
