@@ -171,7 +171,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         <h2 style={{ marginTop: 0, marginBottom: spacing['3xs'], fontSize: typography.sizes.xl }}>
           Welcome back, {user.user_metadata?.full_name || user.email?.split('@')[0]}!
         </h2>
-        <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>{user.email}</p>
+        <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
+          {user.email}
+          {isPremiumBuyer && (
+            <span style={{ marginLeft: spacing.sm, color: colors.accent }}>
+              • Premium Member
+            </span>
+          )}
+        </p>
       </div>
 
       {/* ========== SHOPPER SECTION ========== */}
@@ -497,33 +504,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           </div>
         )}
 
-        {/* Premium Member Badge - show for premium buyers */}
-        {isPremiumBuyer && (
-          <div style={{
-            marginTop: spacing.md,
-            padding: spacing.sm,
-            backgroundColor: colors.primaryLight,
-            border: `1px solid ${colors.primary}`,
-            borderRadius: radius.md,
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing.xs
-          }}>
-            <span style={{ fontSize: typography.sizes['2xl'] }}>⭐</span>
-            <div>
-              <div style={{
-                fontWeight: typography.weights.semibold,
-                color: colors.primaryDark,
-                fontSize: typography.sizes.base
-              }}>
-                Premium Member
-              </div>
-              <div style={{ fontSize: typography.sizes.sm, color: colors.primaryDark }}>
-                Enjoying early access, priority support, and exclusive benefits
-              </div>
-            </div>
-          </div>
-        )}
       </section>
 
       {/* ========== VENDOR SECTION PLACEHOLDER (for non-vendors) ========== */}
