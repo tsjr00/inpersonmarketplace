@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import ListingPurchaseSection from '@/components/listings/ListingPurchaseSection'
 import ListingImageGallery from '@/components/listings/ListingImageGallery'
+import BackLink from '@/components/shared/BackLink'
 import { formatDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -101,27 +102,21 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
       }}
       className="listing-detail-page"
     >
-      {/* Back Link */}
+      {/* Back Link - uses browser history to go back to previous page */}
       <div style={{
         padding: spacing.sm,
         borderBottom: `1px solid ${colors.border}`,
         backgroundColor: colors.surfaceElevated
       }}>
         <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
-          <Link
-            href={`/${vertical}/browse`}
+          <BackLink
+            fallbackHref={`/${vertical}/browse`}
+            fallbackLabel="Back to Browse"
             style={{
               color: colors.primary,
-              textDecoration: 'none',
-              fontSize: typography.sizes.sm,
-              display: 'inline-flex',
-              alignItems: 'center',
-              minHeight: 44,
-              padding: `${spacing['2xs']} 0`
+              fontSize: typography.sizes.sm
             }}
-          >
-            ← Back to Browse
-          </Link>
+          />
         </div>
       </div>
 
