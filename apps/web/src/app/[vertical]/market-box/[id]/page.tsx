@@ -243,7 +243,7 @@ export default function MarketBoxDetailPage() {
                 fontSize: 12,
                 fontWeight: 600
               }}>
-                Weekly Subscription
+                Prepaid Weekly Subscription
               </span>
               {isAtCapacity && (
                 <span style={{
@@ -274,51 +274,57 @@ export default function MarketBoxDetailPage() {
               by <span style={{ fontWeight: 600 }}>{vendor.name}</span> →
             </Link>
 
-            {/* Term Selection */}
+            {/* Term Selection - Compact */}
             {hasMultipleTerms ? (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 12 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
                   Choose your subscription length:
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <div className="term-grid" style={{ display: 'grid', gap: 10 }}>
                   {available_terms.map(term => (
                     <button
                       key={term.weeks}
                       onClick={() => setSelectedTermWeeks(term.weeks)}
                       style={{
-                        padding: 16,
+                        padding: '10px 14px',
                         backgroundColor: selectedTermWeeks === term.weeks ? '#eff6ff' : 'white',
                         border: `2px solid ${selectedTermWeeks === term.weeks ? branding.colors.primary : '#e5e7eb'}`,
-                        borderRadius: 12,
+                        borderRadius: 8,
                         cursor: 'pointer',
                         textAlign: 'left',
-                        position: 'relative'
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8
                       }}
                     >
                       {term.savings_cents > 0 && (
                         <span style={{
                           position: 'absolute',
-                          top: -8,
+                          top: -6,
                           right: 8,
-                          padding: '2px 8px',
+                          padding: '1px 6px',
                           backgroundColor: '#dcfce7',
                           color: '#166534',
-                          borderRadius: 12,
-                          fontSize: 11,
+                          borderRadius: 10,
+                          fontSize: 10,
                           fontWeight: 600
                         }}>
                           Save {formatPrice(term.savings_cents)}
                         </span>
                       )}
-                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 16 }}>
+                      <span style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
                         {term.label}
-                      </div>
-                      <div style={{ fontWeight: 700, color: branding.colors.primary, fontSize: 24, marginTop: 4 }}>
-                        {formatPrice(term.price_cents)}
-                      </div>
-                      <div style={{ fontSize: 13, color: '#6b7280' }}>
-                        {formatPrice(term.price_per_week_cents)}/week
-                      </div>
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                        <span style={{ fontWeight: 700, color: branding.colors.primary, fontSize: 18 }}>
+                          {formatPrice(term.price_cents)}
+                        </span>
+                        <span style={{ fontSize: 11, color: '#6b7280' }}>
+                          ({formatPrice(term.price_per_week_cents)}/wk)
+                        </span>
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -348,154 +354,156 @@ export default function MarketBoxDetailPage() {
             </div>
           )}
 
-          {/* Pickup Details */}
+          {/* How It Works - moved up, styled like other boxes */}
           <div style={{
             padding: 20,
             backgroundColor: 'white',
             border: '1px solid #e5e7eb',
             borderRadius: 8
           }}>
-            <h3 style={{ margin: '0 0 16px 0', color: '#374151', fontSize: 16 }}>Pickup Details</h3>
-
-            <div style={{ display: 'grid', gap: 16 }}>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <span style={{ fontSize: 24 }}>📅</span>
-                <div>
-                  <div style={{ fontWeight: 600, color: '#374151' }}>
-                    Every {DAYS[offering.pickup_day_of_week]}
-                  </div>
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>
-                    First pickup: {getNextPickupDate(offering.pickup_day_of_week)}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 12 }}>
-                <span style={{ fontSize: 24 }}>🕐</span>
-                <div>
-                  <div style={{ fontWeight: 600, color: '#374151' }}>
-                    {formatTime(offering.pickup_start_time)} - {formatTime(offering.pickup_end_time)}
-                  </div>
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>
-                    Pickup window
-                  </div>
-                </div>
-              </div>
-
-              {market && (
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <span style={{ fontSize: 24 }}>📍</span>
-                  <div>
-                    <div style={{ fontWeight: 600, color: '#374151' }}>
-                      {market.name}
-                    </div>
-                    <div style={{ fontSize: 13, color: '#6b7280' }}>
-                      {market.address}, {market.city}, {market.state}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Vendor Info */}
-          <div style={{
-            padding: 20,
-            backgroundColor: 'white',
-            border: '1px solid #e5e7eb',
-            borderRadius: 8
-          }}>
-            <h3 style={{ margin: '0 0 16px 0', color: '#374151', fontSize: 16 }}>Sold by</h3>
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              {vendor.profile_image_url ? (
-                <img
-                  src={vendor.profile_image_url}
-                  alt={vendor.name}
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    border: '2px solid #e5e7eb'
-                  }}
-                />
-              ) : (
-                <div style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: '50%',
-                  backgroundColor: '#f3f4f6',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 24,
-                  color: '#9ca3af'
-                }}>
-                  🧑‍🌾
-                </div>
-              )}
-              <div style={{ flex: 1 }}>
-                <Link
-                  href={`/${vertical}/vendor/${vendor.id}/profile`}
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 600,
-                    color: branding.colors.primary,
-                    textDecoration: 'none'
-                  }}
-                >
-                  {vendor.name}
-                </Link>
-                {vendor.description && (
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: 13,
-                    color: '#6b7280',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical'
-                  }}>
-                    {vendor.description}
-                  </p>
-                )}
-              </div>
-            </div>
-            <Link
-              href={`/${vertical}/vendor/${vendor.id}/profile`}
-              style={{
-                display: 'block',
-                marginTop: 16,
-                padding: '12px 16px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 8,
-                fontWeight: 600,
-                fontSize: 14,
-                textAlign: 'center'
-              }}
-            >
-              View Vendor Profile
-            </Link>
-          </div>
-
-          {/* How It Works */}
-          <div style={{
-            padding: 20,
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: 8
-          }}>
-            <h3 style={{ margin: '0 0 16px 0', color: '#1e40af', fontSize: 16 }}>How It Works</h3>
-            <ol style={{ margin: 0, paddingLeft: 20, color: '#1e40af', fontSize: 14, lineHeight: 1.8 }}>
+            <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>How It Works</h3>
+            <ul style={{ margin: 0, paddingLeft: 20, color: '#374151', fontSize: 14, lineHeight: 1.8 }}>
               <li>Pay the full amount today ({formatPrice(selectedTerm?.price_cents || offering.price_cents)})</li>
               <li>Pick up your first box on {getNextPickupDate(offering.pickup_day_of_week)}</li>
               <li>Return every {DAYS[offering.pickup_day_of_week]} for {selectedTermWeeks} consecutive weeks</li>
               <li>Each pickup contains fresh products from {vendor.name}</li>
-              <li style={{ color: '#059669' }}>If vendor needs to skip a week (weather, etc.), your subscription extends automatically</li>
-            </ol>
+            </ul>
+            <p style={{ margin: '12px 0 0 0', fontSize: 13, color: '#059669', fontStyle: 'italic' }}>
+              If vendor needs to skip a week (weather, etc.), your subscription extends automatically
+            </p>
+          </div>
+
+          {/* Pickup Details & Vendor Info - side by side on desktop */}
+          <div className="details-grid" style={{ display: 'grid', gap: 16 }}>
+            {/* Pickup Details */}
+            <div style={{
+              padding: 20,
+              backgroundColor: 'white',
+              border: '1px solid #e5e7eb',
+              borderRadius: 8
+            }}>
+              <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>Pickup Details</h3>
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>📅</span>
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
+                      Every {DAYS[offering.pickup_day_of_week]}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>
+                      First: {getNextPickupDate(offering.pickup_day_of_week)}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>🕐</span>
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
+                      {formatTime(offering.pickup_start_time)} - {formatTime(offering.pickup_end_time)}
+                    </div>
+                  </div>
+                </div>
+
+                {market && (
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>📍</span>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
+                        {market.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#6b7280' }}>
+                        {market.address}, {market.city}, {market.state}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Vendor Info */}
+            <div style={{
+              padding: 20,
+              backgroundColor: 'white',
+              border: '1px solid #e5e7eb',
+              borderRadius: 8
+            }}>
+              <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>Sold by</h3>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {vendor.profile_image_url ? (
+                  <img
+                    src={vendor.profile_image_url}
+                    alt={vendor.name}
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '2px solid #e5e7eb'
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 50,
+                    height: 50,
+                    borderRadius: '50%',
+                    backgroundColor: '#f3f4f6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 20,
+                    color: '#9ca3af'
+                  }}>
+                    🧑‍🌾
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <Link
+                    href={`/${vertical}/vendor/${vendor.id}/profile`}
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 600,
+                      color: branding.colors.primary,
+                      textDecoration: 'none'
+                    }}
+                  >
+                    {vendor.name}
+                  </Link>
+                  {vendor.description && (
+                    <p style={{
+                      margin: '2px 0 0 0',
+                      fontSize: 12,
+                      color: '#6b7280',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
+                      {vendor.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={`/${vertical}/vendor/${vendor.id}/profile`}
+                style={{
+                  display: 'block',
+                  marginTop: 12,
+                  padding: '10px 14px',
+                  backgroundColor: branding.colors.primary,
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  textAlign: 'center'
+                }}
+              >
+                View Vendor Profile
+              </Link>
+            </div>
           </div>
 
           {/* Subscribe Button */}
@@ -538,6 +546,26 @@ export default function MarketBoxDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Responsive Styles */}
+      <style>{`
+        .term-grid {
+          grid-template-columns: 1fr;
+        }
+        .details-grid {
+          grid-template-columns: 1fr;
+        }
+        @media (min-width: 640px) {
+          .term-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+        @media (min-width: 768px) {
+          .details-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+      `}</style>
     </div>
   )
 }
