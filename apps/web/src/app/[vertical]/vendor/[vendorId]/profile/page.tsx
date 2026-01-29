@@ -18,6 +18,18 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
+  // Check if user is premium buyer (for premium window logic)
+  const { data: { user } } = await supabase.auth.getUser()
+  let isPremiumBuyer = false
+  if (user) {
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('buyer_tier')
+      .eq('user_id', user.id)
+      .single()
+    isPremiumBuyer = userProfile?.buyer_tier === 'premium'
+  }
+
   // Get vendor profile with rating info
   const { data: vendor, error } = await supabase
     .from('vendor_profiles')
@@ -51,6 +63,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     .from('listings')
     .select(`
       *,
+      premium_window_ends_at,
       listing_images (
         id,
         url,
@@ -70,6 +83,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     .eq('status', 'published')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+
+  // Current time for premium window comparison
+  const now = new Date().toISOString()
 
   // Get all unique categories from vendor's listings
   const listingCategories = [...new Set(
@@ -745,6 +761,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const listingImages = listing.listing_images as { id: string; url: string; is_primary: boolean; display_order: number }[] | null
                 const listingMarkets = listing.listing_markets as { market_id: string; markets: { id: string; name: string; market_type: string } | null }[] | null
                 const primaryImage = listingImages?.find(img => img.is_primary) || listingImages?.[0]
+                const premiumWindowEndsAt = listing.premium_window_ends_at as string | null
+                const isInPremiumWindow = premiumWindowEndsAt && premiumWindowEndsAt > now
+                const showPremiumRestriction = isInPremiumWindow && !isPremiumBuyer
 
                 return (
                   <Link
@@ -755,14 +774,35 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       padding: 16,
                       backgroundColor: 'white',
                       color: '#333',
-                      border: '1px solid #e5e7eb',
+                      border: showPremiumRestriction ? '2px solid #3b82f6' : '1px solid #e5e7eb',
                       borderRadius: 8,
                       textDecoration: 'none',
-                      height: '100%'
+                      height: '100%',
+                      position: 'relative'
                     }}
                   >
+                    {/* Premium Window Banner for standard buyers */}
+                    {showPremiumRestriction && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        padding: '6px 12px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        borderRadius: '6px 6px 0 0',
+                        zIndex: 2
+                      }}>
+                        ⭐ Premium Early-Bird — Upgrade to Buy Now
+                      </div>
+                    )}
+
                     {/* Image with Category Badge */}
-                    <div style={{ position: 'relative', marginBottom: 12 }}>
+                    <div style={{ position: 'relative', marginBottom: 12, marginTop: showPremiumRestriction ? 28 : 0 }}>
                       {listingCategory && (
                         <span style={{
                           position: 'absolute',

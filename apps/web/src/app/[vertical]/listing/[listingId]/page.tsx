@@ -23,6 +23,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     .from('listings')
     .select(`
       *,
+      premium_window_ends_at,
       vendor_profiles!inner (
         id,
         profile_data,
@@ -73,6 +74,23 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   // Check if user is logged in (for private pickup address visibility)
   const { data: { user } } = await supabase.auth.getUser()
   const isLoggedIn = !!user
+
+  // Check if user is premium buyer (for premium window logic)
+  let isPremiumBuyer = false
+  if (user) {
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('buyer_tier')
+      .eq('user_id', user.id)
+      .single()
+    isPremiumBuyer = userProfile?.buyer_tier === 'premium'
+  }
+
+  // Check if listing is in premium window
+  const premiumWindowEndsAt = listing.premium_window_ends_at as string | null
+  const now = new Date().toISOString()
+  const isInPremiumWindow = !!(premiumWindowEndsAt && premiumWindowEndsAt > now)
+  const isPremiumRestricted = isInPremiumWindow && !isPremiumBuyer
 
   return (
     <div
@@ -198,6 +216,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 maxQuantity={listing.quantity}
                 primaryColor={branding.colors.primary}
                 vertical={vertical}
+                isPremiumRestricted={isPremiumRestricted}
               />
 
               {/* Available At - Markets */}

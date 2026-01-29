@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { AddToCartButton, AvailableMarket } from '@/components/cart/AddToCartButton'
 import CutoffStatusBanner from './CutoffStatusBanner'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
@@ -10,13 +11,15 @@ interface ListingPurchaseSectionProps {
   maxQuantity?: number | null
   primaryColor?: string
   vertical?: string
+  isPremiumRestricted?: boolean
 }
 
 export default function ListingPurchaseSection({
   listingId,
   maxQuantity,
   primaryColor = '#333',
-  vertical = 'farmers_market'
+  vertical = 'farmers_market',
+  isPremiumRestricted = false
 }: ListingPurchaseSectionProps) {
   const [ordersClosed, setOrdersClosed] = useState(false)
   const [markets, setMarkets] = useState<AvailableMarket[]>([])
@@ -39,6 +42,52 @@ export default function ListingPurchaseSection({
     }
     fetchMarkets()
   }, [listingId])
+
+  // Show premium upgrade message instead of add to cart when restricted
+  if (isPremiumRestricted) {
+    return (
+      <div style={{
+        padding: spacing.sm,
+        backgroundColor: '#eff6ff',
+        border: '2px solid #3b82f6',
+        borderRadius: radius.md,
+        textAlign: 'center'
+      }}>
+        <div style={{
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
+          color: '#1e40af',
+          marginBottom: spacing.xs
+        }}>
+          ⭐ Premium Early-Bird Access
+        </div>
+        <p style={{
+          fontSize: typography.sizes.sm,
+          color: '#3b82f6',
+          margin: `0 0 ${spacing.sm} 0`
+        }}>
+          This listing is in the premium early-bird window. Upgrade to buy now!
+        </p>
+        <Link
+          href={`/${vertical}/buyer/upgrade`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: `${spacing.xs} ${spacing.md}`,
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: radius.sm,
+            fontWeight: typography.weights.semibold,
+            minHeight: 44
+          }}
+        >
+          Upgrade to Premium
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div>
