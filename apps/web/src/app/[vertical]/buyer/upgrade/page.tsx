@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -10,6 +10,28 @@ export default function BuyerUpgradePage() {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('monthly')
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [alreadyPremium, setAlreadyPremium] = useState(false)
+
+  // Check if already premium on mount
+  useEffect(() => {
+    async function checkSubscription() {
+      try {
+        const res = await fetch('/api/buyer/subscription/status')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.tier === 'premium') {
+            setAlreadyPremium(true)
+          }
+        }
+      } catch (err) {
+        console.error('Error checking subscription:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    checkSubscription()
+  }, [])
 
   const handleUpgrade = async () => {
     setIsProcessing(true)
@@ -43,6 +65,97 @@ export default function BuyerUpgradePage() {
       setError(err instanceof Error ? err.message : 'Failed to start checkout')
       setIsProcessing(false)
     }
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#f9fafb',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <p style={{ color: '#666' }}>Loading...</p>
+      </div>
+    )
+  }
+
+  // Show already premium message
+  if (alreadyPremium) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#f9fafb',
+        padding: '24px 16px'
+      }}>
+        <div style={{
+          maxWidth: 600,
+          margin: '0 auto',
+          textAlign: 'center',
+          paddingTop: 80
+        }}>
+          <div style={{
+            width: 80,
+            height: 80,
+            backgroundColor: '#dcfce7',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            fontSize: 40
+          }}>
+            ✓
+          </div>
+          <h1 style={{
+            fontSize: 28,
+            fontWeight: 'bold',
+            color: '#111827',
+            margin: '0 0 12px 0'
+          }}>
+            You&apos;re Already Premium!
+          </h1>
+          <p style={{
+            fontSize: 16,
+            color: '#6b7280',
+            margin: '0 0 32px 0',
+            lineHeight: 1.6
+          }}>
+            Your account already has premium membership. You have access to Market Box subscriptions and all premium features.
+          </p>
+          <Link
+            href={`/${vertical}/browse`}
+            style={{
+              display: 'inline-block',
+              padding: '14px 32px',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 8,
+              fontWeight: 600,
+              fontSize: 16
+            }}
+          >
+            Start Shopping
+          </Link>
+          <p style={{
+            marginTop: 24,
+            fontSize: 13,
+            color: '#9ca3af'
+          }}>
+            Manage your subscription in{' '}
+            <Link
+              href={`/${vertical}/settings`}
+              style={{ color: '#2563eb', textDecoration: 'none' }}
+            >
+              account settings
+            </Link>
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (

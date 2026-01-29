@@ -1,6 +1,6 @@
 import { stripe } from './config'
 import Stripe from 'stripe'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 /**
  * Verify webhook signature
@@ -65,7 +65,7 @@ export async function handleWebhookEvent(event: Stripe.Event) {
 }
 
 async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Check if this is a subscription checkout
   if (session.mode === 'subscription') {
@@ -115,7 +115,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
  * Handle subscription checkout completion - activate premium tier
  */
 async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Session) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const userId = session.metadata?.user_id
   const subscriptionType = session.metadata?.type as 'vendor' | 'buyer' | undefined
@@ -179,7 +179,7 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
  * Handle subscription updates (status changes, renewals)
  */
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const subData = subscription as any
 
@@ -235,7 +235,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
  * Handle subscription deletion (cancellation completed)
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const subData = subscription as any
 
@@ -282,7 +282,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   // Only handle subscription invoices
   if (!invoiceData.subscription) return
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const subscriptionId = invoiceData.subscription as string
 
   // Get subscription to find metadata
@@ -327,7 +327,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   // Only handle subscription invoices
   if (!invoiceData.subscription) return
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const subscriptionId = invoiceData.subscription as string
 
   // Get subscription to find metadata
@@ -356,7 +356,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 }
 
 async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   await supabase
     .from('payments')
@@ -368,7 +368,7 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   await supabase
     .from('payments')
@@ -377,7 +377,7 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
 }
 
 async function handleAccountUpdated(account: Stripe.Account) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   await supabase
     .from('vendor_profiles')
@@ -390,7 +390,7 @@ async function handleAccountUpdated(account: Stripe.Account) {
 }
 
 async function handleTransferCreated(transfer: Stripe.Transfer) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const orderItemId = transfer.metadata?.order_item_id
 
   if (!orderItemId) return
@@ -405,7 +405,7 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
 }
 
 async function handleTransferFailed(transfer: Stripe.Transfer) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const orderItemId = transfer.metadata?.order_item_id
 
   if (!orderItemId) return
