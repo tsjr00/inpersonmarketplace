@@ -74,12 +74,12 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
             marginBottom: 20
           }}>
             <p style={{ marginTop: 0, fontWeight: 600, fontSize: 16 }}>
-              You&apos;ve reached your limit of {limit} listings for this market.
+              You&apos;ve reached your limit of {limit} total listings.
             </p>
             <p style={{ marginBottom: 0 }}>
               {tier === 'standard' ? (
                 <>
-                  <strong>Upgrade to Premium</strong> to create up to 10 listings per market,
+                  <strong>Upgrade to Premium</strong> to create up to 15 listings,
                   or delete an existing listing to create a new one.
                 </>
               ) : (

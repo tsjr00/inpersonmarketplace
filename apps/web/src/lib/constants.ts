@@ -86,24 +86,25 @@ export function formatDisplayPrice(basePriceCents: number): string {
 }
 
 // Vendor tier limits
+// Note: Listings are counted per-account total, not per-market
 export const VENDOR_LIMITS = {
   standard: {
-    listingsPerMarket: 5,
+    totalListings: 5,
     traditionalMarkets: 1,
   },
   premium: {
-    listingsPerMarket: 10,
-    traditionalMarkets: 3,
+    totalListings: 15,
+    traditionalMarkets: 4,
   },
 } as const
 
 export type VendorTier = keyof typeof VENDOR_LIMITS
 
 /**
- * Get listing limit for a vendor tier
+ * Get listing limit for a vendor tier (per-account total)
  */
 export function getListingLimit(tier: string): number {
-  return VENDOR_LIMITS[tier as VendorTier]?.listingsPerMarket || 5
+  return VENDOR_LIMITS[tier as VendorTier]?.totalListings || 5
 }
 
 /**

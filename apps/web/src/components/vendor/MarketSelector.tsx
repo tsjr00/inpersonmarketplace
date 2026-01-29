@@ -13,12 +13,25 @@ type Market = {
   day_of_week?: number
   start_time?: string
   end_time?: string
-  currentCount: number
+  currentCount: number // Account total (same for all markets)
   limit: number
   canAdd: boolean
   isVendorOwned: boolean
   isHomeMarket: boolean
   homeMarketRestricted: boolean
+}
+
+type MarketStatsResponse = {
+  markets: Market[]
+  currentMarketIds: string[]
+  vendorTier: string
+  homeMarketId: string | null
+  isPremium: boolean
+  totalListings: number
+  tierLimits: {
+    traditionalMarkets: number
+    productListings: number
+  }
 }
 
 type MarketSelectorProps = {
@@ -48,6 +61,8 @@ export default function MarketSelector({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const [totalListings, setTotalListings] = useState(0)
+  const [listingLimit, setListingLimit] = useState(5)
 
   useEffect(() => {
     fetchMarkets()
@@ -62,8 +77,10 @@ export default function MarketSelector({
         throw new Error('Failed to fetch markets')
       }
 
-      const data = await res.json()
+      const data: MarketStatsResponse = await res.json()
       setMarkets(data.markets || [])
+      setTotalListings(data.totalListings || 0)
+      setListingLimit(data.tierLimits?.productListings || 5)
 
       // Call onMarketsLoaded callback if provided
       if (onMarketsLoaded) {
@@ -151,8 +168,35 @@ export default function MarketSelector({
   const fixedMarkets = markets.filter(m => m.market_type === 'traditional')
   const privateMarkets = markets.filter(m => m.market_type === 'private_pickup')
 
+  // For editing, the current listing doesn't count against limit
+  const effectiveCount = listingId ? Math.max(0, totalListings - 1) : totalListings
+  const isAtLimit = effectiveCount >= listingLimit
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Account Listing Count */}
+      <div style={{
+        padding: 12,
+        backgroundColor: isAtLimit ? '#fef2f2' : '#f0fdf4',
+        border: `1px solid ${isAtLimit ? '#fecaca' : '#bbf7d0'}`,
+        borderRadius: 8,
+        fontSize: 14
+      }}>
+        <div style={{
+          fontWeight: 600,
+          color: isAtLimit ? '#dc2626' : '#16a34a',
+          marginBottom: 4
+        }}>
+          {effectiveCount} of {listingLimit} listings used
+        </div>
+        <div style={{ fontSize: 13, color: '#6b7280' }}>
+          {isAtLimit
+            ? 'You\'ve reached your listing limit. Delete or unpublish a listing to create a new one.'
+            : `You can create ${listingLimit - effectiveCount} more listing${listingLimit - effectiveCount !== 1 ? 's' : ''}.`
+          }
+        </div>
+      </div>
+
       {/* Traditional Markets */}
       {fixedMarkets.length > 0 && (
         <div>
@@ -217,19 +261,20 @@ export default function MarketSelector({
                         {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
                       </div>
                     )}
-                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                      {market.currentCount} of {market.limit} listings used
-                      {market.homeMarketRestricted && (
-                        <span style={{ color: '#9ca3af', marginLeft: 8, fontStyle: 'italic' }}>
-                          Upgrade to join multiple markets
-                        </span>
-                      )}
-                      {!canSelect && !isSelected && !market.homeMarketRestricted && (
-                        <span style={{ color: '#dc2626', marginLeft: 8 }}>
-                          (Limit reached)
-                        </span>
-                      )}
-                    </div>
+                    {(market.homeMarketRestricted || (!canSelect && !isSelected)) && (
+                      <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                        {market.homeMarketRestricted && (
+                          <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>
+                            Upgrade to join multiple markets
+                          </span>
+                        )}
+                        {!canSelect && !isSelected && !market.homeMarketRestricted && (
+                          <span style={{ color: '#dc2626' }}>
+                            Listing limit reached
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </label>
               )
@@ -284,14 +329,11 @@ export default function MarketSelector({
                     <div style={{ fontSize: 13, color: '#6b7280' }}>
                       {market.address}, {market.city}, {market.state}
                     </div>
-                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-                      {market.currentCount} of {market.limit} listings used
-                      {!canSelect && !isSelected && (
-                        <span style={{ color: '#dc2626', marginLeft: 8 }}>
-                          (Limit reached)
-                        </span>
-                      )}
-                    </div>
+                    {!canSelect && !isSelected && (
+                      <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
+                        Listing limit reached
+                      </div>
+                    )}
                   </div>
                 </label>
               )

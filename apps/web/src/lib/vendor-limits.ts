@@ -9,7 +9,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
  * - Pickup windows per location: 2
  * - Total Market Boxes: 2 (active + inactive)
  * - Active Market Boxes: 1
- * - Product listings: 5
+ * - Product listings: 5 (total across all markets)
  *
  * Premium Vendors:
  * - Traditional markets: 4
@@ -17,7 +17,10 @@ import { SupabaseClient } from '@supabase/supabase-js'
  * - Pickup windows per location: 6
  * - Total Market Boxes: 6 (active + inactive)
  * - Active Market Boxes: 4
- * - Product listings: 10
+ * - Product listings: 15 (total across all markets)
+ *
+ * Note: Product listings are counted per-account (total), not per-market.
+ * A listing at multiple markets counts as 1 listing.
  */
 
 export type VendorTier = 'standard' | 'premium' | 'featured'
@@ -37,7 +40,7 @@ export const TIER_LIMITS = {
     pickupWindowsPerLocation: 6,
     totalMarketBoxes: 6,
     activeMarketBoxes: 4,
-    productListings: 10,
+    productListings: 15,
   },
   // Featured tier has same limits as premium
   featured: {
@@ -46,7 +49,7 @@ export const TIER_LIMITS = {
     pickupWindowsPerLocation: 6,
     totalMarketBoxes: 6,
     activeMarketBoxes: 4,
-    productListings: 10,
+    productListings: 15,
   },
 } as const
 
