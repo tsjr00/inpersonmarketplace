@@ -546,19 +546,22 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             marginBottom: 16
           }}>
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
               marginBottom: 8
             }}>
-              <span style={{ fontSize: 16 }}>📦</span>
+              <span style={{
+                fontSize: 14,
+                color: '#92400e'
+              }}>
+                If your schedule makes it difficult to get to the market,{' '}
+              </span>
               <span style={{
                 fontSize: 14,
                 fontWeight: 600,
                 color: '#92400e'
               }}>
-                Private Pickup Available
+                Private Pickup is available
               </span>
+              <span style={{ fontSize: 16, marginLeft: 6 }}>🏠</span>
             </div>
             <ul style={{
               margin: 0,
