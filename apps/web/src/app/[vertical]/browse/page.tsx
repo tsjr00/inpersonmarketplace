@@ -24,6 +24,7 @@ interface Listing {
   category: string | null
   created_at: string
   vendor_profile_id: string
+  premium_window_ends_at: string | null
   listing_data?: {
     contains_allergens?: boolean
     ingredients?: string
@@ -63,6 +64,7 @@ interface MarketBoxOffering {
   active_subscribers: number
   max_subscribers: number | null
   is_at_capacity: boolean
+  premium_window_ends_at: string | null
   market: {
     id: string
     name: string
@@ -118,6 +120,18 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
+  // Check if user is premium buyer
+  const { data: { user } } = await supabase.auth.getUser()
+  let isPremiumBuyer = false
+  if (user) {
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('buyer_tier')
+      .eq('user_id', user.id)
+      .single()
+    isPremiumBuyer = userProfile?.buyer_tier === 'premium'
+  }
+
   // Determine current view
   const currentView = view === 'market-boxes' ? 'market-boxes' : 'listings'
 
@@ -136,6 +150,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         pickup_end_time,
         active,
         max_subscribers,
+        premium_window_ends_at,
         vendor_profiles!inner (
           id,
           profile_data,
@@ -171,7 +186,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     }
 
     // Build offerings with subscriber counts
-    const offeringsWithSubs: MarketBoxOffering[] = (marketBoxes || []).map(offering => {
+    const allOfferingsWithSubs: MarketBoxOffering[] = (marketBoxes || []).map(offering => {
       const activeSubscribers = subscriptionCounts.get(offering.id) || 0
       const maxSubs = offering.max_subscribers
 
@@ -191,6 +206,20 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         market: market as MarketBoxOffering['market'],
       }
     })
+
+    // Filter out offerings in premium window for standard buyers
+    const now = new Date().toISOString()
+    let offeringsWithSubs = allOfferingsWithSubs
+    let marketBoxPremiumWindowCount = 0
+
+    if (!isPremiumBuyer) {
+      marketBoxPremiumWindowCount = allOfferingsWithSubs.filter(
+        offering => offering.premium_window_ends_at && offering.premium_window_ends_at > now
+      ).length
+      offeringsWithSubs = allOfferingsWithSubs.filter(
+        offering => !offering.premium_window_ends_at || offering.premium_window_ends_at <= now
+      )
+    }
 
     return (
       <div
@@ -242,6 +271,45 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               {offeringsWithSubs.length} market box{offeringsWithSubs.length !== 1 ? 'es' : ''} available
             </p>
           </div>
+
+          {/* Premium Window Info Box - show for standard buyers when items are in window */}
+          {!isPremiumBuyer && marketBoxPremiumWindowCount > 0 && (
+            <div style={{
+              padding: spacing.sm,
+              marginBottom: spacing.md,
+              backgroundColor: colors.surfaceSubtle,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+              flexWrap: 'wrap'
+            }}>
+              <p style={{
+                margin: 0,
+                fontSize: typography.sizes.sm,
+                color: colors.textSecondary,
+                flex: 1,
+                minWidth: 200
+              }}>
+                {marketBoxPremiumWindowCount} market box{marketBoxPremiumWindowCount !== 1 ? 'es are' : ' is'} in the premium early-bird window.
+                More will be visible soon.
+              </p>
+              <Link
+                href={`/${vertical}/buyer/upgrade`}
+                style={{
+                  fontSize: typography.sizes.sm,
+                  color: colors.primary,
+                  textDecoration: 'none',
+                  fontWeight: typography.weights.medium,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Upgrade to Premium →
+              </Link>
+            </div>
+          )}
 
           {/* Market Boxes Grid */}
           {offeringsWithSubs.length > 0 ? (
@@ -295,6 +363,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       created_at,
       vendor_profile_id,
       listing_data,
+      premium_window_ends_at,
       vendor_profiles!inner (
         id,
         profile_data,
@@ -336,7 +405,24 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   const { data: rawListings } = await query
 
   // Type assertion for listings
-  const listings = rawListings as unknown as Listing[] | null
+  const allListings = rawListings as unknown as Listing[] | null
+
+  // Filter out listings in premium window for standard buyers
+  const now = new Date().toISOString()
+  let listings: Listing[] | null = allListings
+  let premiumWindowCount = 0
+
+  if (allListings && !isPremiumBuyer) {
+    // Count listings in premium window
+    premiumWindowCount = allListings.filter(
+      listing => listing.premium_window_ends_at && listing.premium_window_ends_at > now
+    ).length
+
+    // Filter to only show listings NOT in premium window
+    listings = allListings.filter(
+      listing => !listing.premium_window_ends_at || listing.premium_window_ends_at <= now
+    )
+  }
 
   // Get categories - use CATEGORIES constant for farmers_market, or fall back to config
   let uniqueCategories: readonly string[] | string[] = []
@@ -442,6 +528,45 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             {search && ` matching "${search}"`}
           </p>
         </div>
+
+        {/* Premium Window Info Box - show for standard buyers when items are in window */}
+        {!isPremiumBuyer && premiumWindowCount > 0 && (
+          <div style={{
+            padding: spacing.sm,
+            marginBottom: spacing.md,
+            backgroundColor: colors.surfaceSubtle,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: spacing.sm,
+            flexWrap: 'wrap'
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: typography.sizes.sm,
+              color: colors.textSecondary,
+              flex: 1,
+              minWidth: 200
+            }}>
+              {premiumWindowCount} listing{premiumWindowCount !== 1 ? 's are' : ' is'} in the premium early-bird window.
+              More items will be visible soon.
+            </p>
+            <Link
+              href={`/${vertical}/buyer/upgrade`}
+              style={{
+                fontSize: typography.sizes.sm,
+                color: colors.primary,
+                textDecoration: 'none',
+                fontWeight: typography.weights.medium,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Upgrade to Premium →
+            </Link>
+          </div>
+        )}
 
         {/* Listings Display */}
         {listings && listings.length > 0 ? (
