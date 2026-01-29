@@ -511,19 +511,6 @@ export default function MarketBoxDetailPage() {
                 fontSize: 14
               }}>
                 {purchase.block_reason}
-                {purchase.block_reason.includes('Premium') && (
-                  <Link
-                    href={`/${vertical}/buyer/upgrade`}
-                    style={{
-                      display: 'block',
-                      marginTop: 8,
-                      color: '#92400e',
-                      fontWeight: 600
-                    }}
-                  >
-                    Upgrade to Premium →
-                  </Link>
-                )}
               </div>
             )}
 
@@ -546,7 +533,7 @@ export default function MarketBoxDetailPage() {
             </button>
 
             <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: '#6b7280' }}>
-              Premium membership required. You&apos;ll be charged the full amount today for {selectedTermWeeks} weeks.
+              You&apos;ll be charged the full amount today for {selectedTermWeeks} weeks.
             </p>
           </div>
         </div>

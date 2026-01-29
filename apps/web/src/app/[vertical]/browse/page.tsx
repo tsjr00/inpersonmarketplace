@@ -261,7 +261,6 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             <h4 style={{ margin: `0 0 ${spacing['2xs']} 0`, color: colors.primaryDark, fontSize: typography.sizes.sm }}>What are Market Boxes?</h4>
             <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.primaryDark }}>
               Market Boxes are 4-week subscription bundles. Pay once, pick up weekly at the same location.
-              Premium membership required to purchase.
             </p>
           </div>
 

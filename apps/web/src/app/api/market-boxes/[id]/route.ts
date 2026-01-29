@@ -93,39 +93,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
     (profileData?.farm_name as string) ||
     'Vendor'
 
-  // Check if current user is logged in and premium
+  // Check if current user is logged in and can purchase
   const { data: { user } } = await supabase.auth.getUser()
   let canPurchase = false
   let purchaseBlockReason: string | null = null
 
   if (!user) {
     purchaseBlockReason = 'Login required to purchase market boxes'
+  } else if (!isAvailable) {
+    purchaseBlockReason = 'This market box is currently at capacity'
   } else {
-    // Check if user is premium buyer
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('buyer_tier')
-      .eq('user_id', user.id)
-      .single()
+    // Check if user already has an active subscription to this offering
+    const { count: existingSub } = await supabase
+      .from('market_box_subscriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('offering_id', offeringId)
+      .eq('buyer_user_id', user.id)
+      .eq('status', 'active')
 
-    if (userProfile?.buyer_tier !== 'premium') {
-      purchaseBlockReason = 'Premium membership required to purchase market boxes'
-    } else if (!isAvailable) {
-      purchaseBlockReason = 'This market box is currently at capacity'
+    if ((existingSub || 0) > 0) {
+      purchaseBlockReason = 'You already have an active subscription to this market box'
     } else {
-      // Check if user already has an active subscription to this offering
-      const { count: existingSub } = await supabase
-        .from('market_box_subscriptions')
-        .select('*', { count: 'exact', head: true })
-        .eq('offering_id', offeringId)
-        .eq('buyer_user_id', user.id)
-        .eq('status', 'active')
-
-      if ((existingSub || 0) > 0) {
-        purchaseBlockReason = 'You already have an active subscription to this market box'
-      } else {
-        canPurchase = true
-      }
+      canPurchase = true
     }
   }
 
