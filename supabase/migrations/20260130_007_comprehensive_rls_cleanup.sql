@@ -638,11 +638,12 @@ GRANT ALL ON public.vendor_activity_scan_log TO service_role;
 GRANT ALL ON public.vendor_activity_settings TO service_role;
 
 -- -----------------------------------------------------------------------------
--- vendor_referral_credits: Vendors see own
+-- vendor_referral_credits: Vendors see credits they earned or were referred
 -- -----------------------------------------------------------------------------
 CREATE POLICY "vendor_referral_credits_select" ON public.vendor_referral_credits
     FOR SELECT USING (
-        vendor_profile_id IN (SELECT user_vendor_profile_ids())
+        referrer_vendor_id IN (SELECT user_vendor_profile_ids())
+        OR referred_vendor_id IN (SELECT user_vendor_profile_ids())
     );
 
 GRANT ALL ON public.vendor_referral_credits TO service_role;
