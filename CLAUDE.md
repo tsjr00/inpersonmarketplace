@@ -1,17 +1,34 @@
 # Claude Code Project Rules
 
-## Error Resolution System - USE BEFORE FIXING ANY ERROR
+## STOP - READ THIS FIRST
 
-The `error_resolutions` table in Supabase tracks attempted fixes and their outcomes.
+**Before fixing ANY error, you MUST:**
+1. Create a TodoWrite with first item: "Query error_resolutions for similar issues"
+2. Actually run the query below (or ask user to run it)
+3. Review results before proposing ANY fix
+4. Document your fix attempt in error_resolutions when done
 
-### BEFORE Attempting Any Fix:
+**This is not optional. Skipping this step wastes time repeating failed approaches.**
+
+---
+
+## Error Resolution System - MANDATORY FIRST STEP
+
+The `error_resolutions` table tracks all fix attempts and outcomes.
+
+### STEP 1: Query Before Fixing (REQUIRED)
 ```sql
--- Check if this error type has been addressed before
+-- Run this FIRST for any error involving these keywords
 SELECT error_code, attempted_fix, status, failure_reason, migration_file
 FROM error_resolutions
-WHERE error_code LIKE '%KEYWORD%'  -- e.g., '%RLS%', '%recursion%', '%policy%'
-ORDER BY created_at DESC;
+WHERE
+  attempted_fix ILIKE '%KEYWORD%'  -- Replace with: RLS, policy, recursion, column, schema, etc.
+  OR error_code ILIKE '%KEYWORD%'
+ORDER BY created_at DESC
+LIMIT 20;
 ```
+
+**If you cannot query the database directly, ask the user to run this query and share results.**
 
 ### AFTER Each Fix Attempt:
 Document what was tried, whether it worked, and why:
