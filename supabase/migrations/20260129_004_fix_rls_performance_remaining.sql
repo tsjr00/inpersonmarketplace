@@ -268,7 +268,7 @@ DROP POLICY IF EXISTS "market_vendors_select" ON public.market_vendors;
 CREATE POLICY "market_vendors_select" ON public.market_vendors
     FOR SELECT USING (
         -- Public can see approved vendors at active markets
-        (status = 'approved')
+        (approved = true)
         OR
         -- Vendors can see their own entries
         vendor_profile_id IN (
