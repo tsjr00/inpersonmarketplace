@@ -152,7 +152,7 @@ export async function GET() {
 
 /**
  * POST /api/buyer/market-boxes
- * Subscribe to a market box (premium buyers only)
+ * Purchase a market box (prepaid weekly pickup)
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -160,19 +160,6 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Check if user is premium buyer
-  const { data: userProfile } = await supabase
-    .from('user_profiles')
-    .select('buyer_tier')
-    .eq('user_id', user.id)
-    .single()
-
-  if (userProfile?.buyer_tier !== 'premium') {
-    return NextResponse.json({
-      error: 'Premium membership required to purchase market boxes',
-    }, { status: 403 })
   }
 
   const body = await request.json()
@@ -307,6 +294,6 @@ export async function POST(request: NextRequest) {
       ...subscription,
       pickups: pickups || [],
     },
-    message: `Successfully subscribed to ${offering.name}! Your first pickup is on ${subscriptionStartDate}.`,
+    message: `Successfully purchased ${offering.name}! Your first pickup is on ${subscriptionStartDate}.`,
   }, { status: 201 })
 }

@@ -537,7 +537,7 @@ export default function MarketBoxDetailPage() {
                 cursor: subscribing || !purchase.can_purchase ? 'not-allowed' : 'pointer'
               }}
             >
-              {subscribing ? 'Processing...' : `Subscribe for ${formatPrice(selectedTerm?.price_cents || offering.price_cents)}`}
+              {subscribing ? 'Processing...' : `Purchase for ${formatPrice(selectedTerm?.price_cents || offering.price_cents)}`}
             </button>
 
             <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: '#6b7280' }}>
