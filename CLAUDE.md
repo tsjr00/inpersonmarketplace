@@ -1,5 +1,56 @@
 # Claude Code Project Rules
 
+## Error Resolution System - USE BEFORE FIXING ANY ERROR
+
+The `error_resolutions` table in Supabase tracks attempted fixes and their outcomes.
+
+### BEFORE Attempting Any Fix:
+```sql
+-- Check if this error type has been addressed before
+SELECT error_code, attempted_fix, status, failure_reason, migration_file
+FROM error_resolutions
+WHERE error_code LIKE '%KEYWORD%'  -- e.g., '%RLS%', '%recursion%', '%policy%'
+ORDER BY created_at DESC;
+```
+
+### AFTER Each Fix Attempt:
+Document what was tried, whether it worked, and why:
+```sql
+INSERT INTO error_resolutions (
+  error_code,
+  attempted_fix,
+  migration_file,
+  code_changes,
+  status,
+  failure_reason,
+  verification_method,
+  created_by
+) VALUES (
+  'ERR_XXX_001',           -- Categorized error code
+  'Description of fix',    -- What was attempted
+  '20260130_007_xxx.sql',  -- Migration file if applicable
+  'Summary of changes',    -- Code/policy changes made
+  'verified',              -- 'pending', 'verified', 'failed', 'partial'
+  NULL,                    -- Reason if failed
+  'manual',                -- How it was verified
+  'Claude'                 -- Who made the fix
+);
+```
+
+### Error Code Categories:
+- `ERR_RLS_XXX` - Row Level Security issues
+- `ERR_PERF_XXX` - Performance warnings
+- `ERR_SEC_XXX` - Security warnings
+- `ERR_SCHEMA_XXX` - Schema/column issues
+- `ERR_AUTH_XXX` - Authentication issues
+
+### Why This Matters:
+- Prevents repeating failed approaches
+- Documents what works for specific error patterns
+- Enables future developers (human or AI) to learn from past fixes
+
+---
+
 ## RLS Policy Changes - MANDATORY PROCESS
 
 Before ANY migration that touches RLS policies:
