@@ -6,6 +6,7 @@ import Link from 'next/link'
 import OrderStatusSummary from '@/components/buyer/OrderStatusSummary'
 import OrderTimeline from '@/components/buyer/OrderTimeline'
 import PickupDetails from '@/components/buyer/PickupDetails'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { formatPrice, calculateDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -72,7 +73,7 @@ export default function BuyerOrderDetailPage() {
 
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [confirmingItemId, setConfirmingItemId] = useState<string | null>(null)
   const [cancellingItemId, setCancellingItemId] = useState<string | null>(null)
   const [reportingItemId, setReportingItemId] = useState<string | null>(null)
@@ -84,17 +85,22 @@ export default function BuyerOrderDetailPage() {
   const fetchOrder = async () => {
     try {
       const res = await fetch(`/api/buyer/orders/${orderId}`)
+      const data = await res.json()
       if (!res.ok) {
         if (res.status === 401) {
           router.push(`/${vertical}/login?redirect=/${vertical}/buyer/orders/${orderId}`)
           return
         }
-        throw new Error('Order not found')
+        setError({
+          message: data.error || 'Order not found',
+          code: data.code,
+          traceId: data.traceId
+        })
+        return
       }
-      const data = await res.json()
       setOrder(data.order)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load order')
+      setError({ message: err instanceof Error ? err.message : 'Failed to load order' })
     } finally {
       setLoading(false)
     }
@@ -217,9 +223,14 @@ export default function BuyerOrderDetailPage() {
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.surfaceBase,
-        gap: spacing.sm
+        gap: spacing.sm,
+        padding: spacing.md
       }}>
-        <p style={{ color: '#991b1b', fontSize: typography.sizes.base }}>{error || 'Order not found'}</p>
+        {error ? (
+          <ErrorDisplay error={error} verticalId={vertical} />
+        ) : (
+          <p style={{ color: '#991b1b', fontSize: typography.sizes.base }}>Order not found</p>
+        )}
         <Link
           href={`/${vertical}/buyer/orders`}
           style={{

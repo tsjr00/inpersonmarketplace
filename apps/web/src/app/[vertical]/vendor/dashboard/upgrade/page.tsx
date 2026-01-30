@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 
 export default function VendorUpgradePage() {
   const params = useParams()
@@ -10,7 +11,7 @@ export default function VendorUpgradePage() {
   const vertical = params.vertical as string
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('monthly')
   const [isProcessing, setIsProcessing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [alreadyPremium, setAlreadyPremium] = useState(false)
 
@@ -52,18 +53,25 @@ export default function VendorUpgradePage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to create checkout session')
+        setError({
+          message: data.error || 'Failed to create checkout session',
+          code: data.code,
+          traceId: data.traceId
+        })
+        setIsProcessing(false)
+        return
       }
 
       // Redirect to Stripe Checkout
       if (data.url) {
         window.location.href = data.url
       } else {
-        throw new Error('No checkout URL returned')
+        setError({ message: 'No checkout URL returned' })
+        setIsProcessing(false)
       }
     } catch (err) {
       console.error('Upgrade error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to start checkout')
+      setError({ message: err instanceof Error ? err.message : 'Failed to start checkout' })
       setIsProcessing(false)
     }
   }
@@ -527,16 +535,8 @@ export default function VendorUpgradePage() {
 
         {/* Error Message */}
         {error && (
-          <div style={{
-            padding: 16,
-            marginBottom: 16,
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            color: '#991b1b',
-            textAlign: 'center'
-          }}>
-            {error}
+          <div style={{ marginBottom: 16 }}>
+            <ErrorDisplay error={error} verticalId={vertical} />
           </div>
         )}
 

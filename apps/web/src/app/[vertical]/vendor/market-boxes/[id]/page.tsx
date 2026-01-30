@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 
 interface MarketBoxOffering {
   id: string
@@ -79,7 +80,7 @@ export default function VendorMarketBoxDetailPage() {
   const [offering, setOffering] = useState<MarketBoxOffering | null>(null)
   const [pickups, setPickups] = useState<Pickup[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'subscribers' | 'pickups'>('overview')
   const [updatingPickup, setUpdatingPickup] = useState<string | null>(null)
   const [skipModalPickup, setSkipModalPickup] = useState<Pickup | null>(null)
@@ -92,12 +93,17 @@ export default function VendorMarketBoxDetailPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch offering')
+        setError({
+          message: data.error || 'Failed to fetch offering',
+          code: data.code,
+          traceId: data.traceId
+        })
+        return
       }
 
       setOffering(data.offering)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load offering')
+      setError({ message: err instanceof Error ? err.message : 'Failed to load offering' })
     }
   }, [offeringId])
 
@@ -221,16 +227,20 @@ export default function VendorMarketBoxDetailPage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, padding: 24 }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <div style={{
-            padding: 24,
-            backgroundColor: '#fee2e2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            color: '#991b1b',
-            textAlign: 'center'
-          }}>
-            {error || 'Offering not found'}
-          </div>
+          {error ? (
+            <ErrorDisplay error={error} verticalId={vertical} />
+          ) : (
+            <div style={{
+              padding: 24,
+              backgroundColor: '#fee2e2',
+              border: '1px solid #fecaca',
+              borderRadius: 8,
+              color: '#991b1b',
+              textAlign: 'center'
+            }}>
+              Offering not found
+            </div>
+          )}
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <Link href={`/${vertical}/vendor/market-boxes`} style={{ color: branding.colors.primary }}>
               Back to Market Boxes

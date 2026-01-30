@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 
 interface MarketBoxOffering {
   id: string
@@ -48,7 +49,7 @@ export default function VendorMarketBoxesPage() {
   const [offerings, setOfferings] = useState<MarketBoxOffering[]>([])
   const [limits, setLimits] = useState<Limits | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
 
   useEffect(() => {
     fetchOfferings()
@@ -60,13 +61,18 @@ export default function VendorMarketBoxesPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch offerings')
+        setError({
+          message: data.error || 'Failed to fetch offerings',
+          code: data.code,
+          traceId: data.traceId
+        })
+        return
       }
 
       setOfferings(data.offerings || [])
       setLimits(data.limits || null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load market boxes')
+      setError({ message: err instanceof Error ? err.message : 'Failed to load market boxes' })
     } finally {
       setLoading(false)
     }
@@ -136,15 +142,8 @@ export default function VendorMarketBoxesPage() {
         </div>
 
         {error && (
-          <div style={{
-            padding: 16,
-            marginBottom: 24,
-            backgroundColor: '#fee2e2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            color: '#991b1b'
-          }}>
-            {error}
+          <div style={{ marginBottom: 24 }}>
+            <ErrorDisplay error={error} verticalId={vertical} />
           </div>
         )}
 

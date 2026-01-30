@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -44,7 +45,7 @@ export default function CheckoutPage() {
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [user, setUser] = useState<{ id: string; email: string } | null>(null)
   const [marketWarnings, setMarketWarnings] = useState<string[]>([])
   const [marketValid, setMarketValid] = useState(true)
@@ -222,7 +223,13 @@ export default function CheckoutPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Checkout failed')
+        setError({
+          message: data.error || 'Checkout failed',
+          code: data.code,
+          traceId: data.traceId
+        })
+        setProcessing(false)
+        return
       }
 
       if (data.url) {
@@ -234,7 +241,7 @@ export default function CheckoutPage() {
         router.push(`/${vertical}/checkout/success?order=${data.orderId}`)
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Checkout failed')
+      setError({ message: err instanceof Error ? err.message : 'Checkout failed' })
       setProcessing(false)
     }
   }
@@ -385,15 +392,8 @@ export default function CheckoutPage() {
             }}>Order Items</h2>
 
             {error && (
-              <div style={{
-                padding: spacing.sm,
-                backgroundColor: '#f8d7da',
-                border: '1px solid #f5c6cb',
-                borderRadius: radius.md,
-                color: '#721c24',
-                marginBottom: spacing.sm,
-              }}>
-                {error}
+              <div style={{ marginBottom: spacing.sm }}>
+                <ErrorDisplay error={error} verticalId={vertical} />
               </div>
             )}
 

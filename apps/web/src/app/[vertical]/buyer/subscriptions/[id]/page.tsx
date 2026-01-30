@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 
 interface Pickup {
   id: string
@@ -56,7 +57,7 @@ export default function BuyerSubscriptionDetailPage() {
 
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
 
   const fetchSubscription = useCallback(async () => {
     try {
@@ -64,12 +65,17 @@ export default function BuyerSubscriptionDetailPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch subscription')
+        setError({
+          message: data.error || 'Failed to fetch subscription',
+          code: data.code,
+          traceId: data.traceId
+        })
+        return
       }
 
       setSubscription(data.subscription)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load subscription')
+      setError({ message: err instanceof Error ? err.message : 'Failed to load subscription' })
     } finally {
       setLoading(false)
     }
@@ -146,16 +152,20 @@ export default function BuyerSubscriptionDetailPage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, padding: 24 }}>
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
-          <div style={{
-            padding: 24,
-            backgroundColor: '#fee2e2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            color: '#991b1b',
-            textAlign: 'center'
-          }}>
-            {error || 'Subscription not found'}
-          </div>
+          {error ? (
+            <ErrorDisplay error={error} verticalId={vertical} />
+          ) : (
+            <div style={{
+              padding: 24,
+              backgroundColor: '#fee2e2',
+              border: '1px solid #fecaca',
+              borderRadius: 8,
+              color: '#991b1b',
+              textAlign: 'center'
+            }}>
+              Subscription not found
+            </div>
+          )}
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <Link href={`/${vertical}/buyer/subscriptions`} style={{ color: branding.colors.primary }}>
               Back to Subscriptions
