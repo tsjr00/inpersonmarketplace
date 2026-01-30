@@ -69,25 +69,26 @@ DROP POLICY IF EXISTS "Participants can view fulfillments" ON public.fulfillment
 DROP POLICY IF EXISTS "Vendors can manage fulfillments" ON public.fulfillments;
 DROP POLICY IF EXISTS "fulfillments_select" ON public.fulfillments;
 DROP POLICY IF EXISTS "fulfillments_vendor_all" ON public.fulfillments;
+DROP POLICY IF EXISTS "fulfillments_vendor_manage" ON public.fulfillments;
 
--- Single SELECT policy: order participants or vendor
+-- Single SELECT policy: transaction participants (buyer or vendor)
 CREATE POLICY "fulfillments_select" ON public.fulfillments
     FOR SELECT USING (
-        order_id IN (
-            SELECT id FROM orders WHERE buyer_user_id = (SELECT auth.uid())
+        transaction_id IN (
+            SELECT id FROM transactions WHERE buyer_user_id = (SELECT auth.uid())
         )
-        OR order_id IN (
-            SELECT id FROM orders WHERE vendor_profile_id IN (
+        OR transaction_id IN (
+            SELECT id FROM transactions WHERE vendor_profile_id IN (
                 SELECT id FROM vendor_profiles WHERE user_id = (SELECT auth.uid())
             )
         )
     );
 
--- Vendor can manage (insert/update/delete) fulfillments for their orders
+-- Vendor can manage (insert/update/delete) fulfillments for their transactions
 CREATE POLICY "fulfillments_vendor_manage" ON public.fulfillments
     FOR ALL USING (
-        order_id IN (
-            SELECT id FROM orders WHERE vendor_profile_id IN (
+        transaction_id IN (
+            SELECT id FROM transactions WHERE vendor_profile_id IN (
                 SELECT id FROM vendor_profiles WHERE user_id = (SELECT auth.uid())
             )
         )
