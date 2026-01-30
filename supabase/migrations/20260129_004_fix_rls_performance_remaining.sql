@@ -12,6 +12,10 @@ DROP POLICY IF EXISTS "Users can view own cart" ON public.carts;
 DROP POLICY IF EXISTS "Users can create own cart" ON public.carts;
 DROP POLICY IF EXISTS "Users can update own cart" ON public.carts;
 DROP POLICY IF EXISTS "Users can delete own cart" ON public.carts;
+DROP POLICY IF EXISTS "carts_select" ON public.carts;
+DROP POLICY IF EXISTS "carts_insert" ON public.carts;
+DROP POLICY IF EXISTS "carts_update" ON public.carts;
+DROP POLICY IF EXISTS "carts_delete" ON public.carts;
 
 CREATE POLICY "carts_select" ON public.carts
     FOR SELECT USING (user_id = (SELECT auth.uid()));
@@ -33,6 +37,10 @@ DROP POLICY IF EXISTS "Users can view own cart items" ON public.cart_items;
 DROP POLICY IF EXISTS "Users can insert own cart items" ON public.cart_items;
 DROP POLICY IF EXISTS "Users can update own cart items" ON public.cart_items;
 DROP POLICY IF EXISTS "Users can delete own cart items" ON public.cart_items;
+DROP POLICY IF EXISTS "cart_items_select" ON public.cart_items;
+DROP POLICY IF EXISTS "cart_items_insert" ON public.cart_items;
+DROP POLICY IF EXISTS "cart_items_update" ON public.cart_items;
+DROP POLICY IF EXISTS "cart_items_delete" ON public.cart_items;
 
 CREATE POLICY "cart_items_select" ON public.cart_items
     FOR SELECT USING (
@@ -78,6 +86,9 @@ DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications
 DROP POLICY IF EXISTS "Users can update own notifications" ON public.notifications;
 DROP POLICY IF EXISTS "Users can create own notifications" ON public.notifications;
 DROP POLICY IF EXISTS "System can create notifications" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_select" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_update" ON public.notifications;
+DROP POLICY IF EXISTS "notifications_insert" ON public.notifications;
 
 CREATE POLICY "notifications_select" ON public.notifications
     FOR SELECT USING (user_id = (SELECT auth.uid()));
@@ -97,6 +108,9 @@ DROP POLICY IF EXISTS "Owners can view own organizations" ON public.organization
 DROP POLICY IF EXISTS "Owners can update own organizations" ON public.organizations;
 DROP POLICY IF EXISTS "Users can create organizations" ON public.organizations;
 DROP POLICY IF EXISTS "Admins can view all organizations" ON public.organizations;
+DROP POLICY IF EXISTS "organizations_select" ON public.organizations;
+DROP POLICY IF EXISTS "organizations_insert" ON public.organizations;
+DROP POLICY IF EXISTS "organizations_update" ON public.organizations;
 
 -- Consolidated SELECT (owners see own, admins see all)
 CREATE POLICY "organizations_select" ON public.organizations
@@ -126,6 +140,9 @@ DROP POLICY IF EXISTS "Buyers can create transactions" ON public.transactions;
 DROP POLICY IF EXISTS "Buyers can update own transactions" ON public.transactions;
 DROP POLICY IF EXISTS "Vendors can update transactions" ON public.transactions;
 DROP POLICY IF EXISTS "Admins can view all transactions" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_select" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_insert" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_update" ON public.transactions;
 
 -- Consolidated SELECT
 CREATE POLICY "transactions_select" ON public.transactions
@@ -158,6 +175,8 @@ CREATE POLICY "transactions_update" ON public.transactions
 
 DROP POLICY IF EXISTS "vendor_payouts_select" ON public.vendor_payouts;
 DROP POLICY IF EXISTS "vendor_payouts_vendor_select" ON public.vendor_payouts;
+-- Drop new name in case it exists
+DROP POLICY IF EXISTS "vendor_payouts_select" ON public.vendor_payouts;
 
 -- Consolidated SELECT
 CREATE POLICY "vendor_payouts_select" ON public.vendor_payouts
@@ -175,6 +194,10 @@ CREATE POLICY "vendor_payouts_select" ON public.vendor_payouts
 DROP POLICY IF EXISTS "Anyone can view listing markets" ON public.listing_markets;
 DROP POLICY IF EXISTS "Vendors can manage own listing markets" ON public.listing_markets;
 DROP POLICY IF EXISTS "Admins full access to listing markets" ON public.listing_markets;
+DROP POLICY IF EXISTS "listing_markets_select" ON public.listing_markets;
+DROP POLICY IF EXISTS "listing_markets_insert" ON public.listing_markets;
+DROP POLICY IF EXISTS "listing_markets_update" ON public.listing_markets;
+DROP POLICY IF EXISTS "listing_markets_delete" ON public.listing_markets;
 
 -- Consolidated SELECT (public for published, vendors for own, admins for all)
 CREATE POLICY "listing_markets_select" ON public.listing_markets
@@ -239,6 +262,7 @@ DROP POLICY IF EXISTS "Admins view all market vendors" ON public.market_vendors;
 DROP POLICY IF EXISTS "Public view approved market vendors" ON public.market_vendors;
 DROP POLICY IF EXISTS "Vendors view their markets" ON public.market_vendors;
 DROP POLICY IF EXISTS "market_vendors_public_select" ON public.market_vendors;
+DROP POLICY IF EXISTS "market_vendors_select" ON public.market_vendors;
 
 -- Consolidated SELECT
 CREATE POLICY "market_vendors_select" ON public.market_vendors
@@ -263,6 +287,11 @@ DROP POLICY IF EXISTS "Vendors can update own listings" ON public.listings;
 DROP POLICY IF EXISTS "Vendors can delete own listings" ON public.listings;
 DROP POLICY IF EXISTS "Public can view published listings" ON public.listings;
 DROP POLICY IF EXISTS "Admins can view all listings" ON public.listings;
+DROP POLICY IF EXISTS "listings_select" ON public.listings;
+DROP POLICY IF EXISTS "listings_insert" ON public.listings;
+DROP POLICY IF EXISTS "listings_update" ON public.listings;
+DROP POLICY IF EXISTS "listings_delete" ON public.listings;
+-- Drop again to ensure clean state
 DROP POLICY IF EXISTS "listings_select" ON public.listings;
 DROP POLICY IF EXISTS "listings_insert" ON public.listings;
 DROP POLICY IF EXISTS "listings_update" ON public.listings;
@@ -311,6 +340,8 @@ CREATE POLICY "listings_delete" ON public.listings
 
 DROP POLICY IF EXISTS "Public can view published listing images" ON public.listing_images;
 DROP POLICY IF EXISTS "Vendors can manage listing images" ON public.listing_images;
+DROP POLICY IF EXISTS "listing_images_select" ON public.listing_images;
+DROP POLICY IF EXISTS "listing_images_manage" ON public.listing_images;
 
 -- Consolidated SELECT
 CREATE POLICY "listing_images_select" ON public.listing_images
@@ -354,6 +385,9 @@ DROP POLICY IF EXISTS "orders_vendor_select" ON public.orders;
 DROP POLICY IF EXISTS "orders_select" ON public.orders;
 DROP POLICY IF EXISTS "orders_buyer_insert" ON public.orders;
 DROP POLICY IF EXISTS "orders_insert" ON public.orders;
+-- Drop new names
+DROP POLICY IF EXISTS "orders_select" ON public.orders;
+DROP POLICY IF EXISTS "orders_insert" ON public.orders;
 
 -- Consolidated SELECT
 CREATE POLICY "orders_select" ON public.orders
@@ -385,6 +419,10 @@ DROP POLICY IF EXISTS "order_items_buyer_insert" ON public.order_items;
 DROP POLICY IF EXISTS "order_items_insert" ON public.order_items;
 DROP POLICY IF EXISTS "order_items_buyer_update" ON public.order_items;
 DROP POLICY IF EXISTS "order_items_vendor_update" ON public.order_items;
+DROP POLICY IF EXISTS "order_items_update" ON public.order_items;
+-- Drop new names
+DROP POLICY IF EXISTS "order_items_select" ON public.order_items;
+DROP POLICY IF EXISTS "order_items_insert" ON public.order_items;
 DROP POLICY IF EXISTS "order_items_update" ON public.order_items;
 
 -- Consolidated SELECT
@@ -432,6 +470,7 @@ CREATE POLICY "order_items_update" ON public.order_items
 
 DROP POLICY IF EXISTS "market_box_subs_buyer_select" ON public.market_box_subscriptions;
 DROP POLICY IF EXISTS "market_box_subs_vendor_select" ON public.market_box_subscriptions;
+DROP POLICY IF EXISTS "market_box_subscriptions_select" ON public.market_box_subscriptions;
 
 -- Consolidated SELECT
 CREATE POLICY "market_box_subscriptions_select" ON public.market_box_subscriptions
@@ -452,6 +491,7 @@ CREATE POLICY "market_box_subscriptions_select" ON public.market_box_subscriptio
 
 DROP POLICY IF EXISTS "market_box_pickups_buyer_select" ON public.market_box_pickups;
 DROP POLICY IF EXISTS "market_box_pickups_vendor_select" ON public.market_box_pickups;
+DROP POLICY IF EXISTS "market_box_pickups_select" ON public.market_box_pickups;
 
 -- Consolidated SELECT
 CREATE POLICY "market_box_pickups_select" ON public.market_box_pickups
@@ -480,6 +520,8 @@ DROP POLICY IF EXISTS "Vendors can update own profiles" ON public.vendor_profile
 DROP POLICY IF EXISTS "Public can view approved vendors" ON public.vendor_profiles;
 DROP POLICY IF EXISTS "Admins can view all vendor profiles" ON public.vendor_profiles;
 DROP POLICY IF EXISTS "Admins can update vendor profiles" ON public.vendor_profiles;
+DROP POLICY IF EXISTS "vendor_profiles_select" ON public.vendor_profiles;
+DROP POLICY IF EXISTS "vendor_profiles_update" ON public.vendor_profiles;
 
 -- Consolidated SELECT
 CREATE POLICY "vendor_profiles_select" ON public.vendor_profiles
@@ -504,6 +546,7 @@ CREATE POLICY "vendor_profiles_update" ON public.vendor_profiles
 
 DROP POLICY IF EXISTS "Vendors can view own verifications" ON public.vendor_verifications;
 DROP POLICY IF EXISTS "Verifiers can view all verifications" ON public.vendor_verifications;
+DROP POLICY IF EXISTS "vendor_verifications_select" ON public.vendor_verifications;
 
 -- Consolidated SELECT
 CREATE POLICY "vendor_verifications_select" ON public.vendor_verifications
@@ -521,6 +564,8 @@ CREATE POLICY "vendor_verifications_select" ON public.vendor_verifications
 DROP POLICY IF EXISTS "Users can view own profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.user_profiles;
 DROP POLICY IF EXISTS "user_profiles_select" ON public.user_profiles;
+-- Drop new name
+DROP POLICY IF EXISTS "user_profiles_select" ON public.user_profiles;
 
 -- Consolidated SELECT
 CREATE POLICY "user_profiles_select" ON public.user_profiles
@@ -535,6 +580,8 @@ CREATE POLICY "user_profiles_select" ON public.user_profiles
 
 DROP POLICY IF EXISTS "Public can read active verticals" ON public.verticals;
 DROP POLICY IF EXISTS "Admins can manage verticals" ON public.verticals;
+DROP POLICY IF EXISTS "verticals_select" ON public.verticals;
+DROP POLICY IF EXISTS "verticals_admin" ON public.verticals;
 
 -- Consolidated SELECT
 CREATE POLICY "verticals_select" ON public.verticals
