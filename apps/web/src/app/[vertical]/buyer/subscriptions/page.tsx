@@ -31,21 +31,21 @@ interface Subscription {
     id: string
     name: string
     description: string | null
-    price_cents: number
+    price_cents?: number
     pickup_day_of_week: number
     pickup_start_time: string
     pickup_end_time: string
-    market: {
-      id: string
-      name: string
-      city: string
-      state: string
-    } | null
-    vendor: {
-      id: string
-      name: string
-    }
   }
+  vendor: {
+    id: string
+    name: string
+  }
+  market: {
+    id: string
+    name: string
+    city: string
+    state: string
+  } | null
   pickups: Pickup[]
 }
 
@@ -215,9 +215,9 @@ export default function BuyerSubscriptionsPage() {
                 </span>
               )}
             </div>
-            {upcomingPickups[0].subscription.offering.market && (
+            {upcomingPickups[0].subscription.market && (
               <div style={{ marginTop: 12, fontSize: 14, color: '#3b82f6' }}>
-                📍 {upcomingPickups[0].subscription.offering.market.name}, {upcomingPickups[0].subscription.offering.market.city}
+                📍 {upcomingPickups[0].subscription.market.name}, {upcomingPickups[0].subscription.market.city}
                 <br />
                 🕐 {formatTime(upcomingPickups[0].subscription.offering.pickup_start_time)} - {formatTime(upcomingPickups[0].subscription.offering.pickup_end_time)}
               </div>
@@ -308,7 +308,7 @@ export default function BuyerSubscriptionsPage() {
                         </span>
                       </div>
                       <div style={{ fontSize: 13, color: '#6b7280' }}>
-                        by {subscription.offering.vendor?.name || 'Vendor'}
+                        by {subscription.vendor?.name || 'Vendor'}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -329,8 +329,8 @@ export default function BuyerSubscriptionsPage() {
                   {/* Pickup Info */}
                   <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
                     {DAYS[subscription.offering.pickup_day_of_week]}s {formatTime(subscription.offering.pickup_start_time)}-{formatTime(subscription.offering.pickup_end_time)}
-                    {subscription.offering.market && (
-                      <> at {subscription.offering.market.name}</>
+                    {subscription.market && (
+                      <> at {subscription.market.name}</>
                     )}
                   </div>
 
