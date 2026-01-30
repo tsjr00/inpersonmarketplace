@@ -43,7 +43,7 @@ interface Subscription {
     } | null
     vendor: {
       id: string
-      business_name: string
+      name: string
     }
   }
   pickups: Pickup[]
@@ -308,7 +308,7 @@ export default function BuyerSubscriptionsPage() {
                         </span>
                       </div>
                       <div style={{ fontSize: 13, color: '#6b7280' }}>
-                        by {subscription.offering.vendor.business_name}
+                        by {subscription.offering.vendor?.name || 'Vendor'}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
