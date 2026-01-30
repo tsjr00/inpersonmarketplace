@@ -168,6 +168,7 @@ GRANT ALL ON public.market_box_subscriptions TO service_role;
 -- ============================================================================
 
 DROP POLICY IF EXISTS "market_box_pickups_select" ON public.market_box_pickups;
+DROP POLICY IF EXISTS "market_box_pickups_update" ON public.market_box_pickups;
 DROP POLICY IF EXISTS "market_box_pickups_buyer_select" ON public.market_box_pickups;
 DROP POLICY IF EXISTS "market_box_pickups_vendor_select" ON public.market_box_pickups;
 DROP POLICY IF EXISTS "market_box_pickups_vendor_update" ON public.market_box_pickups;
