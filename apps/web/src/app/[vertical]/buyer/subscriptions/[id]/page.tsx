@@ -73,7 +73,16 @@ export default function BuyerSubscriptionDetailPage() {
         return
       }
 
-      setSubscription(data.subscription)
+      // API returns separate objects - combine into expected structure
+      setSubscription({
+        ...data.subscription,
+        offering: {
+          ...data.offering,
+          vendor: data.vendor,
+          market: data.market,
+        },
+        pickups: data.pickups,
+      })
     } catch (err) {
       setError({ message: err instanceof Error ? err.message : 'Failed to load subscription' })
     } finally {
