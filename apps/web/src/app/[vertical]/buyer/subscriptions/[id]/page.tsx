@@ -41,10 +41,10 @@ interface Subscription {
     } | null
     vendor: {
       id: string
-      business_name: string
+      name: string
     }
   }
-  pickups: Pickup[]
+  pickups?: Pickup[]
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -178,7 +178,7 @@ export default function BuyerSubscriptionDetailPage() {
 
   const statusColor = getStatusColor(subscription.status)
   const today = new Date().toISOString().split('T')[0]
-  const nextPickup = subscription.pickups.find(
+  const nextPickup = (subscription.pickups || []).find(
     p => p.scheduled_date >= today && (p.status === 'scheduled' || p.status === 'ready')
   )
 
@@ -212,7 +212,7 @@ export default function BuyerSubscriptionDetailPage() {
                 </span>
               </div>
               <p style={{ color: '#666', margin: '8px 0 0 0', fontSize: 14 }}>
-                by {subscription.offering.vendor.business_name}
+                by {subscription.offering.vendor?.name || 'Vendor'}
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -294,7 +294,7 @@ export default function BuyerSubscriptionDetailPage() {
         }}>
           <h3 style={{ margin: '0 0 16px 0', color: '#374151', fontSize: 16 }}>Pickup Schedule</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {subscription.pickups.map(pickup => {
+            {(subscription.pickups || []).map(pickup => {
               const pickupStatus = getPickupStatusColor(pickup.status)
               const isToday = pickup.scheduled_date === today
               const isPast = pickup.scheduled_date < today
