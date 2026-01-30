@@ -13,12 +13,11 @@ import { getHttpStatus } from './types'
 
 /**
  * Check if we should show error codes in responses
+ * Always show error codes - they help users report issues and devs debug
  */
 function shouldShowErrorCodes(): boolean {
-  return (
-    process.env.NODE_ENV === 'development' ||
-    process.env.SHOW_ERROR_CODES === 'true'
-  )
+  // Always show error codes - they're essential for debugging and support
+  return true
 }
 
 /**
