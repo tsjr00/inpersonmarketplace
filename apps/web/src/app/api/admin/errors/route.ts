@@ -138,12 +138,22 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Get error frequency summary
+    // Get error frequency summary - apply same filters as main query for consistency
     crumb.supabase('select', 'error_reports', { summary: true })
-    const { data: frequency } = await supabase
+    let frequencyQuery = supabase
       .from('error_reports')
       .select('error_code')
       .not('error_code', 'is', null)
+
+    // Apply same filters as main query
+    if (verticalId) {
+      frequencyQuery = frequencyQuery.eq('vertical_id', verticalId)
+    }
+    if (!isPlatformAdmin) {
+      frequencyQuery = frequencyQuery.eq('escalation_level', 'vertical_admin')
+    }
+
+    const { data: frequency } = await frequencyQuery
 
     // Count by error code
     const errorCounts: Record<string, number> = {}

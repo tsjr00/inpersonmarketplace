@@ -41,7 +41,7 @@ export default function VerticalAdminErrorsPage() {
   const [errorCounts, setErrorCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState<string>('pending')
+  const [statusFilter, setStatusFilter] = useState<string>('')
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null)
   const [resolutionSummary, setResolutionSummary] = useState<ResolutionSummary | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
