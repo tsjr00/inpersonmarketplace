@@ -98,6 +98,10 @@ ORDER BY error_code, created_at DESC;
 
 ALTER TABLE platform_settings ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies first
+DROP POLICY IF EXISTS "platform_settings_read" ON platform_settings;
+DROP POLICY IF EXISTS "platform_settings_admin_write" ON platform_settings;
+
 -- Platform settings is read-only for most users, writable by admins
 -- Anyone can read platform settings (needed for premium window duration)
 CREATE POLICY "platform_settings_read" ON platform_settings
