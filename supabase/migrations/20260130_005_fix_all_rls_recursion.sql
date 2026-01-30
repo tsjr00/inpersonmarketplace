@@ -31,6 +31,8 @@ $$;
 DROP POLICY IF EXISTS "Users can view own profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.user_profiles;
 DROP POLICY IF EXISTS "user_profiles_select" ON public.user_profiles;
+DROP POLICY IF EXISTS "user_profiles_update" ON public.user_profiles;
+DROP POLICY IF EXISTS "user_profiles_insert" ON public.user_profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.user_profiles;
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.user_profiles;
 
