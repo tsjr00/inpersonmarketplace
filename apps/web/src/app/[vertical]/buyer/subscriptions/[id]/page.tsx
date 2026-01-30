@@ -148,7 +148,7 @@ export default function BuyerSubscriptionDetailPage() {
     )
   }
 
-  if (error || !subscription) {
+  if (error || !subscription || !subscription.offering) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, padding: 24 }}>
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
@@ -163,7 +163,9 @@ export default function BuyerSubscriptionDetailPage() {
               color: '#991b1b',
               textAlign: 'center'
             }}>
-              Subscription not found
+              {subscription && !subscription.offering
+                ? 'Subscription data incomplete - offering not found'
+                : 'Subscription not found'}
             </div>
           )}
           <div style={{ marginTop: 16, textAlign: 'center' }}>
