@@ -453,12 +453,15 @@ CREATE POLICY "market_box_pickups_update" ON public.market_box_pickups
 GRANT ALL ON public.market_box_pickups TO service_role;
 
 -- -----------------------------------------------------------------------------
--- orders: Buyers see own, vendors see their orders
+-- orders: Buyers see own, vendors see orders containing their items
 -- -----------------------------------------------------------------------------
 CREATE POLICY "orders_select" ON public.orders
     FOR SELECT USING (
         buyer_user_id = (SELECT auth.uid())
-        OR vendor_profile_id IN (SELECT user_vendor_profile_ids())
+        OR id IN (
+            SELECT order_id FROM order_items
+            WHERE vendor_profile_id IN (SELECT user_vendor_profile_ids())
+        )
     );
 
 CREATE POLICY "orders_insert" ON public.orders
@@ -467,21 +470,21 @@ CREATE POLICY "orders_insert" ON public.orders
 CREATE POLICY "orders_update" ON public.orders
     FOR UPDATE USING (
         buyer_user_id = (SELECT auth.uid())
-        OR vendor_profile_id IN (SELECT user_vendor_profile_ids())
+        OR id IN (
+            SELECT order_id FROM order_items
+            WHERE vendor_profile_id IN (SELECT user_vendor_profile_ids())
+        )
     );
 
 GRANT ALL ON public.orders TO service_role;
 
 -- -----------------------------------------------------------------------------
--- order_items: Same access as parent order
+-- order_items: Buyers see own order items, vendors see items they're selling
 -- -----------------------------------------------------------------------------
 CREATE POLICY "order_items_select" ON public.order_items
     FOR SELECT USING (
-        order_id IN (
-            SELECT id FROM orders
-            WHERE buyer_user_id = (SELECT auth.uid())
-            OR vendor_profile_id IN (SELECT user_vendor_profile_ids())
-        )
+        order_id IN (SELECT id FROM orders WHERE buyer_user_id = (SELECT auth.uid()))
+        OR vendor_profile_id IN (SELECT user_vendor_profile_ids())
     );
 
 CREATE POLICY "order_items_insert" ON public.order_items
@@ -491,23 +494,20 @@ CREATE POLICY "order_items_insert" ON public.order_items
 
 CREATE POLICY "order_items_update" ON public.order_items
     FOR UPDATE USING (
-        order_id IN (
-            SELECT id FROM orders
-            WHERE vendor_profile_id IN (SELECT user_vendor_profile_ids())
-        )
+        vendor_profile_id IN (SELECT user_vendor_profile_ids())
     );
 
 GRANT ALL ON public.order_items TO service_role;
 
 -- -----------------------------------------------------------------------------
--- order_ratings: Buyers can rate their orders
+-- order_ratings: Buyers can rate their orders, vendors can see ratings
 -- -----------------------------------------------------------------------------
 CREATE POLICY "order_ratings_select" ON public.order_ratings
     FOR SELECT USING (
-        order_id IN (
-            SELECT id FROM orders
-            WHERE buyer_user_id = (SELECT auth.uid())
-            OR vendor_profile_id IN (SELECT user_vendor_profile_ids())
+        order_id IN (SELECT id FROM orders WHERE buyer_user_id = (SELECT auth.uid()))
+        OR order_id IN (
+            SELECT order_id FROM order_items
+            WHERE vendor_profile_id IN (SELECT user_vendor_profile_ids())
         )
     );
 
