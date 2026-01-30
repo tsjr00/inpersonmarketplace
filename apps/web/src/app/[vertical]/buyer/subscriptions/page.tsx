@@ -181,47 +181,73 @@ export default function BuyerSubscriptionsPage() {
           </div>
         )}
 
-        {/* Upcoming Pickups Banner */}
+        {/* Upcoming Pickups Banner - Compact 2-line layout */}
         {upcomingPickups.length > 0 && (
-          <div style={{
-            padding: 20,
-            marginBottom: 24,
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: 8
-          }}>
-            <h3 style={{ margin: '0 0 12px 0', color: '#1e40af', fontSize: 16 }}>
-              Next Pickup
-            </h3>
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontWeight: 600, color: '#1e40af', fontSize: 18 }}>
-                  {formatDate(upcomingPickups[0].scheduled_date)}
-                </div>
-                <div style={{ fontSize: 14, color: '#3b82f6' }}>
-                  {upcomingPickups[0].subscription.offering.name}
-                </div>
-              </div>
+          <div
+            className="next-pickup-banner"
+            style={{
+              padding: '12px 16px',
+              marginBottom: 24,
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: 8
+            }}
+          >
+            {/* Line 1: Next Pickup label + date + ready badge */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px',
+              marginBottom: 4
+            }}>
+              <span style={{ fontWeight: 700, color: '#1e40af', fontSize: 15 }}>
+                Next Pickup:
+              </span>
+              <span style={{ fontWeight: 600, color: '#1e40af', fontSize: 15 }}>
+                {new Date(upcomingPickups[0].scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </span>
               {upcomingPickups[0].status === 'ready' && (
                 <span style={{
-                  padding: '6px 12px',
+                  padding: '2px 10px',
                   backgroundColor: '#fef3c7',
                   color: '#92400e',
-                  borderRadius: 16,
-                  fontSize: 13,
+                  borderRadius: 12,
+                  fontSize: 12,
                   fontWeight: 600
                 }}>
                   Ready for Pickup!
                 </span>
               )}
             </div>
-            {upcomingPickups[0].subscription.market && (
-              <div style={{ marginTop: 12, fontSize: 14, color: '#3b82f6' }}>
-                📍 {upcomingPickups[0].subscription.market.name}, {upcomingPickups[0].subscription.market.city}
-                <br />
-                🕐 {formatTime(upcomingPickups[0].subscription.offering.pickup_start_time)} - {formatTime(upcomingPickups[0].subscription.offering.pickup_end_time)}
-              </div>
-            )}
+            {/* Line 2: Product | Location | Time */}
+            <div
+              className="pickup-details-row"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '6px 16px',
+                fontSize: 14,
+                color: '#3b82f6'
+              }}
+            >
+              <span style={{ fontWeight: 500 }}>
+                {upcomingPickups[0].subscription.offering.name}
+              </span>
+              {upcomingPickups[0].subscription.market && (
+                <>
+                  <span style={{ color: '#93c5fd' }}>•</span>
+                  <span>📍 {upcomingPickups[0].subscription.market.name}</span>
+                </>
+              )}
+              <span style={{ color: '#93c5fd' }}>•</span>
+              <span>🕐 {formatTime(upcomingPickups[0].subscription.offering.pickup_start_time)} - {formatTime(upcomingPickups[0].subscription.offering.pickup_end_time)}</span>
+            </div>
           </div>
         )}
 
@@ -400,6 +426,23 @@ export default function BuyerSubscriptionsPage() {
           </div>
         )}
       </div>
+
+      {/* Responsive styles for Next Pickup banner */}
+      <style>{`
+        @media (max-width: 640px) {
+          .next-pickup-banner {
+            padding: 14px !important;
+          }
+          .pickup-details-row {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 4px !important;
+          }
+          .pickup-details-row > span[style*="color: #93c5fd"] {
+            display: none;
+          }
+        }
+      `}</style>
     </div>
   )
 }
