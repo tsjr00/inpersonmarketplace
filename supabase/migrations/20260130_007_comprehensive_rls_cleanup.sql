@@ -39,10 +39,10 @@ DROP POLICY IF EXISTS "Admins can update vendor profiles" ON public.vendor_profi
 
 -- listings
 DROP POLICY IF EXISTS "listings_select" ON public.listings;
+DROP POLICY IF EXISTS "listings_manage" ON public.listings;
 DROP POLICY IF EXISTS "listings_insert" ON public.listings;
 DROP POLICY IF EXISTS "listings_update" ON public.listings;
 DROP POLICY IF EXISTS "listings_delete" ON public.listings;
-DROP POLICY IF EXISTS "listings_manage" ON public.listings;
 DROP POLICY IF EXISTS "Public can view published listings" ON public.listings;
 DROP POLICY IF EXISTS "Vendors can view own listings" ON public.listings;
 DROP POLICY IF EXISTS "Vendors can create listings" ON public.listings;
@@ -51,12 +51,14 @@ DROP POLICY IF EXISTS "Vendors can delete own listings" ON public.listings;
 
 -- listing_images
 DROP POLICY IF EXISTS "listing_images_select" ON public.listing_images;
+DROP POLICY IF EXISTS "listing_images_manage" ON public.listing_images;
 DROP POLICY IF EXISTS "listing_images_vendor_manage" ON public.listing_images;
 DROP POLICY IF EXISTS "Public can view published listing images" ON public.listing_images;
 DROP POLICY IF EXISTS "Vendors can manage listing images" ON public.listing_images;
 
 -- listing_markets
 DROP POLICY IF EXISTS "listing_markets_select" ON public.listing_markets;
+DROP POLICY IF EXISTS "listing_markets_manage" ON public.listing_markets;
 DROP POLICY IF EXISTS "listing_markets_insert" ON public.listing_markets;
 DROP POLICY IF EXISTS "listing_markets_update" ON public.listing_markets;
 DROP POLICY IF EXISTS "listing_markets_delete" ON public.listing_markets;
@@ -138,6 +140,7 @@ DROP POLICY IF EXISTS "transactions_update" ON public.transactions;
 
 -- fulfillments
 DROP POLICY IF EXISTS "fulfillments_select" ON public.fulfillments;
+DROP POLICY IF EXISTS "fulfillments_manage" ON public.fulfillments;
 DROP POLICY IF EXISTS "fulfillments_insert" ON public.fulfillments;
 DROP POLICY IF EXISTS "fulfillments_update" ON public.fulfillments;
 DROP POLICY IF EXISTS "fulfillments_delete" ON public.fulfillments;
