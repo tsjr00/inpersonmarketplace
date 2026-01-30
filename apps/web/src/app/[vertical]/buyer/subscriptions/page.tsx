@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 
 interface Pickup {
   id: string
@@ -57,7 +58,7 @@ export default function BuyerSubscriptionsPage() {
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
 
   useEffect(() => {
     fetchSubscriptions()
@@ -69,12 +70,17 @@ export default function BuyerSubscriptionsPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to fetch subscriptions')
+        setError({
+          message: data.error || 'Failed to fetch subscriptions',
+          code: data.code,
+          traceId: data.traceId
+        })
+        return
       }
 
       setSubscriptions(data.subscriptions || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load subscriptions')
+      setError({ message: err instanceof Error ? err.message : 'Failed to load subscriptions' })
     } finally {
       setLoading(false)
     }
@@ -170,15 +176,8 @@ export default function BuyerSubscriptionsPage() {
         </div>
 
         {error && (
-          <div style={{
-            padding: 16,
-            marginBottom: 24,
-            backgroundColor: '#fee2e2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            color: '#991b1b'
-          }}>
-            {error}
+          <div style={{ marginBottom: 24 }}>
+            <ErrorDisplay error={error} verticalId={vertical} />
           </div>
         )}
 

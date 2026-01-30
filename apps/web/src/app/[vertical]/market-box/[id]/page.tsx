@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { formatDisplayPrice, calculateDisplayPrice } from '@/lib/constants'
+import { ErrorDisplay } from '@/components/ErrorFeedback'
 
 interface AvailableTerm {
   weeks: number
@@ -70,7 +71,7 @@ export default function MarketBoxDetailPage() {
 
   const [data, setData] = useState<MarketBoxData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [subscribing, setSubscribing] = useState(false)
   const [selectedTermWeeks, setSelectedTermWeeks] = useState<number>(4)
 
@@ -80,12 +81,17 @@ export default function MarketBoxDetailPage() {
       const responseData = await res.json()
 
       if (!res.ok) {
-        throw new Error(responseData.error || 'Failed to fetch offering')
+        setError({
+          message: responseData.error || 'Failed to fetch offering',
+          code: responseData.code,
+          traceId: responseData.traceId
+        })
+        return
       }
 
       setData(responseData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load offering')
+      setError({ message: err instanceof Error ? err.message : 'Failed to load offering' })
     } finally {
       setLoading(false)
     }
@@ -109,16 +115,21 @@ export default function MarketBoxDetailPage() {
         }),
       })
 
-      const data = await res.json()
+      const responseData = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to subscribe')
+        setError({
+          message: responseData.error || 'Failed to subscribe',
+          code: responseData.code,
+          traceId: responseData.traceId
+        })
+        return
       }
 
       // Redirect to buyer's subscriptions page
       router.push(`/${vertical}/buyer/subscriptions`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to subscribe')
+      setError({ message: err instanceof Error ? err.message : 'Failed to subscribe' })
     } finally {
       setSubscribing(false)
     }
@@ -166,16 +177,20 @@ export default function MarketBoxDetailPage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, padding: 24 }}>
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
-          <div style={{
-            padding: 24,
-            backgroundColor: '#fee2e2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            color: '#991b1b',
-            textAlign: 'center'
-          }}>
-            {error || 'Market box not found'}
-          </div>
+          {error ? (
+            <ErrorDisplay error={error} verticalId={vertical} />
+          ) : (
+            <div style={{
+              padding: 24,
+              backgroundColor: '#fee2e2',
+              border: '1px solid #fecaca',
+              borderRadius: 8,
+              color: '#991b1b',
+              textAlign: 'center'
+            }}>
+              Market box not found
+            </div>
+          )}
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <Link href={`/${vertical}/browse?view=market-boxes`} style={{ color: branding.colors.primary }}>
               Back to Market Boxes
