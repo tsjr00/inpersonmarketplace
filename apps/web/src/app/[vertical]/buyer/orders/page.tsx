@@ -110,7 +110,7 @@ export default function BuyerOrdersPage() {
     paid: { label: 'Order Placed', color: '#92400e', bgColor: '#fef3c7' },
     confirmed: { label: 'Confirmed', color: '#1e40af', bgColor: '#dbeafe' },
     ready: { label: 'Ready for Pickup', color: '#065f46', bgColor: '#d1fae5' },
-    handed_off: { label: 'Confirm Your Pickup', color: '#b45309', bgColor: '#fef3c7' },
+    handed_off: { label: 'Acknowledge Your Pickup', color: '#b45309', bgColor: '#fef3c7' },
     completed: { label: 'Completed', color: '#7e22ce', bgColor: '#f3e8ff' },
     fulfilled: { label: 'Picked Up', color: '#7e22ce', bgColor: '#f3e8ff' },
     cancelled: { label: 'Cancelled', color: '#991b1b', bgColor: '#fee2e2' },

@@ -350,7 +350,7 @@ export default function BuyerOrderDetailPage() {
                 marginBottom: spacing.sm,
                 color: effectiveStatus === 'handed_off' ? '#000' : '#fff',
               }}>
-                {effectiveStatus === 'handed_off' ? 'CONFIRM YOUR PICKUP' : 'READY FOR PICKUP'}
+                {effectiveStatus === 'handed_off' ? 'ACKNOWLEDGE YOUR PICKUP' : 'READY FOR PICKUP'}
               </div>
 
               {/* Order Number - very prominent */}
@@ -399,7 +399,7 @@ export default function BuyerOrderDetailPage() {
               </p>
             </div>
 
-            {/* Big Confirm Receipt Button - immediately below hero */}
+            {/* Big Acknowledge Receipt Button - immediately below hero */}
             {itemsNeedingConfirm.length > 0 && (
               <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: '#f0fdf4', borderBottom: '2px solid #16a34a' }}>
                 <button
@@ -424,7 +424,7 @@ export default function BuyerOrderDetailPage() {
                     boxShadow: '0 4px 14px rgba(22, 163, 74, 0.4)',
                   }}
                 >
-                  {confirmingItemId ? 'Confirming...' : `Confirm Receipt (${itemsNeedingConfirm.length} item${itemsNeedingConfirm.length !== 1 ? 's' : ''})`}
+                  {confirmingItemId ? 'Confirming...' : `Acknowledge Receipt (${itemsNeedingConfirm.length} item${itemsNeedingConfirm.length !== 1 ? 's' : ''})`}
                 </button>
                 <p style={{
                   margin: `${spacing.xs} 0 0 0`,
@@ -675,7 +675,7 @@ export default function BuyerOrderDetailPage() {
                                 'Confirming...'
                               ) : (
                                 <>
-                                  <span>✓</span> {item.status === 'fulfilled' ? 'Yes, I Received It' : 'Confirm Receipt'}
+                                  <span>✓</span> {item.status === 'fulfilled' ? 'Yes, I Received It' : 'Acknowledge Receipt'}
                                 </>
                               )}
                             </button>

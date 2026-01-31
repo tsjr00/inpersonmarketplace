@@ -111,6 +111,61 @@ export async function transferToVendor({
 }
 
 /**
+ * Create market box checkout session
+ * One-time payment for prepaid weekly pickup subscription
+ */
+export async function createMarketBoxCheckoutSession({
+  offeringId,
+  offeringName,
+  userId,
+  termWeeks,
+  priceCents,
+  startDate,
+  successUrl,
+  cancelUrl,
+}: {
+  offeringId: string
+  offeringName: string
+  userId: string
+  termWeeks: number
+  priceCents: number
+  startDate: string
+  successUrl: string
+  cancelUrl: string
+}) {
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${offeringName} - ${termWeeks} Week Market Box`,
+            description: `Prepaid ${termWeeks}-week market box subscription starting ${startDate}`,
+          },
+          unit_amount: priceCents,
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    client_reference_id: `market_box_${offeringId}_${userId}`,
+    metadata: {
+      type: 'market_box',
+      offering_id: offeringId,
+      user_id: userId,
+      term_weeks: termWeeks.toString(),
+      start_date: startDate,
+      price_cents: priceCents.toString(),
+    },
+  })
+
+  return session
+}
+
+/**
  * Create refund
  * Uses idempotency key to prevent duplicate refunds on retry
  */

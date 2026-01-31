@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Buyer must have confirmed first
     crumb.logic('Checking buyer confirmation status')
     if (!orderItem.buyer_confirmed_at) {
-      throw traced.validation('ERR_ORDER_004', 'Buyer has not confirmed receipt yet. Wait for buyer to confirm first.')
+      throw traced.validation('ERR_ORDER_004', 'Buyer has not acknowledged receipt yet. Wait for buyer to acknowledge first.')
     }
 
     // Already confirmed

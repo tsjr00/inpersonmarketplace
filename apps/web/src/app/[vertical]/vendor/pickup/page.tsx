@@ -47,6 +47,7 @@ export default function VendorPickupPage() {
   const [loading, setLoading] = useState(true)
   const [processingItem, setProcessingItem] = useState<string | null>(null)
   const [unconfirmedHandoffs, setUnconfirmedHandoffs] = useState<number>(0)
+  const [handoffsAwaitingBuyer, setHandoffsAwaitingBuyer] = useState<number>(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -72,10 +73,17 @@ export default function VendorPickupPage() {
       if (res.ok) {
         const data = await res.json()
         // Count items where buyer_confirmed_at exists but no vendor confirmation yet
-        const count = (data.orderItems || []).filter(
+        // These are buyers who acknowledged but vendor hasn't confirmed handoff
+        const buyerAcknowledgedCount = (data.orderItems || []).filter(
           (item: any) => item.buyer_confirmed_at && !item.vendor_confirmed_at && item.status === 'fulfilled'
         ).length
-        setUnconfirmedHandoffs(count)
+        setUnconfirmedHandoffs(buyerAcknowledgedCount)
+
+        // Count items where vendor fulfilled but buyer hasn't acknowledged yet
+        const awaitingBuyerCount = (data.orderItems || []).filter(
+          (item: any) => !item.buyer_confirmed_at && !item.vendor_confirmed_at && item.status === 'fulfilled'
+        ).length
+        setHandoffsAwaitingBuyer(awaitingBuyerCount)
       }
     } catch (error) {
       console.error('Error fetching unconfirmed handoffs:', error)
@@ -292,7 +300,7 @@ export default function VendorPickupPage() {
         </div>
       </div>
 
-      {/* Unconfirmed Handoffs Alert */}
+      {/* Buyer Acknowledged Alert - vendor needs to confirm handoff */}
       {unconfirmedHandoffs > 0 && (
         <div style={{
           padding: '12px 16px',
@@ -310,7 +318,7 @@ export default function VendorPickupPage() {
               fontWeight: 700,
               color: '#ea580c'
             }}>
-              ⚠️ {unconfirmedHandoffs} buyer{unconfirmedHandoffs !== 1 ? 's have' : ' has'} confirmed receipt
+              ⚠️ {unconfirmedHandoffs} buyer{unconfirmedHandoffs !== 1 ? 's have' : ' has'} acknowledged receipt
             </p>
             <p style={{
               margin: '4px 0 0 0',
@@ -325,6 +333,52 @@ export default function VendorPickupPage() {
             style={{
               padding: '8px 14px',
               backgroundColor: '#ea580c',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            View
+          </Link>
+        </div>
+      )}
+
+      {/* Awaiting Buyer Acknowledgment Alert */}
+      {handoffsAwaitingBuyer > 0 && (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#eff6ff',
+          borderBottom: '2px solid #3b82f6',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12
+        }}>
+          <div>
+            <p style={{
+              margin: 0,
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#1d4ed8'
+            }}>
+              {handoffsAwaitingBuyer} awaiting buyer acknowledgment
+            </p>
+            <p style={{
+              margin: '4px 0 0 0',
+              fontSize: 12,
+              color: '#2563eb'
+            }}>
+              Fulfilled items waiting for buyer to acknowledge receipt
+            </p>
+          </div>
+          <Link
+            href={`/${vertical}/vendor/orders?status=fulfilled`}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#3b82f6',
               color: 'white',
               textDecoration: 'none',
               borderRadius: 6,
@@ -491,7 +545,7 @@ export default function VendorPickupPage() {
                             color: '#059669',
                             fontWeight: 500
                           }}>
-                            Buyer confirmed receipt
+                            Customer acknowledged receipt
                           </p>
                         )}
                       </div>

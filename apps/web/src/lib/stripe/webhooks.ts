@@ -73,6 +73,12 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     return
   }
 
+  // Check if this is a market box purchase
+  if (session.metadata?.type === 'market_box') {
+    await handleMarketBoxCheckoutComplete(session)
+    return
+  }
+
   // Handle regular product checkout
   const orderId = session.metadata?.order_id
   if (!orderId) return
@@ -172,6 +178,78 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
     } else {
       console.log(`[webhook] Buyer ${userId} upgraded to premium`)
     }
+  }
+}
+
+/**
+ * Handle market box checkout completion - create subscription
+ */
+async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session) {
+  const supabase = createServiceClient()
+
+  const offeringId = session.metadata?.offering_id
+  const userId = session.metadata?.user_id
+  const termWeeks = parseInt(session.metadata?.term_weeks || '4', 10)
+  const startDate = session.metadata?.start_date
+  const priceCents = parseInt(session.metadata?.price_cents || '0', 10)
+  const paymentIntentId = session.payment_intent as string
+
+  if (!offeringId || !userId || !startDate) {
+    console.error('[webhook] Missing metadata in market box checkout:', session.metadata)
+    return
+  }
+
+  console.log(`[webhook] Creating market box subscription for user ${userId}, offering ${offeringId}`)
+
+  // Check if subscription already exists (idempotency)
+  const { data: existing } = await supabase
+    .from('market_box_subscriptions')
+    .select('id')
+    .eq('offering_id', offeringId)
+    .eq('buyer_user_id', userId)
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .single()
+
+  if (existing) {
+    console.log('[webhook] Market box subscription already exists:', existing.id)
+    return
+  }
+
+  // Create the market box subscription
+  const { data: subscription, error: subError } = await supabase
+    .from('market_box_subscriptions')
+    .insert({
+      offering_id: offeringId,
+      buyer_user_id: userId,
+      total_paid_cents: priceCents,
+      start_date: startDate,
+      term_weeks: termWeeks,
+      status: 'active',
+      weeks_completed: 0,
+      stripe_payment_intent_id: paymentIntentId,
+    })
+    .select()
+    .single()
+
+  if (subError) {
+    console.error('[webhook] Error creating market box subscription:', subError)
+    return
+  }
+
+  console.log(`[webhook] Market box subscription created: ${subscription.id}`)
+
+  // Pickups are auto-created by the database trigger
+  // Verify pickups were created
+  const { data: pickups, error: pickupsError } = await supabase
+    .from('market_box_pickups')
+    .select('id, week_number, scheduled_date')
+    .eq('subscription_id', subscription.id)
+    .order('week_number')
+
+  if (pickupsError) {
+    console.error('[webhook] Error fetching pickups:', pickupsError)
+  } else {
+    console.log(`[webhook] ${pickups?.length || 0} pickups created for subscription ${subscription.id}`)
   }
 }
 

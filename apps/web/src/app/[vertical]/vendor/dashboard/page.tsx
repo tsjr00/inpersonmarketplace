@@ -123,10 +123,35 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   const traditionalMarkets = activeMarkets.filter(m => m.market_type === 'traditional')
   const privatePickups = activeMarkets.filter(m => m.market_type === 'private_pickup')
 
-  // Check for orders needing vendor attention (buyer confirmed but vendor hasn't)
-  let ordersNeedingAttention = 0
+  // Check for orders needing vendor action
+  let pendingOrdersToConfirm = 0  // Pending orders waiting for vendor to confirm they can fulfill
+  let handoffsAwaitingBuyer = 0   // Vendor fulfilled but buyer hasn't acknowledged yet
+  let buyerAcknowledgedCount = 0  // Buyer acknowledged but vendor hasn't confirmed handoff
+
   if (vendorProfile.status === 'approved') {
-    const { count } = await supabase
+    // Count pending orders that need initial confirmation
+    const { count: pendingCount } = await supabase
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('status', 'pending')
+      .is('cancelled_at', null)
+
+    pendingOrdersToConfirm = pendingCount || 0
+
+    // Count handoffs where vendor fulfilled but buyer hasn't acknowledged
+    const { count: awaitingBuyerCount } = await supabase
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('status', 'fulfilled')
+      .is('buyer_confirmed_at', null)
+      .is('cancelled_at', null)
+
+    handoffsAwaitingBuyer = awaitingBuyerCount || 0
+
+    // Count orders where buyer acknowledged but vendor needs to confirm handoff
+    const { count: buyerAckCount } = await supabase
       .from('order_items')
       .select('id', { count: 'exact', head: true })
       .eq('vendor_profile_id', vendorProfile.id)
@@ -135,8 +160,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       .is('issue_reported_at', null)
       .is('cancelled_at', null)
 
-    ordersNeedingAttention = count || 0
+    buyerAcknowledgedCount = buyerAckCount || 0
   }
+
+  // Total alerts for the Orders card
+  const ordersNeedingAttention = pendingOrdersToConfirm + handoffsAwaitingBuyer + buyerAcknowledgedCount
 
   return (
     <div style={{
@@ -595,9 +623,15 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 )}
               </h3>
               <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                {ordersNeedingAttention > 0
-                  ? `${ordersNeedingAttention} order${ordersNeedingAttention !== 1 ? 's' : ''} need${ordersNeedingAttention === 1 ? 's' : ''} confirmation`
-                  : 'Manage incoming orders from customers'}
+                {ordersNeedingAttention > 0 ? (
+                  <>
+                    {pendingOrdersToConfirm > 0 && `${pendingOrdersToConfirm} to confirm`}
+                    {pendingOrdersToConfirm > 0 && (handoffsAwaitingBuyer > 0 || buyerAcknowledgedCount > 0) && ' • '}
+                    {handoffsAwaitingBuyer > 0 && `${handoffsAwaitingBuyer} awaiting buyer`}
+                    {handoffsAwaitingBuyer > 0 && buyerAcknowledgedCount > 0 && ' • '}
+                    {buyerAcknowledgedCount > 0 && `${buyerAcknowledgedCount} buyer acknowledged`}
+                  </>
+                ) : 'Manage incoming orders from customers'}
               </p>
             </div>
           </Link>

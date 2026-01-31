@@ -320,7 +320,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                       color: '#065f46',
                       fontWeight: 500
                     }}>
-                      Customer confirmed receipt
+                      Customer acknowledged receipt
                     </div>
                   )}
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { createMarketBoxCheckoutSession } from '@/lib/stripe/payments'
 
 // Default subscriber limits by tier
 const SUBSCRIBER_LIMITS = {
@@ -272,47 +273,34 @@ export async function POST(request: NextRequest) {
       subscriptionStartDate = nextStart.toISOString().split('T')[0]
     }
 
-    // TODO: In production, create Stripe checkout session here
-    // For now, create subscription directly (simulating successful payment)
-
-    crumb.supabase('insert', 'market_box_subscriptions')
-    const { data: subscription, error: subError } = await supabase
-      .from('market_box_subscriptions')
-      .insert({
-        offering_id,
-        buyer_user_id: user.id,
-        total_paid_cents: priceCents,
-        start_date: subscriptionStartDate,
-        term_weeks,
-        status: 'active',
-        weeks_completed: 0,
-      })
-      .select()
+    // Get the vertical for the redirect URLs
+    crumb.supabase('select', 'market_box_offerings (vertical)')
+    const { data: offeringWithVertical } = await supabase
+      .from('market_box_offerings')
+      .select('market:markets(vertical_id)')
+      .eq('id', offering_id)
       .single()
 
-    if (subError) {
-      throw traced.fromSupabase(subError, {
-        table: 'market_box_subscriptions',
-        operation: 'insert',
-        context: { offering_id, term_weeks }
-      })
-    }
+    const verticalId = (offeringWithVertical?.market as any)?.vertical_id || 'farmers_market'
 
-    // Pickups are auto-created by the trigger
-
-    crumb.supabase('select', 'market_box_pickups')
-    const { data: pickups } = await supabase
-      .from('market_box_pickups')
-      .select('*')
-      .eq('subscription_id', subscription.id)
-      .order('week_number')
+    // Create Stripe checkout session
+    crumb.stripe('create checkout session')
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const session = await createMarketBoxCheckoutSession({
+      offeringId: offering_id,
+      offeringName: offering.name,
+      userId: user.id,
+      termWeeks: term_weeks,
+      priceCents,
+      startDate: subscriptionStartDate,
+      successUrl: `${baseUrl}/${verticalId}/buyer/market-boxes?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${baseUrl}/${verticalId}/market-box/${offering_id}?cancelled=true`,
+    })
 
     return NextResponse.json({
-      subscription: {
-        ...subscription,
-        pickups: pickups || [],
-      },
-      message: `Successfully purchased ${offering.name}! Your first pickup is on ${subscriptionStartDate}.`,
-    }, { status: 201 })
+      checkout_url: session.url,
+      session_id: session.id,
+      message: 'Redirecting to checkout...',
+    }, { status: 200 })
   })
 }

@@ -31,8 +31,8 @@ const STATUS_INFO: Record<string, { icon: string; color: string; bg: string; tit
     icon: '🤝',
     color: '#f59e0b',
     bg: '#fef3c7',
-    title: 'Confirm Your Pickup',
-    message: 'Vendor marked this as handed off. Please confirm you received it.'
+    title: 'Acknowledge Your Pickup',
+    message: 'Vendor marked this as handed off. Please acknowledge you received it.'
   },
   fulfilled: {
     icon: '✓',

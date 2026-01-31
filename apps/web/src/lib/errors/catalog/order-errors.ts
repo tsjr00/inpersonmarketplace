@@ -41,7 +41,7 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     description: 'The order item cannot be confirmed in its current state.',
     causes: [
       'Item is not in ready/fulfilled status',
-      'Buyer has already confirmed receipt',
+      'Buyer has already acknowledged receipt',
       'Issue has already been reported',
     ],
     solutions: [
@@ -56,7 +56,7 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     severity: 'high',
     description: 'Vendor could not confirm the handoff.',
     causes: [
-      'Buyer has not confirmed receipt yet',
+      'Buyer has not acknowledged receipt yet',
       'Vendor has already confirmed',
       'Stripe transfer failed',
     ],
@@ -73,7 +73,7 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     severity: 'medium',
     description: 'Vendor has unresolved pickup confirmations blocking other actions.',
     causes: [
-      'Buyer confirmed receipt but vendor did not counter-confirm within 8 hours',
+      'Buyer acknowledged receipt but vendor did not counter-confirm within 8 hours',
       'Multiple pending confirmations exist',
     ],
     solutions: [
