@@ -46,16 +46,15 @@ export default function VendorPickupPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [processingItem, setProcessingItem] = useState<string | null>(null)
-  const [unconfirmedHandoffs, setUnconfirmedHandoffs] = useState<number>(0)
-  const [handoffsAwaitingBuyer, setHandoffsAwaitingBuyer] = useState<number>(0)
+  const [needsFulfillment, setNeedsFulfillment] = useState<number>(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (vertical) {
       fetchMarkets()
-      fetchUnconfirmedHandoffs()
-      // Poll for unconfirmed handoffs every 30 seconds
-      const interval = setInterval(fetchUnconfirmedHandoffs, 30000)
+      fetchNeedsFulfillment()
+      // Poll for needs fulfillment every 30 seconds
+      const interval = setInterval(fetchNeedsFulfillment, 30000)
       return () => clearInterval(interval)
     }
   }, [vertical])
@@ -66,27 +65,29 @@ export default function VendorPickupPage() {
     }
   }, [selectedMarket])
 
-  const fetchUnconfirmedHandoffs = async () => {
+  const fetchNeedsFulfillment = async () => {
     try {
-      // Fetch orders where buyer confirmed but vendor hasn't confirmed back
+      // Fetch orders where buyer acknowledged but vendor hasn't fulfilled yet
       const res = await fetch('/api/vendor/orders?unconfirmed_handoffs=true')
       if (res.ok) {
         const data = await res.json()
-        // Count items where buyer_confirmed_at exists but no vendor confirmation yet
-        // These are buyers who acknowledged but vendor hasn't confirmed handoff
-        const buyerAcknowledgedCount = (data.orderItems || []).filter(
-          (item: any) => item.buyer_confirmed_at && !item.vendor_confirmed_at && item.status === 'fulfilled'
+        const now = new Date()
+        // Count items where buyer acknowledged, vendor hasn't fulfilled, AND window hasn't expired
+        // This prevents stale acknowledgments from showing as alerts
+        const count = (data.orderItems || []).filter(
+          (item: any) => {
+            if (!item.buyer_confirmed_at || item.vendor_confirmed_at) return false
+            // Check if confirmation window is still active
+            if (item.confirmation_window_expires_at) {
+              return new Date(item.confirmation_window_expires_at) > now
+            }
+            return false // No window = stale data, don't count
+          }
         ).length
-        setUnconfirmedHandoffs(buyerAcknowledgedCount)
-
-        // Count items where vendor fulfilled but buyer hasn't acknowledged yet
-        const awaitingBuyerCount = (data.orderItems || []).filter(
-          (item: any) => !item.buyer_confirmed_at && !item.vendor_confirmed_at && item.status === 'fulfilled'
-        ).length
-        setHandoffsAwaitingBuyer(awaitingBuyerCount)
+        setNeedsFulfillment(count)
       }
     } catch (error) {
-      console.error('Error fetching unconfirmed handoffs:', error)
+      console.error('Error fetching needs fulfillment:', error)
     }
   }
 
@@ -300,8 +301,8 @@ export default function VendorPickupPage() {
         </div>
       </div>
 
-      {/* Buyer Acknowledged Alert - vendor needs to confirm handoff */}
-      {unconfirmedHandoffs > 0 && (
+      {/* Needs Fulfillment Alert - buyer acknowledged, vendor needs to click Fulfill */}
+      {needsFulfillment > 0 && (
         <div style={{
           padding: '12px 16px',
           backgroundColor: '#fff7ed',
@@ -318,67 +319,21 @@ export default function VendorPickupPage() {
               fontWeight: 700,
               color: '#ea580c'
             }}>
-              ⚠️ {unconfirmedHandoffs} buyer{unconfirmedHandoffs !== 1 ? 's have' : ' has'} acknowledged receipt
+              ⚠️ {needsFulfillment} order{needsFulfillment !== 1 ? 's' : ''} to fulfill
             </p>
             <p style={{
               margin: '4px 0 0 0',
               fontSize: 12,
               color: '#c2410c'
             }}>
-              Check if they&apos;re still nearby - they may have questions!
+              Buyer acknowledged - tap Fulfill to complete
             </p>
           </div>
           <Link
-            href={`/${vertical}/vendor/orders?status=fulfilled`}
+            href={`/${vertical}/vendor/orders?status=ready`}
             style={{
               padding: '8px 14px',
               backgroundColor: '#ea580c',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: 6,
-              fontSize: 13,
-              fontWeight: 600,
-              whiteSpace: 'nowrap'
-            }}
-          >
-            View
-          </Link>
-        </div>
-      )}
-
-      {/* Awaiting Buyer Acknowledgment Alert */}
-      {handoffsAwaitingBuyer > 0 && (
-        <div style={{
-          padding: '12px 16px',
-          backgroundColor: '#eff6ff',
-          borderBottom: '2px solid #3b82f6',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12
-        }}>
-          <div>
-            <p style={{
-              margin: 0,
-              fontSize: 14,
-              fontWeight: 700,
-              color: '#1d4ed8'
-            }}>
-              {handoffsAwaitingBuyer} awaiting buyer acknowledgment
-            </p>
-            <p style={{
-              margin: '4px 0 0 0',
-              fontSize: 12,
-              color: '#2563eb'
-            }}>
-              Fulfilled items waiting for buyer to acknowledge receipt
-            </p>
-          </div>
-          <Link
-            href={`/${vertical}/vendor/orders?status=fulfilled`}
-            style={{
-              padding: '8px 14px',
-              backgroundColor: '#3b82f6',
               color: 'white',
               textDecoration: 'none',
               borderRadius: 6,

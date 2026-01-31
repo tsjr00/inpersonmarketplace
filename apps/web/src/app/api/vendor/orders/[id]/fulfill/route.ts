@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { transferToVendor } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
 export async function POST(
@@ -20,11 +21,11 @@ export async function POST(
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get vendor profile
+    // Get vendor profile with Stripe account ID for payment processing
     crumb.supabase('select', 'vendor_profiles')
     const { data: vendorProfile } = await supabase
       .from('vendor_profiles')
-      .select('id')
+      .select('id, stripe_account_id')
       .eq('user_id', user.id)
       .single()
 
@@ -32,42 +33,11 @@ export async function POST(
       throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
     }
 
-    // Check for unresolved pickup confirmations (lockdown check)
-    crumb.logic('Checking for unresolved pickup confirmations')
-    const { data: unresolvedItems } = await supabase
-      .from('order_items')
-      .select('id')
-      .eq('vendor_profile_id', vendorProfile.id)
-      .not('buyer_confirmed_at', 'is', null)
-      .is('vendor_confirmed_at', null)
-      .is('issue_reported_at', null)
-
-    if (unresolvedItems && unresolvedItems.length > 0) {
-      // Check if any have been pending over 8 hours (hard lockdown)
-      // This gives vendor time to call/find the customer and have them confirm
-      const LOCKDOWN_HOURS = 8
-      const { data: hardLockedItems } = await supabase
-        .from('order_items')
-        .select('id, confirmation_window_expires_at')
-        .eq('vendor_profile_id', vendorProfile.id)
-        .not('buyer_confirmed_at', 'is', null)
-        .is('vendor_confirmed_at', null)
-        .is('issue_reported_at', null)
-        .lt('confirmation_window_expires_at', new Date(Date.now() - LOCKDOWN_HOURS * 60 * 60 * 1000).toISOString())
-
-      if (hardLockedItems && hardLockedItems.length > 0) {
-        throw traced.auth('ERR_ORDER_005', 'You have unresolved pickup confirmations. Please confirm or report an issue for pending handoffs before fulfilling other orders.', {
-          code: 'LOCKDOWN_ACTIVE',
-          unresolved_count: hardLockedItems.length
-        })
-      }
-    }
-
-    // Get order item
+    // Get order item with payment info and confirmation window
     crumb.supabase('select', 'order_items')
     const { data: orderItem } = await supabase
       .from('order_items')
-      .select('*, order:orders(*)')
+      .select('id, status, vendor_payout_cents, order_id, buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at')
       .eq('id', orderItemId)
       .eq('vendor_profile_id', vendorProfile.id)
       .single()
@@ -76,16 +46,132 @@ export async function POST(
       throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
     }
 
-    // Mark as fulfilled - transfer happens later when both parties confirm pickup
-    crumb.supabase('update', 'order_items')
-    await supabase
-      .from('order_items')
-      .update({
-        status: 'fulfilled',
-        pickup_confirmed_at: new Date().toISOString(),
-      })
-      .eq('id', orderItemId)
+    // Check if already fulfilled
+    if (orderItem.vendor_confirmed_at) {
+      throw traced.validation('ERR_ORDER_004', 'Already fulfilled', { vendor_confirmed_at: orderItem.vendor_confirmed_at })
+    }
 
-    return NextResponse.json({ success: true })
+    const now = new Date()
+    const buyerAlreadyAcknowledged = !!orderItem.buyer_confirmed_at
+
+    if (buyerAlreadyAcknowledged) {
+      // Check if 30-second confirmation window has expired
+      const windowExpires = orderItem.confirmation_window_expires_at
+        ? new Date(orderItem.confirmation_window_expires_at)
+        : null
+
+      if (windowExpires && now > windowExpires) {
+        // Window expired - reset buyer acknowledgment, they must re-acknowledge
+        crumb.logic('Confirmation window expired, resetting buyer acknowledgment')
+        await supabase
+          .from('order_items')
+          .update({
+            buyer_confirmed_at: null,
+            confirmation_window_expires_at: null
+          })
+          .eq('id', orderItemId)
+
+        throw traced.validation('ERR_ORDER_006', 'Confirmation window expired. Please ask the buyer to acknowledge receipt again.', {
+          window_expired_at: windowExpires.toISOString()
+        })
+      }
+
+      // NORMAL FLOW: Buyer acknowledged first, vendor fulfills within 30-second window
+      // Complete the transaction and trigger payment
+      crumb.supabase('update', 'order_items')
+      await supabase
+        .from('order_items')
+        .update({
+          status: 'fulfilled',
+          vendor_confirmed_at: now.toISOString(),
+          pickup_confirmed_at: now.toISOString(),
+          confirmation_window_expires_at: null, // Clear the window since transaction is complete
+        })
+        .eq('id', orderItemId)
+
+      // Trigger Stripe transfer to vendor
+      crumb.logic('Processing vendor payout')
+      const isDev = process.env.NODE_ENV !== 'production'
+      const hasStripe = !!vendorProfile.stripe_account_id
+
+      if (hasStripe) {
+        try {
+          const transfer = await transferToVendor({
+            amount: orderItem.vendor_payout_cents,
+            destination: vendorProfile.stripe_account_id,
+            orderId: orderItem.order_id,
+            orderItemId: orderItem.id,
+          })
+
+          crumb.supabase('insert', 'vendor_payouts')
+          await supabase.from('vendor_payouts').insert({
+            order_item_id: orderItem.id,
+            vendor_profile_id: vendorProfile.id,
+            amount_cents: orderItem.vendor_payout_cents,
+            stripe_transfer_id: transfer.id,
+            status: 'processing',
+          })
+        } catch (transferError) {
+          console.error('Stripe transfer failed:', transferError)
+          throw traced.external('ERR_ORDER_004', 'Failed to process vendor payout', { orderItemId })
+        }
+      } else if (isDev) {
+        // Dev mode without Stripe
+        console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)
+        crumb.supabase('insert', 'vendor_payouts')
+        await supabase.from('vendor_payouts').insert({
+          order_item_id: orderItem.id,
+          vendor_profile_id: vendorProfile.id,
+          amount_cents: orderItem.vendor_payout_cents,
+          stripe_transfer_id: `dev_skip_${orderItemId}`,
+          status: 'skipped_dev',
+        })
+      } else {
+        throw traced.validation('ERR_ORDER_004', 'Stripe account not connected')
+      }
+
+      // Check if all items in order are now complete
+      crumb.supabase('select', 'order_items')
+      const { data: allItems } = await supabase
+        .from('order_items')
+        .select('status, buyer_confirmed_at, vendor_confirmed_at, cancelled_at')
+        .eq('order_id', orderItem.order_id)
+
+      const activeItems = allItems?.filter(i => !i.cancelled_at) || []
+      const allComplete = activeItems.length > 0 &&
+        activeItems.every(i => i.buyer_confirmed_at && i.vendor_confirmed_at)
+
+      if (allComplete) {
+        crumb.supabase('update', 'orders')
+        await supabase
+          .from('orders')
+          .update({ status: 'completed' })
+          .eq('id', orderItem.order_id)
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Order fulfilled. Payment is being transferred to your account.',
+        completed: true,
+        vendor_confirmed_at: now.toISOString()
+      })
+    } else {
+      // EDGE CASE: Vendor fulfilling before buyer acknowledged
+      // Just mark as fulfilled, buyer will acknowledge after
+      crumb.supabase('update', 'order_items')
+      await supabase
+        .from('order_items')
+        .update({
+          status: 'fulfilled',
+          pickup_confirmed_at: now.toISOString(),
+        })
+        .eq('id', orderItemId)
+
+      return NextResponse.json({
+        success: true,
+        message: 'Marked as fulfilled. Waiting for buyer to acknowledge receipt.',
+        completed: false
+      })
+    }
   })
 }

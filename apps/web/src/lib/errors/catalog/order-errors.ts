@@ -81,6 +81,22 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     ],
     pgCodes: [],
   },
+  {
+    code: 'ERR_ORDER_006',
+    title: 'Confirmation Window Expired',
+    category: 'ORDER',
+    severity: 'low',
+    description: 'The 30-second confirmation window has expired.',
+    causes: [
+      'Vendor did not click Fulfill within 30 seconds of buyer acknowledging',
+      'Network delay caused timeout',
+    ],
+    solutions: [
+      'Ask buyer to acknowledge receipt again',
+      'Vendor should fulfill immediately after buyer acknowledges',
+    ],
+    pgCodes: [],
+  },
 ]
 
 export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
