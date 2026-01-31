@@ -222,7 +222,7 @@ export default function BuyerOrdersPage() {
 
       {error && (
         <div style={{ maxWidth: containers.xl, margin: `0 auto ${spacing.md}` }}>
-          <ErrorDisplay error={error} />
+          <ErrorDisplay error={error} verticalId={vertical} />
         </div>
       )}
 

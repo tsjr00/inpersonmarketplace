@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const escalationLevel = searchParams.get('escalationLevel')
     const errorCode = searchParams.get('errorCode')
+    const showAll = searchParams.get('showAll') === 'true' // Platform admin can see all
     const limit = parseInt(searchParams.get('limit') || '50', 10)
     const offset = parseInt(searchParams.get('offset') || '0', 10)
 
@@ -95,9 +96,14 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1)
 
     // Apply filters
-    if (verticalId) {
+    // Platform admins with showAll=true see ALL reports (including null vertical_id)
+    // Otherwise, filter by vertical
+    if (isPlatformAdmin && showAll) {
+      // Don't filter by vertical - show everything
+    } else if (verticalId) {
       query = query.eq('vertical_id', verticalId)
     }
+
     if (status) {
       query = query.eq('status', status)
     }
@@ -146,7 +152,7 @@ export async function GET(request: NextRequest) {
       .not('error_code', 'is', null)
 
     // Apply same filters as main query
-    if (verticalId) {
+    if (!(isPlatformAdmin && showAll) && verticalId) {
       frequencyQuery = frequencyQuery.eq('vertical_id', verticalId)
     }
     if (!isPlatformAdmin) {
