@@ -42,8 +42,6 @@ export default function VerticalAdminErrorsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('')
-  const [showAll, setShowAll] = useState(false) // Platform admin: show all verticals
-  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null)
   const [resolutionSummary, setResolutionSummary] = useState<ResolutionSummary | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
@@ -51,7 +49,7 @@ export default function VerticalAdminErrorsPage() {
 
   useEffect(() => {
     fetchReports()
-  }, [statusFilter, vertical, showAll])
+  }, [statusFilter, vertical])
 
   async function fetchReports() {
     try {
@@ -62,7 +60,6 @@ export default function VerticalAdminErrorsPage() {
       const queryParams = new URLSearchParams()
       queryParams.set('verticalId', vertical) // vertical slug = vertical_id
       if (statusFilter) queryParams.set('status', statusFilter)
-      if (showAll) queryParams.set('showAll', 'true')
 
       const response = await fetch(`/api/admin/errors?${queryParams.toString()}`)
       if (!response.ok) {
@@ -73,7 +70,6 @@ export default function VerticalAdminErrorsPage() {
       const data = await response.json()
       setReports(data.reports || [])
       setErrorCounts(data.errorCounts || {})
-      setIsPlatformAdmin(data.isPlatformAdmin || false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load reports')
     } finally {
@@ -238,27 +234,6 @@ export default function VerticalAdminErrorsPage() {
           <option value="in_progress">In Progress</option>
           <option value="resolved">Resolved</option>
         </select>
-
-        {/* Platform Admin: Show All Verticals toggle */}
-        {isPlatformAdmin && (
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing['2xs'],
-            fontSize: typography.sizes.sm,
-            color: colors.textSecondary,
-            cursor: 'pointer',
-            marginLeft: spacing.sm,
-          }}>
-            <input
-              type="checkbox"
-              checked={showAll}
-              onChange={(e) => setShowAll(e.target.checked)}
-              style={{ cursor: 'pointer' }}
-            />
-            Show all verticals
-          </label>
-        )}
 
         <button
           onClick={() => fetchReports()}
