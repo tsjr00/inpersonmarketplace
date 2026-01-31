@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { defaultBranding } from '@/lib/branding'
 import { formatDisplayPrice, calculateDisplayPrice } from '@/lib/constants'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
@@ -221,17 +222,23 @@ export default function MarketBoxDetailPage() {
         <div style={{ marginTop: 24, display: 'grid', gap: 24 }}>
           {/* Market Box Image */}
           {offering.image_urls && offering.image_urls.length > 0 ? (
-            <img
-              src={offering.image_urls[0]}
-              alt={offering.name}
-              style={{
-                width: '100%',
-                height: 300,
-                objectFit: 'cover',
-                borderRadius: 12,
-                backgroundColor: '#f3f4f6'
-              }}
-            />
+            <div style={{
+              position: 'relative',
+              width: '100%',
+              height: 300,
+              borderRadius: 12,
+              overflow: 'hidden',
+              backgroundColor: '#f3f4f6'
+            }}>
+              <Image
+                src={offering.image_urls[0]}
+                alt={offering.name}
+                fill
+                sizes="(max-width: 768px) 100vw, 600px"
+                style={{ objectFit: 'cover' }}
+                priority
+              />
+            </div>
           ) : (
             <div style={{
               height: 300,
@@ -447,17 +454,22 @@ export default function MarketBoxDetailPage() {
               <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>Sold by</h3>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 {vendor.profile_image_url ? (
-                  <img
-                    src={vendor.profile_image_url}
-                    alt={vendor.name}
-                    style={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid #e5e7eb'
-                    }}
-                  />
+                  <div style={{
+                    position: 'relative',
+                    width: 50,
+                    height: 50,
+                    borderRadius: '50%',
+                    overflow: 'hidden',
+                    border: '2px solid #e5e7eb'
+                  }}>
+                    <Image
+                      src={vendor.profile_image_url}
+                      alt={vendor.name}
+                      fill
+                      sizes="50px"
+                      style={{ objectFit: 'cover' }}
+                    />
+                  </div>
                 ) : (
                   <div style={{
                     width: 50,

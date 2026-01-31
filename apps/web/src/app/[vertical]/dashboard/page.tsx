@@ -93,6 +93,26 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .order('created_at', { ascending: false })
     .limit(3)
 
+  // Get orders needing buyer confirmation (vendor handed off but buyer hasn't confirmed)
+  const { data: ordersNeedingConfirmation } = await supabase
+    .from('orders')
+    .select(`
+      id,
+      order_number,
+      order_items!inner (
+        id,
+        status,
+        buyer_confirmed_at
+      )
+    `)
+    .eq('buyer_user_id', user.id)
+    .eq('order_items.status', 'fulfilled')
+    .is('order_items.buyer_confirmed_at', null)
+    .is('order_items.cancelled_at', null)
+    .limit(10)
+
+  const confirmationNeededCount = ordersNeedingConfirmation?.length || 0
+
   // Transform ready orders to get unique orders with their ready items grouped by vendor+market
   const ordersReadyForPickup = (readyOrders || []).map(order => {
     const readyItems = (order.order_items || []).filter((item: any) => item.status === 'ready')
@@ -371,23 +391,52 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           </Link>
 
           {/* My Orders Card - enhanced to show status summary */}
+          {/* Priority: orange border for confirmation needed > green border for ready > default */}
           <Link
             href={`/${vertical}/buyer/orders`}
             style={{
               display: 'block',
               padding: spacing.md,
-              backgroundColor: colors.surfaceElevated,
+              backgroundColor: confirmationNeededCount > 0 ? '#fff7ed' : colors.surfaceElevated,
               color: colors.textPrimary,
-              border: ordersReadyForPickup.length > 0 ? `2px solid #16a34a` : `1px solid ${colors.border}`,
+              border: confirmationNeededCount > 0
+                ? '3px solid #ea580c'
+                : ordersReadyForPickup.length > 0
+                  ? `2px solid #16a34a`
+                  : `1px solid ${colors.border}`,
               borderRadius: radius.md,
-              textDecoration: 'none'
+              textDecoration: 'none',
+              boxShadow: confirmationNeededCount > 0 ? '0 0 0 3px rgba(234, 88, 12, 0.2)' : 'none'
             }}
           >
             <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
               My Orders
+              {confirmationNeededCount > 0 && (
+                <span style={{
+                  marginLeft: spacing.xs,
+                  backgroundColor: '#ea580c',
+                  color: 'white',
+                  padding: `2px ${spacing.xs}`,
+                  borderRadius: radius.full,
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.bold,
+                  verticalAlign: 'middle'
+                }}>
+                  Action Needed
+                </span>
+              )}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
               {orderCount || 0} order{orderCount !== 1 ? 's' : ''} placed
+              {confirmationNeededCount > 0 && (
+                <span style={{
+                  marginLeft: spacing.xs,
+                  color: '#ea580c',
+                  fontWeight: typography.weights.bold
+                }}>
+                  • {confirmationNeededCount} to confirm
+                </span>
+              )}
               {ordersReadyForPickup.length > 0 && (
                 <span style={{
                   marginLeft: spacing.xs,

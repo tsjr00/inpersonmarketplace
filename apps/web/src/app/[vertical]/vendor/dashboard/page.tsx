@@ -123,6 +123,21 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   const traditionalMarkets = activeMarkets.filter(m => m.market_type === 'traditional')
   const privatePickups = activeMarkets.filter(m => m.market_type === 'private_pickup')
 
+  // Check for orders needing vendor attention (buyer confirmed but vendor hasn't)
+  let ordersNeedingAttention = 0
+  if (vendorProfile.status === 'approved') {
+    const { count } = await supabase
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfile.id)
+      .not('buyer_confirmed_at', 'is', null)
+      .is('vendor_confirmed_at', null)
+      .is('issue_reported_at', null)
+      .is('cancelled_at', null)
+
+    ordersNeedingAttention = count || 0
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -540,21 +555,21 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </Link>
 
-          {/* Orders */}
+          {/* Orders - highlight if there are unconfirmed handoffs */}
           <Link
             href={`/${vertical}/vendor/orders`}
             style={{ textDecoration: 'none' }}
           >
             <div style={{
               padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
+              backgroundColor: ordersNeedingAttention > 0 ? '#fff7ed' : colors.surfaceElevated,
               color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
+              border: ordersNeedingAttention > 0 ? '3px solid #ea580c' : `1px solid ${colors.border}`,
               borderRadius: radius.md,
               cursor: 'pointer',
               height: '100%',
               minHeight: 120,
-              boxShadow: shadows.sm
+              boxShadow: ordersNeedingAttention > 0 ? '0 0 0 3px rgba(234, 88, 12, 0.2)' : shadows.sm
             }}>
               <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🧾</div>
               <h3 style={{
@@ -564,9 +579,25 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 fontWeight: typography.weights.semibold
               }}>
                 Orders
+                {ordersNeedingAttention > 0 && (
+                  <span style={{
+                    marginLeft: spacing.xs,
+                    backgroundColor: '#ea580c',
+                    color: 'white',
+                    padding: `2px ${spacing.xs}`,
+                    borderRadius: radius.full,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.bold,
+                    verticalAlign: 'middle'
+                  }}>
+                    {ordersNeedingAttention}
+                  </span>
+                )}
               </h3>
               <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                Manage incoming orders from customers
+                {ordersNeedingAttention > 0
+                  ? `${ordersNeedingAttention} order${ordersNeedingAttention !== 1 ? 's' : ''} need${ordersNeedingAttention === 1 ? 's' : ''} confirmation`
+                  : 'Manage incoming orders from customers'}
               </p>
             </div>
           </Link>

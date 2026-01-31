@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function DELETE(request: Request) {
   try {
+    // Rate limit: 3 requests per hour for account deletion
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`delete-account:${clientIp}`, {
+      limit: 3,
+      windowSeconds: 3600 // 1 hour
+    })
+    if (!rateLimitResult.success) {
+      return rateLimitResponse(rateLimitResult)
+    }
+
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()

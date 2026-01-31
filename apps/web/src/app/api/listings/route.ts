@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { verifyAdminForApi } from '@/lib/auth/admin'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const vertical = searchParams.get('vertical')
-  const admin = searchParams.get('admin') === 'true'
+  const adminRequested = searchParams.get('admin') === 'true'
   const status = searchParams.get('status')
   const vendorId = searchParams.get('vendor_id')
 
@@ -14,8 +14,20 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Use service client for admin queries to bypass RLS
-    const supabase = admin ? createServiceClient() : await createClient()
+    // Verify admin role BEFORE using service client
+    // SECURITY: Query param alone is not sufficient - must verify actual admin role
+    let isAdmin = false
+    if (adminRequested) {
+      const { isAdmin: verified } = await verifyAdminForApi()
+      isAdmin = verified
+      if (!verified) {
+        // Silently fall back to regular client if not admin
+        // This prevents information disclosure about admin status
+      }
+    }
+
+    // Use service client only for verified admins
+    const supabase = isAdmin ? createServiceClient() : await createClient()
 
     let query = supabase
       .from('listings')
@@ -51,7 +63,7 @@ export async function GET(request: NextRequest) {
     }
 
     // For non-admin queries, only show published listings
-    if (!admin) {
+    if (!isAdmin) {
       query = query.eq('status', 'published')
     }
 
@@ -63,7 +75,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Cache public listings for 5 minutes, admin queries are not cached
-    const cacheHeaders = admin
+    const cacheHeaders = isAdmin
       ? { 'Cache-Control': 'private, no-store' }
       : { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
 

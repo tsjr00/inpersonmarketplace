@@ -79,6 +79,7 @@ export async function createCheckoutSession({
 
 /**
  * Create transfer to vendor
+ * Uses idempotency key to prevent duplicate transfers on retry
  */
 export async function transferToVendor({
   amount,
@@ -91,27 +92,40 @@ export async function transferToVendor({
   orderId: string
   orderItemId: string
 }) {
-  const transfer = await stripe.transfers.create({
-    amount,
-    currency: 'usd',
-    destination,
-    metadata: {
-      order_id: orderId,
-      order_item_id: orderItemId,
+  const transfer = await stripe.transfers.create(
+    {
+      amount,
+      currency: 'usd',
+      destination,
+      metadata: {
+        order_id: orderId,
+        order_item_id: orderItemId,
+      },
     },
-  })
+    {
+      idempotencyKey: `transfer-${orderId}-${orderItemId}`,
+    }
+  )
 
   return transfer
 }
 
 /**
  * Create refund
+ * Uses idempotency key to prevent duplicate refunds on retry
  */
 export async function createRefund(paymentIntentId: string, amount?: number) {
-  const refund = await stripe.refunds.create({
-    payment_intent: paymentIntentId,
-    amount,
-  })
+  const idempotencyKey = `refund-${paymentIntentId}-${amount ?? 'full'}`
+
+  const refund = await stripe.refunds.create(
+    {
+      payment_intent: paymentIntentId,
+      amount,
+    },
+    {
+      idempotencyKey,
+    }
+  )
 
   return refund
 }

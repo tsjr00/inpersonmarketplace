@@ -73,7 +73,7 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     severity: 'medium',
     description: 'Vendor has unresolved pickup confirmations blocking other actions.',
     causes: [
-      'Buyer confirmed receipt but vendor did not counter-confirm within 5 minutes',
+      'Buyer confirmed receipt but vendor did not counter-confirm within 8 hours',
       'Multiple pending confirmations exist',
     ],
     solutions: [

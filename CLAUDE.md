@@ -115,3 +115,115 @@ Include:
 - What tables are affected
 - What issue is being fixed
 - Co-author line for Claude
+
+---
+
+## New API Route Security Checklist - MANDATORY
+
+Every new API route MUST have these elements. Check before committing:
+
+### 1. Authentication
+```typescript
+const { data: { user }, error: authError } = await supabase.auth.getUser()
+if (authError || !user) {
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+}
+```
+
+### 2. Authorization
+- Verify user owns the resource OR has appropriate role
+- Use `src/lib/auth/admin.ts` for admin checks (centralized)
+- NEVER use query params to bypass authorization (e.g., `?admin=true`)
+
+### 3. Input Validation
+- Validate all request body fields
+- Check types, ranges, and formats
+- Use Zod schemas for complex validation
+
+### 4. Rate Limiting
+Apply appropriate limits for sensitive operations:
+- Account deletion: 3/hour
+- Admin operations: 30/minute
+- Auth endpoints: 5/minute
+- Standard API: 60/minute
+
+### 5. Service Client Rules
+- NEVER use `createServiceClient()` without verified admin role
+- Admin role must be verified from database, not query params
+- Document why service client is needed
+
+### 6. Error Tracing
+- Wrap handlers in `withErrorTracing()`
+- Use `traced.auth()`, `traced.validation()` for structured errors
+- Include error codes following ERR_XXX_NNN pattern
+
+---
+
+## New Feature Pre-Merge Checklist
+
+Before merging ANY feature:
+
+### Security Review
+- [ ] No debug endpoints in code (`/api/debug/*` must be deleted)
+- [ ] Service role only used with verified admin role
+- [ ] All new routes have authentication
+- [ ] Input validation on all endpoints
+
+### Performance Review
+- [ ] Images use `next/image` for display (not raw `<img>`)
+- [ ] Upload images use `image-resize.ts` for compression
+- [ ] Database queries are batched (no N+1)
+- [ ] Cache headers on public data endpoints
+
+### Error Tracking Review
+- [ ] New routes wrapped in `withErrorTracing()`
+- [ ] Error codes added to ERR_XXX pattern
+- [ ] Sensitive operations have rate limiting
+
+### RLS Review (if touching database)
+- [ ] Query error_resolutions for similar issues
+- [ ] Check existing policies before creating new ones
+- [ ] Use `(SELECT auth.uid())` not `auth.uid()`
+- [ ] Test policies don't cause recursion
+
+---
+
+## Image Optimization Rules
+
+**Two separate concerns - don't confuse them:**
+
+### Upload Compression (saves storage)
+- Use `src/lib/utils/image-resize.ts` in upload components
+- Settings: 1200px max dimension, 80% JPEG quality
+- Result: 1-2MB → 300-600KB
+- Already implemented in: ListingImageUpload, MarketBoxImageUpload
+
+### Display Optimization (saves bandwidth)
+- Use `next/image` component, NOT raw `<img>` tags
+- Provides: lazy loading, responsive sizing, WebP conversion
+- Required on: browse pages, listing cards, market-box cards
+```tsx
+import Image from 'next/image'
+
+<Image
+  src={imageUrl}
+  alt={description}
+  width={280}
+  height={200}
+  loading="lazy"
+/>
+```
+
+---
+
+## SECURITY DEFINER Function Rules
+
+All SECURITY DEFINER functions MUST include:
+```sql
+CREATE OR REPLACE FUNCTION function_name()
+RETURNS ... AS $$
+  -- function body
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+```
+
+Without `SET search_path = public`, functions are vulnerable to search path injection attacks.

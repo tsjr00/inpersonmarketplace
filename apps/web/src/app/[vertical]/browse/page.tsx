@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
+import Image from 'next/image'
 import SearchFilter from './SearchFilter'
 import BrowseToggle from './BrowseToggle'
 import { formatDisplayPrice, CATEGORIES } from '@/lib/constants'
@@ -767,17 +768,23 @@ function ListingCard({
 
         {/* Product Image or Placeholder */}
         {primaryImage?.url ? (
-          <img
-            src={primaryImage.url}
-            alt={listing.title}
-            style={{
-              width: '100%',
-              height: 140,
-              objectFit: 'cover',
-              borderRadius: radius.sm,
-              backgroundColor: colors.surfaceMuted
-            }}
-          />
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            height: 140,
+            borderRadius: radius.sm,
+            overflow: 'hidden',
+            backgroundColor: colors.surfaceMuted
+          }}>
+            <Image
+              src={primaryImage.url}
+              alt={listing.title}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 280px"
+              style={{ objectFit: 'cover' }}
+              loading="lazy"
+            />
+          </div>
         ) : (
           <div style={{
             height: 140,
@@ -952,17 +959,23 @@ function MarketBoxCard({
 
         {/* Image */}
         {offering.image_urls && offering.image_urls.length > 0 ? (
-          <img
-            src={offering.image_urls[0]}
-            alt={offering.name}
-            style={{
-              width: '100%',
-              height: 140,
-              objectFit: 'cover',
-              borderRadius: radius.sm,
-              backgroundColor: colors.surfaceSubtle
-            }}
-          />
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            height: 140,
+            borderRadius: radius.sm,
+            overflow: 'hidden',
+            backgroundColor: colors.surfaceSubtle
+          }}>
+            <Image
+              src={offering.image_urls[0]}
+              alt={offering.name}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 280px"
+              style={{ objectFit: 'cover' }}
+              loading="lazy"
+            />
+          </div>
         ) : (
           <div style={{
             height: 140,

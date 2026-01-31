@@ -136,3 +136,26 @@ export function hasPlatformAdminRole(profile: { role?: string | null; roles?: st
     profile?.roles?.includes('platform_admin') ||
     false
 }
+
+/**
+ * Verify admin role for API routes
+ * Returns { isAdmin, userId } - does not redirect
+ * Use this BEFORE using createServiceClient() in API routes
+ */
+export async function verifyAdminForApi(): Promise<{ isAdmin: boolean; userId: string | null }> {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { isAdmin: false, userId: null }
+  }
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role, roles')
+    .eq('user_id', user.id)
+    .single()
+
+  const isAdmin = hasAdminRole(profile || {})
+  return { isAdmin, userId: user.id }
+}

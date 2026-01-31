@@ -122,7 +122,7 @@ export default function HowItWorksPage() {
             <ul style={{ paddingLeft: '1.2rem', margin: `${spacing.xs} 0` }}>
               <li>Payment transfer is not initiated until <strong>both parties confirm</strong></li>
               <li>If you don&apos;t confirm within 30 seconds, you&apos;ll see an urgent prompt</li>
-              <li>After 5 minutes, other actions are blocked until you resolve the pending confirmation</li>
+              <li>After 8 hours, other actions are blocked until you resolve the pending confirmation</li>
               <li>This protects both you and your customers</li>
             </ul>
           </InfoCard>

@@ -2,16 +2,27 @@ import { stripe } from './config'
 
 /**
  * Create Stripe Connect Express account for vendor
+ * Uses idempotency key to prevent duplicate accounts on retry
  */
-export async function createConnectAccount(email: string) {
-  const account = await stripe.accounts.create({
-    type: 'express',
-    email,
-    capabilities: {
-      card_payments: { requested: true },
-      transfers: { requested: true },
+export async function createConnectAccount(email: string, vendorProfileId?: string) {
+  // Use vendorProfileId if available for more precise idempotency
+  const idempotencyKey = vendorProfileId
+    ? `connect-account-${vendorProfileId}`
+    : `connect-account-${email.toLowerCase()}`
+
+  const account = await stripe.accounts.create(
+    {
+      type: 'express',
+      email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
     },
-  })
+    {
+      idempotencyKey,
+    }
+  )
 
   return account
 }

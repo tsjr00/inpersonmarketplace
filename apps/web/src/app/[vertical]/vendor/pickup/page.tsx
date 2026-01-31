@@ -12,6 +12,7 @@ interface OrderItem {
   subtotal_cents: number
   status: string
   buyer_confirmed_at: string | null
+  vendor_confirmed_at: string | null
 }
 
 interface Order {
@@ -45,11 +46,16 @@ export default function VendorPickupPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [processingItem, setProcessingItem] = useState<string | null>(null)
+  const [unconfirmedHandoffs, setUnconfirmedHandoffs] = useState<number>(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (vertical) {
       fetchMarkets()
+      fetchUnconfirmedHandoffs()
+      // Poll for unconfirmed handoffs every 30 seconds
+      const interval = setInterval(fetchUnconfirmedHandoffs, 30000)
+      return () => clearInterval(interval)
     }
   }, [vertical])
 
@@ -58,6 +64,23 @@ export default function VendorPickupPage() {
       fetchOrders()
     }
   }, [selectedMarket])
+
+  const fetchUnconfirmedHandoffs = async () => {
+    try {
+      // Fetch orders where buyer confirmed but vendor hasn't confirmed back
+      const res = await fetch('/api/vendor/orders?unconfirmed_handoffs=true')
+      if (res.ok) {
+        const data = await res.json()
+        // Count items where buyer_confirmed_at exists but no vendor confirmation yet
+        const count = (data.orderItems || []).filter(
+          (item: any) => item.buyer_confirmed_at && !item.vendor_confirmed_at && item.status === 'fulfilled'
+        ).length
+        setUnconfirmedHandoffs(count)
+      }
+    } catch (error) {
+      console.error('Error fetching unconfirmed handoffs:', error)
+    }
+  }
 
   const fetchMarkets = async () => {
     try {
@@ -268,6 +291,52 @@ export default function VendorPickupPage() {
           )}
         </div>
       </div>
+
+      {/* Unconfirmed Handoffs Alert */}
+      {unconfirmedHandoffs > 0 && (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#fff7ed',
+          borderBottom: '2px solid #ea580c',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12
+        }}>
+          <div>
+            <p style={{
+              margin: 0,
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#ea580c'
+            }}>
+              ⚠️ {unconfirmedHandoffs} buyer{unconfirmedHandoffs !== 1 ? 's have' : ' has'} confirmed receipt
+            </p>
+            <p style={{
+              margin: '4px 0 0 0',
+              fontSize: 12,
+              color: '#c2410c'
+            }}>
+              Check if they&apos;re still nearby - they may have questions!
+            </p>
+          </div>
+          <Link
+            href={`/${vertical}/vendor/orders?status=fulfilled`}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#ea580c',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            View
+          </Link>
+        </div>
+      )}
 
       {/* Stats Bar */}
       {selectedMarket && (

@@ -16,6 +16,7 @@ interface OrderItem {
   market_address?: string
   market_city?: string
   pickup_date?: string | null
+  pickup_confirmed_at?: string | null
   buyer_confirmed_at?: string | null
   cancelled_at?: string | null
   cancelled_by?: string | null
@@ -31,6 +32,21 @@ function formatPickupDate(dateStr: string | null | undefined): string | null {
     weekday: 'short',
     month: 'short',
     day: 'numeric'
+  })
+}
+
+// Format fulfilled date/time for display
+function formatFulfilledDateTime(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return null
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  }) + ' at ' + date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit'
   })
 }
 
@@ -89,8 +105,23 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
   const urgentStatus = getMostUrgentStatus(order.items)
   const orderBoxColor = STATUS_COLORS[urgentStatus] || STATUS_COLORS.pending
 
-  // Get earliest pickup date from items
+  // Check if all items are fulfilled or cancelled (order is complete)
+  const allItemsFulfilledOrCancelled = order.items.every(
+    item => item.status === 'fulfilled' || item.status === 'cancelled'
+  )
+  const hasAnyFulfilledItems = order.items.some(item => item.status === 'fulfilled')
+
+  // Get latest fulfilled date from items
+  const fulfilledDates = order.items
+    .filter(item => item.status === 'fulfilled' && item.pickup_confirmed_at)
+    .map(item => item.pickup_confirmed_at)
+    .filter((d): d is string => !!d)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+  const latestFulfilledDate = fulfilledDates[0] ? formatFulfilledDateTime(fulfilledDates[0]) : null
+
+  // Get earliest pickup date from items (only for non-fulfilled orders)
   const pickupDates = order.items
+    .filter(item => item.status !== 'fulfilled' && item.status !== 'cancelled')
     .map(item => item.pickup_date)
     .filter((d): d is string => !!d)
     .sort()
@@ -147,7 +178,21 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          {earliestPickupDate && (
+          {/* Show fulfilled date for completed orders, pickup date for active orders */}
+          {allItemsFulfilledOrCancelled && hasAnyFulfilledItems && latestFulfilledDate ? (
+            <div style={{
+              marginBottom: 6,
+              padding: '4px 10px',
+              backgroundColor: '#f3e8ff',
+              borderRadius: 4,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#7e22ce',
+              display: 'inline-block'
+            }}>
+              Fulfilled: {latestFulfilledDate}
+            </div>
+          ) : earliestPickupDate ? (
             <div style={{
               marginBottom: 6,
               padding: '4px 10px',
@@ -160,7 +205,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
             }}>
               Pickup: {earliestPickupDate}
             </div>
-          )}
+          ) : null}
           <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
             {formatPrice(vendorSubtotal)}
           </div>

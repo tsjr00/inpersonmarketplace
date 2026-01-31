@@ -43,7 +43,9 @@ export async function POST(
       .is('issue_reported_at', null)
 
     if (unresolvedItems && unresolvedItems.length > 0) {
-      // Check if any have been pending over 5 minutes (hard lockdown)
+      // Check if any have been pending over 8 hours (hard lockdown)
+      // This gives vendor time to call/find the customer and have them confirm
+      const LOCKDOWN_HOURS = 8
       const { data: hardLockedItems } = await supabase
         .from('order_items')
         .select('id, confirmation_window_expires_at')
@@ -51,7 +53,7 @@ export async function POST(
         .not('buyer_confirmed_at', 'is', null)
         .is('vendor_confirmed_at', null)
         .is('issue_reported_at', null)
-        .lt('confirmation_window_expires_at', new Date(Date.now() - 4.5 * 60 * 1000).toISOString())
+        .lt('confirmation_window_expires_at', new Date(Date.now() - LOCKDOWN_HOURS * 60 * 60 * 1000).toISOString())
 
       if (hardLockedItems && hardLockedItems.length > 0) {
         throw traced.auth('ERR_ORDER_005', 'You have unresolved pickup confirmations. Please confirm or report an issue for pending handoffs before fulfilling other orders.', {
