@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import {
+  getVendorFeeBalance,
+  calculateAutoDeductAmount,
+  recordFeeCredit
+} from '@/lib/payments/vendor-fees'
 
 export async function POST(
   request: NextRequest,
@@ -89,15 +94,39 @@ export async function POST(
         })
         .eq('id', orderItemId)
 
-      // Trigger Stripe transfer to vendor
+      // Trigger Stripe transfer to vendor (with fee deduction if applicable)
       crumb.logic('Processing vendor payout')
       const isDev = process.env.NODE_ENV !== 'production'
       const hasStripe = !!vendorProfile.stripe_account_id
 
+      // Check for outstanding fee balance and calculate deduction
+      let feeDeductionCents = 0
+      const serviceClient = createServiceClient()
+
+      try {
+        const { balanceCents } = await getVendorFeeBalance(supabase, vendorProfile.id)
+        if (balanceCents > 0) {
+          feeDeductionCents = calculateAutoDeductAmount(
+            orderItem.vendor_payout_cents,
+            balanceCents
+          )
+          crumb.logic('Fee deduction calculated', {
+            balance: balanceCents,
+            deduction: feeDeductionCents,
+            payout: orderItem.vendor_payout_cents
+          })
+        }
+      } catch (feeError) {
+        // Don't block payout if fee check fails
+        console.error('Fee balance check failed:', feeError)
+      }
+
+      const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents
+
       if (hasStripe) {
         try {
           const transfer = await transferToVendor({
-            amount: orderItem.vendor_payout_cents,
+            amount: actualPayoutCents,
             destination: vendorProfile.stripe_account_id,
             orderId: orderItem.order_id,
             orderItemId: orderItem.id,
@@ -107,10 +136,21 @@ export async function POST(
           await supabase.from('vendor_payouts').insert({
             order_item_id: orderItem.id,
             vendor_profile_id: vendorProfile.id,
-            amount_cents: orderItem.vendor_payout_cents,
+            amount_cents: actualPayoutCents,
             stripe_transfer_id: transfer.id,
             status: 'processing',
           })
+
+          // Record fee credit if deduction was made
+          if (feeDeductionCents > 0) {
+            await recordFeeCredit(
+              serviceClient,
+              vendorProfile.id,
+              feeDeductionCents,
+              `Auto-deducted from Stripe payout`,
+              orderItem.order_id
+            )
+          }
         } catch (transferError) {
           console.error('Stripe transfer failed:', transferError)
           throw traced.external('ERR_ORDER_004', 'Failed to process vendor payout', { orderItemId })
@@ -122,10 +162,21 @@ export async function POST(
         await supabase.from('vendor_payouts').insert({
           order_item_id: orderItem.id,
           vendor_profile_id: vendorProfile.id,
-          amount_cents: orderItem.vendor_payout_cents,
+          amount_cents: actualPayoutCents,
           stripe_transfer_id: `dev_skip_${orderItemId}`,
           status: 'skipped_dev',
         })
+
+        // Still record fee credit in dev mode
+        if (feeDeductionCents > 0) {
+          await recordFeeCredit(
+            serviceClient,
+            vendorProfile.id,
+            feeDeductionCents,
+            `Auto-deducted from payout (dev mode)`,
+            orderItem.order_id
+          )
+        }
       } else {
         throw traced.validation('ERR_ORDER_004', 'Stripe account not connected')
       }

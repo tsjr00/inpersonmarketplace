@@ -4,6 +4,8 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import EditProfileButton from './EditProfileButton'
 import ReferralCard from './ReferralCard'
+import PaymentMethodsCard from './PaymentMethodsCard'
+import FeeBalanceCard from './FeeBalanceCard'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -509,6 +511,25 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'} Plan
             </p>
           </div>
+
+          {/* Payment Methods */}
+          <PaymentMethodsCard
+            vendorId={vendorProfile.id}
+            vertical={vertical}
+            stripeConnected={!!vendorProfile.stripe_account_id}
+            initialValues={{
+              venmo_username: vendorProfile.venmo_username,
+              cashapp_cashtag: vendorProfile.cashapp_cashtag,
+              paypal_username: vendorProfile.paypal_username,
+              accepts_cash_at_pickup: vendorProfile.accepts_cash_at_pickup || false
+            }}
+          />
+
+          {/* Fee Balance (only shows if balance > 0) */}
+          <FeeBalanceCard
+            vendorId={vendorProfile.id}
+            vertical={vertical}
+          />
 
           {/* Your Listings */}
           <Link
