@@ -583,46 +583,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 </div>
               )}
 
-              {/* Certifications & Registrations */}
-              {certifications.length > 0 && (
-                <div style={{
-                  marginTop: 16,
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 8
-                }}>
-                  {certifications.map((cert, index) => {
-                    const style = certificationStyles[cert.type] || certificationStyles.other
-                    return (
-                      <div
-                        key={index}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '6px 12px',
-                          backgroundColor: style.bg,
-                          color: style.color,
-                          borderRadius: 16,
-                          fontSize: 13,
-                          fontWeight: 600
-                        }}
-                        title={`${cert.label} #${cert.registration_number} (${cert.state})`}
-                      >
-                        <span>{style.icon}</span>
-                        <span>{cert.label}</span>
-                        <span style={{
-                          fontSize: 11,
-                          fontWeight: 400,
-                          opacity: 0.8
-                        }}>
-                          ({cert.state})
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
             </div>
           </div>
 
@@ -675,6 +635,55 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     📦 Market Box
                   </span>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Registrations & Certifications */}
+          {certifications.length > 0 && (
+            <div style={{
+              marginTop: 20,
+              paddingTop: 20,
+              borderTop: '1px solid #f3f4f6'
+            }}>
+              <h3 style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: '#374151',
+                margin: '0 0 12px 0'
+              }}>
+                Registrations & Certifications
+              </h3>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8
+              }}>
+                {certifications.map((cert, index) => {
+                  const style = certificationStyles[cert.type] || certificationStyles.other
+                  return (
+                    <div
+                      key={index}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontSize: 14
+                      }}
+                    >
+                      <span style={{ fontSize: 16 }}>{style.icon}</span>
+                      <span style={{ color: style.color, fontWeight: 600 }}>
+                        {cert.label}
+                      </span>
+                      <span style={{ color: '#6b7280' }}>
+                        #{cert.registration_number}
+                      </span>
+                      <span style={{ color: '#9ca3af', fontSize: 13 }}>
+                        ({cert.state})
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

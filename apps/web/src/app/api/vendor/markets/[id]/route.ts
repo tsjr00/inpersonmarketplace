@@ -101,11 +101,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
         expires_at: expires_at !== undefined ? (expires_at || null) : undefined
       })
       .eq('id', marketId)
+      .eq('vendor_profile_id', vendorProfile.id)
       .select()
       .single()
 
     if (updateError) {
       throw traced.fromSupabase(updateError, { table: 'markets', operation: 'update' })
+    }
+
+    // Handle case where update succeeded but no rows returned (shouldn't happen with proper constraints)
+    if (!updated) {
+      throw traced.notFound('ERR_MARKET_003', 'Market update failed - no rows returned')
     }
 
     // For private pickup markets, update the schedules
