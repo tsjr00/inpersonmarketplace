@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import EditProfileForm from './EditProfileForm'
 import ProfileImageUpload from '@/components/vendor/ProfileImageUpload'
 import ProfileEditForm from '@/components/vendor/ProfileEditForm'
+import CertificationsForm, { Certification } from '@/components/vendor/CertificationsForm'
 import { VendorTierType } from '@/lib/constants'
 
 interface EditProfilePageProps {
@@ -90,6 +91,14 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
           vertical={vertical}
           vendorProfile={vendorProfile}
           branding={branding}
+        />
+      </div>
+
+      {/* Certifications Section */}
+      <div style={{ marginTop: 20 }}>
+        <CertificationsForm
+          vendorId={vendorProfile.id}
+          currentCertifications={(vendorProfile.certifications as Certification[]) || []}
         />
       </div>
     </div>

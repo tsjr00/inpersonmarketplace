@@ -27,7 +27,7 @@ export default function ListingShareButton({ listingId, listingTitle, vertical }
       url={shareUrl}
       title={listingTitle}
       text={`Check out ${listingTitle}!`}
-      variant="compact"
+      variant="action"
     />
   )
 }

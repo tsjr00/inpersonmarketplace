@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
+import ErrorDisplay from '@/components/shared/ErrorDisplay'
 
 type Schedule = {
   id?: string
@@ -106,7 +107,7 @@ export default function VendorMarketsPage() {
   const [editingMarket, setEditingMarket] = useState<Market | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submittingSuggestion, setSubmittingSuggestion] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ error: string; code?: string; traceId?: string; details?: string } | null>(null)
   const [selectedMarketForSchedule, setSelectedMarketForSchedule] = useState<Market | null>(null)
 
   useEffect(() => {
@@ -131,7 +132,7 @@ export default function VendorMarketsPage() {
       }
     } catch (err) {
       console.error('Error fetching markets:', err)
-      setError('Failed to load markets')
+      setError({ error: 'Failed to load markets' })
     } finally {
       setLoading(false)
     }
@@ -153,7 +154,12 @@ export default function VendorMarketsPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Failed to change home market')
+        setError({
+          error: data.error || 'Failed to change home market',
+          code: data.code,
+          traceId: data.traceId,
+          details: data.details
+        })
         return
       }
 
@@ -161,7 +167,7 @@ export default function VendorMarketsPage() {
       await fetchMarkets()
     } catch (err) {
       console.error('Error changing home market:', err)
-      setError('Failed to change home market')
+      setError({ error: 'Failed to change home market' })
     } finally {
       setChangingHomeMarket(false)
     }
@@ -175,7 +181,7 @@ export default function VendorMarketsPage() {
     // Validate pickup windows
     const validWindows = formData.pickup_windows.filter(w => w.day_of_week !== '' && w.start_time && w.end_time)
     if (validWindows.length === 0) {
-      setError('At least one pickup window is required')
+      setError({ error: 'At least one pickup window is required' })
       setSubmitting(false)
       return
     }
@@ -187,12 +193,12 @@ export default function VendorMarketsPage() {
     // Validate coordinates if provided
     if (formData.latitude && formData.longitude) {
       if (isNaN(latitude!) || isNaN(longitude!)) {
-        setError('Please enter valid numeric values for Latitude and Longitude.')
+        setError({ error: 'Please enter valid numeric values for Latitude and Longitude.' })
         setSubmitting(false)
         return
       }
       if (latitude! < -90 || latitude! > 90 || longitude! < -180 || longitude! > 180) {
-        setError('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.')
+        setError({ error: 'Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.' })
         setSubmitting(false)
         return
       }
@@ -224,7 +230,12 @@ export default function VendorMarketsPage() {
           resetForm()
         } else {
           const errData = await res.json()
-          setError(errData.error || 'Failed to update market')
+          setError({
+            error: errData.error || 'Failed to update market',
+            code: errData.code,
+            traceId: errData.traceId,
+            details: errData.details
+          })
         }
       } else {
         // Create
@@ -252,12 +263,17 @@ export default function VendorMarketsPage() {
           resetForm()
         } else {
           const errData = await res.json()
-          setError(errData.error || 'Failed to create market')
+          setError({
+            error: errData.error || 'Failed to create market',
+            code: errData.code,
+            traceId: errData.traceId,
+            details: errData.details
+          })
         }
       }
     } catch (err) {
       console.error('Error saving market:', err)
-      setError('Failed to save market')
+      setError({ error: 'Failed to save market' })
     } finally {
       setSubmitting(false)
     }
@@ -303,11 +319,16 @@ export default function VendorMarketsPage() {
         await fetchMarkets()
       } else {
         const errData = await res.json()
-        setError(errData.error || 'Failed to delete market')
+        setError({
+          error: errData.error || 'Failed to delete market',
+          code: errData.code,
+          traceId: errData.traceId,
+          details: errData.details
+        })
       }
     } catch (err) {
       console.error('Error deleting market:', err)
-      setError('Failed to delete market')
+      setError({ error: 'Failed to delete market' })
     }
   }
 
@@ -338,7 +359,7 @@ export default function VendorMarketsPage() {
     // Validate schedules
     const validSchedules = suggestionFormData.schedules.filter(s => s.day_of_week !== '' && s.start_time && s.end_time)
     if (validSchedules.length === 0) {
-      setError('At least one market day/time is required')
+      setError({ error: 'At least one market day/time is required' })
       setSubmittingSuggestion(false)
       return
     }
@@ -372,11 +393,16 @@ export default function VendorMarketsPage() {
         resetSuggestionForm()
       } else {
         const errData = await res.json()
-        setError(errData.error || 'Failed to submit market suggestion')
+        setError({
+          error: errData.error || 'Failed to submit market suggestion',
+          code: errData.code,
+          traceId: errData.traceId,
+          details: errData.details
+        })
       }
     } catch (err) {
       console.error('Error submitting market suggestion:', err)
-      setError('Failed to submit market suggestion')
+      setError({ error: 'Failed to submit market suggestion' })
     } finally {
       setSubmittingSuggestion(false)
     }
@@ -549,16 +575,10 @@ export default function VendorMarketsPage() {
 
         {/* Error Message */}
         {error && (
-          <div style={{
-            padding: 16,
-            backgroundColor: '#f8d7da',
-            border: '1px solid #f5c6cb',
-            borderRadius: 8,
-            color: '#721c24',
-            marginBottom: 20
-          }}>
-            {error}
-          </div>
+          <ErrorDisplay
+            error={error}
+            onDismiss={() => setError(null)}
+          />
         )}
 
         {/* Traditional Markets Section */}

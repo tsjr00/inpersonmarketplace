@@ -79,10 +79,10 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     isPremiumBuyer = userProfile?.buyer_tier === 'premium'
   }
 
-  // Get vendor profile with rating info
+  // Get vendor profile with rating info and certifications
   const { data: vendor, error } = await supabase
     .from('vendor_profiles')
-    .select('*, average_rating, rating_count')
+    .select('*, average_rating, rating_count, certifications')
     .eq('id', vendorId)
     .eq('vertical_id', vertical)
     .eq('status', 'approved')
@@ -100,6 +100,22 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   const socialLinks = vendor.social_links as Record<string, string> | null
   const averageRating = vendor.average_rating as number | null
   const ratingCount = vendor.rating_count as number | null
+  const certifications = (vendor.certifications as {
+    type: string
+    label: string
+    registration_number: string
+    state: string
+    verified?: boolean
+  }[]) || []
+
+  // Certification badge styling by type
+  const certificationStyles: Record<string, { color: string; bg: string; icon: string }> = {
+    cottage_goods: { color: '#d97706', bg: '#fef3c7', icon: '🏠' },
+    organic: { color: '#059669', bg: '#d1fae5', icon: '🌱' },
+    regenerative: { color: '#0284c7', bg: '#dbeafe', icon: '♻️' },
+    gap_certified: { color: '#7c3aed', bg: '#ede9fe', icon: '✓' },
+    other: { color: '#6b7280', bg: '#f3f4f6', icon: '📜' }
+  }
 
   // Get vendor_type from profile (could be array or string)
   const profileTypes = profileData?.vendor_type
@@ -564,6 +580,47 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       Website
                     </a>
                   )}
+                </div>
+              )}
+
+              {/* Certifications & Registrations */}
+              {certifications.length > 0 && (
+                <div style={{
+                  marginTop: 16,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 8
+                }}>
+                  {certifications.map((cert, index) => {
+                    const style = certificationStyles[cert.type] || certificationStyles.other
+                    return (
+                      <div
+                        key={index}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 12px',
+                          backgroundColor: style.bg,
+                          color: style.color,
+                          borderRadius: 16,
+                          fontSize: 13,
+                          fontWeight: 600
+                        }}
+                        title={`${cert.label} #${cert.registration_number} (${cert.state})`}
+                      >
+                        <span>{style.icon}</span>
+                        <span>{cert.label}</span>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 400,
+                          opacity: 0.8
+                        }}>
+                          ({cert.state})
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

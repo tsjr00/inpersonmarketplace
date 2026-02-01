@@ -15,7 +15,7 @@ interface ShareButtonProps {
   url: string
   title: string
   text?: string
-  variant?: 'icon' | 'button' | 'compact'
+  variant?: 'icon' | 'button' | 'compact' | 'action'
   className?: string
 }
 
@@ -110,6 +110,22 @@ export default function ShareButton({
     fontSize: 12,
     color: '#374151',
     fontWeight: 500
+  } : variant === 'action' ? {
+    // Matches the Edit/View/Delete action buttons on listings page
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    padding: '4px 8px',
+    border: 'none',
+    borderRadius: 6,
+    backgroundColor: '#6366f1', // Indigo for share
+    cursor: 'pointer',
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: 600,
+    minHeight: 44
   } : {
     display: 'inline-flex',
     alignItems: 'center',
@@ -135,7 +151,7 @@ export default function ShareButton({
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <ShareIcon size={variant === 'icon' ? 16 : variant === 'compact' ? 14 : 16} />
+        <ShareIcon size={variant === 'icon' ? 16 : variant === 'compact' ? 14 : 16} color={variant === 'action' ? '#ffffff' : 'currentColor'} />
         {variant !== 'icon' && <span>Share</span>}
       </button>
 
@@ -224,14 +240,14 @@ export default function ShareButton({
 }
 
 // Simple share icon
-function ShareIcon({ size = 16 }: { size?: number }) {
+function ShareIcon({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke={color}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
