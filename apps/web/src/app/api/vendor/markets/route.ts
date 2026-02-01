@@ -156,7 +156,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { vertical, name, address, city, state, zip, latitude, longitude, season_start, season_end, pickup_windows } = body
+    const { vertical, name, address, city, state, zip, latitude, longitude, season_start, season_end, pickup_windows, expires_at } = body
 
     if (!vertical || !name || !address || !city || !state || !zip) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -244,6 +244,7 @@ export async function POST(request: Request) {
         longitude: parsedLng,
         season_start: season_start || null,
         season_end: season_end || null,
+        expires_at: expires_at || null,
         status: 'active'
       })
       .select()

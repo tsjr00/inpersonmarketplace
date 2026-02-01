@@ -18,7 +18,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const { name, address, city, state, zip, latitude, longitude, season_start, season_end, pickup_windows } = body
+    const { name, address, city, state, zip, latitude, longitude, season_start, season_end, pickup_windows, expires_at } = body
 
     // Validate coordinates if provided
     let parsedLat: number | null = null
@@ -96,7 +96,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
         latitude: parsedLat,
         longitude: parsedLng,
         season_start: season_start || null,
-        season_end: season_end || null
+        season_end: season_end || null,
+        expires_at: expires_at !== undefined ? (expires_at || null) : undefined
       })
       .eq('id', marketId)
       .select()

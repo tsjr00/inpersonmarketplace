@@ -6,6 +6,7 @@ import { formatDisplayPrice, VendorTierType } from '@/lib/constants'
 import VendorAvatar from '@/components/shared/VendorAvatar'
 import TierBadge from '@/components/shared/TierBadge'
 import BackLink from '@/components/shared/BackLink'
+import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 
 interface VendorProfilePageProps {
   params: Promise<{ vertical: string; vendorId: string }>
@@ -107,6 +108,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     city?: string
     state?: string
     description?: string
+    schedules?: { day_of_week: number; start_time: string; end_time: string }[]
   }[] = []
 
   if (listingIds.length > 0) {
@@ -121,7 +123,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           address,
           city,
           state,
-          description
+          description,
+          expires_at
         )
       `)
       .in('listing_id', listingIds)
@@ -129,6 +132,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     // Extract unique markets
     const marketsMap = new Map<string, { id: string; name: string; market_type: string }>()
     const privatePickupsMap = new Map<string, typeof privatePickupLocations[0]>()
+    const nowIso = new Date().toISOString()
     if (listingMarketsData) {
       for (const lm of listingMarketsData) {
         const market = lm.markets as unknown as {
@@ -139,14 +143,19 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           city?: string
           state?: string
           description?: string
+          expires_at?: string | null
         } | null
+        // Skip expired markets
+        if (market?.expires_at && market.expires_at < nowIso) {
+          continue
+        }
         if (market && !marketsMap.has(market.id)) {
           marketsMap.set(market.id, {
             id: market.id,
             name: market.name,
             market_type: market.market_type
           })
-          // Collect ALL private pickup locations
+          // Collect ALL private pickup locations (non-expired)
           if (market.market_type === 'private_pickup') {
             privatePickupsMap.set(market.id, {
               id: market.id,
@@ -162,6 +171,38 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     }
     vendorMarkets = Array.from(marketsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
     privatePickupLocations = Array.from(privatePickupsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+
+    // Fetch schedules for private pickup locations
+    if (privatePickupLocations.length > 0) {
+      const privatePickupIds = privatePickupLocations.map(p => p.id)
+      const { data: schedulesData } = await supabase
+        .from('market_schedules')
+        .select('market_id, day_of_week, start_time, end_time')
+        .in('market_id', privatePickupIds)
+        .eq('active', true)
+        .order('day_of_week')
+
+      if (schedulesData) {
+        // Group schedules by market_id
+        const schedulesByMarket = new Map<string, typeof privatePickupLocations[0]['schedules']>()
+        for (const schedule of schedulesData) {
+          const marketId = schedule.market_id as string
+          if (!schedulesByMarket.has(marketId)) {
+            schedulesByMarket.set(marketId, [])
+          }
+          schedulesByMarket.get(marketId)!.push({
+            day_of_week: schedule.day_of_week as number,
+            start_time: schedule.start_time as string,
+            end_time: schedule.end_time as string
+          })
+        }
+        // Attach schedules to locations
+        privatePickupLocations = privatePickupLocations.map(loc => ({
+          ...loc,
+          schedules: schedulesByMarket.get(loc.id) || []
+        }))
+      }
+    }
   }
 
   // Get vendor's active market boxes with details
@@ -536,60 +577,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           )}
         </div>
 
-        {/* Private Pickup - Compact bulleted list */}
+        {/* Private Pickup Schedule - Calendar Grid */}
         {privatePickupLocations.length > 0 && (
-          <div style={{
-            padding: '12px 16px',
-            backgroundColor: '#fef3c7',
-            border: '1px solid #fcd34d',
-            borderRadius: 8,
-            marginBottom: 16
-          }}>
-            <div style={{
-              marginBottom: 8
-            }}>
-              <span style={{
-                fontSize: 14,
-                color: '#92400e'
-              }}>
-                If your schedule makes it difficult to get to the market,{' '}
-              </span>
-              <span style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#92400e'
-              }}>
-                Private Pickup is available
-              </span>
-              <span style={{ fontSize: 16, marginLeft: 6 }}>🏠</span>
-            </div>
-            <ul style={{
-              margin: 0,
-              paddingLeft: 24,
-              listStyle: 'disc'
-            }}>
-              {privatePickupLocations.map((location) => (
-                <li
-                  key={location.id}
-                  style={{
-                    fontSize: 13,
-                    color: '#78350f',
-                    marginBottom: 2
-                  }}
-                >
-                  <strong>{location.name}</strong>
-                  {(location.address || location.city) && (
-                    <span style={{ color: '#92400e' }}>
-                      {' — '}
-                      {[location.address, location.city, location.state]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <PickupScheduleGrid locations={privatePickupLocations} />
         )}
 
         {/* Market Boxes Section */}
