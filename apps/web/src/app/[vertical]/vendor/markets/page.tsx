@@ -28,6 +28,7 @@ type Market = {
   end_time?: string
   season_start?: string
   season_end?: string
+  expires_at?: string | null
   isHomeMarket?: boolean
   canUse?: boolean
   homeMarketRestricted?: boolean
@@ -86,6 +87,7 @@ export default function VendorMarketsPage() {
     longitude: '',
     season_start: '',
     season_end: '',
+    expires_at: '',
     pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
   })
   const [suggestionFormData, setSuggestionFormData] = useState({
@@ -212,6 +214,7 @@ export default function VendorMarketsPage() {
             longitude,
             season_start: formData.season_start || null,
             season_end: formData.season_end || null,
+            expires_at: formData.expires_at || null,
             pickup_windows: validWindows
           })
         })
@@ -239,6 +242,7 @@ export default function VendorMarketsPage() {
             longitude,
             season_start: formData.season_start || null,
             season_end: formData.season_end || null,
+            expires_at: formData.expires_at || null,
             pickup_windows: validWindows
           })
         })
@@ -278,6 +282,7 @@ export default function VendorMarketsPage() {
       longitude: market.longitude?.toString() || '',
       season_start: market.season_start || '',
       season_end: market.season_end || '',
+      expires_at: market.expires_at ? market.expires_at.split('T')[0] : '',
       pickup_windows: windows
     })
     setShowForm(true)
@@ -319,6 +324,7 @@ export default function VendorMarketsPage() {
       longitude: '',
       season_start: '',
       season_end: '',
+      expires_at: '',
       pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }]
     })
     setError(null)
@@ -1611,6 +1617,46 @@ export default function VendorMarketsPage() {
                   Leave blank if open year-round.
                 </p>
 
+                {/* Expiration Date (for temporary/one-time events) */}
+                <div style={{
+                  padding: 16,
+                  backgroundColor: '#fef3c7',
+                  border: '1px solid #fcd34d',
+                  borderRadius: 8,
+                  marginTop: 12
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{ fontSize: 20 }}>📅</span>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 4, color: '#92400e' }}>
+                        Expiration Date <span style={{ fontWeight: 400, color: '#b45309' }}>(optional)</span>
+                      </label>
+                      <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#92400e' }}>
+                        For one-time events or temporary locations. After this date, the location will no longer be visible to buyers.
+                      </p>
+                      <input
+                        type="date"
+                        value={formData.expires_at}
+                        onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                        min={new Date().toISOString().split('T')[0]}
+                        style={{
+                          width: '100%',
+                          maxWidth: 200,
+                          padding: '10px 12px',
+                          border: '1px solid #fcd34d',
+                          borderRadius: 6,
+                          fontSize: 14,
+                          boxSizing: 'border-box',
+                          backgroundColor: 'white'
+                        }}
+                      />
+                      <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#b45309' }}>
+                        Leave blank for recurring/permanent locations.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Pickup Windows Section */}
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -1806,9 +1852,26 @@ export default function VendorMarketsPage() {
                     gap: 12
                   }}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600 }}>
-                        {market.name}
-                      </h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+                          {market.name}
+                        </h3>
+                        {market.expires_at && (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '2px 8px',
+                            backgroundColor: new Date(market.expires_at) < new Date() ? '#fee2e2' : '#fef3c7',
+                            color: new Date(market.expires_at) < new Date() ? '#991b1b' : '#92400e',
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 500
+                          }}>
+                            {new Date(market.expires_at) < new Date() ? '⚠️ Expired' : `📅 Expires ${new Date(market.expires_at).toLocaleDateString()}`}
+                          </span>
+                        )}
+                      </div>
                       <p style={{ margin: '0 0 8px 0', fontSize: 14, color: '#6b7280' }}>
                         {market.address}, {market.city}, {market.state} {market.zip}
                       </p>
