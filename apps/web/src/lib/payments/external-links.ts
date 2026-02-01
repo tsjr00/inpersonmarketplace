@@ -136,8 +136,13 @@ export function getAvailablePaymentMethods(vendor: {
  */
 export function validatePaymentUsername(
   method: ExternalPaymentMethod,
-  value: string
+  value: string | null | undefined
 ): { valid: boolean; error?: string; cleaned: string } {
+  // Handle null/undefined - empty is valid (means disabled)
+  if (value === null || value === undefined) {
+    return { valid: true, cleaned: '' }
+  }
+
   const trimmed = value.trim()
 
   if (!trimmed) {

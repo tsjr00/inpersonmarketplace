@@ -4,7 +4,7 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { generatePaymentLink, ExternalPaymentMethod } from '@/lib/payments/external-links'
 import {
-  calculateBuyerFee,
+  calculateExternalBuyerFee,
   calculateExternalPaymentTotal,
   canUseExternalPayments
 } from '@/lib/payments/vendor-fees'
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
       const itemSubtotal = listing.price_cents * item.quantity
       subtotalCents += itemSubtotal
 
-      const buyerFee = calculateBuyerFee(itemSubtotal)
+      const buyerFee = calculateExternalBuyerFee(itemSubtotal)
 
       return {
         listing_id: listing.id,
@@ -205,8 +205,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Total including buyer fee
-    const buyerFeeCents = calculateBuyerFee(subtotalCents)
+    // Total including buyer fee (external: 6.5% flat, no $0.15)
+    const buyerFeeCents = calculateExternalBuyerFee(subtotalCents)
     const totalCents = calculateExternalPaymentTotal(subtotalCents)
 
     // Create order

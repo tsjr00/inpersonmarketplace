@@ -9,7 +9,8 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 // Fee structure
 export const BUYER_FEE_PERCENT = 6.5 // 6.5%
-export const BUYER_FEE_FIXED_CENTS = 15 // $0.15
+export const STRIPE_BUYER_FEE_FIXED_CENTS = 15 // $0.15 (only for Stripe)
+export const EXTERNAL_BUYER_FEE_FIXED_CENTS = 0 // External payments have no fixed fee
 export const SELLER_FEE_PERCENT = 3.5 // 3.5% for external payments
 
 // Thresholds for invoicing
@@ -20,13 +21,22 @@ export const AGE_INVOICE_THRESHOLD_DAYS = 40
 export const AUTO_DEDUCT_MAX_PERCENT = 50 // Don't take more than 50% of vendor payout
 
 /**
- * Calculate buyer fee for an order
+ * Calculate buyer fee for Stripe orders (6.5% + $0.15)
  * @param subtotalCents - Order subtotal in cents
  * @returns Buyer fee in cents
  */
 export function calculateBuyerFee(subtotalCents: number): number {
   const percentFee = Math.round(subtotalCents * (BUYER_FEE_PERCENT / 100))
-  return percentFee + BUYER_FEE_FIXED_CENTS
+  return percentFee + STRIPE_BUYER_FEE_FIXED_CENTS
+}
+
+/**
+ * Calculate buyer fee for external payment orders (6.5% flat, no fixed fee)
+ * @param subtotalCents - Order subtotal in cents
+ * @returns Buyer fee in cents
+ */
+export function calculateExternalBuyerFee(subtotalCents: number): number {
+  return Math.round(subtotalCents * (BUYER_FEE_PERCENT / 100))
 }
 
 /**
@@ -44,16 +54,16 @@ export function calculateSellerFee(subtotalCents: number): number {
  * @returns Total fee (buyer + seller) in cents
  */
 export function calculateTotalExternalFee(subtotalCents: number): number {
-  return calculateBuyerFee(subtotalCents) + calculateSellerFee(subtotalCents)
+  return calculateExternalBuyerFee(subtotalCents) + calculateSellerFee(subtotalCents)
 }
 
 /**
- * Calculate order total for external payment (subtotal + buyer fee)
+ * Calculate order total for external payment (subtotal + external buyer fee)
  * @param subtotalCents - Order subtotal in cents
  * @returns Total amount buyer pays in cents
  */
 export function calculateExternalPaymentTotal(subtotalCents: number): number {
-  return subtotalCents + calculateBuyerFee(subtotalCents)
+  return subtotalCents + calculateExternalBuyerFee(subtotalCents)
 }
 
 /**
