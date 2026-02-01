@@ -108,20 +108,23 @@ export async function PUT(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
-    // Verify vendor is approved for this market
-    const { data: marketVendor, error: mvError } = await supabase
-      .from('market_vendors')
-      .select('id, approved')
-      .eq('vendor_profile_id', vendorProfile.id)
-      .eq('market_id', marketId)
+    // Verify market exists and is a traditional market (not private pickup)
+    const { data: market, error: marketError } = await supabase
+      .from('markets')
+      .select('id, market_type, status')
+      .eq('id', marketId)
       .single()
 
-    if (mvError || !marketVendor) {
-      return NextResponse.json({ error: 'You are not affiliated with this market' }, { status: 403 })
+    if (marketError || !market) {
+      return NextResponse.json({ error: 'Market not found' }, { status: 404 })
     }
 
-    if (!marketVendor.approved) {
-      return NextResponse.json({ error: 'Your application to this market is pending approval' }, { status: 403 })
+    if (market.market_type !== 'traditional') {
+      return NextResponse.json({ error: 'Schedule management is only for traditional markets' }, { status: 400 })
+    }
+
+    if (market.status !== 'active') {
+      return NextResponse.json({ error: 'This market is not currently active' }, { status: 400 })
     }
 
     // Get all active schedules for validation
@@ -225,16 +228,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
-    // Verify vendor is approved for this market
-    const { data: marketVendor, error: mvError } = await supabase
-      .from('market_vendors')
-      .select('id, approved')
-      .eq('vendor_profile_id', vendorProfile.id)
-      .eq('market_id', marketId)
+    // Verify market exists and is a traditional market
+    const { data: market, error: marketError } = await supabase
+      .from('markets')
+      .select('id, market_type, status')
+      .eq('id', marketId)
       .single()
 
-    if (mvError || !marketVendor?.approved) {
-      return NextResponse.json({ error: 'You are not approved for this market' }, { status: 403 })
+    if (marketError || !market) {
+      return NextResponse.json({ error: 'Market not found' }, { status: 404 })
+    }
+
+    if (market.market_type !== 'traditional') {
+      return NextResponse.json({ error: 'Schedule management is only for traditional markets' }, { status: 400 })
+    }
+
+    if (market.status !== 'active') {
+      return NextResponse.json({ error: 'This market is not currently active' }, { status: 400 })
     }
 
     // Verify schedule exists and belongs to this market

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTierLimits } from '@/lib/vendor-limits'
+import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -8,13 +9,15 @@ interface RouteParams {
 
 // PUT - Update market
 export async function PUT(request: Request, { params }: RouteParams) {
-  try {
-    const { id: marketId } = await params
+  const { id: marketId } = await params
+
+  return withErrorTracing(`/api/vendor/markets/${marketId}`, 'PUT', async () => {
     const supabase = await createClient()
 
+    crumb.auth('Checking user authentication')
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
     const body = await request.json()
@@ -27,14 +30,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
       parsedLat = typeof latitude === 'number' ? latitude : parseFloat(latitude)
       parsedLng = typeof longitude === 'number' ? longitude : parseFloat(longitude)
       if (isNaN(parsedLat) || isNaN(parsedLng)) {
-        return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 })
+        throw traced.validation('ERR_VALIDATION_001', 'Invalid coordinates')
       }
       if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
-        return NextResponse.json({ error: 'Coordinates out of range' }, { status: 400 })
+        throw traced.validation('ERR_VALIDATION_001', 'Coordinates out of range')
       }
     }
 
-    // Get vendor profile with tier
+    crumb.supabase('select', 'vendor_profiles')
     const { data: vendorProfile, error: vpError } = await supabase
       .from('vendor_profiles')
       .select('id, tier')
@@ -42,10 +45,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
       .single()
 
     if (vpError || !vendorProfile) {
-      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
+      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
     }
 
-    // Verify ownership
+    crumb.supabase('select', 'markets')
     const { data: market, error: marketError } = await supabase
       .from('markets')
       .select('*')
@@ -54,14 +57,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
       .single()
 
     if (marketError || !market) {
-      return NextResponse.json({ error: 'Market not found or unauthorized' }, { status: 404 })
+      throw traced.notFound('ERR_MARKET_001', 'Market not found or unauthorized')
     }
 
     // For private pickup markets, validate and update pickup_windows
     if (market.market_type === 'private_pickup') {
       // Validate pickup_windows - required for private pickup, min 1
       if (!pickup_windows || !Array.isArray(pickup_windows) || pickup_windows.length === 0) {
-        return NextResponse.json({ error: 'At least one pickup window is required' }, { status: 400 })
+        throw traced.validation('ERR_VALIDATION_001', 'At least one pickup window is required')
       }
 
       // Check tier-based window limit
@@ -70,21 +73,19 @@ export async function PUT(request: Request, { params }: RouteParams) {
       const maxWindows = tierLimits.pickupWindowsPerLocation
 
       if (pickup_windows.length > maxWindows) {
-        return NextResponse.json({
-          error: `Maximum of ${maxWindows} pickup windows allowed for ${tier} tier vendors.${tier === 'standard' ? ' Upgrade to premium for more windows.' : ''}`
-        }, { status: 400 })
+        throw traced.validation('ERR_VALIDATION_001', `Maximum of ${maxWindows} pickup windows allowed for ${tier} tier vendors.${tier === 'standard' ? ' Upgrade to premium for more windows.' : ''}`)
       }
 
       // Validate each pickup window
       for (const window of pickup_windows) {
         if (window.day_of_week === undefined || window.day_of_week === '' ||
             !window.start_time || !window.end_time) {
-          return NextResponse.json({ error: 'Each pickup window requires day, start time, and end time' }, { status: 400 })
+          throw traced.validation('ERR_VALIDATION_001', 'Each pickup window requires day, start time, and end time')
         }
       }
     }
 
-    // Update market
+    crumb.supabase('update', 'markets')
     const { data: updated, error: updateError } = await supabase
       .from('markets')
       .update({
@@ -104,24 +105,22 @@ export async function PUT(request: Request, { params }: RouteParams) {
       .single()
 
     if (updateError) {
-      console.error('[/api/vendor/markets/[id]] Error updating market:', updateError)
-      return NextResponse.json({ error: 'Failed to update market' }, { status: 500 })
+      throw traced.fromSupabase(updateError, { table: 'markets', operation: 'update' })
     }
 
     // For private pickup markets, update the schedules
     if (market.market_type === 'private_pickup' && pickup_windows) {
-      // Delete existing schedules
+      crumb.supabase('delete', 'market_schedules')
       const { error: deleteSchedulesError } = await supabase
         .from('market_schedules')
         .delete()
         .eq('market_id', marketId)
 
       if (deleteSchedulesError) {
-        console.error('[/api/vendor/markets/[id]] Error deleting schedules:', deleteSchedulesError)
-        return NextResponse.json({ error: 'Failed to update pickup schedule' }, { status: 500 })
+        throw traced.fromSupabase(deleteSchedulesError, { table: 'market_schedules', operation: 'delete' })
       }
 
-      // Create new schedules
+      crumb.supabase('insert', 'market_schedules')
       const schedules = pickup_windows.map((window: { day_of_week: number; start_time: string; end_time: string }) => ({
         market_id: marketId,
         day_of_week: parseInt(String(window.day_of_week)),
@@ -135,30 +134,28 @@ export async function PUT(request: Request, { params }: RouteParams) {
         .insert(schedules)
 
       if (scheduleError) {
-        console.error('[/api/vendor/markets/[id]] Error creating schedules:', scheduleError)
-        return NextResponse.json({ error: 'Failed to update pickup schedule' }, { status: 500 })
+        throw traced.fromSupabase(scheduleError, { table: 'market_schedules', operation: 'insert' })
       }
     }
 
     return NextResponse.json({ market: updated })
-  } catch (error) {
-    console.error('[/api/vendor/markets/[id]] Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+  })
 }
 
 // DELETE - Delete market
 export async function DELETE(request: Request, { params }: RouteParams) {
-  try {
-    const { id: marketId } = await params
+  const { id: marketId } = await params
+
+  return withErrorTracing(`/api/vendor/markets/${marketId}`, 'DELETE', async () => {
     const supabase = await createClient()
 
+    crumb.auth('Checking user authentication')
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get vendor profile
+    crumb.supabase('select', 'vendor_profiles')
     const { data: vendorProfile, error: vpError } = await supabase
       .from('vendor_profiles')
       .select('id')
@@ -166,10 +163,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       .single()
 
     if (vpError || !vendorProfile) {
-      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
+      throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
     }
 
-    // Verify ownership
+    crumb.supabase('select', 'markets')
     const { data: market, error: marketError } = await supabase
       .from('markets')
       .select('*')
@@ -178,10 +175,11 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       .single()
 
     if (marketError || !market) {
-      return NextResponse.json({ error: 'Market not found or unauthorized' }, { status: 404 })
+      throw traced.notFound('ERR_MARKET_001', 'Market not found or unauthorized')
     }
 
     // Check if market has active listings
+    crumb.supabase('rpc', 'get_vendor_listing_count_at_market')
     const { data: listingCount, error: countError } = await supabase
       .rpc('get_vendor_listing_count_at_market', {
         p_vendor_profile_id: vendorProfile.id,
@@ -189,17 +187,14 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       })
 
     if (countError) {
-      console.error('[/api/vendor/markets/[id]] Error checking listing count:', countError)
-      return NextResponse.json({ error: 'Failed to check listings' }, { status: 500 })
+      throw traced.fromSupabase(countError, { operation: 'rpc', function: 'get_vendor_listing_count_at_market' })
     }
 
     if (listingCount > 0) {
-      return NextResponse.json({
-        error: 'Cannot delete market with active listings. Remove listings first.'
-      }, { status: 400 })
+      throw traced.validation('ERR_MARKET_002', 'Cannot delete market with active listings. Remove listings first.')
     }
 
-    // Delete market (will cascade to listing_markets due to FK)
+    crumb.supabase('delete', 'markets')
     const { error: deleteError } = await supabase
       .from('markets')
       .delete()
@@ -207,13 +202,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       .eq('vendor_profile_id', vendorProfile.id)
 
     if (deleteError) {
-      console.error('[/api/vendor/markets/[id]] Error deleting market:', deleteError)
-      return NextResponse.json({ error: 'Failed to delete market' }, { status: 500 })
+      throw traced.fromSupabase(deleteError, { table: 'markets', operation: 'delete' })
     }
 
     return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('[/api/vendor/markets/[id]] Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+  })
 }

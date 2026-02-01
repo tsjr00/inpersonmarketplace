@@ -11,6 +11,7 @@ import { colors, spacing, typography, radius, shadows, containers } from '@/lib/
 
 interface ListingsPageProps {
   params: Promise<{ vertical: string }>
+  searchParams: Promise<{ market?: string }>
 }
 
 interface VendorListing {
@@ -30,8 +31,9 @@ interface VendorListing {
   }>
 }
 
-export default async function ListingsPage({ params }: ListingsPageProps) {
+export default async function ListingsPage({ params, searchParams }: ListingsPageProps) {
   const { vertical } = await params
+  const { market: filterMarketId } = await searchParams
   const supabase = await createClient()
 
   // Check auth
@@ -55,8 +57,19 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
     redirect(`/${vertical}/vendor-signup`)
   }
 
+  // Get market name if filtering
+  let filterMarketName: string | null = null
+  if (filterMarketId) {
+    const { data: marketData } = await supabase
+      .from('markets')
+      .select('name')
+      .eq('id', filterMarketId)
+      .single()
+    filterMarketName = marketData?.name || null
+  }
+
   // Get vendor's listings with market associations
-  const { data: listings } = await supabase
+  const { data: allListings } = await supabase
     .from('listings')
     .select(`
       *,
@@ -73,10 +86,19 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  // Calculate listing count and limit
+  // Filter by market if specified
+  let listings = allListings
+  if (filterMarketId && allListings) {
+    listings = allListings.filter(listing => {
+      const marketAssociations = listing.listing_markets as unknown as Array<{ market_id: string }> | null
+      return marketAssociations?.some(lm => lm.market_id === filterMarketId)
+    })
+  }
+
+  // Calculate listing count and limit (use all listings for limit calculation)
   const tier = (vendorProfile as Record<string, unknown>).tier as string || 'standard'
   const limit = getListingLimit(tier)
-  const listingCount = listings?.length || 0
+  const listingCount = allListings?.length || 0
   const canCreateMore = listingCount < limit
 
   return (
@@ -108,6 +130,35 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
           }}>
             My Listings
           </h1>
+
+          {/* Market Filter Indicator */}
+          {filterMarketName && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs,
+              marginTop: spacing.xs,
+              marginBottom: spacing.xs,
+              padding: `${spacing['2xs']} ${spacing.sm}`,
+              backgroundColor: colors.primaryLight,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm
+            }}>
+              <span style={{ color: colors.primaryDark }}>
+                Showing listings at: <strong>{filterMarketName}</strong>
+              </span>
+              <Link
+                href={`/${vertical}/vendor/listings`}
+                style={{
+                  color: colors.primary,
+                  textDecoration: 'none',
+                  fontWeight: typography.weights.semibold
+                }}
+              >
+                × Clear filter
+              </Link>
+            </div>
+          )}
 
           {/* Buttons - stack on mobile, inline on desktop */}
           <div className="header-buttons" style={{
