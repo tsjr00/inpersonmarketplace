@@ -8,6 +8,7 @@ interface PickupLocation {
   address?: string
   city?: string
   state?: string
+  market_type?: 'private_pickup' | 'traditional'
   schedules?: { day_of_week: number; start_time: string; end_time: string }[]
 }
 
@@ -53,7 +54,7 @@ function getWeekDates(): { start: Date; end: Date; label: string } {
   return {
     start: monday,
     end: sunday,
-    label: `For the week of ${formatDate(monday)} - ${formatDate(sunday)}`
+    label: `Availability for the week of ${formatDate(monday)} - ${formatDate(sunday)}`
   }
 }
 

@@ -101,13 +101,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   // Get unique markets where this vendor has active listings
   const listingIds = (listings || []).map(l => l.id as string)
   let vendorMarkets: { id: string; name: string; market_type: string }[] = []
-  let privatePickupLocations: {
+  let allPickupLocations: {
     id: string
     name: string
     address?: string
     city?: string
     state?: string
     description?: string
+    market_type?: 'private_pickup' | 'traditional'
     schedules?: { day_of_week: number; start_time: string; end_time: string }[]
   }[] = []
 
@@ -131,7 +132,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
     // Extract unique markets
     const marketsMap = new Map<string, { id: string; name: string; market_type: string }>()
-    const privatePickupsMap = new Map<string, typeof privatePickupLocations[0]>()
+    const pickupLocationsMap = new Map<string, typeof allPickupLocations[0]>()
     const nowIso = new Date().toISOString()
     if (listingMarketsData) {
       for (const lm of listingMarketsData) {
@@ -155,54 +156,101 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             name: market.name,
             market_type: market.market_type
           })
-          // Collect ALL private pickup locations (non-expired)
-          if (market.market_type === 'private_pickup') {
-            privatePickupsMap.set(market.id, {
-              id: market.id,
-              name: market.name,
-              address: market.address,
-              city: market.city,
-              state: market.state,
-              description: market.description
-            })
-          }
+          // Collect ALL pickup locations (both private and traditional)
+          pickupLocationsMap.set(market.id, {
+            id: market.id,
+            name: market.name,
+            address: market.address,
+            city: market.city,
+            state: market.state,
+            description: market.description,
+            market_type: market.market_type as 'private_pickup' | 'traditional'
+          })
         }
       }
     }
     vendorMarkets = Array.from(marketsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
-    privatePickupLocations = Array.from(privatePickupsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
 
-    // Fetch schedules for private pickup locations
-    if (privatePickupLocations.length > 0) {
-      const privatePickupIds = privatePickupLocations.map(p => p.id)
-      const { data: schedulesData } = await supabase
+    // Fetch schedules for private pickup locations (directly from market_schedules)
+    const privatePickupIds = Array.from(pickupLocationsMap.values())
+      .filter(loc => loc.market_type === 'private_pickup')
+      .map(loc => loc.id)
+
+    if (privatePickupIds.length > 0) {
+      const { data: privateSchedulesData } = await supabase
         .from('market_schedules')
         .select('market_id, day_of_week, start_time, end_time')
         .in('market_id', privatePickupIds)
         .eq('active', true)
         .order('day_of_week')
 
-      if (schedulesData) {
-        // Group schedules by market_id
-        const schedulesByMarket = new Map<string, typeof privatePickupLocations[0]['schedules']>()
-        for (const schedule of schedulesData) {
+      if (privateSchedulesData) {
+        for (const schedule of privateSchedulesData) {
           const marketId = schedule.market_id as string
-          if (!schedulesByMarket.has(marketId)) {
-            schedulesByMarket.set(marketId, [])
+          const location = pickupLocationsMap.get(marketId)
+          if (location) {
+            if (!location.schedules) location.schedules = []
+            location.schedules.push({
+              day_of_week: schedule.day_of_week as number,
+              start_time: schedule.start_time as string,
+              end_time: schedule.end_time as string
+            })
           }
-          schedulesByMarket.get(marketId)!.push({
-            day_of_week: schedule.day_of_week as number,
-            start_time: schedule.start_time as string,
-            end_time: schedule.end_time as string
-          })
         }
-        // Attach schedules to locations
-        privatePickupLocations = privatePickupLocations.map(loc => ({
-          ...loc,
-          schedules: schedulesByMarket.get(loc.id) || []
-        }))
       }
     }
+
+    // Fetch schedules for traditional markets (via vendor_market_schedules)
+    const traditionalMarketIds = Array.from(pickupLocationsMap.values())
+      .filter(loc => loc.market_type === 'traditional')
+      .map(loc => loc.id)
+
+    if (traditionalMarketIds.length > 0) {
+      // Get vendor's active schedules at these markets
+      const { data: vendorSchedulesData } = await supabase
+        .from('vendor_market_schedules')
+        .select(`
+          market_id,
+          schedule_id,
+          is_active,
+          market_schedules (
+            day_of_week,
+            start_time,
+            end_time
+          )
+        `)
+        .eq('vendor_profile_id', vendorId)
+        .in('market_id', traditionalMarketIds)
+        .eq('is_active', true)
+
+      if (vendorSchedulesData) {
+        for (const vs of vendorSchedulesData) {
+          const marketId = vs.market_id as string
+          const scheduleInfo = vs.market_schedules as unknown as {
+            day_of_week: number
+            start_time: string
+            end_time: string
+          } | null
+
+          if (scheduleInfo) {
+            const location = pickupLocationsMap.get(marketId)
+            if (location) {
+              if (!location.schedules) location.schedules = []
+              location.schedules.push({
+                day_of_week: scheduleInfo.day_of_week,
+                start_time: scheduleInfo.start_time,
+                end_time: scheduleInfo.end_time
+              })
+            }
+          }
+        }
+      }
+    }
+
+    // Convert map to array, sorted by name
+    allPickupLocations = Array.from(pickupLocationsMap.values())
+      .filter(loc => loc.schedules && loc.schedules.length > 0) // Only show locations with schedules
+      .sort((a, b) => a.name.localeCompare(b.name))
   }
 
   // Get vendor's active market boxes with details
@@ -473,56 +521,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             </div>
           </div>
 
-          {/* Traditional Markets - where this vendor sells */}
-          {vendorMarkets.filter(m => m.market_type === 'traditional').length > 0 && (
-            <div style={{
-              marginTop: 20,
-              paddingTop: 20,
-              borderTop: '1px solid #f3f4f6'
-            }}>
-              <h3 style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#374151',
-                margin: '0 0 12px 0'
-              }}>
-                Sells at Markets
-              </h3>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 8
-              }}>
-                {vendorMarkets
-                  .filter(m => m.market_type === 'traditional')
-                  .map(market => (
-                    <Link
-                      key={market.id}
-                      href={`/${vertical}/markets/${market.id}`}
-                      style={{
-                        padding: '6px 14px',
-                        backgroundColor: '#e0f2fe',
-                        color: '#0369a1',
-                        borderRadius: 16,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        textDecoration: 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6
-                      }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                        <polyline points="9 22 9 12 15 12 15 22" />
-                      </svg>
-                      {market.name}
-                    </Link>
-                  ))}
-              </div>
-            </div>
-          )}
-
           {/* Categories - show ALL categories vendor sells */}
           {(allCategories.length > 0 || hasActiveMarketBoxes) && (
             <div style={{
@@ -577,9 +575,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           )}
         </div>
 
-        {/* Private Pickup Schedule - Calendar Grid */}
-        {privatePickupLocations.length > 0 && (
-          <PickupScheduleGrid locations={privatePickupLocations} />
+        {/* Vendor Availability Schedule - Calendar Grid */}
+        {allPickupLocations.length > 0 && (
+          <PickupScheduleGrid locations={allPickupLocations} />
         )}
 
         {/* Market Boxes Section */}
