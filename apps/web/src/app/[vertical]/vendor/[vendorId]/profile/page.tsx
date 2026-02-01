@@ -7,9 +7,57 @@ import VendorAvatar from '@/components/shared/VendorAvatar'
 import TierBadge from '@/components/shared/TierBadge'
 import BackLink from '@/components/shared/BackLink'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
+import type { Metadata } from 'next'
 
 interface VendorProfilePageProps {
   params: Promise<{ vertical: string; vendorId: string }>
+}
+
+// Generate Open Graph metadata for social sharing
+export async function generateMetadata({ params }: VendorProfilePageProps): Promise<Metadata> {
+  const { vertical, vendorId } = await params
+  const supabase = await createClient()
+  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+
+  // Fetch vendor profile
+  const { data: vendor } = await supabase
+    .from('vendor_profiles')
+    .select('profile_data, description, profile_image_url')
+    .eq('id', vendorId)
+    .eq('vertical_id', vertical)
+    .eq('status', 'approved')
+    .single()
+
+  if (!vendor) {
+    return {
+      title: 'Vendor Not Found',
+    }
+  }
+
+  const profileData = vendor.profile_data as Record<string, unknown>
+  const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+  const vendorDescription = vendor.description as string | null
+  const vendorImageUrl = vendor.profile_image_url as string | null
+
+  const title = `${vendorName} - ${branding.brand_name}`
+  const description = vendorDescription || `Shop fresh products from ${vendorName} on ${branding.brand_name}`
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+      images: vendorImageUrl ? [{ url: vendorImageUrl, alt: vendorName }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: vendorImageUrl ? [vendorImageUrl] : [],
+    },
+  }
 }
 
 export default async function VendorProfilePage({ params }: VendorProfilePageProps) {

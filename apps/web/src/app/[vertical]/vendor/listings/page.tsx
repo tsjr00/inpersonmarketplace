@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import PublishButton from './PublishButton'
 import DeleteListingButton from './DeleteListingButton'
+import ListingShareButton from './ListingShareButton'
 import ListingCutoffStatus from '@/components/vendor/ListingCutoffStatus'
 import { formatPrice, getListingLimit } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -335,6 +336,14 @@ export default async function ListingsPage({ params }: ListingsPageProps) {
                   >
                     Edit
                   </Link>
+                  {/* Share button - only for published listings */}
+                  {listing.status === 'published' && (
+                    <ListingShareButton
+                      listingId={listing.id}
+                      listingTitle={listing.title}
+                      vertical={vertical}
+                    />
+                  )}
                   <Link
                     href={`/${vertical}/vendor/listings/${listing.id}`}
                     style={{

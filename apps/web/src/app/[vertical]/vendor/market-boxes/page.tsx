@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import ShareButton from '@/components/marketing/ShareButton'
 
 interface MarketBoxOffering {
   id: string
@@ -50,9 +51,12 @@ export default function VendorMarketBoxesPage() {
   const [limits, setLimits] = useState<Limits | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
+  const [baseUrl, setBaseUrl] = useState('')
 
   useEffect(() => {
     fetchOfferings()
+    // Get base URL for share links
+    setBaseUrl(`${window.location.protocol}//${window.location.host}`)
   }, [])
 
   const fetchOfferings = async () => {
@@ -360,6 +364,15 @@ export default function VendorMarketBoxesPage() {
                     >
                       Manage
                     </Link>
+                    {/* Share button - only for active offerings */}
+                    {offering.active && baseUrl && (
+                      <ShareButton
+                        url={`${baseUrl}/${vertical}/market-box/${offering.id}`}
+                        title={`${offering.name} - Market Box Subscription`}
+                        text={`Subscribe to ${offering.name} for weekly pickups!`}
+                        variant="compact"
+                      />
+                    )}
                     <button
                       onClick={() => handleToggleActive(offering.id, offering.active)}
                       style={{

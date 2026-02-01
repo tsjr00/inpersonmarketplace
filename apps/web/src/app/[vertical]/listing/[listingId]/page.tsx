@@ -7,9 +7,75 @@ import ListingImageGallery from '@/components/listings/ListingImageGallery'
 import BackLink from '@/components/shared/BackLink'
 import { formatDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import type { Metadata } from 'next'
 
 interface ListingDetailPageProps {
   params: Promise<{ vertical: string; listingId: string }>
+}
+
+// Generate Open Graph metadata for social sharing
+export async function generateMetadata({ params }: ListingDetailPageProps): Promise<Metadata> {
+  const { vertical, listingId } = await params
+  const supabase = await createClient()
+  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+
+  // Fetch listing with vendor info and images
+  const { data: listing } = await supabase
+    .from('listings')
+    .select(`
+      title,
+      description,
+      price_cents,
+      vendor_profiles!inner (
+        profile_data
+      ),
+      listing_images (
+        url,
+        is_primary,
+        display_order
+      )
+    `)
+    .eq('id', listingId)
+    .eq('status', 'published')
+    .is('deleted_at', null)
+    .single()
+
+  if (!listing) {
+    return {
+      title: 'Listing Not Found',
+    }
+  }
+
+  // vendor_profiles comes back as an object from the inner join
+  const vendorProfile = listing.vendor_profiles as unknown as { profile_data: Record<string, unknown> } | null
+  const vendorData = vendorProfile?.profile_data
+  const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
+
+  const listingImages = listing.listing_images as { url: string; is_primary: boolean; display_order: number }[] || []
+  const primaryImage = listingImages.find(img => img.is_primary) || listingImages[0]
+
+  const price = listing.price_cents ? `$${(listing.price_cents / 100).toFixed(2)}` : ''
+  const title = `${listing.title}${price ? ` - ${price}` : ''}`
+  const description = listing.description
+    ? listing.description.slice(0, 160)
+    : `Available from ${vendorName} on ${branding.brand_name}`
+
+  return {
+    title: `${listing.title} - ${branding.brand_name}`,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      images: primaryImage?.url ? [{ url: primaryImage.url, alt: listing.title }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: primaryImage?.url ? [primaryImage.url] : [],
+    },
+  }
 }
 
 export default async function ListingDetailPage({ params }: ListingDetailPageProps) {

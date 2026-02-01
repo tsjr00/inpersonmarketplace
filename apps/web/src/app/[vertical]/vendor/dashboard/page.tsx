@@ -6,6 +6,7 @@ import EditProfileButton from './EditProfileButton'
 import ReferralCard from './ReferralCard'
 import PaymentMethodsCard from './PaymentMethodsCard'
 import FeeBalanceCard from './FeeBalanceCard'
+import PromoteCard from './PromoteCard'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -742,6 +743,17 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         {vendorProfile.status === 'approved' && (
           <div style={{ marginBottom: spacing.md }}>
             <ReferralCard vertical={vertical} />
+          </div>
+        )}
+
+        {/* Promote Your Business Card */}
+        {vendorProfile.status === 'approved' && (
+          <div style={{ marginBottom: spacing.md }}>
+            <PromoteCard
+              vendorId={vendorProfile.id}
+              vendorName={(profileData.business_name as string) || (profileData.farm_name as string) || 'My Business'}
+              vertical={vertical}
+            />
           </div>
         )}
 
