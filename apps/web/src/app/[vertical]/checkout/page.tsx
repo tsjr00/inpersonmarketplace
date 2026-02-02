@@ -41,7 +41,6 @@ interface PaymentMethod {
   name: string
   icon: string
   description: string
-  fee_description: string
 }
 
 interface VendorPaymentInfo {
@@ -254,8 +253,7 @@ export default function CheckoutPage() {
           id: 'stripe',
           name: 'Credit/Debit Card',
           icon: '💳',
-          description: 'Pay securely with Stripe',
-          fee_description: '5% + $0.30 platform fee'
+          description: 'Pay securely with card'
         }])
         setSelectedPaymentMethod('stripe')
       }
@@ -886,7 +884,7 @@ export default function CheckoutPage() {
                             {method.name}
                           </div>
                           <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                            {method.fee_description}
+                            {method.description}
                           </div>
                         </div>
                       </label>

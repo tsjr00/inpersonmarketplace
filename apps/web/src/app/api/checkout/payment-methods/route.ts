@@ -17,7 +17,6 @@ interface AvailablePaymentMethod {
   name: string
   icon: string
   description: string
-  fee_description: string
 }
 
 export async function POST(request: NextRequest) {
@@ -87,8 +86,7 @@ export async function POST(request: NextRequest) {
         id: 'stripe',
         name: 'Credit/Debit Card',
         icon: '💳',
-        description: 'Pay securely with Stripe',
-        fee_description: '5% + $0.30 platform fee'
+        description: 'Pay securely with card'
       })
     }
 
@@ -98,8 +96,7 @@ export async function POST(request: NextRequest) {
         id: 'venmo',
         name: 'Venmo',
         icon: '📱',
-        description: 'Pay directly via Venmo',
-        fee_description: '6.5% + $0.15 service fee'
+        description: 'Pay via Venmo'
       })
     }
 
@@ -108,8 +105,7 @@ export async function POST(request: NextRequest) {
         id: 'cashapp',
         name: 'Cash App',
         icon: '💵',
-        description: 'Pay directly via Cash App',
-        fee_description: '6.5% + $0.15 service fee'
+        description: 'Pay via Cash App'
       })
     }
 
@@ -118,8 +114,7 @@ export async function POST(request: NextRequest) {
         id: 'paypal',
         name: 'PayPal',
         icon: '🅿️',
-        description: 'Pay directly via PayPal',
-        fee_description: '6.5% + $0.15 service fee'
+        description: 'Pay via PayPal'
       })
     }
 
@@ -128,8 +123,7 @@ export async function POST(request: NextRequest) {
         id: 'cash',
         name: 'Cash at Pickup',
         icon: '💰',
-        description: 'Pay in cash when you pick up',
-        fee_description: '6.5% + $0.15 service fee'
+        description: 'Pay in cash when you pick up'
       })
     }
 
