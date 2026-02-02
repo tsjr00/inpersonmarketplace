@@ -304,9 +304,10 @@ export async function POST(request: NextRequest) {
     // Create Stripe checkout session
     crumb.logic('Creating Stripe checkout session')
     const baseUrl = request.nextUrl.origin
-    const verticalPrefix = vertical ? `/${vertical}` : ''
-    const successUrl = `${baseUrl}${verticalPrefix}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
-    const cancelUrl = `${baseUrl}${verticalPrefix}/checkout`
+    // Use vertical from request, or fall back to the listing's vertical_id
+    const verticalId = vertical || (listings[0] as Listing).vertical_id
+    const successUrl = `${baseUrl}/${verticalId}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
+    const cancelUrl = `${baseUrl}/${verticalId}/checkout`
 
     const checkoutItems = listings.map((listing) => {
       const item = items.find((i) => i.listingId === listing.id)!
