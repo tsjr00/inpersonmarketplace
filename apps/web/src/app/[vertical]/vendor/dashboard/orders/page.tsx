@@ -17,6 +17,9 @@ interface OrderItem {
   customer_name: string
   buyer_confirmed_at: string | null
   vendor_confirmed_at: string | null
+  issue_reported_at: string | null
+  issue_reported_by: string | null
+  issue_description: string | null
   order: {
     id: string
     order_number: string
@@ -376,6 +379,37 @@ function OrderCard({
           </p>
         </div>
       </div>
+
+      {/* Issue Report Warning */}
+      {order.issue_reported_at && (
+        <div style={{
+          padding: 15,
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fca5a5',
+          borderRadius: 8,
+          marginBottom: 15
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <div>
+              <p style={{ margin: 0, fontWeight: 600, color: '#991b1b' }}>
+                Buyer Reported Issue
+              </p>
+              <p style={{ margin: '5px 0 0 0', fontSize: 14, color: '#991b1b' }}>
+                Reported on {new Date(order.issue_reported_at).toLocaleDateString()} at {new Date(order.issue_reported_at).toLocaleTimeString()}
+              </p>
+              {order.issue_description && (
+                <p style={{ margin: '10px 0 0 0', fontSize: 14, color: '#7f1d1d', fontStyle: 'italic' }}>
+                  &quot;{order.issue_description}&quot;
+                </p>
+              )}
+              <p style={{ margin: '10px 0 0 0', fontSize: 13, color: '#991b1b' }}>
+                Please contact the buyer to resolve this issue.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 10 }}>

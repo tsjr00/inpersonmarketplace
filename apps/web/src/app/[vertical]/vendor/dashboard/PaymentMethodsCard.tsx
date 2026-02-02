@@ -164,22 +164,39 @@ export default function PaymentMethodsCard({
 
       {isEditing ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-          {/* Stripe status */}
-          <div style={{
-            padding: spacing['2xs'],
-            backgroundColor: stripeConnected ? '#dcfce7' : '#fef3c7',
-            borderRadius: radius.sm,
-            fontSize: typography.sizes.xs
-          }}>
-            <span style={{ fontWeight: typography.weights.medium }}>
-              {stripeConnected ? '✓ Card payments enabled' : '⚠ Connect Stripe for card payments'}
-            </span>
-            {!stripeConnected && (
-              <span style={{ color: colors.textMuted, display: 'block', marginTop: spacing['3xs'] }}>
-                Required for external payment methods
+          {/* Stripe status - clickable link when not connected */}
+          {stripeConnected ? (
+            <div style={{
+              padding: spacing['2xs'],
+              backgroundColor: '#dcfce7',
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.xs
+            }}>
+              <span style={{ fontWeight: typography.weights.medium }}>
+                ✓ Card payments enabled
               </span>
-            )}
-          </div>
+            </div>
+          ) : (
+            <Link
+              href={`/${vertical}/vendor/dashboard/stripe`}
+              style={{
+                display: 'block',
+                padding: spacing['2xs'],
+                backgroundColor: '#fef3c7',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                textDecoration: 'none',
+                color: 'inherit'
+              }}
+            >
+              <span style={{ fontWeight: typography.weights.medium, color: '#92400e' }}>
+                ⚠ Connect Stripe for card payments →
+              </span>
+              <span style={{ color: '#92400e', display: 'block', marginTop: spacing['3xs'] }}>
+                Required for external payment methods. Click to set up.
+              </span>
+            </Link>
+          )}
 
           {/* Venmo */}
           <div>
@@ -336,31 +353,31 @@ export default function PaymentMethodsCard({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            gap: spacing.xs
+            gap: spacing.sm,
+            flexWrap: 'nowrap'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-              <span>💳</span>
-              <div>
-                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
-                  {stripeConnected ? 'Card payments enabled' : 'Card payments not set up'}
-                </div>
-                {!stripeConnected && (
-                  <div style={{ fontSize: typography.sizes.xs, color: '#92400e' }}>
-                    Required to receive card payments
-                  </div>
-                )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
+                {stripeConnected ? '💳 Card payments enabled' : 'Card payments not set up'}
               </div>
+              {!stripeConnected && (
+                <div style={{ fontSize: typography.sizes.xs, color: '#92400e' }}>
+                  Required to receive payments
+                </div>
+              )}
             </div>
             <Link
               href={`/${vertical}/vendor/dashboard/stripe`}
               style={{
-                padding: `${spacing['3xs']} ${spacing.xs}`,
+                padding: `${spacing['2xs']} ${spacing.sm}`,
                 backgroundColor: stripeConnected ? colors.surfaceMuted : colors.primary,
                 color: stripeConnected ? colors.textSecondary : colors.textInverse,
                 borderRadius: radius.sm,
-                fontSize: typography.sizes.xs,
+                fontSize: typography.sizes.sm,
                 textDecoration: 'none',
-                fontWeight: typography.weights.medium
+                fontWeight: typography.weights.medium,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
               }}
             >
               {stripeConnected ? 'Manage' : 'Set Up'}

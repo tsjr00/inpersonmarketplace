@@ -106,8 +106,8 @@ export default function BuyerOrderDetailPage() {
     }
   }
 
-  const handleConfirmPickup = async (itemId: string) => {
-    if (!confirm('Confirm you have received this item? This cannot be undone.')) {
+  const handleConfirmPickup = async (itemId: string, skipDialog = false) => {
+    if (!skipDialog && !confirm('Confirm you have received this item? This cannot be undone.')) {
       return
     }
 
@@ -406,7 +406,7 @@ export default function BuyerOrderDetailPage() {
                   onClick={() => {
                     // Confirm all ready items at once
                     if (confirm('Confirm you have received all items from this order? This cannot be undone.')) {
-                      itemsNeedingConfirm.forEach(item => handleConfirmPickup(item.id))
+                      itemsNeedingConfirm.forEach(item => handleConfirmPickup(item.id, true))
                     }
                   }}
                   disabled={confirmingItemId !== null}
