@@ -276,13 +276,14 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
                   fontSize: typography.sizes.sm,
                   marginBottom: spacing['3xs']
                 }}>
-                  Listing Closed
+                  Listing Closed for Pickup at:
                 </div>
                 <div style={{
-                  fontSize: typography.sizes.xs,
-                  color: '#991b1b'
+                  fontSize: typography.sizes.sm,
+                  color: '#991b1b',
+                  fontWeight: typography.weights.medium
                 }}>
-                  Pickup at: {market.market_name}
+                  {market.market_name}
                 </div>
               </div>
             )
@@ -333,9 +334,10 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
         <div style={{
           marginTop: spacing.xs,
           fontSize: typography.sizes.xs,
-          color: '#78350f'
+          color: '#78350f',
+          lineHeight: 1.4
         }}>
-          Order now for available pickup locations. Some locations have passed their cutoff time.
+          Listings automatically close prior to market day to allow vendors time to prepare orders for a successful market day. If you have missed the cutoff time, please visit the market in person or preorder this item to be picked up at another location.
         </div>
       )}
     </div>

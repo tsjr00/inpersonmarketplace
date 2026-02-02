@@ -39,14 +39,28 @@ export default function VendorOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('all')
+  const [stripeConnected, setStripeConnected] = useState<boolean | null>(null)
 
   useEffect(() => {
     fetchOrders()
+    fetchStripeStatus()
 
     // Poll for updates every 30 seconds
     const interval = setInterval(fetchOrders, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  async function fetchStripeStatus() {
+    try {
+      const response = await fetch('/api/vendor/profile')
+      if (response.ok) {
+        const data = await response.json()
+        setStripeConnected(!!data.profile?.stripe_account_id)
+      }
+    } catch (err) {
+      console.error('Error fetching Stripe status:', err)
+    }
+  }
 
   async function fetchOrders() {
     try {
@@ -84,6 +98,14 @@ export default function VendorOrdersPage() {
       if (!response.ok) {
         const errorMessage = data.error || 'Failed to update order'
         console.error('Order update error:', errorMessage)
+
+        // If Stripe not connected, refresh status and show prominent error
+        if (data.code === 'STRIPE_NOT_CONNECTED') {
+          setStripeConnected(false)
+          setError('You must complete Stripe setup before confirming orders. Click the link above to set up your account.')
+          return
+        }
+
         throw new Error(errorMessage)
       }
 
@@ -184,6 +206,45 @@ export default function VendorOrdersPage() {
           marginBottom: 20
         }}>
           {error}
+        </div>
+      )}
+
+      {/* Stripe Setup Warning - show if orders exist but Stripe not connected */}
+      {stripeConnected === false && orders.length > 0 && (
+        <div style={{
+          padding: 16,
+          backgroundColor: '#fef2f2',
+          border: '2px solid #dc2626',
+          borderRadius: 8,
+          marginBottom: 20
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: 24 }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: 700, color: '#dc2626', fontSize: 16 }}>
+                Stripe Setup Required
+              </p>
+              <p style={{ margin: '8px 0 0 0', color: '#991b1b', fontSize: 14, lineHeight: 1.4 }}>
+                You have orders waiting, but your Stripe account is not connected. You must complete Stripe setup before you can confirm or fulfill orders.
+              </p>
+              <Link
+                href={`/${vertical}/vendor/dashboard/stripe`}
+                style={{
+                  display: 'inline-block',
+                  marginTop: 12,
+                  padding: '10px 20px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontWeight: 600
+                }}
+              >
+                Complete Stripe Setup
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 

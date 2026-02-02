@@ -16,15 +16,24 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get vendor profile
+  // Get vendor profile with Stripe account status
   const { data: vendorProfile } = await supabase
     .from('vendor_profiles')
-    .select('id')
+    .select('id, stripe_account_id')
     .eq('user_id', user.id)
     .single()
 
   if (!vendorProfile) {
     return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+  }
+
+  // Require Stripe setup before vendors can mark orders as ready
+  const isProd = process.env.NODE_ENV === 'production'
+  if (isProd && !vendorProfile.stripe_account_id) {
+    return NextResponse.json({
+      error: 'Please complete your Stripe setup before processing orders. Go to Dashboard > Payment Methods to connect your account.',
+      code: 'STRIPE_NOT_CONNECTED'
+    }, { status: 400 })
   }
 
   // Verify vendor owns this order item

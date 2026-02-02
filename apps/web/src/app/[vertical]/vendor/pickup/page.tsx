@@ -47,6 +47,7 @@ export default function VendorPickupPage() {
   const [loading, setLoading] = useState(true)
   const [processingItem, setProcessingItem] = useState<string | null>(null)
   const [needsFulfillment, setNeedsFulfillment] = useState<number>(0)
+  const [windowExpiredError, setWindowExpiredError] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -149,6 +150,7 @@ export default function VendorPickupPage() {
 
   const handleFulfillItem = async (itemId: string) => {
     setProcessingItem(itemId)
+    setWindowExpiredError(null) // Clear any previous error
     try {
       const res = await fetch(`/api/vendor/orders/${itemId}/fulfill`, {
         method: 'POST'
@@ -156,9 +158,19 @@ export default function VendorPickupPage() {
       if (res.ok) {
         // Refresh orders
         fetchOrders()
+        fetchNeedsFulfillment()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to fulfill item')
+        const errorMessage = error.error || 'Failed to fulfill item'
+        // Check if this is a window expired error - show prominent banner instead of alert
+        if (errorMessage.toLowerCase().includes('window expired') || errorMessage.toLowerCase().includes('acknowledge receipt again')) {
+          setWindowExpiredError(errorMessage)
+          // Also refresh orders to update the UI
+          fetchOrders()
+          fetchNeedsFulfillment()
+        } else {
+          alert(errorMessage)
+        }
       }
     } catch (error) {
       console.error('Error fulfilling item:', error)
@@ -344,6 +356,58 @@ export default function VendorPickupPage() {
           >
             View
           </Link>
+        </div>
+      )}
+
+      {/* Confirmation Window Expired Error Banner */}
+      {windowExpiredError && (
+        <div style={{
+          padding: '16px',
+          backgroundColor: '#fef2f2',
+          borderBottom: '3px solid #dc2626',
+          borderTop: '3px solid #dc2626'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 12
+          }}>
+            <span style={{ fontSize: 24 }}>⏱️</span>
+            <div style={{ flex: 1 }}>
+              <p style={{
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 700,
+                color: '#dc2626'
+              }}>
+                Confirmation Window Expired
+              </p>
+              <p style={{
+                margin: '8px 0 0 0',
+                fontSize: 14,
+                color: '#991b1b',
+                lineHeight: 1.4
+              }}>
+                The buyer's acknowledgment has timed out. Please ask the buyer to confirm receipt again on their device, then tap Fulfill within 30 seconds.
+              </p>
+              <button
+                onClick={() => setWindowExpiredError(null)}
+                style={{
+                  marginTop: 12,
+                  padding: '8px 16px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

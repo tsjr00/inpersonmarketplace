@@ -491,6 +491,14 @@ export default function BuyerOrderDetailPage() {
                 }}>
                   Only confirm after you have all items in hand.
                 </p>
+                <p style={{
+                  margin: `${spacing['2xs']} 0 0 0`,
+                  fontSize: typography.sizes.xs,
+                  color: '#6b7280',
+                  textAlign: 'center'
+                }}>
+                  The vendor must tap Fulfill on their device within 30 seconds to complete the transaction.
+                </p>
                 <button
                   onClick={() => setShowProblemSection(true)}
                   style={{

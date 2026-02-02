@@ -76,7 +76,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .update({
         issue_reported_at: new Date().toISOString(),
         issue_reported_by: 'buyer',
-        issue_description: description
+        issue_description: description,
+        issue_status: 'new'
       })
       .eq('id', orderItemId)
 
