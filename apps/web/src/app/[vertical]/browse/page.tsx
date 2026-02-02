@@ -6,6 +6,7 @@ import SearchFilter from './SearchFilter'
 import BrowseToggle from './BrowseToggle'
 import { formatDisplayPrice, CATEGORIES } from '@/lib/constants'
 import TierBadge from '@/components/shared/TierBadge'
+import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 // Cache page for 5 minutes - listings don't change every second
@@ -829,12 +830,20 @@ function ListingCard({
 
       {/* Price (includes platform fee) */}
       <div style={{
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.bold,
-        color: colors.primary,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
         marginBottom: spacing['3xs']
       }}>
-        {formatDisplayPrice(listing.price_cents)}
+        <span style={{
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.bold,
+          color: colors.primary
+        }}>
+          {formatDisplayPrice(listing.price_cents)}
+        </span>
+        {/* Cutoff/Closed Status Badge */}
+        <CutoffBadge listingId={listing.id} />
       </div>
 
       {/* Market/Location - above the separator */}

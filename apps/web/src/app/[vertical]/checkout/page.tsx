@@ -36,6 +36,23 @@ interface SuggestedProduct {
   }
 }
 
+interface PaymentMethod {
+  id: 'stripe' | 'venmo' | 'cashapp' | 'paypal' | 'cash'
+  name: string
+  icon: string
+  description: string
+  fee_description: string
+}
+
+interface VendorPaymentInfo {
+  vendor_profile_id: string
+  vendor_name: string
+  venmo_username: string | null
+  cashapp_cashtag: string | null
+  paypal_username: string | null
+  accepts_cash_at_pickup: boolean
+}
+
 export default function CheckoutPage() {
   const params = useParams()
   const router = useRouter()
@@ -51,6 +68,9 @@ export default function CheckoutPage() {
   const [marketValid, setMarketValid] = useState(true)
   const [suggestedProducts, setSuggestedProducts] = useState<SuggestedProduct[]>([])
   const [multiLocationAcknowledged, setMultiLocationAcknowledged] = useState(false)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null)
+  const [vendorPaymentInfo, setVendorPaymentInfo] = useState<VendorPaymentInfo[]>([])
 
   // Check auth and validate cart items
   useEffect(() => {
@@ -197,6 +217,53 @@ export default function CheckoutPage() {
     fetchSuggestions()
   }, [checkoutItems, vertical])
 
+  // Fetch available payment methods from vendors
+  useEffect(() => {
+    async function fetchPaymentMethods() {
+      if (checkoutItems.length === 0) {
+        setPaymentMethods([])
+        setVendorPaymentInfo([])
+        return
+      }
+
+      const vendorIds = [...new Set(checkoutItems.map(item => item.vendor_profile_id).filter(Boolean))]
+      if (vendorIds.length === 0) return
+
+      try {
+        const res = await fetch('/api/checkout/payment-methods', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vendorProfileIds: vendorIds })
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          setPaymentMethods(data.methods || [])
+          setVendorPaymentInfo(data.vendors || [])
+
+          // Auto-select Stripe if available, otherwise first method
+          if (data.methods?.length > 0) {
+            const hasStripe = data.methods.some((m: PaymentMethod) => m.id === 'stripe')
+            setSelectedPaymentMethod(hasStripe ? 'stripe' : data.methods[0].id)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch payment methods:', err)
+        // Default to stripe if fetch fails
+        setPaymentMethods([{
+          id: 'stripe',
+          name: 'Credit/Debit Card',
+          icon: '💳',
+          description: 'Pay securely with Stripe',
+          fee_description: '5% + $0.30 platform fee'
+        }])
+        setSelectedPaymentMethod('stripe')
+      }
+    }
+
+    fetchPaymentMethods()
+  }, [checkoutItems])
+
   async function handleCheckout() {
     if (!user) {
       // Redirect to login with return URL
@@ -204,10 +271,60 @@ export default function CheckoutPage() {
       return
     }
 
+    if (!selectedPaymentMethod) {
+      setError({ message: 'Please select a payment method' })
+      return
+    }
+
     setProcessing(true)
     setError(null)
 
     try {
+      // For external payment methods, create order and redirect to external checkout
+      if (selectedPaymentMethod !== 'stripe') {
+        const response = await fetch('/api/checkout/external', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            payment_method: selectedPaymentMethod,
+            vertical
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          setError({
+            message: data.error || 'Checkout failed',
+            code: data.code,
+            traceId: data.traceId
+          })
+          setProcessing(false)
+          return
+        }
+
+        // Clear cart and redirect to external checkout page
+        clearCart()
+
+        // Build URL with order details
+        const params = new URLSearchParams({
+          order_id: data.order_id,
+          order_number: data.order_number,
+          payment_method: selectedPaymentMethod,
+          subtotal: data.subtotal_cents.toString(),
+          buyer_fee: data.buyer_fee_cents.toString(),
+          total: data.total_cents.toString(),
+          vendor_name: encodeURIComponent(data.vendor_name || 'Vendor')
+        })
+        if (data.payment_link) {
+          params.set('payment_link', encodeURIComponent(data.payment_link))
+        }
+
+        router.push(`/${vertical}/checkout/external?${params.toString()}`)
+        return
+      }
+
+      // Stripe checkout flow
       const response = await fetch('/api/checkout/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -723,6 +840,91 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* Payment Method Selection */}
+              {paymentMethods.length > 1 && (
+                <div style={{
+                  marginBottom: spacing.sm,
+                  padding: spacing.sm,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.md,
+                  border: `1px solid ${colors.border}`
+                }}>
+                  <h3 style={{
+                    margin: `0 0 ${spacing.xs} 0`,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    color: colors.textPrimary
+                  }}>
+                    Payment Method
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                    {paymentMethods.map(method => (
+                      <label
+                        key={method.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: spacing.xs,
+                          padding: spacing.xs,
+                          backgroundColor: selectedPaymentMethod === method.id ? colors.primaryLight : colors.surfaceElevated,
+                          border: selectedPaymentMethod === method.id ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+                          borderRadius: radius.sm,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={method.id}
+                          checked={selectedPaymentMethod === method.id}
+                          onChange={() => setSelectedPaymentMethod(method.id)}
+                          style={{ width: 18, height: 18 }}
+                        />
+                        <span style={{ fontSize: typography.sizes.lg }}>{method.icon}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: typography.weights.medium, fontSize: typography.sizes.sm }}>
+                            {method.name}
+                          </div>
+                          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                            {method.fee_description}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedPaymentMethod && selectedPaymentMethod !== 'stripe' && (
+                    <p style={{
+                      margin: `${spacing.xs} 0 0 0`,
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted,
+                      fontStyle: 'italic'
+                    }}>
+                      {selectedPaymentMethod === 'cash'
+                        ? 'You will pay in cash when you pick up your order.'
+                        : `You will be redirected to complete payment via ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name}.`
+                      }
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Single payment method indicator */}
+              {paymentMethods.length === 1 && (
+                <div style={{
+                  marginBottom: spacing.sm,
+                  padding: spacing.xs,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.md,
+                  fontSize: typography.sizes.sm,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.xs
+                }}>
+                  <span>{paymentMethods[0].icon}</span>
+                  <span>Pay with {paymentMethods[0].name}</span>
+                </div>
+              )}
+
               {!user && (
                 <div style={{
                   padding: spacing.xs,
@@ -843,7 +1045,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged)}
+                disabled={processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -852,16 +1054,16 @@ export default function CheckoutPage() {
                   padding: `${spacing.sm} ${spacing.md}`,
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold,
-                  backgroundColor: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? colors.border : colors.primary,
+                  backgroundColor: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? colors.border : colors.primary,
                   color: colors.textInverse,
                   border: 'none',
                   borderRadius: radius.sm,
-                  cursor: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'not-allowed' : 'pointer',
+                  cursor: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'not-allowed' : 'pointer',
                   minHeight: 48,
-                  boxShadow: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'none' : shadows.primary,
+                  boxShadow: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'none' : shadows.primary,
                 }}
               >
-                {processing ? 'Processing...' : belowMinimum ? `Add $${amountNeeded} More` : !marketValid ? 'Fix Market Issues' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : user ? 'Pay Now' : 'Sign In to Checkout'}
+                {processing ? 'Processing...' : belowMinimum ? `Add $${amountNeeded} More` : !marketValid ? 'Fix Market Issues' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`}
               </button>
 
               {/* Security messaging */}

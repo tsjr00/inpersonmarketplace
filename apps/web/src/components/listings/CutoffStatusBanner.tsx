@@ -104,8 +104,14 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
     return hoursUntilCutoff < 24
   })
 
-  // All markets closed - show "Listing Closed" prominently
+  // All markets closed - show "Orders Closed" with helpful explanation
   if (!availability.is_accepting_orders) {
+    // Find the next market time to show when it's happening
+    const nextMarket = closedMarkets.find(m => m.next_market_at)
+    const marketTime = nextMarket?.next_market_at
+      ? formatMarketDateTime(nextMarket.next_market_at)
+      : null
+
     return (
       <div style={{
         padding: spacing.sm,
@@ -126,21 +132,44 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
             color: '#991b1b',
             fontSize: typography.sizes.base
           }}>
-            Listing Closed
+            Orders Closed for This Week
           </span>
         </div>
+
+        {/* Why it's closed */}
         <div style={{
           fontSize: typography.sizes.sm,
-          color: '#7f1d1d'
+          color: '#7f1d1d',
+          marginBottom: spacing.xs
         }}>
-          This listing has passed its order cutoff time. The vendor is preparing for market.
+          The order cutoff has passed. The vendor is now harvesting, packing, and preparing for pickup.
         </div>
-        {/* Show which markets are closed */}
-        {closedMarkets.length > 0 && (
-          <div style={{ marginTop: spacing.xs, fontSize: typography.sizes.xs, color: '#991b1b' }}>
-            Pickup location{closedMarkets.length > 1 ? 's' : ''}: {closedMarkets.map(m => m.market_name).join(', ')}
+
+        {/* Market timing info */}
+        {marketTime && (
+          <div style={{
+            padding: spacing.xs,
+            backgroundColor: '#fee2e2',
+            borderRadius: radius.sm,
+            marginBottom: spacing.xs
+          }}>
+            <div style={{ fontSize: typography.sizes.sm, color: '#991b1b', fontWeight: typography.weights.semibold }}>
+              Pickup: {marketTime}
+            </div>
+            <div style={{ fontSize: typography.sizes.xs, color: '#7f1d1d', marginTop: spacing['3xs'] }}>
+              at {closedMarkets.map(m => m.market_name).join(', ')}
+            </div>
           </div>
         )}
+
+        {/* When orders reopen */}
+        <div style={{
+          fontSize: typography.sizes.xs,
+          color: '#991b1b',
+          fontStyle: 'italic'
+        }}>
+          Orders will reopen after this pickup. Check back soon!
+        </div>
       </div>
     )
   }

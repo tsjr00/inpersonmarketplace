@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
 interface PaymentMethodsCardProps {
@@ -326,15 +327,48 @@ export default function PaymentMethodsCard({
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-          {/* Method list */}
-          <div style={{ fontSize: typography.sizes.sm }}>
-            {stripeConnected && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <span style={{ color: '#16a34a' }}>✓</span>
-                <span>Card (Stripe)</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+          {/* Stripe Section - Primary */}
+          <div style={{
+            padding: spacing.xs,
+            backgroundColor: stripeConnected ? '#dcfce7' : '#fef3c7',
+            borderRadius: radius.sm,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: spacing.xs
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+              <span>💳</span>
+              <div>
+                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
+                  {stripeConnected ? 'Card payments enabled' : 'Card payments not set up'}
+                </div>
+                {!stripeConnected && (
+                  <div style={{ fontSize: typography.sizes.xs, color: '#92400e' }}>
+                    Required to receive card payments
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+            <Link
+              href={`/${vertical}/vendor/dashboard/stripe`}
+              style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: stripeConnected ? colors.surfaceMuted : colors.primary,
+                color: stripeConnected ? colors.textSecondary : colors.textInverse,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                textDecoration: 'none',
+                fontWeight: typography.weights.medium
+              }}
+            >
+              {stripeConnected ? 'Manage' : 'Set Up'}
+            </Link>
+          </div>
+
+          {/* Other payment methods list */}
+          <div style={{ fontSize: typography.sizes.sm }}>
             {venmoUsername && (
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                 <span style={{ color: '#16a34a' }}>✓</span>
@@ -359,8 +393,10 @@ export default function PaymentMethodsCard({
                 <span>Cash at Pickup</span>
               </div>
             )}
-            {!stripeConnected && !venmoUsername && !cashappCashtag && !paypalUsername && !acceptsCash && (
-              <span style={{ color: colors.textMuted, fontStyle: 'italic' }}>No payment methods configured</span>
+            {!venmoUsername && !cashappCashtag && !paypalUsername && !acceptsCash && (
+              <span style={{ color: colors.textMuted, fontStyle: 'italic', fontSize: typography.sizes.xs }}>
+                No additional payment methods
+              </span>
             )}
           </div>
         </div>

@@ -707,37 +707,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </Link>
 
-          {/* Payment Settings */}
-          <Link
-            href={`/${vertical}/vendor/dashboard/stripe`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              minHeight: 120,
-              boxShadow: shadows.sm
-            }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>💳</div>
-              <h3 style={{
-                color: colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Payment Settings
-              </h3>
-              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                Connect your bank account to receive payments
-              </p>
-            </div>
-          </Link>
-        </div>
+          </div>
 
         {/* Referral Card - Compact row */}
         {vendorProfile.status === 'approved' && (
