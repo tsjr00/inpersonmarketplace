@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
           vendor_profile_id,
           vendor_profiles (
             id,
-            business_name,
+            profile_data,
             stripe_account_id,
             venmo_username,
             cashapp_cashtag,
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       vendor_profile_id: string
       vendor_profiles: {
         id: string
-        business_name: string | null
+        profile_data: Record<string, unknown> | null
         stripe_account_id: string | null
         venmo_username: string | null
         cashapp_cashtag: string | null
@@ -144,6 +144,9 @@ export async function POST(request: NextRequest) {
 
     const vendor = firstListing.vendor_profiles
     const vendorProfileId = vendor.id
+    const vendorName = (vendor.profile_data?.business_name as string) ||
+                       (vendor.profile_data?.farm_name as string) ||
+                       'Vendor'
 
     // Check if vendor can use external payments
     crumb.logic('Checking vendor eligibility for external payments')
@@ -261,7 +264,7 @@ export async function POST(request: NextRequest) {
       subtotal_cents: subtotalCents,
       buyer_fee_cents: buyerFeeCents,
       total_cents: totalCents,
-      vendor_name: vendor.business_name || 'Vendor'
+      vendor_name: vendorName
     })
   })
 }
