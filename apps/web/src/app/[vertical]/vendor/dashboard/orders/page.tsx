@@ -14,6 +14,9 @@ interface OrderItem {
   vendor_payout_cents: number
   status: string
   created_at: string
+  customer_name: string
+  buyer_confirmed_at: string | null
+  vendor_confirmed_at: string | null
   order: {
     id: string
     order_number: string
@@ -325,7 +328,7 @@ function OrderCard({
         <div>
           <h3 style={{ margin: '0 0 5px 0' }}>{order.listing?.title || 'Unknown Item'}</h3>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Order #{order.order?.order_number || 'N/A'}
+            Order #{order.order?.order_number || 'N/A'} • {order.customer_name || 'Customer'}
           </p>
         </div>
         <span style={{
@@ -431,13 +434,38 @@ function OrderCard({
         )}
 
         {order.status === 'fulfilled' && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            color: '#28a745',
-            fontSize: 14
-          }}>
-            ✓ Order completed - Payout initiated
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              color: '#28a745',
+              fontSize: 14
+            }}>
+              ✓ Order completed - Payout initiated
+            </div>
+            {order.buyer_confirmed_at ? (
+              <div style={{
+                padding: '10px 15px',
+                backgroundColor: '#d1fae5',
+                borderRadius: 6,
+                border: '1px solid #10b981',
+                fontSize: 13,
+                color: '#065f46'
+              }}>
+                ✓ Customer acknowledged receipt on {new Date(order.buyer_confirmed_at).toLocaleDateString()} at {new Date(order.buyer_confirmed_at).toLocaleTimeString()}
+              </div>
+            ) : (
+              <div style={{
+                padding: '10px 15px',
+                backgroundColor: '#fef3c7',
+                borderRadius: 6,
+                border: '1px solid #f59e0b',
+                fontSize: 13,
+                color: '#92400e'
+              }}>
+                ⏳ Awaiting customer acknowledgment
+              </div>
+            )}
           </div>
         )}
       </div>

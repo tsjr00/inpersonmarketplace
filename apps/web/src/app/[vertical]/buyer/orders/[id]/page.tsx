@@ -191,7 +191,7 @@ export default function BuyerOrderDetailPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to report issue')
 
-      alert('Issue reported. Our support team will review and contact you.')
+      alert('Issue reported. For the fastest resolution, please contact the vendor directly. If unresolved, our team will review and assist.')
       fetchOrder()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to report issue')
@@ -690,22 +690,36 @@ export default function BuyerOrderDetailPage() {
                                 : 'Only confirm after you have the item in hand.'}
                             </span>
                             {/* Report Issue button - alternative to confirming */}
-                            <button
-                              onClick={() => handleReportIssue(item.id)}
-                              disabled={reportingItemId === item.id}
-                              style={{
-                                padding: `${spacing['3xs']} ${spacing.xs}`,
-                                backgroundColor: 'transparent',
-                                color: '#991b1b',
-                                border: '1px solid #fca5a5',
+                            {item.issue_reported_at ? (
+                              <div style={{
+                                padding: `${spacing['2xs']} ${spacing.xs}`,
+                                backgroundColor: '#fef3c7',
+                                border: '1px solid #f59e0b',
                                 borderRadius: radius.sm,
                                 fontSize: typography.sizes.xs,
-                                cursor: reportingItemId === item.id ? 'not-allowed' : 'pointer',
+                                color: '#92400e',
                                 marginTop: spacing['2xs']
-                              }}
-                            >
-                              {reportingItemId === item.id ? 'Reporting...' : 'I Did Not Receive This'}
-                            </button>
+                              }}>
+                                Issue reported on {new Date(item.issue_reported_at).toLocaleDateString()}. Contact vendor for fastest resolution.
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleReportIssue(item.id)}
+                                disabled={reportingItemId === item.id}
+                                style={{
+                                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                                  backgroundColor: 'transparent',
+                                  color: '#991b1b',
+                                  border: '1px solid #fca5a5',
+                                  borderRadius: radius.sm,
+                                  fontSize: typography.sizes.xs,
+                                  cursor: reportingItemId === item.id ? 'not-allowed' : 'pointer',
+                                  marginTop: spacing['2xs']
+                                }}
+                              >
+                                {reportingItemId === item.id ? 'Reporting...' : 'I Did Not Receive This'}
+                              </button>
+                            )}
                           </div>
                         )}
 

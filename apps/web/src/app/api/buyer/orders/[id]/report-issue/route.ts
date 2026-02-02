@@ -109,7 +109,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       success: true,
-      message: 'Issue reported. Platform support will review and contact you.',
+      message: 'Issue reported. For fastest resolution, contact the vendor directly. If unresolved, our team will review.',
       issue_reported_at: new Date().toISOString()
     })
   })
