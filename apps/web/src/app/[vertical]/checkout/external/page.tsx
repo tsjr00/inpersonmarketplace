@@ -176,28 +176,12 @@ export default function ExternalCheckoutPage() {
 
           <div style={{
             display: 'flex',
-            flexDirection: 'column',
-            gap: spacing.xs
+            justifyContent: 'space-between',
+            fontWeight: typography.weights.bold,
+            fontSize: typography.sizes.lg
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: colors.textSecondary }}>Subtotal</span>
-              <span>{formatCurrency(orderData.subtotal_cents)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: colors.textSecondary }}>Service Fee</span>
-              <span>{formatCurrency(orderData.buyer_fee_cents)}</span>
-            </div>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              paddingTop: spacing.xs,
-              borderTop: `1px solid ${colors.border}`,
-              fontWeight: typography.weights.bold,
-              fontSize: typography.sizes.lg
-            }}>
-              <span>Total</span>
-              <span style={{ color: colors.primary }}>{formatCurrency(orderData.total_cents)}</span>
-            </div>
+            <span>Total</span>
+            <span style={{ color: colors.primary }}>{formatCurrency(orderData.total_cents)}</span>
           </div>
 
           <div style={{
@@ -316,47 +300,6 @@ export default function ExternalCheckoutPage() {
           </div>
         )}
 
-        {/* Actions */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: spacing.xs
-        }}>
-          <Link
-            href={`/${vertical}/buyer/orders`}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.primary,
-              textAlign: 'center',
-              textDecoration: 'none',
-              borderRadius: radius.md,
-              border: `1px solid ${colors.primary}`,
-              fontWeight: typography.weights.medium
-            }}
-          >
-            View My Orders
-          </Link>
-
-          <Link
-            href={`/${vertical}/browse`}
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: spacing.sm,
-              backgroundColor: 'transparent',
-              color: colors.textSecondary,
-              textAlign: 'center',
-              textDecoration: 'none',
-              borderRadius: radius.md,
-              fontSize: typography.sizes.sm
-            }}
-          >
-            Continue Shopping
-          </Link>
-        </div>
 
         {/* Help text */}
         <p style={{
