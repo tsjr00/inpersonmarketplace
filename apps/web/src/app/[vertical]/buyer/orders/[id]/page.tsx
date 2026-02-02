@@ -78,6 +78,12 @@ export default function BuyerOrderDetailPage() {
   const [cancellingItemId, setCancellingItemId] = useState<string | null>(null)
   const [reportingItemId, setReportingItemId] = useState<string | null>(null)
 
+  // Problem reporting state
+  const [showProblemSection, setShowProblemSection] = useState(false)
+  const [problemItems, setProblemItems] = useState<Record<string, boolean>>({})
+  const [problemDescriptions, setProblemDescriptions] = useState<Record<string, string>>({})
+  const [submittingProblems, setSubmittingProblems] = useState(false)
+
   useEffect(() => {
     fetchOrder()
   }, [orderId])
@@ -197,6 +203,57 @@ export default function BuyerOrderDetailPage() {
       alert(err instanceof Error ? err.message : 'Failed to report issue')
     } finally {
       setReportingItemId(null)
+    }
+  }
+
+  // Handle submitting all items at once (problems + received)
+  const handleSubmitAllItems = async (itemsNeedingConfirm: OrderItem[]) => {
+    const problemItemIds = Object.keys(problemItems).filter(id => problemItems[id])
+
+    // Validate that problem items have descriptions
+    for (const itemId of problemItemIds) {
+      if (!problemDescriptions[itemId]?.trim()) {
+        alert('Please provide a description for each item with a problem.')
+        return
+      }
+    }
+
+    if (!confirm('Submit your receipt confirmation? Items marked as problems will be reported to the vendor.')) {
+      return
+    }
+
+    setSubmittingProblems(true)
+    try {
+      // Process all items
+      for (const item of itemsNeedingConfirm) {
+        if (problemItems[item.id]) {
+          // Report issue for problem items
+          await fetch(`/api/buyer/orders/${item.id}/report-issue`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description: problemDescriptions[item.id] })
+          })
+        } else {
+          // Confirm receipt for non-problem items
+          await fetch(`/api/buyer/orders/${item.id}/confirm`, {
+            method: 'POST'
+          })
+        }
+      }
+
+      // Reset state and refresh
+      setProblemItems({})
+      setProblemDescriptions({})
+      setShowProblemSection(false)
+      fetchOrder()
+
+      if (problemItemIds.length > 0) {
+        alert('Submitted. For items with problems, please contact the vendor directly for fastest resolution.')
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to submit')
+    } finally {
+      setSubmittingProblems(false)
     }
   }
 
@@ -400,7 +457,7 @@ export default function BuyerOrderDetailPage() {
             </div>
 
             {/* Big Acknowledge Receipt Button - immediately below hero */}
-            {itemsNeedingConfirm.length > 0 && (
+            {itemsNeedingConfirm.length > 0 && !showProblemSection && (
               <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: '#f0fdf4', borderBottom: '2px solid #16a34a' }}>
                 <button
                   onClick={() => {
@@ -430,11 +487,129 @@ export default function BuyerOrderDetailPage() {
                   margin: `${spacing.xs} 0 0 0`,
                   fontSize: typography.sizes.sm,
                   color: '#166534',
-                  textAlign: 'center',
-                  fontStyle: 'italic'
+                  textAlign: 'center'
                 }}>
                   Only confirm after you have all items in hand.
                 </p>
+                <button
+                  onClick={() => setShowProblemSection(true)}
+                  style={{
+                    display: 'block',
+                    margin: `${spacing.xs} auto 0`,
+                    padding: `${spacing['2xs']} ${spacing.sm}`,
+                    backgroundColor: 'transparent',
+                    color: '#b45309',
+                    border: 'none',
+                    fontSize: typography.sizes.sm,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Something missing or a problem?
+                </button>
+              </div>
+            )}
+
+            {/* Problem Reporting Section */}
+            {itemsNeedingConfirm.length > 0 && showProblemSection && (
+              <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: '#fef3c7', borderBottom: '2px solid #f59e0b' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                  <h3 style={{ margin: 0, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: '#92400e' }}>
+                    Indicate which items have a problem
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowProblemSection(false)
+                      setProblemItems({})
+                      setProblemDescriptions({})
+                    }}
+                    style={{
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: 'transparent',
+                      color: '#92400e',
+                      border: '1px solid #f59e0b',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: typography.sizes.sm, color: '#78350f' }}>
+                  Check any items you did NOT receive or have a problem with. Unchecked items will be marked as received.
+                </p>
+
+                {/* Simplified Item List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  {itemsNeedingConfirm.map(item => (
+                    <div key={item.id} style={{
+                      padding: spacing.xs,
+                      backgroundColor: problemItems[item.id] ? '#fef2f2' : 'white',
+                      borderRadius: radius.sm,
+                      border: `1px solid ${problemItems[item.id] ? '#fca5a5' : colors.border}`
+                    }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={problemItems[item.id] || false}
+                          onChange={(e) => {
+                            setProblemItems(prev => ({ ...prev, [item.id]: e.target.checked }))
+                            if (!e.target.checked) {
+                              setProblemDescriptions(prev => {
+                                const next = { ...prev }
+                                delete next[item.id]
+                                return next
+                              })
+                            }
+                          }}
+                          style={{ width: 18, height: 18, accentColor: '#dc2626' }}
+                        />
+                        <span style={{ flex: 1, fontSize: typography.sizes.sm, color: colors.textPrimary }}>
+                          <strong>{item.listing_title}</strong> (Qty: {item.quantity})
+                        </span>
+                      </label>
+                      {problemItems[item.id] && (
+                        <div style={{ marginTop: spacing.xs, marginLeft: 26 }}>
+                          <input
+                            type="text"
+                            placeholder="Describe the problem..."
+                            value={problemDescriptions[item.id] || ''}
+                            onChange={(e) => setProblemDescriptions(prev => ({ ...prev, [item.id]: e.target.value }))}
+                            style={{
+                              width: '100%',
+                              padding: spacing['2xs'],
+                              border: '1px solid #fca5a5',
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.sm
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  onClick={() => handleSubmitAllItems(itemsNeedingConfirm)}
+                  disabled={submittingProblems}
+                  style={{
+                    width: '100%',
+                    marginTop: spacing.sm,
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold,
+                    backgroundColor: submittingProblems ? '#9ca3af' : '#f59e0b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: radius.md,
+                    cursor: submittingProblems ? 'not-allowed' : 'pointer',
+                    minHeight: 48
+                  }}
+                >
+                  {submittingProblems ? 'Submitting...' : 'Submit'}
+                </button>
               </div>
             )}
 
@@ -651,76 +826,32 @@ export default function BuyerOrderDetailPage() {
                         {/* Since we now show "Picked Up" when buyer confirmed, this would be redundant */}
                         {/* Keeping this hidden but can be re-enabled if needed for clarity */}
 
-                        {/* Confirm Button - show when ready/fulfilled and not yet confirmed */}
-                        {['ready', 'fulfilled'].includes(item.status) && !item.buyer_confirmed_at && !item.cancelled_at && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: spacing['3xs'] }}>
-                            <button
-                              onClick={() => handleConfirmPickup(item.id)}
-                              disabled={confirmingItemId === item.id}
-                              style={{
-                                padding: `${spacing['2xs']} ${spacing.sm}`,
-                                backgroundColor: confirmingItemId === item.id ? colors.textMuted : (item.status === 'fulfilled' ? '#f59e0b' : colors.primary),
-                                color: colors.textInverse,
-                                border: 'none',
-                                borderRadius: radius.sm,
-                                fontSize: typography.sizes.sm,
-                                fontWeight: typography.weights.semibold,
-                                cursor: confirmingItemId === item.id ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: spacing['3xs']
-                              }}
-                            >
-                              {confirmingItemId === item.id ? (
-                                'Confirming...'
-                              ) : (
-                                <>
-                                  <span>✓</span> {item.status === 'fulfilled' ? 'Yes, I Received It' : 'Acknowledge Receipt'}
-                                </>
-                              )}
-                            </button>
-                            <span style={{
-                              fontSize: typography.sizes.xs,
-                              color: item.status === 'fulfilled' ? '#b45309' : colors.textMuted,
-                              fontStyle: 'italic',
-                              maxWidth: 220
-                            }}>
-                              {item.status === 'fulfilled'
-                                ? 'Vendor marked this as handed to you. Please confirm if you received it.'
-                                : 'Only confirm after you have the item in hand.'}
-                            </span>
-                            {/* Report Issue button - alternative to confirming */}
-                            {item.issue_reported_at ? (
-                              <div style={{
-                                padding: `${spacing['2xs']} ${spacing.xs}`,
-                                backgroundColor: '#fef3c7',
-                                border: '1px solid #f59e0b',
-                                borderRadius: radius.sm,
-                                fontSize: typography.sizes.xs,
-                                color: '#92400e',
-                                marginTop: spacing['2xs']
-                              }}>
-                                Issue reported on {new Date(item.issue_reported_at).toLocaleDateString()}. Contact vendor for fastest resolution.
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleReportIssue(item.id)}
-                                disabled={reportingItemId === item.id}
-                                style={{
-                                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                                  backgroundColor: 'transparent',
-                                  color: '#991b1b',
-                                  border: '1px solid #fca5a5',
-                                  borderRadius: radius.sm,
-                                  fontSize: typography.sizes.xs,
-                                  cursor: reportingItemId === item.id ? 'not-allowed' : 'pointer',
-                                  marginTop: spacing['2xs']
-                                }}
-                              >
-                                {reportingItemId === item.id ? 'Reporting...' : 'I Did Not Receive This'}
-                              </button>
-                            )}
+                        {/* Issue Already Reported Badge */}
+                        {item.issue_reported_at && !item.cancelled_at && (
+                          <div style={{
+                            padding: `${spacing['2xs']} ${spacing.xs}`,
+                            backgroundColor: '#fef3c7',
+                            border: '1px solid #f59e0b',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            color: '#92400e',
+                            width: '100%'
+                          }}>
+                            Issue reported on {new Date(item.issue_reported_at).toLocaleDateString()}. Contact vendor for fastest resolution.
                           </div>
+                        )}
+
+                        {/* Status message for items awaiting confirmation (buttons are now in the problem section above) */}
+                        {['ready', 'fulfilled'].includes(item.status) && !item.buyer_confirmed_at && !item.cancelled_at && !item.issue_reported_at && (
+                          <span style={{
+                            fontSize: typography.sizes.xs,
+                            color: item.status === 'fulfilled' ? '#b45309' : colors.textMuted,
+                            fontStyle: 'italic'
+                          }}>
+                            {item.status === 'fulfilled'
+                              ? 'Vendor marked as handed to you. Use the confirmation section above.'
+                              : 'Ready for pickup. Use the confirmation section above.'}
+                          </span>
                         )}
 
                         {/* Cancel Button - show for pending/paid (free cancel) and confirmed/ready (with fee) */}

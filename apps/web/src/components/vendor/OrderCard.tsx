@@ -326,20 +326,20 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
 
                   {/* Item Actions - hide for cancelled or fulfilled items */}
                   {!item.cancelled_at && item.status !== 'cancelled' && item.status !== 'fulfilled' && (
-                    <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                       {item.status === 'pending' && onConfirmItem && (
                         <button
                           onClick={() => onConfirmItem(item.id)}
                           style={{
-                            padding: '6px 14px',
+                            padding: '6px 12px',
                             backgroundColor: '#3b82f6',
                             color: 'white',
                             border: 'none',
                             borderRadius: 6,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: 600,
                             cursor: 'pointer',
-                            minHeight: 36
+                            minHeight: 32
                           }}
                         >
                           Confirm
@@ -350,18 +350,18 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                         <button
                           onClick={() => onReadyItem(item.id)}
                           style={{
-                            padding: '6px 14px',
+                            padding: '6px 12px',
                             backgroundColor: '#10b981',
                             color: 'white',
                             border: 'none',
                             borderRadius: 6,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: 600,
                             cursor: 'pointer',
-                            minHeight: 36
+                            minHeight: 32
                           }}
                         >
-                          Mark Ready
+                          Ready
                         </button>
                       )}
 
@@ -369,18 +369,18 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                         <button
                           onClick={() => onFulfillItem(item.id)}
                           style={{
-                            padding: '6px 14px',
+                            padding: '6px 12px',
                             backgroundColor: '#8b5cf6',
                             color: 'white',
                             border: 'none',
                             borderRadius: 6,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: 600,
                             cursor: 'pointer',
-                            minHeight: 36
+                            minHeight: 32
                           }}
                         >
-                          Mark Fulfilled
+                          Fulfilled
                         </button>
                       )}
 
@@ -394,15 +394,15 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                             }
                           }}
                           style={{
-                            padding: '6px 14px',
+                            padding: '6px 12px',
                             backgroundColor: 'white',
                             color: '#dc2626',
                             border: '1px solid #dc2626',
                             borderRadius: 6,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: 600,
                             cursor: 'pointer',
-                            minHeight: 36
+                            minHeight: 32
                           }}
                         >
                           Can't Fulfill

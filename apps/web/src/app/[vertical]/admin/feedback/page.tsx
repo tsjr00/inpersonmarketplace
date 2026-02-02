@@ -9,7 +9,7 @@ type ShopperCategory = 'suggest_market' | 'technical_problem' | 'feature_request
 type VendorCategory = 'suggest_market' | 'technical_problem' | 'feature_request' | 'payment_issue' | 'order_management' | 'listing_help' | 'general_feedback'
 type FeedbackCategory = ShopperCategory | VendorCategory
 type FeedbackStatus = 'new' | 'in_review' | 'resolved' | 'closed'
-type FeedbackSource = 'shopper' | 'vendor'
+type FeedbackSource = 'shopper' | 'vendor' | 'order_issues'
 
 interface Feedback {
   id: string
@@ -27,6 +27,29 @@ interface Feedback {
   admin_notes?: string
   created_at: string
   resolved_at?: string
+}
+
+interface OrderIssue {
+  id: string
+  order_id: string
+  order_number: string
+  listing_title: string
+  listing_id: string
+  vertical_id: string
+  market_name: string
+  quantity: number
+  subtotal_cents: number
+  order_item_status: string
+  issue_reported_at: string
+  issue_reported_by: string
+  issue_description: string
+  issue_status: FeedbackStatus
+  issue_admin_notes?: string
+  issue_resolved_at?: string
+  buyer_email: string
+  buyer_name: string
+  vendor_name: string
+  order_created_at: string
 }
 
 interface Counts {
@@ -68,9 +91,11 @@ export default function AdminFeedbackPage() {
 
   const [feedbackSource, setFeedbackSource] = useState<FeedbackSource>('shopper')
   const [feedback, setFeedback] = useState<Feedback[]>([])
+  const [orderIssues, setOrderIssues] = useState<OrderIssue[]>([])
   const [counts, setCounts] = useState<Counts>({ new: 0, in_review: 0, resolved: 0, closed: 0, total: 0 })
   const [loading, setLoading] = useState(true)
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null)
+  const [selectedIssue, setSelectedIssue] = useState<OrderIssue | null>(null)
   const [adminNotes, setAdminNotes] = useState('')
   const [updating, setUpdating] = useState(false)
 
@@ -83,7 +108,11 @@ export default function AdminFeedbackPage() {
   const CATEGORY_CONFIG = feedbackSource === 'vendor' ? VENDOR_CATEGORY_CONFIG : SHOPPER_CATEGORY_CONFIG
 
   useEffect(() => {
-    fetchFeedback()
+    if (feedbackSource === 'order_issues') {
+      fetchOrderIssues()
+    } else {
+      fetchFeedback()
+    }
   }, [vertical, feedbackSource])
 
   const fetchFeedback = async () => {
@@ -109,6 +138,29 @@ export default function AdminFeedbackPage() {
     }
   }
 
+  const fetchOrderIssues = async () => {
+    setLoading(true)
+    console.log('[Admin Feedback] Fetching order issues for:', { vertical })
+    try {
+      const url = `/api/admin/order-issues?vertical=${vertical}`
+      console.log('[Admin Feedback] Calling:', url)
+      const res = await fetch(url)
+      console.log('[Admin Feedback] Response status:', res.status)
+      const data = await res.json()
+      console.log('[Admin Feedback] Response data:', data)
+      if (res.ok) {
+        setOrderIssues(data.issues || [])
+        setCounts(data.counts || { new: 0, in_review: 0, resolved: 0, closed: 0, total: 0 })
+      } else {
+        console.error('[Admin Feedback] API error:', data.error)
+      }
+    } catch (error) {
+      console.error('[Admin Feedback] Fetch error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const filteredFeedback = useMemo(() => {
     return feedback.filter(f => {
       if (categoryFilter !== 'all' && f.category !== categoryFilter) return false
@@ -123,6 +175,22 @@ export default function AdminFeedbackPage() {
       return true
     })
   }, [feedback, categoryFilter, statusFilter, searchTerm])
+
+  const filteredOrderIssues = useMemo(() => {
+    return orderIssues.filter(issue => {
+      if (statusFilter !== 'all' && issue.issue_status !== statusFilter) return false
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase()
+        const matchDescription = issue.issue_description.toLowerCase().includes(search)
+        const matchEmail = issue.buyer_email.toLowerCase().includes(search)
+        const matchItem = issue.listing_title.toLowerCase().includes(search)
+        const matchOrder = issue.order_number.toLowerCase().includes(search)
+        const matchVendor = issue.vendor_name.toLowerCase().includes(search)
+        if (!matchDescription && !matchEmail && !matchItem && !matchOrder && !matchVendor) return false
+      }
+      return true
+    })
+  }, [orderIssues, statusFilter, searchTerm])
 
   const handleUpdateStatus = async (id: string, newStatus: FeedbackStatus) => {
     setUpdating(true)
@@ -168,9 +236,60 @@ export default function AdminFeedbackPage() {
     }
   }
 
+  const handleUpdateIssueStatus = async (id: string, newStatus: FeedbackStatus) => {
+    setUpdating(true)
+    try {
+      const res = await fetch('/api/admin/order-issues', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, issue_status: newStatus })
+      })
+
+      if (res.ok) {
+        await fetchOrderIssues()
+        if (selectedIssue?.id === id) {
+          setSelectedIssue({ ...selectedIssue, issue_status: newStatus })
+        }
+      }
+    } catch (error) {
+      console.error('Error updating issue status:', error)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handleSaveIssueNotes = async () => {
+    if (!selectedIssue) return
+
+    setUpdating(true)
+    try {
+      const res = await fetch('/api/admin/order-issues', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedIssue.id, issue_admin_notes: adminNotes })
+      })
+
+      if (res.ok) {
+        await fetchOrderIssues()
+        setSelectedIssue({ ...selectedIssue, issue_admin_notes: adminNotes })
+      }
+    } catch (error) {
+      console.error('Error saving issue notes:', error)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
   const openDetails = (f: Feedback) => {
     setSelectedFeedback(f)
+    setSelectedIssue(null)
     setAdminNotes(f.admin_notes || '')
+  }
+
+  const openIssueDetails = (issue: OrderIssue) => {
+    setSelectedIssue(issue)
+    setSelectedFeedback(null)
+    setAdminNotes(issue.issue_admin_notes || '')
   }
 
   if (loading) {
@@ -205,13 +324,16 @@ export default function AdminFeedbackPage() {
           gap: spacing.xs,
           marginBottom: spacing.lg,
           borderBottom: `1px solid ${colors.border}`,
-          paddingBottom: spacing.xs
+          paddingBottom: spacing.xs,
+          flexWrap: 'wrap'
         }}>
           <button
             onClick={() => {
               setFeedbackSource('shopper')
               setCategoryFilter('all')
+              setStatusFilter('all')
               setSelectedFeedback(null)
+              setSelectedIssue(null)
             }}
             style={{
               padding: `${spacing.sm} ${spacing.lg}`,
@@ -233,7 +355,9 @@ export default function AdminFeedbackPage() {
             onClick={() => {
               setFeedbackSource('vendor')
               setCategoryFilter('all')
+              setStatusFilter('all')
               setSelectedFeedback(null)
+              setSelectedIssue(null)
             }}
             style={{
               padding: `${spacing.sm} ${spacing.lg}`,
@@ -250,6 +374,30 @@ export default function AdminFeedbackPage() {
             }}
           >
             <span>🏪</span> Vendor Feedback
+          </button>
+          <button
+            onClick={() => {
+              setFeedbackSource('order_issues')
+              setCategoryFilter('all')
+              setStatusFilter('all')
+              setSelectedFeedback(null)
+              setSelectedIssue(null)
+            }}
+            style={{
+              padding: `${spacing.sm} ${spacing.lg}`,
+              backgroundColor: feedbackSource === 'order_issues' ? '#dc2626' : 'transparent',
+              color: feedbackSource === 'order_issues' ? 'white' : colors.textSecondary,
+              border: 'none',
+              borderRadius: radius.md,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs
+            }}
+          >
+            <span>⚠️</span> Order Issues
           </button>
         </div>
 
@@ -295,7 +443,7 @@ export default function AdminFeedbackPage() {
         }}>
           <input
             type="text"
-            placeholder="Search feedback..."
+            placeholder={feedbackSource === 'order_issues' ? "Search issues..." : "Search feedback..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -307,22 +455,24 @@ export default function AdminFeedbackPage() {
               flex: 1
             }}
           />
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            style={{
-              padding: spacing.sm,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              fontSize: typography.sizes.sm,
-              backgroundColor: 'white'
-            }}
-          >
-            <option value="all">All Categories</option>
-            {Object.entries(CATEGORY_CONFIG).map(([value, config]) => (
-              <option key={value} value={value}>{config.icon} {config.label}</option>
-            ))}
-          </select>
+          {feedbackSource !== 'order_issues' && (
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{
+                padding: spacing.sm,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.md,
+                fontSize: typography.sizes.sm,
+                backgroundColor: 'white'
+              }}
+            >
+              <option value="all">All Categories</option>
+              {Object.entries(CATEGORY_CONFIG).map(([value, config]) => (
+                <option key={value} value={value}>{config.icon} {config.label}</option>
+              ))}
+            </select>
+          )}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -341,32 +491,139 @@ export default function AdminFeedbackPage() {
           </select>
         </div>
 
-        {/* Feedback List */}
-        {filteredFeedback.length === 0 ? (
-          <div style={{
-            padding: spacing['3xl'],
-            textAlign: 'center',
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: radius.lg,
-            border: `1px solid ${colors.border}`
-          }}>
-            <div style={{ fontSize: '3rem', marginBottom: spacing.md }}>📭</div>
-            <h3 style={{ margin: 0, color: colors.textSecondary }}>No feedback found</h3>
-            <p style={{ margin: `${spacing.sm} 0 0 0`, color: colors.textMuted }}>
-              {searchTerm || categoryFilter !== 'all' || statusFilter !== 'all'
-                ? 'Try adjusting your filters'
-                : `No ${feedbackSource} feedback has been submitted yet`}
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-            {filteredFeedback.map(f => {
-              const categoryConfig = CATEGORY_CONFIG[f.category as keyof typeof CATEGORY_CONFIG] || { label: f.category, icon: '📝', color: '#6b7280', bgColor: '#f3f4f6' }
-              const statusConfig = STATUS_CONFIG[f.status]
+        {/* Content List - Feedback or Order Issues */}
+        {feedbackSource === 'order_issues' ? (
+          // Order Issues List
+          filteredOrderIssues.length === 0 ? (
+            <div style={{
+              padding: spacing['3xl'],
+              textAlign: 'center',
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.lg,
+              border: `1px solid ${colors.border}`
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: spacing.md }}>✅</div>
+              <h3 style={{ margin: 0, color: colors.textSecondary }}>No order issues</h3>
+              <p style={{ margin: `${spacing.sm} 0 0 0`, color: colors.textMuted }}>
+                {searchTerm || statusFilter !== 'all'
+                  ? 'Try adjusting your filters'
+                  : 'No buyers have reported any order issues'}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+              {filteredOrderIssues.map(issue => {
+                const statusConfig = STATUS_CONFIG[issue.issue_status as FeedbackStatus] || STATUS_CONFIG.new
 
-              return (
-                <div
-                  key={f.id}
+                return (
+                  <div
+                    key={issue.id}
+                    onClick={() => openIssueDetails(issue)}
+                    style={{
+                      padding: spacing.md,
+                      backgroundColor: colors.surfaceElevated,
+                      borderRadius: radius.lg,
+                      border: `1px solid ${colors.border}`,
+                      cursor: 'pointer',
+                      transition: 'box-shadow 0.15s ease',
+                      boxShadow: selectedIssue?.id === issue.id ? shadows.md : 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.md, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
+                          <span style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: '#fee2e2',
+                            color: '#991b1b',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold
+                          }}>
+                            ⚠️ Order Issue
+                          </span>
+                          <span style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: statusConfig.bgColor,
+                            color: statusConfig.color,
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold
+                          }}>
+                            {statusConfig.label}
+                          </span>
+                        </div>
+                        <p style={{
+                          margin: 0,
+                          fontSize: typography.sizes.base,
+                          color: colors.textPrimary,
+                          fontWeight: typography.weights.semibold
+                        }}>
+                          #{issue.order_number} - {issue.listing_title}
+                        </p>
+                        <p style={{
+                          margin: `${spacing['3xs']} 0 0 0`,
+                          fontSize: typography.sizes.sm,
+                          color: colors.textSecondary,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}>
+                          {issue.issue_description}
+                        </p>
+                        <p style={{ margin: `${spacing.xs} 0 0 0`, fontSize: typography.sizes.sm, color: colors.accent }}>
+                          Vendor: {issue.vendor_name}
+                        </p>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                          {issue.buyer_email}
+                        </div>
+                        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                          Reported: {new Date(issue.issue_reported_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        ) : (
+          // Feedback List
+          filteredFeedback.length === 0 ? (
+            <div style={{
+              padding: spacing['3xl'],
+              textAlign: 'center',
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.lg,
+              border: `1px solid ${colors.border}`
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: spacing.md }}>📭</div>
+              <h3 style={{ margin: 0, color: colors.textSecondary }}>No feedback found</h3>
+              <p style={{ margin: `${spacing.sm} 0 0 0`, color: colors.textMuted }}>
+                {searchTerm || categoryFilter !== 'all' || statusFilter !== 'all'
+                  ? 'Try adjusting your filters'
+                  : `No ${feedbackSource} feedback has been submitted yet`}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+              {filteredFeedback.map(f => {
+                const categoryConfig = CATEGORY_CONFIG[f.category as keyof typeof CATEGORY_CONFIG] || { label: f.category, icon: '📝', color: '#6b7280', bgColor: '#f3f4f6' }
+                const statusConfig = STATUS_CONFIG[f.status]
+
+                return (
+                  <div
+                    key={f.id}
                   onClick={() => openDetails(f)}
                   style={{
                     padding: spacing.md,
@@ -449,10 +706,11 @@ export default function AdminFeedbackPage() {
               )
             })}
           </div>
+          )
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* Feedback Detail Modal */}
       {selectedFeedback && (
         <div
           style={{
@@ -653,6 +911,219 @@ export default function AdminFeedbackPage() {
                     fontSize: typography.sizes.sm,
                     fontWeight: typography.weights.medium,
                     cursor: updating || adminNotes === (selectedFeedback.admin_notes || '') ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {updating ? 'Saving...' : 'Save Notes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Issue Detail Modal */}
+      {selectedIssue && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: spacing.md,
+            zIndex: 1000
+          }}
+          onClick={() => setSelectedIssue(null)}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: radius.lg,
+              maxWidth: 600,
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: shadows.xl
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              padding: spacing.lg,
+              borderBottom: `1px solid ${colors.border}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                <span style={{
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: '#fee2e2',
+                  color: '#991b1b',
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold
+                }}>
+                  ⚠️ Order Issue
+                </span>
+                <span style={{
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: STATUS_CONFIG[selectedIssue.issue_status as FeedbackStatus]?.bgColor || STATUS_CONFIG.new.bgColor,
+                  color: STATUS_CONFIG[selectedIssue.issue_status as FeedbackStatus]?.color || STATUS_CONFIG.new.color,
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold
+                }}>
+                  {STATUS_CONFIG[selectedIssue.issue_status as FeedbackStatus]?.label || 'New'}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedIssue(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  color: colors.textMuted,
+                  padding: spacing.xs,
+                  minHeight: 44,
+                  minWidth: 44
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: spacing.lg }}>
+              {/* Order Info */}
+              <div style={{
+                padding: spacing.md,
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fca5a5',
+                borderRadius: radius.md,
+                marginBottom: spacing.md
+              }}>
+                <div style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, marginBottom: spacing.xs }}>
+                  Order #{selectedIssue.order_number}
+                </div>
+                <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, marginBottom: spacing['3xs'] }}>
+                  {selectedIssue.listing_title}
+                </div>
+                <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                  Qty: {selectedIssue.quantity} • ${(selectedIssue.subtotal_cents / 100).toFixed(2)}
+                </div>
+                <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, marginTop: spacing['3xs'] }}>
+                  Market: {selectedIssue.market_name}
+                </div>
+              </div>
+
+              {/* Buyer Info */}
+              <div style={{ marginBottom: spacing.md }}>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing['3xs'] }}>
+                  Reported By (Buyer)
+                </div>
+                <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium }}>
+                  {selectedIssue.buyer_name}
+                </div>
+                <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                  {selectedIssue.buyer_email}
+                </div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                  Reported: {new Date(selectedIssue.issue_reported_at).toLocaleString()}
+                </div>
+              </div>
+
+              {/* Vendor Info */}
+              <div style={{ marginBottom: spacing.md }}>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing['3xs'] }}>
+                  Vendor
+                </div>
+                <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium, color: colors.accent }}>
+                  {selectedIssue.vendor_name}
+                </div>
+              </div>
+
+              {/* Issue Description */}
+              <div style={{ marginBottom: spacing.lg }}>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing.xs }}>
+                  Issue Description
+                </div>
+                <div style={{
+                  padding: spacing.md,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.md,
+                  fontSize: typography.sizes.base,
+                  lineHeight: 1.6,
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {selectedIssue.issue_description}
+                </div>
+              </div>
+
+              {/* Status Update */}
+              <div style={{ marginBottom: spacing.lg }}>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing.xs }}>
+                  Status
+                </div>
+                <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
+                  {(Object.entries(STATUS_CONFIG) as [FeedbackStatus, typeof STATUS_CONFIG[FeedbackStatus]][]).map(([status, config]) => (
+                    <button
+                      key={status}
+                      onClick={() => handleUpdateIssueStatus(selectedIssue.id, status)}
+                      disabled={updating}
+                      style={{
+                        padding: `${spacing.xs} ${spacing.sm}`,
+                        backgroundColor: selectedIssue.issue_status === status ? config.bgColor : 'white',
+                        color: selectedIssue.issue_status === status ? config.color : colors.textSecondary,
+                        border: `2px solid ${selectedIssue.issue_status === status ? config.color : colors.border}`,
+                        borderRadius: radius.md,
+                        fontSize: typography.sizes.sm,
+                        fontWeight: typography.weights.medium,
+                        cursor: updating ? 'not-allowed' : 'pointer',
+                        opacity: updating ? 0.5 : 1
+                      }}
+                    >
+                      {config.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Admin Notes */}
+              <div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing.xs }}>
+                  Admin Notes (internal)
+                </div>
+                <textarea
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  placeholder="Add internal notes about this issue..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: spacing.sm,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.md,
+                    fontSize: typography.sizes.base,
+                    boxSizing: 'border-box',
+                    resize: 'vertical',
+                    fontFamily: 'inherit'
+                  }}
+                />
+                <button
+                  onClick={handleSaveIssueNotes}
+                  disabled={updating || adminNotes === (selectedIssue.issue_admin_notes || '')}
+                  style={{
+                    marginTop: spacing.sm,
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    backgroundColor: updating || adminNotes === (selectedIssue.issue_admin_notes || '') ? colors.textMuted : colors.primary,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: radius.md,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.medium,
+                    cursor: updating || adminNotes === (selectedIssue.issue_admin_notes || '') ? 'not-allowed' : 'pointer'
                   }}
                 >
                   {updating ? 'Saving...' : 'Save Notes'}
