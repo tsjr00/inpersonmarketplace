@@ -22,7 +22,6 @@ export default function SignupPage({ params }: SignupPageProps) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [startWithPremium, setStartWithPremium] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
@@ -76,7 +75,6 @@ export default function SignupPage({ params }: SignupPageProps) {
         data: {
           full_name: fullName,
           preferred_vertical: vertical,
-          start_with_premium: startWithPremium,
         },
       },
     })
@@ -90,12 +88,7 @@ export default function SignupPage({ params }: SignupPageProps) {
     if (data.user) {
       setSuccess(true)
       setTimeout(() => {
-        // If they selected premium, redirect to upgrade page to complete payment
-        if (startWithPremium) {
-          router.push(`/${vertical}/buyer/upgrade`)
-        } else {
-          router.push(`/${vertical}/dashboard`)
-        }
+        router.push(`/${vertical}/dashboard`)
         router.refresh()
       }, 2000)
     }
@@ -137,11 +130,7 @@ export default function SignupPage({ params }: SignupPageProps) {
             Account Created!
           </h2>
           <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>
-            Welcome to {branding.brand_name}.{' '}
-            {startWithPremium
-              ? 'Redirecting to complete your Premium membership...'
-              : 'Redirecting to your dashboard...'
-            }
+            Welcome to {branding.brand_name}. Redirecting to your dashboard...
           </p>
         </div>
       </div>
@@ -343,77 +332,6 @@ export default function SignupPage({ params }: SignupPageProps) {
               >
                 {showConfirmPassword ? '🙈' : '👁'}
               </button>
-            </div>
-          </div>
-
-          {/* Premium Membership Option */}
-          <div
-            onClick={() => !loading && setStartWithPremium(!startWithPremium)}
-            style={{
-              marginBottom: spacing.md,
-              padding: spacing.sm,
-              borderRadius: radius.md,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              border: startWithPremium ? `2px solid ${colors.primary}` : `2px solid ${colors.border}`,
-              backgroundColor: startWithPremium ? colors.primaryLight : colors.surfaceMuted,
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <div style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: spacing.xs
-            }}>
-              <div style={{
-                width: 20,
-                height: 20,
-                borderRadius: radius.sm,
-                border: startWithPremium ? `2px solid ${colors.primary}` : `2px solid ${colors.border}`,
-                backgroundColor: startWithPremium ? colors.primary : colors.surfaceElevated,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                marginTop: 2
-              }}>
-                {startWithPremium && (
-                  <span style={{ color: colors.textInverse, fontSize: typography.sizes.sm, fontWeight: typography.weights.bold }}>✓</span>
-                )}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing['2xs'],
-                  marginBottom: spacing['3xs']
-                }}>
-                  <span style={{ fontSize: typography.sizes.base }}>⭐</span>
-                  <span style={{
-                    fontWeight: typography.weights.semibold,
-                    color: startWithPremium ? colors.primaryDark : colors.textSecondary
-                  }}>
-                    Start with Premium
-                  </span>
-                  <span style={{
-                    backgroundColor: colors.primaryDark,
-                    color: colors.textInverse,
-                    padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                    borderRadius: radius.sm,
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.semibold
-                  }}>
-                    SAVE 32%
-                  </span>
-                </div>
-                <p style={{
-                  margin: 0,
-                  fontSize: typography.sizes.sm,
-                  color: colors.textMuted,
-                  lineHeight: typography.leading.normal
-                }}>
-                  $9.99/month or $81.50/year — Early access to listings, priority support, and more
-                </p>
-              </div>
             </div>
           </div>
 

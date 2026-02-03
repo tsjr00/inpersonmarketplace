@@ -35,6 +35,36 @@ export async function POST(request: Request) {
             { status: 401 }
           );
         }
+
+        // Ensure user_profile exists (trigger may have failed silently)
+        // vendor_profiles.user_id references user_profiles.user_id, not auth.users
+        const { data: existingProfile } = await supabaseAdmin
+          .from("user_profiles")
+          .select("user_id")
+          .eq("user_id", user_id)
+          .single();
+
+        if (!existingProfile) {
+          // Create user_profile if it doesn't exist
+          const { error: profileError } = await supabaseAdmin
+            .from("user_profiles")
+            .insert({
+              user_id: user_id,
+              email: user.email,
+              display_name: user.user_metadata?.full_name || "",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+
+          if (profileError) {
+            console.error("Failed to create user_profile:", profileError);
+            return NextResponse.json(
+              { ok: false, error: "Failed to initialize user profile. Please try again." },
+              { status: 500 }
+            );
+          }
+        }
+
         // Check if vendor profile already exists for this user+vertical
         const { data: existing } = await supabaseAdmin
           .from("vendor_profiles")

@@ -764,7 +764,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               Vendor Acknowledgments
             </h2>
             <p style={{ ...subheadingStyle, marginBottom: spacing.md }}>
-              As an independent vendor, you are the expert on your own business and products. Please review and acknowledge each statement below.
+              As an independent vendor and business owner, you are the expert on your business and products; you are also the responsible party regarding quality and safety of all items you choose to sell on the platform. Please review and acknowledge your agreement with each statement below.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
@@ -860,7 +860,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                 </span>
               </label>
 
-              {/* Honesty & Transparency */}
+              {/* Honesty, Legality & Transparency */}
               <label style={{
                 display: 'flex',
                 gap: spacing.sm,
@@ -879,7 +879,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                   style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
                 />
                 <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
-                  <strong style={{ color: colors.textPrimary }}>Honesty & Transparency:</strong> I commit to being honest and transparent in all my dealings on this platform. All information I provide is true and accurate. I understand this platform relies on vendor integrity, and that misrepresentation may result in account termination.
+                  <strong style={{ color: colors.textPrimary }}>Honesty, Legality & Transparency:</strong> I commit to operating honestly, transparently, and within the bounds of all applicable local, state, and federal laws. All information I provide is true and accurate. I understand this platform relies on vendor integrity, and that misrepresentation or illegal activity may result in account termination.
                 </span>
               </label>
             </div>
