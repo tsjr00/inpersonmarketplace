@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { AddToCartButton, AvailableMarket } from '@/components/cart/AddToCartButton'
 import CutoffStatusBanner from './CutoffStatusBanner'
@@ -42,6 +42,11 @@ export default function ListingPurchaseSection({
     }
     fetchMarkets()
   }, [listingId])
+
+  // Memoize the status change handler to prevent unnecessary re-fetches in CutoffStatusBanner
+  const handleStatusChange = useCallback((isAccepting: boolean) => {
+    setOrdersClosed(!isAccepting)
+  }, [])
 
   // Compute if all markets are closed (safety net for when availability API fails)
   const openMarkets = markets.filter(m => m.is_accepting)
@@ -101,7 +106,7 @@ export default function ListingPurchaseSection({
       {/* Cutoff Status Banner */}
       <CutoffStatusBanner
         listingId={listingId}
-        onStatusChange={(isAccepting) => setOrdersClosed(!isAccepting)}
+        onStatusChange={handleStatusChange}
         forceShowClosed={forceShowClosed}
       />
 

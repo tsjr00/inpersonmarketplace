@@ -55,7 +55,9 @@ export async function GET() {
   // Track cutoff info
   const cutoffWarnings: string[] = []
 
-  // Check each item
+  // First pass: collect market info and identify traditional market items needing cutoff check
+  const traditionalMarketItems: Array<{ id: string; title: string }> = []
+
   for (const item of cartItems) {
     const listing = item.listings as unknown as {
       id: string
@@ -76,13 +78,25 @@ export async function GET() {
     marketTypes.add(market.market_type)
     marketIds.add(market.id)
 
-    // Check cutoff for traditional markets
+    // Collect traditional market items for batch cutoff check
     if (market.market_type === 'traditional') {
-      const { data: isAccepting } = await supabase
-        .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
+      traditionalMarketItems.push({ id: listing.id, title: listing.title })
+    }
+  }
 
-      if (isAccepting === false) {
-        cutoffWarnings.push(`Orders for "${listing.title}" are closed - vendors are preparing for market day`)
+  // Batch cutoff checks in parallel instead of sequential
+  if (traditionalMarketItems.length > 0) {
+    const cutoffResults = await Promise.all(
+      traditionalMarketItems.map(async (item) => {
+        const { data: isAccepting } = await supabase
+          .rpc('is_listing_accepting_orders', { p_listing_id: item.id })
+        return { ...item, isAccepting }
+      })
+    )
+
+    for (const result of cutoffResults) {
+      if (result.isAccepting === false) {
+        cutoffWarnings.push(`Orders for "${result.title}" are closed - vendors are preparing for market day`)
       }
     }
   }

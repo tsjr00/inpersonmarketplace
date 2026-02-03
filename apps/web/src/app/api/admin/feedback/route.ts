@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 // GET - Get all feedback (admin only)
 // Supports both shopper and vendor feedback via 'source' param
 export async function GET(request: Request) {
+  // Rate limit admin feedback requests
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin-feedback:${clientIp}`, { limit: 60, windowSeconds: 60 })
+
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   console.log('[/api/admin/feedback] GET request received')
   try {
     const supabase = await createClient()
@@ -133,6 +142,14 @@ export async function GET(request: Request) {
 // PATCH - Update feedback status/notes (admin only)
 // Supports both shopper and vendor feedback via 'source' param
 export async function PATCH(request: Request) {
+  // Rate limit admin feedback updates
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin-feedback-update:${clientIp}`, { limit: 30, windowSeconds: 60 })
+
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const supabase = await createClient()
 

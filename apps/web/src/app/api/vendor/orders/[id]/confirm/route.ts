@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit order confirmation requests
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`vendor-confirm:${clientIp}`, { limit: 30, windowSeconds: 60 })
+
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const supabase = await createClient()
   const { id: orderItemId } = await params
 
@@ -37,10 +46,10 @@ export async function POST(
     }, { status: 400 })
   }
 
-  // Verify vendor owns this order item
+  // Verify vendor owns this order item (only need to check existence)
   const { data: orderItem } = await supabase
     .from('order_items')
-    .select('*')
+    .select('id')
     .eq('id', orderItemId)
     .eq('vendor_profile_id', vendorProfile.id)
     .single()

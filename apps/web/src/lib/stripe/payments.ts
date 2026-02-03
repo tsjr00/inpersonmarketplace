@@ -61,18 +61,23 @@ export async function createCheckoutSession({
     quantity: item.quantity,
   }))
 
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    line_items: lineItems,
-    mode: 'payment',
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    client_reference_id: orderId,
-    metadata: {
-      order_id: orderId,
-      order_number: orderNumber,
+  const session = await stripe.checkout.sessions.create(
+    {
+      payment_method_types: ['card'],
+      line_items: lineItems,
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: orderId,
+      metadata: {
+        order_id: orderId,
+        order_number: orderNumber,
+      },
     },
-  })
+    {
+      idempotencyKey: `checkout-${orderId}`,
+    }
+  )
 
   return session
 }
@@ -133,34 +138,42 @@ export async function createMarketBoxCheckoutSession({
   successUrl: string
   cancelUrl: string
 }) {
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    line_items: [
-      {
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: `${offeringName} - ${termWeeks} Week Market Box`,
-            description: `Prepaid ${termWeeks}-week market box subscription starting ${startDate}`,
+  // Generate unique idempotency key using offering, user, term, and start date
+  const idempotencyKey = `market-box-${offeringId}-${userId}-${termWeeks}w-${startDate}`
+
+  const session = await stripe.checkout.sessions.create(
+    {
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `${offeringName} - ${termWeeks} Week Market Box`,
+              description: `Prepaid ${termWeeks}-week market box subscription starting ${startDate}`,
+            },
+            unit_amount: priceCents,
           },
-          unit_amount: priceCents,
+          quantity: 1,
         },
-        quantity: 1,
+      ],
+      mode: 'payment',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: `market_box_${offeringId}_${userId}`,
+      metadata: {
+        type: 'market_box',
+        offering_id: offeringId,
+        user_id: userId,
+        term_weeks: termWeeks.toString(),
+        start_date: startDate,
+        price_cents: priceCents.toString(),
       },
-    ],
-    mode: 'payment',
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    client_reference_id: `market_box_${offeringId}_${userId}`,
-    metadata: {
-      type: 'market_box',
-      offering_id: offeringId,
-      user_id: userId,
-      term_weeks: termWeeks.toString(),
-      start_date: startDate,
-      price_cents: priceCents.toString(),
     },
-  })
+    {
+      idempotencyKey,
+    }
+  )
 
   return session
 }

@@ -22,16 +22,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get vendor profile
+    // Get vendor profile with Stripe account status
     crumb.supabase('select', 'vendor_profiles')
     const { data: vendorProfile } = await supabase
       .from('vendor_profiles')
-      .select('id, stripe_account_id')
+      .select('id, stripe_account_id, stripe_payouts_enabled')
       .eq('user_id', user.id)
       .single()
 
     if (!vendorProfile) {
       throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
+    }
+
+    // Verify Stripe account is ready for payouts before proceeding
+    const isProd = process.env.NODE_ENV === 'production'
+    if (isProd && vendorProfile.stripe_account_id && !vendorProfile.stripe_payouts_enabled) {
+      throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before confirming handoffs.')
     }
 
     // Get order item - must belong to this vendor and buyer must have confirmed

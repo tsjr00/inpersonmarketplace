@@ -85,30 +85,43 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  // Get listing with vendor info and images
-  const { data: listing, error } = await supabase
-    .from('listings')
-    .select(`
-      *,
-      premium_window_ends_at,
-      vendor_profiles!inner (
-        id,
-        profile_data,
-        status,
-        created_at
-      ),
-      listing_images (
-        id,
-        url,
-        is_primary,
-        display_order
-      )
-    `)
-    .eq('id', listingId)
-    .eq('status', 'published')
-    .eq('vendor_profiles.status', 'approved')
-    .is('deleted_at', null)
-    .single()
+  // Phase 1: Run independent queries in parallel
+  const [listingResult, listingMarketsResult, userResult] = await Promise.all([
+    // Query 1: Get listing with vendor info and images
+    supabase
+      .from('listings')
+      .select(`
+        *,
+        premium_window_ends_at,
+        vendor_profiles!inner (
+          id,
+          profile_data,
+          status,
+          created_at
+        ),
+        listing_images (
+          id,
+          url,
+          is_primary,
+          display_order
+        )
+      `)
+      .eq('id', listingId)
+      .eq('status', 'published')
+      .eq('vendor_profiles.status', 'approved')
+      .is('deleted_at', null)
+      .single(),
+    // Query 2: Get markets where this listing is available
+    supabase.rpc('get_listing_markets_summary', {
+      p_listing_id: listingId
+    }),
+    // Query 3: Check if user is logged in
+    supabase.auth.getUser()
+  ])
+
+  const { data: listing, error } = listingResult
+  const { data: listingMarkets } = listingMarketsResult
+  const { data: { user } } = userResult
 
   if (error || !listing) {
     notFound()
@@ -122,36 +135,32 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   // Get listing images
   const listingImages = (listing.listing_images as { id: string; url: string; is_primary: boolean; display_order: number }[] || [])
 
-  // Get other listings from same vendor
-  const { data: otherListings } = await supabase
-    .from('listings')
-    .select('id, title, price_cents')
-    .eq('vendor_profile_id', listing.vendor_profile_id)
-    .eq('status', 'published')
-    .is('deleted_at', null)
-    .neq('id', listingId)
-    .limit(4)
+  // Phase 2: Run dependent queries in parallel
+  const [otherListingsResult, userProfileResult] = await Promise.all([
+    // Query 4: Get other listings from same vendor (needs listing.vendor_profile_id)
+    supabase
+      .from('listings')
+      .select('id, title, price_cents')
+      .eq('vendor_profile_id', listing.vendor_profile_id)
+      .eq('status', 'published')
+      .is('deleted_at', null)
+      .neq('id', listingId)
+      .limit(4),
+    // Query 5: Get user profile for premium check (needs user.id)
+    user
+      ? supabase
+          .from('user_profiles')
+          .select('buyer_tier')
+          .eq('user_id', user.id)
+          .single()
+      : Promise.resolve({ data: null })
+  ])
 
-  // Get markets where this listing is available
-  const { data: listingMarkets } = await supabase
-    .rpc('get_listing_markets_summary', {
-      p_listing_id: listingId
-    })
-
-  // Check if user is logged in (for private pickup address visibility)
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: otherListings } = otherListingsResult
   const isLoggedIn = !!user
 
   // Check if user is premium buyer (for premium window logic)
-  let isPremiumBuyer = false
-  if (user) {
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('buyer_tier')
-      .eq('user_id', user.id)
-      .single()
-    isPremiumBuyer = userProfile?.buyer_tier === 'premium'
-  }
+  const isPremiumBuyer = userProfileResult.data?.buyer_tier === 'premium'
 
   // Check if listing is in premium window
   const premiumWindowEndsAt = listing.premium_window_ends_at as string | null

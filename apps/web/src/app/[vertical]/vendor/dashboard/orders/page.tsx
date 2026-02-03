@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -41,28 +41,11 @@ export default function VendorOrdersPage() {
   const [activeTab, setActiveTab] = useState('all')
   const [stripeConnected, setStripeConnected] = useState<boolean | null>(null)
 
-  useEffect(() => {
-    fetchOrders()
-    fetchStripeStatus()
+  // Use ref to track interval so we can clear/restart it
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Poll for updates every 30 seconds
-    const interval = setInterval(fetchOrders, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  async function fetchStripeStatus() {
-    try {
-      const response = await fetch('/api/vendor/profile')
-      if (response.ok) {
-        const data = await response.json()
-        setStripeConnected(!!data.profile?.stripe_account_id)
-      }
-    } catch (err) {
-      console.error('Error fetching Stripe status:', err)
-    }
-  }
-
-  async function fetchOrders() {
+  // Memoized fetch function to prevent unnecessary re-renders
+  const fetchOrdersCallback = useCallback(async () => {
     try {
       const response = await fetch('/api/vendor/orders')
       const data = await response.json()
@@ -78,9 +61,54 @@ export default function VendorOrdersPage() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load orders'
       setError(errorMessage)
-      console.error('Orders error:', errorMessage)
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchOrdersCallback()
+    fetchStripeStatus()
+
+    // Start polling
+    const startPolling = () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = setInterval(fetchOrdersCallback, 30000)
+    }
+
+    // Stop polling when tab is not visible to save resources
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current)
+          pollIntervalRef.current = null
+        }
+      } else {
+        // Tab became visible - fetch immediately and restart polling
+        fetchOrdersCallback()
+        startPolling()
+      }
+    }
+
+    // Initial polling start
+    startPolling()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [fetchOrdersCallback])
+
+  async function fetchStripeStatus() {
+    try {
+      const response = await fetch('/api/vendor/profile')
+      if (response.ok) {
+        const data = await response.json()
+        setStripeConnected(!!data.profile?.stripe_account_id)
+      }
+    } catch (err) {
+      console.error('Error fetching Stripe status:', err)
     }
   }
 
@@ -109,7 +137,7 @@ export default function VendorOrdersPage() {
         throw new Error(errorMessage)
       }
 
-      await fetchOrders()
+      await fetchOrdersCallback()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update order status'
       alert(errorMessage)
@@ -179,7 +207,7 @@ export default function VendorOrdersPage() {
           </p>
         </div>
         <button
-          onClick={fetchOrders}
+          onClick={fetchOrdersCallback}
           style={{
             padding: '10px 20px',
             backgroundColor: 'white',

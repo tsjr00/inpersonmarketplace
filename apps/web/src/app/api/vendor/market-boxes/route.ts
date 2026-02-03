@@ -72,33 +72,46 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Get active subscriber counts for each offering
-  const offeringsWithCounts = await Promise.all(
-    (offerings || []).map(async (offering) => {
-      const { count } = await supabase
-        .from('market_box_subscriptions')
-        .select('*', { count: 'exact', head: true })
-        .eq('offering_id', offering.id)
-        .eq('status', 'active')
+  // Get active subscriber counts for all offerings in a single batch query
+  const offeringIds = (offerings || []).map(o => o.id)
+  const subscriberCountsMap = new Map<string, number>()
 
-      const tier = (vendor.tier || 'standard') as keyof typeof SUBSCRIBER_LIMITS
-      const maxSubscribers = offering.max_subscribers ?? SUBSCRIBER_LIMITS[tier]
+  if (offeringIds.length > 0) {
+    // Batch query: get all active subscriptions for these offerings
+    const { data: subscriptions } = await supabase
+      .from('market_box_subscriptions')
+      .select('offering_id')
+      .in('offering_id', offeringIds)
+      .eq('status', 'active')
 
-      return {
-        ...offering,
-        active_subscribers: count || 0,
-        max_subscribers: maxSubscribers,
-        is_at_capacity: maxSubscribers !== null && (count || 0) >= maxSubscribers,
-      }
-    })
-  )
+    // Count subscriptions per offering
+    for (const sub of subscriptions || []) {
+      const current = subscriberCountsMap.get(sub.offering_id) || 0
+      subscriberCountsMap.set(sub.offering_id, current + 1)
+    }
+  }
+
+  // Get tier for limits calculation
+  const tier = vendor.tier || 'standard'
+  const subscriberTierKey = tier as keyof typeof SUBSCRIBER_LIMITS
+
+  // Build response with counts from the map
+  const offeringsWithCounts = (offerings || []).map((offering) => {
+    const count = subscriberCountsMap.get(offering.id) || 0
+    const maxSubscribers = offering.max_subscribers ?? SUBSCRIBER_LIMITS[subscriberTierKey]
+
+    return {
+      ...offering,
+      active_subscribers: count,
+      max_subscribers: maxSubscribers,
+      is_at_capacity: maxSubscribers !== null && count >= maxSubscribers,
+    }
+  })
 
   // Get tier limits using centralized utility
-  const tier = vendor.tier || 'standard'
   const tierLimits = getTierLimits(tier)
   const totalCount = offeringsWithCounts.length
   const activeCount = offeringsWithCounts.filter(o => o.active).length
-  const subscriberTier = tier as keyof typeof SUBSCRIBER_LIMITS
 
   return NextResponse.json({
     offerings: offeringsWithCounts,
@@ -115,7 +128,7 @@ export async function GET() {
       // Legacy fields for backwards compatibility
       max_offerings: tierLimits.activeMarketBoxes,
       current_offerings: activeCount,
-      subscriber_limit: SUBSCRIBER_LIMITS[subscriberTier],
+      subscriber_limit: SUBSCRIBER_LIMITS[subscriberTierKey],
     },
   })
 }

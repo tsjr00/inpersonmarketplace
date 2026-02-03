@@ -1,26 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { verifyAdminForApi } from '@/lib/auth/admin'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
-
-  // Check auth
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Verify admin role
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role, roles')
-    .eq('user_id', user.id)
-    .single()
-
-  const isAdmin = profile?.role === 'admin' ||
-                  profile?.role === 'platform_admin' ||
-                  profile?.roles?.includes('admin') ||
-                  profile?.roles?.includes('platform_admin')
+  // Verify admin role using centralized utility
+  const { isAdmin } = await verifyAdminForApi()
 
   if (!isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

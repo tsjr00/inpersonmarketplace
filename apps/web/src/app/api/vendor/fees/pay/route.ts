@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getVendorFeeBalance } from '@/lib/payments/vendor-fees'
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-12-15.clover'
-})
+import { stripe } from '@/lib/stripe/config'
 
 /**
  * POST /api/vendor/fees/pay
@@ -56,30 +52,38 @@ export async function POST(request: NextRequest) {
     // Create Stripe Checkout session
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      customer_email: profile?.email || undefined,
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Platform Fee Balance',
-              description: `Outstanding platform fees for ${vendor.business_name || 'your vendor account'}`
+    // Use idempotency key to prevent duplicate fee payment sessions on network retry
+    const idempotencyKey = `vendor-fee-${vendor_id}-${balanceCents}`
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        customer_email: profile?.email || undefined,
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: 'Platform Fee Balance',
+                description: `Outstanding platform fees for ${vendor.business_name || 'your vendor account'}`
+              },
+              unit_amount: balanceCents
             },
-            unit_amount: balanceCents
-          },
-          quantity: 1
-        }
-      ],
-      metadata: {
-        type: 'vendor_fee_payment',
-        vendor_profile_id: vendor_id,
-        amount_cents: balanceCents.toString()
+            quantity: 1
+          }
+        ],
+        metadata: {
+          type: 'vendor_fee_payment',
+          vendor_profile_id: vendor_id,
+          amount_cents: balanceCents.toString()
+        },
+        success_url: `${baseUrl}/${vertical_id}/vendor/dashboard?fee_paid=true`,
+        cancel_url: `${baseUrl}/${vertical_id}/vendor/dashboard?fee_cancelled=true`
       },
-      success_url: `${baseUrl}/${vertical_id}/vendor/dashboard?fee_paid=true`,
-      cancel_url: `${baseUrl}/${vertical_id}/vendor/dashboard?fee_cancelled=true`
-    })
+      {
+        idempotencyKey
+      }
+    )
 
     return NextResponse.json({
       checkout_url: session.url

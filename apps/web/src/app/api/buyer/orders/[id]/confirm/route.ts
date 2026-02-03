@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -14,6 +15,14 @@ const CONFIRMATION_WINDOW_SECONDS = 30
 // Normal flow: Buyer acknowledges first (item is 'ready'), then vendor clicks Fulfill within 30 seconds
 // Edge case: Vendor fulfilled first (item is 'fulfilled'), now buyer acknowledges to complete
 export async function POST(request: NextRequest, context: RouteContext) {
+  // Rate limit buyer confirmation requests
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`buyer-confirm:${clientIp}`, { limit: 30, windowSeconds: 60 })
+
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const { id: orderItemId } = await context.params
 
   return withErrorTracing('/api/buyer/orders/[id]/confirm', 'POST', async () => {
@@ -76,17 +85,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // EDGE CASE: Vendor fulfilled first, now buyer acknowledges
       // Complete the transaction and trigger payment
 
-      // Get vendor profile for Stripe account
+      // Get vendor profile with Stripe account status
       crumb.supabase('select', 'vendor_profiles')
       const { data: vendorProfile } = await supabase
         .from('vendor_profiles')
-        .select('id, stripe_account_id, user_id')
+        .select('id, stripe_account_id, stripe_payouts_enabled, user_id')
         .eq('id', orderItem.vendor_profile_id)
         .single()
 
       if (!vendorProfile) {
         throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
       }
+
+      // Check if vendor's Stripe account is ready for payouts
+      const isProd = process.env.NODE_ENV === 'production'
+      const stripeReady = vendorProfile.stripe_account_id && vendorProfile.stripe_payouts_enabled
 
       // Update with buyer confirmation and vendor confirmation (completing transaction)
       crumb.supabase('update', 'order_items')
@@ -98,12 +111,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
         .eq('id', orderItemId)
 
-      // Trigger Stripe transfer to vendor
+      // Trigger Stripe transfer to vendor (only if Stripe is fully ready)
       crumb.logic('Processing vendor payout')
       const isDev = process.env.NODE_ENV !== 'production'
-      const hasStripe = !!vendorProfile.stripe_account_id
 
-      if (hasStripe) {
+      if (stripeReady) {
         try {
           const transfer = await transferToVendor({
             amount: orderItem.vendor_payout_cents,
@@ -133,6 +145,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
           amount_cents: orderItem.vendor_payout_cents,
           stripe_transfer_id: `dev_skip_${orderItemId}`,
           status: 'skipped_dev',
+        })
+      } else if (isProd && !stripeReady) {
+        // Vendor's Stripe not ready - record pending payout for admin follow-up
+        console.warn(`[WARN] Vendor Stripe not ready for payout on order item ${orderItemId}`)
+        crumb.supabase('insert', 'vendor_payouts')
+        await supabase.from('vendor_payouts').insert({
+          order_item_id: orderItem.id,
+          vendor_profile_id: vendorProfile.id,
+          amount_cents: orderItem.vendor_payout_cents,
+          stripe_transfer_id: `pending_stripe_${orderItemId}`,
+          status: 'pending_stripe_setup',
         })
       }
 

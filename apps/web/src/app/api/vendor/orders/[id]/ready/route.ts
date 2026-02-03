@@ -36,10 +36,10 @@ export async function POST(
     }, { status: 400 })
   }
 
-  // Verify vendor owns this order item
+  // Verify vendor owns this order item (only need to check existence)
   const { data: orderItem } = await supabase
     .from('order_items')
-    .select('*')
+    .select('id')
     .eq('id', orderItemId)
     .eq('vendor_profile_id', vendorProfile.id)
     .single()

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { colors, spacing, radius } from '@/lib/design-tokens'
 
 interface ListingImage {
@@ -45,19 +46,25 @@ export default function ListingImageGallery({ images, title }: ListingImageGalle
 
   return (
     <div>
-      {/* Main Image */}
-      <img
-        src={selectedImage.url}
-        alt={title}
-        style={{
-          width: '100%',
-          aspectRatio: '1',
-          objectFit: 'cover',
-          borderRadius: radius.md,
-          backgroundColor: colors.surfaceMuted,
-          maxHeight: 500
-        }}
-      />
+      {/* Main Image - using next/image with fill for responsive sizing */}
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        aspectRatio: '1',
+        maxHeight: 500,
+        borderRadius: radius.md,
+        overflow: 'hidden',
+        backgroundColor: colors.surfaceMuted,
+      }}>
+        <Image
+          src={selectedImage.url}
+          alt={title}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 500px"
+          style={{ objectFit: 'cover' }}
+          priority={selectedIndex === 0}
+        />
+      </div>
 
       {/* Thumbnail Strip - only show if multiple images */}
       {sortedImages.length > 1 && (
@@ -80,19 +87,25 @@ export default function ListingImageGallery({ images, title }: ListingImageGalle
                 borderRadius: radius.sm,
                 cursor: 'pointer',
                 flexShrink: 0,
-                background: 'none'
+                background: 'none',
+                position: 'relative',
+                width: 60,
+                height: 60,
+                overflow: 'hidden',
               }}
             >
-              <img
+              <Image
                 src={img.url}
                 alt={`${title} - image ${idx + 1}`}
+                width={60}
+                height={60}
+                sizes="60px"
                 style={{
-                  width: 60,
-                  height: 60,
                   objectFit: 'cover',
                   borderRadius: radius.sm,
                   display: 'block'
                 }}
+                loading="lazy"
               />
             </button>
           ))}

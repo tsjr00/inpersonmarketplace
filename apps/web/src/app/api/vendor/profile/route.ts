@@ -1,8 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { validatePaymentUsername, ExternalPaymentMethod } from '@/lib/payments/external-links'
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function PATCH(request: Request) {
+  // Rate limit vendor profile updates
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`vendor-profile:${clientIp}`, { limit: 20, windowSeconds: 60 })
+
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const supabase = await createClient()
 

@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { stripe, SUBSCRIPTION_PRICES, areSubscriptionPricesConfigured } from '@/lib/stripe/config'
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
+  // Rate limit subscription checkout requests
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`subscription-checkout:${clientIp}`, { limit: 5, windowSeconds: 60 })
+
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   // Check if Stripe is configured
   if (!stripe) {
     return NextResponse.json(

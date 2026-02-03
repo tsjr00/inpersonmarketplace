@@ -1,26 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { verifyAdminForApi } from '@/lib/auth/admin'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
-
-  // Check auth
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Verify admin role
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role, roles')
-    .eq('user_id', user.id)
-    .single()
-
-  const isAdmin = profile?.role === 'admin' ||
-                  profile?.role === 'platform_admin' ||
-                  profile?.roles?.includes('admin') ||
-                  profile?.roles?.includes('platform_admin')
+  // Verify admin role using centralized utility
+  const { isAdmin } = await verifyAdminForApi()
 
   if (!isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -35,8 +19,8 @@ export async function GET(request: NextRequest) {
   // Use service client for full access
   const serviceClient = createServiceClient()
 
-  // Build transactions query
-  let txQuery = serviceClient
+  // Build queries - all independent, run in parallel
+  const txQuery = serviceClient
     .from('transactions')
     .select(`
       id,
@@ -47,12 +31,56 @@ export async function GET(request: NextRequest) {
     .gte('created_at', `${startDate}T00:00:00`)
     .lte('created_at', `${endDate}T23:59:59`)
 
-  // Filter by vertical if specified
-  if (verticalId) {
-    txQuery = txQuery.eq('listing.vertical_id', verticalId)
-  }
+  // Apply vertical filter to transactions if specified
+  const txQueryFinal = verticalId ? txQuery.eq('listing.vertical_id', verticalId) : txQuery
 
-  const { data: transactions, error: txError } = await txQuery
+  // Run all queries in parallel
+  const [
+    txResult,
+    usersResult,
+    vendorsResult,
+    listingsResult,
+    newUsersResult
+  ] = await Promise.all([
+    // Query 1: Transactions
+    txQueryFinal,
+    // Query 2: Total user count
+    serviceClient
+      .from('user_profiles')
+      .select('id', { count: 'exact', head: true }),
+    // Query 3: Vendor count (with optional vertical filter)
+    verticalId
+      ? serviceClient
+          .from('vendor_profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('vertical_id', verticalId)
+      : serviceClient
+          .from('vendor_profiles')
+          .select('id', { count: 'exact', head: true }),
+    // Query 4: Listings (with optional vertical filter)
+    verticalId
+      ? serviceClient
+          .from('listings')
+          .select('id, status', { count: 'exact' })
+          .is('deleted_at', null)
+          .eq('vertical_id', verticalId)
+      : serviceClient
+          .from('listings')
+          .select('id, status', { count: 'exact' })
+          .is('deleted_at', null),
+    // Query 5: New signups in date range
+    serviceClient
+      .from('user_profiles')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', `${startDate}T00:00:00`)
+      .lte('created_at', `${endDate}T23:59:59`)
+  ])
+
+  const { data: transactions, error: txError } = txResult
+  const { count: totalUsers } = usersResult
+  const { count: totalVendors } = vendorsResult
+  const { data: listingsData, count: totalListings } = listingsResult
+  const { count: newUsers } = newUsersResult
 
   if (txError) {
     return NextResponse.json({ error: txError.message }, { status: 500 })
@@ -81,45 +109,7 @@ export async function GET(request: NextRequest) {
 
   const totalOrders = (transactions || []).length
   const averageOrderValue = completedOrders > 0 ? Math.round(totalRevenue / completedOrders) : 0
-
-  // Get user counts
-  let usersQuery = serviceClient
-    .from('user_profiles')
-    .select('id', { count: 'exact', head: true })
-
-  const { count: totalUsers } = await usersQuery
-
-  // Get vendor counts
-  let vendorsQuery = serviceClient
-    .from('vendor_profiles')
-    .select('id', { count: 'exact', head: true })
-
-  if (verticalId) {
-    vendorsQuery = vendorsQuery.eq('vertical_id', verticalId)
-  }
-
-  const { count: totalVendors } = await vendorsQuery
-
-  // Get listings counts
-  let listingsQuery = serviceClient
-    .from('listings')
-    .select('id, status', { count: 'exact' })
-    .is('deleted_at', null)
-
-  if (verticalId) {
-    listingsQuery = listingsQuery.eq('vertical_id', verticalId)
-  }
-
-  const { data: listingsData, count: totalListings } = await listingsQuery
-
   const publishedListings = listingsData?.filter(l => l.status === 'published').length || 0
-
-  // Get new signups in date range
-  const { count: newUsers } = await serviceClient
-    .from('user_profiles')
-    .select('id', { count: 'exact', head: true })
-    .gte('created_at', `${startDate}T00:00:00`)
-    .lte('created_at', `${endDate}T23:59:59`)
 
   return NextResponse.json({
     // Transaction metrics
