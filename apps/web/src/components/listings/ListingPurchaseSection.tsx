@@ -43,6 +43,13 @@ export default function ListingPurchaseSection({
     fetchMarkets()
   }, [listingId])
 
+  // Compute if all markets are closed (safety net for when availability API fails)
+  const openMarkets = markets.filter(m => m.is_accepting)
+  const hasNoOpenMarkets = !loadingMarkets && markets.length > 0 && openMarkets.length === 0
+
+  // Force show closed explanation if availability API says open but all markets are actually closed
+  const forceShowClosed = !ordersClosed && hasNoOpenMarkets
+
   // Show premium upgrade message instead of add to cart when restricted
   if (isPremiumRestricted) {
     return (
@@ -95,6 +102,7 @@ export default function ListingPurchaseSection({
       <CutoffStatusBanner
         listingId={listingId}
         onStatusChange={(isAccepting) => setOrdersClosed(!isAccepting)}
+        forceShowClosed={forceShowClosed}
       />
 
       {/* Add to Cart Button */}

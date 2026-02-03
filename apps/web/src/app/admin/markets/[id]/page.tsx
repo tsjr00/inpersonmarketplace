@@ -98,10 +98,10 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
               borderRadius: 20,
               fontSize: 12,
               fontWeight: 600,
-              backgroundColor: market.type === 'traditional' ? '#e8f5e9' : '#fff3e0',
-              color: market.type === 'traditional' ? '#2e7d32' : '#e65100',
+              backgroundColor: market.market_type === 'traditional' ? '#e8f5e9' : '#fff3e0',
+              color: market.market_type === 'traditional' ? '#2e7d32' : '#e65100',
             }}>
-              {market.type === 'traditional' ? 'Traditional' : 'Private Pickup'}
+              {market.market_type === 'traditional' ? 'Traditional' : 'Private Pickup'}
             </span>
             <span style={{
               padding: '4px 10px',
@@ -182,26 +182,49 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
         </div>
       </div>
 
-      {/* Schedules (for traditional markets) */}
-      {market.type === 'traditional' && (
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: 12,
-          padding: 24,
-          marginBottom: 20,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        }}>
-          <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 600, color: '#333' }}>
-            Operating Schedule
-          </h2>
+      {/* Schedules - Required for ALL market types */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 24,
+        marginBottom: 20,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+      }}>
+        <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 600, color: '#333' }}>
+          {market.market_type === 'traditional' ? 'Operating Schedule' : 'Pickup Schedule'}
+        </h2>
 
-          <ScheduleDisplay schedules={market.market_schedules || []} />
-
-          <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #eee' }}>
-            <ScheduleManager marketId={id} schedules={market.market_schedules || []} />
+        {/* Warning if no schedules */}
+        {(!market.market_schedules || market.market_schedules.length === 0) && (
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: 8,
+            marginBottom: 16,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#991b1b' }}>
+                  Schedule Required
+                </p>
+                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#991b1b' }}>
+                  This {market.market_type === 'traditional' ? 'market' : 'pickup location'} has no schedule.
+                  Without a schedule, the order cutoff system cannot function and listings may not work correctly.
+                  Please add at least one schedule below.
+                </p>
+              </div>
+            </div>
           </div>
+        )}
+
+        <ScheduleDisplay schedules={market.market_schedules || []} />
+
+        <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #eee' }}>
+          <ScheduleManager marketId={id} schedules={market.market_schedules || []} />
         </div>
-      )}
+      </div>
 
       {/* Pending Vendors */}
       {pendingVendors.length > 0 && (

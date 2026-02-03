@@ -24,9 +24,11 @@ interface AvailabilityResponse {
 interface CutoffStatusBannerProps {
   listingId: string
   onStatusChange?: (isAccepting: boolean) => void
+  /** Safety net: force show closed explanation even if availability API returns no data */
+  forceShowClosed?: boolean
 }
 
-export default function CutoffStatusBanner({ listingId, onStatusChange }: CutoffStatusBannerProps) {
+export default function CutoffStatusBanner({ listingId, onStatusChange, forceShowClosed = false }: CutoffStatusBannerProps) {
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -53,7 +55,70 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
     return () => clearInterval(interval)
   }, [listingId, onStatusChange])
 
-  if (loading || !availability) {
+  if (loading) {
+    return null
+  }
+
+  // Safety net: if availability API failed/returned nothing but we know orders are closed,
+  // show a generic explanation so buyers aren't left with a grayed button and no reason
+  if (!availability && forceShowClosed) {
+    return (
+      <div style={{
+        padding: spacing.sm,
+        backgroundColor: '#fffbeb',
+        border: '1px solid #fde68a',
+        borderRadius: radius.md,
+        marginBottom: spacing.sm
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.xs,
+          marginBottom: spacing.xs
+        }}>
+          <span style={{ fontSize: 18 }}>⏰</span>
+          <span style={{
+            fontWeight: typography.weights.semibold,
+            color: '#92400e',
+            fontSize: typography.sizes.sm
+          }}>
+            Pickup Availability
+          </span>
+        </div>
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          backgroundColor: '#fee2e2',
+          borderRadius: radius.sm,
+          marginBottom: spacing.xs
+        }}>
+          <div style={{
+            fontWeight: typography.weights.bold,
+            color: '#991b1b',
+            fontSize: typography.sizes.sm,
+            marginBottom: spacing['3xs']
+          }}>
+            Orders Currently Closed
+          </div>
+          <div style={{
+            fontSize: typography.sizes.xs,
+            color: '#7f1d1d',
+            lineHeight: 1.3
+          }}>
+            Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
+          </div>
+        </div>
+        <div style={{
+          fontSize: typography.sizes.xs,
+          color: '#78350f',
+          fontStyle: 'italic'
+        }}>
+          Orders reopen after the scheduled market / pickup time. Check back soon.
+        </div>
+      </div>
+    )
+  }
+
+  if (!availability) {
     return null
   }
 
