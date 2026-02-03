@@ -59,13 +59,13 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
 
   // If no markets but orders are closed, still show explanation
   if (availability.markets.length === 0) {
-    // Only show red box if orders are not being accepted
+    // Only show box if orders are not being accepted
     if (!availability.is_accepting_orders) {
       return (
         <div style={{
           padding: spacing.sm,
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
+          backgroundColor: '#fffbeb',
+          border: '1px solid #fde68a',
           borderRadius: radius.md,
           marginBottom: spacing.sm
         }}>
@@ -75,25 +75,40 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
             gap: spacing.xs,
             marginBottom: spacing.xs
           }}>
-            <span style={{ fontSize: 18 }}>🚫</span>
+            <span style={{ fontSize: 18 }}>⏰</span>
             <span style={{
-              fontWeight: typography.weights.bold,
-              color: '#991b1b',
-              fontSize: typography.sizes.base
+              fontWeight: typography.weights.semibold,
+              color: '#92400e',
+              fontSize: typography.sizes.sm
             }}>
-              Orders Currently Closed
+              Pickup Availability
             </span>
           </div>
           <div style={{
-            fontSize: typography.sizes.sm,
-            color: '#7f1d1d',
+            padding: `${spacing.xs} ${spacing.sm}`,
+            backgroundColor: '#fee2e2',
+            borderRadius: radius.sm,
             marginBottom: spacing.xs
           }}>
-            Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
+            <div style={{
+              fontWeight: typography.weights.bold,
+              color: '#991b1b',
+              fontSize: typography.sizes.sm,
+              marginBottom: spacing['3xs']
+            }}>
+              Orders Currently Closed
+            </div>
+            <div style={{
+              fontSize: typography.sizes.xs,
+              color: '#7f1d1d',
+              lineHeight: 1.3
+            }}>
+              Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
+            </div>
           </div>
           <div style={{
             fontSize: typography.sizes.xs,
-            color: '#991b1b',
+            color: '#78350f',
             fontStyle: 'italic'
           }}>
             Orders reopen after the scheduled market / pickup time. Check back soon.
@@ -152,19 +167,13 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
     return hoursUntilCutoff < 24
   })
 
-  // All markets closed - show "Orders Closed" with helpful explanation
+  // All markets closed - show yellow container with red sub-boxes for each location
   if (!availability.is_accepting_orders) {
-    // Find the next market time to show when it's happening
-    const nextMarket = closedMarkets.find(m => m.next_market_at)
-    const marketTime = nextMarket?.next_market_at
-      ? formatMarketDateTime(nextMarket.next_market_at)
-      : null
-
     return (
       <div style={{
         padding: spacing.sm,
-        backgroundColor: '#fef2f2',
-        border: '1px solid #fecaca',
+        backgroundColor: '#fffbeb',
+        border: '1px solid #fde68a',
         borderRadius: radius.md,
         marginBottom: spacing.sm
       }}>
@@ -174,46 +183,74 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
           gap: spacing.xs,
           marginBottom: spacing.xs
         }}>
-          <span style={{ fontSize: 18 }}>🚫</span>
+          <span style={{ fontSize: 18 }}>⏰</span>
           <span style={{
-            fontWeight: typography.weights.bold,
-            color: '#991b1b',
-            fontSize: typography.sizes.base
+            fontWeight: typography.weights.semibold,
+            color: '#92400e',
+            fontSize: typography.sizes.sm
           }}>
-            Orders Currently Closed
+            Pickup Availability
           </span>
         </div>
 
-        {/* Why it's closed */}
-        <div style={{
-          fontSize: typography.sizes.sm,
-          color: '#7f1d1d',
-          marginBottom: spacing.xs
-        }}>
-          Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
-        </div>
+        {/* Red sub-box for each closed market */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+          {closedMarkets.map(market => {
+            const marketTime = market.next_market_at
+              ? formatMarketDateTime(market.next_market_at)
+              : null
 
-        {/* Market timing info */}
-        {marketTime && (
-          <div style={{
-            padding: spacing.xs,
-            backgroundColor: '#fee2e2',
-            borderRadius: radius.sm,
-            marginBottom: spacing.xs
-          }}>
-            <div style={{ fontSize: typography.sizes.sm, color: '#991b1b', fontWeight: typography.weights.semibold }}>
-              Pickup: {marketTime}
-            </div>
-            <div style={{ fontSize: typography.sizes.xs, color: '#7f1d1d', marginTop: spacing['3xs'] }}>
-              at {closedMarkets.map(m => m.market_name).join(', ')}
-            </div>
-          </div>
-        )}
+            return (
+              <div
+                key={market.market_id}
+                style={{
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: '#fee2e2',
+                  borderRadius: radius.sm,
+                }}
+              >
+                <div style={{
+                  fontWeight: typography.weights.bold,
+                  color: '#991b1b',
+                  fontSize: typography.sizes.sm,
+                  marginBottom: spacing['3xs']
+                }}>
+                  Orders Currently Closed for:
+                </div>
+                <div style={{
+                  fontSize: typography.sizes.sm,
+                  color: '#991b1b',
+                  fontWeight: typography.weights.medium,
+                  marginBottom: spacing['3xs']
+                }}>
+                  {market.market_name}
+                </div>
+                {marketTime && (
+                  <div style={{
+                    fontSize: typography.sizes.xs,
+                    color: '#7f1d1d',
+                    marginBottom: spacing['3xs']
+                  }}>
+                    Pickup: {marketTime}
+                  </div>
+                )}
+                <div style={{
+                  fontSize: typography.sizes.xs,
+                  color: '#7f1d1d',
+                  lineHeight: 1.3
+                }}>
+                  Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
+                </div>
+              </div>
+            )
+          })}
+        </div>
 
         {/* When orders reopen */}
         <div style={{
+          marginTop: spacing.xs,
           fontSize: typography.sizes.xs,
-          color: '#991b1b',
+          color: '#78350f',
           fontStyle: 'italic'
         }}>
           Orders reopen after the scheduled market / pickup time. Check back soon.
@@ -229,18 +266,16 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
     return null
   }
 
-  // Closing soon - yellow warning with restructured layout
+  // Closing soon - yellow container with yellow sub-box for each closing soon market
   if (closingSoonMarkets.length > 0 && !hasMixedStatus) {
-    const market = closingSoonMarkets[0]
     return (
       <div style={{
         padding: spacing.sm,
-        backgroundColor: '#fef3c7',
+        backgroundColor: '#fffbeb',
         border: '1px solid #fde68a',
         borderRadius: radius.md,
         marginBottom: spacing.sm
       }}>
-        {/* Row 1: Orders close in X hours */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -249,39 +284,56 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
         }}>
           <span style={{ fontSize: 18 }}>⏰</span>
           <span style={{
-            fontWeight: typography.weights.bold,
+            fontWeight: typography.weights.semibold,
             color: '#92400e',
-            fontSize: typography.sizes.base
+            fontSize: typography.sizes.sm
           }}>
-            Orders close in {formatTimeRemaining(market.cutoff_at!)}
+            Pickup Availability
           </span>
         </div>
-        {/* Row 2: Day, date, and time */}
-        <div style={{
-          fontSize: typography.sizes.sm,
-          color: '#78350f',
-          paddingLeft: '30px'
-        }}>
-          {formatCutoffDateTime(market.cutoff_at!)}
-        </div>
-        {/* Row 3: Pickup location */}
-        <div style={{
-          fontSize: typography.sizes.xs,
-          color: '#92400e',
-          paddingLeft: '30px',
-          marginTop: spacing['3xs']
-        }}>
-          Pickup at: {market.market_name}
-        </div>
-        {/* Row 4: Why listings close */}
-        <div style={{
-          fontSize: typography.sizes.xs,
-          color: '#78350f',
-          paddingLeft: '30px',
-          marginTop: spacing.xs,
-          lineHeight: 1.4
-        }}>
-          Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
+
+        {/* Yellow sub-box for each closing soon market */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+          {closingSoonMarkets.map(market => (
+            <div
+              key={market.market_id}
+              style={{
+                padding: `${spacing.xs} ${spacing.sm}`,
+                backgroundColor: '#fef3c7',
+                borderRadius: radius.sm,
+              }}
+            >
+              <div style={{
+                fontWeight: typography.weights.bold,
+                color: '#92400e',
+                fontSize: typography.sizes.sm,
+                marginBottom: spacing['3xs']
+              }}>
+                Orders close in {formatTimeRemaining(market.cutoff_at!)}
+              </div>
+              <div style={{
+                fontSize: typography.sizes.xs,
+                color: '#78350f'
+              }}>
+                {formatCutoffDateTime(market.cutoff_at!)}
+              </div>
+              <div style={{
+                fontSize: typography.sizes.xs,
+                color: '#92400e',
+                marginTop: spacing['3xs']
+              }}>
+                Pickup at: {market.market_name}
+              </div>
+              <div style={{
+                fontSize: typography.sizes.xs,
+                color: '#78350f',
+                marginTop: spacing.xs,
+                lineHeight: 1.3
+              }}>
+                Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     )
