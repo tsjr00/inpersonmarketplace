@@ -53,7 +53,55 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
     return () => clearInterval(interval)
   }, [listingId, onStatusChange])
 
-  if (loading || !availability || availability.markets.length === 0) {
+  if (loading || !availability) {
+    return null
+  }
+
+  // If no markets but orders are closed, still show explanation
+  if (availability.markets.length === 0) {
+    // Only show red box if orders are not being accepted
+    if (!availability.is_accepting_orders) {
+      return (
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: radius.md,
+          marginBottom: spacing.sm
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.xs,
+            marginBottom: spacing.xs
+          }}>
+            <span style={{ fontSize: 18 }}>🚫</span>
+            <span style={{
+              fontWeight: typography.weights.bold,
+              color: '#991b1b',
+              fontSize: typography.sizes.base
+            }}>
+              Orders Currently Closed
+            </span>
+          </div>
+          <div style={{
+            fontSize: typography.sizes.sm,
+            color: '#7f1d1d',
+            marginBottom: spacing.xs
+          }}>
+            Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
+          </div>
+          <div style={{
+            fontSize: typography.sizes.xs,
+            color: '#991b1b',
+            fontStyle: 'italic'
+          }}>
+            Orders reopen after the scheduled market / pickup time. Check back soon.
+          </div>
+        </div>
+      )
+    }
+    // If accepting orders but no markets, don't show anything
     return null
   }
 
