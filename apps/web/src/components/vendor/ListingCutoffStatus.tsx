@@ -61,7 +61,7 @@ export default function ListingCutoffStatus({ listingId, status }: ListingCutoff
         marginBottom: spacing['2xs']
       }}>
         <span>🚫</span>
-        <span>Orders closed for upcoming market</span>
+        <span>Orders closed for vendor prep</span>
       </div>
     )
   }
@@ -89,7 +89,7 @@ export default function ListingCutoffStatus({ listingId, status }: ListingCutoff
         marginBottom: spacing['2xs']
       }}>
         <span>⏰</span>
-        <span>Closing in {timeStr}</span>
+        <span>Orders close in {timeStr}</span>
       </div>
     )
   }

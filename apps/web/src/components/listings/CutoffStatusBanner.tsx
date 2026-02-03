@@ -132,7 +132,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
             color: '#991b1b',
             fontSize: typography.sizes.base
           }}>
-            Orders Closed for This Week
+            Orders Currently Closed
           </span>
         </div>
 
@@ -142,7 +142,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
           color: '#7f1d1d',
           marginBottom: spacing.xs
         }}>
-          Listings automatically close prior to market day to allow vendors time to prepare orders for a successful market day.
+          Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
         </div>
 
         {/* Market timing info */}
@@ -168,7 +168,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
           color: '#991b1b',
           fontStyle: 'italic'
         }}>
-          Orders will reopen after this pickup. Check back soon!
+          Orders reopen after the scheduled market / pickup time. Check back soon.
         </div>
       </div>
     )
@@ -192,7 +192,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
         borderRadius: radius.md,
         marginBottom: spacing.sm
       }}>
-        {/* Row 1: Listing closes in X hours */}
+        {/* Row 1: Orders close in X hours */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -205,7 +205,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
             color: '#92400e',
             fontSize: typography.sizes.base
           }}>
-            Listing closes in {formatTimeRemaining(market.cutoff_at!)}
+            Orders close in {formatTimeRemaining(market.cutoff_at!)}
           </span>
         </div>
         {/* Row 2: Day, date, and time */}
@@ -233,7 +233,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
           marginTop: spacing.xs,
           lineHeight: 1.4
         }}>
-          Listings automatically close prior to market day to allow vendors time to prepare orders for a successful market day.
+          Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
         </div>
       </div>
     )
@@ -286,7 +286,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
                   fontSize: typography.sizes.sm,
                   marginBottom: spacing['3xs']
                 }}>
-                  Listing Closed for Pickup at:
+                  Orders Currently Closed for:
                 </div>
                 <div style={{
                   fontSize: typography.sizes.sm,
@@ -301,7 +301,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
                   color: '#7f1d1d',
                   lineHeight: 1.3
                 }}>
-                  Listings automatically close prior to market day to allow vendors time to prepare orders for a successful market day.
+                  Orders automatically close before market / pickup day to give vendors time to prepare their products & orders.
                 </div>
               </div>
             )
@@ -324,7 +324,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
                   fontSize: typography.sizes.sm,
                   marginBottom: spacing['3xs']
                 }}>
-                  Listing closes in {formatTimeRemaining(market.cutoff_at)}
+                  Orders close in {formatTimeRemaining(market.cutoff_at)}
                 </div>
                 <div style={{
                   fontSize: typography.sizes.xs,
@@ -355,7 +355,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
           color: '#78350f',
           lineHeight: 1.4
         }}>
-          Listings automatically close prior to market day to allow vendors time to prepare orders for a successful market day. If you have missed the cutoff time, please visit the market in person or preorder this item to be picked up at another location.
+          If you missed the cutoff time for pre-orders, please visit the market in person or order this item to be picked up at another location.
         </div>
       )}
     </div>

@@ -201,23 +201,6 @@ export function AddToCartButton({
         </div>
       )}
 
-      {/* Show closed markets notice */}
-      {hasNoOpenMarkets && markets.length > 0 && (
-        <div style={{
-          padding: 12,
-          marginBottom: 16,
-          backgroundColor: '#fef3c7',
-          border: '1px solid #fcd34d',
-          borderRadius: 8,
-          color: '#92400e',
-          fontSize: 13
-        }}>
-          <strong>Orders Closed</strong>
-          <p style={{ margin: '4px 0 0 0' }}>
-            All pickup locations for this item are currently closed. Check back later or view other listings.
-          </p>
-        </div>
-      )}
 
       {/* Quantity Selector */}
       {!isSoldOut && availableToAdd > 0 && !hasNoOpenMarkets && (
@@ -299,7 +282,7 @@ export function AddToCartButton({
         {adding ? (
           'Adding...'
         ) : ordersClosed || hasNoOpenMarkets ? (
-          'Orders Closed'
+          'Orders Currently Closed'
         ) : isSoldOut ? (
           'Sold Out'
         ) : availableToAdd <= 0 ? (

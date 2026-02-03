@@ -80,7 +80,7 @@ export default function CutoffBadge({ listingId, style }: CutoffBadgeProps) {
           fontWeight: typography.weights.semibold,
           ...style
         }}
-        title="Orders are closed for the upcoming market"
+        title="Orders closed for vendor prep time"
       >
         <span>Closed</span>
       </span>
