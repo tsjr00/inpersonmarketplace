@@ -74,13 +74,18 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   if (user) {
     const { data: userProfile } = await supabase
       .from('user_profiles')
-      .select('buyer_tier, is_platform_admin')
+      .select('buyer_tier, role, roles')
       .eq('user_id', user.id)
       .single()
     isPremiumBuyer = userProfile?.buyer_tier === 'premium'
-    isAdmin = userProfile?.is_platform_admin === true
+    // Check platform admin via role/roles columns
+    isAdmin = userProfile?.role === 'admin' ||
+              userProfile?.role === 'platform_admin' ||
+              userProfile?.roles?.includes('admin') ||
+              userProfile?.roles?.includes('platform_admin') ||
+              false
 
-    // Also check if they're a vertical admin
+    // Also check if they're a vertical admin for this specific vertical
     if (!isAdmin) {
       const { data: verticalAdmin } = await supabase
         .from('vertical_admins')
