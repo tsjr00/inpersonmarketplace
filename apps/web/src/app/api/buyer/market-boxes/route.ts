@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
       termWeeks: term_weeks,
       priceCents,
       startDate: subscriptionStartDate,
-      successUrl: `${baseUrl}/${verticalId}/buyer/market-boxes?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      successUrl: `${baseUrl}/${verticalId}/buyer/subscriptions?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}/${verticalId}/market-box/${offering_id}?cancelled=true`,
     })
 

@@ -241,31 +241,30 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 {listing.title}
               </h1>
 
-              {/* Price (includes platform fee) */}
+              {/* Price and Quantity - Combined on mobile */}
               <div style={{
-                fontSize: typography.sizes['2xl'],
-                fontWeight: typography.weights.bold,
-                color: colors.primary,
-                marginBottom: spacing.sm
-              }}>
-                {formatDisplayPrice(listing.price_cents || 0)}
-              </div>
-
-              {/* Availability */}
-              <div style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: spacing.sm,
                 marginBottom: spacing.sm,
-                padding: spacing.sm,
-                backgroundColor: colors.surfaceMuted,
-                borderRadius: radius.md
+                flexWrap: 'wrap'
               }}>
-                <div style={{ fontSize: typography.sizes.sm, color: colors.textMuted, marginBottom: spacing['3xs'] }}>
-                  Availability
+                <div style={{
+                  fontSize: typography.sizes['2xl'],
+                  fontWeight: typography.weights.bold,
+                  color: colors.primary
+                }}>
+                  {formatDisplayPrice(listing.price_cents || 0)}
                 </div>
-                <div style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                <div style={{
+                  fontSize: typography.sizes.base,
+                  color: listing.quantity === 0 ? '#dc2626' : colors.textSecondary,
+                  fontWeight: typography.weights.medium
+                }}>
                   {listing.quantity === null
                     ? 'In Stock'
                     : listing.quantity > 0
-                      ? `${listing.quantity} available`
+                      ? `Qty: ${listing.quantity}`
                       : 'Sold Out'
                   }
                 </div>

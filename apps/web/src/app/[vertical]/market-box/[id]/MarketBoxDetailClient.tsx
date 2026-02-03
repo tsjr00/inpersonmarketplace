@@ -389,15 +389,35 @@ export default function MarketBoxDetailClient() {
             borderRadius: 8
           }}>
             <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>How It Works</h3>
-            <ul style={{ margin: 0, paddingLeft: 20, color: '#374151', fontSize: 14, lineHeight: 1.8 }}>
-              <li>Pay the full amount today ({formatPrice(selectedTerm?.price_cents || offering.price_cents)})</li>
-              <li>Pick up your first box on {getNextPickupDate(offering.pickup_day_of_week)}</li>
-              <li>Return every {DAYS[offering.pickup_day_of_week]} for {selectedTermWeeks} consecutive weeks</li>
-              <li>Each pickup contains fresh products from {vendor.name}</li>
-            </ul>
-            <p style={{ margin: '12px 0 0 0', fontSize: 13, color: '#059669', fontStyle: 'italic' }}>
-              If vendor needs to skip a week (weather, etc.), your subscription extends automatically
-            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Pay {formatPrice(selectedTerm?.price_cents || offering.price_cents)} today</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>First pickup: {getNextPickupDate(offering.pickup_day_of_week)}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Return {DAYS[offering.pickup_day_of_week]}s for {selectedTermWeeks} weeks</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Fresh products from {vendor.name}</span>
+              </div>
+            </div>
+            <div style={{
+              marginTop: 16,
+              padding: 12,
+              backgroundColor: '#f0fdf4',
+              borderRadius: 6,
+              fontSize: 13,
+              color: '#166534',
+              lineHeight: 1.5
+            }}>
+              If unforeseen circumstances such as weather or other agricultural realities require your vendor to skip a week, your subscription will automatically be extended by one week at no additional cost.
+            </div>
           </div>
 
           {/* Pickup Details & Vendor Info - side by side on desktop */}

@@ -142,7 +142,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
           color: '#7f1d1d',
           marginBottom: spacing.xs
         }}>
-          The order cutoff has passed. The vendor is now harvesting, packing, and preparing for pickup.
+          Listings automatically close prior to market day to allow vendors time to prepare orders for a successful market day.
         </div>
 
         {/* Market timing info */}
@@ -225,6 +225,16 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
         }}>
           Pickup at: {market.market_name}
         </div>
+        {/* Row 4: Why listings close */}
+        <div style={{
+          fontSize: typography.sizes.xs,
+          color: '#78350f',
+          paddingLeft: '30px',
+          marginTop: spacing.xs,
+          lineHeight: 1.4
+        }}>
+          Listings automatically close prior to market day to allow vendors time to prepare orders for a successful market day.
+        </div>
       </div>
     )
   }
@@ -281,9 +291,17 @@ export default function CutoffStatusBanner({ listingId, onStatusChange }: Cutoff
                 <div style={{
                   fontSize: typography.sizes.sm,
                   color: '#991b1b',
-                  fontWeight: typography.weights.medium
+                  fontWeight: typography.weights.medium,
+                  marginBottom: spacing['3xs']
                 }}>
                   {market.market_name}
+                </div>
+                <div style={{
+                  fontSize: typography.sizes.xs,
+                  color: '#7f1d1d',
+                  lineHeight: 1.3
+                }}>
+                  Listings automatically close prior to market day to allow vendors time to prepare orders for a successful market day.
                 </div>
               </div>
             )
