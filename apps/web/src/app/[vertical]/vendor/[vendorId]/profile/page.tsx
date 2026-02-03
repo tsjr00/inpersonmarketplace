@@ -67,30 +67,50 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  // Check if user is premium buyer (for premium window logic)
+  // Check if user is premium buyer (for premium window logic) and if admin
   const { data: { user } } = await supabase.auth.getUser()
   let isPremiumBuyer = false
+  let isAdmin = false
   if (user) {
     const { data: userProfile } = await supabase
       .from('user_profiles')
-      .select('buyer_tier')
+      .select('buyer_tier, is_platform_admin')
       .eq('user_id', user.id)
       .single()
     isPremiumBuyer = userProfile?.buyer_tier === 'premium'
+    isAdmin = userProfile?.is_platform_admin === true
+
+    // Also check if they're a vertical admin
+    if (!isAdmin) {
+      const { data: verticalAdmin } = await supabase
+        .from('vertical_admins')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('vertical_id', vertical)
+        .single()
+      isAdmin = !!verticalAdmin
+    }
   }
 
   // Get vendor profile with rating info and certifications
-  const { data: vendor, error } = await supabase
+  // Admins can view any status; regular users can only see approved vendors
+  let vendorQuery = supabase
     .from('vendor_profiles')
     .select('*, average_rating, rating_count, certifications')
     .eq('id', vendorId)
     .eq('vertical_id', vertical)
-    .eq('status', 'approved')
-    .single()
+
+  if (!isAdmin) {
+    vendorQuery = vendorQuery.eq('status', 'approved')
+  }
+
+  const { data: vendor, error } = await vendorQuery.single()
 
   if (error || !vendor) {
     notFound()
   }
+
+  const vendorStatus = vendor.status as string
 
   const profileData = vendor.profile_data as Record<string, unknown>
   const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
@@ -352,6 +372,34 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
       }}
       className="vendor-profile-page"
     >
+      {/* Admin Status Banner for non-approved vendors */}
+      {isAdmin && vendorStatus !== 'approved' && (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: vendorStatus === 'rejected' ? '#fee2e2' : '#fef3c7',
+          borderBottom: `2px solid ${vendorStatus === 'rejected' ? '#fca5a5' : '#fcd34d'}`,
+          textAlign: 'center'
+        }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+            <span style={{
+              fontWeight: 600,
+              color: vendorStatus === 'rejected' ? '#991b1b' : '#92400e'
+            }}>
+              Admin View — Vendor Status: {vendorStatus.toUpperCase()}
+            </span>
+            <span style={{
+              marginLeft: 12,
+              color: vendorStatus === 'rejected' ? '#b91c1c' : '#a16207',
+              fontSize: 14
+            }}>
+              {vendorStatus === 'submitted' && 'This vendor application is awaiting review.'}
+              {vendorStatus === 'draft' && 'This vendor has not completed their application.'}
+              {vendorStatus === 'rejected' && 'This vendor application was rejected.'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Back Link - uses browser history to go back to previous page */}
       <div style={{
         padding: '8px 16px',
@@ -504,9 +552,20 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 fontSize: 14,
                 marginTop: 8
               }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  ✓ Verified Vendor
-                </span>
+                {vendorStatus === 'approved' ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    ✓ Verified Vendor
+                  </span>
+                ) : isAdmin && (
+                  <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    color: vendorStatus === 'rejected' ? '#dc2626' : '#d97706'
+                  }}>
+                    ⏳ {vendorStatus === 'submitted' ? 'Pending Approval' : vendorStatus === 'rejected' ? 'Rejected' : 'Draft'}
+                  </span>
+                )}
                 <span>
                   Member since {new Date(vendor.created_at).toLocaleDateString('en-US', {
                     month: 'long',
