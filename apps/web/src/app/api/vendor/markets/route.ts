@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTierLimits, isPremiumTier } from '@/lib/vendor-limits'
+import { withErrorTracing } from '@/lib/errors/with-error-tracing'
+import { TracedError } from '@/lib/errors/traced-error'
 
 // GET - Get vendor's markets
 export async function GET(request: Request) {
@@ -229,11 +231,13 @@ export async function POST(request: Request) {
     }
 
     // Create private pickup market
+    // Note: submitted_by_vendor_id is required by RLS policy for INSERT
     const { data: market, error: createError } = await supabase
       .from('markets')
       .insert({
         vertical_id: vertical,
         vendor_profile_id: vendorProfile.id,
+        submitted_by_vendor_id: vendorProfile.id, // Required by RLS policy
         name,
         market_type: 'private_pickup',
         address,
@@ -245,14 +249,22 @@ export async function POST(request: Request) {
         season_start: season_start || null,
         season_end: season_end || null,
         expires_at: expires_at || null,
-        status: 'active'
+        status: 'active',
+        approval_status: 'approved', // Private pickup markets are auto-approved
+        active: true
       })
       .select()
       .single()
 
     if (createError) {
       console.error('[/api/vendor/markets] Error creating market:', createError)
-      return NextResponse.json({ error: 'Failed to create market' }, { status: 500 })
+      // Return detailed error information for debugging
+      return NextResponse.json({
+        error: 'Failed to create market',
+        code: 'ERR_MARKET_CREATE_001',
+        details: createError.message,
+        traceId: `market-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`
+      }, { status: 500 })
     }
 
     // Create market_schedules for the pickup windows
@@ -272,12 +284,23 @@ export async function POST(request: Request) {
       console.error('[/api/vendor/markets] Error creating schedules:', scheduleError)
       // Market was created but schedules failed - clean up
       await supabase.from('markets').delete().eq('id', market.id)
-      return NextResponse.json({ error: 'Failed to create pickup schedule' }, { status: 500 })
+      return NextResponse.json({
+        error: 'Failed to create pickup schedule',
+        code: 'ERR_MARKET_SCHEDULE_001',
+        details: scheduleError.message,
+        traceId: `schedule-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`
+      }, { status: 500 })
     }
 
     return NextResponse.json({ market }, { status: 201 })
   } catch (error) {
-    console.error('[/api/vendor/markets] Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('[/api/vendor/markets POST] Unexpected error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({
+      error: 'Internal server error',
+      code: 'ERR_MARKET_UNEXPECTED_001',
+      details: errorMessage,
+      traceId: `market-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`
+    }, { status: 500 })
   }
 }
