@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import { formatDisplayPrice, VendorTierType } from '@/lib/constants'
@@ -98,14 +98,17 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   }
 
   // Get vendor profile with rating info and certifications
-  // Admins can view any status; regular users can only see approved vendors
-  let vendorQuery = supabase
+  // Admins can view any status (using service client to bypass RLS)
+  // Regular users can only see approved vendors (RLS enforces this)
+  const queryClient = isAdmin ? createServiceClient() : supabase
+  let vendorQuery = queryClient
     .from('vendor_profiles')
     .select('*, average_rating, rating_count, certifications')
     .eq('id', vendorId)
     .eq('vertical_id', vertical)
 
   if (!isAdmin) {
+    // RLS already enforces this, but be explicit
     vendorQuery = vendorQuery.eq('status', 'approved')
   }
 
