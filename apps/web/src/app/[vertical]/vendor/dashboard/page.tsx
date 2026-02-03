@@ -67,7 +67,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     draftCount = draftListings?.length || 0
   }
 
-  // Get active markets/pickup locations from published listings
+  // Get all configured markets/pickup locations for this vendor
+  // This includes: private pickup locations they own + traditional markets they're associated with
   interface ActiveMarket {
     id: string
     name: string
@@ -82,43 +83,68 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
   let activeMarkets: ActiveMarket[] = []
   if (vendorProfile.status === 'approved') {
-    // Get published listings with their markets
-    const { data: listingsWithMarkets } = await supabase
-      .from('listings')
+    // Get vendor's private pickup locations (markets they own)
+    const { data: privatePickups } = await supabase
+      .from('markets')
+      .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time')
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('market_type', 'private_pickup')
+      .eq('status', 'active')
+
+    // Get traditional markets where vendor has set up their schedule
+    const { data: vendorMarketSchedules } = await supabase
+      .from('vendor_market_schedules')
       .select(`
-        id,
-        listing_markets (
-          market_id,
-          markets (
-            id,
-            name,
-            market_type,
-            address,
-            city,
-            state,
-            day_of_week,
-            start_time,
-            end_time
-          )
+        market_id,
+        markets (
+          id,
+          name,
+          market_type,
+          address,
+          city,
+          state,
+          day_of_week,
+          start_time,
+          end_time
         )
       `)
       .eq('vendor_profile_id', vendorProfile.id)
-      .eq('status', 'published')
-      .is('deleted_at', null)
+      .eq('is_active', true)
 
-    // Extract unique markets
+    // Also get the vendor's home market if set
+    let homeMarket: ActiveMarket | null = null
+    if (vendorProfile.home_market_id) {
+      const { data: hm } = await supabase
+        .from('markets')
+        .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time')
+        .eq('id', vendorProfile.home_market_id)
+        .single()
+      homeMarket = hm
+    }
+
+    // Combine all sources into activeMarkets
     const marketMap = new Map<string, ActiveMarket>()
-    listingsWithMarkets?.forEach(listing => {
-      const listingMarkets = listing.listing_markets as unknown as Array<{
-        market_id: string
-        markets: ActiveMarket | null
-      }> | null
-      listingMarkets?.forEach(lm => {
-        if (lm.markets && !marketMap.has(lm.markets.id)) {
-          marketMap.set(lm.markets.id, lm.markets)
-        }
-      })
+
+    // Add home market first (if set)
+    if (homeMarket) {
+      marketMap.set(homeMarket.id, homeMarket)
+    }
+
+    // Add private pickup locations
+    privatePickups?.forEach(market => {
+      if (!marketMap.has(market.id)) {
+        marketMap.set(market.id, market)
+      }
     })
+
+    // Add traditional markets from vendor schedules
+    vendorMarketSchedules?.forEach(vms => {
+      const market = vms.markets as unknown as ActiveMarket | null
+      if (market && !marketMap.has(market.id)) {
+        marketMap.set(market.id, market)
+      }
+    })
+
     activeMarkets = Array.from(marketMap.values())
   }
 
