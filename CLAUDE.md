@@ -1,5 +1,13 @@
 # Claude Code Project Rules
 
+## STOP - READ THESE FILES FIRST
+
+1. **This file (`CLAUDE.md`)** - Mandatory rules and processes
+2. **`CLAUDE_CONTEXT.md`** - App overview, architecture, lessons learned
+3. **`supabase/SCHEMA_SNAPSHOT.md`** - Current database schema (source of truth)
+
+---
+
 ## STOP - READ THIS FIRST
 
 **Before fixing ANY error, you MUST:**
@@ -227,3 +235,56 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 ```
 
 Without `SET search_path = public`, functions are vulnerable to search path injection attacks.
+
+---
+
+## Database Schema Reference - MANDATORY
+
+### NEVER rely on migration files for schema information.
+Migration files may not reflect the actual database state. The source of truth is the database itself.
+
+### Schema Snapshot File
+Location: `supabase/SCHEMA_SNAPSHOT.md`
+
+This file contains the actual database schema including:
+- All tables and columns
+- Foreign key relationships
+- RLS policies
+- Indexes
+- Functions
+- Triggers
+- Views
+
+### Rules:
+
+1. **Before ANY database/schema work:**
+   - Read `supabase/SCHEMA_SNAPSHOT.md` first
+   - If the file seems outdated or you need to verify, ask user to query the database
+
+2. **After EVERY confirmed successful migration:**
+   - Ask user to run schema queries (see below)
+   - Update `supabase/SCHEMA_SNAPSHOT.md` with changes
+   - Add timestamp and brief description of what changed
+
+3. **When in doubt, query the database:**
+   Ask the user to run these queries and share results:
+   ```sql
+   -- Tables
+   SELECT table_name FROM information_schema.tables
+   WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name;
+
+   -- Columns
+   SELECT table_name, column_name, data_type, is_nullable
+   FROM information_schema.columns WHERE table_schema = 'public'
+   ORDER BY table_name, ordinal_position;
+
+   -- Foreign Keys
+   SELECT tc.table_name, kcu.column_name, ccu.table_name AS foreign_table
+   FROM information_schema.table_constraints tc
+   JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+   JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name
+   WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public';
+   ```
+
+4. **Deletion order for cleaning data:**
+   Always reference `supabase/SCHEMA_SNAPSHOT.md` for foreign key relationships to determine correct deletion order. Never guess at table dependencies.
