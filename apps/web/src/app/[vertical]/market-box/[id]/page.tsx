@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { formatDisplayPrice } from '@/lib/constants'
 import MarketBoxDetailClient from './MarketBoxDetailClient'
 import type { Metadata } from 'next'
 
@@ -45,7 +46,7 @@ export async function generateMetadata({ params }: MarketBoxPageProps): Promise<
   const primaryImage = imageUrls?.[0]
 
   const priceCents = offering.price_4week_cents || offering.price_cents
-  const price = priceCents ? `$${(priceCents / 100).toFixed(2)}/month` : ''
+  const price = priceCents ? `${formatDisplayPrice(priceCents)}/month` : ''
   const title = `${offering.name}${price ? ` - ${price}` : ''}`
   const description = offering.description
     ? offering.description.slice(0, 160)

@@ -177,6 +177,14 @@ export const HTTP_STATUS_MAP: Record<string, number> = {
   ERR_DB_001: 400, // Foreign key violation
   ERR_DB_002: 409, // Unique constraint violation
   ERR_RATE_001: 429, // Rate limited
+  // Market box errors
+  ERR_MBOX_001: 500, // Creation failed (database error)
+  ERR_MBOX_002: 400, // Invalid schedule for traditional market
+  ERR_MBOX_003: 403, // Limit reached
+  ERR_MBOX_004: 404, // Market not found
+  ERR_MBOX_005: 500, // Update failed
+  ERR_MBOX_006: 400, // Invalid price
+  ERR_MBOX_007: 400, // Missing required fields
   DEFAULT: 500,
 }
 

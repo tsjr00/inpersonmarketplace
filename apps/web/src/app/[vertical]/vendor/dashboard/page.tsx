@@ -742,61 +742,87 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </div>
         )}
 
-        {/* Promote Your Business Card */}
+        {/* Promote & Grow Section - Side by side on desktop */}
         {vendorProfile.status === 'approved' && (
-          <div style={{ marginBottom: spacing.md }}>
+          <div className="promote-grow-grid" style={{
+            display: 'grid',
+            gap: spacing.sm,
+            marginBottom: spacing.md
+          }}>
+            {/* Promote Your Business Card */}
             <PromoteCard
               vendorId={vendorProfile.id}
               vendorName={(profileData.business_name as string) || (profileData.farm_name as string) || 'My Business'}
               vertical={vertical}
             />
-          </div>
-        )}
 
-        {/* Upgrade Prompt - Only show for standard vendors */}
-        {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
-          <div style={{
-            padding: spacing.sm,
-            marginBottom: spacing.md,
-            backgroundColor: colors.surfaceElevated,
-            color: colors.textPrimary,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.md,
-            boxShadow: shadows.sm
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm }}>
-              <div>
-                <h3 style={{
-                  color: colors.primary,
-                  margin: 0,
-                  fontSize: typography.sizes.sm,
-                  fontWeight: typography.weights.semibold
+            {/* Upgrade Prompt - Only show for standard vendors */}
+            {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
+              <div style={{
+                padding: spacing.md,
+                background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
+                border: '2px solid #fcd34d',
+                borderRadius: radius.md,
+                boxShadow: shadows.md
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  marginBottom: spacing.xs
                 }}>
-                  Grow Your Business
-                </h3>
+                  <span style={{ fontSize: typography.sizes['2xl'] }}>🚀</span>
+                  <h3 style={{
+                    color: '#92400e',
+                    margin: 0,
+                    fontSize: typography.sizes.lg,
+                    fontWeight: typography.weights.bold
+                  }}>
+                    Grow Your Business
+                  </h3>
+                </div>
+
                 <p style={{
-                  margin: '4px 0 0 0',
-                  fontSize: typography.sizes.xs,
-                  color: colors.textMuted
+                  margin: `0 0 ${spacing.sm} 0`,
+                  fontSize: typography.sizes.sm,
+                  color: '#78350f',
+                  fontWeight: typography.weights.medium
                 }}>
-                  Get 10 listings, multiple markets, Market Boxes & priority search
+                  Upgrade to Premium for just <strong>$24.99/month</strong>
                 </p>
+
+                <ul style={{
+                  margin: `0 0 ${spacing.sm} 0`,
+                  paddingLeft: 20,
+                  fontSize: typography.sizes.sm,
+                  color: '#78350f',
+                  lineHeight: 1.6
+                }}>
+                  <li><strong>10 listings</strong> (vs 5)</li>
+                  <li><strong>4 markets + 5 private locations</strong></li>
+                  <li><strong>6 Market Boxes</strong> with unlimited subscribers</li>
+                  <li><strong>Priority placement</strong> in search & featured sections</li>
+                  <li><strong>Premium badge</strong> & advanced analytics</li>
+                </ul>
+
+                <Link
+                  href={`/${vertical}/vendor/dashboard/upgrade`}
+                  style={{
+                    display: 'inline-block',
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    backgroundColor: '#d97706',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: radius.md,
+                    fontWeight: typography.weights.bold,
+                    fontSize: typography.sizes.base,
+                    boxShadow: shadows.sm
+                  }}
+                >
+                  Upgrade Now →
+                </Link>
               </div>
-              <Link
-                href={`/${vertical}/vendor/dashboard/upgrade`}
-                style={{
-                  padding: `${spacing['2xs']} ${spacing.sm}`,
-                  backgroundColor: colors.primary,
-                  color: colors.textInverse,
-                  textDecoration: 'none',
-                  borderRadius: radius.sm,
-                  fontWeight: typography.weights.semibold,
-                  fontSize: typography.sizes.sm
-                }}
-              >
-                Upgrade to Premium
-              </Link>
-            </div>
+            )}
           </div>
         )}
 
@@ -830,11 +856,17 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .vendor-dashboard .action-grid {
           grid-template-columns: 1fr;
         }
+        .vendor-dashboard .promote-grow-grid {
+          grid-template-columns: 1fr;
+        }
         @media (min-width: 640px) {
           .vendor-dashboard .info-grid {
             grid-template-columns: repeat(2, 1fr);
           }
           .vendor-dashboard .action-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .vendor-dashboard .promote-grow-grid {
             grid-template-columns: repeat(2, 1fr);
           }
         }

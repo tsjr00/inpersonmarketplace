@@ -19,7 +19,6 @@ export default function PromoteCard({ vendorId, vendorName, vertical }: PromoteC
   }, [])
 
   const profileUrl = `${baseUrl}/${vertical}/vendor/${vendorId}/profile`
-  const scheduleUrl = `${baseUrl}/${vertical}/vendor/${vendorId}/schedule`
 
   return (
     <div style={{
@@ -54,36 +53,21 @@ export default function PromoteCard({ vendorId, vendorName, vertical }: PromoteC
         Share on social media to reach more customers
       </p>
 
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: spacing.xs
-      }}>
-        {baseUrl && (
-          <>
-            <ShareButton
-              url={profileUrl}
-              title={`${vendorName} - Shop our products!`}
-              text={`Check out ${vendorName} for fresh, local products!`}
-              variant="button"
-            />
-
-            <ShareButton
-              url={scheduleUrl}
-              title={`${vendorName} - This Week's Schedule`}
-              text={`Find out where to get fresh products from ${vendorName} this week!`}
-              variant="button"
-            />
-          </>
-        )}
-      </div>
+      {baseUrl && (
+        <ShareButton
+          url={profileUrl}
+          title={`${vendorName} - Shop our products!`}
+          text={`Check out ${vendorName} for fresh, local products!`}
+          variant="button"
+        />
+      )}
 
       <p style={{
         margin: `${spacing.xs} 0 0 0`,
         fontSize: typography.sizes.xs,
         color: colors.textMuted
       }}>
-        Or share individual listings from your <a href={`/${vertical}/vendor/listings`} style={{ color: colors.primary }}>Listings page</a>
+        Share your profile, or share individual listings from your <a href={`/${vertical}/vendor/listings`} style={{ color: colors.primary }}>Listings page</a>
       </p>
     </div>
   )

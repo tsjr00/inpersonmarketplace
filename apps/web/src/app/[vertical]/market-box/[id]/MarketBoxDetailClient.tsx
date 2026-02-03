@@ -404,7 +404,7 @@ export default function MarketBoxDetailClient() {
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
-                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Fresh products from {vendor.name}</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Market box pickup times may differ from the vendor&apos;s regular retail hours</span>
               </div>
             </div>
             <div style={{

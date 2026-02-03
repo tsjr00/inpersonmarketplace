@@ -2,7 +2,7 @@
 
 **Source of truth for database structure. Updated after each confirmed migration.**
 
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-02-03 (4 migrations applied today)
 **Database:** Dev (inpersonmarketplace)
 **Updated By:** Claude + User
 
@@ -12,6 +12,9 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-03 | 20260203_004_fix_market_box_trigger_column_name | Fixed `set_market_box_premium_window()` trigger: changed `is_active` to `active` (correct column name) |
+| 2026-02-03 | 20260203_003_add_vertical_admin_rls_support | Added vertical admin RLS support to 14 tables; new helper functions: `can_admin_market()`, `can_admin_order()`, `can_admin_vendor()` |
+| 2026-02-03 | 20260203_002_fix_admin_helper_functions | Fixed `is_platform_admin()` to check both `role` column and `roles` array; added `is_vertical_admin()`, `is_admin_for_vertical()`, `is_any_admin()`, `get_user_admin_verticals()` |
 | 2026-02-03 | Initial snapshot | Full schema capture |
 
 ---
@@ -714,3 +717,45 @@ Where Schema = public : map
 | v_verified_solutions               |
 | v_vertical_admin_pending_reports   |
 | vendor_referral_summary            |
+
+
+
+---
+
+## Key Helper Functions
+
+These are SECURITY DEFINER functions used by RLS policies and triggers.
+
+### Admin Role Functions (20260203_002)
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `is_platform_admin()` | BOOLEAN | Returns true if current user has `role = 'admin'` OR `'admin' = ANY(roles)` in user_profiles |
+| `is_vertical_admin(p_vertical_id TEXT)` | BOOLEAN | Returns true if current user is in `vertical_admins` table for the specified vertical |
+| `is_admin_for_vertical(p_vertical_id TEXT)` | BOOLEAN | Returns true if user is platform admin OR vertical admin for the specified vertical |
+| `is_any_admin()` | BOOLEAN | Returns true if user is any type of admin (platform or any vertical) |
+| `get_user_admin_verticals()` | TABLE(vertical_id, is_platform_admin, is_vertical_admin) | Returns list of verticals the current user can administer |
+
+### Vertical Admin Helper Functions (20260203_003)
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `can_admin_market(p_market_id UUID)` | BOOLEAN | Returns true if user can admin the market's vertical |
+| `can_admin_order(p_order_id UUID)` | BOOLEAN | Returns true if user can admin the order's vertical |
+| `can_admin_vendor(p_vendor_profile_id UUID)` | BOOLEAN | Returns true if user can admin the vendor's vertical |
+
+### Premium Window Trigger Functions
+
+| Function | Trigger On | Description |
+|----------|------------|-------------|
+| `set_listing_premium_window()` | listings INSERT/UPDATE | Sets `premium_window_ends_at` when listing is published or restocked |
+| `set_market_box_premium_window()` | market_box_offerings INSERT/UPDATE | Sets `premium_window_ends_at` when offering is activated or capacity increased. **Note:** Uses `active` column (not `is_active`) - fixed in 20260203_004 |
+
+---
+
+## Known Issues & Fixes
+
+| Issue | Fix Migration | Notes |
+|-------|---------------|-------|
+| `set_market_box_premium_window()` referenced `is_active` instead of `active` | 20260203_004 | Caused "record 'new' has no field 'is_active'" error on market box creation |
+| `is_platform_admin()` only checked `roles` array, not `role` column | 20260203_002 | Caused admins with `role = 'admin'` to not be recognized |

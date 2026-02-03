@@ -358,6 +358,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
       pickup_day_of_week,
       pickup_start_time,
       pickup_end_time,
+      premium_window_ends_at,
       market:markets (
         id,
         name,
@@ -788,6 +789,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const rawMarket = box.market as { id: string; name: string; city: string; state: string } | { id: string; name: string; city: string; state: string }[] | null
                 const boxMarket = Array.isArray(rawMarket) ? rawMarket[0] : rawMarket
                 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+                const boxPremiumWindowEndsAt = box.premium_window_ends_at as string | null
+                const boxInPremiumWindow = boxPremiumWindowEndsAt && boxPremiumWindowEndsAt > now
+                const showBoxPremiumRestriction = boxInPremiumWindow && !isPremiumBuyer
 
                 const formatTime = (time: string) => {
                   const [hours, minutes] = time.split(':')
@@ -806,13 +810,34 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       padding: 16,
                       backgroundColor: 'white',
                       color: '#333',
-                      border: '1px solid #dbeafe',
+                      border: showBoxPremiumRestriction ? '2px solid #3b82f6' : '1px solid #dbeafe',
                       borderRadius: 8,
-                      textDecoration: 'none'
+                      textDecoration: 'none',
+                      position: 'relative'
                     }}
                   >
+                    {/* Premium Window Banner for standard buyers */}
+                    {showBoxPremiumRestriction && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        padding: '6px 12px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        borderRadius: '6px 6px 0 0',
+                        zIndex: 2
+                      }}>
+                        ⭐ Premium Early-Bird — Upgrade to Buy Now
+                      </div>
+                    )}
+
                     {/* Image with Market Box Badge */}
-                    <div style={{ position: 'relative', marginBottom: 12 }}>
+                    <div style={{ position: 'relative', marginBottom: 12, marginTop: showBoxPremiumRestriction ? 28 : 0 }}>
                       <span style={{
                         position: 'absolute',
                         top: 8,
@@ -892,13 +917,13 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       {boxMarket && ` • ${boxMarket.name}`}
                     </div>
 
-                    {/* Price */}
+                    {/* Price - includes buyer platform fee */}
                     <div style={{
                       fontSize: 18,
                       fontWeight: 'bold',
                       color: branding.colors.primary
                     }}>
-                      ${(boxPriceCents / 100).toFixed(2)}
+                      {formatDisplayPrice(boxPriceCents)}
                       <span style={{ fontSize: 12, fontWeight: 'normal', color: '#6b7280' }}> / 4 weeks</span>
                     </div>
                   </Link>
