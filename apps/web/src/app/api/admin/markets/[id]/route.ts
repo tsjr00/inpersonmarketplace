@@ -1,20 +1,34 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { hasAdminRole } from '@/lib/auth/admin'
 
-async function verifyAdmin(supabase: SupabaseClient, userId: string) {
-  const { data: userProfile, error } = await supabase
+// Verify if user is platform admin or vertical admin for the given vertical
+async function verifyAdminAccess(supabase: SupabaseClient, userId: string, verticalId?: string): Promise<boolean> {
+  // Check platform admin role
+  const { data: userProfile } = await supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', userId)
     .single()
 
-  if (error || !userProfile) {
-    return false
+  if (hasAdminRole(userProfile || {})) {
+    return true
   }
 
-  return userProfile.role === 'admin' || userProfile.roles?.includes('admin')
+  // If vertical is provided, check vertical admin
+  if (verticalId) {
+    const { data: verticalAdmin } = await supabase
+      .from('vertical_admins')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('vertical_id', verticalId)
+      .single()
+    return !!verticalAdmin
+  }
+
+  return false
 }
 
 // PUT - Update market
@@ -29,23 +43,27 @@ export async function PUT(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (!(await verifyAdmin(supabase, user.id))) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-  }
-
   const { id: marketId } = await params
   const body = await request.json()
   const { name, address, city, state, zip, latitude, longitude, schedules, season_start, season_end, status, approval_status, rejection_reason } = body
 
-  // First, get the market to check its type
-  const { data: existingMarket, error: fetchError } = await supabase
+  // Use service client to bypass RLS for admin operations
+  const serviceClient = createServiceClient()
+
+  // First, get the market to check its type and vertical
+  const { data: existingMarket, error: fetchError } = await serviceClient
     .from('markets')
-    .select('market_type')
+    .select('market_type, vertical_id')
     .eq('id', marketId)
     .single()
 
   if (fetchError || !existingMarket) {
     return NextResponse.json({ error: 'Market not found' }, { status: 404 })
+  }
+
+  // Verify admin access (platform admin or vertical admin for this market's vertical)
+  if (!(await verifyAdminAccess(supabase, user.id, existingMarket.vertical_id))) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   }
 
   // For private_pickup markets, admin can ONLY change status (suspend/unsuspend)
@@ -58,7 +76,7 @@ export async function PUT(
     }
 
     // Only allow status changes for private pickups
-    const { data: market, error: updateError } = await supabase
+    const { data: market, error: updateError } = await serviceClient
       .from('markets')
       .update({ status })
       .eq('id', marketId)
@@ -92,9 +110,9 @@ export async function PUT(
   if (approval_status !== undefined) updateData.approval_status = approval_status
   if (rejection_reason !== undefined) updateData.rejection_reason = rejection_reason
 
-  // Update market fields if any
+  // Update market fields if any (use service client for admin operations)
   if (Object.keys(updateData).length > 0) {
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from('markets')
       .update(updateData)
       .eq('id', marketId)
@@ -120,8 +138,8 @@ export async function PUT(
       }
     }
 
-    // Delete existing schedules and insert new ones
-    const { error: deleteError } = await supabase
+    // Delete existing schedules and insert new ones (use service client)
+    const { error: deleteError } = await serviceClient
       .from('market_schedules')
       .delete()
       .eq('market_id', marketId)
@@ -140,7 +158,7 @@ export async function PUT(
       active: s.active !== false
     }))
 
-    const { error: insertError } = await supabase
+    const { error: insertError } = await serviceClient
       .from('market_schedules')
       .insert(scheduleInserts)
 
@@ -150,8 +168,8 @@ export async function PUT(
     }
   }
 
-  // Fetch the updated market with schedules
-  const { data: market, error: fetchUpdatedError } = await supabase
+  // Fetch the updated market with schedules (use service client)
+  const { data: market, error: fetchUpdatedError } = await serviceClient
     .from('markets')
     .select(`
       *,
@@ -190,14 +208,29 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (!(await verifyAdmin(supabase, user.id))) {
+  const { id: marketId } = await params
+
+  // Use service client to bypass RLS for admin operations
+  const serviceClient = createServiceClient()
+
+  // First fetch the market to get its vertical for admin check
+  const { data: market, error: fetchError } = await serviceClient
+    .from('markets')
+    .select('vertical_id')
+    .eq('id', marketId)
+    .single()
+
+  if (fetchError || !market) {
+    return NextResponse.json({ error: 'Market not found' }, { status: 404 })
+  }
+
+  // Verify admin access for this vertical
+  if (!(await verifyAdminAccess(supabase, user.id, market.vertical_id))) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   }
 
-  const { id: marketId } = await params
-
-  // Check if market has listings
-  const { data: listingMarkets, error: checkError } = await supabase
+  // Check if market has listings (use service client)
+  const { data: listingMarkets, error: checkError } = await serviceClient
     .from('listing_markets')
     .select('id')
     .eq('market_id', marketId)
@@ -215,7 +248,7 @@ export async function DELETE(
   }
 
   // Delete market (both traditional and private_pickup allowed for admin)
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await serviceClient
     .from('markets')
     .delete()
     .eq('id', marketId)

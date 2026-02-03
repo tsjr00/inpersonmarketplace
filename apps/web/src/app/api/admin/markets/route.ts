@@ -1,6 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 // GET - Get all markets (admin view)
 export async function GET(request: Request) {
@@ -11,17 +12,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Verify admin
-  const { data: userProfile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('role, roles')
-    .eq('user_id', user.id)
-    .single()
-
-  if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-  }
-
   const { searchParams } = new URL(request.url)
   const vertical = searchParams.get('vertical')
 
@@ -29,8 +19,35 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Vertical required' }, { status: 400 })
   }
 
+  // Check for platform admin role first
+  const { data: userProfile } = await supabase
+    .from('user_profiles')
+    .select('role, roles')
+    .eq('user_id', user.id)
+    .single()
+
+  let isAdmin = hasAdminRole(userProfile || {})
+
+  // If not platform admin, check if they're a vertical admin for this specific vertical
+  if (!isAdmin) {
+    const { data: verticalAdmin } = await supabase
+      .from('vertical_admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('vertical_id', vertical)
+      .single()
+    isAdmin = !!verticalAdmin
+  }
+
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+  }
+
+  // Use service client to bypass RLS - admins need to see ALL markets including pending
+  const serviceClient = createServiceClient()
+
   // Verify vertical exists
-  const { data: verticalData, error: vertError } = await supabase
+  const { data: verticalData, error: vertError } = await serviceClient
     .from('verticals')
     .select('vertical_id')
     .eq('vertical_id', vertical)
@@ -42,7 +59,8 @@ export async function GET(request: Request) {
 
   // Get all markets for this vertical with schedules
   // Note: markets.vertical_id is TEXT (e.g., "farmers_market"), not UUID
-  const { data: markets, error: marketsError } = await supabase
+  // Using service client to bypass RLS - admins can see pending/unapproved markets
+  const { data: markets, error: marketsError } = await serviceClient
     .from('markets')
     .select(`
       *,
@@ -63,14 +81,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
   }
 
-  // Get vendor names for any submitted markets
+  // Get vendor names for any submitted markets (use service client to see all vendors)
   const vendorIds = (markets || [])
     .filter(m => m.submitted_by_vendor_id)
     .map(m => m.submitted_by_vendor_id)
 
   let vendorMap: Record<string, string> = {}
   if (vendorIds.length > 0) {
-    const { data: vendors } = await supabase
+    const { data: vendors } = await serviceClient
       .from('vendor_profiles')
       .select('id, profile_data')
       .in('id', vendorIds)
