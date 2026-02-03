@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         }
 
         // Ensure user_profile exists (trigger may have failed silently)
-        // vendor_profiles.user_id references user_profiles.user_id, not auth.users
+        // vendor_profiles.user_id references user_profiles.user_id
         const { data: existingProfile } = await supabaseAdmin
           .from("user_profiles")
           .select("user_id")
@@ -45,21 +45,22 @@ export async function POST(request: Request) {
           .single();
 
         if (!existingProfile) {
-          // Create user_profile if it doesn't exist
+          // Create user_profile if it doesn't exist using upsert to handle race conditions
           const { error: profileError } = await supabaseAdmin
             .from("user_profiles")
-            .insert({
-              user_id: user_id,
-              email: user.email,
-              display_name: user.user_metadata?.full_name || "",
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
+            .upsert(
+              {
+                user_id: user_id,
+                email: user.email,
+                display_name: user.user_metadata?.full_name || "",
+              },
+              { onConflict: "user_id" }
+            );
 
           if (profileError) {
             console.error("Failed to create user_profile:", profileError);
             return NextResponse.json(
-              { ok: false, error: "Failed to initialize user profile. Please try again." },
+              { ok: false, error: `Failed to initialize user profile: ${profileError.message}` },
               { status: 500 }
             );
           }
