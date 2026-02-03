@@ -46,6 +46,7 @@ export async function POST(request: Request) {
 
         if (!existingProfile) {
           // Create user_profile if it doesn't exist using upsert to handle race conditions
+          // Must include buyer_tier explicitly due to constraint user_profiles_buyer_tier_check
           const { error: profileError } = await supabaseAdmin
             .from("user_profiles")
             .upsert(
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
                 user_id: user_id,
                 email: user.email,
                 display_name: user.user_metadata?.full_name || "",
+                buyer_tier: "standard",
               },
               { onConflict: "user_id" }
             );
