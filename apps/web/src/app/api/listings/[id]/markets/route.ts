@@ -109,6 +109,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // Find the schedule for the next pickup to get the hours
+    let nextPickupStartTime: string | null = null
+    let nextPickupEndTime: string | null = null
+    if (nextPickupAt) {
+      const nextPickupDay = nextPickupAt.getDay()
+      const matchingSchedule = activeSchedules.find(s => s.day_of_week === nextPickupDay)
+      if (matchingSchedule) {
+        nextPickupStartTime = matchingSchedule.start_time
+        nextPickupEndTime = matchingSchedule.end_time
+      }
+    }
+
     return {
       market_id: market.id,
       market_name: market.name,
@@ -117,7 +129,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       city: market.city,
       state: market.state,
       is_accepting: isAccepting,
-      next_pickup_at: nextPickupAt?.toISOString() || null
+      next_pickup_at: nextPickupAt?.toISOString() || null,
+      start_time: nextPickupStartTime,
+      end_time: nextPickupEndTime
     }
   }).filter(Boolean)
 

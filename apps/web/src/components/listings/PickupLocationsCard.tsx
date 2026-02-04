@@ -140,19 +140,22 @@ export default function PickupLocationsCard({
     return getOrder(a) - getOrder(b)
   })
 
-  // Format time until cutoff
+  // Format time until cutoff - full words for clarity
   const formatTimeRemaining = (hoursLeft: number): string => {
     if (hoursLeft < 1) {
       const minutes = Math.max(1, Math.round(hoursLeft * 60))
-      return `${minutes}m`
+      return `${minutes} minute${minutes !== 1 ? 's' : ''}`
     }
     if (hoursLeft < 24) {
       const hours = Math.floor(hoursLeft)
-      return `${hours}h`
+      return `${hours} hour${hours !== 1 ? 's' : ''}`
     }
     const days = Math.floor(hoursLeft / 24)
-    return `${days}d`
+    return `${days} day${days !== 1 ? 's' : ''}`
   }
+
+  // Check if we need to show the explanatory footer
+  const hasClosedOrClosingSoon = sortedMarkets.some(m => !m.is_accepting || m.is_closing_soon)
 
   // Determine card background and text colors based on status
   const getCardStyles = (market: CombinedMarket) => {
@@ -164,7 +167,7 @@ export default function PickupLocationsCard({
         statusColor: '#991b1b',
         textColor: '#7f1d1d',
         icon: '✗',
-        statusText: 'Closed'
+        statusText: 'Orders Closed'
       }
     }
     if (market.is_closing_soon && market.hours_until_cutoff !== null) {
@@ -175,7 +178,7 @@ export default function PickupLocationsCard({
         statusColor: '#92400e',
         textColor: '#78350f',
         icon: '⏰',
-        statusText: `Closes in ${formatTimeRemaining(market.hours_until_cutoff)}`
+        statusText: `Orders close in ${formatTimeRemaining(market.hours_until_cutoff)}`
       }
     }
     // Open - green
@@ -185,7 +188,7 @@ export default function PickupLocationsCard({
       statusColor: '#166534',
       textColor: '#15803d',
       icon: '✓',
-      statusText: 'Open'
+      statusText: 'Accepting Orders'
     }
   }
 
@@ -235,89 +238,82 @@ export default function PickupLocationsCard({
             Loading...
           </div>
         ) : (
-          sortedMarkets.map(market => {
-            const styles = getCardStyles(market)
-            const isPrivate = market.market_type === 'private_pickup'
-            const showAddress = !isPrivate || isLoggedIn
+          <>
+            {sortedMarkets.map(market => {
+              const styles = getCardStyles(market)
 
-            return (
-              <div
-                key={market.market_id}
-                style={{
-                  padding: `${spacing['2xs']} ${spacing.xs}`,
-                  backgroundColor: styles.backgroundColor,
-                  border: `1px solid ${styles.borderColor}`,
-                  borderRadius: radius.sm,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing.xs
-                }}
-              >
-                {/* Status icon and text */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing['3xs'],
-                  minWidth: 70
-                }}>
-                  <span style={{
-                    fontWeight: typography.weights.bold,
-                    color: styles.statusColor,
-                    fontSize: typography.sizes.sm
+              return (
+                <div
+                  key={market.market_id}
+                  style={{
+                    padding: `${spacing['2xs']} ${spacing.xs}`,
+                    backgroundColor: styles.backgroundColor,
+                    border: `1px solid ${styles.borderColor}`,
+                    borderRadius: radius.sm
+                  }}
+                >
+                  {/* Status on first line */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing['3xs'],
+                    marginBottom: spacing['3xs']
                   }}>
-                    {styles.icon}
-                  </span>
-                  <span style={{
-                    fontWeight: typography.weights.semibold,
-                    color: styles.statusColor,
-                    fontSize: typography.sizes.xs
-                  }}>
-                    {styles.statusText}
-                  </span>
-                </div>
+                    <span style={{
+                      fontWeight: typography.weights.bold,
+                      color: styles.statusColor,
+                      fontSize: typography.sizes.sm
+                    }}>
+                      {styles.icon}
+                    </span>
+                    <span style={{
+                      fontWeight: typography.weights.semibold,
+                      color: styles.statusColor,
+                      fontSize: typography.sizes.xs
+                    }}>
+                      {styles.statusText}
+                    </span>
+                  </div>
 
-                {/* Market info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Market name on second line */}
                   <div style={{
                     fontWeight: typography.weights.medium,
                     color: styles.textColor,
                     fontSize: typography.sizes.xs,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
+                    paddingLeft: spacing.sm
                   }}>
                     {market.market_name}
                   </div>
-                  {showAddress ? (
-                    <div style={{
-                      color: styles.textColor,
-                      fontSize: 10,
-                      opacity: 0.85,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {market.city}, {market.state}
-                    </div>
-                  ) : (
-                    <div style={{
-                      fontSize: 10,
-                      fontStyle: 'italic',
-                      color: styles.textColor
-                    }}>
-                      <Link
-                        href={`/${vertical}/login`}
-                        style={{ color: colors.primary, textDecoration: 'none' }}
-                      >
-                        Log in
-                      </Link>
-                      {' '}for address
-                    </div>
-                  )}
+                </div>
+              )
+            })}
+
+            {/* Explanatory footer - only when there are closed or closing-soon locations */}
+            {hasClosedOrClosingSoon && (
+              <div style={{
+                padding: `${spacing['2xs']} ${spacing.xs}`,
+                backgroundColor: colors.surfaceMuted,
+                borderRadius: radius.sm,
+                marginTop: spacing['2xs']
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: spacing['2xs']
+                }}>
+                  <span style={{ fontSize: 11, flexShrink: 0 }}>ℹ️</span>
+                  <p style={{
+                    margin: 0,
+                    fontSize: 10,
+                    color: colors.textMuted,
+                    lineHeight: 1.4
+                  }}>
+                    Orders automatically close before pickup days to give vendors time to prepare for upcoming market / pickup hours.
+                  </p>
                 </div>
               </div>
-            )
-          })
+            )}
+          </>
         )}
       </div>
     </div>

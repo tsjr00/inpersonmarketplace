@@ -13,6 +13,8 @@ export interface AvailableMarket {
   state?: string
   is_accepting: boolean
   next_pickup_at?: string
+  start_time?: string  // HH:MM format
+  end_time?: string    // HH:MM format
 }
 
 interface AddToCartButtonProps {
@@ -104,8 +106,17 @@ export function AddToCartButton({
   const needsMarketSelection = hasMultipleMarkets && !selectedMarketId
   const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed || hasNoOpenMarkets || needsMarketSelection
 
-  // Format next pickup date with full text
-  const formatNextPickup = (dateStr?: string) => {
+  // Format time from HH:MM to 12-hour format
+  const formatTime = (timeStr?: string) => {
+    if (!timeStr) return null
+    const [hours, minutes] = timeStr.split(':').map(Number)
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const hour12 = hours % 12 || 12
+    return minutes === 0 ? `${hour12}${period}` : `${hour12}:${minutes.toString().padStart(2, '0')}${period}`
+  }
+
+  // Format next pickup date with full text and hours
+  const formatNextPickup = (dateStr?: string, startTime?: string, endTime?: string) => {
     if (!dateStr) return null
     const date = new Date(dateStr)
     const formatted = date.toLocaleDateString('en-US', {
@@ -113,7 +124,15 @@ export function AddToCartButton({
       month: 'short',
       day: 'numeric'
     })
-    return `Next available pickup: ${formatted}`
+
+    // Add pickup hours if available
+    const startFormatted = formatTime(startTime)
+    const endFormatted = formatTime(endTime)
+    const hoursStr = startFormatted && endFormatted
+      ? `, ${startFormatted} - ${endFormatted}`
+      : ''
+
+    return `Next available pickup: ${formatted}${hoursStr}`
   }
 
   return (
@@ -166,10 +185,10 @@ export function AddToCartButton({
                           {market.address ? `${market.address}, ` : ''}{market.city}, {market.state}
                         </div>
                       )}
-                      {/* Line 3: Next available pickup */}
+                      {/* Line 3: Next available pickup with hours */}
                       {market.next_pickup_at && (
                         <div style={{ fontSize: 11, color: '#059669', marginTop: 3 }}>
-                          {formatNextPickup(market.next_pickup_at)}
+                          {formatNextPickup(market.next_pickup_at, market.start_time, market.end_time)}
                         </div>
                       )}
                     </div>
@@ -203,10 +222,10 @@ export function AddToCartButton({
                       {openMarkets[0].address ? `${openMarkets[0].address}, ` : ''}{openMarkets[0].city}, {openMarkets[0].state}
                     </div>
                   )}
-                  {/* Line 3: Next available pickup */}
+                  {/* Line 3: Next available pickup with hours */}
                   {openMarkets[0]?.next_pickup_at && (
                     <div style={{ fontSize: 11, color: '#059669', marginTop: 3 }}>
-                      {formatNextPickup(openMarkets[0].next_pickup_at)}
+                      {formatNextPickup(openMarkets[0].next_pickup_at, openMarkets[0].start_time, openMarkets[0].end_time)}
                     </div>
                   )}
                 </div>
