@@ -4,13 +4,48 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-// Market hours: 5 AM - 9 PM (when vendors are likely at markets)
-const MARKET_HOURS_START = 5  // 5 AM
-const MARKET_HOURS_END = 21   // 9 PM
+// Buffer time around market hours for polling (30 minutes before/after)
+const MARKET_BUFFER_MINUTES = 30
 
-function isMarketHours(): boolean {
-  const hour = new Date().getHours()
-  return hour >= MARKET_HOURS_START && hour < MARKET_HOURS_END
+interface MarketSchedule {
+  day_of_week: number
+  start_time: string // "HH:MM" format
+  end_time: string   // "HH:MM" format
+}
+
+/**
+ * Check if current time is within ±30 minutes of any market's operating hours today.
+ * Returns true if we should be actively polling.
+ */
+function isWithinMarketWindow(schedules: MarketSchedule[]): boolean {
+  if (schedules.length === 0) return false
+
+  const now = new Date()
+  const currentDay = now.getDay() // 0 = Sunday, 1 = Monday, etc.
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+
+  // Find schedules for today
+  const todaySchedules = schedules.filter(s => s.day_of_week === currentDay)
+  if (todaySchedules.length === 0) return false
+
+  // Check if current time is within any market window (±30 min buffer)
+  for (const schedule of todaySchedules) {
+    const [startHour, startMin] = schedule.start_time.split(':').map(Number)
+    const [endHour, endMin] = schedule.end_time.split(':').map(Number)
+
+    const marketStartMinutes = startHour * 60 + startMin
+    const marketEndMinutes = endHour * 60 + endMin
+
+    // Add 30 min buffer before and after
+    const windowStart = marketStartMinutes - MARKET_BUFFER_MINUTES
+    const windowEnd = marketEndMinutes + MARKET_BUFFER_MINUTES
+
+    if (currentMinutes >= windowStart && currentMinutes <= windowEnd) {
+      return true
+    }
+  }
+
+  return false
 }
 
 interface OrderItem {
@@ -37,6 +72,10 @@ interface Market {
   name: string
   isHomeMarket?: boolean
   canUse?: boolean
+  schedules?: MarketSchedule[]
+  // For private pickup
+  available_days?: number[]
+  available_time?: string
 }
 
 function formatPrice(cents: number): string {
@@ -51,6 +90,7 @@ export default function VendorPickupPage() {
 
   const [orders, setOrders] = useState<Order[]>([])
   const [markets, setMarkets] = useState<Market[]>([])
+  const [marketSchedules, setMarketSchedules] = useState<MarketSchedule[]>([])
   const [selectedMarket, setSelectedMarket] = useState<string>(preselectedMarket || '')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -60,6 +100,7 @@ export default function VendorPickupPage() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const hiddenAtRef = useRef<number | null>(null)
+  const marketSchedulesRef = useRef<MarketSchedule[]>([])
 
   // Memoize fetchNeedsFulfillment for use in polling
   const fetchNeedsFulfillmentCallback = useCallback(async () => {
@@ -88,7 +129,7 @@ export default function VendorPickupPage() {
     }
   }, [])
 
-  // Smart polling: only during market hours (5 AM - 9 PM), with visibility handling
+  // Smart polling: only within ±30 min of actual market hours, with visibility handling
   useEffect(() => {
     if (!vertical) return
 
@@ -96,17 +137,17 @@ export default function VendorPickupPage() {
     fetchMarkets()
     fetchNeedsFulfillmentCallback()
 
-    // Start polling only during market hours
+    // Start polling only during market windows (±30 min of actual market hours)
     const startPolling = () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
         pollIntervalRef.current = null
       }
 
-      // Only poll during market hours (5 AM - 9 PM)
-      if (isMarketHours()) {
+      // Only poll if within market window (uses actual schedules)
+      if (isWithinMarketWindow(marketSchedulesRef.current)) {
         pollIntervalRef.current = setInterval(() => {
-          if (document.visibilityState === 'visible' && isMarketHours()) {
+          if (document.visibilityState === 'visible' && isWithinMarketWindow(marketSchedulesRef.current)) {
             fetchNeedsFulfillmentCallback()
           }
         }, 30000) // 30 seconds during market hours
@@ -144,7 +185,7 @@ export default function VendorPickupPage() {
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [vertical, fetchNeedsFulfillmentCallback])
+  }, [vertical, fetchNeedsFulfillmentCallback, marketSchedules])
 
   useEffect(() => {
     if (selectedMarket) {
@@ -171,6 +212,27 @@ export default function VendorPickupPage() {
           isHomeMarket: m.isHomeMarket || false,
           canUse: m.canUse !== false
         })))
+
+        // Extract schedules from all markets for smart polling
+        // Fixed markets have market_schedules, private pickup have schedules
+        const allSchedules: MarketSchedule[] = []
+        for (const market of allMarkets) {
+          const schedules = market.market_schedules || market.schedules || []
+          for (const s of schedules) {
+            if (s.active !== false && s.day_of_week !== null && s.start_time && s.end_time) {
+              allSchedules.push({
+                day_of_week: s.day_of_week,
+                start_time: s.start_time,
+                end_time: s.end_time
+              })
+            }
+          }
+        }
+        // Update ref immediately (for current polling cycle)
+        marketSchedulesRef.current = allSchedules
+        // Update state to trigger useEffect re-run
+        setMarketSchedules(allSchedules)
+
         // Use preselected market from URL if provided and valid
         if (preselectedMarket && allMarkets.some((m: any) => m.id === preselectedMarket)) {
           setSelectedMarket(preselectedMarket)
