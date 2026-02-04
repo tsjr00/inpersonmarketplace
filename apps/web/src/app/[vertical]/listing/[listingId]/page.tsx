@@ -8,6 +8,7 @@ import PickupLocationsCard from '@/components/listings/PickupLocationsCard'
 import BackLink from '@/components/shared/BackLink'
 import { formatDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { processListingMarkets, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 import type { Metadata } from 'next'
 
 interface ListingDetailPageProps {
@@ -112,17 +113,46 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
       .eq('vendor_profiles.status', 'approved')
       .is('deleted_at', null)
       .single(),
-    // Query 2: Get markets where this listing is available
-    supabase.rpc('get_listing_markets_summary', {
-      p_listing_id: listingId
-    }),
+    // Query 2: Get markets where this listing is available (with schedules for availability calc)
+    supabase
+      .from('listing_markets')
+      .select(`
+        market_id,
+        markets (
+          id,
+          name,
+          market_type,
+          address,
+          city,
+          state,
+          cutoff_hours,
+          active,
+          market_schedules (
+            id,
+            day_of_week,
+            start_time,
+            end_time,
+            active
+          )
+        )
+      `)
+      .eq('listing_id', listingId),
     // Query 3: Check if user is logged in
     supabase.auth.getUser()
   ])
 
   const { data: listing, error } = listingResult
-  const { data: listingMarkets } = listingMarketsResult
+  const { data: rawListingMarkets } = listingMarketsResult
   const { data: { user } } = userResult
+
+  // Process markets to calculate availability status (server-side)
+  // Supabase returns markets as a single object (not array) from the join
+  const processedMarkets = rawListingMarkets
+    ? processListingMarkets(rawListingMarkets.map((lm: { market_id: string; markets: unknown }) => ({
+        market_id: lm.market_id,
+        markets: lm.markets as MarketWithSchedules
+      })))
+    : []
 
   if (error || !listing) {
     notFound()
@@ -321,23 +351,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               </div>
 
               {/* Pickup Locations Status - shows which locations are open/closed */}
-              {listingMarkets && listingMarkets.length > 0 && (
+              {processedMarkets.length > 0 && (
                 <div style={{ marginBottom: spacing.xs }}>
                   <PickupLocationsCard
-                    listingId={listingId}
-                    markets={listingMarkets as {
-                      market_id: string
-                      market_name: string
-                      market_type: string
-                      address: string
-                      city: string
-                      state: string
-                      day_of_week: number | null
-                      start_time: string | null
-                      end_time: string | null
-                    }[]}
-                    vertical={vertical}
-                    isLoggedIn={isLoggedIn}
+                    markets={processedMarkets}
                     primaryColor={branding.colors.primary}
                   />
                 </div>
@@ -350,6 +367,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 primaryColor={branding.colors.primary}
                 vertical={vertical}
                 isPremiumRestricted={isPremiumRestricted}
+                markets={processedMarkets}
               />
             </div>
 
