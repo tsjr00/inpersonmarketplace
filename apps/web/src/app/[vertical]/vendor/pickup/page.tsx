@@ -1,8 +1,17 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+
+// Market hours: 5 AM - 9 PM (when vendors are likely at markets)
+const MARKET_HOURS_START = 5  // 5 AM
+const MARKET_HOURS_END = 21   // 9 PM
+
+function isMarketHours(): boolean {
+  const hour = new Date().getHours()
+  return hour >= MARKET_HOURS_START && hour < MARKET_HOURS_END
+}
 
 interface OrderItem {
   id: string
@@ -49,24 +58,11 @@ export default function VendorPickupPage() {
   const [needsFulfillment, setNeedsFulfillment] = useState<number>(0)
   const [windowExpiredError, setWindowExpiredError] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const hiddenAtRef = useRef<number | null>(null)
 
-  useEffect(() => {
-    if (vertical) {
-      fetchMarkets()
-      fetchNeedsFulfillment()
-      // Poll for needs fulfillment every 30 seconds
-      const interval = setInterval(fetchNeedsFulfillment, 30000)
-      return () => clearInterval(interval)
-    }
-  }, [vertical])
-
-  useEffect(() => {
-    if (selectedMarket) {
-      fetchOrders()
-    }
-  }, [selectedMarket])
-
-  const fetchNeedsFulfillment = async () => {
+  // Memoize fetchNeedsFulfillment for use in polling
+  const fetchNeedsFulfillmentCallback = useCallback(async () => {
     try {
       // Fetch orders where buyer acknowledged but vendor hasn't fulfilled yet
       const res = await fetch('/api/vendor/orders?unconfirmed_handoffs=true')
@@ -90,7 +86,73 @@ export default function VendorPickupPage() {
     } catch (error) {
       console.error('Error fetching needs fulfillment:', error)
     }
-  }
+  }, [])
+
+  // Smart polling: only during market hours (5 AM - 9 PM), with visibility handling
+  useEffect(() => {
+    if (!vertical) return
+
+    // Initial fetch
+    fetchMarkets()
+    fetchNeedsFulfillmentCallback()
+
+    // Start polling only during market hours
+    const startPolling = () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = null
+      }
+
+      // Only poll during market hours (5 AM - 9 PM)
+      if (isMarketHours()) {
+        pollIntervalRef.current = setInterval(() => {
+          if (document.visibilityState === 'visible' && isMarketHours()) {
+            fetchNeedsFulfillmentCallback()
+          }
+        }, 30000) // 30 seconds during market hours
+      }
+    }
+
+    // Handle visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Tab became hidden - record time and stop polling
+        hiddenAtRef.current = Date.now()
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current)
+          pollIntervalRef.current = null
+        }
+      } else {
+        // Tab became visible - refresh if away > 1 minute, restart polling
+        if (hiddenAtRef.current) {
+          const hiddenDuration = Date.now() - hiddenAtRef.current
+          if (hiddenDuration > 60 * 1000) { // Away > 1 minute
+            fetchNeedsFulfillmentCallback()
+          }
+          hiddenAtRef.current = null
+        }
+        startPolling()
+      }
+    }
+
+    startPolling()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [vertical, fetchNeedsFulfillmentCallback])
+
+  useEffect(() => {
+    if (selectedMarket) {
+      fetchOrders()
+    }
+  }, [selectedMarket])
+
+  // Note: fetchNeedsFulfillment logic is in fetchNeedsFulfillmentCallback above
 
   const fetchMarkets = async () => {
     try {
@@ -158,7 +220,7 @@ export default function VendorPickupPage() {
       if (res.ok) {
         // Refresh orders
         fetchOrders()
-        fetchNeedsFulfillment()
+        fetchNeedsFulfillmentCallback()
       } else {
         const error = await res.json()
         const errorMessage = error.error || 'Failed to fulfill item'
@@ -167,7 +229,7 @@ export default function VendorPickupPage() {
           setWindowExpiredError(errorMessage)
           // Also refresh orders to update the UI
           fetchOrders()
-          fetchNeedsFulfillment()
+          fetchNeedsFulfillmentCallback()
         } else {
           alert(errorMessage)
         }

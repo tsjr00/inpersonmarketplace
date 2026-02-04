@@ -147,15 +147,47 @@ export default function VendorAnalyticsPage() {
     }
   }, [vendorId, fetchAnalytics])
 
-  // Auto-refresh every 5 minutes
+  // Auto-refresh hourly (reduced from 5 min - user can manually refresh if needed)
+  // Includes visibility handling to pause when tab is hidden
   useEffect(() => {
     if (!vendorId) return
 
-    const interval = setInterval(() => {
-      fetchAnalytics()
-    }, 5 * 60 * 1000)
+    let intervalId: NodeJS.Timeout | null = null
+    let hiddenAt: number | null = null
 
-    return () => clearInterval(interval)
+    const startInterval = () => {
+      if (intervalId) clearInterval(intervalId)
+      intervalId = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchAnalytics()
+        }
+      }, 60 * 60 * 1000) // 1 hour
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now()
+        if (intervalId) {
+          clearInterval(intervalId)
+          intervalId = null
+        }
+      } else {
+        // Refresh if away > 5 minutes
+        if (hiddenAt && (Date.now() - hiddenAt) > 5 * 60 * 1000) {
+          fetchAnalytics()
+        }
+        hiddenAt = null
+        startInterval()
+      }
+    }
+
+    startInterval()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [vendorId, fetchAnalytics])
 
   if (error) {
