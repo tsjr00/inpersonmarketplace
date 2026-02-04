@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { createSmartRefreshManager } from '@/lib/hooks/useSmartRefresh'
 
 interface MarketInfo {
   market_id: string
@@ -52,28 +53,53 @@ export default function PickupLocationsCard({
 }: PickupLocationsCardProps) {
   const [availability, setAvailability] = useState<MarketAvailability[]>([])
   const [loading, setLoading] = useState(true)
+  const cleanupRef = useRef<(() => void) | null>(null)
 
-  useEffect(() => {
-    async function fetchAvailability() {
-      try {
-        const response = await fetch(`/api/listings/${listingId}/availability`)
-        if (response.ok) {
-          const data = await response.json()
-          setAvailability(data.markets || [])
-        }
-      } catch (error) {
-        console.error('Failed to fetch availability:', error)
-      } finally {
-        setLoading(false)
+  // Memoize fetch function to avoid recreating it
+  const fetchAvailability = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/listings/${listingId}/availability`)
+      if (response.ok) {
+        const data = await response.json()
+        setAvailability(data.markets || [])
       }
+    } catch (error) {
+      console.error('Failed to fetch availability:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [listingId])
+
+  // Initial fetch
+  useEffect(() => {
+    fetchAvailability()
+  }, [fetchAvailability])
+
+  // Smart refresh based on cutoff times
+  useEffect(() => {
+    // Clean up previous manager if any
+    if (cleanupRef.current) {
+      cleanupRef.current()
     }
 
-    fetchAvailability()
+    // Get cutoff times from availability data
+    const cutoffTimes = availability.map(a => a.cutoff_at)
 
-    // Refresh every minute to keep status accurate
-    const interval = setInterval(fetchAvailability, 60 * 1000)
-    return () => clearInterval(interval)
-  }, [listingId])
+    // Set up smart refresh manager for listing detail page
+    const { cleanup } = createSmartRefreshManager(
+      { type: 'detail' },
+      cutoffTimes,
+      fetchAvailability
+    )
+
+    cleanupRef.current = cleanup
+
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current()
+      }
+    }
+  }, [availability, fetchAvailability])
 
   if (!markets || markets.length === 0) {
     return null
