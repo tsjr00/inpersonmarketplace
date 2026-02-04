@@ -4,6 +4,7 @@ import { getMarketVendorCounts } from '@/lib/db/markets'
 
 const MILES_TO_METERS = 1609.344
 const DEFAULT_RADIUS_MILES = 25
+const DEFAULT_PAGE_SIZE = 35
 const MILES_PER_DEGREE_LAT = 69
 
 // Calculate bounding box for pre-filtering
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest) {
     const lng = searchParams.get('lng')
     const vertical = searchParams.get('vertical')
     const radiusMiles = parseFloat(searchParams.get('radius') || String(DEFAULT_RADIUS_MILES))
+    const limit = parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10)
+    const offset = parseInt(searchParams.get('offset') || '0', 10)
     const type = searchParams.get('type')
     const city = searchParams.get('city')
     const search = searchParams.get('search')
@@ -71,15 +74,23 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // Fall back to JavaScript-based calculation
-      return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, type, city, search)
+      return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, type, city, search)
     }
+
+    // Apply pagination to PostGIS results (already sorted by distance)
+    const allMarkets = markets || []
+    const total = allMarkets.length
+    const paginatedMarkets = allMarkets.slice(offset, offset + limit)
+    const hasMore = offset + paginatedMarkets.length < total
 
     // Cache key for edge caching
     const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
 
     return NextResponse.json(
       {
-        markets: markets || [],
+        markets: paginatedMarkets,
+        total,
+        hasMore,
         center: { latitude, longitude },
         radiusMiles
       },
@@ -102,6 +113,8 @@ async function fallbackNearbyQuery(
   latitude: number,
   longitude: number,
   radiusMiles: number,
+  limit: number,
+  offset: number,
   vertical: string | null,
   type: string | null,
   city: string | null,
@@ -171,12 +184,19 @@ async function fallbackNearbyQuery(
     vendor_count: vendorCounts.get(market.id) || 0
   }))
 
+  // Apply pagination
+  const total = marketsWithVendorCounts.length
+  const paginatedMarkets = marketsWithVendorCounts.slice(offset, offset + limit)
+  const hasMore = offset + paginatedMarkets.length < total
+
   // Cache key for edge caching
   const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
 
   return NextResponse.json(
     {
-      markets: marketsWithVendorCounts,
+      markets: paginatedMarkets,
+      total,
+      hasMore,
       center: { latitude, longitude },
       radiusMiles,
       fallback: true

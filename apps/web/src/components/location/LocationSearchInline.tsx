@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
+const RADIUS_OPTIONS = [10, 25, 50, 100] as const
+type RadiusOption = typeof RADIUS_OPTIONS[number]
+
 interface LocationSearchInlineProps {
   onLocationSet?: (lat: number, lng: number, source: 'gps' | 'manual', locationText?: string) => void
   hasLocation?: boolean
@@ -10,6 +13,10 @@ interface LocationSearchInlineProps {
   onClear?: () => void
   /** Label prefix for green bar, e.g., "Markets nearby" or "Vendors nearby" */
   labelPrefix?: string
+  /** Current radius in miles */
+  radius?: number
+  /** Called when user changes radius */
+  onRadiusChange?: (radius: number) => void
 }
 
 export default function LocationSearchInline({
@@ -17,7 +24,9 @@ export default function LocationSearchInline({
   hasLocation,
   locationText,
   onClear,
-  labelPrefix = 'Nearby'
+  labelPrefix = 'Nearby',
+  radius: currentRadius = 25,
+  onRadiusChange
 }: LocationSearchInlineProps) {
   const [mode, setMode] = useState<'input' | 'loading'>('input')
   const [zipCode, setZipCode] = useState('')
@@ -107,11 +116,46 @@ export default function LocationSearchInline({
     }
   }
 
+  // Radius selector pills component
+  const RadiusSelector = ({ showLabel = true }: { showLabel?: boolean }) => (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: spacing['2xs']
+    }}>
+      {showLabel && (
+        <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs, marginRight: spacing['2xs'] }}>
+          Radius:
+        </span>
+      )}
+      {RADIUS_OPTIONS.map((r) => (
+        <button
+          key={r}
+          type="button"
+          onClick={() => onRadiusChange?.(r)}
+          style={{
+            padding: `${spacing['3xs']} ${spacing.xs}`,
+            backgroundColor: currentRadius === r ? '#3b82f6' : 'white',
+            color: currentRadius === r ? 'white' : '#374151',
+            border: `1px solid ${currentRadius === r ? '#3b82f6' : '#d1d5db'}`,
+            borderRadius: radius.sm,
+            fontSize: typography.sizes.xs,
+            fontWeight: currentRadius === r ? 600 : 400,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          {r}mi
+        </button>
+      ))}
+    </div>
+  )
+
   // Show current location with change option (green bar)
   if (hasLocation && locationText) {
     // Check if it's a ZIP code (5 digits)
     const isZipCode = /^\d{5}$/.test(locationText)
-    // Format: "Markets nearby ZIP 46746 (25mi)" or "Vendors nearby Current location (25mi)"
+    // Format: "Markets nearby ZIP 46746" or "Vendors nearby Current location"
     const locationDisplay = isZipCode ? `ZIP ${locationText}` : locationText
 
     return (
@@ -123,9 +167,10 @@ export default function LocationSearchInline({
         backgroundColor: '#f0fdf4',
         border: '1px solid #86efac',
         borderRadius: radius.md,
-        fontSize: typography.sizes.sm
+        fontSize: typography.sizes.sm,
+        flexWrap: 'wrap'
       }}>
-        <span style={{ color: '#166534' }}>📍 {labelPrefix} {locationDisplay} (25mi)</span>
+        <span style={{ color: '#166534' }}>📍 {labelPrefix} {locationDisplay}</span>
         <button
           onClick={onClear}
           style={{
@@ -140,6 +185,9 @@ export default function LocationSearchInline({
         >
           Change
         </button>
+        <div style={{ marginLeft: 'auto' }}>
+          <RadiusSelector showLabel={false} />
+        </div>
       </div>
     )
   }
@@ -207,9 +255,9 @@ export default function LocationSearchInline({
       >
         {mode === 'loading' ? '...' : 'Use My Location'}
       </button>
-      <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs, marginLeft: 'auto' }}>
-        25mi radius
-      </span>
+      <div style={{ marginLeft: 'auto' }}>
+        <RadiusSelector />
+      </div>
       {error && (
         <span style={{
           color: '#dc2626',

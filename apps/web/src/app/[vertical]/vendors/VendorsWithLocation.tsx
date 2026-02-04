@@ -6,7 +6,7 @@ import LocationSearchInline from '@/components/location/LocationSearchInline'
 import VendorAvatar from '@/components/shared/VendorAvatar'
 import TierBadge from '@/components/shared/TierBadge'
 import { VendorTierType } from '@/lib/constants'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius as radiusToken } from '@/lib/design-tokens'
 
 interface VendorMarket {
   id: string
@@ -70,6 +70,9 @@ function getDisplayMarkets(markets: VendorMarket[]): { displayed: VendorMarket[]
   return { displayed, remaining }
 }
 
+const DEFAULT_RADIUS = 25
+const PAGE_SIZE = 35
+
 interface VendorsWithLocationProps {
   vertical: string
   initialVendors: EnrichedVendor[]
@@ -82,6 +85,7 @@ interface VendorsWithLocationProps {
     latitude: number
     longitude: number
     locationText: string
+    radius?: number
   } | null
 }
 
@@ -100,13 +104,19 @@ export default function VendorsWithLocation({
     initialLocation ? { lat: initialLocation.latitude, lng: initialLocation.longitude } : null
   )
   const [locationText, setLocationText] = useState(initialLocation?.locationText || '')
+  const [radius, setRadius] = useState(initialLocation?.radius || DEFAULT_RADIUS)
   // Start with initialVendors to show content immediately while location loads
   const [vendors, setVendors] = useState<EnrichedVendor[]>(initialVendors)
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   // If we have initialLocation, we can skip the API check
   const [locationChecked, setLocationChecked] = useState(!!initialLocation)
   // Track if we've done a location-based search yet (to know if we're showing preliminary data)
   const [hasLocationResults, setHasLocationResults] = useState(false)
+  // Pagination state
+  const [totalVendors, setTotalVendors] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [currentOffset, setCurrentOffset] = useState(0)
 
   // Check for saved location on mount - ONLY if no initialLocation provided
   useEffect(() => {
@@ -115,18 +125,22 @@ export default function VendorsWithLocation({
     }
   }, [])
 
-  // Re-fetch when filters change (and we have location)
+  // Re-fetch when filters or radius change (and we have location)
   // Only run after initial location check is complete to avoid race condition
   useEffect(() => {
     if (!locationChecked) return // Wait for initial location check
 
     if (userLocation) {
-      fetchNearbyVendors(userLocation.lat, userLocation.lng)
+      // Reset pagination when filters change
+      setCurrentOffset(0)
+      fetchNearbyVendors(userLocation.lat, userLocation.lng, 0)
     } else {
       // No location set - show empty state (user needs to enter location)
       setVendors([])
+      setTotalVendors(0)
+      setHasMore(false)
     }
-  }, [currentMarket, currentCategory, currentSearch, currentSort, locationChecked])
+  }, [currentMarket, currentCategory, currentSearch, currentSort, radius, locationChecked])
 
   const checkSavedLocation = async () => {
     try {
@@ -137,8 +151,9 @@ export default function VendorsWithLocation({
         setHasLocation(true)
         setUserLocation({ lat: data.latitude, lng: data.longitude })
         setLocationText(data.locationText || 'Your location')
+        if (data.radius) setRadius(data.radius)
         // Fetch nearby vendors and then mark location as checked
-        await fetchNearbyVendors(data.latitude, data.longitude)
+        await fetchNearbyVendors(data.latitude, data.longitude, 0)
       } else {
         setHasLocation(false)
       }
@@ -150,14 +165,20 @@ export default function VendorsWithLocation({
     }
   }
 
-  const fetchNearbyVendors = async (lat: number, lng: number) => {
-    setLoading(true)
+  const fetchNearbyVendors = async (lat: number, lng: number, offset: number = 0, append: boolean = false) => {
+    if (append) {
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
+    }
     try {
       const params = new URLSearchParams({
         lat: lat.toString(),
         lng: lng.toString(),
         vertical,
-        radius: '25',
+        radius: radius.toString(),
+        limit: PAGE_SIZE.toString(),
+        offset: offset.toString(),
         sort: currentSort
       })
 
@@ -169,10 +190,20 @@ export default function VendorsWithLocation({
       const data = await response.json()
 
       if (data.vendors) {
-        setVendors(data.vendors.map((v: Record<string, unknown>) => ({
+        const mappedVendors = data.vendors.map((v: Record<string, unknown>) => ({
           ...v,
           tier: (v.tier || 'standard') as VendorTierType
-        })))
+        }))
+
+        if (append) {
+          setVendors(prev => [...prev, ...mappedVendors])
+        } else {
+          setVendors(mappedVendors)
+        }
+
+        setTotalVendors(data.total || mappedVendors.length)
+        setHasMore(data.hasMore || false)
+        setCurrentOffset(offset + mappedVendors.length)
         setHasLocationResults(true)
       }
     } catch (error) {
@@ -182,12 +213,34 @@ export default function VendorsWithLocation({
       setHasLocationResults(true) // Mark as "done" even on error to stop loading indicator
     } finally {
       setLoading(false)
+      setLoadingMore(false)
+    }
+  }
+
+  const handleLoadMore = () => {
+    if (userLocation && hasMore && !loadingMore) {
+      fetchNearbyVendors(userLocation.lat, userLocation.lng, currentOffset, true)
+    }
+  }
+
+  const handleRadiusChange = async (newRadius: number) => {
+    setRadius(newRadius)
+    // Save radius to cookie via API
+    try {
+      await fetch('/api/buyer/location', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ radius: newRadius })
+      })
+    } catch {
+      // Ignore errors - radius will still work locally
     }
   }
 
   const handleLocationSet = async (lat: number, lng: number, source: 'gps' | 'manual', providedLocationText?: string) => {
     setUserLocation({ lat, lng })
     setHasLocation(true)
+    setCurrentOffset(0)
 
     // Use provided location text if available, otherwise fetch from API
     if (providedLocationText) {
@@ -202,11 +255,14 @@ export default function VendorsWithLocation({
         setLocationText(source === 'gps' ? 'Current location' : 'Your location')
       }
     }
-    fetchNearbyVendors(lat, lng)
+    fetchNearbyVendors(lat, lng, 0)
   }
 
   const handleClearLocation = () => {
     setHasLocation(false)
+    setTotalVendors(0)
+    setHasMore(false)
+    setCurrentOffset(0)
     setUserLocation(null)
     setLocationText('')
     // Clear vendors - user needs to enter new location
@@ -223,6 +279,8 @@ export default function VendorsWithLocation({
           locationText={locationText}
           onClear={handleClearLocation}
           labelPrefix="Vendors nearby"
+          radius={radius}
+          onRadiusChange={handleRadiusChange}
         />
       </div>
 
@@ -233,7 +291,7 @@ export default function VendorsWithLocation({
           marginBottom: spacing.md,
           backgroundColor: '#eff6ff',
           border: '1px solid #bfdbfe',
-          borderRadius: radius.lg,
+          borderRadius: radiusToken.lg,
           textAlign: 'center'
         }}>
           <div style={{ fontSize: 24, marginBottom: spacing.xs }}>📍</div>
@@ -243,7 +301,7 @@ export default function VendorsWithLocation({
             fontSize: typography.sizes.base,
             fontWeight: typography.weights.medium
           }}>
-            Enter your ZIP code above to find vendors within 25 miles
+            Enter your ZIP code above to find vendors nearby
           </p>
         </div>
       )}
@@ -266,7 +324,8 @@ export default function VendorsWithLocation({
         fontSize: typography.sizes.sm,
         display: 'flex',
         alignItems: 'center',
-        gap: spacing.xs
+        gap: spacing.xs,
+        flexWrap: 'wrap'
       }}>
         {loading && vendors.length > 0 ? (
           // Show refining message when we have preliminary results
@@ -282,10 +341,17 @@ export default function VendorsWithLocation({
             }} />
             <span>Finding vendors near you...</span>
           </>
+        ) : hasLocationResults && hasLocation ? (
+          // Show "Showing X of Y" when we have location results
+          <span>
+            {totalVendors > vendors.length
+              ? `Showing ${vendors.length} of ${totalVendors} vendors within ${radius} miles (closest first)`
+              : `${vendors.length} vendor${vendors.length !== 1 ? 's' : ''} found within ${radius} miles`
+            }
+          </span>
         ) : (
           <span>
             {vendors.length} vendor{vendors.length !== 1 ? 's' : ''} found
-            {hasLocationResults && hasLocation && ' within 25 miles'}
             {!hasLocationResults && vendors.length > 0 && !hasLocation && ' (enter ZIP for local results)'}
           </span>
         )}
@@ -310,7 +376,7 @@ export default function VendorsWithLocation({
                 padding: spacing.md,
                 backgroundColor: colors.surfaceElevated,
                 border: `1px solid ${colors.border}`,
-                borderRadius: radius.lg,
+                borderRadius: radiusToken.lg,
                 textDecoration: 'none',
                 transition: 'box-shadow 0.2s, transform 0.2s',
                 height: '100%',
@@ -402,7 +468,7 @@ export default function VendorsWithLocation({
                 <div style={{
                   padding: `${spacing['2xs']} ${spacing.xs}`,
                   backgroundColor: colors.surfaceMuted,
-                  borderRadius: radius.sm,
+                  borderRadius: radiusToken.sm,
                   marginBottom: spacing.xs,
                   fontSize: typography.sizes.xs,
                   color: colors.textSecondary
@@ -446,7 +512,7 @@ export default function VendorsWithLocation({
                           <span style={{
                             padding: `${spacing['3xs']} ${spacing.xs}`,
                             backgroundColor: colors.surfaceSubtle,
-                            borderRadius: radius.sm,
+                            borderRadius: radiusToken.sm,
                             fontWeight: typography.weights.medium,
                             flexShrink: 0
                           }}>
@@ -494,7 +560,7 @@ export default function VendorsWithLocation({
         <div style={{
           padding: spacing['3xl'],
           backgroundColor: colors.surfaceElevated,
-          borderRadius: radius.lg,
+          borderRadius: radiusToken.lg,
           border: `1px dashed ${colors.border}`,
           textAlign: 'center'
         }}>
@@ -514,11 +580,55 @@ export default function VendorsWithLocation({
             {currentSearch || currentMarket || currentCategory
               ? 'Try adjusting your filters to see more vendors'
               : hasLocation
-                ? 'No vendors found within 25 miles'
+                ? `No vendors found within ${radius} miles. Try increasing your search radius.`
                 : 'Check back soon for local vendors in your area'}
           </p>
         </div>
       ) : null}
+
+      {/* Load More button */}
+      {hasMore && !loading && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          marginTop: spacing.lg
+        }}>
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            style={{
+              padding: `${spacing.sm} ${spacing.xl}`,
+              backgroundColor: loadingMore ? '#e5e7eb' : '#3b82f6',
+              color: loadingMore ? '#6b7280' : 'white',
+              border: 'none',
+              borderRadius: radiusToken.md,
+              fontSize: typography.sizes.base,
+              fontWeight: 600,
+              cursor: loadingMore ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs
+            }}
+          >
+            {loadingMore ? (
+              <>
+                <span style={{
+                  display: 'inline-block',
+                  width: 14,
+                  height: 14,
+                  border: '2px solid #9ca3af',
+                  borderTopColor: '#6b7280',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+                Loading...
+              </>
+            ) : (
+              `Load ${Math.min(PAGE_SIZE, totalVendors - vendors.length)} More Vendors`
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Responsive grid - cards fill available space with minimum width */}
       <style>{`

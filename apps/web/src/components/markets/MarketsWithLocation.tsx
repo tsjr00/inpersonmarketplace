@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import LocationSearchInline from '@/components/location/LocationSearchInline'
 import MarketCard from '@/components/markets/MarketCard'
-import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius as radiusToken, shadows } from '@/lib/design-tokens'
+
+const DEFAULT_RADIUS = 25
+const PAGE_SIZE = 35
 
 interface Market {
   id: string
@@ -36,6 +39,7 @@ interface MarketsWithLocationProps {
     latitude: number
     longitude: number
     locationText: string
+    radius?: number
   } | null
 }
 
@@ -53,13 +57,19 @@ export default function MarketsWithLocation({
     initialLocation ? { lat: initialLocation.latitude, lng: initialLocation.longitude } : null
   )
   const [locationText, setLocationText] = useState(initialLocation?.locationText || '')
+  const [radius, setRadius] = useState(initialLocation?.radius || DEFAULT_RADIUS)
   // Start with initialMarkets to show content immediately while location loads
   const [markets, setMarkets] = useState<Market[]>(initialMarkets)
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   // If we have initialLocation, we can skip the API check
   const [locationChecked, setLocationChecked] = useState(!!initialLocation)
   // Track if we've done a location-based search yet (to know if we're showing preliminary data)
   const [hasLocationResults, setHasLocationResults] = useState(false)
+  // Pagination state
+  const [totalMarkets, setTotalMarkets] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [currentOffset, setCurrentOffset] = useState(0)
 
   // Check for saved location on mount - ONLY if no initialLocation provided
   useEffect(() => {
@@ -68,18 +78,22 @@ export default function MarketsWithLocation({
     }
   }, [])
 
-  // Re-fetch when city or search filters change (and we have location)
+  // Re-fetch when filters or radius change (and we have location)
   // Only run after initial location check to avoid race condition
   useEffect(() => {
     if (!locationChecked) return // Wait for initial location check
 
     if (userLocation) {
-      fetchNearbyMarkets(userLocation.lat, userLocation.lng)
+      // Reset pagination when filters change
+      setCurrentOffset(0)
+      fetchNearbyMarkets(userLocation.lat, userLocation.lng, 0)
     } else {
       // No location set - show empty state (user needs to enter location)
       setMarkets([])
+      setTotalMarkets(0)
+      setHasMore(false)
     }
-  }, [currentCity, currentSearch, locationChecked])
+  }, [currentCity, currentSearch, radius, locationChecked])
 
   const checkSavedLocation = async () => {
     try {
@@ -90,8 +104,9 @@ export default function MarketsWithLocation({
         setHasLocation(true)
         setUserLocation({ lat: data.latitude, lng: data.longitude })
         setLocationText(data.locationText || 'Your location')
+        if (data.radius) setRadius(data.radius)
         // Fetch nearby markets and then mark location as checked
-        await fetchNearbyMarkets(data.latitude, data.longitude)
+        await fetchNearbyMarkets(data.latitude, data.longitude, 0)
       } else {
         setHasLocation(false)
       }
@@ -103,14 +118,20 @@ export default function MarketsWithLocation({
     }
   }
 
-  const fetchNearbyMarkets = async (lat: number, lng: number) => {
-    setLoading(true)
+  const fetchNearbyMarkets = async (lat: number, lng: number, offset: number = 0, append: boolean = false) => {
+    if (append) {
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
+    }
     try {
       const params = new URLSearchParams({
         lat: lat.toString(),
         lng: lng.toString(),
         vertical,
-        radius: '25',
+        radius: radius.toString(),
+        limit: PAGE_SIZE.toString(),
+        offset: offset.toString(),
         type: 'traditional' // Only fetch traditional markets
       })
 
@@ -126,13 +147,23 @@ export default function MarketsWithLocation({
       const data = await response.json()
 
       if (data.markets) {
-        setMarkets(data.markets.map((m: Record<string, unknown>) => ({
+        const mappedMarkets = data.markets.map((m: Record<string, unknown>) => ({
           ...m,
           market_type: (m.market_type || 'traditional') as 'traditional' | 'private_pickup',
           active: (m.active as boolean) ?? ((m.status as string) === 'active'),
           schedules: m.market_schedules as Market['schedules'],
           vendor_count: (m.vendor_count as number) || 0
-        })))
+        }))
+
+        if (append) {
+          setMarkets(prev => [...prev, ...mappedMarkets])
+        } else {
+          setMarkets(mappedMarkets)
+        }
+
+        setTotalMarkets(data.total || mappedMarkets.length)
+        setHasMore(data.hasMore || false)
+        setCurrentOffset(offset + mappedMarkets.length)
         setHasLocationResults(true)
       }
     } catch (error) {
@@ -142,12 +173,34 @@ export default function MarketsWithLocation({
       setHasLocationResults(true) // Mark as "done" even on error to stop loading indicator
     } finally {
       setLoading(false)
+      setLoadingMore(false)
+    }
+  }
+
+  const handleLoadMore = () => {
+    if (userLocation && hasMore && !loadingMore) {
+      fetchNearbyMarkets(userLocation.lat, userLocation.lng, currentOffset, true)
+    }
+  }
+
+  const handleRadiusChange = async (newRadius: number) => {
+    setRadius(newRadius)
+    // Save radius to cookie via API
+    try {
+      await fetch('/api/buyer/location', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ radius: newRadius })
+      })
+    } catch {
+      // Ignore errors - radius will still work locally
     }
   }
 
   const handleLocationSet = async (lat: number, lng: number, source: 'gps' | 'manual', providedLocationText?: string) => {
     setUserLocation({ lat, lng })
     setHasLocation(true)
+    setCurrentOffset(0)
 
     // Use provided location text if available, otherwise fetch from API
     if (providedLocationText) {
@@ -162,13 +215,16 @@ export default function MarketsWithLocation({
         setLocationText(source === 'gps' ? 'Current location' : 'Your location')
       }
     }
-    fetchNearbyMarkets(lat, lng)
+    fetchNearbyMarkets(lat, lng, 0)
   }
 
   const handleClearLocation = () => {
     setHasLocation(false)
     setUserLocation(null)
     setLocationText('')
+    setTotalMarkets(0)
+    setHasMore(false)
+    setCurrentOffset(0)
     // Clear markets - user needs to enter new location
     setMarkets([])
   }
@@ -183,6 +239,8 @@ export default function MarketsWithLocation({
           locationText={locationText}
           onClear={handleClearLocation}
           labelPrefix="Markets nearby"
+          radius={radius}
+          onRadiusChange={handleRadiusChange}
         />
       </div>
 
@@ -193,7 +251,7 @@ export default function MarketsWithLocation({
           marginBottom: spacing.md,
           backgroundColor: '#eff6ff',
           border: '1px solid #bfdbfe',
-          borderRadius: radius.lg,
+          borderRadius: radiusToken.lg,
           textAlign: 'center'
         }}>
           <div style={{ fontSize: 24, marginBottom: spacing.xs }}>📍</div>
@@ -203,7 +261,7 @@ export default function MarketsWithLocation({
             fontSize: typography.sizes.base,
             fontWeight: typography.weights.medium
           }}>
-            Enter your ZIP code above to find markets within 25 miles
+            Enter your ZIP code above to find markets nearby
           </p>
         </div>
       )}
@@ -226,7 +284,8 @@ export default function MarketsWithLocation({
         fontSize: typography.sizes.sm,
         display: 'flex',
         alignItems: 'center',
-        gap: spacing.xs
+        gap: spacing.xs,
+        flexWrap: 'wrap'
       }}>
         {loading && markets.length > 0 ? (
           // Show refining message when we have preliminary results
@@ -242,10 +301,17 @@ export default function MarketsWithLocation({
             }} />
             <span>Finding markets near you...</span>
           </>
+        ) : hasLocationResults && hasLocation ? (
+          // Show "Showing X of Y" when we have location results
+          <span>
+            {totalMarkets > markets.length
+              ? `Showing ${markets.length} of ${totalMarkets} markets within ${radius} miles (closest first)`
+              : `${markets.length} market${markets.length !== 1 ? 's' : ''} found within ${radius} miles`
+            }
+          </span>
         ) : (
           <span>
             {markets.length} market{markets.length !== 1 ? 's' : ''} found
-            {hasLocationResults && hasLocation && ' within 25 miles'}
             {!hasLocationResults && markets.length > 0 && !hasLocation && ' (enter ZIP for local results)'}
           </span>
         )}
@@ -267,7 +333,7 @@ export default function MarketsWithLocation({
       ) : !loading ? (
         <div style={{
           backgroundColor: colors.surfaceElevated,
-          borderRadius: radius.lg,
+          borderRadius: radiusToken.lg,
           padding: spacing['3xl'],
           textAlign: 'center',
           boxShadow: shadows.sm,
@@ -276,7 +342,7 @@ export default function MarketsWithLocation({
           <div style={{ fontSize: '3rem', marginBottom: spacing.sm }}>🧺</div>
           <p style={{ color: colors.textSecondary, fontSize: typography.sizes.lg, margin: 0, fontWeight: typography.weights.medium }}>
             {hasLocation
-              ? 'No farmers markets found within 25 miles'
+              ? `No farmers markets found within ${radius} miles. Try increasing your search radius.`
               : 'No farmers markets found matching your filters'}
           </p>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, marginTop: spacing.sm, maxWidth: 400, marginLeft: 'auto', marginRight: 'auto' }}>
@@ -293,7 +359,7 @@ export default function MarketsWithLocation({
               padding: `${spacing.sm} ${spacing.lg}`,
               backgroundColor: colors.primary,
               color: colors.textInverse,
-              borderRadius: radius.full,
+              borderRadius: radiusToken.full,
               fontSize: typography.sizes.base,
               fontWeight: typography.weights.semibold,
               textDecoration: 'none',
@@ -307,6 +373,50 @@ export default function MarketsWithLocation({
           </p>
         </div>
       ) : null}
+
+      {/* Load More button */}
+      {hasMore && !loading && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          marginTop: spacing.lg
+        }}>
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            style={{
+              padding: `${spacing.sm} ${spacing.xl}`,
+              backgroundColor: loadingMore ? '#e5e7eb' : '#3b82f6',
+              color: loadingMore ? '#6b7280' : 'white',
+              border: 'none',
+              borderRadius: radiusToken.md,
+              fontSize: typography.sizes.base,
+              fontWeight: 600,
+              cursor: loadingMore ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs
+            }}
+          >
+            {loadingMore ? (
+              <>
+                <span style={{
+                  display: 'inline-block',
+                  width: 14,
+                  height: 14,
+                  border: '2px solid #9ca3af',
+                  borderTopColor: '#6b7280',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+                Loading...
+              </>
+            ) : (
+              `Load ${Math.min(PAGE_SIZE, totalMarkets - markets.length)} More Markets`
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Responsive grid - cards fill available space with minimum width */}
       <style>{`

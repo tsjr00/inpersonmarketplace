@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const DEFAULT_RADIUS_MILES = 25
+const DEFAULT_PAGE_SIZE = 35
 const METERS_PER_MILE = 1609.344
 
 // Haversine formula for distance between two points in miles
@@ -26,6 +27,8 @@ export async function GET(request: NextRequest) {
     const lng = searchParams.get('lng')
     const vertical = searchParams.get('vertical')
     const radiusMiles = parseFloat(searchParams.get('radius') || String(DEFAULT_RADIUS_MILES))
+    const limit = parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10)
+    const offset = parseInt(searchParams.get('offset') || '0', 10)
     const market = searchParams.get('market')
     const category = searchParams.get('category')
     const search = searchParams.get('search')
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
     // If PostGIS function fails (e.g., not available), fall back to cache-based method
     if (postgisError) {
       console.log('[Vendors Nearby] PostGIS function failed, using fallback:', postgisError.message)
-      return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, market, category, search, sort)
+      return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, market, category, search, sort)
     }
 
     if (!nearbyVendors || nearbyVendors.length === 0) {
@@ -215,7 +218,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // STEP 5: Sort vendors
+    // STEP 5: Sort vendors (always by distance first for location-based queries, then by selected sort within tier)
     filteredVendors.sort((a, b) => {
       // Premium/featured vendors first
       const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
@@ -223,9 +226,13 @@ export async function GET(request: NextRequest) {
       const bTier = tierOrder[b.tier] ?? 2
       if (aTier !== bTier) return aTier - bTier
 
+      // Within same tier, sort by distance (closest first for location-based search)
+      const distA = a.distance_miles ?? 999
+      const distB = b.distance_miles ?? 999
+      if (distA !== distB) return distA - distB
+
+      // Then apply secondary sort
       switch (sort) {
-        case 'distance':
-          return (a.distance_miles ?? 999) - (b.distance_miles ?? 999)
         case 'rating':
           if (a.averageRating && !b.averageRating) return -1
           if (!a.averageRating && b.averageRating) return 1
@@ -240,9 +247,16 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // STEP 6: Apply pagination
+    const total = filteredVendors.length
+    const paginatedVendors = filteredVendors.slice(offset, offset + limit)
+    const hasMore = offset + paginatedVendors.length < total
+
     return NextResponse.json(
       {
-        vendors: filteredVendors,
+        vendors: paginatedVendors,
+        total,
+        hasMore,
         center: { latitude, longitude },
         radiusMiles
       },
@@ -264,6 +278,8 @@ async function fallbackNearbyQuery(
   latitude: number,
   longitude: number,
   radiusMiles: number,
+  limit: number,
+  offset: number,
   vertical: string | null,
   market: string | null,
   category: string | null,
@@ -419,15 +435,19 @@ async function fallbackNearbyQuery(
     )
   }
 
-  // Sort
+  // Sort (always by distance first, then secondary sort)
   filteredVendors.sort((a, b) => {
     const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
     const aTier = tierOrder[a.tier] ?? 2
     const bTier = tierOrder[b.tier] ?? 2
     if (aTier !== bTier) return aTier - bTier
 
+    // Distance first (closest first)
+    const distA = a.distance_miles ?? 999
+    const distB = b.distance_miles ?? 999
+    if (distA !== distB) return distA - distB
+
     switch (sort) {
-      case 'distance': return (a.distance_miles ?? 999) - (b.distance_miles ?? 999)
       case 'rating':
         if (a.averageRating && !b.averageRating) return -1
         if (!a.averageRating && b.averageRating) return 1
@@ -437,8 +457,15 @@ async function fallbackNearbyQuery(
     }
   })
 
+  // Apply pagination
+  const total = filteredVendors.length
+  const paginatedVendors = filteredVendors.slice(offset, offset + limit)
+  const hasMore = offset + paginatedVendors.length < total
+
   return NextResponse.json({
-    vendors: filteredVendors,
+    vendors: paginatedVendors,
+    total,
+    hasMore,
     center: { latitude, longitude },
     radiusMiles,
     fallback: true
