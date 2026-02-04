@@ -114,26 +114,18 @@ export default function PickupLocationsCard({
     return getOrder(a) - getOrder(b)
   })
 
-  const hasClosedMarkets = sortedMarkets.some(m => !m.is_accepting)
-  const hasOpenMarkets = sortedMarkets.some(m => m.is_accepting)
-
   // Format time until cutoff
   const formatTimeRemaining = (hoursLeft: number): string => {
     if (hoursLeft < 1) {
       const minutes = Math.max(1, Math.round(hoursLeft * 60))
-      return `${minutes} minute${minutes !== 1 ? 's' : ''}`
+      return `${minutes}m`
     }
     if (hoursLeft < 24) {
       const hours = Math.floor(hoursLeft)
-      return `${hours} hour${hours !== 1 ? 's' : ''}`
+      return `${hours}h`
     }
     const days = Math.floor(hoursLeft / 24)
-    return `${days} day${days !== 1 ? 's' : ''}`
-  }
-
-  // Format day of week
-  const getDayName = (dayOfWeek: number): string => {
-    return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]
+    return `${days}d`
   }
 
   // Determine card background and text colors based on status
@@ -146,7 +138,7 @@ export default function PickupLocationsCard({
         statusColor: '#991b1b',
         textColor: '#7f1d1d',
         icon: '✗',
-        statusText: 'Orders Currently Closed'
+        statusText: 'Closed'
       }
     }
     if (market.is_closing_soon && market.hours_until_cutoff !== null) {
@@ -157,7 +149,7 @@ export default function PickupLocationsCard({
         statusColor: '#92400e',
         textColor: '#78350f',
         icon: '⏰',
-        statusText: `Orders close in ${formatTimeRemaining(market.hours_until_cutoff)}`
+        statusText: `Closes in ${formatTimeRemaining(market.hours_until_cutoff)}`
       }
     }
     // Open - green
@@ -167,120 +159,123 @@ export default function PickupLocationsCard({
       statusColor: '#166534',
       textColor: '#15803d',
       icon: '✓',
-      statusText: 'Accepting Orders'
+      statusText: 'Open'
     }
   }
 
   return (
-    <div>
-      {/* Main container with green border */}
+    <div style={{
+      border: `2px solid ${primaryColor}`,
+      borderRadius: radius.sm,
+      overflow: 'hidden'
+    }}>
+      {/* Header - compact */}
       <div style={{
-        border: `2px solid ${primaryColor}`,
-        borderRadius: radius.md,
-        overflow: 'hidden',
-        marginBottom: hasClosedMarkets && hasOpenMarkets ? spacing.sm : 0
+        padding: `${spacing['2xs']} ${spacing.xs}`,
+        backgroundColor: colors.surfaceElevated,
+        borderBottom: `1px solid ${colors.border}`
       }}>
-        {/* Header */}
         <div style={{
-          padding: `${spacing.xs} ${spacing.sm}`,
-          backgroundColor: colors.surfaceElevated,
-          borderBottom: `1px solid ${colors.border}`
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing.xs
-          }}>
-            <span style={{ fontSize: 16 }}>📍</span>
-            <span style={{
-              fontWeight: typography.weights.semibold,
-              color: colors.textPrimary,
-              fontSize: typography.sizes.sm
-            }}>
-              Available Pickup Locations
-            </span>
-          </div>
-        </div>
-
-        {/* Location cards */}
-        <div style={{
-          padding: spacing.sm,
           display: 'flex',
-          flexDirection: 'column',
-          gap: spacing.xs,
-          backgroundColor: colors.surfaceElevated
+          alignItems: 'center',
+          gap: spacing['2xs']
         }}>
-          {loading ? (
-            <div style={{
-              padding: spacing.sm,
-              textAlign: 'center',
-              color: colors.textMuted,
-              fontSize: typography.sizes.sm
-            }}>
-              Loading availability...
-            </div>
-          ) : (
-            sortedMarkets.map(market => {
-              const styles = getCardStyles(market)
-              const isPrivate = market.market_type === 'private_pickup'
-              const showAddress = !isPrivate || isLoggedIn
+          <span style={{ fontSize: 14 }}>📍</span>
+          <span style={{
+            fontWeight: typography.weights.semibold,
+            color: colors.textPrimary,
+            fontSize: typography.sizes.xs
+          }}>
+            Pickup Locations
+          </span>
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={market.market_id}
-                  style={{
-                    padding: spacing.sm,
-                    backgroundColor: styles.backgroundColor,
-                    border: `1px solid ${styles.borderColor}`,
-                    borderRadius: radius.sm
-                  }}
-                >
-                  {/* Status indicator */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing['2xs'],
-                    marginBottom: spacing['2xs']
+      {/* Location cards - compact */}
+      <div style={{
+        padding: spacing['2xs'],
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing['2xs'],
+        backgroundColor: colors.surfaceElevated
+      }}>
+        {loading ? (
+          <div style={{
+            padding: spacing.xs,
+            textAlign: 'center',
+            color: colors.textMuted,
+            fontSize: typography.sizes.xs
+          }}>
+            Loading...
+          </div>
+        ) : (
+          sortedMarkets.map(market => {
+            const styles = getCardStyles(market)
+            const isPrivate = market.market_type === 'private_pickup'
+            const showAddress = !isPrivate || isLoggedIn
+
+            return (
+              <div
+                key={market.market_id}
+                style={{
+                  padding: `${spacing['2xs']} ${spacing.xs}`,
+                  backgroundColor: styles.backgroundColor,
+                  border: `1px solid ${styles.borderColor}`,
+                  borderRadius: radius.sm,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.xs
+                }}
+              >
+                {/* Status icon and text */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing['3xs'],
+                  minWidth: 70
+                }}>
+                  <span style={{
+                    fontWeight: typography.weights.bold,
+                    color: styles.statusColor,
+                    fontSize: typography.sizes.sm
                   }}>
-                    <span style={{
-                      fontWeight: typography.weights.bold,
-                      color: styles.statusColor,
-                      fontSize: typography.sizes.base
-                    }}>
-                      {styles.icon}
-                    </span>
-                    <span style={{
-                      fontWeight: typography.weights.semibold,
-                      color: styles.statusColor,
-                      fontSize: typography.sizes.sm
-                    }}>
-                      {styles.statusText}
-                    </span>
-                  </div>
-
-                  {/* Market name */}
-                  <div style={{
+                    {styles.icon}
+                  </span>
+                  <span style={{
                     fontWeight: typography.weights.semibold,
-                    color: styles.textColor,
-                    fontSize: typography.sizes.sm,
-                    marginBottom: spacing['3xs']
+                    color: styles.statusColor,
+                    fontSize: typography.sizes.xs
                   }}>
-                    {isPrivate ? 'Private Pickup: ' : 'Market: '}
+                    {styles.statusText}
+                  </span>
+                </div>
+
+                {/* Market info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontWeight: typography.weights.medium,
+                    color: styles.textColor,
+                    fontSize: typography.sizes.xs,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
                     {market.market_name}
                   </div>
-
-                  {/* Address */}
                   {showAddress ? (
                     <div style={{
                       color: styles.textColor,
-                      fontSize: typography.sizes.xs,
-                      opacity: 0.9
+                      fontSize: 10,
+                      opacity: 0.85,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
                     }}>
-                      {market.address}, {market.city}, {market.state}
+                      {market.city}, {market.state}
                     </div>
                   ) : (
                     <div style={{
-                      fontSize: typography.sizes.xs,
+                      fontSize: 10,
                       fontStyle: 'italic',
                       color: styles.textColor
                     }}>
@@ -290,93 +285,15 @@ export default function PickupLocationsCard({
                       >
                         Log in
                       </Link>
-                      {' '}to see pickup address
-                    </div>
-                  )}
-
-                  {/* Schedule for traditional markets */}
-                  {market.market_type === 'traditional' && market.day_of_week !== null && (
-                    <div style={{
-                      color: styles.textColor,
-                      fontSize: typography.sizes.xs,
-                      marginTop: spacing['3xs'],
-                      opacity: 0.9
-                    }}>
-                      {getDayName(market.day_of_week)}
-                      {market.start_time && market.end_time && ` ${market.start_time} - ${market.end_time}`}
+                      {' '}for address
                     </div>
                   )}
                 </div>
-              )
-            })
-          )}
-        </div>
+              </div>
+            )
+          })
+        )}
       </div>
-
-      {/* Yellow warning box - only shown when there are closed markets AND open markets */}
-      {hasClosedMarkets && hasOpenMarkets && (
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: '#fffbeb',
-          border: '1px solid #fde68a',
-          borderRadius: radius.md
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: spacing.xs
-          }}>
-            <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
-            <p style={{
-              margin: 0,
-              fontSize: typography.sizes.xs,
-              color: '#78350f',
-              lineHeight: 1.4
-            }}>
-              If you missed the cutoff time for pre-orders, please visit the market in person or order this item to be picked up at another location.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Different message when ALL markets are closed */}
-      {hasClosedMarkets && !hasOpenMarkets && (
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: '#fffbeb',
-          border: '1px solid #fde68a',
-          borderRadius: radius.md,
-          marginTop: spacing.sm
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: spacing.xs
-          }}>
-            <span style={{ fontSize: 14, flexShrink: 0 }}>⏰</span>
-            <div>
-              <p style={{
-                margin: 0,
-                fontSize: typography.sizes.xs,
-                color: '#78350f',
-                lineHeight: 1.4,
-                marginBottom: spacing['2xs']
-              }}>
-                Orders automatically close before market/pickup day to give vendors time to prepare.
-              </p>
-              <p style={{
-                margin: 0,
-                fontSize: typography.sizes.xs,
-                color: '#78350f',
-                lineHeight: 1.4,
-                fontStyle: 'italic'
-              }}>
-                Orders will reopen after the scheduled market/pickup time. Check back soon!
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

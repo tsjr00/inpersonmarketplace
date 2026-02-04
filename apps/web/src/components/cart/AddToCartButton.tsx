@@ -22,6 +22,8 @@ interface AddToCartButtonProps {
   vertical?: string
   ordersClosed?: boolean
   markets?: AvailableMarket[]
+  /** Show warning when some markets are closed but others are open */
+  showMixedAvailabilityWarning?: boolean
 }
 
 export function AddToCartButton({
@@ -30,7 +32,8 @@ export function AddToCartButton({
   primaryColor = '#333',
   vertical = 'farmers_market',
   ordersClosed = false,
-  markets = []
+  markets = [],
+  showMixedAvailabilityWarning = false
 }: AddToCartButtonProps) {
   const { addToCart, items } = useCart()
   const { showToast, ToastContainer } = useToast()
@@ -116,82 +119,77 @@ export function AddToCartButton({
     <div>
       <ToastContainer />
 
-      {/* Market Selection - Show when multiple open markets */}
+      {/* Market Selection - Show when open markets exist */}
       {openMarkets.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 10 }}>
           <label style={{
             display: 'block',
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: 600,
             color: '#374151',
-            marginBottom: 8
+            marginBottom: 6
           }}>
-            Select Pickup Location *
+            Select Pickup Location
           </label>
 
           {hasMultipleMarkets ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {openMarkets.map(market => (
                 <button
                   key={market.market_id}
                   type="button"
                   onClick={() => setSelectedMarketId(market.market_id)}
                   style={{
-                    padding: 12,
+                    padding: '8px 10px',
                     border: selectedMarketId === market.market_id
                       ? `2px solid ${primaryColor}`
                       : '1px solid #e5e7eb',
-                    borderRadius: 8,
+                    borderRadius: 6,
                     backgroundColor: selectedMarketId === market.market_id ? '#f0fdf4' : 'white',
                     cursor: 'pointer',
                     textAlign: 'left'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 14 }}>
                       {market.market_type === 'traditional' ? '🏪' : '📦'}
                     </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 13 }}>
                         {market.market_name}
                       </div>
-                      {market.city && (
-                        <div style={{ fontSize: 12, color: '#6b7280' }}>
-                          {market.city}, {market.state}
-                        </div>
-                      )}
                       {market.next_pickup_at && (
-                        <div style={{ fontSize: 11, color: '#059669', marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: '#059669' }}>
                           Next: {formatNextPickup(market.next_pickup_at)}
                         </div>
                       )}
                     </div>
                     {selectedMarketId === market.market_id && (
-                      <span style={{ color: primaryColor, fontSize: 18 }}>✓</span>
+                      <span style={{ color: primaryColor, fontSize: 16 }}>✓</span>
                     )}
                   </div>
                 </button>
               ))}
             </div>
           ) : (
-            // Single market - show as info
+            // Single market - show as info, more compact
             <div style={{
-              padding: 12,
+              padding: '8px 10px',
               border: '1px solid #e5e7eb',
-              borderRadius: 8,
+              borderRadius: 6,
               backgroundColor: '#f9fafb'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14 }}>
                   {openMarkets[0]?.market_type === 'traditional' ? '🏪' : '📦'}
                 </span>
                 <div>
-                  <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
+                  <div style={{ fontWeight: 600, color: '#374151', fontSize: 13 }}>
                     {openMarkets[0]?.market_name}
                   </div>
-                  {openMarkets[0]?.city && (
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>
-                      {openMarkets[0].city}, {openMarkets[0].state}
+                  {openMarkets[0]?.next_pickup_at && (
+                    <div style={{ fontSize: 11, color: '#059669' }}>
+                      Next: {formatNextPickup(openMarkets[0].next_pickup_at)}
                     </div>
                   )}
                 </div>
@@ -201,38 +199,61 @@ export function AddToCartButton({
         </div>
       )}
 
+      {/* Mixed Availability Warning - show when some markets closed, others open */}
+      {showMixedAvailabilityWarning && (
+        <div style={{
+          padding: '8px 10px',
+          backgroundColor: '#fffbeb',
+          border: '1px solid #fde68a',
+          borderRadius: 6,
+          marginBottom: 12,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 6
+        }}>
+          <span style={{ fontSize: 12, flexShrink: 0 }}>⚠️</span>
+          <p style={{
+            margin: 0,
+            fontSize: 11,
+            color: '#78350f',
+            lineHeight: 1.4
+          }}>
+            If you missed the cutoff for pre-orders, visit the market in person or order for another location.
+          </p>
+        </div>
+      )}
 
       {/* Quantity Selector */}
       {!isSoldOut && availableToAdd > 0 && !hasNoOpenMarkets && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
-          marginBottom: 15,
+          gap: 8,
+          marginBottom: 10,
         }}>
-          <span style={{ fontSize: 14, color: '#666' }}>Quantity:</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontSize: 12, color: '#666' }}>Qty:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button
               type="button"
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               disabled={quantity <= 1}
               style={{
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 border: '1px solid #ddd',
                 borderRadius: 4,
                 backgroundColor: 'white',
                 cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
-                fontSize: 18,
+                fontSize: 16,
                 opacity: quantity <= 1 ? 0.5 : 1,
               }}
             >
               -
             </button>
             <span style={{
-              width: 40,
+              width: 32,
               textAlign: 'center',
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: 500,
             }}>
               {quantity}
@@ -242,13 +263,13 @@ export function AddToCartButton({
               onClick={() => setQuantity(Math.min(availableToAdd, quantity + 1))}
               disabled={quantity >= availableToAdd}
               style={{
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 border: '1px solid #ddd',
                 borderRadius: 4,
                 backgroundColor: 'white',
                 cursor: quantity >= availableToAdd ? 'not-allowed' : 'pointer',
-                fontSize: 18,
+                fontSize: 16,
                 opacity: quantity >= availableToAdd ? 0.5 : 1,
               }}
             >

@@ -296,7 +296,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 display: 'flex',
                 alignItems: 'baseline',
                 gap: spacing.sm,
-                marginBottom: spacing.sm,
+                marginBottom: spacing.xs,
                 flexWrap: 'wrap'
               }}>
                 <div style={{
@@ -320,18 +320,9 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 </div>
               </div>
 
-              {/* Add to Cart */}
-              <ListingPurchaseSection
-                listingId={listingId}
-                maxQuantity={listing.quantity}
-                primaryColor={branding.colors.primary}
-                vertical={vertical}
-                isPremiumRestricted={isPremiumRestricted}
-              />
-
-              {/* Available Pickup Locations - unified card showing locations with availability status */}
+              {/* Pickup Locations Status - shows which locations are open/closed */}
               {listingMarkets && listingMarkets.length > 0 && (
-                <div style={{ marginTop: spacing.sm }}>
+                <div style={{ marginBottom: spacing.xs }}>
                   <PickupLocationsCard
                     listingId={listingId}
                     markets={listingMarkets as {
@@ -351,6 +342,15 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   />
                 </div>
               )}
+
+              {/* Market Selector + Warning + Quantity + Add to Cart */}
+              <ListingPurchaseSection
+                listingId={listingId}
+                maxQuantity={listing.quantity}
+                primaryColor={branding.colors.primary}
+                vertical={vertical}
+                isPremiumRestricted={isPremiumRestricted}
+              />
             </div>
 
             {/* Vendor Card */}

@@ -92,8 +92,12 @@ export default function ListingPurchaseSection({
     )
   }
 
-  // Note: The PickupLocationsCard component now handles the availability display
-  // This component only renders the Add to Cart button
+  // Calculate if we should show the mixed availability warning
+  // (some markets open, some closed)
+  const openMarkets = markets.filter(m => m.is_accepting)
+  const closedMarkets = markets.filter(m => !m.is_accepting)
+  const showMixedWarning = openMarkets.length > 0 && closedMarkets.length > 0
+
   return (
     <div>
       {loadingMarkets ? (
@@ -108,6 +112,7 @@ export default function ListingPurchaseSection({
           vertical={vertical}
           ordersClosed={ordersClosed}
           markets={markets}
+          showMixedAvailabilityWarning={showMixedWarning}
         />
       )}
     </div>
