@@ -216,6 +216,62 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
           {/* Right: Details */}
           <div>
+            {/* Description - Moved up for better mobile UX */}
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: `1px solid ${colors.border}`,
+              marginBottom: spacing.sm
+            }}>
+              <h2 style={{
+                color: colors.textPrimary,
+                margin: `0 0 ${spacing.xs} 0`,
+                fontSize: typography.sizes.lg,
+                fontWeight: typography.weights.semibold
+              }}>
+                Description
+              </h2>
+              <p style={{
+                color: colors.textSecondary,
+                lineHeight: typography.leading.relaxed,
+                fontSize: typography.sizes.base,
+                whiteSpace: 'pre-wrap',
+                margin: 0
+              }}>
+                {listing.description || 'No description provided.'}
+              </p>
+
+              {/* Allergen Warning */}
+              {listing.listing_data?.contains_allergens && (
+                <div style={{
+                  marginTop: spacing.sm,
+                  padding: spacing.sm,
+                  backgroundColor: colors.surfaceSubtle,
+                  border: `1px solid ${colors.accent}`,
+                  borderRadius: radius.md
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing['2xs'],
+                    marginBottom: spacing['2xs']
+                  }}>
+                    <span style={{ fontSize: 18 }}>⚠️</span>
+                    <strong style={{ color: colors.accent }}>Allergen Warning</strong>
+                  </div>
+                  <p style={{
+                    margin: 0,
+                    color: colors.textSecondary,
+                    fontSize: typography.sizes.sm,
+                    lineHeight: typography.leading.normal
+                  }}>
+                    {listing.listing_data?.ingredients || 'This product may contain allergens. Contact the vendor for details.'}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Listing Info Card */}
             <div style={{
               padding: spacing.sm,
@@ -224,23 +280,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               border: `1px solid ${colors.border}`,
               marginBottom: spacing.sm
             }}>
-              {/* Category */}
-              {listing.category && (
-                <span style={{
-                  display: 'inline-block',
-                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: colors.primaryLight,
-                  color: colors.primaryDark,
-                  borderRadius: radius.lg,
-                  fontSize: typography.sizes.xs,
-                  fontWeight: typography.weights.semibold,
-                  marginBottom: spacing.xs
-                }}>
-                  {listing.category}
-                </span>
-              )}
-
-              {/* Title */}
+              {/* Title - Category pill removed since user already clicked on item */}
               <h1 style={{
                 color: colors.textPrimary,
                 margin: `0 0 ${spacing.xs} 0`,
@@ -415,67 +455,12 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           </div>
         </div>
 
-        {/* Description & More from Vendor - stack below on mobile */}
+        {/* More from Vendor - stack below on mobile */}
         <div className="bottom-grid" style={{
           display: 'grid',
           gap: spacing.md,
           marginTop: spacing.md
         }}>
-          {/* Description */}
-          <div style={{
-            padding: spacing.sm,
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: radius.md,
-            border: `1px solid ${colors.border}`
-          }}>
-            <h2 style={{
-              color: colors.textPrimary,
-              margin: `0 0 ${spacing.xs} 0`,
-              fontSize: typography.sizes.lg,
-              fontWeight: typography.weights.semibold
-            }}>
-              Description
-            </h2>
-            <p style={{
-              color: colors.textSecondary,
-              lineHeight: typography.leading.relaxed,
-              fontSize: typography.sizes.base,
-              whiteSpace: 'pre-wrap',
-              margin: 0
-            }}>
-              {listing.description || 'No description provided.'}
-            </p>
-
-            {/* Allergen Warning */}
-            {listing.listing_data?.contains_allergens && (
-              <div style={{
-                marginTop: spacing.sm,
-                padding: spacing.sm,
-                backgroundColor: colors.surfaceSubtle,
-                border: `1px solid ${colors.accent}`,
-                borderRadius: radius.md
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing['2xs'],
-                  marginBottom: spacing['2xs']
-                }}>
-                  <span style={{ fontSize: 18 }}>⚠️</span>
-                  <strong style={{ color: colors.accent }}>Allergen Warning</strong>
-                </div>
-                <p style={{
-                  margin: 0,
-                  color: colors.textSecondary,
-                  fontSize: typography.sizes.sm,
-                  lineHeight: typography.leading.normal
-                }}>
-                  {listing.listing_data?.ingredients || 'This product may contain allergens. Contact the vendor for details.'}
-                </p>
-              </div>
-            )}
-          </div>
-
           {/* Other Listings from Vendor */}
           {otherListings && otherListings.length > 0 && (
             <div style={{
