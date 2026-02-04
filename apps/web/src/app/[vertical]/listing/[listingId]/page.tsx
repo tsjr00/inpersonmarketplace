@@ -411,61 +411,55 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 View Vendor Profile
               </Link>
             </div>
-          </div>
-        </div>
 
-        {/* More from Vendor - stack below on mobile */}
-        <div className="bottom-grid" style={{
-          display: 'grid',
-          gap: spacing.md,
-          marginTop: spacing.md
-        }}>
-          {/* Other Listings from Vendor */}
-          {otherListings && otherListings.length > 0 && (
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              borderRadius: radius.md,
-              border: `1px solid ${colors.border}`
-            }}>
-              <h3 style={{
-                color: colors.textPrimary,
-                margin: `0 0 ${spacing.sm} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
+            {/* More from Vendor - now inside info column for better desktop layout */}
+            {otherListings && otherListings.length > 0 && (
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                borderRadius: radius.md,
+                border: `1px solid ${colors.border}`,
+                marginTop: spacing.sm
               }}>
-                More from {vendorName}
-              </h3>
+                <h3 style={{
+                  color: colors.textPrimary,
+                  margin: `0 0 ${spacing.sm} 0`,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold
+                }}>
+                  More from {vendorName}
+                </h3>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                {otherListings.map((item: Record<string, unknown>) => (
-                  <Link
-                    key={item.id as string}
-                    href={`/${vertical}/listing/${item.id}`}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: `${spacing.xs} ${spacing.sm}`,
-                      backgroundColor: colors.surfaceMuted,
-                      borderRadius: radius.sm,
-                      textDecoration: 'none',
-                      color: colors.textPrimary,
-                      minHeight: 44
-                    }}
-                  >
-                    <span style={{ fontSize: typography.sizes.sm }}>{item.title as string}</span>
-                    <span style={{
-                      fontWeight: typography.weights.semibold,
-                      color: colors.primary
-                    }}>
-                      {formatDisplayPrice((item.price_cents as number) || 0)}
-                    </span>
-                  </Link>
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  {otherListings.map((item: Record<string, unknown>) => (
+                    <Link
+                      key={item.id as string}
+                      href={`/${vertical}/listing/${item.id}`}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: `${spacing.xs} ${spacing.sm}`,
+                        backgroundColor: colors.surfaceMuted,
+                        borderRadius: radius.sm,
+                        textDecoration: 'none',
+                        color: colors.textPrimary,
+                        minHeight: 44
+                      }}
+                    >
+                      <span style={{ fontSize: typography.sizes.sm }}>{item.title as string}</span>
+                      <span style={{
+                        fontWeight: typography.weights.semibold,
+                        color: colors.primary
+                      }}>
+                        {formatDisplayPrice((item.price_cents as number) || 0)}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -474,14 +468,8 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
         .listing-detail-page .main-grid {
           grid-template-columns: 1fr;
         }
-        .listing-detail-page .bottom-grid {
-          grid-template-columns: 1fr;
-        }
         @media (min-width: 768px) {
           .listing-detail-page .main-grid {
-            grid-template-columns: 1fr 400px;
-          }
-          .listing-detail-page .bottom-grid {
             grid-template-columns: 1fr 400px;
           }
         }

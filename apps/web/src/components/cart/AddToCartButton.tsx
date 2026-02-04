@@ -104,15 +104,16 @@ export function AddToCartButton({
   const needsMarketSelection = hasMultipleMarkets && !selectedMarketId
   const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed || hasNoOpenMarkets || needsMarketSelection
 
-  // Format next pickup date
+  // Format next pickup date with full text
   const formatNextPickup = (dateStr?: string) => {
     if (!dateStr) return null
     const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', {
+    const formatted = date.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric'
     })
+    return `Next available pickup: ${formatted}`
   }
 
   return (
@@ -121,7 +122,7 @@ export function AddToCartButton({
 
       {/* Market Selection - Show when open markets exist */}
       {openMarkets.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 12 }}>
           <label style={{
             display: 'block',
             fontSize: 12,
@@ -133,14 +134,14 @@ export function AddToCartButton({
           </label>
 
           {hasMultipleMarkets ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {openMarkets.map(market => (
                 <button
                   key={market.market_id}
                   type="button"
                   onClick={() => setSelectedMarketId(market.market_id)}
                   style={{
-                    padding: '8px 10px',
+                    padding: '10px 12px',
                     border: selectedMarketId === market.market_id
                       ? `2px solid ${primaryColor}`
                       : '1px solid #e5e7eb',
@@ -150,46 +151,62 @@ export function AddToCartButton({
                     textAlign: 'left'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ fontSize: 16, marginTop: 2 }}>
                       {market.market_type === 'traditional' ? '🏪' : '📦'}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 13 }}>
+                      {/* Line 1: Market name */}
+                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
                         {market.market_name}
                       </div>
+                      {/* Line 2: Address */}
+                      {market.city && (
+                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                          {market.address ? `${market.address}, ` : ''}{market.city}, {market.state}
+                        </div>
+                      )}
+                      {/* Line 3: Next available pickup */}
                       {market.next_pickup_at && (
-                        <div style={{ fontSize: 11, color: '#059669' }}>
-                          Next: {formatNextPickup(market.next_pickup_at)}
+                        <div style={{ fontSize: 11, color: '#059669', marginTop: 3 }}>
+                          {formatNextPickup(market.next_pickup_at)}
                         </div>
                       )}
                     </div>
                     {selectedMarketId === market.market_id && (
-                      <span style={{ color: primaryColor, fontSize: 16 }}>✓</span>
+                      <span style={{ color: primaryColor, fontSize: 18 }}>✓</span>
                     )}
                   </div>
                 </button>
               ))}
             </div>
           ) : (
-            // Single market - show as info, more compact
+            // Single market - show as info with full details
             <div style={{
-              padding: '8px 10px',
+              padding: '10px 12px',
               border: '1px solid #e5e7eb',
               borderRadius: 6,
               backgroundColor: '#f9fafb'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span style={{ fontSize: 16, marginTop: 2 }}>
                   {openMarkets[0]?.market_type === 'traditional' ? '🏪' : '📦'}
                 </span>
                 <div>
-                  <div style={{ fontWeight: 600, color: '#374151', fontSize: 13 }}>
+                  {/* Line 1: Market name */}
+                  <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
                     {openMarkets[0]?.market_name}
                   </div>
+                  {/* Line 2: Address */}
+                  {openMarkets[0]?.city && (
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                      {openMarkets[0].address ? `${openMarkets[0].address}, ` : ''}{openMarkets[0].city}, {openMarkets[0].state}
+                    </div>
+                  )}
+                  {/* Line 3: Next available pickup */}
                   {openMarkets[0]?.next_pickup_at && (
-                    <div style={{ fontSize: 11, color: '#059669' }}>
-                      Next: {formatNextPickup(openMarkets[0].next_pickup_at)}
+                    <div style={{ fontSize: 11, color: '#059669', marginTop: 3 }}>
+                      {formatNextPickup(openMarkets[0].next_pickup_at)}
                     </div>
                   )}
                 </div>
