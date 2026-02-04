@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import ListingPurchaseSection from '@/components/listings/ListingPurchaseSection'
 import ListingImageGallery from '@/components/listings/ListingImageGallery'
+import PickupLocationsCard from '@/components/listings/PickupLocationsCard'
 import BackLink from '@/components/shared/BackLink'
 import { formatDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -319,7 +320,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 </div>
               </div>
 
-              {/* Add to Cart with Cutoff Status */}
+              {/* Add to Cart */}
               <ListingPurchaseSection
                 listingId={listingId}
                 maxQuantity={listing.quantity}
@@ -328,25 +329,12 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 isPremiumRestricted={isPremiumRestricted}
               />
 
-              {/* Available At - Markets */}
+              {/* Available Pickup Locations - unified card showing locations with availability status */}
               {listingMarkets && listingMarkets.length > 0 && (
-                <div style={{
-                  marginTop: spacing.sm,
-                  padding: spacing.sm,
-                  backgroundColor: colors.surfaceMuted,
-                  borderRadius: radius.md
-                }}>
-                  <h3 style={{
-                    fontSize: typography.sizes.sm,
-                    fontWeight: typography.weights.semibold,
-                    marginBottom: spacing.xs,
-                    marginTop: 0,
-                    color: colors.textSecondary
-                  }}>
-                    Available At
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                    {listingMarkets.map((market: {
+                <div style={{ marginTop: spacing.sm }}>
+                  <PickupLocationsCard
+                    listingId={listingId}
+                    markets={listingMarkets as {
                       market_id: string
                       market_name: string
                       market_type: string
@@ -356,40 +344,11 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                       day_of_week: number | null
                       start_time: string | null
                       end_time: string | null
-                    }) => {
-                      const isPrivate = market.market_type === 'private_pickup'
-                      const prefix = isPrivate ? 'Private Pickup: ' : 'Market: '
-                      // Only show private pickup address if user is logged in
-                      const showAddress = !isPrivate || isLoggedIn
-
-                      return (
-                        <div key={market.market_id} style={{ fontSize: typography.sizes.sm }}>
-                          <div style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                            <span style={{ color: colors.textMuted, fontWeight: typography.weights.medium }}>{prefix}</span>
-                            {market.market_name}
-                          </div>
-                          {showAddress ? (
-                            <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                              {market.address}, {market.city}, {market.state}
-                            </div>
-                          ) : (
-                            <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs, fontStyle: 'italic' }}>
-                              <Link href={`/${vertical}/login`} style={{ color: colors.primary, textDecoration: 'none' }}>
-                                Log in
-                              </Link>
-                              {' '}to see pickup address
-                            </div>
-                          )}
-                          {market.market_type === 'traditional' && market.day_of_week !== null && (
-                            <div style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][market.day_of_week]}
-                              {market.start_time && market.end_time && ` ${market.start_time} - ${market.end_time}`}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+                    }[]}
+                    vertical={vertical}
+                    isLoggedIn={isLoggedIn}
+                    primaryColor={branding.colors.primary}
+                  />
                 </div>
               )}
             </div>

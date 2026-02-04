@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { AddToCartButton, AvailableMarket } from '@/components/cart/AddToCartButton'
-import CutoffStatusBanner from './CutoffStatusBanner'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
 interface ListingPurchaseSectionProps {
@@ -25,14 +24,18 @@ export default function ListingPurchaseSection({
   const [markets, setMarkets] = useState<AvailableMarket[]>([])
   const [loadingMarkets, setLoadingMarkets] = useState(true)
 
-  // Fetch available markets for this listing
+  // Fetch available markets for this listing (includes availability status)
   useEffect(() => {
     async function fetchMarkets() {
       try {
         const res = await fetch(`/api/listings/${listingId}/markets`)
         if (res.ok) {
           const data = await res.json()
-          setMarkets(data.markets || [])
+          const fetchedMarkets = data.markets || []
+          setMarkets(fetchedMarkets)
+          // Determine if all markets are closed
+          const openMarkets = fetchedMarkets.filter((m: AvailableMarket) => m.is_accepting)
+          setOrdersClosed(fetchedMarkets.length > 0 && openMarkets.length === 0)
         }
       } catch (error) {
         console.error('Error fetching listing markets:', error)
@@ -42,18 +45,6 @@ export default function ListingPurchaseSection({
     }
     fetchMarkets()
   }, [listingId])
-
-  // Memoize the status change handler to prevent unnecessary re-fetches in CutoffStatusBanner
-  const handleStatusChange = useCallback((isAccepting: boolean) => {
-    setOrdersClosed(!isAccepting)
-  }, [])
-
-  // Compute if all markets are closed (safety net for when availability API fails)
-  const openMarkets = markets.filter(m => m.is_accepting)
-  const hasNoOpenMarkets = !loadingMarkets && markets.length > 0 && openMarkets.length === 0
-
-  // Force show closed explanation if availability API says open but all markets are actually closed
-  const forceShowClosed = !ordersClosed && hasNoOpenMarkets
 
   // Show premium upgrade message instead of add to cart when restricted
   if (isPremiumRestricted) {
@@ -101,19 +92,13 @@ export default function ListingPurchaseSection({
     )
   }
 
+  // Note: The PickupLocationsCard component now handles the availability display
+  // This component only renders the Add to Cart button
   return (
     <div>
-      {/* Cutoff Status Banner */}
-      <CutoffStatusBanner
-        listingId={listingId}
-        onStatusChange={handleStatusChange}
-        forceShowClosed={forceShowClosed}
-      />
-
-      {/* Add to Cart Button */}
       {loadingMarkets ? (
         <div style={{ padding: 16, textAlign: 'center', color: '#6b7280' }}>
-          Loading pickup locations...
+          Loading...
         </div>
       ) : (
         <AddToCartButton
