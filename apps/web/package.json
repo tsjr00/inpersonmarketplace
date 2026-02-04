@@ -6,7 +6,8 @@
     "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start -p 3002",
-    "lint": "eslint"
+    "lint": "eslint",
+    "load-zip-codes": "npx tsx scripts/load-zip-codes.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^8.6.1",

@@ -30,6 +30,12 @@ interface VendorsWithLocationProps {
   currentCategory?: string
   currentSearch?: string
   currentSort: string
+  /** Server-side location from cookie/profile - skips initial API call */
+  initialLocation?: {
+    latitude: number
+    longitude: number
+    locationText: string
+  } | null
 }
 
 export default function VendorsWithLocation({
@@ -38,19 +44,28 @@ export default function VendorsWithLocation({
   currentMarket,
   currentCategory,
   currentSearch,
-  currentSort
+  currentSort,
+  initialLocation
 }: VendorsWithLocationProps) {
-  const [hasLocation, setHasLocation] = useState<boolean | null>(null)
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [locationText, setLocationText] = useState('')
-  // Start with empty array - only show vendors after location-based search
-  const [vendors, setVendors] = useState<EnrichedVendor[]>([])
+  // Initialize state from server-provided location (if available)
+  const [hasLocation, setHasLocation] = useState<boolean | null>(initialLocation ? true : null)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(
+    initialLocation ? { lat: initialLocation.latitude, lng: initialLocation.longitude } : null
+  )
+  const [locationText, setLocationText] = useState(initialLocation?.locationText || '')
+  // Start with initialVendors to show content immediately while location loads
+  const [vendors, setVendors] = useState<EnrichedVendor[]>(initialVendors)
   const [loading, setLoading] = useState(false)
-  const [locationChecked, setLocationChecked] = useState(false)
+  // If we have initialLocation, we can skip the API check
+  const [locationChecked, setLocationChecked] = useState(!!initialLocation)
+  // Track if we've done a location-based search yet (to know if we're showing preliminary data)
+  const [hasLocationResults, setHasLocationResults] = useState(false)
 
-  // Check for saved location on mount
+  // Check for saved location on mount - ONLY if no initialLocation provided
   useEffect(() => {
-    checkSavedLocation()
+    if (!initialLocation) {
+      checkSavedLocation()
+    }
   }, [])
 
   // Re-fetch when filters change (and we have location)
@@ -111,11 +126,13 @@ export default function VendorsWithLocation({
           ...v,
           tier: (v.tier || 'standard') as VendorTierType
         })))
+        setHasLocationResults(true)
       }
     } catch (error) {
       console.error('Error fetching nearby vendors:', error)
-      // On error, show empty state rather than unfiltered vendors
-      setVendors([])
+      // On error, keep showing initialVendors rather than empty state
+      // so user still sees something useful
+      setHasLocationResults(true) // Mark as "done" even on error to stop loading indicator
     } finally {
       setLoading(false)
     }
@@ -184,8 +201,8 @@ export default function VendorsWithLocation({
         </div>
       )}
 
-      {/* Loading indicator */}
-      {loading && (
+      {/* Loading indicator - only show blocking state if no vendors to display */}
+      {loading && vendors.length === 0 && (
         <div style={{
           textAlign: 'center',
           padding: spacing.md,
@@ -195,20 +212,40 @@ export default function VendorsWithLocation({
         </div>
       )}
 
-      {/* Results count */}
-      {!loading && (
-        <div style={{
-          marginBottom: spacing.md,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm
-        }}>
-          {vendors.length} vendor{vendors.length !== 1 ? 's' : ''} found
-          {hasLocation && ' within 25 miles'}
-        </div>
-      )}
+      {/* Results count with loading/refining indicator */}
+      <div style={{
+        marginBottom: spacing.md,
+        color: colors.textMuted,
+        fontSize: typography.sizes.sm,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs
+      }}>
+        {loading && vendors.length > 0 ? (
+          // Show refining message when we have preliminary results
+          <>
+            <span style={{
+              display: 'inline-block',
+              width: 12,
+              height: 12,
+              border: '2px solid #e5e7eb',
+              borderTopColor: colors.primary,
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite'
+            }} />
+            <span>Finding vendors near you...</span>
+          </>
+        ) : (
+          <span>
+            {vendors.length} vendor{vendors.length !== 1 ? 's' : ''} found
+            {hasLocationResults && hasLocation && ' within 25 miles'}
+            {!hasLocationResults && vendors.length > 0 && !hasLocation && ' (enter ZIP for local results)'}
+          </span>
+        )}
+      </div>
 
-      {/* Vendor Grid */}
-      {!loading && vendors.length > 0 ? (
+      {/* Vendor Grid - show even while loading if we have vendors */}
+      {vendors.length > 0 ? (
         <div
           className="vendors-grid"
           style={{
@@ -424,6 +461,9 @@ export default function VendorsWithLocation({
         .vendor-card:hover {
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
           transform: translateY(-2px);
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

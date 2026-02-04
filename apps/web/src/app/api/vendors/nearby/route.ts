@@ -2,34 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const DEFAULT_RADIUS_MILES = 25
-const MILES_PER_DEGREE_LAT = 69
-
-// Calculate bounding box for database pre-filtering
-function getBoundingBox(lat: number, lng: number, radiusMiles: number) {
-  const buffer = 1.2 // 20% buffer for safety
-  const latDelta = (radiusMiles * buffer) / MILES_PER_DEGREE_LAT
-  const lngDelta = (radiusMiles * buffer) / (MILES_PER_DEGREE_LAT * Math.cos(lat * Math.PI / 180))
-
-  return {
-    minLat: lat - latDelta,
-    maxLat: lat + latDelta,
-    minLng: lng - lngDelta,
-    maxLng: lng + lngDelta
-  }
-}
-
-// Haversine formula for distance between two points
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 3959 // Earth's radius in miles
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
-}
+const METERS_PER_MILE = 1609.344
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,62 +36,28 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Calculate bounding box
-    const bounds = getBoundingBox(latitude, longitude, radiusMiles)
+    // Convert miles to meters for PostGIS function
+    const radiusMeters = radiusMiles * METERS_PER_MILE
 
-    // STEP 1: Query vendor_location_cache with bounding box filter
-    // This is the key optimization - we only get vendors that are potentially nearby
-    let locationQuery = supabase
-      .from('vendor_location_cache')
-      .select('vendor_profile_id, latitude, longitude, source_market_id')
-      .gte('latitude', bounds.minLat)
-      .lte('latitude', bounds.maxLat)
-      .gte('longitude', bounds.minLng)
-      .lte('longitude', bounds.maxLng)
+    // STEP 1: Use PostGIS function for efficient geographic query
+    // This does the distance calculation at the database level
+    const { data: nearbyVendors, error: postgisError } = await supabase.rpc(
+      'get_vendors_within_radius',
+      {
+        user_lat: latitude,
+        user_lng: longitude,
+        radius_meters: radiusMeters,
+        vertical_filter: vertical || null
+      }
+    )
 
-    if (vertical) {
-      locationQuery = locationQuery.eq('vertical_id', vertical)
-    }
-
-    const { data: nearbyLocations, error: locationError } = await locationQuery
-
-    // If location cache doesn't exist yet, fall back to old method
-    if (locationError) {
-      console.log('[Vendors Nearby] Location cache not available, using fallback')
+    // If PostGIS function fails (e.g., not available), fall back to cache-based method
+    if (postgisError) {
+      console.log('[Vendors Nearby] PostGIS function failed, using fallback:', postgisError.message)
       return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, vertical, market, category, search, sort)
     }
 
-    // Calculate distances and find unique vendors with their minimum distance
-    const vendorDistances = new Map<string, { distance: number; marketIds: Set<string> }>()
-
-    nearbyLocations?.forEach(loc => {
-      const dist = haversineDistance(
-        latitude, longitude,
-        parseFloat(String(loc.latitude)),
-        parseFloat(String(loc.longitude))
-      )
-
-      if (dist <= radiusMiles) {
-        const existing = vendorDistances.get(loc.vendor_profile_id)
-        if (!existing) {
-          vendorDistances.set(loc.vendor_profile_id, {
-            distance: dist,
-            marketIds: loc.source_market_id ? new Set([loc.source_market_id]) : new Set()
-          })
-        } else {
-          if (dist < existing.distance) {
-            existing.distance = dist
-          }
-          if (loc.source_market_id) {
-            existing.marketIds.add(loc.source_market_id)
-          }
-        }
-      }
-    })
-
-    const vendorIds = Array.from(vendorDistances.keys())
-
-    if (vendorIds.length === 0) {
+    if (!nearbyVendors || nearbyVendors.length === 0) {
       return NextResponse.json({
         vendors: [],
         center: { latitude, longitude },
@@ -130,8 +69,18 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // STEP 2: Fetch vendor details and listings in parallel (only for nearby vendors)
-    const [vendorsResult, listingsResult, marketsResult] = await Promise.all([
+    // Get vendor IDs from PostGIS results
+    const vendorIds = nearbyVendors.map((v: { id: string }) => v.id)
+
+    // Create a map of distances from PostGIS results
+    const distanceMap = new Map<string, number>()
+    nearbyVendors.forEach((v: { id: string; distance_miles: number }) => {
+      distanceMap.set(v.id, v.distance_miles)
+    })
+
+    // STEP 2: Fetch additional vendor data in parallel (only for nearby vendors)
+    const [vendorProfilesResult, listingsResult, marketsResult] = await Promise.all([
+      // Get full vendor profiles with ratings
       supabase
         .from('vendor_profiles')
         .select(`
@@ -142,13 +91,12 @@ export async function GET(request: NextRequest) {
           tier,
           created_at,
           average_rating,
-          rating_count,
-          latitude,
-          longitude
+          rating_count
         `)
         .in('id', vendorIds)
         .eq('status', 'approved'),
 
+      // Get listings for categories and counts
       supabase
         .from('listings')
         .select('vendor_profile_id, category')
@@ -156,6 +104,7 @@ export async function GET(request: NextRequest) {
         .eq('status', 'published')
         .is('deleted_at', null),
 
+      // Get market associations
       supabase
         .from('listing_markets')
         .select(`
@@ -165,12 +114,12 @@ export async function GET(request: NextRequest) {
         .in('listings.vendor_profile_id', vendorIds)
     ])
 
-    const vendors = vendorsResult.data || []
+    const vendorProfiles = vendorProfilesResult.data || []
     const listings = listingsResult.data || []
     const listingMarkets = marketsResult.data || []
 
     // STEP 3: Enrich vendor data
-    const enrichedVendors = vendors.map(vendor => {
+    const enrichedVendors = vendorProfiles.map(vendor => {
       const profileData = vendor.profile_data as Record<string, unknown>
       const vendorName = (profileData?.business_name as string) ||
                         (profileData?.farm_name as string) ||
@@ -182,9 +131,7 @@ export async function GET(request: NextRequest) {
       const categories = [...new Set(vendorListings.map(l => l.category).filter(Boolean))] as string[]
 
       // Get markets from listing_markets
-      const vendorMarketIds = vendorDistances.get(vendor.id)?.marketIds || new Set()
       const marketMap = new Map<string, { id: string; name: string }>()
-
       listingMarkets
         .filter(lm => {
           const listing = lm.listings as unknown as { vendor_profile_id: string }
@@ -198,7 +145,6 @@ export async function GET(request: NextRequest) {
         })
 
       const vendorMarkets = Array.from(marketMap.values())
-      const distanceInfo = vendorDistances.get(vendor.id)
 
       return {
         id: vendor.id,
@@ -212,8 +158,7 @@ export async function GET(request: NextRequest) {
         listingCount,
         categories,
         markets: vendorMarkets,
-        distance_miles: distanceInfo ? Math.round(distanceInfo.distance * 10) / 10 : null,
-        hasDirectLocation: vendor.latitude !== null && vendor.longitude !== null
+        distance_miles: distanceMap.get(vendor.id) ?? null
       }
     })
 
@@ -242,6 +187,7 @@ export async function GET(request: NextRequest) {
 
     // STEP 5: Sort vendors
     filteredVendors.sort((a, b) => {
+      // Premium/featured vendors first
       const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
       const aTier = tierOrder[a.tier] ?? 2
       const bTier = tierOrder[b.tier] ?? 2
@@ -282,9 +228,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Fallback method if vendor_location_cache doesn't exist
+// Fallback method if PostGIS function doesn't work
 async function fallbackNearbyQuery(
-  supabase: any,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   latitude: number,
   longitude: number,
   radiusMiles: number,
@@ -294,108 +240,111 @@ async function fallbackNearbyQuery(
   search: string | null,
   sort: string
 ) {
-  // Get all approved vendors
-  let vendorQuery = supabase
-    .from('vendor_profiles')
-    .select(`
-      id,
-      profile_data,
-      description,
-      profile_image_url,
-      tier,
-      created_at,
-      average_rating,
-      rating_count,
-      latitude,
-      longitude
-    `)
-    .eq('status', 'approved')
+  // Haversine formula for distance between two points
+  const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 3959 // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+  }
+
+  // Calculate bounding box for database pre-filtering
+  const MILES_PER_DEGREE_LAT = 69
+  const buffer = 1.2
+  const latDelta = (radiusMiles * buffer) / MILES_PER_DEGREE_LAT
+  const lngDelta = (radiusMiles * buffer) / (MILES_PER_DEGREE_LAT * Math.cos(latitude * Math.PI / 180))
+  const bounds = {
+    minLat: latitude - latDelta,
+    maxLat: latitude + latDelta,
+    minLng: longitude - lngDelta,
+    maxLng: longitude + lngDelta
+  }
+
+  // Query vendor_location_cache with bounding box
+  let locationQuery = supabase
+    .from('vendor_location_cache')
+    .select('vendor_profile_id, latitude, longitude, source_market_id')
+    .gte('latitude', bounds.minLat)
+    .lte('latitude', bounds.maxLat)
+    .gte('longitude', bounds.minLng)
+    .lte('longitude', bounds.maxLng)
 
   if (vertical) {
-    vendorQuery = vendorQuery.eq('vertical_id', vertical)
+    locationQuery = locationQuery.eq('vertical_id', vertical)
   }
 
-  const { data: vendors, error } = await vendorQuery
+  const { data: nearbyLocations, error: locationError } = await locationQuery
 
-  if (error) {
-    return NextResponse.json({ error: 'Failed to fetch vendors' }, { status: 500 })
+  if (locationError || !nearbyLocations) {
+    return NextResponse.json({ vendors: [], center: { latitude, longitude }, radiusMiles, fallback: true })
   }
 
-  const vendorIds = (vendors || []).map((v: any) => v.id)
+  // Calculate distances and find unique vendors
+  const vendorDistances = new Map<string, number>()
+  nearbyLocations.forEach(loc => {
+    const dist = haversineDistance(
+      latitude, longitude,
+      parseFloat(String(loc.latitude)),
+      parseFloat(String(loc.longitude))
+    )
+    if (dist <= radiusMiles) {
+      const existing = vendorDistances.get(loc.vendor_profile_id)
+      if (!existing || dist < existing) {
+        vendorDistances.set(loc.vendor_profile_id, dist)
+      }
+    }
+  })
 
+  const vendorIds = Array.from(vendorDistances.keys())
   if (vendorIds.length === 0) {
-    return NextResponse.json({ vendors: [], center: { latitude, longitude }, radiusMiles })
+    return NextResponse.json({ vendors: [], center: { latitude, longitude }, radiusMiles, fallback: true })
   }
 
-  // Fetch related data in parallel
-  const [listingsResult, listingMarketsResult] = await Promise.all([
+  // Fetch vendor details
+  const [vendorsResult, listingsResult, marketsResult] = await Promise.all([
+    supabase
+      .from('vendor_profiles')
+      .select('id, profile_data, description, profile_image_url, tier, created_at, average_rating, rating_count')
+      .in('id', vendorIds)
+      .eq('status', 'approved'),
     supabase
       .from('listings')
       .select('vendor_profile_id, category')
       .in('vendor_profile_id', vendorIds)
       .eq('status', 'published')
       .is('deleted_at', null),
-
     supabase
       .from('listing_markets')
-      .select(`
-        market_id,
-        listings!inner(vendor_profile_id),
-        markets(id, name, latitude, longitude)
-      `)
+      .select('listings!inner(vendor_profile_id), markets(id, name)')
       .in('listings.vendor_profile_id', vendorIds)
   ])
 
+  const vendors = vendorsResult.data || []
   const listings = listingsResult.data || []
-  const listingMarkets = listingMarketsResult.data || []
+  const listingMarkets = marketsResult.data || []
 
-  // Calculate distances and enrich
-  const enrichedVendors = (vendors || []).map((vendor: any) => {
+  // Enrich and filter
+  const enrichedVendors = vendors.map(vendor => {
     const profileData = vendor.profile_data as Record<string, unknown>
-    const vendorName = (profileData?.business_name as string) ||
-                      (profileData?.farm_name as string) ||
-                      'Vendor'
+    const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+    const vendorListings = listings.filter(l => l.vendor_profile_id === vendor.id)
+    const categories = [...new Set(vendorListings.map(l => l.category).filter(Boolean))] as string[]
 
-    const vendorListings = listings.filter((l: any) => l.vendor_profile_id === vendor.id)
-    const listingCount = vendorListings.length
-    const categories = [...new Set(vendorListings.map((l: any) => l.category).filter(Boolean))] as string[]
-
-    // Calculate distances
-    const allDistances: number[] = []
-
-    // Direct coordinates
-    if (vendor.latitude && vendor.longitude) {
-      const dist = haversineDistance(
-        latitude, longitude,
-        parseFloat(String(vendor.latitude)),
-        parseFloat(String(vendor.longitude))
-      )
-      allDistances.push(dist)
-    }
-
-    // Market locations
     const marketMap = new Map<string, { id: string; name: string }>()
     listingMarkets
-      .filter((lm: any) => {
+      .filter(lm => {
         const listing = lm.listings as unknown as { vendor_profile_id: string }
         return listing?.vendor_profile_id === vendor.id && lm.markets
       })
-      .forEach((lm: any) => {
-        const m = lm.markets as unknown as { id: string; name: string; latitude: any; longitude: any }
-        if (m && !marketMap.has(m.id)) {
-          marketMap.set(m.id, { id: m.id, name: m.name })
-          if (m.latitude && m.longitude) {
-            const dist = haversineDistance(
-              latitude, longitude,
-              parseFloat(String(m.latitude)),
-              parseFloat(String(m.longitude))
-            )
-            allDistances.push(dist)
-          }
-        }
+      .forEach(lm => {
+        const m = lm.markets as unknown as { id: string; name: string }
+        if (m && !marketMap.has(m.id)) marketMap.set(m.id, m)
       })
-
-    const finalDistance = allDistances.length > 0 ? Math.min(...allDistances) : null
 
     return {
       id: vendor.id,
@@ -406,55 +355,38 @@ async function fallbackNearbyQuery(
       createdAt: vendor.created_at,
       averageRating: vendor.average_rating as number | null,
       ratingCount: vendor.rating_count as number | null,
-      listingCount,
+      listingCount: vendorListings.length,
       categories,
       markets: Array.from(marketMap.values()),
-      distance_miles: finalDistance !== null ? Math.round(finalDistance * 10) / 10 : null,
-      hasDirectLocation: vendor.latitude !== null && vendor.longitude !== null
+      distance_miles: Math.round((vendorDistances.get(vendor.id) ?? 0) * 10) / 10
     }
   })
 
-  // Filter and sort
-  let filteredVendors = enrichedVendors.filter((v: any) =>
-    v.distance_miles !== null && v.distance_miles <= radiusMiles && v.listingCount > 0
-  )
-
-  if (market) {
-    filteredVendors = filteredVendors.filter((v: any) =>
-      v.markets.some((m: any) => m.id === market)
-    )
-  }
-
-  if (category) {
-    filteredVendors = filteredVendors.filter((v: any) =>
-      v.categories.includes(category)
-    )
-  }
-
+  let filteredVendors = enrichedVendors.filter(v => v.listingCount > 0)
+  if (market) filteredVendors = filteredVendors.filter(v => v.markets.some(m => m.id === market))
+  if (category) filteredVendors = filteredVendors.filter(v => v.categories.includes(category))
   if (search) {
     const searchLower = search.toLowerCase()
-    filteredVendors = filteredVendors.filter((v: any) =>
-      v.name.toLowerCase().includes(searchLower) ||
-      (v.description?.toLowerCase().includes(searchLower))
+    filteredVendors = filteredVendors.filter(v =>
+      v.name.toLowerCase().includes(searchLower) || v.description?.toLowerCase().includes(searchLower)
     )
   }
 
-  filteredVendors.sort((a: any, b: any) => {
+  // Sort
+  filteredVendors.sort((a, b) => {
     const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
     const aTier = tierOrder[a.tier] ?? 2
     const bTier = tierOrder[b.tier] ?? 2
     if (aTier !== bTier) return aTier - bTier
 
     switch (sort) {
-      case 'distance':
-        return (a.distance_miles ?? 999) - (b.distance_miles ?? 999)
+      case 'distance': return (a.distance_miles ?? 999) - (b.distance_miles ?? 999)
       case 'rating':
         if (a.averageRating && !b.averageRating) return -1
         if (!a.averageRating && b.averageRating) return 1
         if (a.averageRating && b.averageRating) return b.averageRating - a.averageRating
         return a.name.localeCompare(b.name)
-      default:
-        return 0
+      default: return 0
     }
   })
 

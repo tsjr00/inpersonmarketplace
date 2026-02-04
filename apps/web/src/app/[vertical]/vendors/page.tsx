@@ -1,9 +1,55 @@
 import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import { defaultBranding } from '@/lib/branding'
 import VendorFilters from './VendorFilters'
 import VendorsWithLocation from './VendorsWithLocation'
 import { VendorTierType } from '@/lib/constants'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+
+const LOCATION_COOKIE_NAME = 'user_location'
+
+// Helper to get location from cookie or user profile
+async function getServerLocation(supabase: Awaited<ReturnType<typeof createClient>>) {
+  // First try to get from user profile if authenticated
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('preferred_latitude, preferred_longitude, location_source, location_text')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profile?.preferred_latitude && profile?.preferred_longitude) {
+      return {
+        latitude: profile.preferred_latitude,
+        longitude: profile.preferred_longitude,
+        locationText: profile.location_text || (profile.location_source === 'gps' ? 'Current location' : 'Your location')
+      }
+    }
+  }
+
+  // Fall back to cookie
+  const cookieStore = await cookies()
+  const locationCookie = cookieStore.get(LOCATION_COOKIE_NAME)
+
+  if (locationCookie) {
+    try {
+      const { latitude, longitude, locationText, source } = JSON.parse(locationCookie.value)
+      if (typeof latitude === 'number' && typeof longitude === 'number') {
+        return {
+          latitude,
+          longitude,
+          locationText: locationText || (source === 'gps' ? 'Current location' : 'Your location')
+        }
+      }
+    } catch {
+      // Invalid cookie, ignore
+    }
+  }
+
+  return null
+}
 
 // Cache page for 10 minutes - vendor data changes infrequently
 export const revalidate = 600
@@ -24,23 +70,27 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  // Get all approved vendors for this vertical with ratings
-  let query = supabase
-    .from('vendor_profiles')
-    .select(`
-      id,
-      profile_data,
-      description,
-      profile_image_url,
-      tier,
-      created_at,
-      average_rating,
-      rating_count
-    `)
-    .eq('vertical_id', vertical)
-    .eq('status', 'approved')
+  // PARALLEL PHASE 1: Run location check and vendor query simultaneously
+  // These are independent and can run in parallel to reduce waterfall
+  const [savedLocation, vendorsResult] = await Promise.all([
+    getServerLocation(supabase),
+    supabase
+      .from('vendor_profiles')
+      .select(`
+        id,
+        profile_data,
+        description,
+        profile_image_url,
+        tier,
+        created_at,
+        average_rating,
+        rating_count
+      `)
+      .eq('vertical_id', vertical)
+      .eq('status', 'approved')
+  ])
 
-  const { data: vendors, error } = await query
+  const { data: vendors, error } = vendorsResult
 
   if (error) {
     console.error('Error fetching vendors:', error)
@@ -53,33 +103,34 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
   let marketVendorsData: { vendor_profile_id: string; market_id: string; market: { id: string; name: string } | null }[] = []
 
   if (vendorIds.length > 0) {
-    // Get listings for these vendors (to get categories and counts)
-    const { data: listings } = await supabase
-      .from('listings')
-      .select('vendor_profile_id, category')
-      .in('vendor_profile_id', vendorIds)
-      .eq('status', 'published')
-      .is('deleted_at', null)
+    // PARALLEL PHASE 2: Run listings and market queries simultaneously
+    // Both depend on vendorIds but are independent of each other
+    const [listingsResult, marketVendorsResult] = await Promise.all([
+      supabase
+        .from('listings')
+        .select('vendor_profile_id, category')
+        .in('vendor_profile_id', vendorIds)
+        .eq('status', 'published')
+        .is('deleted_at', null),
+      supabase
+        .from('market_vendors')
+        .select(`
+          vendor_profile_id,
+          market_id,
+          markets (
+            id,
+            name
+          )
+        `)
+        .in('vendor_profile_id', vendorIds)
+        .eq('status', 'approved')
+    ])
 
-    listingsData = listings || []
-
-    // Get market associations for these vendors
-    const { data: marketVendors } = await supabase
-      .from('market_vendors')
-      .select(`
-        vendor_profile_id,
-        market_id,
-        markets (
-          id,
-          name
-        )
-      `)
-      .in('vendor_profile_id', vendorIds)
-      .eq('status', 'approved')
+    listingsData = listingsResult.data || []
 
     // Transform the data to match expected shape
     // Note: markets is a single related record but Supabase types it as potentially an array
-    marketVendorsData = (marketVendors || []).map(mv => {
+    marketVendorsData = (marketVendorsResult.data || []).map(mv => {
       const marketData = mv.markets as unknown as { id: string; name: string } | null
       return {
         vendor_profile_id: mv.vendor_profile_id as string,
@@ -233,6 +284,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         currentCategory={category}
         currentSearch={search}
         currentSort={sort}
+        initialLocation={savedLocation}
       />
     </div>
   )
