@@ -72,28 +72,10 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
     setSuccess(true)
     setLoading(false)
 
-    // Redirect back to dashboard after 1 second
+    // Clear success message after 3 seconds (no redirect - let user save other sections)
     setTimeout(() => {
-      router.push(`/${vertical}/vendor/dashboard`)
-    }, 1000)
-  }
-
-  if (success) {
-    return (
-      <div style={{
-        padding: 30,
-        backgroundColor: 'white',
-        border: '2px solid ' + branding.colors.accent,
-        borderRadius: 8,
-        textAlign: 'center',
-        color: '#333',
-        maxWidth: 600,
-        margin: '0 auto'
-      }}>
-        <h2 style={{ color: branding.colors.accent }}>Profile Updated!</h2>
-        <p>Redirecting to dashboard...</p>
-      </div>
-    )
+      setSuccess(false)
+    }, 3000)
   }
 
   return (
@@ -116,6 +98,19 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
           color: '#c00'
         }}>
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div style={{
+          padding: 10,
+          marginBottom: 20,
+          backgroundColor: '#d1fae5',
+          border: '1px solid #86efac',
+          borderRadius: 4,
+          color: '#065f46'
+        }}>
+          Business information saved successfully!
         </div>
       )}
 

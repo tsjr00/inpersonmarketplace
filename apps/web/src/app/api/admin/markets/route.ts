@@ -123,14 +123,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Verify admin
-  const { data: userProfile, error: profileError } = await supabase
+  // Verify admin using centralized helper
+  const { data: userProfile } = await supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
     .single()
 
-  if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
+  if (!hasAdminRole(userProfile || {})) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   }
 
@@ -174,7 +174,10 @@ export async function POST(request: Request) {
   // Note: markets.vertical_id is TEXT (e.g., "farmers_market"), not UUID
   // Admin-created markets are automatically approved
   // Don't store day_of_week/start_time/end_time on markets table - use market_schedules
-  const { data: market, error: createError } = await supabase
+  // Use service client to bypass RLS - admin role already verified above
+  const serviceClient = createServiceClient()
+
+  const { data: market, error: createError } = await serviceClient
     .from('markets')
     .insert({
       vertical_id: vertical,
@@ -190,6 +193,7 @@ export async function POST(request: Request) {
       season_start: season_start || null,
       season_end: season_end || null,
       status,
+      active: true, // Must be explicitly set
       approval_status: 'approved' // Admin-created markets are pre-approved
     })
     .select()
@@ -197,7 +201,11 @@ export async function POST(request: Request) {
 
   if (createError) {
     console.error('Error creating market:', createError)
-    return NextResponse.json({ error: 'Failed to create market' }, { status: 500 })
+    return NextResponse.json({
+      error: 'Failed to create market',
+      details: createError.message,
+      code: createError.code
+    }, { status: 500 })
   }
 
   // Create market_schedules
@@ -217,19 +225,23 @@ export async function POST(request: Request) {
         active: true
       }]
 
-  const { error: scheduleError } = await supabase
+  const { error: scheduleError } = await serviceClient
     .from('market_schedules')
     .insert(scheduleInserts)
 
   if (scheduleError) {
     console.error('Error creating market schedules:', scheduleError)
     // Clean up the market if schedules failed
-    await supabase.from('markets').delete().eq('id', market.id)
-    return NextResponse.json({ error: 'Failed to create market schedules' }, { status: 500 })
+    await serviceClient.from('markets').delete().eq('id', market.id)
+    return NextResponse.json({
+      error: 'Failed to create market schedules',
+      details: scheduleError.message,
+      code: scheduleError.code
+    }, { status: 500 })
   }
 
   // Fetch the market with schedules to return
-  const { data: marketWithSchedules } = await supabase
+  const { data: marketWithSchedules } = await serviceClient
     .from('markets')
     .select(`
       *,

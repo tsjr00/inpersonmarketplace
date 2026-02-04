@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import EditProfileForm from './EditProfileForm'
@@ -49,9 +50,46 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         paddingBottom: 20,
         borderBottom: `2px solid ${branding.colors.primary}`
       }}>
-        <h1 style={{ color: branding.colors.primary, marginBottom: 0, marginTop: 0 }}>
-          Edit Vendor Profile
-        </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ color: branding.colors.primary, marginBottom: 0, marginTop: 0 }}>
+            Edit Vendor Profile
+          </h1>
+          <Link
+            href={`/${vertical}/vendor/dashboard`}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#6b7280',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 6,
+              fontWeight: 600
+            }}
+          >
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+
+      {/* Important Notice */}
+      <div style={{
+        backgroundColor: '#fef3c7',
+        border: '1px solid #fcd34d',
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 20,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 12
+      }}>
+        <span style={{ fontSize: 20 }}>💡</span>
+        <div>
+          <p style={{ margin: 0, fontWeight: 600, color: '#92400e' }}>
+            Each section saves independently
+          </p>
+          <p style={{ margin: '4px 0 0 0', fontSize: 14, color: '#b45309' }}>
+            Click the save button in each section after making changes. Your data is saved when you see the success message.
+          </p>
+        </div>
       </div>
 
       {/* Profile Image Section */}

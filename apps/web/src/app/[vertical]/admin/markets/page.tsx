@@ -195,7 +195,10 @@ export default function AdminMarketsPage() {
           resetForm()
         } else {
           const error = await res.json()
-          alert(error.error || 'Failed to update market')
+          const errorMsg = error.details
+            ? `${error.error}: ${error.details}`
+            : (error.error || 'Failed to update market')
+          alert(errorMsg)
         }
       } else {
         // Create
@@ -210,7 +213,10 @@ export default function AdminMarketsPage() {
           resetForm()
         } else {
           const error = await res.json()
-          alert(error.error || 'Failed to create market')
+          const errorMsg = error.details
+            ? `${error.error}: ${error.details}`
+            : (error.error || 'Failed to create market')
+          alert(errorMsg)
         }
       }
     } catch (error) {

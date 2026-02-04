@@ -4,6 +4,84 @@ import { getTierLimits, isPremiumTier } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
 
+// Static ZIP code lookup for common areas (fast response, no API call)
+const ZIP_LOOKUP: Record<string, { lat: number; lng: number }> = {
+  // Amarillo, TX area
+  '79106': { lat: 35.1992, lng: -101.8451 },
+  '79101': { lat: 35.2220, lng: -101.8313 },
+  '79102': { lat: 35.1958, lng: -101.8568 },
+  '79107': { lat: 35.2283, lng: -101.7897 },
+  '79109': { lat: 35.1731, lng: -101.8779 },
+  '79110': { lat: 35.1542, lng: -101.9156 },
+  '79118': { lat: 35.1089, lng: -101.8010 },
+  '79119': { lat: 35.1456, lng: -101.9456 },
+  // Major TX cities
+  '77001': { lat: 29.7604, lng: -95.3698 },
+  '78201': { lat: 29.4241, lng: -98.4936 },
+  '75201': { lat: 32.7767, lng: -96.7970 },
+  '73301': { lat: 30.2672, lng: -97.7431 },
+}
+
+/**
+ * Geocode a ZIP code to coordinates
+ * Uses static lookup first, then falls back to Census API
+ */
+async function geocodeZipCode(zip: string): Promise<{ latitude: number; longitude: number } | null> {
+  // Clean ZIP code (first 5 digits only)
+  const cleanZip = zip.replace(/\D/g, '').substring(0, 5)
+  if (cleanZip.length !== 5) return null
+
+  // Check static lookup first
+  const staticResult = ZIP_LOOKUP[cleanZip]
+  if (staticResult) {
+    return { latitude: staticResult.lat, longitude: staticResult.lng }
+  }
+
+  // Try Census Geocoding API (free, no API key needed)
+  try {
+    const censusUrl = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${cleanZip}&benchmark=Public_AR_Current&format=json`
+    const response = await fetch(censusUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(5000) // 5 second timeout
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      const match = data?.result?.addressMatches?.[0]
+      if (match?.coordinates) {
+        return { latitude: match.coordinates.y, longitude: match.coordinates.x }
+      }
+    }
+  } catch (error) {
+    console.warn('[geocodeZipCode] Census API failed:', error)
+  }
+
+  // Fallback to Nominatim (OpenStreetMap)
+  try {
+    const nominatimUrl = `https://nominatim.openstreetmap.org/search?postalcode=${cleanZip}&country=USA&format=json&limit=1`
+    const response = await fetch(nominatimUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'InPersonMarketplace/1.0'
+      },
+      signal: AbortSignal.timeout(5000)
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data?.[0]) {
+        return { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) }
+      }
+    }
+  } catch (error) {
+    console.warn('[geocodeZipCode] Nominatim API also failed:', error)
+  }
+
+  return null
+}
+
 // GET - Get vendor's markets
 export async function GET(request: Request) {
   try {
@@ -175,6 +253,22 @@ export async function POST(request: Request) {
       }
       if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
         return NextResponse.json({ error: 'Coordinates out of range' }, { status: 400 })
+      }
+    }
+
+    // Auto-geocode from ZIP if coordinates not provided
+    // This ensures vendors appear in location-based searches
+    if (parsedLat === null && parsedLng === null && zip) {
+      try {
+        const geocodeResponse = await geocodeZipCode(zip)
+        if (geocodeResponse) {
+          parsedLat = geocodeResponse.latitude
+          parsedLng = geocodeResponse.longitude
+          console.log(`[/api/vendor/markets] Auto-geocoded ZIP ${zip} to ${parsedLat}, ${parsedLng}`)
+        }
+      } catch (geocodeError) {
+        // Don't fail market creation if geocoding fails, just log it
+        console.warn('[/api/vendor/markets] Geocoding failed, market will be created without coordinates:', geocodeError)
       }
     }
 
