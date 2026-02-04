@@ -7,7 +7,7 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 const CERTIFICATION_TYPES = [
   {
     type: 'cottage_goods',
-    label: 'Cottage Food License',
+    label: 'Cottage Food Registration',
     description: 'State-registered home kitchen food production',
     badgeColor: '#d97706', // amber
     badgeBg: '#fef3c7',
