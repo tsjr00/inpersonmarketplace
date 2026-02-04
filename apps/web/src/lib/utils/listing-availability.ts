@@ -19,6 +19,7 @@ export interface MarketWithSchedules {
   city: string
   state: string
   cutoff_hours: number | null
+  timezone: string | null
   active: boolean
   market_schedules: MarketSchedule[]
 }
@@ -38,6 +39,96 @@ export interface ProcessedMarket {
 }
 
 /**
+ * Get the current day-of-week and time in a specific timezone
+ */
+function getLocalTimeInfo(timezone: string): { dayOfWeek: number; hours: number; minutes: number } {
+  const now = new Date()
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false
+  })
+
+  const parts = formatter.formatToParts(now)
+  const weekdayPart = parts.find(p => p.type === 'weekday')?.value || 'Sun'
+  const hourPart = parts.find(p => p.type === 'hour')?.value || '0'
+  const minutePart = parts.find(p => p.type === 'minute')?.value || '0'
+
+  // Map weekday string to number (0 = Sunday)
+  const dayMap: Record<string, number> = {
+    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+  }
+
+  return {
+    dayOfWeek: dayMap[weekdayPart] ?? 0,
+    hours: parseInt(hourPart, 10),
+    minutes: parseInt(minutePart, 10)
+  }
+}
+
+/**
+ * Calculate the next occurrence of a scheduled market day in UTC
+ */
+function getNextMarketDatetime(
+  scheduleDay: number,
+  startTime: string,
+  timezone: string
+): Date {
+  const now = new Date()
+  const local = getLocalTimeInfo(timezone)
+  const [scheduleHours, scheduleMinutes] = startTime.split(':').map(Number)
+
+  // Calculate days until the next occurrence
+  let daysUntil = scheduleDay - local.dayOfWeek
+  if (daysUntil < 0) daysUntil += 7
+  if (daysUntil === 0) {
+    // Same day - check if market time has passed in local time
+    const localTimeMinutes = local.hours * 60 + local.minutes
+    const scheduleTimeMinutes = scheduleHours * 60 + scheduleMinutes
+    if (localTimeMinutes >= scheduleTimeMinutes) {
+      daysUntil = 7 // Next week
+    }
+  }
+
+  // Build the target date in local timezone
+  // Use a reference point and add days
+  const targetDate = new Date(now)
+  targetDate.setDate(targetDate.getDate() + daysUntil)
+
+  // Format the target date as YYYY-MM-DD
+  const targetDateStr = targetDate.toLocaleDateString('en-CA', { timeZone: timezone })
+
+  // Create a datetime string and parse it in the market's timezone
+  // We create an ISO string with the timezone offset
+  const datetimeStr = `${targetDateStr}T${startTime}`
+
+  // Get timezone offset for the target date
+  const offsetFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'longOffset'
+  })
+  const offsetParts = offsetFormatter.formatToParts(new Date(datetimeStr + 'Z'))
+  const offsetStr = offsetParts.find(p => p.type === 'timeZoneName')?.value || 'GMT'
+
+  // Parse offset like "GMT-06:00" or "GMT-05:00"
+  const offsetMatch = offsetStr.match(/GMT([+-])(\d{2}):(\d{2})/)
+  let offsetMinutes = 0
+  if (offsetMatch) {
+    const sign = offsetMatch[1] === '+' ? 1 : -1
+    const hours = parseInt(offsetMatch[2], 10)
+    const minutes = parseInt(offsetMatch[3], 10)
+    offsetMinutes = sign * (hours * 60 + minutes)
+  }
+
+  // Create the UTC datetime by parsing local time and adjusting for offset
+  const localDateTime = new Date(datetimeStr)
+  // Subtract offset to get UTC (if timezone is GMT-6, add 6 hours to get UTC)
+  return new Date(localDateTime.getTime() - offsetMinutes * 60 * 1000)
+}
+
+/**
  * Calculate availability status for a single market
  */
 export function calculateMarketAvailability(market: MarketWithSchedules): ProcessedMarket | null {
@@ -46,7 +137,7 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   }
 
   const now = new Date()
-  const currentDay = now.getDay()
+  const timezone = market.timezone || 'America/Chicago'
   const activeSchedules = market.market_schedules?.filter(s => s.active) || []
 
   // Calculate next pickup datetime and if accepting orders
@@ -56,29 +147,17 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   const cutoffHours = market.cutoff_hours ?? (market.market_type === 'traditional' ? 18 : 10)
 
   for (const schedule of activeSchedules) {
-    // Calculate next occurrence of this schedule
-    let daysUntil = schedule.day_of_week - currentDay
-    if (daysUntil < 0) daysUntil += 7
-    if (daysUntil === 0) {
-      // Check if we've passed today's time
-      const [hours, minutes] = schedule.start_time.split(':').map(Number)
-      const todaySchedule = new Date(now)
-      todaySchedule.setHours(hours, minutes, 0, 0)
+    // Calculate next occurrence of this schedule (in UTC)
+    const nextOccurrence = getNextMarketDatetime(
+      schedule.day_of_week,
+      schedule.start_time,
+      timezone
+    )
 
-      if (now >= todaySchedule) {
-        daysUntil = 7 // Next week
-      }
-    }
+    // Calculate cutoff time (subtract cutoff hours from market time)
+    const cutoffTime = new Date(nextOccurrence.getTime() - cutoffHours * 60 * 60 * 1000)
 
-    const nextOccurrence = new Date(now)
-    nextOccurrence.setDate(now.getDate() + daysUntil)
-    const [hours, minutes] = schedule.start_time.split(':').map(Number)
-    nextOccurrence.setHours(hours, minutes, 0, 0)
-
-    // Check if within cutoff window
-    const cutoffTime = new Date(nextOccurrence)
-    cutoffTime.setHours(cutoffTime.getHours() - cutoffHours)
-
+    // Check if we're before the cutoff
     if (now < cutoffTime) {
       isAccepting = true
       if (!nextPickupAt || nextOccurrence < nextPickupAt) {
@@ -92,7 +171,15 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   let nextPickupStartTime: string | null = null
   let nextPickupEndTime: string | null = null
   if (nextPickupAt) {
-    const nextPickupDay = nextPickupAt.getDay()
+    // Get the day of week in the market's timezone
+    const nextPickupDayStr = nextPickupAt.toLocaleDateString('en-US', {
+      timeZone: timezone,
+      weekday: 'short'
+    })
+    const dayMap: Record<string, number> = {
+      'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+    }
+    const nextPickupDay = dayMap[nextPickupDayStr] ?? 0
     const matchingSchedule = activeSchedules.find(s => s.day_of_week === nextPickupDay)
     if (matchingSchedule) {
       nextPickupStartTime = matchingSchedule.start_time

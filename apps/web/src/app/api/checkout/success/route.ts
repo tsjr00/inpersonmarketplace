@@ -90,6 +90,9 @@ export async function GET(request: NextRequest) {
           quantity,
           subtotal_cents,
           market_id,
+          pickup_date,
+          pickup_start_time,
+          pickup_end_time,
           markets!market_id(id, name, market_type, address, city, state),
           listing:listings(
             title,

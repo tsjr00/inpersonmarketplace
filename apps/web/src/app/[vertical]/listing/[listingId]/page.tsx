@@ -126,6 +126,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           city,
           state,
           cutoff_hours,
+          timezone,
           active,
           market_schedules (
             id,

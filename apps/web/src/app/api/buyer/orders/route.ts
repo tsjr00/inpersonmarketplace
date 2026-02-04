@@ -51,6 +51,8 @@ export async function GET(request: NextRequest) {
           cancelled_at,
           buyer_confirmed_at,
           pickup_date,
+          pickup_start_time,
+          pickup_end_time,
           market_id,
           markets!market_id(
             id,
@@ -187,6 +189,8 @@ export async function GET(request: NextRequest) {
         const expiresAt = item.expires_at as string | null
         const cancelledAt = item.cancelled_at as string | null
         const pickupDate = item.pickup_date as string | null
+        const pickupStartTime = item.pickup_start_time as string | null
+        const pickupEndTime = item.pickup_end_time as string | null
 
         return {
           id: item.id,
@@ -201,6 +205,8 @@ export async function GET(request: NextRequest) {
           expires_at: expiresAt,
           is_expired: expiresAt && new Date(expiresAt) < new Date() && itemStatus === 'pending' && !cancelledAt,
           pickup_date: pickupDate,
+          pickup_start_time: pickupStartTime,
+          pickup_end_time: pickupEndTime,
           market: market ? {
             id: market.id,
             name: (market.name as string) || 'Unknown',

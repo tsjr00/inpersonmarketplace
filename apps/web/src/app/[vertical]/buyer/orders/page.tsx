@@ -22,6 +22,8 @@ interface Order {
     subtotal_cents: number
     status: string
     pickup_date: string | null
+    pickup_start_time: string | null
+    pickup_end_time: string | null
     market: {
       id: string
       name: string
@@ -40,6 +42,23 @@ function formatPickupDate(dateStr: string | null | undefined): string | null {
     month: 'short',
     day: 'numeric'
   })
+}
+
+// Format time range for display (e.g., "8:00 AM - 12:00 PM")
+function formatPickupTime(startTime: string | null | undefined, endTime: string | null | undefined): string | null {
+  if (!startTime) return null
+
+  const formatTime = (timeStr: string): string => {
+    const [hours, minutes] = timeStr.split(':').map(Number)
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const displayHours = hours % 12 || 12
+    return minutes === 0 ? `${displayHours} ${period}` : `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`
+  }
+
+  const start = formatTime(startTime)
+  if (!endTime) return start
+  const end = formatTime(endTime)
+  return `${start} - ${end}`
 }
 
 interface Market {
@@ -471,6 +490,7 @@ export default function BuyerOrdersPage() {
                                     fontWeight: typography.weights.medium
                                   }}>
                                     Pickup: {formatPickupDate(item.pickup_date)}
+                                    {formatPickupTime(item.pickup_start_time, item.pickup_end_time) && ` • ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}`}
                                   </p>
                                 )}
                               </div>

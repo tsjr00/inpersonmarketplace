@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
@@ -70,6 +70,9 @@ export default function CheckoutPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null)
   const [vendorPaymentInfo, setVendorPaymentInfo] = useState<VendorPaymentInfo[]>([])
+
+  // Ref to prevent double-click submissions (state update may not re-render in time)
+  const isSubmittingRef = useRef(false)
 
   // Check auth and validate cart items
   useEffect(() => {
@@ -263,6 +266,11 @@ export default function CheckoutPage() {
   }, [checkoutItems])
 
   async function handleCheckout() {
+    // Prevent double-click submissions using ref (faster than state)
+    if (isSubmittingRef.current) {
+      return
+    }
+
     if (!user) {
       // Redirect to login with return URL
       router.push(`/${vertical}/login?redirect=/${vertical}/checkout`)
@@ -274,6 +282,8 @@ export default function CheckoutPage() {
       return
     }
 
+    // Mark as submitting immediately (ref updates synchronously)
+    isSubmittingRef.current = true
     setProcessing(true)
     setError(null)
 
@@ -297,6 +307,7 @@ export default function CheckoutPage() {
             code: data.code,
             traceId: data.traceId
           })
+          isSubmittingRef.current = false
           setProcessing(false)
           return
         }
@@ -343,6 +354,7 @@ export default function CheckoutPage() {
           code: data.code,
           traceId: data.traceId
         })
+        isSubmittingRef.current = false
         setProcessing(false)
         return
       }
@@ -357,6 +369,7 @@ export default function CheckoutPage() {
       }
     } catch (err: unknown) {
       setError({ message: err instanceof Error ? err.message : 'Checkout failed' })
+      isSubmittingRef.current = false
       setProcessing(false)
     }
   }

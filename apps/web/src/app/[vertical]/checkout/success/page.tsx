@@ -18,6 +18,23 @@ function formatPickupDate(dateStr: string | null | undefined): string | null {
   })
 }
 
+// Format time range for display (e.g., "8:00 AM - 12:00 PM")
+function formatPickupTime(startTime: string | null | undefined, endTime: string | null | undefined): string | null {
+  if (!startTime) return null
+
+  const formatTime = (timeStr: string): string => {
+    const [hours, minutes] = timeStr.split(':').map(Number)
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const displayHours = hours % 12 || 12
+    return minutes === 0 ? `${displayHours} ${period}` : `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`
+  }
+
+  const start = formatTime(startTime)
+  if (!endTime) return start
+  const end = formatTime(endTime)
+  return `${start} - ${end}`
+}
+
 interface OrderItem {
   id: string
   title: string
@@ -31,6 +48,8 @@ interface OrderItem {
   market_city?: string
   market_state?: string
   pickup_date?: string | null
+  pickup_start_time?: string | null
+  pickup_end_time?: string | null
 }
 
 interface OrderDetails {
@@ -262,6 +281,7 @@ export default function CheckoutSuccessPage() {
                           <span>{item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
                           <span>
                             <strong>Pickup:</strong> {formatPickupDate(item.pickup_date) || 'Date TBD'}
+                            {formatPickupTime(item.pickup_start_time, item.pickup_end_time) && `, ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}`}
                             {item.market_name && ` at ${item.market_name}`}
                             {item.market_city && `, ${item.market_city}`}
                           </span>
@@ -361,6 +381,7 @@ export default function CheckoutSuccessPage() {
                                 color: colors.primary,
                               }}>
                                 {formatPickupDate(item.pickup_date)}
+                                {formatPickupTime(item.pickup_start_time, item.pickup_end_time) && ` • ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}`}
                               </p>
                             )}
                             {(item.market_address || item.market_city) && (
@@ -471,6 +492,8 @@ function transformOrder(raw: Record<string, unknown>): OrderDetails {
       market_city: market?.city as string | undefined,
       market_state: market?.state as string | undefined,
       pickup_date: item.pickup_date as string | null | undefined,
+      pickup_start_time: item.pickup_start_time as string | null | undefined,
+      pickup_end_time: item.pickup_end_time as string | null | undefined,
     }
   })
 
