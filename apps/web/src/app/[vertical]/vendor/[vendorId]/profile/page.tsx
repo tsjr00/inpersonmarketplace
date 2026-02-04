@@ -442,12 +442,73 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           border: '1px solid #e5e7eb',
           marginBottom: 24
         }}>
-          <div className="vendor-header" style={{
+          {/* MOBILE LAYOUT: Avatar + Stats side by side */}
+          <div className="vendor-header-mobile" style={{
             display: 'flex',
+            gap: 12,
+            alignItems: 'flex-start',
+            marginBottom: 16
+          }}>
+            <VendorAvatar
+              imageUrl={vendorImageUrl}
+              name={vendorName}
+              size={80}
+              tier={vendorTier}
+            />
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8
+            }}>
+              {/* Compact Rating */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 10px',
+                backgroundColor: ratingCount && ratingCount > 0 ? '#fef3c7' : '#f3f4f6',
+                borderRadius: 16,
+                width: 'fit-content'
+              }}>
+                <div style={{ display: 'flex', gap: 1 }}>
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const rating = averageRating || 0
+                    const filled = star <= Math.floor(rating)
+                    return (
+                      <span key={star} style={{ fontSize: 14, color: filled ? '#f59e0b' : '#d1d5db' }}>★</span>
+                    )
+                  })}
+                </div>
+                {ratingCount && ratingCount > 0 ? (
+                  <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>
+                    {(averageRating || 0).toFixed(1)} ({ratingCount})
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>No reviews</span>
+                )}
+              </div>
+              {/* Verified + Listings compact */}
+              <div style={{ fontSize: 13, color: '#666', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {vendorStatus === 'approved' ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>✓ Verified</span>
+                ) : isAdmin && (
+                  <span style={{ color: vendorStatus === 'rejected' ? '#dc2626' : '#d97706' }}>
+                    ⏳ {vendorStatus === 'submitted' ? 'Pending' : vendorStatus === 'rejected' ? 'Rejected' : 'Draft'}
+                  </span>
+                )}
+                <span>•</span>
+                <span>{listings?.length || 0} listing{listings?.length !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* DESKTOP LAYOUT: Traditional side-by-side */}
+          <div className="vendor-header-desktop" style={{
+            display: 'none',
             gap: 24,
             alignItems: 'flex-start'
           }}>
-            {/* Vendor Avatar */}
             <VendorAvatar
               imageUrl={vendorImageUrl}
               name={vendorName}
@@ -576,17 +637,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                   </span>
                 )}
                 <span>
-                  Member since {new Date(vendor.created_at).toLocaleDateString('en-US', {
-                    month: 'long',
-                    year: 'numeric'
-                  })}
-                </span>
-                <span>
                   {listings?.length || 0} listing{listings?.length !== 1 ? 's' : ''}
                 </span>
               </div>
 
-              {/* Social Links (Premium only) */}
+              {/* Social Links (Premium only) - Desktop */}
               {socialLinks && Object.keys(socialLinks).some(key => socialLinks[key]) && (
                 <div style={{
                   display: 'flex',
@@ -652,6 +707,102 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               )}
 
             </div>
+          </div>
+
+          {/* MOBILE CONTENT: Name, Description, Social Links (below the avatar+stats row) */}
+          <div className="vendor-content-mobile">
+            {/* Name + Badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+              <h1 style={{
+                color: branding.colors.primary,
+                margin: 0,
+                fontSize: 24,
+                fontWeight: 'bold',
+                lineHeight: 1.3
+              }}>
+                {vendorName}
+              </h1>
+              {vendorTier !== 'standard' && (
+                <TierBadge tier={vendorTier} size="md" />
+              )}
+            </div>
+
+            {/* Description - left aligned */}
+            {vendorDescription && (
+              <p style={{
+                margin: '0 0 12px 0',
+                fontSize: 14,
+                lineHeight: 1.6,
+                color: '#374151',
+                textAlign: 'left'
+              }}>
+                {vendorDescription}
+              </p>
+            )}
+
+            {/* Social Links - Mobile */}
+            {socialLinks && Object.keys(socialLinks).some(key => socialLinks[key]) && (
+              <div style={{
+                display: 'flex',
+                gap: 8,
+                flexWrap: 'wrap'
+              }}>
+                {socialLinks.facebook && (
+                  <a
+                    href={socialLinks.facebook}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#1877f2',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      fontWeight: 600
+                    }}
+                  >
+                    Facebook
+                  </a>
+                )}
+                {socialLinks.instagram && (
+                  <a
+                    href={socialLinks.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#e4405f',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      fontWeight: 600
+                    }}
+                  >
+                    Instagram
+                  </a>
+                )}
+                {socialLinks.website && (
+                  <a
+                    href={socialLinks.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#6b7280',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      fontWeight: 600
+                    }}
+                  >
+                    Website
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Categories - show ALL categories vendor sells */}
@@ -1120,20 +1271,31 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
       {/* Responsive Styles */}
       <style>{`
-        .vendor-profile-page .vendor-header {
-          flex-direction: column;
-          text-align: center;
+        /* Mobile first: show mobile layout, hide desktop */
+        .vendor-profile-page .vendor-header-mobile {
+          display: flex !important;
         }
-        .vendor-profile-page .vendor-meta {
-          justify-content: center;
+        .vendor-profile-page .vendor-header-desktop {
+          display: none !important;
+        }
+        .vendor-profile-page .vendor-content-mobile {
+          display: block;
+          text-align: left;
         }
         .vendor-profile-page .listings-grid {
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
+
+        /* Desktop: hide mobile layout, show desktop */
         @media (min-width: 640px) {
-          .vendor-profile-page .vendor-header {
-            flex-direction: row;
-            text-align: left;
+          .vendor-profile-page .vendor-header-mobile {
+            display: none !important;
+          }
+          .vendor-profile-page .vendor-header-desktop {
+            display: flex !important;
+          }
+          .vendor-profile-page .vendor-content-mobile {
+            display: none;
           }
           .vendor-profile-page .vendor-meta {
             justify-content: flex-start;

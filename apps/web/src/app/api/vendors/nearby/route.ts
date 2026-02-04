@@ -4,6 +4,19 @@ import { createClient } from '@/lib/supabase/server'
 const DEFAULT_RADIUS_MILES = 25
 const METERS_PER_MILE = 1609.344
 
+// Haversine formula for distance between two points in miles
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3959 // Earth's radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -104,12 +117,12 @@ export async function GET(request: NextRequest) {
         .eq('status', 'published')
         .is('deleted_at', null),
 
-      // Get market associations
+      // Get market associations with lat/lng for per-market distance calculation
       supabase
         .from('listing_markets')
         .select(`
           listings!inner(vendor_profile_id),
-          markets(id, name)
+          markets(id, name, market_type, latitude, longitude)
         `)
         .in('listings.vendor_profile_id', vendorIds)
     ])
@@ -130,21 +143,38 @@ export async function GET(request: NextRequest) {
       const listingCount = vendorListings.length
       const categories = [...new Set(vendorListings.map(l => l.category).filter(Boolean))] as string[]
 
-      // Get markets from listing_markets
-      const marketMap = new Map<string, { id: string; name: string }>()
+      // Get markets from listing_markets with per-market distance calculation
+      const marketMap = new Map<string, { id: string; name: string; market_type: string; distance_miles: number }>()
       listingMarkets
         .filter(lm => {
           const listing = lm.listings as unknown as { vendor_profile_id: string }
           return listing?.vendor_profile_id === vendor.id && lm.markets
         })
         .forEach(lm => {
-          const m = lm.markets as unknown as { id: string; name: string }
+          const m = lm.markets as unknown as {
+            id: string
+            name: string
+            market_type: string
+            latitude: number | null
+            longitude: number | null
+          }
           if (m && !marketMap.has(m.id)) {
-            marketMap.set(m.id, { id: m.id, name: m.name })
+            // Calculate distance from user to this specific market
+            let marketDistance = 999 // Default if no coordinates
+            if (m.latitude && m.longitude) {
+              marketDistance = Math.round(haversineDistance(latitude, longitude, m.latitude, m.longitude) * 10) / 10
+            }
+            marketMap.set(m.id, {
+              id: m.id,
+              name: m.name,
+              market_type: m.market_type || 'traditional',
+              distance_miles: marketDistance
+            })
           }
         })
 
-      const vendorMarkets = Array.from(marketMap.values())
+      // Sort markets by distance
+      const vendorMarkets = Array.from(marketMap.values()).sort((a, b) => a.distance_miles - b.distance_miles)
 
       return {
         id: vendor.id,
@@ -320,7 +350,7 @@ async function fallbackNearbyQuery(
       .is('deleted_at', null),
     supabase
       .from('listing_markets')
-      .select('listings!inner(vendor_profile_id), markets(id, name)')
+      .select('listings!inner(vendor_profile_id), markets(id, name, market_type, latitude, longitude)')
       .in('listings.vendor_profile_id', vendorIds)
   ])
 
@@ -335,15 +365,32 @@ async function fallbackNearbyQuery(
     const vendorListings = listings.filter(l => l.vendor_profile_id === vendor.id)
     const categories = [...new Set(vendorListings.map(l => l.category).filter(Boolean))] as string[]
 
-    const marketMap = new Map<string, { id: string; name: string }>()
+    const marketMap = new Map<string, { id: string; name: string; market_type: string; distance_miles: number }>()
     listingMarkets
       .filter(lm => {
         const listing = lm.listings as unknown as { vendor_profile_id: string }
         return listing?.vendor_profile_id === vendor.id && lm.markets
       })
       .forEach(lm => {
-        const m = lm.markets as unknown as { id: string; name: string }
-        if (m && !marketMap.has(m.id)) marketMap.set(m.id, m)
+        const m = lm.markets as unknown as {
+          id: string
+          name: string
+          market_type: string
+          latitude: number | null
+          longitude: number | null
+        }
+        if (m && !marketMap.has(m.id)) {
+          let marketDistance = 999
+          if (m.latitude && m.longitude) {
+            marketDistance = Math.round(haversineDistance(latitude, longitude, m.latitude, m.longitude) * 10) / 10
+          }
+          marketMap.set(m.id, {
+            id: m.id,
+            name: m.name,
+            market_type: m.market_type || 'traditional',
+            distance_miles: marketDistance
+          })
+        }
       })
 
     return {
@@ -357,7 +404,7 @@ async function fallbackNearbyQuery(
       ratingCount: vendor.rating_count as number | null,
       listingCount: vendorListings.length,
       categories,
-      markets: Array.from(marketMap.values()),
+      markets: Array.from(marketMap.values()).sort((a, b) => a.distance_miles - b.distance_miles),
       distance_miles: Math.round((vendorDistances.get(vendor.id) ?? 0) * 10) / 10
     }
   })

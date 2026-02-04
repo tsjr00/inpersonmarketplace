@@ -2,7 +2,7 @@
 
 **Source of truth for database structure. Updated after each confirmed migration.**
 
-**Last Updated:** 2026-02-03 (4 migrations applied today)
+**Last Updated:** 2026-02-04
 **Database:** Dev (inpersonmarketplace)
 **Updated By:** Claude + User
 
@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-04 | 20260204_001_zip_codes_table | Added `zip_codes` table (33k+ US ZIP codes with coordinates); new functions: `get_zip_coordinates()`, `get_nearby_zip_codes()`, `get_region_zip_codes()` |
 | 2026-02-03 | 20260203_004_fix_market_box_trigger_column_name | Fixed `set_market_box_premium_window()` trigger: changed `is_active` to `active` (correct column name) |
 | 2026-02-03 | 20260203_003_add_vertical_admin_rls_support | Added vertical admin RLS support to 14 tables; new helper functions: `can_admin_market()`, `can_admin_order()`, `can_admin_vendor()` |
 | 2026-02-03 | 20260203_002_fix_admin_helper_functions | Fixed `is_platform_admin()` to check both `role` column and `roles` array; added `is_vertical_admin()`, `is_admin_for_vertical()`, `is_any_admin()`, `get_user_admin_verticals()` |
@@ -21,7 +22,7 @@
 
 Where Schema = public : map
 
-## ALL TABLES AS OF 02/03/2026
+## ALL TABLES AS OF 02/04/2026
 
 | table_name               |
 | ------------------------ |
@@ -67,9 +68,10 @@ Where Schema = public : map
 | vendor_verifications     |
 | vertical_admins          |
 | verticals                |
+| zip_codes                |
 
 
--- ALL COLUMNS WITH TYPES AS OF 02/03/2026
+-- ALL COLUMNS WITH TYPES AS OF 02/04/2026
 
 
 
@@ -175,10 +177,23 @@ Where Schema = public : map
 | error_reports      | created_at             | timestamp with time zone | YES         | now()                  |
 | error_reports      | updated_at             | timestamp with time zone | YES         | now()                  |
 | error_resolutions  | id                     | uuid                     | NO          | gen_random_uuid()      |
+| zip_codes          | zip                    | character varying(5)     | NO          | null (PRIMARY KEY)     |
+| zip_codes          | city                   | character varying(100)   | NO          | null                   |
+| zip_codes          | state                  | character varying(2)     | NO          | null                   |
+| zip_codes          | state_name             | character varying(50)    | YES         | null                   |
+| zip_codes          | county                 | character varying(100)   | YES         | null                   |
+| zip_codes          | latitude               | numeric(9,6)             | NO          | null                   |
+| zip_codes          | longitude              | numeric(9,6)             | NO          | null                   |
+| zip_codes          | timezone               | character varying(50)    | YES         | null                   |
+| zip_codes          | population             | integer                  | YES         | null                   |
+| zip_codes          | region_code            | character varying(20)    | YES         | null                   |
+| zip_codes          | active_market_area     | boolean                  | YES         | false                  |
+| zip_codes          | created_at             | timestamp with time zone | YES         | now()                  |
+| zip_codes          | updated_at             | timestamp with time zone | YES         | now()                  |
 
 
 
--- FOREIGN KEYS AS OF 02/03/2026
+-- FOREIGN KEYS AS OF 02/04/2026
 
 
 | table_name               | column_name            | foreign_table            | foreign_column |
@@ -416,10 +431,12 @@ Where Schema = public : map
 | public     | vendor_referral_credits  | vendor_referral_credits_select   | PERMISSIVE | {public} | SELECT | ((referrer_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR (referred_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))                                                                                                                               | null                                                                                                                                                                                                                                                                                 |
 | public     | vendor_verifications     | vendor_verifications_select      | PERMISSIVE | {public} | SELECT | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
 | public     | verticals                | verticals_select                 | PERMISSIVE | {public} | SELECT | true                                                                                                                                                                                                                                                                                                             | null                                                                                                                                                                                                                                                                                 |
+| public     | zip_codes                | zip_codes_public_read            | PERMISSIVE | {public} | SELECT | true                                                                                                                                                                                                                                                                                                             | null                                                                                                                                                                                                                                                                                 |
+| public     | zip_codes                | zip_codes_admin_all              | PERMISSIVE | {public} | ALL    | EXISTS (SELECT 1 FROM user_profiles WHERE user_id = auth.uid() AND role = 'admin')                                                                                                                                                                                                                              | null                                                                                                                                                                                                                                                                                 |
 
 
 
--- ALL INDEXES AS OF 02/03/2026
+-- ALL INDEXES AS OF 02/04/2026
 
 
 | tablename                | indexname                                          | indexdef                                                                                                                                                                                                              |
@@ -524,10 +541,16 @@ Where Schema = public : map
 | markets                  | idx_markets_pending                                | CREATE INDEX idx_markets_pending ON public.markets USING btree (status, vertical_id) WHERE (status = 'pending'::text)                                                                                                 |
 | markets                  | idx_markets_status                                 | CREATE INDEX idx_markets_status ON public.markets USING btree (status)                                                                                                                                                |
 | markets                  | idx_markets_submitted_by                           | CREATE INDEX idx_markets_submitted_by ON public.markets USING btree (submitted_by)                                                                                                                                    |
+| zip_codes                | zip_codes_pkey                                     | CREATE UNIQUE INDEX zip_codes_pkey ON public.zip_codes USING btree (zip)                                                                                                                                              |
+| zip_codes                | idx_zip_codes_state                                | CREATE INDEX idx_zip_codes_state ON public.zip_codes USING btree (state)                                                                                                                                              |
+| zip_codes                | idx_zip_codes_region                               | CREATE INDEX idx_zip_codes_region ON public.zip_codes USING btree (region_code) WHERE (region_code IS NOT NULL)                                                                                                       |
+| zip_codes                | idx_zip_codes_active_market                        | CREATE INDEX idx_zip_codes_active_market ON public.zip_codes USING btree (active_market_area) WHERE (active_market_area = true)                                                                                       |
+| zip_codes                | idx_zip_codes_city_state                           | CREATE INDEX idx_zip_codes_city_state ON public.zip_codes USING btree (city, state)                                                                                                                                   |
+| zip_codes                | idx_zip_codes_coords                               | CREATE INDEX idx_zip_codes_coords ON public.zip_codes USING btree (latitude, longitude)                                                                                                                               |
 
 
 
--- ALL FUNCTIONS AS OF 02/03/2026 
+-- ALL FUNCTIONS AS OF 02/04/2026 
 
 
 
@@ -636,7 +659,7 @@ Where Schema = public : map
 
 
 
--- ALL TRIGGERS AS OF 02/03/2026 
+-- ALL TRIGGERS AS OF 02/04/2026 
 
 
 
@@ -701,7 +724,7 @@ Where Schema = public : map
 
 
 
--- ALL VIEWS AS OF 02/03/20226
+-- ALL VIEWS AS OF 02/04/2026
 
 
 
@@ -743,6 +766,14 @@ These are SECURITY DEFINER functions used by RLS policies and triggers.
 | `can_admin_market(p_market_id UUID)` | BOOLEAN | Returns true if user can admin the market's vertical |
 | `can_admin_order(p_order_id UUID)` | BOOLEAN | Returns true if user can admin the order's vertical |
 | `can_admin_vendor(p_vendor_profile_id UUID)` | BOOLEAN | Returns true if user can admin the vendor's vertical |
+
+### ZIP Code Lookup Functions (20260204_001)
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `get_zip_coordinates(zip_code VARCHAR(5))` | TABLE(latitude, longitude, city, state) | Returns coordinates and location info for a ZIP code |
+| `get_nearby_zip_codes(user_lat, user_lng, limit_count)` | TABLE(zip, city, state, distance_miles) | Finds nearby ZIP codes using Haversine formula |
+| `get_region_zip_codes(region VARCHAR(20))` | TABLE(zip, city, state, latitude, longitude) | Returns all ZIP codes in a partner territory region |
 
 ### Premium Window Trigger Functions
 

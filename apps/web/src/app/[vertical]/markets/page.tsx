@@ -1,9 +1,55 @@
 import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import { defaultBranding } from '@/lib/branding'
 import MarketFilters from './MarketFilters'
 import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 import { getMarketVendorCounts, mergeVendorCounts } from '@/lib/db/markets'
+
+const LOCATION_COOKIE_NAME = 'user_location'
+
+// Helper to get location from cookie or user profile
+async function getServerLocation(supabase: Awaited<ReturnType<typeof createClient>>) {
+  // First try to get from user profile if authenticated
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('preferred_latitude, preferred_longitude, location_source, location_text')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profile?.preferred_latitude && profile?.preferred_longitude) {
+      return {
+        latitude: profile.preferred_latitude,
+        longitude: profile.preferred_longitude,
+        locationText: profile.location_text || (profile.location_source === 'gps' ? 'Current location' : 'Your location')
+      }
+    }
+  }
+
+  // Fall back to cookie
+  const cookieStore = await cookies()
+  const locationCookie = cookieStore.get(LOCATION_COOKIE_NAME)
+
+  if (locationCookie) {
+    try {
+      const { latitude, longitude, locationText, source } = JSON.parse(locationCookie.value)
+      if (typeof latitude === 'number' && typeof longitude === 'number') {
+        return {
+          latitude,
+          longitude,
+          locationText: locationText || (source === 'gps' ? 'Current location' : 'Your location')
+        }
+      }
+    } catch {
+      // Invalid cookie, ignore
+    }
+  }
+
+  return null
+}
 
 // Cache page for 10 minutes - markets change infrequently
 export const revalidate = 600
@@ -41,21 +87,27 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     query = query.ilike('name', `%${search}%`)
   }
 
-  const { data: markets, error } = await query
+  // PARALLEL PHASE 1: Run location check, markets query, and cities query simultaneously
+  // These are independent and can run in parallel to reduce waterfall
+  const [savedLocation, marketsResult, allMarketsResult] = await Promise.all([
+    getServerLocation(supabase),
+    query,
+    supabase
+      .from('markets')
+      .select('city')
+      .eq('vertical_id', vertical)
+      .eq('status', 'active')
+      .eq('market_type', 'traditional')
+      .eq('approval_status', 'approved')
+      .not('city', 'is', null)
+  ])
+
+  const { data: markets, error } = marketsResult
+  const { data: allMarkets } = allMarketsResult
 
   if (error) {
     console.error('Error fetching markets:', error)
   }
-
-  // Get unique cities for filter (only from approved traditional markets)
-  const { data: allMarkets } = await supabase
-    .from('markets')
-    .select('city')
-    .eq('vertical_id', vertical)
-    .eq('status', 'active')
-    .eq('market_type', 'traditional')
-    .eq('approval_status', 'approved')
-    .not('city', 'is', null)
 
   // Proper-case and deduplicate cities (case-insensitive)
   const properCase = (str: string) =>
@@ -130,6 +182,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
         cities={cities}
         currentCity={city}
         currentSearch={search}
+        initialLocation={savedLocation}
       />
     </div>
   )

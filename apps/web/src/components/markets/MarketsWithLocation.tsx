@@ -31,6 +31,12 @@ interface MarketsWithLocationProps {
   cities: string[]
   currentCity?: string
   currentSearch?: string
+  /** Server-side location from cookie/profile - skips initial API call */
+  initialLocation?: {
+    latitude: number
+    longitude: number
+    locationText: string
+  } | null
 }
 
 export default function MarketsWithLocation({
@@ -38,19 +44,28 @@ export default function MarketsWithLocation({
   initialMarkets,
   cities,
   currentCity,
-  currentSearch
+  currentSearch,
+  initialLocation
 }: MarketsWithLocationProps) {
-  const [hasLocation, setHasLocation] = useState<boolean | null>(null)
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [locationText, setLocationText] = useState('')
-  // Start with empty array - only show markets after location-based search
-  const [markets, setMarkets] = useState<Market[]>([])
+  // Initialize state from server-provided location (if available)
+  const [hasLocation, setHasLocation] = useState<boolean | null>(initialLocation ? true : null)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(
+    initialLocation ? { lat: initialLocation.latitude, lng: initialLocation.longitude } : null
+  )
+  const [locationText, setLocationText] = useState(initialLocation?.locationText || '')
+  // Start with initialMarkets to show content immediately while location loads
+  const [markets, setMarkets] = useState<Market[]>(initialMarkets)
   const [loading, setLoading] = useState(false)
-  const [locationChecked, setLocationChecked] = useState(false)
+  // If we have initialLocation, we can skip the API check
+  const [locationChecked, setLocationChecked] = useState(!!initialLocation)
+  // Track if we've done a location-based search yet (to know if we're showing preliminary data)
+  const [hasLocationResults, setHasLocationResults] = useState(false)
 
-  // Check for saved location on mount
+  // Check for saved location on mount - ONLY if no initialLocation provided
   useEffect(() => {
-    checkSavedLocation()
+    if (!initialLocation) {
+      checkSavedLocation()
+    }
   }, [])
 
   // Re-fetch when city or search filters change (and we have location)
@@ -118,11 +133,13 @@ export default function MarketsWithLocation({
           schedules: m.market_schedules as Market['schedules'],
           vendor_count: (m.vendor_count as number) || 0
         })))
+        setHasLocationResults(true)
       }
     } catch (error) {
       console.error('Error fetching nearby markets:', error)
-      // On error, show empty state rather than unfiltered markets
-      setMarkets([])
+      // On error, keep showing initialMarkets rather than empty state
+      // so user still sees something useful
+      setHasLocationResults(true) // Mark as "done" even on error to stop loading indicator
     } finally {
       setLoading(false)
     }
@@ -191,31 +208,51 @@ export default function MarketsWithLocation({
         </div>
       )}
 
-      {/* Loading indicator */}
-      {loading && (
+      {/* Loading indicator - only show blocking state if no markets to display */}
+      {loading && markets.length === 0 && (
         <div style={{
           textAlign: 'center',
-          padding: spacing['3xl'],
+          padding: spacing.md,
           color: colors.textMuted
         }}>
           Loading nearby markets...
         </div>
       )}
 
-      {/* Results count */}
-      {!loading && (
-        <div style={{
-          marginBottom: spacing.sm,
-          color: colors.textMuted,
-          fontSize: typography.sizes.sm
-        }}>
-          {markets.length} market{markets.length !== 1 ? 's' : ''} found
-          {hasLocation && ' within 25 miles'}
-        </div>
-      )}
+      {/* Results count with loading/refining indicator */}
+      <div style={{
+        marginBottom: spacing.sm,
+        color: colors.textMuted,
+        fontSize: typography.sizes.sm,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs
+      }}>
+        {loading && markets.length > 0 ? (
+          // Show refining message when we have preliminary results
+          <>
+            <span style={{
+              display: 'inline-block',
+              width: 12,
+              height: 12,
+              border: '2px solid #e5e7eb',
+              borderTopColor: colors.primary,
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite'
+            }} />
+            <span>Finding markets near you...</span>
+          </>
+        ) : (
+          <span>
+            {markets.length} market{markets.length !== 1 ? 's' : ''} found
+            {hasLocationResults && hasLocation && ' within 25 miles'}
+            {!hasLocationResults && markets.length > 0 && !hasLocation && ' (enter ZIP for local results)'}
+          </span>
+        )}
+      </div>
 
-      {/* Market grid */}
-      {!loading && markets.length > 0 ? (
+      {/* Market grid - show even while loading if we have markets */}
+      {markets.length > 0 ? (
         <div
           className="markets-grid"
           style={{
@@ -275,6 +312,9 @@ export default function MarketsWithLocation({
       <style>{`
         .markets-grid {
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

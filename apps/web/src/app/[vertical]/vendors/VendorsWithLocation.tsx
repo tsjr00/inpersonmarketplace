@@ -8,6 +8,13 @@ import TierBadge from '@/components/shared/TierBadge'
 import { VendorTierType } from '@/lib/constants'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
+interface VendorMarket {
+  id: string
+  name: string
+  market_type?: string
+  distance_miles?: number
+}
+
 interface EnrichedVendor {
   id: string
   name: string
@@ -19,8 +26,48 @@ interface EnrichedVendor {
   ratingCount: number | null
   listingCount: number
   categories: string[]
-  markets: { id: string; name: string }[]
+  markets: VendorMarket[]
   distance_miles?: number | null
+}
+
+// Helper to get the two most relevant markets (closest traditional + closest private pickup)
+function getDisplayMarkets(markets: VendorMarket[]): { displayed: VendorMarket[]; remaining: number } {
+  if (markets.length === 0) return { displayed: [], remaining: 0 }
+  if (markets.length <= 2) return { displayed: markets, remaining: 0 }
+
+  // Separate by type and sort by distance
+  const traditional = markets
+    .filter(m => m.market_type === 'traditional')
+    .sort((a, b) => (a.distance_miles ?? 999) - (b.distance_miles ?? 999))
+  const privatePickup = markets
+    .filter(m => m.market_type === 'private_pickup')
+    .sort((a, b) => (a.distance_miles ?? 999) - (b.distance_miles ?? 999))
+
+  const displayed: VendorMarket[] = []
+
+  // Add closest traditional market if exists
+  if (traditional.length > 0) {
+    displayed.push(traditional[0])
+  }
+
+  // Add closest private pickup if exists
+  if (privatePickup.length > 0) {
+    displayed.push(privatePickup[0])
+  }
+
+  // If we only have one type, add the second closest of that type
+  if (displayed.length < 2) {
+    if (traditional.length > 1) {
+      displayed.push(traditional[1])
+    } else if (privatePickup.length > 1) {
+      displayed.push(privatePickup[1])
+    }
+  }
+
+  // Calculate remaining
+  const remaining = markets.length - displayed.length
+
+  return { displayed, remaining }
 }
 
 interface VendorsWithLocationProps {
@@ -365,41 +412,61 @@ export default function VendorsWithLocation({
                 </div>
               )}
 
-              {/* Markets with distance */}
-              {vendor.markets.length > 0 && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing['2xs'],
-                  fontSize: typography.sizes.xs,
-                  color: colors.textMuted,
-                  marginBottom: spacing.xs
-                }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                  <span style={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    flex: 1
+              {/* Markets with individual distances */}
+              {vendor.markets.length > 0 && (() => {
+                const { displayed, remaining } = getDisplayMarkets(vendor.markets)
+                return (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: spacing['3xs'],
+                    fontSize: typography.sizes.xs,
+                    color: colors.textMuted,
+                    marginBottom: spacing.xs
                   }}>
-                    {vendor.markets.slice(0, 2).map(m => m.name).join(', ')}
-                    {vendor.markets.length > 2 && ` +${vendor.markets.length - 2}`}
-                  </span>
-                  {vendor.distance_miles !== undefined && vendor.distance_miles !== null && (
-                    <span style={{
-                      padding: `${spacing['3xs']} ${spacing.xs}`,
-                      backgroundColor: colors.surfaceSubtle,
-                      borderRadius: radius.sm,
-                      fontWeight: typography.weights.medium
-                    }}>
-                      {vendor.distance_miles.toFixed(1)} mi
-                    </span>
-                  )}
-                </div>
-              )}
+                    {displayed.map(market => (
+                      <div key={market.id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing['2xs']
+                      }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <span style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          flex: 1
+                        }}>
+                          {market.market_type === 'private_pickup' ? 'Private: ' : ''}{market.name}
+                        </span>
+                        {market.distance_miles !== undefined && market.distance_miles < 999 && (
+                          <span style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: colors.surfaceSubtle,
+                            borderRadius: radius.sm,
+                            fontWeight: typography.weights.medium,
+                            flexShrink: 0
+                          }}>
+                            {market.distance_miles.toFixed(1)} mi
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {remaining > 0 && (
+                      <div style={{
+                        fontSize: typography.sizes.xs,
+                        color: colors.textMuted,
+                        paddingLeft: 20
+                      }}>
+                        +{remaining} more location{remaining !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Bottom row: Listings count + Premium badge */}
               <div style={{
