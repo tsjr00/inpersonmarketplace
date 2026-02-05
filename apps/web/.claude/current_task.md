@@ -70,7 +70,7 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
 ## Migration Status
 - 20260205_001: Applied to dev & staging
 - 20260205_002: Applied to dev & staging
-- 20260205_003: Needed fix (DROP FUNCTION), re-run needed on dev
+- 20260205_003: Applied to dev & staging (fixed DROP FUNCTION issue)
 
 ## Commits Made
 1. "Add pickup date selection system for buyers" - main implementation
