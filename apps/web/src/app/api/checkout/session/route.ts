@@ -9,6 +9,8 @@ interface CartItem {
   listingId: string
   quantity: number
   marketId?: string
+  scheduleId?: string
+  pickupDate?: string
 }
 
 interface Listing {
@@ -25,6 +27,8 @@ interface CartItemFromDB {
   listing_id: string
   quantity: number
   market_id: string | null
+  schedule_id: string | null
+  pickup_date: string | null
   markets: { id: string; name: string; market_type: string; city: string; state: string } | null
 }
 
@@ -103,6 +107,8 @@ export async function POST(request: NextRequest) {
             listing_id,
             quantity,
             market_id,
+            schedule_id,
+            pickup_date,
             markets!market_id (
               id,
               name,
@@ -117,7 +123,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build a map of listing -> market from cart items
+    // Build a map of cart item key -> pickup info
+    // Key is listing_id + schedule_id + pickup_date to handle same item for different dates
+    interface PickupInfo {
+      marketId: string
+      marketName: string
+      marketType: string
+      scheduleId: string | null
+      pickupDate: string | null
+    }
+    const cartItemPickupMap = new Map<string, PickupInfo>()
+    for (const cartItem of cartItemsFromDB) {
+      if (cartItem.market_id && cartItem.markets) {
+        const key = `${cartItem.listing_id}|${cartItem.schedule_id || ''}|${cartItem.pickup_date || ''}`
+        cartItemPickupMap.set(key, {
+          marketId: cartItem.market_id,
+          marketName: cartItem.markets.name,
+          marketType: cartItem.markets.market_type,
+          scheduleId: cartItem.schedule_id,
+          pickupDate: cartItem.pickup_date
+        })
+      }
+    }
+
+    // Also build a simple listing -> market map for backwards compatibility
     const listingMarketMap = new Map<string, { marketId: string; marketName: string; marketType: string }>()
     for (const cartItem of cartItemsFromDB) {
       if (cartItem.market_id && cartItem.markets) {
@@ -129,8 +158,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Also check items passed in request (fallback for backwards compatibility)
+    // Also check items passed in request
     for (const item of items) {
+      const key = `${item.listingId}|${item.scheduleId || ''}|${item.pickupDate || ''}`
+      if (item.marketId && !cartItemPickupMap.has(key)) {
+        cartItemPickupMap.set(key, {
+          marketId: item.marketId,
+          marketName: 'Selected Location',
+          marketType: 'unknown',
+          scheduleId: item.scheduleId || null,
+          pickupDate: item.pickupDate || null
+        })
+      }
       if (item.marketId && !listingMarketMap.has(item.listingId)) {
         listingMarketMap.set(item.listingId, {
           marketId: item.marketId,
@@ -225,8 +264,9 @@ export async function POST(request: NextRequest) {
       buyerFeeCents += fees.buyerFeeCents
       platformFeeCents += fees.platformFeeCents
 
-      // Get the market_id from the cart selection
-      const marketInfo = listingMarketMap.get(listing.id)
+      // Get the pickup info from request or cart
+      const key = `${item.listingId}|${item.scheduleId || ''}|${item.pickupDate || ''}`
+      const pickupInfo = cartItemPickupMap.get(key) || listingMarketMap.get(listing.id)
 
       return {
         listing_id: listing.id,
@@ -236,7 +276,9 @@ export async function POST(request: NextRequest) {
         subtotal_cents: fees.basePriceCents,
         platform_fee_cents: fees.platformFeeCents,
         vendor_payout_cents: fees.vendorGetsCents,
-        market_id: marketInfo?.marketId || null,
+        market_id: pickupInfo?.marketId || null,
+        schedule_id: item.scheduleId || ('scheduleId' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).scheduleId : null),
+        pickup_date: item.pickupDate || ('pickupDate' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).pickupDate : null),
       }
     })
 
@@ -249,26 +291,29 @@ export async function POST(request: NextRequest) {
     // Buyer pays: base price + buyer fee only (vendor fee is deducted from vendor payout)
     const totalCents = subtotalCents + buyerFeeCents
 
-    // Calculate pickup dates for each order item
-    crumb.logic('Calculating pickup dates for order items')
-    const pickupDatePromises = orderItems.map(async (item) => {
-      if (!item.market_id) return { ...item, pickup_date: null }
+    // Build pickup snapshots for each order item
+    crumb.logic('Building pickup snapshots for order items')
+    const pickupSnapshotPromises = orderItems.map(async (item) => {
+      // Only build snapshot if we have schedule_id and pickup_date
+      if (!item.schedule_id || !item.pickup_date) {
+        return { ...item, pickup_snapshot: null }
+      }
 
-      const { data: pickupDate, error } = await supabase.rpc('get_vendor_next_pickup_date', {
-        p_vendor_profile_id: item.vendor_profile_id,
-        p_market_id: item.market_id
+      const { data: snapshot, error } = await supabase.rpc('build_pickup_snapshot', {
+        p_schedule_id: item.schedule_id,
+        p_pickup_date: item.pickup_date
       })
 
       if (error) {
-        // Log but don't fail - pickup date is nice-to-have
-        console.warn('[checkout] Could not calculate pickup date:', error)
-        return { ...item, pickup_date: null }
+        // Log but don't fail - snapshot is important but shouldn't block checkout
+        console.warn('[checkout] Could not build pickup snapshot:', error)
+        return { ...item, pickup_snapshot: null }
       }
 
-      return { ...item, pickup_date: pickupDate }
+      return { ...item, pickup_snapshot: snapshot }
     })
 
-    const orderItemsWithPickupDates = await Promise.all(pickupDatePromises)
+    const orderItemsWithSnapshots = await Promise.all(pickupSnapshotPromises)
 
     // Create order record
     crumb.supabase('insert', 'orders')
@@ -290,10 +335,10 @@ export async function POST(request: NextRequest) {
 
     if (orderError) throw traced.fromSupabase(orderError, { table: 'orders', operation: 'insert' })
 
-    // Create order items with pickup dates
+    // Create order items with pickup snapshots
     crumb.supabase('insert', 'order_items')
     const { error: itemsError } = await supabase.from('order_items').insert(
-      orderItemsWithPickupDates.map((item) => ({
+      orderItemsWithSnapshots.map((item) => ({
         ...item,
         order_id: order.id,
       }))

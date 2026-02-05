@@ -3,19 +3,24 @@
 import { useState, useEffect } from 'react'
 import { useCart } from '@/lib/hooks/useCart'
 import { useToast } from '@/lib/hooks/useToast'
+import {
+  type AvailablePickupDate,
+  type PickupDateOption,
+  groupPickupDatesByMarket,
+  formatPickupDate,
+  formatPickupTime,
+  formatCutoffRemaining,
+  getPickupDateColor
+} from '@/types/pickup'
 
-export interface AvailableMarket {
-  market_id: string
-  market_name: string
-  market_type: 'traditional' | 'private_pickup'
-  address?: string
-  city?: string
-  state?: string
-  is_accepting: boolean
-  next_pickup_at?: string
-  start_time?: string  // HH:MM format
-  end_time?: string    // HH:MM format
-}
+/*
+ * PICKUP SCHEDULING CONTEXT
+ *
+ * This component now allows selection of specific pickup DATES, not just markets.
+ * Selection is stored as (schedule_id, pickup_date) pair.
+ *
+ * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ */
 
 interface AddToCartButtonProps {
   listingId: string
@@ -23,9 +28,16 @@ interface AddToCartButtonProps {
   primaryColor?: string
   vertical?: string
   ordersClosed?: boolean
-  markets?: AvailableMarket[]
-  /** Show warning when some markets are closed but others are open */
+  availablePickupDates?: AvailablePickupDate[]
+  /** Show warning when some dates are closed but others are open */
   showMixedAvailabilityWarning?: boolean
+}
+
+interface PickupSelection {
+  scheduleId: string
+  pickupDate: string
+  marketId: string
+  marketName: string
 }
 
 export function AddToCartButton({
@@ -34,7 +46,7 @@ export function AddToCartButton({
   primaryColor = '#333',
   vertical = 'farmers_market',
   ordersClosed = false,
-  markets = [],
+  availablePickupDates = [],
   showMixedAvailabilityWarning = false
 }: AddToCartButtonProps) {
   const { addToCart, items } = useCart()
@@ -42,21 +54,30 @@ export function AddToCartButton({
   const [quantity, setQuantity] = useState(1)
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null)
+  const [selectedPickup, setSelectedPickup] = useState<PickupSelection | null>(null)
 
-  // Filter to only open markets
-  const openMarkets = markets.filter(m => m.is_accepting)
-  const hasMultipleMarkets = openMarkets.length > 1
-  const hasNoOpenMarkets = openMarkets.length === 0
+  // Group dates by market for display
+  const marketGroups = groupPickupDatesByMarket(availablePickupDates)
 
-  // Auto-select if only one open market
+  // Filter to only accepting dates
+  const acceptingDates = availablePickupDates.filter(d => d.is_accepting)
+  const hasAcceptingDates = acceptingDates.length > 0
+  const hasMultipleOptions = acceptingDates.length > 1
+
+  // Auto-select if only one accepting date
   useEffect(() => {
-    if (openMarkets.length === 1 && !selectedMarketId) {
-      setSelectedMarketId(openMarkets[0].market_id)
+    if (acceptingDates.length === 1 && !selectedPickup) {
+      const fullDate = acceptingDates[0]
+      setSelectedPickup({
+        scheduleId: fullDate.schedule_id,
+        pickupDate: fullDate.pickup_date,
+        marketId: fullDate.market_id,
+        marketName: fullDate.market_name
+      })
     }
-  }, [openMarkets, selectedMarketId])
+  }, [acceptingDates, selectedPickup])
 
-  // Check how many of this item are already in cart (across all markets)
+  // Check how many of this item are already in cart (across all dates)
   const inCartItems = items.filter(i => i.listingId === listingId)
   const inCartQty = inCartItems.reduce((sum, i) => sum + i.quantity, 0)
   const availableToAdd = maxQuantity !== null && maxQuantity !== undefined
@@ -69,8 +90,8 @@ export function AddToCartButton({
       return
     }
 
-    if (!selectedMarketId) {
-      showToast('Please select a pickup location', 'warning')
+    if (!selectedPickup) {
+      showToast('Please select a pickup date', 'warning')
       return
     }
 
@@ -78,9 +99,15 @@ export function AddToCartButton({
     setError(null)
 
     try {
-      await addToCart(listingId, quantity, selectedMarketId)
-      const selectedMarket = openMarkets.find(m => m.market_id === selectedMarketId)
-      showToast(`Added to cart! Pickup at ${selectedMarket?.market_name || 'selected location'}`, 'success')
+      await addToCart(
+        listingId,
+        quantity,
+        selectedPickup.marketId,
+        selectedPickup.scheduleId,
+        selectedPickup.pickupDate
+      )
+      const dateFormatted = formatPickupDate(selectedPickup.pickupDate)
+      showToast(`Added to cart! Pickup ${dateFormatted} at ${selectedPickup.marketName}`, 'success')
       setQuantity(1) // Reset quantity after adding
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add to cart'
@@ -103,44 +130,36 @@ export function AddToCartButton({
   }
 
   const isSoldOut = maxQuantity !== null && maxQuantity !== undefined && maxQuantity <= 0
-  const needsMarketSelection = hasMultipleMarkets && !selectedMarketId
-  const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed || hasNoOpenMarkets || needsMarketSelection
+  const needsSelection = hasMultipleOptions && !selectedPickup
+  const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed || !hasAcceptingDates || needsSelection
 
-  // Format time from HH:MM to 12-hour format
-  const formatTime = (timeStr?: string) => {
-    if (!timeStr) return null
-    const [hours, minutes] = timeStr.split(':').map(Number)
-    const period = hours >= 12 ? 'PM' : 'AM'
-    const hour12 = hours % 12 || 12
-    return minutes === 0 ? `${hour12}${period}` : `${hour12}:${minutes.toString().padStart(2, '0')}${period}`
+  // Handle date selection - works with both full AvailablePickupDate and PickupDateOption + market info
+  const handleSelectDate = (
+    date: PickupDateOption,
+    marketId: string,
+    marketName: string
+  ) => {
+    if (!date.is_accepting) return
+    setSelectedPickup({
+      scheduleId: date.schedule_id,
+      pickupDate: date.pickup_date,
+      marketId,
+      marketName
+    })
   }
 
-  // Format next pickup date with full text and hours
-  const formatNextPickup = (dateStr?: string, startTime?: string, endTime?: string) => {
-    if (!dateStr) return null
-    const date = new Date(dateStr)
-    const formatted = date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    })
-
-    // Add pickup hours if available
-    const startFormatted = formatTime(startTime)
-    const endFormatted = formatTime(endTime)
-    const hoursStr = startFormatted && endFormatted
-      ? `, ${startFormatted} - ${endFormatted}`
-      : ''
-
-    return `Next available pickup: ${formatted}${hoursStr}`
+  // Check if a date is selected
+  const isDateSelected = (date: PickupDateOption) => {
+    return selectedPickup?.scheduleId === date.schedule_id &&
+           selectedPickup?.pickupDate === date.pickup_date
   }
 
   return (
     <div>
       <ToastContainer />
 
-      {/* Market Selection - Show when open markets exist */}
-      {openMarkets.length > 0 && (
+      {/* Pickup Date Selection - Show when accepting dates exist */}
+      {hasAcceptingDates && (
         <div style={{ marginBottom: 12 }}>
           <label style={{
             display: 'block',
@@ -149,93 +168,179 @@ export function AddToCartButton({
             color: '#374151',
             marginBottom: 6
           }}>
-            Select Pickup Location
+            Select Pickup Date
           </label>
 
-          {hasMultipleMarkets ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {openMarkets.map(market => (
-                <button
-                  key={market.market_id}
-                  type="button"
-                  onClick={() => setSelectedMarketId(market.market_id)}
-                  style={{
-                    padding: '10px 12px',
-                    border: selectedMarketId === market.market_id
-                      ? `2px solid ${primaryColor}`
-                      : '1px solid #e5e7eb',
-                    borderRadius: 6,
-                    backgroundColor: selectedMarketId === market.market_id ? '#f0fdf4' : 'white',
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <span style={{ fontSize: 16, marginTop: 2 }}>
-                      {market.market_type === 'traditional' ? '🏪' : '📦'}
-                    </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* Line 1: Market name */}
-                      <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
+          {hasMultipleOptions ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {marketGroups.map(market => {
+                // Only show markets with at least one accepting date
+                const acceptingMarketDates = market.dates.filter(d => d.is_accepting)
+                if (acceptingMarketDates.length === 0) return null
+
+                return (
+                  <div key={market.market_id}>
+                    {/* Market header */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      marginBottom: 6
+                    }}>
+                      <span style={{ fontSize: 14 }}>
+                        {market.market_type === 'traditional' ? '🏪' : '📦'}
+                      </span>
+                      <span style={{
+                        fontWeight: 600,
+                        color: '#374151',
+                        fontSize: 13
+                      }}>
                         {market.market_name}
-                      </div>
-                      {/* Line 2: Address */}
-                      {market.city && (
-                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                          {market.address ? `${market.address}, ` : ''}{market.city}, {market.state}
-                        </div>
-                      )}
-                      {/* Line 3: Next available pickup with hours */}
-                      {market.next_pickup_at && (
-                        <div style={{ fontSize: 11, color: '#059669', marginTop: 3 }}>
-                          {formatNextPickup(market.next_pickup_at, market.start_time, market.end_time)}
-                        </div>
-                      )}
+                      </span>
                     </div>
-                    {selectedMarketId === market.market_id && (
-                      <span style={{ color: primaryColor, fontSize: 18 }}>✓</span>
+
+                    {/* Address */}
+                    {market.city && (
+                      <div style={{
+                        fontSize: 11,
+                        color: '#6b7280',
+                        marginBottom: 6,
+                        marginLeft: 22
+                      }}>
+                        {market.address ? `${market.address}, ` : ''}{market.city}, {market.state}
+                      </div>
                     )}
+
+                    {/* Dates for this market */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      marginLeft: 22
+                    }}>
+                      {acceptingMarketDates.map((date, dateIndex) => {
+                        const isSelected = isDateSelected(date)
+                        const dateColor = getPickupDateColor(dateIndex)
+                        const isClosingSoon = date.hours_until_cutoff !== null &&
+                          date.hours_until_cutoff < 24 &&
+                          date.hours_until_cutoff > 0
+
+                        return (
+                          <button
+                            key={`${date.schedule_id}-${date.pickup_date}`}
+                            type="button"
+                            onClick={() => handleSelectDate(date, market.market_id, market.market_name)}
+                            style={{
+                              padding: '8px 12px',
+                              border: isSelected
+                                ? `2px solid ${primaryColor}`
+                                : '1px solid #e5e7eb',
+                              borderRadius: 6,
+                              backgroundColor: isSelected ? '#f0fdf4' : 'white',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {/* Date with colored underline */}
+                              <span style={{
+                                fontWeight: 600,
+                                color: '#374151',
+                                fontSize: 13,
+                                borderBottom: `2px solid ${dateColor}`,
+                                paddingBottom: 1
+                              }}>
+                                {formatPickupDate(date.pickup_date)}
+                              </span>
+                              {/* Time */}
+                              <span style={{
+                                color: '#6b7280',
+                                fontSize: 12
+                              }}>
+                                {formatPickupTime(date.start_time)}
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {/* Closing soon warning */}
+                              {isClosingSoon && (
+                                <span style={{
+                                  fontSize: 10,
+                                  color: '#92400e',
+                                  backgroundColor: '#fef3c7',
+                                  padding: '2px 6px',
+                                  borderRadius: 4
+                                }}>
+                                  {formatCutoffRemaining(date.hours_until_cutoff)}
+                                </span>
+                              )}
+                              {/* Selection checkmark */}
+                              {isSelected && (
+                                <span style={{ color: primaryColor, fontSize: 16 }}>✓</span>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                </button>
-              ))}
+                )
+              })}
             </div>
           ) : (
-            // Single market - show as info with full details
+            // Single accepting date - show as info
             <div style={{
               padding: '10px 12px',
               border: '1px solid #e5e7eb',
               borderRadius: 6,
               backgroundColor: '#f9fafb'
             }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <span style={{ fontSize: 16, marginTop: 2 }}>
-                  {openMarkets[0]?.market_type === 'traditional' ? '🏪' : '📦'}
-                </span>
-                <div>
-                  {/* Line 1: Market name */}
-                  <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
-                    {openMarkets[0]?.market_name}
+              {acceptingDates[0] && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <span style={{ fontSize: 14, marginTop: 2 }}>
+                    {acceptingDates[0].market_type === 'traditional' ? '🏪' : '📦'}
+                  </span>
+                  <div>
+                    {/* Line 1: Market name */}
+                    <div style={{ fontWeight: 600, color: '#374151', fontSize: 13 }}>
+                      {acceptingDates[0].market_name}
+                    </div>
+                    {/* Line 2: Address */}
+                    {acceptingDates[0].city && (
+                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                        {acceptingDates[0].address ? `${acceptingDates[0].address}, ` : ''}{acceptingDates[0].city}, {acceptingDates[0].state}
+                      </div>
+                    )}
+                    {/* Line 3: Pickup date and time */}
+                    <div style={{
+                      fontSize: 12,
+                      color: '#059669',
+                      marginTop: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}>
+                      <span style={{
+                        fontWeight: 600,
+                        borderBottom: `2px solid ${getPickupDateColor(0)}`,
+                        paddingBottom: 1
+                      }}>
+                        {formatPickupDate(acceptingDates[0].pickup_date)}
+                      </span>
+                      <span>at {formatPickupTime(acceptingDates[0].start_time)}</span>
+                    </div>
                   </div>
-                  {/* Line 2: Address */}
-                  {openMarkets[0]?.city && (
-                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                      {openMarkets[0].address ? `${openMarkets[0].address}, ` : ''}{openMarkets[0].city}, {openMarkets[0].state}
-                    </div>
-                  )}
-                  {/* Line 3: Next available pickup with hours */}
-                  {openMarkets[0]?.next_pickup_at && (
-                    <div style={{ fontSize: 11, color: '#059669', marginTop: 3 }}>
-                      {formatNextPickup(openMarkets[0].next_pickup_at, openMarkets[0].start_time, openMarkets[0].end_time)}
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* Mixed Availability Warning - show when some markets closed, others open */}
+      {/* Mixed Availability Warning - show when some dates closed, others open */}
       {showMixedAvailabilityWarning && (
         <div style={{
           padding: '8px 10px',
@@ -254,13 +359,13 @@ export function AddToCartButton({
             color: '#78350f',
             lineHeight: 1.4
           }}>
-            If you missed the cutoff for pre-orders, visit the market in person or order for another location.
+            Some pickup dates are no longer accepting orders. Select an available date above.
           </p>
         </div>
       )}
 
       {/* Quantity Selector */}
-      {!isSoldOut && availableToAdd > 0 && !hasNoOpenMarkets && (
+      {!isSoldOut && availableToAdd > 0 && hasAcceptingDates && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -338,14 +443,14 @@ export function AddToCartButton({
       >
         {adding ? (
           'Adding...'
-        ) : ordersClosed || hasNoOpenMarkets ? (
+        ) : ordersClosed || !hasAcceptingDates ? (
           'Orders Currently Closed'
         ) : isSoldOut ? (
           'Sold Out'
         ) : availableToAdd <= 0 ? (
           'Max in Cart'
-        ) : needsMarketSelection ? (
-          'Select Pickup Location'
+        ) : needsSelection ? (
+          'Select Pickup Date'
         ) : (
           <>
             <span style={{ fontSize: 20 }}>🛒</span>
@@ -367,7 +472,7 @@ export function AddToCartButton({
         </p>
       )}
 
-      {/* Already in cart notice - show with market info */}
+      {/* Already in cart notice - show with pickup info */}
       {inCartItems.length > 0 && (
         <div style={{
           marginTop: 12,
@@ -382,7 +487,7 @@ export function AddToCartButton({
           </p>
           {inCartItems.map(item => (
             <p key={item.id} style={{ margin: '4px 0 0 0', color: '#166534' }}>
-              • {item.quantity}x at {item.market_name || 'selected location'}
+              • {item.quantity}x{item.pickup_date ? ` for ${formatPickupDate(item.pickup_date)}` : ''} at {item.market_name || 'selected location'}
             </p>
           ))}
         </div>

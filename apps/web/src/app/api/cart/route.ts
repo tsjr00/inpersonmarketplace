@@ -1,6 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+/*
+ * PICKUP SCHEDULING CONTEXT
+ *
+ * Cart items now include schedule_id and pickup_date for specific pickup selection.
+ *
+ * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ */
+
 interface CartItemListing {
   id: string
   title: string
@@ -24,6 +32,8 @@ interface CartItemResult {
   id: string
   quantity: number
   market_id: string | null
+  schedule_id: string | null
+  pickup_date: string | null
   listings: CartItemListing
   markets: CartItemMarket | null
 }
@@ -68,13 +78,15 @@ export async function GET(request: Request) {
   }
 
   // Get cart items with listing and market details
-  // Use explicit relationship hint for the new market_id FK
+  // Include schedule_id and pickup_date for new pickup scheduling
   const { data: items, error: itemsError } = await supabase
     .from('cart_items')
     .select(`
       id,
       quantity,
       market_id,
+      schedule_id,
+      pickup_date,
       listings (
         id,
         title,
@@ -127,7 +139,10 @@ export async function GET(request: Request) {
       market_name: item.markets?.name,
       market_type: item.markets?.market_type,
       market_city: item.markets?.city,
-      market_state: item.markets?.state
+      market_state: item.markets?.state,
+      // New pickup scheduling fields
+      schedule_id: item.schedule_id,
+      pickup_date: item.pickup_date
     }
   })
 

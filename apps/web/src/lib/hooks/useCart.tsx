@@ -2,6 +2,15 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 
+/*
+ * PICKUP SCHEDULING CONTEXT
+ *
+ * Cart items now include schedule_id and pickup_date for specific pickup selection.
+ * This enables ordering the same item for different pickup dates.
+ *
+ * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ */
+
 export interface CartItem {
   id: string
   listingId: string
@@ -16,6 +25,9 @@ export interface CartItem {
   market_type?: string
   market_city?: string
   market_state?: string
+  // New pickup scheduling fields
+  schedule_id?: string
+  pickup_date?: string  // YYYY-MM-DD format
 }
 
 interface CartSummary {
@@ -28,7 +40,13 @@ interface CartContextType {
   items: CartItem[]
   summary: CartSummary
   loading: boolean
-  addToCart: (listingId: string, quantity?: number, marketId?: string) => Promise<void>
+  addToCart: (
+    listingId: string,
+    quantity?: number,
+    marketId?: string,
+    scheduleId?: string,
+    pickupDate?: string
+  ) => Promise<void>
   removeFromCart: (cartItemId: string) => Promise<void>
   updateQuantity: (cartItemId: string, quantity: number) => Promise<void>
   clearCart: () => void
@@ -37,6 +55,7 @@ interface CartContextType {
   isOpen: boolean
   setIsOpen: (open: boolean) => void
   hasMultiplePickupLocations: boolean
+  hasMultiplePickupDates: boolean
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -93,12 +112,25 @@ export function CartProvider({
     refreshCart()
   }, [refreshCart])
 
-  const addToCart = async (listingId: string, quantity: number = 1, marketId?: string) => {
+  const addToCart = async (
+    listingId: string,
+    quantity: number = 1,
+    marketId?: string,
+    scheduleId?: string,
+    pickupDate?: string
+  ) => {
     try {
       const res = await fetch('/api/cart/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vertical, listingId, quantity, marketId })
+        body: JSON.stringify({
+          vertical,
+          listingId,
+          quantity,
+          marketId,
+          scheduleId,
+          pickupDate
+        })
       })
 
       if (!res.ok) {
@@ -216,6 +248,16 @@ export function CartProvider({
     return marketIds.size > 1
   })()
 
+  // Check if cart has items for multiple pickup dates
+  const hasMultiplePickupDates = (() => {
+    const pickupKeys = new Set(
+      items
+        .filter(item => item.schedule_id && item.pickup_date)
+        .map(item => `${item.schedule_id}-${item.pickup_date}`)
+    )
+    return pickupKeys.size > 1
+  })()
+
   return (
     <CartContext.Provider value={{
       items,
@@ -229,7 +271,8 @@ export function CartProvider({
       itemCount,
       isOpen,
       setIsOpen,
-      hasMultiplePickupLocations
+      hasMultiplePickupLocations,
+      hasMultiplePickupDates
     }}>
       {children}
     </CartContext.Provider>

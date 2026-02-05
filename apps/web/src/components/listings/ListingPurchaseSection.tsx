@@ -1,9 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { AddToCartButton, AvailableMarket } from '@/components/cart/AddToCartButton'
+import { AddToCartButton } from '@/components/cart/AddToCartButton'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import type { ProcessedMarket } from '@/lib/utils/listing-availability'
+import { type AvailablePickupDate, groupPickupDatesByMarket } from '@/types/pickup'
+
+/*
+ * PICKUP SCHEDULING CONTEXT
+ *
+ * This component now passes available pickup DATES (not just markets) to AddToCartButton.
+ * Buyers select a specific date, not just a location.
+ *
+ * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ */
 
 interface ListingPurchaseSectionProps {
   listingId: string
@@ -11,7 +20,7 @@ interface ListingPurchaseSectionProps {
   primaryColor?: string
   vertical?: string
   isPremiumRestricted?: boolean
-  markets?: ProcessedMarket[]
+  availablePickupDates?: AvailablePickupDate[]
 }
 
 export default function ListingPurchaseSection({
@@ -20,7 +29,7 @@ export default function ListingPurchaseSection({
   primaryColor = '#333',
   vertical = 'farmers_market',
   isPremiumRestricted = false,
-  markets = []
+  availablePickupDates = []
 }: ListingPurchaseSectionProps) {
   // Show premium upgrade message instead of add to cart when restricted
   if (isPremiumRestricted) {
@@ -38,7 +47,7 @@ export default function ListingPurchaseSection({
           color: '#1e40af',
           marginBottom: spacing.xs
         }}>
-          ⭐ Premium Early-Bird Access
+          Premium Early-Bird Access
         </div>
         <p style={{
           fontSize: typography.sizes.sm,
@@ -68,26 +77,14 @@ export default function ListingPurchaseSection({
     )
   }
 
-  // Map ProcessedMarket to AvailableMarket for AddToCartButton
-  const availableMarkets: AvailableMarket[] = markets.map(m => ({
-    market_id: m.market_id,
-    market_name: m.market_name,
-    market_type: m.market_type,
-    address: m.address,
-    city: m.city,
-    state: m.state,
-    is_accepting: m.is_accepting,
-    next_pickup_at: m.next_pickup_at || undefined,
-    start_time: m.start_time || undefined,
-    end_time: m.end_time || undefined
-  }))
+  // Group by market for display, filter to accepting dates
+  const marketGroups = groupPickupDatesByMarket(availablePickupDates)
 
-  // Calculate if we should show the mixed availability warning
-  // (some markets open, some closed)
-  const openMarkets = availableMarkets.filter(m => m.is_accepting)
-  const closedMarkets = availableMarkets.filter(m => !m.is_accepting)
-  const showMixedWarning = openMarkets.length > 0 && closedMarkets.length > 0
-  const ordersClosed = availableMarkets.length > 0 && openMarkets.length === 0
+  // Check availability status
+  const acceptingDates = availablePickupDates.filter(d => d.is_accepting)
+  const hasAcceptingDates = acceptingDates.length > 0
+  const hasMixedAvailability = acceptingDates.length > 0 &&
+    acceptingDates.length < availablePickupDates.length
 
   return (
     <AddToCartButton
@@ -95,9 +92,9 @@ export default function ListingPurchaseSection({
       maxQuantity={maxQuantity}
       primaryColor={primaryColor}
       vertical={vertical}
-      ordersClosed={ordersClosed}
-      markets={availableMarkets}
-      showMixedAvailabilityWarning={showMixedWarning}
+      availablePickupDates={availablePickupDates}
+      ordersClosed={!hasAcceptingDates}
+      showMixedAvailabilityWarning={hasMixedAvailability}
     />
   )
 }

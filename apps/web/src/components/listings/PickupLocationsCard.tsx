@@ -1,66 +1,49 @@
 'use client'
 
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import type { ProcessedMarket } from '@/lib/utils/listing-availability'
+import {
+  type MarketPickupDates,
+  type PickupDateOption,
+  formatPickupDate,
+  formatPickupTime,
+  formatCutoffRemaining,
+  getPickupDateColor
+} from '@/types/pickup'
+
+/*
+ * PICKUP SCHEDULING CONTEXT
+ *
+ * This component displays available pickup dates grouped by market.
+ * Updated to show per-date availability (not just per-market).
+ *
+ * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ */
 
 interface PickupLocationsCardProps {
-  markets: ProcessedMarket[]
+  marketPickupDates: MarketPickupDates[]
   primaryColor?: string
 }
 
 export default function PickupLocationsCard({
-  markets,
+  marketPickupDates,
   primaryColor = '#16a34a'
 }: PickupLocationsCardProps) {
-  if (!markets || markets.length === 0) {
+  if (!marketPickupDates || marketPickupDates.length === 0) {
     return null
   }
 
-  // Calculate hours until cutoff for display
-  const getHoursUntilCutoff = (cutoffAt: string | null): number | null => {
-    if (!cutoffAt) return null
-    return (new Date(cutoffAt).getTime() - Date.now()) / (1000 * 60 * 60)
-  }
+  // Check if any market has accepting dates
+  const hasAnyAccepting = marketPickupDates.some(m => m.dates.some(d => d.is_accepting))
+  const hasAnyClosed = marketPickupDates.some(m => m.dates.some(d => !d.is_accepting))
 
-  // Check if closing soon (less than 24 hours until cutoff)
-  const isClosingSoon = (market: ProcessedMarket): boolean => {
-    const hours = getHoursUntilCutoff(market.cutoff_at)
-    return !!(market.is_accepting && hours !== null && hours < 24 && hours > 0)
-  }
+  // Get style for a date based on its status
+  const getDateStyles = (date: PickupDateOption) => {
+    const isClosingSoon = date.is_accepting &&
+      date.hours_until_cutoff !== null &&
+      date.hours_until_cutoff < 24 &&
+      date.hours_until_cutoff > 0
 
-  // Sort: open locations first, then closing soon, then closed
-  const sortedMarkets = [...markets].sort((a, b) => {
-    const getOrder = (m: ProcessedMarket) => {
-      if (!m.is_accepting) return 2
-      if (isClosingSoon(m)) return 1
-      return 0
-    }
-    return getOrder(a) - getOrder(b)
-  })
-
-  // Format time until cutoff - full words for clarity
-  const formatTimeRemaining = (hoursLeft: number): string => {
-    if (hoursLeft < 1) {
-      const minutes = Math.max(1, Math.round(hoursLeft * 60))
-      return `${minutes} minute${minutes !== 1 ? 's' : ''}`
-    }
-    if (hoursLeft < 24) {
-      const hours = Math.floor(hoursLeft)
-      return `${hours} hour${hours !== 1 ? 's' : ''}`
-    }
-    const days = Math.floor(hoursLeft / 24)
-    return `${days} day${days !== 1 ? 's' : ''}`
-  }
-
-  // Check if we need to show the explanatory footer
-  const hasClosedOrClosingSoon = sortedMarkets.some(m => !m.is_accepting || isClosingSoon(m))
-
-  // Determine card background and text colors based on status
-  const getCardStyles = (market: ProcessedMarket) => {
-    const hoursUntilCutoff = getHoursUntilCutoff(market.cutoff_at)
-    const closingSoon = isClosingSoon(market)
-
-    if (!market.is_accepting) {
+    if (!date.is_accepting) {
       // Closed - red
       return {
         backgroundColor: '#fee2e2',
@@ -68,10 +51,10 @@ export default function PickupLocationsCard({
         statusColor: '#991b1b',
         textColor: '#7f1d1d',
         icon: '✗',
-        statusText: 'Orders Closed'
+        statusText: 'Closed'
       }
     }
-    if (closingSoon && hoursUntilCutoff !== null) {
+    if (isClosingSoon) {
       // Closing soon - yellow
       return {
         backgroundColor: '#fef3c7',
@@ -79,7 +62,7 @@ export default function PickupLocationsCard({
         statusColor: '#92400e',
         textColor: '#78350f',
         icon: '⏰',
-        statusText: `Orders close in ${formatTimeRemaining(hoursUntilCutoff)}`
+        statusText: formatCutoffRemaining(date.hours_until_cutoff)
       }
     }
     // Open - green
@@ -89,7 +72,7 @@ export default function PickupLocationsCard({
       statusColor: '#166534',
       textColor: '#15803d',
       icon: '✓',
-      statusText: 'Accepting Orders'
+      statusText: 'Open'
     }
   }
 
@@ -116,70 +99,118 @@ export default function PickupLocationsCard({
             color: colors.textPrimary,
             fontSize: typography.sizes.xs
           }}>
-            Pickup Locations
+            Pickup Options
           </span>
         </div>
       </div>
 
-      {/* Location cards - compact */}
+      {/* Markets and their dates */}
       <div style={{
         padding: spacing['2xs'],
         display: 'flex',
         flexDirection: 'column',
-        gap: spacing['2xs'],
+        gap: spacing.xs,
         backgroundColor: colors.surfaceElevated
       }}>
-        {sortedMarkets.map(market => {
-          const styles = getCardStyles(market)
-
-          return (
-            <div
-              key={market.market_id}
-              style={{
-                padding: `${spacing['2xs']} ${spacing.xs}`,
-                backgroundColor: styles.backgroundColor,
-                border: `1px solid ${styles.borderColor}`,
-                borderRadius: radius.sm
-              }}
-            >
-              {/* Status on first line */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: spacing['3xs'],
-                marginBottom: spacing['3xs']
-              }}>
-                <span style={{
-                  fontWeight: typography.weights.bold,
-                  color: styles.statusColor,
-                  fontSize: typography.sizes.sm
-                }}>
-                  {styles.icon}
-                </span>
-                <span style={{
-                  fontWeight: typography.weights.semibold,
-                  color: styles.statusColor,
-                  fontSize: typography.sizes.xs
-                }}>
-                  {styles.statusText}
-                </span>
-              </div>
-
-              {/* Market name on second line */}
-              <div style={{
-                fontWeight: typography.weights.medium,
-                color: styles.textColor,
-                fontSize: typography.sizes.xs,
-                paddingLeft: spacing.sm
-              }}>
-                {market.market_name}
-              </div>
+        {marketPickupDates.map((market, marketIndex) => (
+          <div key={market.market_id}>
+            {/* Market name */}
+            <div style={{
+              fontSize: typography.sizes.xs,
+              fontWeight: typography.weights.semibold,
+              color: colors.textPrimary,
+              marginBottom: spacing['3xs'],
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing['3xs']
+            }}>
+              <span style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                backgroundColor: market.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                flexShrink: 0
+              }} />
+              {market.market_name}
             </div>
-          )
-        })}
 
-        {/* Explanatory footer - only when there are closed or closing-soon locations */}
-        {hasClosedOrClosingSoon && (
+            {/* Dates for this market */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: spacing['3xs'],
+              paddingLeft: spacing.sm
+            }}>
+              {market.dates.map((date, dateIndex) => {
+                const styles = getDateStyles(date)
+                const dateColor = getPickupDateColor(dateIndex)
+
+                return (
+                  <div
+                    key={`${date.schedule_id}-${date.pickup_date}`}
+                    style={{
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: styles.backgroundColor,
+                      border: `1px solid ${styles.borderColor}`,
+                      borderRadius: radius.sm,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: spacing.xs
+                    }}
+                  >
+                    {/* Date and time */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing['2xs']
+                    }}>
+                      <span style={{
+                        fontWeight: typography.weights.medium,
+                        color: styles.textColor,
+                        fontSize: typography.sizes.xs,
+                        borderBottom: `2px solid ${dateColor}`
+                      }}>
+                        {formatPickupDate(date.pickup_date)}
+                      </span>
+                      <span style={{
+                        color: styles.textColor,
+                        fontSize: 10
+                      }}>
+                        {formatPickupTime(date.start_time)}
+                      </span>
+                    </div>
+
+                    {/* Status */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing['3xs']
+                    }}>
+                      <span style={{
+                        fontWeight: typography.weights.bold,
+                        color: styles.statusColor,
+                        fontSize: typography.sizes.xs
+                      }}>
+                        {styles.icon}
+                      </span>
+                      <span style={{
+                        fontWeight: typography.weights.medium,
+                        color: styles.statusColor,
+                        fontSize: 10
+                      }}>
+                        {styles.statusText}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Explanatory footer - only when there are closed dates */}
+        {hasAnyClosed && (
           <div style={{
             padding: `${spacing['2xs']} ${spacing.xs}`,
             backgroundColor: colors.surfaceMuted,
@@ -198,7 +229,7 @@ export default function PickupLocationsCard({
                 color: colors.textMuted,
                 lineHeight: 1.4
               }}>
-                Orders automatically close before pickup days to give vendors time to prepare for upcoming market / pickup hours.
+                Orders close before each pickup to give vendors time to prepare.
               </p>
             </div>
           </div>

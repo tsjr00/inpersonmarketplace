@@ -2,6 +2,15 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
+/*
+ * PICKUP SCHEDULING CONTEXT
+ *
+ * Cart items now require schedule_id and pickup_date for specific pickup selection.
+ * Validation uses validate_cart_item_schedule() SQL function for server-side checks.
+ *
+ * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ */
+
 // POST - Add item to cart
 export async function POST(request: Request) {
   return withErrorTracing('/api/cart/items', 'POST', async () => {
@@ -14,9 +23,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { vertical, listingId, quantity = 1, marketId } = body
+    const { vertical, listingId, quantity = 1, marketId, scheduleId, pickupDate } = body
 
-    crumb.logic('Validating request', { vertical, listingId, quantity, marketId })
+    crumb.logic('Validating request', { vertical, listingId, quantity, marketId, scheduleId, pickupDate })
 
     if (!vertical || !listingId) {
       throw traced.validation('ERR_CART_005', 'Missing required fields: vertical and listingId are required')
@@ -24,6 +33,11 @@ export async function POST(request: Request) {
 
     if (!marketId) {
       throw traced.validation('ERR_CART_005', 'Please select a pickup location')
+    }
+
+    // Require schedule_id and pickup_date for new pickup scheduling system
+    if (!scheduleId || !pickupDate) {
+      throw traced.validation('ERR_CART_005', 'Please select a pickup date')
     }
 
     if (quantity < 1) {
@@ -90,20 +104,24 @@ export async function POST(request: Request) {
       })
     }
 
-    // Check if the market is still accepting orders (using SQL RPC - proven correct)
-    crumb.logic('Checking market accepting status', { listingId })
-    const { data: marketOpen, error: marketOpenError } = await supabase
-      .rpc('is_listing_accepting_orders', { p_listing_id: listingId })
+    // Validate schedule/date selection using SQL function
+    crumb.logic('Validating schedule selection', { listingId, scheduleId, pickupDate })
+    const { data: scheduleValid, error: scheduleError } = await supabase
+      .rpc('validate_cart_item_schedule', {
+        p_listing_id: listingId,
+        p_schedule_id: scheduleId,
+        p_pickup_date: pickupDate
+      })
 
-    if (marketOpenError) {
-      throw traced.fromSupabase(marketOpenError, {
-        additionalContext: { listingId, rpc: 'is_listing_accepting_orders' },
+    if (scheduleError) {
+      throw traced.fromSupabase(scheduleError, {
+        additionalContext: { listingId, scheduleId, pickupDate, rpc: 'validate_cart_item_schedule' },
       })
     }
 
-    if (marketOpen === false) {
-      throw traced.validation('ERR_CART_003', 'Orders are closed for this pickup location. Please try a different location or check back later.', {
-        additionalContext: { listingId, marketId },
+    if (scheduleValid === false) {
+      throw traced.validation('ERR_CART_003', 'This pickup date is no longer accepting orders. Please select a different date.', {
+        additionalContext: { listingId, scheduleId, pickupDate },
       })
     }
 
@@ -124,21 +142,22 @@ export async function POST(request: Request) {
       })
     }
 
-    // Check if item already in cart (same listing AND same market)
-    crumb.supabase('select', 'cart_items', { cartId, listingId, marketId })
+    // Check if item already in cart (same listing AND same schedule AND same date)
+    crumb.supabase('select', 'cart_items', { cartId, listingId, scheduleId, pickupDate })
     const { data: existingItem, error: checkError } = await supabase
       .from('cart_items')
       .select('id, quantity')
       .eq('cart_id', cartId)
       .eq('listing_id', listingId)
-      .eq('market_id', marketId)
+      .eq('schedule_id', scheduleId)
+      .eq('pickup_date', pickupDate)
       .single()
 
     if (checkError && checkError.code !== 'PGRST116') {
       throw traced.fromSupabase(checkError, {
         table: 'cart_items',
         operation: 'select',
-        additionalContext: { cartId, listingId, marketId },
+        additionalContext: { cartId, listingId, scheduleId, pickupDate },
       })
     }
 
@@ -174,7 +193,7 @@ export async function POST(request: Request) {
         })
       }
     } else {
-      // Insert new item with market selection
+      // Insert new item with schedule and pickup date
       crumb.supabase('insert', 'cart_items')
       const { error: insertError } = await supabase
         .from('cart_items')
@@ -182,14 +201,16 @@ export async function POST(request: Request) {
           cart_id: cartId,
           listing_id: listingId,
           quantity: quantity,
-          market_id: marketId
+          market_id: marketId,
+          schedule_id: scheduleId,
+          pickup_date: pickupDate
         })
 
       if (insertError) {
         throw traced.fromSupabase(insertError, {
           table: 'cart_items',
           operation: 'insert',
-          additionalContext: { cartId, listingId, quantity, marketId },
+          additionalContext: { cartId, listingId, quantity, marketId, scheduleId, pickupDate },
         })
       }
     }

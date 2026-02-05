@@ -7,6 +7,7 @@ import { useCart } from '@/lib/hooks/useCart'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 
 interface CheckoutItem {
   listingId: string
@@ -22,6 +23,9 @@ interface CheckoutItem {
   market_type?: string
   market_city?: string
   market_state?: string
+  // Pickup scheduling fields
+  schedule_id?: string
+  pickup_date?: string  // YYYY-MM-DD format
 }
 
 interface SuggestedProduct {
@@ -105,9 +109,14 @@ export default function CheckoutPage() {
 
         if (response.ok) {
           const data = await response.json()
-          // Merge with cart item market info
+          // Merge with cart item market and pickup info
           const mergedItems = (data.items || []).map((validatedItem: CheckoutItem) => {
-            const cartItem = items.find(i => i.listingId === validatedItem.listingId)
+            // Find by listing + schedule + date (same item can have different pickup dates)
+            const cartItem = items.find(i =>
+              i.listingId === validatedItem.listingId &&
+              i.schedule_id === validatedItem.schedule_id &&
+              i.pickup_date === validatedItem.pickup_date
+            ) || items.find(i => i.listingId === validatedItem.listingId)
             return {
               ...validatedItem,
               market_id: cartItem?.market_id,
@@ -115,6 +124,8 @@ export default function CheckoutPage() {
               market_type: cartItem?.market_type,
               market_city: cartItem?.market_city,
               market_state: cartItem?.market_state,
+              schedule_id: cartItem?.schedule_id,
+              pickup_date: cartItem?.pickup_date,
             }
           })
           setCheckoutItems(mergedItems)
@@ -133,6 +144,8 @@ export default function CheckoutPage() {
             market_type: item.market_type,
             market_city: item.market_city,
             market_state: item.market_state,
+            schedule_id: item.schedule_id,
+            pickup_date: item.pickup_date,
           })))
         }
       } catch (err) {
@@ -150,6 +163,8 @@ export default function CheckoutPage() {
           market_type: item.market_type,
           market_city: item.market_city,
           market_state: item.market_state,
+          schedule_id: item.schedule_id,
+          pickup_date: item.pickup_date,
         })))
       } finally {
         setLoading(false)
@@ -341,6 +356,8 @@ export default function CheckoutPage() {
           items: checkoutItems.map(item => ({
             listingId: item.listingId,
             quantity: item.quantity,
+            scheduleId: item.schedule_id,
+            pickupDate: item.pickup_date,
           })),
           vertical,
         }),
@@ -574,7 +591,7 @@ export default function CheckoutPage() {
                         {item.vendor_name}
                       </p>
 
-                      {/* Pickup Location */}
+                      {/* Pickup Location and Date */}
                       {item.market_name && (
                         <div style={{
                           display: 'flex',
@@ -591,6 +608,18 @@ export default function CheckoutPage() {
                           <span>
                             <strong>Pickup:</strong> {item.market_name}
                             {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
+                            {item.pickup_date && (
+                              <>
+                                {' '}
+                                <span style={{
+                                  fontWeight: 600,
+                                  borderBottom: `2px solid ${getPickupDateColor(0)}`,
+                                  paddingBottom: 1
+                                }}>
+                                  {formatPickupDate(item.pickup_date)}
+                                </span>
+                              </>
+                            )}
                           </span>
                         </div>
                       )}

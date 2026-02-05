@@ -8,8 +8,20 @@ import PickupLocationsCard from '@/components/listings/PickupLocationsCard'
 import BackLink from '@/components/shared/BackLink'
 import { formatDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
-import { processListingMarkets, type MarketWithSchedules } from '@/lib/utils/listing-availability'
+import { groupPickupDatesByMarket, type AvailablePickupDate } from '@/types/pickup'
 import type { Metadata } from 'next'
+
+/*
+ * PICKUP SCHEDULING CONTEXT
+ *
+ * This page uses the get_available_pickup_dates() SQL function for server-side
+ * availability calculation. This replaces the JavaScript calculation for:
+ * - Consistent timezone handling
+ * - Per-date cutoffs (not just per-market)
+ * - Better performance (single SQL call vs JS processing)
+ *
+ * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ */
 
 interface ListingDetailPageProps {
   params: Promise<{ vertical: string; listingId: string }>
@@ -88,7 +100,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
   // Phase 1: Run independent queries in parallel
-  const [listingResult, listingMarketsResult, userResult] = await Promise.all([
+  const [listingResult, availableDatesResult, userResult] = await Promise.all([
     // Query 1: Get listing with vendor info and images
     supabase
       .from('listings')
@@ -113,47 +125,21 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
       .eq('vendor_profiles.status', 'approved')
       .is('deleted_at', null)
       .single(),
-    // Query 2: Get markets where this listing is available (with schedules for availability calc)
-    supabase
-      .from('listing_markets')
-      .select(`
-        market_id,
-        markets (
-          id,
-          name,
-          market_type,
-          address,
-          city,
-          state,
-          cutoff_hours,
-          timezone,
-          active,
-          market_schedules (
-            id,
-            day_of_week,
-            start_time,
-            end_time,
-            active
-          )
-        )
-      `)
-      .eq('listing_id', listingId),
+    // Query 2: Get available pickup dates using SQL function (handles timezone & cutoff correctly)
+    supabase.rpc('get_available_pickup_dates', { p_listing_id: listingId }),
     // Query 3: Check if user is logged in
     supabase.auth.getUser()
   ])
 
   const { data: listing, error } = listingResult
-  const { data: rawListingMarkets } = listingMarketsResult
+  const { data: availablePickupDates, error: datesError } = availableDatesResult
   const { data: { user } } = userResult
 
-  // Process markets to calculate availability status (server-side)
-  // Supabase returns markets as a single object (not array) from the join
-  const processedMarkets = rawListingMarkets
-    ? processListingMarkets(rawListingMarkets.map((lm: { market_id: string; markets: unknown }) => ({
-        market_id: lm.market_id,
-        markets: lm.markets as MarketWithSchedules
-      })))
-    : []
+  // Group pickup dates by market for display
+  // SQL function returns flat list; we group for UI presentation
+  const marketPickupDates = groupPickupDatesByMarket(
+    (availablePickupDates as AvailablePickupDate[] | null) || []
+  )
 
   if (error || !listing) {
     notFound()
@@ -352,10 +338,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               </div>
 
               {/* Pickup Locations Status - shows which locations are open/closed */}
-              {processedMarkets.length > 0 && (
+              {marketPickupDates.length > 0 && (
                 <div style={{ marginBottom: spacing.xs }}>
                   <PickupLocationsCard
-                    markets={processedMarkets}
+                    marketPickupDates={marketPickupDates}
                     primaryColor={branding.colors.primary}
                   />
                 </div>
@@ -368,7 +354,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 primaryColor={branding.colors.primary}
                 vertical={vertical}
                 isPremiumRestricted={isPremiumRestricted}
-                markets={processedMarkets}
+                availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
               />
             </div>
 
