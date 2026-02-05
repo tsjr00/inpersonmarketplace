@@ -9,6 +9,36 @@
 
 ---
 
+## Data-First Policy - NO ASSUMPTIONS
+
+**CRITICAL: Never make assumptions when data is available.**
+
+When you need information (schema, configuration, business rules, etc.):
+
+1. **Hypothesize** - Where might this data live? (schema snapshot, config files, existing code)
+2. **Look** - Actually read the file/query the source
+3. **Confirm** - Verify you found the correct data
+4. **Use** - Only then proceed with the actual data
+
+### If Data Is NOT Available:
+- **STOP** and ask the user before making any assumption
+- Explicitly state: "I need to assume X because I cannot find this data. Is this acceptable?"
+- Wait for confirmation before proceeding
+
+### Why This Matters:
+- Assumptions waste time and tokens when data exists
+- Wrong assumptions cause bugs that cost business
+- Example: Hard-coding 24hr cutoff when `cutoff_hours` column existed in the database
+
+### Common Data Sources (check these first):
+- `.claude/current_task.md` - Current session state and context
+- `supabase/SCHEMA_SNAPSHOT.md` - Database structure (source of truth)
+- Existing code in the same feature area
+- Type definitions and interfaces
+- API route implementations
+
+---
+
 ## CONTEXT PRESERVATION SYSTEM - CRITICAL
 
 **Problem:** Conversation context gets summarized/compressed without warning. After compression, Claude loses access to detailed reasoning, decisions, and data that informed the current work. This causes repeated mistakes and inconsistent fixes.
@@ -66,6 +96,42 @@ If a task involves more than 2-3 steps, or requires referencing multiple data po
 
 ### Why This Exists
 Claude has NO warning before context compression and NO memory after it happens. This file is the ONLY way to preserve critical context across compression events.
+
+---
+
+## Context Compaction Recovery Protocol
+
+**After EVERY context compaction, before resuming work:**
+
+### Step 1: Read Context Files
+- [ ] Read `.claude/current_task.md` for session state
+- [ ] Read `CLAUDE.md` for project rules
+- [ ] Read `CLAUDE_CONTEXT.md` for architecture overview
+
+### Step 2: Verify Schema Snapshot
+- [ ] Check if schema changes were in progress before compaction
+- [ ] If ANY database work was happening, ask user to run schema verification queries:
+  ```sql
+  -- Core tables
+  SELECT column_name, data_type FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name IN ('order_items', 'orders', 'cart_items')
+  ORDER BY table_name, ordinal_position;
+  ```
+- [ ] Update `supabase/SCHEMA_SNAPSHOT.md` if discrepancies found
+
+### Step 3: Update Schema Snapshot After Database Changes
+**MANDATORY:** After ANY successful migration or schema change:
+- Update `supabase/SCHEMA_SNAPSHOT.md` immediately
+- Include: column names, types, nullability
+- Add changelog entry with date and migration name
+- This prevents future sessions from using stale schema information
+
+### Why This Matters:
+- Schema snapshot is the LOCAL SOURCE OF TRUTH for database structure
+- GitHub is our remote source but we need a local source to keep things fast
+- Migration files may not reflect actual database state
+- Interrupted sessions can leave documentation incomplete
+- Future Claude sessions will make wrong decisions with stale data
 
 ---
 
