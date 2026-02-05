@@ -24,10 +24,21 @@ interface Order {
     pickup_date: string | null
     pickup_start_time: string | null
     pickup_end_time: string | null
+    pickup_snapshot: Record<string, unknown> | null
     market: {
       id: string
       name: string
       type: string
+    } | null
+    // Unified display data (prefers pickup_snapshot when available)
+    display: {
+      market_name: string
+      pickup_date: string | null
+      start_time: string | null
+      end_time: string | null
+      address: string | null
+      city: string | null
+      state: string | null
     } | null
   }>
 }
@@ -480,17 +491,17 @@ export default function BuyerOrdersPage() {
                                 </p>
                                 <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                                   {item.vendor_name} • Qty: {item.quantity}
-                                  {item.market && ` • ${item.market.name}`}
+                                  {(item.display?.market_name || item.market?.name) && ` • ${item.display?.market_name || item.market?.name}`}
                                 </p>
-                                {item.pickup_date && (
+                                {(item.display?.pickup_date || item.pickup_date) && (
                                   <p style={{
                                     margin: `${spacing['3xs']} 0 0`,
                                     fontSize: typography.sizes.sm,
                                     color: '#1e40af',
                                     fontWeight: typography.weights.medium
                                   }}>
-                                    Pickup: {formatPickupDate(item.pickup_date)}
-                                    {formatPickupTime(item.pickup_start_time, item.pickup_end_time) && ` • ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}`}
+                                    Pickup: {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
+                                    {formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time) && ` • ${formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time)}`}
                                   </p>
                                 )}
                               </div>

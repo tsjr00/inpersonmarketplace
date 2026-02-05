@@ -50,7 +50,9 @@ export async function GET(request: NextRequest) {
           expires_at,
           cancelled_at,
           buyer_confirmed_at,
+          schedule_id,
           pickup_date,
+          pickup_snapshot,
           pickup_start_time,
           pickup_end_time,
           market_id,
@@ -191,6 +193,18 @@ export async function GET(request: NextRequest) {
         const pickupDate = item.pickup_date as string | null
         const pickupStartTime = item.pickup_start_time as string | null
         const pickupEndTime = item.pickup_end_time as string | null
+        const pickupSnapshot = item.pickup_snapshot as Record<string, unknown> | null
+
+        // Use pickup_snapshot for display when available (immutable order details)
+        // Fall back to market data for backwards compatibility with older orders
+        const displayMarket = pickupSnapshot || (market ? {
+          market_name: (market.name as string) || 'Unknown',
+          market_type: (market.market_type as string) || 'traditional',
+          address: market.address,
+          city: market.city,
+          state: market.state,
+          zip: market.zip
+        } : null)
 
         return {
           id: item.id,
@@ -207,6 +221,7 @@ export async function GET(request: NextRequest) {
           pickup_date: pickupDate,
           pickup_start_time: pickupStartTime,
           pickup_end_time: pickupEndTime,
+          pickup_snapshot: pickupSnapshot,
           market: market ? {
             id: market.id,
             name: (market.name as string) || 'Unknown',
@@ -215,6 +230,16 @@ export async function GET(request: NextRequest) {
             city: market.city,
             state: market.state,
             zip: market.zip
+          } : null,
+          // Unified display data (prefers pickup_snapshot when available)
+          display: displayMarket ? {
+            market_name: (displayMarket.market_name as string) || 'Unknown',
+            pickup_date: pickupDate,
+            start_time: (pickupSnapshot?.start_time as string) || pickupStartTime,
+            end_time: (pickupSnapshot?.end_time as string) || pickupEndTime,
+            address: displayMarket.address as string | null,
+            city: displayMarket.city as string | null,
+            state: displayMarket.state as string | null
           } : null
         }
       })

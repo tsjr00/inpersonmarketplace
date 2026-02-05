@@ -478,7 +478,10 @@ function transformOrder(raw: Record<string, unknown>): OrderDetails {
     const profileData = vendorProfiles?.profile_data as Record<string, unknown> | null
     const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
     const market = item.markets as Record<string, unknown> | null
+    const pickupSnapshot = item.pickup_snapshot as Record<string, unknown> | null
 
+    // Use pickup_snapshot for display when available (immutable order details)
+    // Fall back to market data for backwards compatibility with older orders
     return {
       id: item.id as string,
       title: (listing?.title as string) || 'Unknown Item',
@@ -486,14 +489,14 @@ function transformOrder(raw: Record<string, unknown>): OrderDetails {
       subtotal_cents: item.subtotal_cents as number,
       vendor_name: vendorName,
       market_id: market?.id as string | undefined,
-      market_name: market?.name as string | undefined,
-      market_type: market?.market_type as string | undefined,
-      market_address: market?.address as string | undefined,
-      market_city: market?.city as string | undefined,
-      market_state: market?.state as string | undefined,
+      market_name: (pickupSnapshot?.market_name as string) || (market?.name as string) || undefined,
+      market_type: (pickupSnapshot?.market_type as string) || (market?.market_type as string) || undefined,
+      market_address: (pickupSnapshot?.address as string) || (market?.address as string) || undefined,
+      market_city: (pickupSnapshot?.city as string) || (market?.city as string) || undefined,
+      market_state: (pickupSnapshot?.state as string) || (market?.state as string) || undefined,
       pickup_date: item.pickup_date as string | null | undefined,
-      pickup_start_time: item.pickup_start_time as string | null | undefined,
-      pickup_end_time: item.pickup_end_time as string | null | undefined,
+      pickup_start_time: (pickupSnapshot?.start_time as string) || (item.pickup_start_time as string) || undefined,
+      pickup_end_time: (pickupSnapshot?.end_time as string) || (item.pickup_end_time as string) || undefined,
     }
   })
 

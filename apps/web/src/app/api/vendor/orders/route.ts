@@ -69,7 +69,11 @@ export async function GET(request: NextRequest) {
       vendor_payout_cents,
       status,
       market_id,
+      schedule_id,
       pickup_date,
+      pickup_snapshot,
+      pickup_start_time,
+      pickup_end_time,
       pickup_confirmed_at,
       buyer_confirmed_at,
       vendor_confirmed_at,
@@ -170,6 +174,17 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const pickupSnapshot = item.pickup_snapshot as Record<string, unknown> | null
+
+    // Use pickup_snapshot for display when available (immutable order details)
+    const displayMarket = pickupSnapshot || {
+      market_name: item.market?.name || 'Pickup Location',
+      market_type: item.market?.market_type || 'traditional',
+      address: item.market?.address,
+      city: item.market?.city,
+      state: item.market?.state
+    }
+
     ordersMap.get(orderId).items.push({
       id: item.id,
       listing_id: item.listing?.id,
@@ -185,6 +200,19 @@ export async function GET(request: NextRequest) {
       market_address: item.market?.address,
       market_city: item.market?.city,
       pickup_date: item.pickup_date,
+      pickup_start_time: item.pickup_start_time,
+      pickup_end_time: item.pickup_end_time,
+      pickup_snapshot: pickupSnapshot,
+      // Unified display data (prefers pickup_snapshot when available)
+      display: {
+        market_name: (displayMarket.market_name as string) || 'Pickup Location',
+        pickup_date: item.pickup_date,
+        start_time: (pickupSnapshot?.start_time as string) || item.pickup_start_time,
+        end_time: (pickupSnapshot?.end_time as string) || item.pickup_end_time,
+        address: displayMarket.address as string | null,
+        city: displayMarket.city as string | null,
+        state: displayMarket.state as string | null
+      },
       pickup_confirmed_at: item.pickup_confirmed_at,
       buyer_confirmed_at: item.buyer_confirmed_at,
       vendor_confirmed_at: item.vendor_confirmed_at,

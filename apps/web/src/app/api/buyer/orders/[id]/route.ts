@@ -33,7 +33,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         subtotal_cents,
         status,
         market_id,
+        schedule_id,
         pickup_date,
+        pickup_snapshot,
+        pickup_start_time,
+        pickup_end_time,
         buyer_confirmed_at,
         vendor_confirmed_at,
         confirmation_window_expires_at,
@@ -94,6 +98,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const vendorProfile = listing?.vendor_profiles
       const profileData = vendorProfile?.profile_data as Record<string, unknown> | null
       const market = item.market
+      const pickupSnapshot = item.pickup_snapshot as Record<string, unknown> | null
+
+      // Use pickup_snapshot for display when available (immutable order details)
+      // Fall back to market data for backwards compatibility with older orders
+      const displayMarket = pickupSnapshot || (market ? {
+        market_name: market.name || 'Unknown',
+        market_type: market.market_type || 'traditional',
+        address: market.address,
+        city: market.city,
+        state: market.state,
+        zip: market.zip
+      } : null)
 
       return {
         id: item.id,
@@ -124,6 +140,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
           schedules: market?.market_schedules || []
         },
         pickup_date: item.pickup_date,
+        pickup_start_time: item.pickup_start_time,
+        pickup_end_time: item.pickup_end_time,
+        pickup_snapshot: pickupSnapshot,
+        // Unified display data (prefers pickup_snapshot when available)
+        display: displayMarket ? {
+          market_name: (displayMarket.market_name as string) || 'Unknown',
+          pickup_date: item.pickup_date,
+          start_time: (pickupSnapshot?.start_time as string) || item.pickup_start_time,
+          end_time: (pickupSnapshot?.end_time as string) || item.pickup_end_time,
+          address: displayMarket.address as string | null,
+          city: displayMarket.city as string | null,
+          state: displayMarket.state as string | null
+        } : null,
         buyer_confirmed_at: item.buyer_confirmed_at,
         vendor_confirmed_at: item.vendor_confirmed_at,
         confirmation_window_expires_at: item.confirmation_window_expires_at,
