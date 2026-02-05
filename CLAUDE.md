@@ -58,6 +58,7 @@ If a task involves more than 2-3 steps, or requires referencing multiple data po
    - IMMEDIATELY read `apps/web/.claude/current_task.md`
    - Resume work using that context
    - Do NOT make assumptions about prior decisions
+   - **MUST SAY TO USER**: "I've read current_task.md. Current task: [title]. Status: [X of Y items complete]. Key context: [1-2 critical points]." This confirms to the user you have the context.
 
 4. **When task is complete:**
    - Archive important learnings to `CLAUDE_CONTEXT.md` or `error_resolutions` table
