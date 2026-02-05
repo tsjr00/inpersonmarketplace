@@ -25,6 +25,7 @@ export interface AvailablePickupDate {
   cutoff_at: string    // ISO timestamp
   is_accepting: boolean
   hours_until_cutoff: number | null
+  cutoff_hours: number  // Market's cutoff policy (18 for traditional, 10 for private_pickup)
 }
 
 /**
@@ -52,6 +53,7 @@ export interface PickupDateOption {
   cutoff_at: string
   is_accepting: boolean
   hours_until_cutoff: number | null
+  cutoff_hours: number  // Market's cutoff policy (18 for traditional, 10 for private_pickup)
 }
 
 /**
@@ -112,7 +114,8 @@ export function groupPickupDatesByMarket(dates: AvailablePickupDate[]): MarketPi
       end_time: date.end_time,
       cutoff_at: date.cutoff_at,
       is_accepting: date.is_accepting,
-      hours_until_cutoff: date.hours_until_cutoff
+      hours_until_cutoff: date.hours_until_cutoff,
+      cutoff_hours: date.cutoff_hours
     })
   }
 

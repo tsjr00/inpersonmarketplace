@@ -9,6 +9,7 @@ interface MarketAvailability {
   cutoff_at: string | null
   next_market_at: string | null
   reason: string | null
+  cutoff_hours?: number  // Market's cutoff policy (18 for traditional, 10 for private)
 }
 
 export async function GET(
@@ -73,15 +74,22 @@ export async function GET(
     let hoursUntilCutoff: number | null = null
 
     if (openMarkets.length > 0) {
-      const nextCutoff = openMarkets
-        .map(m => new Date(m.cutoff_at!).getTime())
-        .sort((a, b) => a - b)[0]
+      // Find the market with the soonest cutoff
+      const sortedMarkets = [...openMarkets].sort(
+        (a, b) => new Date(a.cutoff_at!).getTime() - new Date(b.cutoff_at!).getTime()
+      )
+      const nextCutoffMarket = sortedMarkets[0]
+      const nextCutoff = new Date(nextCutoffMarket.cutoff_at!).getTime()
 
       const hoursLeft = (nextCutoff - Date.now()) / (1000 * 60 * 60)
       hoursUntilCutoff = Math.round(hoursLeft * 10) / 10
 
-      // Flag if closing within 24 hours
-      if (hoursLeft <= 24 && hoursLeft > 0) {
+      // Use market's actual cutoff_hours policy (default 18 for traditional, 10 for private)
+      const cutoffThreshold = nextCutoffMarket.cutoff_hours ||
+        (nextCutoffMarket.market_type === 'private_pickup' ? 10 : 18)
+
+      // Flag if closing within the market's cutoff threshold
+      if (hoursLeft <= cutoffThreshold && hoursLeft > 0) {
         closingSoon = true
       }
     }

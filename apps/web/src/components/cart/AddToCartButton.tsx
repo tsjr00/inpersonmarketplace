@@ -221,8 +221,10 @@ export function AddToCartButton({
                       {acceptingMarketDates.map((date, dateIndex) => {
                         const isSelected = isDateSelected(date)
                         const dateColor = getPickupDateColor(dateIndex)
+                        // Use market's actual cutoff_hours policy (default 18 for traditional, 10 for private)
+                        const cutoffThreshold = date.cutoff_hours || 18
                         const isClosingSoon = date.hours_until_cutoff !== null &&
-                          date.hours_until_cutoff < 24 &&
+                          date.hours_until_cutoff < cutoffThreshold &&
                           date.hours_until_cutoff > 0
 
                         return (

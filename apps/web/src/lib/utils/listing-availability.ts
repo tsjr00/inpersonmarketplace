@@ -36,6 +36,7 @@ export interface ProcessedMarket {
   start_time: string | null
   end_time: string | null
   cutoff_at: string | null
+  cutoff_hours: number  // Market's cutoff policy (18 for traditional, 10 for private)
 }
 
 /**
@@ -201,7 +202,8 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
     next_pickup_at: nextPickupAt?.toISOString() || null,
     start_time: nextPickupStartTime,
     end_time: nextPickupEndTime,
-    cutoff_at: cutoffAt?.toISOString() || null
+    cutoff_at: cutoffAt?.toISOString() || null,
+    cutoff_hours: cutoffHours
   }
 }
 

@@ -83,6 +83,7 @@ function calculateListingAvailability(listing: Listing): {
 
   let hasOpenMarket = false
   let earliestCutoff: Date | null = null
+  let earliestCutoffHours: number | null = null
 
   for (const lm of markets) {
     if (!lm.markets || !lm.markets.active) continue
@@ -96,6 +97,7 @@ function calculateListingAvailability(listing: Listing): {
         const cutoffDate = new Date(processed.cutoff_at)
         if (!earliestCutoff || cutoffDate < earliestCutoff) {
           earliestCutoff = cutoffDate
+          earliestCutoffHours = processed.cutoff_hours
         }
       }
     }
@@ -105,10 +107,11 @@ function calculateListingAvailability(listing: Listing): {
     return { status: 'closed', hoursUntilCutoff: null }
   }
 
-  // Check if closing soon (within 24 hours)
-  if (earliestCutoff) {
+  // Check if closing soon (using market's actual cutoff policy, not hardcoded 24)
+  if (earliestCutoff && earliestCutoffHours !== null) {
     const hoursLeft = (earliestCutoff.getTime() - Date.now()) / (1000 * 60 * 60)
-    if (hoursLeft <= 24 && hoursLeft > 0) {
+    // Only show "closing soon" when within the market's cutoff window
+    if (hoursLeft <= earliestCutoffHours && hoursLeft > 0) {
       return { status: 'closing-soon', hoursUntilCutoff: Math.round(hoursLeft * 10) / 10 }
     }
   }

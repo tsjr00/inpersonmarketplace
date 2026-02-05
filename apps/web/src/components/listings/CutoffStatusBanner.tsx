@@ -11,6 +11,7 @@ interface MarketAvailability {
   cutoff_at: string | null
   next_market_at: string | null
   reason: string | null
+  cutoff_hours?: number  // Market's cutoff policy (18 for traditional, 10 for private)
 }
 
 interface AvailabilityResponse {
@@ -225,11 +226,13 @@ export default function CutoffStatusBanner({ listingId, onStatusChange, forceSho
   const closedMarkets = availability.markets.filter(m => !m.is_accepting)
   const hasMixedStatus = openMarkets.length > 0 && closedMarkets.length > 0
 
-  // Check if any market is closing soon (within 24 hours)
+  // Check if any market is closing soon (within the market's cutoff policy)
   const closingSoonMarkets = availability.markets.filter(m => {
     if (!m.is_accepting || !m.cutoff_at) return false
     const hoursUntilCutoff = (new Date(m.cutoff_at).getTime() - Date.now()) / (1000 * 60 * 60)
-    return hoursUntilCutoff < 24
+    // Use market's actual cutoff_hours policy (default 18 for traditional, 10 for private)
+    const cutoffThreshold = m.cutoff_hours || (m.market_type === 'private_pickup' ? 10 : 18)
+    return hoursUntilCutoff < cutoffThreshold
   })
 
   // All markets closed - show yellow container with red sub-boxes for each location
@@ -431,8 +434,10 @@ export default function CutoffStatusBanner({ listingId, onStatusChange, forceSho
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
         {availability.markets.map(market => {
+          // Use market's actual cutoff_hours policy (default 18 for traditional, 10 for private)
+          const cutoffThreshold = market.cutoff_hours || (market.market_type === 'private_pickup' ? 10 : 18)
           const isClosingSoon = market.is_accepting && market.cutoff_at &&
-            (new Date(market.cutoff_at).getTime() - Date.now()) < 24 * 60 * 60 * 1000
+            (new Date(market.cutoff_at).getTime() - Date.now()) < cutoffThreshold * 60 * 60 * 1000
 
           // Closed market row
           if (!market.is_accepting) {
