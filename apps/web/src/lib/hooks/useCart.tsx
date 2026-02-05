@@ -25,9 +25,16 @@ export interface CartItem {
   market_type?: string
   market_city?: string
   market_state?: string
-  // New pickup scheduling fields
+  // Pickup scheduling fields
   schedule_id?: string
   pickup_date?: string  // YYYY-MM-DD format
+  pickup_display?: {
+    date_formatted: string
+    time_formatted: string | null
+    day_name: string | null
+  } | null
+  // Schedule validation
+  schedule_issue?: string | null
 }
 
 interface CartSummary {
@@ -56,6 +63,7 @@ interface CartContextType {
   setIsOpen: (open: boolean) => void
   hasMultiplePickupLocations: boolean
   hasMultiplePickupDates: boolean
+  hasScheduleIssues: boolean
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -75,6 +83,7 @@ export function CartProvider({
   })
   const [loading, setLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
+  const [hasScheduleIssues, setHasScheduleIssues] = useState(false)
 
   // Clear localStorage cart on mount (migration cleanup)
   useEffect(() => {
@@ -95,10 +104,12 @@ export function CartProvider({
         const data = await res.json()
         setItems(data.items || [])
         setSummary(data.summary || { total_items: 0, total_cents: 0, vendor_count: 0 })
+        setHasScheduleIssues(data.hasScheduleIssues || false)
       } else if (res.status === 401) {
         // User not logged in - clear cart
         setItems([])
         setSummary({ total_items: 0, total_cents: 0, vendor_count: 0 })
+        setHasScheduleIssues(false)
       }
     } catch (error) {
       console.error('Error fetching cart:', error)
@@ -238,6 +249,7 @@ export function CartProvider({
   const clearCart = () => {
     setItems([])
     setSummary({ total_items: 0, total_cents: 0, vendor_count: 0 })
+    setHasScheduleIssues(false)
   }
 
   const itemCount = summary.total_items
@@ -272,7 +284,8 @@ export function CartProvider({
       isOpen,
       setIsOpen,
       hasMultiplePickupLocations,
-      hasMultiplePickupDates
+      hasMultiplePickupDates,
+      hasScheduleIssues
     }}>
       {children}
     </CartContext.Provider>

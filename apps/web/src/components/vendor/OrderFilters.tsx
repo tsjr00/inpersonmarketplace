@@ -1,28 +1,52 @@
 'use client'
 
+interface PickupDateOption {
+  date: string
+  market_id: string
+  market_name: string
+  order_count: number
+  item_count: number
+}
+
 interface OrderFiltersProps {
   currentStatus: string | null
   currentMarketId: string | null
   currentDateRange: string | null
+  currentPickupDate: string | null
   markets: { id: string; name: string }[]
+  upcomingPickupDates?: PickupDateOption[]
   onStatusChange: (status: string) => void
   onMarketChange: (marketId: string) => void
   onDateRangeChange: (dateRange: string) => void
+  onPickupDateChange: (pickupDate: string) => void
   onClearFilters: () => void
+}
+
+// Format date for display (e.g., "Sat Feb 8")
+function formatPickupDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 export default function OrderFilters({
   currentStatus,
   currentMarketId,
   currentDateRange,
+  currentPickupDate,
   markets,
+  upcomingPickupDates,
   onStatusChange,
   onMarketChange,
   onDateRangeChange,
+  onPickupDateChange,
   onClearFilters
 }: OrderFiltersProps) {
   // Check if any filters are active (besides default date range)
-  const hasActiveFilters = currentStatus || currentMarketId || (currentDateRange && currentDateRange !== '30days')
+  const hasActiveFilters = currentStatus || currentMarketId || currentPickupDate || (currentDateRange && currentDateRange !== '30days')
 
   return (
     <div style={{
@@ -108,6 +132,34 @@ export default function OrderFilters({
             {markets.map(market => (
               <option key={market.id} value={market.id}>
                 {market.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Pickup Date Filter */}
+      {upcomingPickupDates && upcomingPickupDates.length > 0 && (
+        <div>
+          <label style={{ fontSize: 14, fontWeight: 600, marginRight: 8, color: '#374151' }}>
+            Pickup Date:
+          </label>
+          <select
+            value={currentPickupDate || ''}
+            onChange={(e) => onPickupDateChange(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              border: currentPickupDate ? '2px solid #1e40af' : '1px solid #d1d5db',
+              borderRadius: 6,
+              fontSize: 14,
+              backgroundColor: currentPickupDate ? '#dbeafe' : 'white',
+              minWidth: 200
+            }}
+          >
+            <option value="">All Pickup Dates</option>
+            {upcomingPickupDates.map(pd => (
+              <option key={`${pd.date}-${pd.market_id}`} value={pd.date}>
+                {formatPickupDate(pd.date)} - {pd.market_name} ({pd.item_count} item{pd.item_count !== 1 ? 's' : ''})
               </option>
             ))}
           </select>

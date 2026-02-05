@@ -16,6 +16,19 @@ interface OrderItem {
   market_address?: string
   market_city?: string
   pickup_date?: string | null
+  pickup_start_time?: string | null
+  pickup_end_time?: string | null
+  pickup_snapshot?: Record<string, unknown> | null
+  // Unified display data (prefers pickup_snapshot when available)
+  display?: {
+    market_name: string
+    pickup_date: string | null
+    start_time: string | null
+    end_time: string | null
+    address: string | null
+    city: string | null
+    state: string | null
+  } | null
   pickup_confirmed_at?: string | null
   buyer_confirmed_at?: string | null
   cancelled_at?: string | null
@@ -93,8 +106,8 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
   const orderDate = new Date(order.created_at).toLocaleDateString()
   const orderTime = new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-  // Get unique markets for this order
-  const markets = [...new Set(order.items.map(item => item.market_name))]
+  // Get unique markets for this order (use display data when available)
+  const markets = [...new Set(order.items.map(item => item.display?.market_name || item.market_name))]
 
   // Calculate vendor's subtotal for this order (excluding cancelled items)
   const vendorSubtotal = order.items
@@ -120,9 +133,10 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
   const latestFulfilledDate = fulfilledDates[0] ? formatFulfilledDateTime(fulfilledDates[0]) : null
 
   // Get earliest pickup date from items (only for non-fulfilled orders)
+  // Use display data when available (from pickup_snapshot)
   const pickupDates = order.items
     .filter(item => item.status !== 'fulfilled' && item.status !== 'cancelled')
-    .map(item => item.pickup_date)
+    .map(item => item.display?.pickup_date || item.pickup_date)
     .filter((d): d is string => !!d)
     .sort()
   const earliestPickupDate = pickupDates[0] ? formatPickupDate(pickupDates[0]) : null

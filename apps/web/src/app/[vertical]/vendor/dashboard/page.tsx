@@ -184,6 +184,58 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   // Total alerts for the Orders card
   const ordersNeedingAttention = pendingOrdersToConfirm + needsFulfillment
 
+  // Get upcoming pickup dates with order counts (next 7 days)
+  interface UpcomingPickup {
+    pickup_date: string
+    market_id: string
+    market_name: string
+    item_count: number
+  }
+  let upcomingPickups: UpcomingPickup[] = []
+
+  if (vendorProfile.status === 'approved') {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const nextWeek = new Date(today)
+    nextWeek.setDate(nextWeek.getDate() + 7)
+
+    const { data: upcomingItems } = await supabase
+      .from('order_items')
+      .select(`
+        pickup_date,
+        market_id,
+        markets!market_id(name)
+      `)
+      .eq('vendor_profile_id', vendorProfile.id)
+      .not('pickup_date', 'is', null)
+      .gte('pickup_date', today.toISOString().split('T')[0])
+      .lte('pickup_date', nextWeek.toISOString().split('T')[0])
+      .not('status', 'in', '("fulfilled","cancelled")')
+      .is('cancelled_at', null)
+
+    // Group by pickup_date + market_id
+    const pickupMap = new Map<string, UpcomingPickup>()
+    for (const item of upcomingItems || []) {
+      if (item.pickup_date && item.market_id) {
+        const key = `${item.pickup_date}|${item.market_id}`
+        // markets is returned as a single object from the FK relationship
+        const market = item.markets as unknown as { name: string } | null
+        const existing = pickupMap.get(key)
+        if (existing) {
+          existing.item_count++
+        } else {
+          pickupMap.set(key, {
+            pickup_date: item.pickup_date,
+            market_id: item.market_id,
+            market_name: market?.name || 'Pickup Location',
+            item_count: 1
+          })
+        }
+      }
+    }
+    upcomingPickups = Array.from(pickupMap.values()).sort((a, b) => a.pickup_date.localeCompare(b.pickup_date))
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -336,107 +388,108 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             )}
           </div>
 
-          {/* Prep for Market / Pickup - segmented by type */}
+          {/* Upcoming Pickups - shows orders by date */}
           <div style={{
             padding: spacing.sm,
-            backgroundColor: colors.surfaceElevated,
+            backgroundColor: upcomingPickups.length > 0 ? '#f0fdf4' : colors.surfaceElevated,
             color: colors.textPrimary,
-            border: `1px solid ${colors.border}`,
+            border: upcomingPickups.length > 0 ? `2px solid #16a34a` : `1px solid ${colors.border}`,
             borderRadius: radius.md,
             boxShadow: shadows.sm
           }}>
-            <h3 style={{
-              color: colors.primary,
-              margin: `0 0 ${spacing['3xs']} 0`,
-              fontSize: typography.sizes.base,
-              fontWeight: typography.weights.semibold
-            }}>
-              Prep for Market / Pickup
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+              <h3 style={{
+                color: upcomingPickups.length > 0 ? '#166534' : colors.primary,
+                margin: 0,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Upcoming Pickups
+              </h3>
+              <Link
+                href={`/${vertical}/vendor/orders`}
+                style={{
+                  fontSize: typography.sizes.xs,
+                  color: colors.primary,
+                  textDecoration: 'none',
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.sm
+                }}
+              >
+                All Orders →
+              </Link>
+            </div>
 
             {vendorProfile.status !== 'approved' ? (
               <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                 Available after approval
               </p>
-            ) : activeMarkets.length === 0 ? (
+            ) : upcomingPickups.length === 0 ? (
               <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                No active locations yet
+                No upcoming orders this week
               </p>
             ) : (
-              <>
-                {/* Summary counts */}
-                <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                  {traditionalMarkets.length > 0 && `${traditionalMarkets.length} Market${traditionalMarkets.length !== 1 ? 's' : ''}`}
-                  {traditionalMarkets.length > 0 && privatePickups.length > 0 && ' · '}
-                  {privatePickups.length > 0 && `${privatePickups.length} Private`}
-                </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                {upcomingPickups.slice(0, 5).map(pickup => {
+                  const pickupDate = new Date(pickup.pickup_date + 'T00:00:00')
+                  const isToday = pickupDate.toDateString() === new Date().toDateString()
+                  const isTomorrow = pickupDate.toDateString() === new Date(Date.now() + 86400000).toDateString()
+                  const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : pickupDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['3xs'] }}>
-                  {/* Traditional Markets Section */}
-                  {traditionalMarkets.length > 0 && (
-                    <div>
-                      <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold }}>
-                        Markets
-                      </p>
-                      {traditionalMarkets.slice(0, 4).map(market => (
-                        <Link
-                          key={market.id}
-                          href={`/${vertical}/vendor/markets/${market.id}/prep`}
-                          style={{
-                            fontSize: typography.sizes.sm,
-                            textDecoration: 'none',
-                            color: colors.textPrimary,
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            lineHeight: 1.5
-                          }}
-                        >
-                          <span>{market.name}</span>
-                          <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>→</span>
-                        </Link>
-                      ))}
-                      {traditionalMarkets.length > 4 && (
-                        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                          +{traditionalMarkets.length - 4} more
+                  return (
+                    <Link
+                      key={`${pickup.pickup_date}-${pickup.market_id}`}
+                      href={`/${vertical}/vendor/orders?pickup_date=${pickup.pickup_date}`}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: `${spacing['2xs']} ${spacing.xs}`,
+                        backgroundColor: isToday ? '#dcfce7' : 'white',
+                        borderRadius: radius.sm,
+                        border: isToday ? '1px solid #16a34a' : `1px solid ${colors.borderMuted}`,
+                        textDecoration: 'none'
+                      }}
+                    >
+                      <div>
+                        <span style={{
+                          fontSize: typography.sizes.sm,
+                          fontWeight: isToday ? typography.weights.bold : typography.weights.medium,
+                          color: isToday ? '#166534' : colors.textPrimary
+                        }}>
+                          {dateLabel}
                         </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Private Pickup Section */}
-                  {privatePickups.length > 0 && (
-                    <div>
-                      <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted, fontWeight: typography.weights.semibold }}>
-                        Private
-                      </p>
-                      {privatePickups.slice(0, 4).map(market => (
-                        <Link
-                          key={market.id}
-                          href={`/${vertical}/vendor/markets/${market.id}/prep`}
-                          style={{
-                            fontSize: typography.sizes.sm,
-                            textDecoration: 'none',
-                            color: colors.textPrimary,
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            lineHeight: 1.5
-                          }}
-                        >
-                          <span>{market.name}</span>
-                          <span style={{ color: colors.primary, fontSize: typography.sizes.xs }}>→</span>
-                        </Link>
-                      ))}
-                      {privatePickups.length > 4 && (
-                        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                          +{privatePickups.length - 4} more
+                        <span style={{
+                          fontSize: typography.sizes.sm,
+                          color: colors.textMuted,
+                          marginLeft: spacing['2xs']
+                        }}>
+                          · {pickup.market_name}
                         </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
+                      </div>
+                      <span style={{
+                        fontSize: typography.sizes.sm,
+                        fontWeight: typography.weights.semibold,
+                        color: isToday ? '#166534' : colors.primary,
+                        backgroundColor: isToday ? '#bbf7d0' : colors.primaryLight,
+                        padding: `2px ${spacing.xs}`,
+                        borderRadius: radius.full
+                      }}>
+                        {pickup.item_count} item{pickup.item_count !== 1 ? 's' : ''}
+                      </span>
+                    </Link>
+                  )
+                })}
+                {upcomingPickups.length > 5 && (
+                  <Link
+                    href={`/${vertical}/vendor/orders`}
+                    style={{ fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'none', textAlign: 'center' }}
+                  >
+                    +{upcomingPickups.length - 5} more pickup dates →
+                  </Link>
+                )}
+              </div>
             )}
           </div>
 

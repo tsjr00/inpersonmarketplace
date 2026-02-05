@@ -93,8 +93,6 @@ export async function GET(request: NextRequest) {
           schedule_id,
           pickup_date,
           pickup_snapshot,
-          pickup_start_time,
-          pickup_end_time,
           markets!market_id(id, name, market_type, address, city, state),
           listing:listings(
             title,

@@ -26,6 +26,11 @@ interface CheckoutItem {
   // Pickup scheduling fields
   schedule_id?: string
   pickup_date?: string  // YYYY-MM-DD format
+  pickup_display?: {
+    date_formatted: string
+    time_formatted: string | null
+    day_name: string | null
+  } | null
 }
 
 interface SuggestedProduct {
@@ -60,7 +65,7 @@ export default function CheckoutPage() {
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
-  const { items, clearCart, removeFromCart, updateQuantity, hasMultiplePickupLocations } = useCart()
+  const { items, clearCart, removeFromCart, updateQuantity, hasMultiplePickupLocations, hasScheduleIssues } = useCart()
 
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -126,6 +131,7 @@ export default function CheckoutPage() {
               market_state: cartItem?.market_state,
               schedule_id: cartItem?.schedule_id,
               pickup_date: cartItem?.pickup_date,
+              pickup_display: cartItem?.pickup_display,
             }
           })
           setCheckoutItems(mergedItems)
@@ -146,6 +152,7 @@ export default function CheckoutPage() {
             market_state: item.market_state,
             schedule_id: item.schedule_id,
             pickup_date: item.pickup_date,
+            pickup_display: item.pickup_display,
           })))
         }
       } catch (err) {
@@ -165,6 +172,7 @@ export default function CheckoutPage() {
           market_state: item.market_state,
           schedule_id: item.schedule_id,
           pickup_date: item.pickup_date,
+          pickup_display: item.pickup_display,
         })))
       } finally {
         setLoading(false)
@@ -610,7 +618,7 @@ export default function CheckoutPage() {
                             {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
                             {item.pickup_date && (
                               <>
-                                {' '}
+                                {' · '}
                                 <span style={{
                                   fontWeight: 600,
                                   borderBottom: `2px solid ${getPickupDateColor(0)}`,
@@ -618,6 +626,11 @@ export default function CheckoutPage() {
                                 }}>
                                   {formatPickupDate(item.pickup_date)}
                                 </span>
+                                {item.pickup_display?.time_formatted && (
+                                  <span style={{ fontWeight: 500 }}>
+                                    {' @ '}{item.pickup_display.time_formatted}
+                                  </span>
+                                )}
                               </>
                             )}
                           </span>
@@ -739,10 +752,10 @@ export default function CheckoutPage() {
             {suggestedProducts.length > 0 && (
               <div style={{
                 marginTop: spacing.md,
-                backgroundColor: colors.surfaceSubtle,
+                backgroundColor: '#F5F3FF',
                 borderRadius: radius.md,
                 padding: spacing.md,
-                border: `2px solid ${colors.accent}`
+                border: '2px solid #DDD6FE'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm }}>
                   <span style={{ fontSize: typography.sizes.xl }}>✨</span>
@@ -767,7 +780,7 @@ export default function CheckoutPage() {
                         backgroundColor: colors.surfaceElevated,
                         borderRadius: radius.md,
                         padding: spacing.xs,
-                        border: `1px solid ${colors.accent}`,
+                        border: '1px solid #E9D5FF',
                         boxShadow: shadows.sm,
                       }}
                     >
@@ -802,19 +815,17 @@ export default function CheckoutPage() {
                       <p style={{
                         margin: `0 0 ${spacing['2xs']} 0`,
                         fontSize: typography.sizes.base,
-                        fontWeight: typography.weights.bold,
-                        color: colors.primary
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        gap: spacing['2xs'],
+                        flexWrap: 'wrap'
                       }}>
-                        {formatPrice(calculateDisplayPrice(product.price_cents))}
-                      </p>
-
-                      <p style={{
-                        margin: `0 0 ${spacing['2xs']} 0`,
-                        fontSize: typography.sizes.xs,
-                        color: colors.textMuted,
-                        fontStyle: 'italic'
-                      }}>
-                        from {product.vendor_profiles?.business_name || 'Vendor'}
+                        <span style={{ fontWeight: typography.weights.bold, color: colors.primary }}>
+                          {formatPrice(calculateDisplayPrice(product.price_cents))}
+                        </span>
+                        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
+                          from {product.vendor_profiles?.business_name || 'Vendor'}
+                        </span>
                       </p>
 
                       <Link
@@ -823,8 +834,8 @@ export default function CheckoutPage() {
                           display: 'block',
                           width: '100%',
                           padding: `${spacing['2xs']} ${spacing.xs}`,
-                          backgroundColor: colors.accent,
-                          color: colors.textPrimary,
+                          backgroundColor: '#A78BFA',
+                          color: '#FFFFFF',
                           border: 'none',
                           borderRadius: radius.sm,
                           fontSize: typography.sizes.xs,
@@ -1018,74 +1029,54 @@ export default function CheckoutPage() {
                   borderRadius: radius.md,
                   marginBottom: spacing.sm,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
-                    <span style={{ fontSize: typography.sizes.xl }}>📍</span>
-                    <div style={{ flex: 1 }}>
-                      <p style={{
-                        margin: `0 0 ${spacing.xs} 0`,
-                        fontWeight: typography.weights.bold,
-                        color: '#856404',
-                        fontSize: typography.sizes.sm,
-                      }}>
-                        Multiple Pickup Locations
-                      </p>
-                      <p style={{
-                        margin: `0 0 ${spacing.sm} 0`,
-                        color: '#856404',
-                        fontSize: typography.sizes.sm,
-                        lineHeight: typography.leading.relaxed,
-                      }}>
-                        Your order includes items from <strong>different pickup locations</strong>.
-                        You will need to visit each location to collect all your items.
-                      </p>
-                      <div style={{
-                        backgroundColor: 'rgba(255,255,255,0.5)',
-                        padding: spacing.xs,
-                        borderRadius: radius.sm,
-                        marginBottom: spacing.sm,
-                      }}>
-                        <p style={{
-                          margin: 0,
-                          fontSize: typography.sizes.xs,
-                          color: '#856404',
-                          fontWeight: typography.weights.semibold,
-                        }}>
-                          Pickup locations in your order:
-                        </p>
-                        <ul style={{ margin: `${spacing['2xs']} 0 0 0`, paddingLeft: spacing.md }}>
-                          {[...new Map(checkoutItems.filter(i => i.market_name).map(i => [i.market_id, i])).values()].map(item => (
-                            <li key={item.market_id} style={{ fontSize: typography.sizes.xs, color: '#856404' }}>
-                              {item.market_type === 'traditional' ? '🏪' : '📦'} {item.market_name}
-                              {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: spacing.xs,
-                        cursor: 'pointer',
-                        fontSize: typography.sizes.sm,
-                        color: '#856404',
-                        fontWeight: typography.weights.semibold,
-                      }}>
-                        <input
-                          type="checkbox"
-                          checked={multiLocationAcknowledged}
-                          onChange={(e) => setMultiLocationAcknowledged(e.target.checked)}
-                          style={{ width: 18, height: 18, cursor: 'pointer' }}
-                        />
-                        I understand I will visit multiple locations for pickup
-                      </label>
-                    </div>
-                  </div>
+                  <p style={{
+                    margin: `0 0 ${spacing.xs} 0`,
+                    fontWeight: typography.weights.bold,
+                    color: '#856404',
+                    fontSize: typography.sizes.sm,
+                  }}>
+                    📍 Multiple Pickup Locations
+                  </p>
+                  <p style={{
+                    margin: `0 0 ${spacing.xs} 0`,
+                    color: '#856404',
+                    fontSize: typography.sizes.sm,
+                  }}>
+                    Your order has items from different locations. You&apos;ll visit each to collect:
+                  </p>
+                  <ul style={{ margin: `0 0 ${spacing.xs} 0`, paddingLeft: spacing.md }}>
+                    {[...new Map(checkoutItems.filter(i => i.market_name).map(i => [i.market_id, i])).values()].map(item => (
+                      <li key={item.market_id} style={{ fontSize: typography.sizes.xs, color: '#856404', marginBottom: 2 }}>
+                        {item.market_type === 'traditional' ? '🏪' : '📦'} <strong>{item.market_name}</strong>
+                        {item.market_city && ` (${item.market_city}, ${item.market_state})`}
+                      </li>
+                    ))}
+                  </ul>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    cursor: 'pointer',
+                    fontSize: typography.sizes.sm,
+                    color: '#856404',
+                    fontWeight: typography.weights.semibold,
+                    paddingTop: spacing['2xs'],
+                    borderTop: '1px solid rgba(133, 100, 4, 0.2)',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={multiLocationAcknowledged}
+                      onChange={(e) => setMultiLocationAcknowledged(e.target.checked)}
+                      style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
+                    />
+                    I understand I&apos;ll visit multiple locations
+                  </label>
                 </div>
               )}
 
               <button
                 onClick={handleCheckout}
-                disabled={processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)}
+                disabled={processing || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -1098,12 +1089,12 @@ export default function CheckoutPage() {
                   color: colors.textInverse,
                   border: 'none',
                   borderRadius: radius.sm,
-                  cursor: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'not-allowed' : 'pointer',
+                  cursor: processing || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'not-allowed' : 'pointer',
                   minHeight: 48,
-                  boxShadow: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'none' : shadows.primary,
+                  boxShadow: processing || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'none' : shadows.primary,
                 }}
               >
-                {processing ? 'Processing...' : belowMinimum ? `Add $${amountNeeded} More` : !marketValid ? 'Fix Market Issues' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`}
+                {processing ? 'Processing...' : belowMinimum ? `Add $${amountNeeded} More` : !marketValid ? 'Fix Market Issues' : hasScheduleIssues ? 'Remove Unavailable Items' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`}
               </button>
 
               {/* Security messaging */}

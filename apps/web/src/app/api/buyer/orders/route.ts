@@ -53,8 +53,6 @@ export async function GET(request: NextRequest) {
           schedule_id,
           pickup_date,
           pickup_snapshot,
-          pickup_start_time,
-          pickup_end_time,
           market_id,
           markets!market_id(
             id,
@@ -191,9 +189,10 @@ export async function GET(request: NextRequest) {
         const expiresAt = item.expires_at as string | null
         const cancelledAt = item.cancelled_at as string | null
         const pickupDate = item.pickup_date as string | null
-        const pickupStartTime = item.pickup_start_time as string | null
-        const pickupEndTime = item.pickup_end_time as string | null
         const pickupSnapshot = item.pickup_snapshot as Record<string, unknown> | null
+        // Get pickup times from snapshot (where they're stored)
+        const pickupStartTime = (pickupSnapshot?.start_time as string) || null
+        const pickupEndTime = (pickupSnapshot?.end_time as string) || null
 
         // Use pickup_snapshot for display when available (immutable order details)
         // Fall back to market data for backwards compatibility with older orders

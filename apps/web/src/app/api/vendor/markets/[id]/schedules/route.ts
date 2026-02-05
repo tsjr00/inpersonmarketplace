@@ -148,6 +148,51 @@ export async function PUT(request: Request, { params }: RouteParams) {
       }
     }
 
+    // Phase 6: Check for pending orders on schedules being deactivated
+    // Get currently active schedules for this vendor
+    const { data: currentlyActive, error: caError } = await supabase
+      .from('vendor_market_schedules')
+      .select('schedule_id')
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('market_id', marketId)
+      .eq('is_active', true)
+
+    if (caError) {
+      console.error('[/api/vendor/markets/[id]/schedules] Error fetching current schedules:', caError)
+      return NextResponse.json({ error: 'Failed to check current schedules' }, { status: 500 })
+    }
+
+    // Find schedules being deactivated (currently active but not in new selection)
+    const newScheduleSet = new Set(scheduleIds)
+    const schedulesBeingDeactivated = (currentlyActive || [])
+      .filter(s => !newScheduleSet.has(s.schedule_id))
+      .map(s => s.schedule_id)
+
+    // Check if any deactivated schedules have pending orders
+    if (schedulesBeingDeactivated.length > 0) {
+      const { data: pendingOrders, error: poError } = await supabase
+        .from('order_items')
+        .select('schedule_id')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .in('schedule_id', schedulesBeingDeactivated)
+        .not('status', 'in', '("fulfilled","cancelled")')
+        .is('cancelled_at', null)
+
+      if (poError) {
+        console.error('[/api/vendor/markets/[id]/schedules] Error checking pending orders:', poError)
+        return NextResponse.json({ error: 'Failed to check pending orders' }, { status: 500 })
+      }
+
+      if (pendingOrders && pendingOrders.length > 0) {
+        const affectedScheduleCount = new Set(pendingOrders.map(o => o.schedule_id)).size
+        return NextResponse.json({
+          error: `Cannot deactivate ${affectedScheduleCount} schedule${affectedScheduleCount !== 1 ? 's' : ''} with pending orders. Please fulfill or cancel pending orders first.`,
+          code: 'ERR_SCHEDULE_HAS_ORDERS',
+          pendingOrderCount: pendingOrders.length
+        }, { status: 400 })
+      }
+    }
+
     // First, deactivate all existing schedule entries for this vendor/market
     const { error: deactivateError } = await supabase
       .from('vendor_market_schedules')
@@ -257,6 +302,30 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (scheduleError || !schedule) {
       return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
+    }
+
+    // Phase 6: Check for pending orders if trying to deactivate a schedule
+    if (!isActive) {
+      const { count: pendingOrderCount, error: orderCheckError } = await supabase
+        .from('order_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('schedule_id', scheduleId)
+        .eq('vendor_profile_id', vendorProfile.id)
+        .not('status', 'in', '("fulfilled","cancelled")')
+        .is('cancelled_at', null)
+
+      if (orderCheckError) {
+        console.error('[/api/vendor/markets/[id]/schedules] Error checking pending orders:', orderCheckError)
+        return NextResponse.json({ error: 'Failed to check pending orders' }, { status: 500 })
+      }
+
+      if (pendingOrderCount && pendingOrderCount > 0) {
+        return NextResponse.json({
+          error: `Cannot deactivate this schedule while ${pendingOrderCount} order${pendingOrderCount !== 1 ? 's are' : ' is'} pending. Please fulfill or cancel pending orders first.`,
+          code: 'ERR_SCHEDULE_HAS_ORDERS',
+          pendingOrderCount
+        }, { status: 400 })
+      }
     }
 
     // Upsert the vendor schedule entry

@@ -2,7 +2,7 @@
 
 **Source of truth for database structure. Updated after each confirmed migration.**
 
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-05
 **Database:** Dev (inpersonmarketplace)
 **Updated By:** Claude + User
 
@@ -12,6 +12,9 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-05 | 20260205_001_pickup_scheduling_schema | Added to cart_items: `schedule_id`, `pickup_date`. Added to order_items: `schedule_id`, `pickup_date`, `pickup_snapshot` (JSONB). Added to orders: `parent_order_id`, `order_suffix`. **NOTE: pickup_start_time/pickup_end_time do NOT exist - use pickup_snapshot.start_time/end_time** |
+| 2026-02-05 | 20260205_002_pickup_scheduling_functions | Added functions: `get_available_pickup_dates()`, `validate_cart_item_schedule()`, `build_pickup_snapshot()` |
+| 2026-02-05 | 20260205_003_fix_cutoff_threshold | Added `cutoff_hours` to get_available_pickup_dates output |
 | 2026-02-04 | 20260204_001_zip_codes_table | Added `zip_codes` table (33k+ US ZIP codes with coordinates); new functions: `get_zip_coordinates()`, `get_nearby_zip_codes()`, `get_region_zip_codes()` |
 | 2026-02-03 | 20260203_004_fix_market_box_trigger_column_name | Fixed `set_market_box_premium_window()` trigger: changed `is_active` to `active` (correct column name) |
 | 2026-02-03 | 20260203_003_add_vertical_admin_rls_support | Added vertical admin RLS support to 14 tables; new helper functions: `can_admin_market()`, `can_admin_order()`, `can_admin_vendor()` |
@@ -22,7 +25,7 @@
 
 Where Schema = public : map
 
-## ALL TABLES AS OF 02/04/2026
+## ALL TABLES AS OF 02/05/2026
 
 | table_name               |
 | ------------------------ |
@@ -71,7 +74,20 @@ Where Schema = public : map
 | zip_codes                |
 
 
--- ALL COLUMNS WITH TYPES AS OF 02/04/2026
+-- ALL COLUMNS WITH TYPES AS OF 02/05/2026
+
+**NOTE: Not all tables are fully documented below. Core tables (order_items, orders, cart_items) were verified against the database on 02/05/2026. When in doubt, query the database directly.**
+
+**CRITICAL - Pickup Scheduling Columns (added 02/05/2026):**
+- `order_items.schedule_id` (UUID, FK to market_schedules.id) - Reference to schedule at checkout
+- `order_items.pickup_date` (DATE) - Immutable promised pickup date
+- `order_items.pickup_snapshot` (JSONB) - Frozen pickup details (market_name, address, start_time, end_time)
+- `orders.parent_order_id` (UUID, FK to orders.id) - Links split orders from same checkout
+- `orders.order_suffix` (VARCHAR(5)) - Distinguishes split orders (-A, -B, etc.)
+- `cart_items.schedule_id` (UUID, FK to market_schedules.id) - Selected pickup schedule
+- `cart_items.pickup_date` (DATE) - Selected pickup date
+
+**IMPORTANT: `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST on order_items. Always use `pickup_snapshot.start_time` and `pickup_snapshot.end_time` instead.**
 
 
 
@@ -137,6 +153,8 @@ Where Schema = public : map
 | cart_items         | created_at             | timestamp with time zone | NO          | now()                  |
 | cart_items         | updated_at             | timestamp with time zone | NO          | now()                  |
 | cart_items         | market_id              | uuid                     | YES         | null                   |
+| cart_items         | schedule_id            | uuid                     | YES         | null                   |
+| cart_items         | pickup_date            | date                     | YES         | null                   |
 | carts              | id                     | uuid                     | NO          | gen_random_uuid()      |
 | carts              | user_id                | uuid                     | NO          | null                   |
 | carts              | vertical_id            | uuid                     | NO          | null                   |
@@ -191,9 +209,64 @@ Where Schema = public : map
 | zip_codes          | created_at             | timestamp with time zone | YES         | now()                  |
 | zip_codes          | updated_at             | timestamp with time zone | YES         | now()                  |
 
+-- VERIFIED FROM DATABASE 02/05/2026 --
 
+| order_items        | id                             | uuid                     | NO          | gen_random_uuid()      |
+| order_items        | order_id                       | uuid                     | NO          | null                   |
+| order_items        | listing_id                     | uuid                     | NO          | null                   |
+| order_items        | vendor_profile_id              | uuid                     | NO          | null                   |
+| order_items        | quantity                       | integer                  | NO          | null                   |
+| order_items        | unit_price_cents               | integer                  | NO          | null                   |
+| order_items        | subtotal_cents                 | integer                  | NO          | null                   |
+| order_items        | platform_fee_cents             | integer                  | NO          | null                   |
+| order_items        | vendor_payout_cents            | integer                  | NO          | null                   |
+| order_items        | status                         | USER-DEFINED             | NO          | null                   |
+| order_items        | pickup_confirmed_at            | timestamp with time zone | YES         | null                   |
+| order_items        | created_at                     | timestamp with time zone | YES         | null                   |
+| order_items        | updated_at                     | timestamp with time zone | YES         | null                   |
+| order_items        | buyer_confirmed_at             | timestamp with time zone | YES         | null                   |
+| order_items        | cancelled_at                   | timestamp with time zone | YES         | null                   |
+| order_items        | cancelled_by                   | text                     | YES         | null                   |
+| order_items        | cancellation_reason            | text                     | YES         | null                   |
+| order_items        | refund_amount_cents            | integer                  | YES         | null                   |
+| order_items        | expires_at                     | timestamp with time zone | YES         | null                   |
+| order_items        | pickup_date                    | date                     | YES         | null                   |
+| order_items        | market_id                      | uuid                     | YES         | null                   |
+| order_items        | vendor_confirmed_at            | timestamp with time zone | YES         | null                   |
+| order_items        | confirmation_window_expires_at | timestamp with time zone | YES         | null                   |
+| order_items        | lockdown_active                | boolean                  | YES         | null                   |
+| order_items        | lockdown_initiated_at          | timestamp with time zone | YES         | null                   |
+| order_items        | issue_reported_at              | timestamp with time zone | YES         | null                   |
+| order_items        | issue_reported_by              | text                     | YES         | null                   |
+| order_items        | issue_description              | text                     | YES         | null                   |
+| order_items        | issue_resolved_at              | timestamp with time zone | YES         | null                   |
+| order_items        | issue_resolved_by              | text                     | YES         | null                   |
+| order_items        | issue_status                   | text                     | YES         | null                   |
+| order_items        | issue_admin_notes              | text                     | YES         | null                   |
+| order_items        | schedule_id                    | uuid                     | YES         | null                   |
+| order_items        | pickup_snapshot                | jsonb                    | YES         | null                   |
 
--- FOREIGN KEYS AS OF 02/04/2026
+| orders             | id                            | uuid                     | NO          | gen_random_uuid()      |
+| orders             | buyer_user_id                 | uuid                     | NO          | null                   |
+| orders             | vertical_id                   | text                     | NO          | null                   |
+| orders             | order_number                  | text                     | NO          | null                   |
+| orders             | status                        | USER-DEFINED             | NO          | null                   |
+| orders             | subtotal_cents                | integer                  | NO          | null                   |
+| orders             | platform_fee_cents            | integer                  | NO          | null                   |
+| orders             | total_cents                   | integer                  | NO          | null                   |
+| orders             | stripe_checkout_session_id    | text                     | YES         | null                   |
+| orders             | created_at                    | timestamp with time zone | YES         | null                   |
+| orders             | updated_at                    | timestamp with time zone | YES         | null                   |
+| orders             | payment_method                | USER-DEFINED             | YES         | null                   |
+| orders             | external_payment_confirmed_at | timestamp with time zone | YES         | null                   |
+| orders             | external_payment_confirmed_by | uuid                     | YES         | null                   |
+| orders             | parent_order_id               | uuid                     | YES         | null                   |
+| orders             | order_suffix                  | character varying        | YES         | null                   |
+
+**IMPORTANT: `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST on order_items.**
+**Always use `pickup_snapshot.start_time` and `pickup_snapshot.end_time` instead.**
+
+-- FOREIGN KEYS AS OF 02/05/2026
 
 
 | table_name               | column_name            | foreign_table            | foreign_column |
@@ -231,6 +304,9 @@ Where Schema = public : map
 | order_items              | order_id               | orders                   | id             |
 | order_items              | vendor_profile_id      | vendor_profiles          | id             |
 | order_items              | listing_id             | listings                 | id             |
+| order_items              | schedule_id            | market_schedules         | id             |
+| cart_items               | schedule_id            | market_schedules         | id             |
+| orders                   | parent_order_id        | orders                   | id             |
 | order_ratings            | order_id               | orders                   | id             |
 | order_ratings            | vendor_profile_id      | vendor_profiles          | id             |
 | orders                   | vertical_id            | verticals                | vertical_id    |

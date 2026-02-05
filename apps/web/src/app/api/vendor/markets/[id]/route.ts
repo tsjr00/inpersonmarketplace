@@ -200,6 +200,47 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     // For private pickup markets, update the schedules
     if (market.market_type === 'private_pickup' && pickup_windows) {
+      // Phase 6: Check for pending orders before modifying schedules
+      // Get existing schedules
+      crumb.supabase('select', 'market_schedules', { check: 'existing' })
+      const { data: existingSchedules } = await supabase
+        .from('market_schedules')
+        .select('id, day_of_week, start_time, end_time')
+        .eq('market_id', marketId)
+
+      // Find schedules being removed (not in new pickup_windows)
+      const newWindowKeys = new Set(
+        pickup_windows.map((w: { day_of_week: number; start_time: string; end_time: string }) =>
+          `${w.day_of_week}|${w.start_time}|${w.end_time}`
+        )
+      )
+      const schedulesBeingRemoved = (existingSchedules || []).filter(s =>
+        !newWindowKeys.has(`${s.day_of_week}|${s.start_time}|${s.end_time}`)
+      )
+
+      if (schedulesBeingRemoved.length > 0) {
+        const scheduleIdsToCheck = schedulesBeingRemoved.map(s => s.id)
+        crumb.supabase('select', 'order_items', { check: 'pending_for_schedules' })
+        const { data: pendingOrders, error: poError } = await supabase
+          .from('order_items')
+          .select('schedule_id')
+          .in('schedule_id', scheduleIdsToCheck)
+          .not('status', 'in', '("fulfilled","cancelled")')
+          .is('cancelled_at', null)
+
+        if (poError) {
+          throw traced.fromSupabase(poError, { table: 'order_items', operation: 'select' })
+        }
+
+        if (pendingOrders && pendingOrders.length > 0) {
+          throw traced.validation(
+            'ERR_SCHEDULE_HAS_ORDERS',
+            `Cannot remove pickup windows that have ${pendingOrders.length} pending order${pendingOrders.length !== 1 ? 's' : ''}. Please fulfill or cancel pending orders first.`,
+            { pendingOrderCount: pendingOrders.length }
+          )
+        }
+      }
+
       crumb.supabase('delete', 'market_schedules')
       const { error: deleteSchedulesError } = await supabase
         .from('market_schedules')
@@ -282,6 +323,27 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     if (listingCount > 0) {
       throw traced.validation('ERR_MARKET_002', 'Cannot delete market with active listings. Remove listings first.')
+    }
+
+    // Check for pending orders at this market (Phase 6: Schedule deletion protection)
+    crumb.supabase('select', 'order_items', { check: 'pending_orders' })
+    const { count: pendingOrderCount, error: orderCheckError } = await supabase
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .not('status', 'in', '("fulfilled","cancelled")')
+      .is('cancelled_at', null)
+
+    if (orderCheckError) {
+      throw traced.fromSupabase(orderCheckError, { table: 'order_items', operation: 'select' })
+    }
+
+    if (pendingOrderCount && pendingOrderCount > 0) {
+      throw traced.validation(
+        'ERR_MARKET_003',
+        `Cannot delete this location while ${pendingOrderCount} order${pendingOrderCount !== 1 ? 's are' : ' is'} pending. Please fulfill or cancel pending orders first.`,
+        { pendingOrderCount }
+      )
     }
 
     crumb.supabase('delete', 'markets')

@@ -8,7 +8,7 @@ export function CartDrawer() {
   const router = useRouter()
   const params = useParams()
   const vertical = params?.vertical as string
-  const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen, loading } = useCart()
+  const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen, loading, hasScheduleIssues } = useCart()
 
   // Calculate display total with platform fee
   const displayTotal = items.reduce((sum, item) => {
@@ -103,6 +103,22 @@ export function CartDrawer() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+              {/* Warning banner for schedule issues */}
+              {hasScheduleIssues && (
+                <div style={{
+                  padding: 12,
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: 8,
+                  color: '#991b1b',
+                  fontSize: 13,
+                }}>
+                  <strong>Some items need attention</strong>
+                  <p style={{ margin: '4px 0 0', fontSize: 12 }}>
+                    One or more items have pickup time changes. Please remove affected items or select a new pickup date.
+                  </p>
+                </div>
+              )}
               {items.map(item => (
                 <CartItemCard
                   key={item.id}
@@ -168,14 +184,33 @@ function CartItemCard({
 }) {
   const displayPriceCents = calculateDisplayPrice(item.price_cents || 0)
   const itemTotalCents = displayPriceCents * item.quantity
+  const hasIssue = Boolean(item.schedule_issue)
 
   return (
     <div style={{
       padding: 15,
-      border: '1px solid #eee',
+      border: hasIssue ? '2px solid #fca5a5' : '1px solid #eee',
       borderRadius: 8,
-      backgroundColor: 'white',
+      backgroundColor: hasIssue ? '#fef2f2' : 'white',
     }}>
+      {/* Schedule issue warning */}
+      {item.schedule_issue && (
+        <div style={{
+          marginBottom: 10,
+          padding: '8px 10px',
+          backgroundColor: '#fee2e2',
+          borderRadius: 6,
+          fontSize: 12,
+          color: '#991b1b',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}>
+          <span>⚠️</span>
+          <span>{item.schedule_issue}</span>
+        </div>
+      )}
+
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -212,7 +247,7 @@ function CartItemCard({
           style={{
             background: 'none',
             border: 'none',
-            color: '#999',
+            color: hasIssue ? '#dc2626' : '#999',
             cursor: 'pointer',
             padding: 5,
             fontSize: 18,
@@ -222,6 +257,29 @@ function CartItemCard({
           🗑️
         </button>
       </div>
+
+      {/* Pickup info */}
+      {item.pickup_display && (
+        <div style={{
+          marginBottom: 10,
+          padding: '6px 10px',
+          backgroundColor: hasIssue ? '#fee2e2' : '#f0f9ff',
+          borderRadius: 6,
+          fontSize: 12,
+          color: hasIssue ? '#7f1d1d' : '#0369a1',
+        }}>
+          <span style={{ fontWeight: 600 }}>Pickup:</span>{' '}
+          {item.pickup_display.date_formatted}
+          {item.pickup_display.time_formatted && (
+            <span> · {item.pickup_display.time_formatted}</span>
+          )}
+          {item.market_name && (
+            <span style={{ display: 'block', marginTop: 2, color: hasIssue ? '#991b1b' : '#6b7280' }}>
+              @ {item.market_name}
+            </span>
+          )}
+        </div>
+      )}
 
       <div style={{
         display: 'flex',

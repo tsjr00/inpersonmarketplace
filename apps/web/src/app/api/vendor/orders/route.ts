@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
   const marketId = searchParams.get('market_id')
+  const pickupDate = searchParams.get('pickup_date') // Filter by specific pickup date (YYYY-MM-DD)
   const dateRange = searchParams.get('date_range') // 'today', 'week', 'month', '30days', 'all'
 
   // Calculate date filter based on range
@@ -72,8 +73,6 @@ export async function GET(request: NextRequest) {
       schedule_id,
       pickup_date,
       pickup_snapshot,
-      pickup_start_time,
-      pickup_end_time,
       pickup_confirmed_at,
       buyer_confirmed_at,
       vendor_confirmed_at,
@@ -108,6 +107,10 @@ export async function GET(request: NextRequest) {
   }
   if (marketId) {
     query = query.eq('market_id', marketId)
+  }
+  if (pickupDate) {
+    // Filter by specific pickup date
+    query = query.eq('pickup_date', pickupDate)
   }
   if (dateFilter) {
     query = query.gte('created_at', dateFilter.toISOString())
@@ -200,15 +203,13 @@ export async function GET(request: NextRequest) {
       market_address: item.market?.address,
       market_city: item.market?.city,
       pickup_date: item.pickup_date,
-      pickup_start_time: item.pickup_start_time,
-      pickup_end_time: item.pickup_end_time,
       pickup_snapshot: pickupSnapshot,
       // Unified display data (prefers pickup_snapshot when available)
       display: {
         market_name: (displayMarket.market_name as string) || 'Pickup Location',
         pickup_date: item.pickup_date,
-        start_time: (pickupSnapshot?.start_time as string) || item.pickup_start_time,
-        end_time: (pickupSnapshot?.end_time as string) || item.pickup_end_time,
+        start_time: (pickupSnapshot?.start_time as string) || null,
+        end_time: (pickupSnapshot?.end_time as string) || null,
         address: displayMarket.address as string | null,
         city: displayMarket.city as string | null,
         state: displayMarket.state as string | null
@@ -240,8 +241,45 @@ export async function GET(request: NextRequest) {
     }
   })
 
+  // Extract unique pickup dates for filtering (with order counts)
+  // Group by pickup_date and market for display
+  const pickupDateMap = new Map<string, {
+    date: string
+    market_id: string
+    market_name: string
+    order_count: number
+    item_count: number
+  }>()
+
+  for (const item of orderItems || []) {
+    if (item.pickup_date && !['fulfilled', 'cancelled'].includes(item.status)) {
+      const key = `${item.pickup_date}|${item.market_id}`
+      const existing = pickupDateMap.get(key)
+      // market is aliased from markets FK relationship
+      const market = item.market as unknown as { name: string } | null
+      if (existing) {
+        existing.item_count++
+        // Count unique orders
+        // This is a simplification - counts items as proxy for order involvement
+      } else {
+        pickupDateMap.set(key, {
+          date: item.pickup_date,
+          market_id: item.market_id,
+          market_name: market?.name || 'Pickup Location',
+          order_count: 1,
+          item_count: 1
+        })
+      }
+    }
+  }
+
+  // Convert to array and sort by date
+  const upcomingPickupDates = Array.from(pickupDateMap.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+
   return NextResponse.json({
     orders,
-    orderItems: enrichedItems
+    orderItems: enrichedItems,
+    upcomingPickupDates
   })
 }

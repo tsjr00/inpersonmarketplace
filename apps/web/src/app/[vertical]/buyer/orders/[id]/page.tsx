@@ -42,6 +42,19 @@ interface OrderItem {
   vendor_phone: string | null
   market: Market
   pickup_date: string | null
+  pickup_start_time: string | null
+  pickup_end_time: string | null
+  pickup_snapshot: Record<string, unknown> | null
+  // Unified display data (prefers pickup_snapshot when available)
+  display: {
+    market_name: string
+    pickup_date: string | null
+    start_time: string | null
+    end_time: string | null
+    address: string | null
+    city: string | null
+    state: string | null
+  } | null
   buyer_confirmed_at: string | null
   vendor_confirmed_at: string | null
   cancelled_at: string | null
@@ -350,12 +363,14 @@ export default function BuyerOrderDetailPage() {
       acc[marketId] = {
         market: item.market,
         items: [],
-        pickupDate: item.pickup_date
+        pickupDate: item.pickup_date,
+        // Use display data from first item (from pickup_snapshot when available)
+        display: item.display
       }
     }
     acc[marketId].items.push(item)
     return acc
-  }, {} as Record<string, { market: Market; items: OrderItem[]; pickupDate: string | null }>)
+  }, {} as Record<string, { market: Market; items: OrderItem[]; pickupDate: string | null; display: OrderItem['display'] }>)
 
   // Is this order in a pickup-ready state? Show the mobile pickup presentation
   const isPickupReady = ['ready', 'handed_off'].includes(effectiveStatus)
@@ -690,6 +705,7 @@ export default function BuyerOrderDetailPage() {
             <PickupDetails
               market={group.market}
               pickupDate={group.pickupDate}
+              display={group.display}
             />
 
             {/* Items for this Market */}
@@ -700,7 +716,7 @@ export default function BuyerOrderDetailPage() {
               borderRadius: radius.md
             }}>
               <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>
-                Items from {group.market.name}
+                Items from {group.display?.market_name || group.market.name}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                 {group.items.map(item => (

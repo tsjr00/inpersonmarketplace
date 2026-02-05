@@ -37,6 +37,7 @@ export default function MarketScheduleSelector({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null) // schedule ID being saved
   const [error, setError] = useState<string | null>(null)
+  const [errorType, setErrorType] = useState<'warning' | 'blocking'>('warning')
 
   useEffect(() => {
     fetchSchedules()
@@ -85,11 +86,18 @@ export default function MarketScheduleSelector({
           )
         )
         setHasAnyActive(data.hasAnyActive)
+        setErrorType('warning')
 
         if (data.warning) {
           setError(data.warning)
         }
       } else {
+        // Check if this is a blocking error (has pending orders)
+        if (data.code === 'ERR_SCHEDULE_HAS_ORDERS') {
+          setErrorType('blocking')
+        } else {
+          setErrorType('warning')
+        }
         setError(data.error || 'Failed to update schedule')
       }
     } catch (err) {
@@ -171,13 +179,16 @@ export default function MarketScheduleSelector({
       {error && (
         <div style={{
           padding: 12,
-          backgroundColor: '#fef3c7',
-          border: '1px solid #fcd34d',
+          backgroundColor: errorType === 'blocking' ? '#fef2f2' : '#fef3c7',
+          border: `1px solid ${errorType === 'blocking' ? '#fecaca' : '#fcd34d'}`,
           borderRadius: 6,
           marginBottom: 16,
           fontSize: 13,
-          color: '#92400e'
+          color: errorType === 'blocking' ? '#991b1b' : '#92400e'
         }}>
+          {errorType === 'blocking' && (
+            <strong style={{ display: 'block', marginBottom: 4 }}>Cannot deactivate</strong>
+          )}
           {error}
         </div>
       )}

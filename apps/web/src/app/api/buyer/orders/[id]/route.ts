@@ -36,8 +36,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
         schedule_id,
         pickup_date,
         pickup_snapshot,
-        pickup_start_time,
-        pickup_end_time,
         buyer_confirmed_at,
         vendor_confirmed_at,
         confirmation_window_expires_at,
@@ -140,15 +138,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
           schedules: market?.market_schedules || []
         },
         pickup_date: item.pickup_date,
-        pickup_start_time: item.pickup_start_time,
-        pickup_end_time: item.pickup_end_time,
         pickup_snapshot: pickupSnapshot,
         // Unified display data (prefers pickup_snapshot when available)
         display: displayMarket ? {
           market_name: (displayMarket.market_name as string) || 'Unknown',
           pickup_date: item.pickup_date,
-          start_time: (pickupSnapshot?.start_time as string) || item.pickup_start_time,
-          end_time: (pickupSnapshot?.end_time as string) || item.pickup_end_time,
+          start_time: (pickupSnapshot?.start_time as string) || null,
+          end_time: (pickupSnapshot?.end_time as string) || null,
           address: displayMarket.address as string | null,
           city: displayMarket.city as string | null,
           state: displayMarket.state as string | null

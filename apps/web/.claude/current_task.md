@@ -1,80 +1,84 @@
 # Current Task: Pickup Scheduling System Implementation
 Started: 2026-02-05
-Last Updated: 2026-02-05
+Last Updated: 2026-02-05 (Session 2 - pre-compaction save)
 
 ## Goal
 Implement pickup date selection where buyers choose specific pickup DATES (not just locations). Each date has its own order cutoff, allowing vendors to offer multiple pickup days per week.
 
-## Key Decisions Made
-- **Schedule-based selection**: Use (schedule_id, pickup_date) pair instead of just market_id
-- **Pickup snapshot at checkout**: Store immutable JSONB snapshot of pickup details so order info persists even if vendor changes schedule
-- **SQL functions for availability**: Server-side calculation via `get_available_pickup_dates()` for consistent timezone handling
-- **Cutoff hours from database**: NEVER hardcode - use `markets.cutoff_hours` (18 for traditional, 10 for private_pickup)
-- **Color coding**: Blue/purple/teal for date differentiation (NOT red/yellow/green which are for status)
+## CRITICAL BUG FIXED THIS SESSION
+**ERR_DB_010 "Invalid column reference" on buyer orders page**
+- **Root Cause**: API files were querying `pickup_start_time` and `pickup_end_time` columns that DON'T EXIST in order_items table
+- **The migration only added**: `schedule_id`, `pickup_date`, `pickup_snapshot` (NOT the time columns)
+- **Files Fixed**:
+  - `src/app/api/buyer/orders/route.ts` - Removed non-existent columns from query
+  - `src/app/api/buyer/orders/[id]/route.ts` - Removed non-existent columns from query
+  - `src/app/api/vendor/orders/route.ts` - Removed non-existent columns from query
+  - `src/app/api/checkout/success/route.ts` - Removed non-existent columns from query
+- **Solution**: Get start_time/end_time from `pickup_snapshot` JSONB field instead
 
-## Critical Context (DO NOT FORGET)
-- Traditional markets: 18-hour cutoff before pickup (stored in markets.cutoff_hours)
-- Private pickup: 10-hour cutoff before pickup (stored in markets.cutoff_hours)
-- "Closing soon" threshold must use market's cutoff_hours, NOT hardcoded 24
-- Migration 003 needed DROP FUNCTION before CREATE due to return type change
+## UI IMPROVEMENTS IN PROGRESS (NOT YET COMMITTED)
 
-## What's Been Completed
-- [x] Schema migration (20260205_001): Added schedule_id, pickup_date to cart_items and order_items
-- [x] SQL functions migration (20260205_002): get_available_pickup_dates, validate_cart_item_schedule, build_pickup_snapshot
-- [x] Cutoff threshold fix migration (20260205_003): Added cutoff_hours to function output
-- [x] Type definitions (src/types/pickup.ts)
-- [x] Listing page updates - shows pickup dates with status
-- [x] AddToCartButton - date selection instead of market selection
-- [x] useCart hook - extended for schedule_id and pickup_date
-- [x] Cart API (items/route.ts) - validates and stores schedule/date
-- [x] Cart API (route.ts) - returns schedule_id and pickup_date
-- [x] Checkout page - displays pickup dates
-- [x] Checkout session API - builds pickup snapshots
-- [x] Buyer orders list API - includes pickup_snapshot and display field
-- [x] Buyer order detail API - includes pickup_snapshot and display field
-- [x] Checkout success API - includes pickup_snapshot
-- [x] Vendor orders API - includes pickup_snapshot and display field
-- [x] Checkout success page transform - uses pickup_snapshot
-- [x] Buyer orders list page - updated interface for display field
-- [x] Fixed cutoff threshold in: AddToCartButton, PickupLocationsCard, CutoffStatusBanner, availability API, browse page, vendor listings page
-- [x] Context Preservation System added to CLAUDE.md
+### 1. Pickup Times on Checkout - DONE
+- Added `pickup_display` to CheckoutItem interface
+- Updated merge logic to include pickup_display from cart items
+- Updated checkout item display to show time: `@ 9:00 AM - 12:00 PM`
+
+### 2. Multiple Pickup Location Banner - DONE
+- Removed the large icon column layout
+- Put icon inline with header: `📍 Multiple Pickup Locations`
+- Condensed text to reduce rows
+- Made checkbox label shorter
+
+### 3. Cross-sell Section Color Change - DONE
+- Changed background from yellow to soft lavender (`#F5F3FF`)
+- Changed border from accent yellow to light purple (`#DDD6FE`)
+- Changed card borders to light purple (`#E9D5FF`)
+- Changed button from yellow to purple (`#A78BFA`) with white text
+- Put vendor name on same line as price using flexbox
+
+### 4. Checkout Success Screen Improvements - NOT STARTED
+- User wants to capture feedback/reviews while they have buyer's attention
+- Ideas: testimonial capture, feedback form, satisfaction rating
+- NOT STARTED
+
+## Phase 6 & 7 - COMPLETED
+
+### Phase 6: Schedule Deletion Protection
+- [x] API blocks market deletion with pending orders
+- [x] API blocks pickup window removal with pending orders
+- [x] API blocks schedule deactivation with pending orders
+- [x] MarketScheduleSelector shows blocking errors in red
+
+### Phase 7: Cart Schedule Validation
+- [x] Cart API validates schedules and returns `schedule_issue` for invalid items
+- [x] Cart API returns `hasScheduleIssues` flag
+- [x] CartItem interface extended with `pickup_display` and `schedule_issue`
+- [x] CartDrawer shows warning banner and highlights invalid items
+- [x] Checkout page blocks checkout when hasScheduleIssues is true
+
+## Files Modified This Session
+- `src/app/api/buyer/orders/route.ts` - Fixed ERR_DB_010 bug
+- `src/app/api/buyer/orders/[id]/route.ts` - Fixed ERR_DB_010 bug
+- `src/app/api/vendor/orders/route.ts` - Fixed ERR_DB_010 bug
+- `src/app/api/checkout/success/route.ts` - Fixed ERR_DB_010 bug
+- `src/app/api/cart/route.ts` - Added schedule validation, pickup_display
+- `src/lib/hooks/useCart.tsx` - Added hasScheduleIssues, pickup_display
+- `src/components/cart/CartDrawer.tsx` - Shows pickup info and schedule warnings
+- `src/components/vendor/MarketScheduleSelector.tsx` - Shows blocking errors in red
+- `src/app/[vertical]/checkout/page.tsx` - Added pickup times, fixed multi-location banner
 
 ## What's Remaining
+- [x] Change cross-sell section background color (not yellow) - DONE
+- [x] Put vendor name on same line as price in cross-sell cards - DONE
+- [ ] Checkout success screen - add feedback/review capture
 - [ ] Test full checkout flow with pickup snapshots
-- [ ] Verify order displays show correct pickup info from snapshots
-- [ ] Vendor dashboard updates for multi-schedule management (Phase 5)
-- [ ] Schedule deletion protection UI (Phase 6)
-- [ ] Cart cleanup notifications when schedule deactivated (Phase 7)
+- [ ] Test vendor dashboard upcoming pickups display
+- [ ] Commit and push all changes
 - [ ] End-to-end testing (Phase 8)
 
-## Files Modified (Key Files)
-- `supabase/migrations/20260205_001_pickup_scheduling_schema.sql` - Schema changes
-- `supabase/migrations/20260205_002_pickup_scheduling_functions.sql` - SQL functions
-- `supabase/migrations/20260205_003_fix_cutoff_threshold.sql` - Added cutoff_hours to output
-- `src/types/pickup.ts` - Type definitions with cutoff_hours
-- `src/components/cart/AddToCartButton.tsx` - Date selection UI
-- `src/lib/hooks/useCart.tsx` - Cart state with schedule/date
-- `src/app/api/cart/items/route.ts` - Cart item creation with validation
-- `src/app/api/checkout/session/route.ts` - Builds pickup_snapshot
-- `src/app/api/buyer/orders/route.ts` - Returns pickup_snapshot in response
-- `src/app/api/buyer/orders/[id]/route.ts` - Returns pickup_snapshot in detail
-- `src/app/api/vendor/orders/route.ts` - Returns pickup_snapshot for vendors
-- `src/lib/utils/listing-availability.ts` - Added cutoff_hours to ProcessedMarket
-
-## Gotchas / Watch Out For
-- PostgreSQL requires DROP FUNCTION before CREATE if changing return type
-- Must use `ALTER TABLE DROP CONSTRAINT` not `DROP INDEX` for unique constraints
-- cutoff_hours must come from database, not hardcoded - check all files for hardcoded "24"
-- The "closing soon" display should only show when within market's cutoff_hours window
-
-## Migration Status
-- 20260205_001: Applied to dev & staging
-- 20260205_002: Applied to dev & staging
-- 20260205_003: Applied to dev & staging (fixed DROP FUNCTION issue)
-
-## Commits Made
-1. "Add pickup date selection system for buyers" - main implementation
-2. "Add pickup_snapshot support to order display APIs" - API updates
-3. "Fix cutoff threshold to use market-specific policy" - removed hardcoded 24
-4. "Fix migration: drop function before recreating" - PostgreSQL fix
-5. "Add Context Preservation System" - this system
+## Key Context for Next Session
+- The `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST - always use `pickup_snapshot.start_time/end_time`
+- Cart items now have `pickup_display` with `date_formatted`, `time_formatted`, `day_name`
+- Schema snapshot updated with critical warnings about pickup columns (supabase/SCHEMA_SNAPSHOT.md)
+- TypeScript check passes - no build errors
+- Cross-sell section now uses purple colors instead of yellow

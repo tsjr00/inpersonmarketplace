@@ -22,6 +22,19 @@ interface OrderItem {
   market_address?: string
   market_city?: string
   pickup_date?: string
+  pickup_start_time?: string | null
+  pickup_end_time?: string | null
+  pickup_snapshot?: Record<string, unknown> | null
+  // Unified display data (prefers pickup_snapshot when available)
+  display?: {
+    market_name: string
+    pickup_date: string | null
+    start_time: string | null
+    end_time: string | null
+    address: string | null
+    city: string | null
+    state: string | null
+  } | null
 }
 
 interface Order {
@@ -39,6 +52,14 @@ interface Market {
   name: string
 }
 
+interface PickupDateOption {
+  date: string
+  market_id: string
+  market_name: string
+  order_count: number
+  item_count: number
+}
+
 export default function VendorOrdersPage() {
   const params = useParams()
   const vertical = params.vertical as string
@@ -46,21 +67,24 @@ export default function VendorOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [allItems, setAllItems] = useState<OrderItem[]>([])
   const [markets, setMarkets] = useState<Market[]>([])
+  const [upcomingPickupDates, setUpcomingPickupDates] = useState<PickupDateOption[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [marketFilter, setMarketFilter] = useState<string | null>(null)
+  const [pickupDateFilter, setPickupDateFilter] = useState<string | null>(null)
   const [dateRangeFilter, setDateRangeFilter] = useState<string | null>('30days') // Default to last 30 days
 
   useEffect(() => {
     fetchOrders()
     fetchMarkets()
-  }, [statusFilter, marketFilter, dateRangeFilter])
+  }, [statusFilter, marketFilter, pickupDateFilter, dateRangeFilter])
 
   const fetchOrders = async () => {
     try {
       const params = new URLSearchParams()
       if (statusFilter) params.set('status', statusFilter)
       if (marketFilter) params.set('market_id', marketFilter)
+      if (pickupDateFilter) params.set('pickup_date', pickupDateFilter)
       if (dateRangeFilter) params.set('date_range', dateRangeFilter)
 
       const res = await fetch(`/api/vendor/orders?${params.toString()}`)
@@ -68,6 +92,10 @@ export default function VendorOrdersPage() {
         const data = await res.json()
         setOrders(data.orders || [])
         setAllItems(data.orderItems || [])
+        // Only update pickup dates on initial load (no pickup filter active)
+        if (!pickupDateFilter && data.upcomingPickupDates) {
+          setUpcomingPickupDates(data.upcomingPickupDates)
+        }
       }
     } catch (error) {
       console.error('Error fetching orders:', error)
@@ -171,6 +199,7 @@ export default function VendorOrdersPage() {
   const handleClearFilters = () => {
     setStatusFilter(null)
     setMarketFilter(null)
+    setPickupDateFilter(null)
     setDateRangeFilter('30days') // Reset to default
   }
 
@@ -262,10 +291,13 @@ export default function VendorOrdersPage() {
           currentStatus={statusFilter}
           currentMarketId={marketFilter}
           currentDateRange={dateRangeFilter}
+          currentPickupDate={pickupDateFilter}
           markets={markets}
+          upcomingPickupDates={upcomingPickupDates}
           onStatusChange={setStatusFilter}
           onMarketChange={setMarketFilter}
           onDateRangeChange={setDateRangeFilter}
+          onPickupDateChange={setPickupDateFilter}
           onClearFilters={handleClearFilters}
         />
       </div>
