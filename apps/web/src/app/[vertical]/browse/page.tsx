@@ -8,6 +8,7 @@ import { formatDisplayPrice, CATEGORIES } from '@/lib/constants'
 import TierBadge from '@/components/shared/TierBadge'
 import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 
 // Cache page for 5 minutes - listings don't change every second
 export const revalidate = 300
@@ -15,6 +16,30 @@ export const revalidate = 300
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
   searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string }>
+}
+
+interface MarketSchedule {
+  id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  active: boolean
+}
+
+interface ListingMarket {
+  market_id: string
+  markets: {
+    id: string
+    name: string
+    market_type: string
+    address: string
+    city: string
+    state: string
+    cutoff_hours: number | null
+    timezone: string | null
+    active: boolean
+    market_schedules: MarketSchedule[]
+  } | null
 }
 
 interface Listing {
@@ -37,20 +62,58 @@ interface Listing {
     status: string
     tier?: 'standard' | 'premium' | 'featured'
   }
-  listing_markets?: {
-    market_id: string
-    markets: {
-      id: string
-      name: string
-      market_type: string
-    } | null
-  }[]
+  listing_markets?: ListingMarket[]
   listing_images?: {
     id: string
     url: string
     is_primary: boolean
     display_order: number
   }[]
+}
+
+// Calculate availability status for a listing based on its markets
+function calculateListingAvailability(listing: Listing): {
+  status: 'open' | 'closing-soon' | 'closed'
+  hoursUntilCutoff: number | null
+} {
+  const markets = listing.listing_markets || []
+  if (markets.length === 0) {
+    return { status: 'closed', hoursUntilCutoff: null }
+  }
+
+  let hasOpenMarket = false
+  let earliestCutoff: Date | null = null
+
+  for (const lm of markets) {
+    if (!lm.markets || !lm.markets.active) continue
+
+    const processed = calculateMarketAvailability(lm.markets as MarketWithSchedules)
+    if (!processed) continue
+
+    if (processed.is_accepting) {
+      hasOpenMarket = true
+      if (processed.cutoff_at) {
+        const cutoffDate = new Date(processed.cutoff_at)
+        if (!earliestCutoff || cutoffDate < earliestCutoff) {
+          earliestCutoff = cutoffDate
+        }
+      }
+    }
+  }
+
+  if (!hasOpenMarket) {
+    return { status: 'closed', hoursUntilCutoff: null }
+  }
+
+  // Check if closing soon (within 24 hours)
+  if (earliestCutoff) {
+    const hoursLeft = (earliestCutoff.getTime() - Date.now()) / (1000 * 60 * 60)
+    if (hoursLeft <= 24 && hoursLeft > 0) {
+      return { status: 'closing-soon', hoursUntilCutoff: Math.round(hoursLeft * 10) / 10 }
+    }
+  }
+
+  return { status: 'open', hoursUntilCutoff: null }
 }
 
 interface MarketBoxOffering {
@@ -352,6 +415,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Build query for published listings from approved vendors
   // Sort by category first, then by created_at for within-category ordering
+  // Include market schedules for server-side availability calculation
   let query = supabase
     .from('listings')
     .select(`
@@ -376,7 +440,20 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         markets (
           id,
           name,
-          market_type
+          market_type,
+          address,
+          city,
+          state,
+          cutoff_hours,
+          timezone,
+          active,
+          market_schedules (
+            id,
+            day_of_week,
+            start_time,
+            end_time,
+            active
+          )
         )
       ),
       listing_images (
@@ -709,6 +786,9 @@ function ListingCard({
   const primaryImage = listing.listing_images?.find(img => img.is_primary)
     || listing.listing_images?.[0]
 
+  // Calculate availability status server-side
+  const availability = calculateListingAvailability(listing)
+
   return (
     <Link
       href={`/${vertical}/listing/${listing.id}`}
@@ -842,8 +922,11 @@ function ListingCard({
         }}>
           {formatDisplayPrice(listing.price_cents)}
         </span>
-        {/* Cutoff/Closed Status Badge */}
-        <CutoffBadge listingId={listing.id} />
+        {/* Cutoff/Closed Status Badge - pre-calculated server-side */}
+        <CutoffBadge
+          preCalculatedStatus={availability.status}
+          hoursUntilCutoff={availability.hoursUntilCutoff}
+        />
       </div>
 
       {/* Market/Location - above the separator */}

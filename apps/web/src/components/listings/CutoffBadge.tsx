@@ -1,88 +1,27 @@
-'use client'
-
-import { useState, useEffect, useCallback, useRef } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import { createSmartRefreshManager } from '@/lib/hooks/useSmartRefresh'
 
 interface CutoffBadgeProps {
-  listingId: string
+  /** Pre-calculated status from server-side. If provided, skips client-side fetch. */
+  preCalculatedStatus?: 'open' | 'closing-soon' | 'closed'
+  /** Hours until cutoff (for closing-soon status) */
+  hoursUntilCutoff?: number | null
   style?: React.CSSProperties
-}
-
-interface AvailabilityResponse {
-  is_accepting_orders: boolean
-  closing_soon?: boolean
-  hours_until_cutoff?: number | null
-  markets?: Array<{ cutoff_at: string | null }>
 }
 
 /**
  * Lightweight badge to show cutoff status on listing cards.
- * Fetches availability asynchronously without blocking initial render.
- * Uses smart refresh that only activates when cutoff is within 2 hours.
+ * Accepts pre-calculated status from server-side for efficiency.
  */
-export default function CutoffBadge({ listingId, style }: CutoffBadgeProps) {
-  const [status, setStatus] = useState<'loading' | 'open' | 'closing-soon' | 'closed'>('loading')
-  const [hoursLeft, setHoursLeft] = useState<number | null>(null)
-  const [cutoffTimes, setCutoffTimes] = useState<(string | null)[]>([])
-  const cleanupRef = useRef<(() => void) | null>(null)
+export default function CutoffBadge({
+  preCalculatedStatus,
+  hoursUntilCutoff,
+  style
+}: CutoffBadgeProps) {
+  const status = preCalculatedStatus || 'open'
+  const hoursLeft = hoursUntilCutoff ?? null
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/listings/${listingId}/availability`)
-      if (response.ok) {
-        const data: AvailabilityResponse = await response.json()
-
-        // Store cutoff times for smart refresh calculation
-        if (data.markets) {
-          setCutoffTimes(data.markets.map(m => m.cutoff_at))
-        }
-
-        if (!data.is_accepting_orders) {
-          setStatus('closed')
-        } else if (data.closing_soon && data.hours_until_cutoff != null) {
-          setStatus('closing-soon')
-          setHoursLeft(data.hours_until_cutoff)
-        } else {
-          setStatus('open')
-        }
-      }
-    } catch {
-      // Silently fail - don't block the UI
-      setStatus('open')
-    }
-  }, [listingId])
-
-  // Initial fetch
-  useEffect(() => {
-    fetchStatus()
-  }, [fetchStatus])
-
-  // Smart refresh - only activates when cutoff is within 2 hours (browse strategy)
-  useEffect(() => {
-    // Clean up previous manager
-    if (cleanupRef.current) {
-      cleanupRef.current()
-    }
-
-    // Set up smart refresh for browse/profile pages (less aggressive)
-    const { cleanup } = createSmartRefreshManager(
-      { type: 'browse' },
-      cutoffTimes,
-      fetchStatus
-    )
-
-    cleanupRef.current = cleanup
-
-    return () => {
-      if (cleanupRef.current) {
-        cleanupRef.current()
-      }
-    }
-  }, [cutoffTimes, fetchStatus])
-
-  // Don't show anything while loading or if orders are open (no urgency)
-  if (status === 'loading' || status === 'open') {
+  // Don't show anything if orders are open (no urgency)
+  if (status === 'open') {
     return null
   }
 
