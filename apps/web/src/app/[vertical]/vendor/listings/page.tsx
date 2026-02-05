@@ -5,13 +5,37 @@ import Link from 'next/link'
 import PublishButton from './PublishButton'
 import DeleteListingButton from './DeleteListingButton'
 import ListingShareButton from './ListingShareButton'
-import ListingCutoffStatus from '@/components/vendor/ListingCutoffStatus'
 import { formatPrice, getListingLimit } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 
 interface ListingsPageProps {
   params: Promise<{ vertical: string }>
   searchParams: Promise<{ market?: string }>
+}
+
+interface MarketSchedule {
+  id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  active: boolean
+}
+
+interface ListingMarket {
+  market_id: string
+  markets: {
+    id: string
+    name: string
+    market_type: string
+    address: string
+    city: string
+    state: string
+    cutoff_hours: number | null
+    timezone: string | null
+    active: boolean
+    market_schedules: MarketSchedule[]
+  } | null
 }
 
 interface VendorListing {
@@ -21,14 +45,139 @@ interface VendorListing {
   price_cents: number
   quantity: number | null
   status: string
-  listing_markets?: Array<{
-    market_id: string
-    markets: {
-      id: string
-      name: string
-      market_type: string
-    } | null
-  }>
+  listing_markets?: ListingMarket[]
+}
+
+// Calculate availability status for a listing based on its markets
+function calculateListingAvailability(listing: VendorListing): {
+  status: 'open' | 'closing-soon' | 'closed'
+  hoursUntilCutoff: number | null
+} {
+  // Only calculate for published listings
+  if (listing.status !== 'published') {
+    return { status: 'open', hoursUntilCutoff: null }
+  }
+
+  const markets = listing.listing_markets || []
+  if (markets.length === 0) {
+    return { status: 'closed', hoursUntilCutoff: null }
+  }
+
+  let hasOpenMarket = false
+  let earliestCutoff: Date | null = null
+
+  for (const lm of markets) {
+    if (!lm.markets || !lm.markets.active) continue
+
+    const processed = calculateMarketAvailability(lm.markets as MarketWithSchedules)
+    if (!processed) continue
+
+    if (processed.is_accepting) {
+      hasOpenMarket = true
+      if (processed.cutoff_at) {
+        const cutoffDate = new Date(processed.cutoff_at)
+        if (!earliestCutoff || cutoffDate < earliestCutoff) {
+          earliestCutoff = cutoffDate
+        }
+      }
+    }
+  }
+
+  if (!hasOpenMarket) {
+    return { status: 'closed', hoursUntilCutoff: null }
+  }
+
+  // Check if closing soon (within 24 hours)
+  if (earliestCutoff) {
+    const hoursLeft = (earliestCutoff.getTime() - Date.now()) / (1000 * 60 * 60)
+    if (hoursLeft <= 24 && hoursLeft > 0) {
+      return { status: 'closing-soon', hoursUntilCutoff: Math.round(hoursLeft * 10) / 10 }
+    }
+  }
+
+  return { status: 'open', hoursUntilCutoff: null }
+}
+
+// Server-side cutoff status component
+function ListingCutoffStatusBadge({
+  listingStatus,
+  availabilityStatus,
+  hoursUntilCutoff
+}: {
+  listingStatus: string
+  availabilityStatus: 'open' | 'closing-soon' | 'closed'
+  hoursUntilCutoff: number | null
+}) {
+  // Only show for published listings
+  if (listingStatus !== 'published') {
+    return null
+  }
+
+  // Format hours remaining
+  const formatTime = (hours: number): string => {
+    if (hours < 1) return `${Math.round(hours * 60)}m`
+    if (hours < 24) return `${Math.floor(hours)}h`
+    return `${Math.floor(hours / 24)}d`
+  }
+
+  if (availabilityStatus === 'closed') {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing['3xs'],
+        padding: `${spacing['3xs']} ${spacing['2xs']}`,
+        backgroundColor: '#fef2f2',
+        border: '1px solid #fecaca',
+        borderRadius: radius.sm,
+        fontSize: typography.sizes.xs,
+        color: '#991b1b',
+        marginBottom: spacing['2xs']
+      }}>
+        <span>🚫</span>
+        <span>Orders closed for vendor prep</span>
+      </div>
+    )
+  }
+
+  if (availabilityStatus === 'closing-soon' && hoursUntilCutoff) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing['3xs'],
+        padding: `${spacing['3xs']} ${spacing['2xs']}`,
+        backgroundColor: '#fffbeb',
+        border: '1px solid #fde68a',
+        borderRadius: radius.sm,
+        fontSize: typography.sizes.xs,
+        color: '#92400e',
+        marginBottom: spacing['2xs']
+      }}>
+        <span>⏰</span>
+        <span>Orders close in {formatTime(hoursUntilCutoff)}</span>
+      </div>
+    )
+  }
+
+  // Open status
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: spacing['3xs'],
+      padding: `${spacing['3xs']} ${spacing['2xs']}`,
+      backgroundColor: '#f0fdf4',
+      border: '1px solid #bbf7d0',
+      borderRadius: radius.sm,
+      fontSize: typography.sizes.xs,
+      color: '#166534',
+      marginBottom: spacing['2xs']
+    }}>
+      <span>✓</span>
+      <span>Accepting orders</span>
+    </div>
+  )
 }
 
 export default async function ListingsPage({ params, searchParams }: ListingsPageProps) {
@@ -68,7 +217,7 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
     filterMarketName = marketData?.name || null
   }
 
-  // Get vendor's listings with market associations
+  // Get vendor's listings with market associations and schedules for availability calculation
   const { data: allListings } = await supabase
     .from('listings')
     .select(`
@@ -78,7 +227,20 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
         markets (
           id,
           name,
-          market_type
+          market_type,
+          address,
+          city,
+          state,
+          cutoff_hours,
+          timezone,
+          active,
+          market_schedules (
+            id,
+            day_of_week,
+            start_time,
+            end_time,
+            active
+          )
         )
       )
     `)
@@ -296,11 +458,17 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                   </span>
                 </div>
 
-                {/* Cutoff Status (for published listings at traditional markets) */}
-                <ListingCutoffStatus
-                  listingId={listing.id}
-                  status={listing.status}
-                />
+                {/* Cutoff Status - calculated server-side */}
+                {(() => {
+                  const availability = calculateListingAvailability(listing)
+                  return (
+                    <ListingCutoffStatusBadge
+                      listingStatus={listing.status}
+                      availabilityStatus={availability.status}
+                      hoursUntilCutoff={availability.hoursUntilCutoff}
+                    />
+                  )
+                })()}
 
                 {/* Title */}
                 <h3 style={{
