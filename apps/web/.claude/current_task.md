@@ -70,11 +70,25 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
 ## What's Remaining
 - [x] Change cross-sell section background color (not yellow) - DONE
 - [x] Put vendor name on same line as price in cross-sell cards - DONE
+- [x] Fix duplicate order bug (back button from Stripe) - DONE
+- [x] Fix $0.15 per-transaction fee (was per-item) - DONE
 - [ ] Checkout success screen - add feedback/review capture
 - [ ] Test full checkout flow with pickup snapshots
 - [ ] Test vendor dashboard upcoming pickups display
-- [ ] Commit and push all changes
 - [ ] End-to-end testing (Phase 8)
+
+## Critical Bug Fixes (02/05/2026 - Session 3)
+
+### Duplicate Orders on Stripe Back Button
+- **Root cause**: Orders created BEFORE Stripe payment confirmation
+- **Fix**: Check for existing pending orders (matching items, quantities, recency within 30 min)
+- **If match found**: Verify Stripe session still open, return existing URL
+- **File**: `src/app/api/checkout/session/route.ts`
+
+### $0.15 Transaction Fee Applied Per-Item Instead of Per-Order
+- **Root cause**: `calculateFees()` called per item, adds $0.15 each time
+- **Fix**: After processing items, subtract extra flat fees: `(itemCount - 1) * flatFee`
+- **File**: `src/app/api/checkout/session/route.ts`
 
 ## Key Context for Next Session
 - The `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST - always use `pickup_snapshot.start_time/end_time`

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { calculateFees, createCheckoutSession } from '@/lib/stripe/payments'
-import { STRIPE_CONFIG } from '@/lib/stripe/config'
+import { stripe, STRIPE_CONFIG } from '@/lib/stripe/config'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
@@ -52,6 +52,92 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
+    }
+
+    // ============================================================
+    // DUPLICATE ORDER PREVENTION
+    // Check for existing pending orders with matching items/quantities
+    // before creating a new one. This handles users pressing "back"
+    // from Stripe and trying to checkout again.
+    // ============================================================
+    crumb.logic('Checking for existing pending orders')
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+
+    const { data: pendingOrders } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        stripe_checkout_session_id,
+        created_at,
+        order_items (
+          listing_id,
+          quantity,
+          schedule_id,
+          pickup_date
+        )
+      `)
+      .eq('buyer_user_id', user.id)
+      .eq('status', 'pending')
+      .gte('created_at', thirtyMinutesAgo)
+      .order('created_at', { ascending: false })
+
+    if (pendingOrders && pendingOrders.length > 0) {
+      // Check if any pending order matches current cart items and quantities
+      for (const pendingOrder of pendingOrders) {
+        const pendingItems = pendingOrder.order_items as Array<{
+          listing_id: string
+          quantity: number
+          schedule_id: string | null
+          pickup_date: string | null
+        }>
+
+        // Sort both arrays for comparison
+        const sortedPending = [...pendingItems].sort((a, b) =>
+          `${a.listing_id}|${a.schedule_id}|${a.pickup_date}`.localeCompare(
+            `${b.listing_id}|${b.schedule_id}|${b.pickup_date}`
+          )
+        )
+        const sortedCurrent = [...items].sort((a, b) =>
+          `${a.listingId}|${a.scheduleId}|${a.pickupDate}`.localeCompare(
+            `${b.listingId}|${b.scheduleId}|${b.pickupDate}`
+          )
+        )
+
+        // Check if items match (same listing, schedule, pickup date, and quantity)
+        const itemsMatch = sortedPending.length === sortedCurrent.length &&
+          sortedPending.every((pending, idx) => {
+            const current = sortedCurrent[idx]
+            return pending.listing_id === current.listingId &&
+                   pending.quantity === current.quantity &&
+                   (pending.schedule_id || null) === (current.scheduleId || null) &&
+                   (pending.pickup_date || null) === (current.pickupDate || null)
+          })
+
+        if (itemsMatch && pendingOrder.stripe_checkout_session_id) {
+          crumb.logic('Found matching pending order, checking Stripe session')
+
+          // Verify the Stripe session is still valid
+          try {
+            const existingSession = await stripe.checkout.sessions.retrieve(
+              pendingOrder.stripe_checkout_session_id
+            )
+
+            if (existingSession.status === 'open') {
+              // Reuse existing session - prevents duplicate orders
+              crumb.logic('Reusing existing Stripe session')
+              return NextResponse.json({
+                sessionId: existingSession.id,
+                url: existingSession.url,
+                reused: true
+              })
+            }
+          } catch {
+            // Session expired or invalid, continue to create new order
+            crumb.logic('Existing Stripe session expired, creating new order')
+          }
+        }
+      }
     }
 
     // OPTIMIZATION: Parallel fetch - listings query doesn't depend on cart/vertical
@@ -286,6 +372,17 @@ export async function POST(request: NextRequest) {
     if (subtotalCents < STRIPE_CONFIG.minimumOrderCents) {
       const remaining = ((STRIPE_CONFIG.minimumOrderCents - subtotalCents) / 100).toFixed(2)
       throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(STRIPE_CONFIG.minimumOrderCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
+    }
+
+    // FIX: Flat fee should be per ORDER, not per ITEM
+    // calculateFees adds $0.15 buyer + $0.15 vendor per item, but for Stripe
+    // transactions this should only be added once per order.
+    if (items.length > 1) {
+      const extraBuyerFlatFees = (items.length - 1) * STRIPE_CONFIG.buyerFlatFeeCents
+      const extraVendorFlatFees = (items.length - 1) * STRIPE_CONFIG.vendorFlatFeeCents
+      buyerFeeCents -= extraBuyerFlatFees
+      platformFeeCents -= extraBuyerFlatFees + extraVendorFlatFees
+      crumb.logic(`Corrected flat fees: removed ${items.length - 1} extra flat fees`)
     }
 
     // Buyer pays: base price + buyer fee only (vendor fee is deducted from vendor payout)
