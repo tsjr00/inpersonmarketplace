@@ -16,7 +16,10 @@
 
 -- =====================================================
 -- 1. Update get_available_pickup_dates to include cutoff_hours
+-- Must drop first since we're changing the return type
 -- =====================================================
+DROP FUNCTION IF EXISTS get_available_pickup_dates(UUID);
+
 CREATE OR REPLACE FUNCTION get_available_pickup_dates(
   p_listing_id UUID
 )
