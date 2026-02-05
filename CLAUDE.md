@@ -3,12 +3,72 @@
 ## STOP - READ THESE FILES FIRST
 
 1. **This file (`CLAUDE.md`)** - Mandatory rules and processes
-2. **`CLAUDE_CONTEXT.md`** - App overview, architecture, lessons learned
-3. **`supabase/SCHEMA_SNAPSHOT.md`** - Current database schema (source of truth)
+2. **`apps/web/.claude/current_task.md`** - CRITICAL: Current task context (if exists)
+3. **`CLAUDE_CONTEXT.md`** - App overview, architecture, lessons learned
+4. **`supabase/SCHEMA_SNAPSHOT.md`** - Current database schema (source of truth)
 
 ---
 
-## STOP - READ THIS FIRST
+## CONTEXT PRESERVATION SYSTEM - CRITICAL
+
+**Problem:** Conversation context gets summarized/compressed without warning. After compression, Claude loses access to detailed reasoning, decisions, and data that informed the current work. This causes repeated mistakes and inconsistent fixes.
+
+**Solution:** Maintain a working document that persists across context compression.
+
+### MANDATORY: Before Starting Multi-Step Tasks
+
+If a task involves more than 2-3 steps, or requires referencing multiple data points:
+
+1. **CREATE** `apps/web/.claude/current_task.md` with:
+   ```markdown
+   # Current Task: [Brief Title]
+   Started: [Date]
+
+   ## Goal
+   [What we're trying to accomplish]
+
+   ## Key Decisions Made
+   - [Decision 1]: [WHY this decision was made]
+   - [Decision 2]: [WHY]
+
+   ## Critical Context (DO NOT FORGET)
+   - [Important fact that must not be lost]
+   - [Business rule or constraint]
+   - [Technical detail that affects implementation]
+
+   ## What's Been Completed
+   - [ ] Step 1
+   - [x] Step 2 (completed)
+
+   ## What's Remaining
+   - [ ] Next step
+   - [ ] Final step
+
+   ## Files Modified
+   - `path/to/file.ts` - [what was changed]
+
+   ## Gotchas / Watch Out For
+   - [Thing that caused problems]
+   - [Edge case to remember]
+   ```
+
+2. **UPDATE** this file AS YOU WORK, not at the end
+
+3. **After context compression:** The system message will say "This session is being continued from a previous conversation." When you see this:
+   - IMMEDIATELY read `apps/web/.claude/current_task.md`
+   - Resume work using that context
+   - Do NOT make assumptions about prior decisions
+
+4. **When task is complete:**
+   - Archive important learnings to `CLAUDE_CONTEXT.md` or `error_resolutions` table
+   - Delete or clear `current_task.md`
+
+### Why This Exists
+Claude has NO warning before context compression and NO memory after it happens. This file is the ONLY way to preserve critical context across compression events.
+
+---
+
+## STOP - READ THIS NEXT
 
 **Before fixing ANY error, you MUST:**
 1. Create a TodoWrite with first item: "Query error_resolutions for similar issues"
@@ -20,7 +80,7 @@
 
 ---
 
-## Error Resolution System - MANDATORY FIRST STEP
+## Error Resolution System - MANDATORY NEXT STEP
 
 The `error_resolutions` table tracks all fix attempts and outcomes.
 
