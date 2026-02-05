@@ -108,15 +108,19 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
   - FW-2026-01719 (21:18:38)
   - FW-2026-05662 (21:17:45)
 
-### Suspected Causes (to investigate)
-1. Wrong ID being passed to cancel API (check Network tab)
-2. RLS policy blocking the query
-3. The orders table join failing (`orders!inner`)
+### ROOT CAUSE IDENTIFIED: RLS Policy Issue
+- **Screenshot shows**: cancel request returned HTTP 500
+- **DB query works**: order_item joins to orders successfully in Supabase dashboard (service role)
+- **API fails**: Because it uses authenticated client subject to RLS
+- **Conclusion**: `order_items_select` RLS policy is blocking the query
 
 ### Next Steps
-1. Run query to simulate cancel API: check if join works
-2. Check payments table for this order
-3. Check browser Network tab for actual request/response
+1. Check RLS policy `order_items_select` - does it allow buyer access via orders.buyer_user_id?
+2. Run this query to see what the policy allows:
+   ```sql
+   SELECT * FROM pg_policies WHERE tablename = 'order_items';
+   ```
+3. Fix the RLS policy to allow buyers to select their order items
 4. File: `src/app/api/buyer/orders/[id]/cancel/route.ts`
 
 ## Commits Made This Session (02/05/2026 Session 3)
