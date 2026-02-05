@@ -251,6 +251,34 @@ Include:
 - What issue is being fixed
 - Co-author line for Claude
 
+## Migration File Management
+
+### Applied Migrations Workflow
+
+After a migration is confirmed applied to BOTH Dev AND Staging:
+
+1. **User confirms:** "Migration [filename] applied to dev and staging"
+2. **Claude moves the file:** `supabase/migrations/[file].sql` → `supabase/migrations/applied/[file].sql`
+3. **Claude updates:** `MIGRATION_LOG.md` with ✅ status for both environments
+4. **Claude commits:** With message describing what was applied
+
+### Folder Structure
+```
+supabase/migrations/
+├── applied/           # Confirmed applied to both Dev & Staging
+│   ├── 20260103_001_initial_schema.sql
+│   └── ...
+├── MIGRATION_LOG.md   # Tracking log (always current)
+├── README.md          # Migration standards
+└── 20260205_004_new_feature.sql  # Pending migrations (not yet in both envs)
+```
+
+### Rules
+- **Never move a migration** until user explicitly confirms both environments
+- **Never delete migrations** - always move to applied/
+- **Update MIGRATION_LOG.md** immediately when moving files
+- If only applied to Dev (not Staging), leave in root folder with ✅ Dev / ❌ Staging in log
+
 ---
 
 ## New API Route Security Checklist - MANDATORY
