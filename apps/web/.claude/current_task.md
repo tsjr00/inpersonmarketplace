@@ -1,6 +1,6 @@
 # Current Task: Pickup Scheduling System Implementation
 Started: 2026-02-05
-Last Updated: 2026-02-05 (Session 2 - pre-compaction save)
+Last Updated: 2026-02-05 (Session 3 - pre-compaction save)
 
 ## Goal
 Implement pickup date selection where buyers choose specific pickup DATES (not just locations). Each date has its own order cutoff, allowing vendors to offer multiple pickup days per week.
@@ -90,9 +90,63 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
 - **Fix**: After processing items, subtract extra flat fees: `(itemCount - 1) * flatFee`
 - **File**: `src/app/api/checkout/session/route.ts`
 
+## ACTIVE BUG INVESTIGATION: Cancel Order "Order item not found"
+
+### Symptoms
+- User tried to cancel order FW-2026-62281
+- After providing reason and confirming, got error: "Order item not found"
+- This was during testing of the duplicate order bug
+
+### Database State (verified)
+- **Order exists**: `8f575a50-2303-4bf6-8e48-21b3cf308a8e` (FW-2026-62281)
+- **Order status**: `pending` (NOT `paid` - Stripe callback may not have updated it)
+- **Order items exist**:
+  - `f2ba3ad4-f942-4ff9-824e-e0218e6a06e8` (Asparagus spears)
+  - `8019b3f6-2237-4271-bf4d-937fa8f5b271` (Wooden widgets)
+- **3 duplicate orders** from testing (duplicate order bug):
+  - FW-2026-62281 (21:19:13)
+  - FW-2026-01719 (21:18:38)
+  - FW-2026-05662 (21:17:45)
+
+### Suspected Causes (to investigate)
+1. Wrong ID being passed to cancel API (check Network tab)
+2. RLS policy blocking the query
+3. The orders table join failing (`orders!inner`)
+
+### Next Steps
+1. Run query to simulate cancel API: check if join works
+2. Check payments table for this order
+3. Check browser Network tab for actual request/response
+4. File: `src/app/api/buyer/orders/[id]/cancel/route.ts`
+
+## Commits Made This Session (02/05/2026 Session 3)
+
+1. `cb9b0e8` - Fix ERR_DB_010 and complete pickup scheduling UI
+2. `4af90e9` - Add Data-First Policy and Context Compaction Recovery rules
+3. `93ba171` - Update migration log through 2026-02-05
+4. `6c9c9c2` - Add Migration File Management rule
+5. `4645ab9` - Fix duplicate orders and per-transaction fee bugs
+
+## New Rules Added to CLAUDE.md
+1. **Data-First Policy** - No assumptions when data available
+2. **Context Compaction Recovery Protocol** - Verify schema after compaction
+3. **Migration File Management** - Move to applied/ after confirmed in both envs
+
 ## Key Context for Next Session
 - The `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST - always use `pickup_snapshot.start_time/end_time`
 - Cart items now have `pickup_display` with `date_formatted`, `time_formatted`, `day_name`
 - Schema snapshot updated with critical warnings about pickup columns (supabase/SCHEMA_SNAPSHOT.md)
 - TypeScript check passes - no build errors
 - Cross-sell section now uses purple colors instead of yellow
+
+### Cancel Bug Investigation Context
+- Cancel API: `src/app/api/buyer/orders/[id]/cancel/route.ts`
+- The `[id]` parameter is ORDER_ITEM id (not order id)
+- Query uses `orders!inner` join which requires RLS access to both tables
+- User: cottagevendor1+test@test.com, buyer_user_id: b81d3ff9-074c-439c-a8e4-1cfa16172bfd
+
+### Duplicate Order Fix Context
+- Added to `src/app/api/checkout/session/route.ts` (lines ~35-95)
+- Checks for pending orders within 30 minutes with matching items/quantities
+- If match found with valid Stripe session, returns existing URL
+- Prevents creating new order on back-button from Stripe
