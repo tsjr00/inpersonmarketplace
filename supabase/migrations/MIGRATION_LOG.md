@@ -36,15 +36,25 @@
 | 20260116_003_buyer_pickup_confirmation.sql | ✅ | 2026-01-16 | ❌ | - | Phase J-1: buyer_confirmed_at, pickup_confirmed_at |
 | 20260116_004_order_cancellation_support.sql | ✅ | 2026-01-16 | ❌ | - | Phase J-2: Cancellation tracking fields |
 | 20260116_005_order_expiration.sql | ✅ | 2026-01-16 | ❌ | - | Phase J-3: Order expiration based on pickup date |
+| 20260126_006_fix_markets_buyer_access.sql | ⚠️ | ? | ❌ | - | Needs verification |
+| 20260126_007_cleanup_order_policies.sql | ⚠️ | ? | ❌ | - | Needs verification |
+| 20260130_011_fix_orders_rls_recursion.sql | ⚠️ | ? | ❌ | - | Needs verification |
+| 20260203_001_security_fixes.sql | ⚠️ | ? | ❌ | - | Needs verification |
+| 20260203_002_fix_admin_helper_functions.sql | ✅ | 2026-02-03 | ❌ | - | Fixed is_platform_admin(), added admin helper functions |
+| 20260203_003_add_vertical_admin_rls_support.sql | ✅ | 2026-02-03 | ❌ | - | Vertical admin RLS for 14 tables |
+| 20260203_004_fix_market_box_trigger_column_name.sql | ✅ | 2026-02-03 | ❌ | - | Fix trigger: is_active → active |
+| 20260204_001_zip_codes_table.sql | ✅ | 2026-02-04 | ❌ | - | 33k+ US ZIP codes with coordinates |
+| 20260205_001_pickup_scheduling_schema.sql | ✅ | 2026-02-05 | ❌ | - | schedule_id, pickup_date, pickup_snapshot columns |
+| 20260205_002_pickup_scheduling_functions.sql | ✅ | 2026-02-05 | ❌ | - | get_available_pickup_dates(), validate_cart_item_schedule() |
+| 20260205_003_fix_cutoff_threshold.sql | ✅ | 2026-02-05 | ❌ | - | Added cutoff_hours to function output |
 
 ---
 
-## Pending Migrations (Not Yet Applied)
+## Pending Migrations (Not Yet Applied to Staging)
 
-| Migration File | Target Environments | Priority | Blocker |
-|----------------|---------------------|----------|---------|
-| 20260105_152200_001_user_profile_trigger.sql | Dev, Staging | CRITICAL | Blocks signup |
-| 20260105_152230_002_user_profiles_rls.sql | Dev, Staging | CRITICAL | Blocks signup |
+| Migration File | Target Environments | Priority | Notes |
+|----------------|---------------------|----------|-------|
+| All 20260126_* through 20260205_* | Staging | HIGH | Dev is ahead of Staging |
 
 ---
 
@@ -61,27 +71,35 @@
 - **Staging project:** vfknvsxfgcwqmlkuzhnq (InPersonMarketplace-Staging)
 - **Process:** Always apply to Dev first, test, then apply to Staging
 - **Update this log:** Immediately after applying each migration
-- **Last verified sync:** 2026-01-16
+- **Last verified sync:** 2026-02-05 (Dev verified via schema queries)
 
 ---
 
 ## Environment Sync Status
 
-### Current State: ✅ DEV UP TO DATE
-- Dev: Updated through Phase J-3 (order expiration)
-- Staging: Behind - needs Phase K and J migrations
+### Current State: ✅ DEV UP TO DATE (as of 2026-02-05)
+- Dev: Updated through pickup scheduling (20260205_003)
+- Staging: Significantly behind - needs many migrations
 
-### Recent Additions (2026-01-16)
-- **Phase K (Markets):** Market tables, schedules, vendor-market relationships
-- **Phase J (Pre-sales):**
-  - J-1: Buyer pickup confirmation, vendor fulfillment handoff
-  - J-2: Order cancellation support (buyer and vendor)
-  - J-3: Order expiration based on pickup date (with Vercel cron)
+### Recent Additions (2026-02-05)
+- **Pickup Scheduling:** Buyers select specific pickup dates, not just locations
+  - schedule_id, pickup_date, pickup_snapshot columns on order_items
+  - get_available_pickup_dates() function with cutoff calculation
+  - **IMPORTANT:** pickup_start_time/pickup_end_time do NOT exist - use pickup_snapshot
+- **ZIP Codes:** 33k+ US ZIP codes for geographic search
+- **Admin Functions:** Fixed is_platform_admin(), added vertical admin support
+
+### Migrations Needing Verification (⚠️)
+These files exist but we're unsure if they were applied via SQL Editor:
+1. 20260126_006_fix_markets_buyer_access.sql
+2. 20260126_007_cleanup_order_policies.sql
+3. 20260130_011_fix_orders_rls_recursion.sql
+4. 20260203_001_security_fixes.sql
 
 ### Action Required
-1. ❌ Apply Phase K migrations (20260114_*, 20260115_*) to Staging
-2. ❌ Apply Phase J migrations (20260116_*) to Staging
-3. ❌ Configure CRON_SECRET env var in Vercel for expire-orders endpoint
+1. ❌ Verify the 4 uncertain migrations above
+2. ❌ Apply all 2026-02+ migrations to Staging
+3. ❌ Keep this log updated after each migration
 
 ---
 
