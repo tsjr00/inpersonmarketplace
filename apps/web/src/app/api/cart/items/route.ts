@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 
 // POST - Add item to cart
 export async function POST(request: Request) {
@@ -67,11 +68,32 @@ export async function POST(request: Request) {
       })
     }
 
-    // Validate market selection - ensure listing is available at this market
+    // Validate market selection and check availability using JavaScript calculation
+    // This ensures display and cart validation use the exact same logic
     crumb.supabase('select', 'listing_markets', { listingId, marketId })
-    const { data: marketValid, error: marketError } = await supabase
+    const { data: marketData, error: marketError } = await supabase
       .from('listing_markets')
-      .select('market_id')
+      .select(`
+        market_id,
+        markets (
+          id,
+          name,
+          market_type,
+          address,
+          city,
+          state,
+          cutoff_hours,
+          timezone,
+          active,
+          market_schedules (
+            id,
+            day_of_week,
+            start_time,
+            end_time,
+            active
+          )
+        )
+      `)
       .eq('listing_id', listingId)
       .eq('market_id', marketId)
       .single()
@@ -84,26 +106,27 @@ export async function POST(request: Request) {
       })
     }
 
-    if (!marketValid) {
+    if (!marketData) {
       throw traced.validation('ERR_CART_001', 'This item is not available at the selected pickup location', {
         additionalContext: { listingId, marketId },
       })
     }
 
-    // Check if the market is still accepting orders
-    crumb.logic('Checking market accepting status', { listingId })
-    const { data: marketOpen, error: marketOpenError } = await supabase
-      .rpc('is_listing_accepting_orders', { p_listing_id: listingId })
-
-    if (marketOpenError) {
-      throw traced.fromSupabase(marketOpenError, {
-        additionalContext: { listingId, rpc: 'is_listing_accepting_orders' },
+    // Check if the market is still accepting orders using same JS logic as display
+    crumb.logic('Checking market accepting status', { listingId, marketId })
+    // Supabase may return as array or single object depending on the join
+    const rawMarket = marketData.markets
+    const market = (Array.isArray(rawMarket) ? rawMarket[0] : rawMarket) as MarketWithSchedules | null
+    if (!market || !market.active) {
+      throw traced.validation('ERR_CART_003', 'This pickup location is not currently active.', {
+        additionalContext: { listingId, marketId },
       })
     }
 
-    if (marketOpen === false) {
+    const availability = calculateMarketAvailability(market)
+    if (!availability || !availability.is_accepting) {
       throw traced.validation('ERR_CART_003', 'Orders are closed for this pickup location. Please try a different location or check back later.', {
-        additionalContext: { listingId, marketId },
+        additionalContext: { listingId, marketId, cutoffAt: availability?.cutoff_at },
       })
     }
 

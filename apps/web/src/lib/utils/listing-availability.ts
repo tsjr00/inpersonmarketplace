@@ -92,27 +92,30 @@ function getNextMarketDatetime(
     }
   }
 
-  // Build the target date in local timezone
-  // Use a reference point and add days
-  const targetDate = new Date(now)
-  targetDate.setDate(targetDate.getDate() + daysUntil)
+  // Get the current date in the market's timezone
+  const localDateFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+  const todayInMarketTz = localDateFormatter.format(now)
 
-  // Format the target date as YYYY-MM-DD
-  const targetDateStr = targetDate.toLocaleDateString('en-CA', { timeZone: timezone })
+  // Parse today's date and add days
+  const [year, month, day] = todayInMarketTz.split('-').map(Number)
+  const targetDate = new Date(Date.UTC(year, month - 1, day + daysUntil, scheduleHours, scheduleMinutes, 0))
 
-  // Create a datetime string and parse it in the market's timezone
-  // We create an ISO string with the timezone offset
-  const datetimeStr = `${targetDateStr}T${startTime}`
-
-  // Get timezone offset for the target date
+  // Now targetDate is the datetime as if it were UTC, but we need to adjust for the market's timezone
+  // Get the timezone offset for that specific datetime
   const offsetFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     timeZoneName: 'longOffset'
   })
-  const offsetParts = offsetFormatter.formatToParts(new Date(datetimeStr + 'Z'))
+  // Use the targetDate to get the offset (handles DST correctly)
+  const offsetParts = offsetFormatter.formatToParts(targetDate)
   const offsetStr = offsetParts.find(p => p.type === 'timeZoneName')?.value || 'GMT'
 
-  // Parse offset like "GMT-06:00" or "GMT-05:00"
+  // Parse offset like "GMT-06:00" or "GMT+05:30"
   const offsetMatch = offsetStr.match(/GMT([+-])(\d{2}):(\d{2})/)
   let offsetMinutes = 0
   if (offsetMatch) {
@@ -122,10 +125,10 @@ function getNextMarketDatetime(
     offsetMinutes = sign * (hours * 60 + minutes)
   }
 
-  // Create the UTC datetime by parsing local time and adjusting for offset
-  const localDateTime = new Date(datetimeStr)
-  // Subtract offset to get UTC (if timezone is GMT-6, add 6 hours to get UTC)
-  return new Date(localDateTime.getTime() - offsetMinutes * 60 * 1000)
+  // Adjust from "local as UTC" to actual UTC
+  // If timezone is GMT-6, the local time 17:00 is actually 23:00 UTC (add 6 hours)
+  // offsetMinutes for GMT-6 is -360, so we subtract it (which adds 360 minutes)
+  return new Date(targetDate.getTime() - offsetMinutes * 60 * 1000)
 }
 
 /**
