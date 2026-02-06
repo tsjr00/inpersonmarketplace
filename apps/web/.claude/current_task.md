@@ -142,14 +142,36 @@ This mirrors how the working order detail API operates - query orders first, get
 
 ## PENDING - Next Session
 
-### Immediate: Test Payment Record Creation
-User needs to create new order, complete Stripe checkout, then verify:
-```sql
-SELECT p.*, o.order_number
-FROM payments p
-JOIN orders o ON o.id = p.order_id
-ORDER BY p.created_at DESC LIMIT 5;
-```
+### CRITICAL: Payment Record Still Not Created (02/06 test)
+**Hypothesis about grace_period_ends_at was WRONG** - fix didn't work.
+
+Test results:
+- User created order, completed Stripe checkout
+- Payment query returned NO ROWS
+- Success screen showed $55.54
+- Orders list showed $55.69
+- Stripe charged $56.31
+
+**Next steps to investigate:**
+1. Check if Stripe webhook is configured in Stripe Dashboard
+2. Check if STRIPE_WEBHOOK_SECRET env var is set in Vercel
+3. Add error logging to payment insert in checkout/success/route.ts
+4. Check if orderId is being passed correctly through checkout flow
+
+### REGRESSION: Cart Flash Issue (02/06)
+"Your cart is empty" flashes briefly before checkout loads. Was fixed before, now back.
+Investigate what recent change caused this.
+
+### CRITICAL: Three Different Prices Displayed
+Same order shows THREE different totals:
+- Success screen: $55.54
+- Orders list: $55.69
+- Stripe: $56.31
+
+This is a major UX problem. Fee calculations are inconsistent across:
+- Checkout success page
+- Orders list page
+- Stripe checkout session creation
 
 ### Architecture Review: Fee Calculations
 **Problem identified**: Multiple calculation routines for fees instead of unified function
