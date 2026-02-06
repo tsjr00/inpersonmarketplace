@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
@@ -30,9 +30,12 @@ export async function GET(request: NextRequest) {
       throw traced.validation('ERR_CHECKOUT_004', 'Missing order_id in session metadata')
     }
 
+    // Use service client for payment operations (buyers don't have RLS insert permission on payments)
+    const serviceClient = createServiceClient()
+
     // Get order to calculate platform fee
     crumb.supabase('select', 'orders')
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await serviceClient
       .from('orders')
       .select('platform_fee_cents')
       .eq('id', orderId)
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest) {
     // Update order status to paid
     // Note: grace_period_ends_at column doesn't exist - calculate from created_at when needed
     crumb.supabase('update', 'orders')
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from('orders')
       .update({ status: 'paid' })
       .eq('id', orderId)
@@ -56,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     // Create payment record (idempotent - skip if already created by webhook)
     crumb.supabase('select', 'payments')
-    const { data: existingPayment } = await supabase
+    const { data: existingPayment } = await serviceClient
       .from('payments')
       .select('id')
       .eq('stripe_payment_intent_id', paymentIntentId)
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     if (!existingPayment) {
       crumb.supabase('insert', 'payments')
-      const { error: insertError } = await supabase.from('payments').insert({
+      const { error: insertError } = await serviceClient.from('payments').insert({
         order_id: orderId,
         stripe_payment_intent_id: paymentIntentId,
         amount_cents: session.amount_total!,
