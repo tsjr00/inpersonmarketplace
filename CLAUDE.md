@@ -37,6 +37,27 @@ When you need information (schema, configuration, business rules, etc.):
 - Type definitions and interfaces
 - API route implementations
 
+### When to Verify vs When to Hypothesize
+
+**The test:** Can I verify it with tools I already have, or with a single SQL query the user can run in their current context?
+
+**ALWAYS verify (takes seconds to a minute):**
+- Database schema → query or read schema snapshot
+- Code/config in the repo → Read, Grep, Glob tools
+- Error history → query error_resolutions table
+- Existing data → SQL query user can paste and run
+
+**Educated hypothesis OK (requires context-switching):**
+- External dashboard logs (Stripe, Vercel, Supabase dashboard, etc.)
+- Manual testing through UI flows
+- Runtime behavior that requires deployment + testing
+- Third-party API behavior
+
+**When making a hypothesis:**
+- State it clearly as a hypothesis, not a fact
+- Explain the reasoning
+- Note what would confirm or refute it
+
 ---
 
 ## CONTEXT PRESERVATION SYSTEM - CRITICAL
