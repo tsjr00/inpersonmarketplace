@@ -450,51 +450,29 @@ export async function POST(request: NextRequest) {
     const successUrl = `${baseUrl}/${verticalId}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
     const cancelUrl = `${baseUrl}/${verticalId}/checkout`
 
-    // Build Stripe line items - flat fee needs special handling
-    // We add it to one item's price, but must account for quantity
-    let flatFeeApplied = false
+    // Build Stripe line items
+    // Each item shows at percentage-fee price, flat fee is separate line
     const checkoutItems: Array<{ name: string; description: string; amount: number; quantity: number }> = []
 
     for (const listing of listings) {
       const item = items.find((i) => i.listingId === listing.id)!
       const priceWithPercentFee = Math.round(listing.price_cents * (1 + FEES.buyerFeePercent / 100))
 
-      if (!flatFeeApplied && item.quantity === 1) {
-        // Add flat fee to this single-quantity item
-        checkoutItems.push({
-          name: listing.title,
-          description: listing.description || '',
-          amount: priceWithPercentFee + FEES.buyerFlatFeeCents,
-          quantity: 1,
-        })
-        flatFeeApplied = true
-      } else if (!flatFeeApplied && item.quantity > 1) {
-        // Split: 1 unit at higher price (with flat fee), rest at normal price
-        checkoutItems.push({
-          name: listing.title,
-          description: listing.description || '',
-          amount: priceWithPercentFee + FEES.buyerFlatFeeCents,
-          quantity: 1,
-        })
-        if (item.quantity > 1) {
-          checkoutItems.push({
-            name: listing.title,
-            description: listing.description || '',
-            amount: priceWithPercentFee,
-            quantity: item.quantity - 1,
-          })
-        }
-        flatFeeApplied = true
-      } else {
-        // Normal item (flat fee already applied to another item)
-        checkoutItems.push({
-          name: listing.title,
-          description: listing.description || '',
-          amount: priceWithPercentFee,
-          quantity: item.quantity,
-        })
-      }
+      checkoutItems.push({
+        name: listing.title,
+        description: listing.description || '',
+        amount: priceWithPercentFee,
+        quantity: item.quantity,
+      })
     }
+
+    // Add service fee as separate line item (flat fee once per order)
+    checkoutItems.push({
+      name: 'Service Fee',
+      description: '',
+      amount: FEES.buyerFlatFeeCents,
+      quantity: 1,
+    })
 
     const session = await createCheckoutSession({
       orderId: order.id,
