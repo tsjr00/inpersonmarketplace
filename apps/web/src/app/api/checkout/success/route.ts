@@ -102,11 +102,13 @@ export async function GET(request: NextRequest) {
         }
 
         // Decrement each listing's quantity (skip if quantity is null = unlimited)
+        const LOW_STOCK_THRESHOLD = 5
+
         for (const [listingId, quantityPurchased] of quantityByListing) {
-          // First check if listing has limited quantity
+          // Fetch listing with vendor info for notifications
           const { data: listing } = await serviceClient
             .from('listings')
-            .select('quantity')
+            .select('quantity, title, vendor_profile_id, vendor_profiles(user_id)')
             .eq('id', listingId)
             .single()
 
@@ -121,6 +123,33 @@ export async function GET(request: NextRequest) {
               console.error(`[checkout/success] Error updating inventory for listing ${listingId}:`, updateError)
             } else {
               console.log(`[checkout/success] Inventory updated: listing ${listingId} ${listing.quantity} -> ${newQuantity}`)
+
+              // Notify vendor if inventory is low or out of stock
+              const vendorProfile = listing.vendor_profiles as unknown as { user_id: string } | null
+              const vendorUserId = vendorProfile?.user_id
+              if (vendorUserId) {
+                if (newQuantity === 0) {
+                  // Out of stock notification
+                  await serviceClient.from('notifications').insert({
+                    user_id: vendorUserId,
+                    type: 'inventory_out_of_stock',
+                    title: 'Out of Stock',
+                    message: `"${listing.title}" is now out of stock. Update your listing to add more inventory.`,
+                    data: { listing_id: listingId, listing_title: listing.title }
+                  })
+                  console.log(`[checkout/success] Sent out-of-stock notification for listing ${listingId}`)
+                } else if (newQuantity <= LOW_STOCK_THRESHOLD && listing.quantity > LOW_STOCK_THRESHOLD) {
+                  // Low stock notification (only if just crossed threshold)
+                  await serviceClient.from('notifications').insert({
+                    user_id: vendorUserId,
+                    type: 'inventory_low_stock',
+                    title: 'Low Stock Alert',
+                    message: `"${listing.title}" has only ${newQuantity} left in stock.`,
+                    data: { listing_id: listingId, listing_title: listing.title, quantity_remaining: newQuantity }
+                  })
+                  console.log(`[checkout/success] Sent low-stock notification for listing ${listingId}`)
+                }
+              }
             }
           }
         }

@@ -101,6 +101,55 @@ function calculateListingAvailability(listing: VendorListing): {
   return { status: 'open', hoursUntilCutoff: null }
 }
 
+// Low stock threshold
+const LOW_STOCK_THRESHOLD = 5
+
+// Stock status badge component
+function StockStatusBadge({ quantity }: { quantity: number | null }) {
+  // Unlimited stock - no badge
+  if (quantity === null) return null
+
+  if (quantity === 0) {
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: spacing['3xs'],
+        padding: `${spacing['3xs']} ${spacing['2xs']}`,
+        backgroundColor: '#fef2f2',
+        border: '1px solid #fecaca',
+        borderRadius: radius.sm,
+        fontSize: typography.sizes.xs,
+        fontWeight: typography.weights.semibold,
+        color: '#dc2626',
+      }}>
+        OUT OF STOCK
+      </span>
+    )
+  }
+
+  if (quantity <= LOW_STOCK_THRESHOLD) {
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: spacing['3xs'],
+        padding: `${spacing['3xs']} ${spacing['2xs']}`,
+        backgroundColor: '#fffbeb',
+        border: '1px solid #fde68a',
+        borderRadius: radius.sm,
+        fontSize: typography.sizes.xs,
+        fontWeight: typography.weights.semibold,
+        color: '#d97706',
+      }}>
+        LOW STOCK ({quantity})
+      </span>
+    )
+  }
+
+  return null
+}
+
 // Server-side cutoff status component
 function ListingCutoffStatusBadge({
   listingStatus,
@@ -439,8 +488,8 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                   boxShadow: shadows.sm
                 }}
               >
-                {/* Status Badge */}
-                <div style={{ marginBottom: spacing['2xs'] }}>
+                {/* Status Badge + Stock Status */}
+                <div style={{ marginBottom: spacing['2xs'], display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{
                     padding: `${spacing['3xs']} ${spacing['2xs']}`,
                     borderRadius: radius.sm,
@@ -459,6 +508,7 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                   }}>
                     {listing.status.toUpperCase()}
                   </span>
+                  <StockStatusBadge quantity={listing.quantity} />
                 </div>
 
                 {/* Cutoff Status - calculated server-side */}

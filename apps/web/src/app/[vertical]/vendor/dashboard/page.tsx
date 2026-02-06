@@ -56,6 +56,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
   // Get draft listings count for approved vendors
   let draftCount = 0
+  // Low stock threshold
+  const LOW_STOCK_THRESHOLD = 5
+  let outOfStockCount = 0
+  let lowStockCount = 0
+
   if (vendorProfile.status === 'approved') {
     const { data: draftListings } = await supabase
       .from('listings')
@@ -65,6 +70,29 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       .is('deleted_at', null)
 
     draftCount = draftListings?.length || 0
+
+    // Check for out of stock listings
+    const { count: outOfStock } = await supabase
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('status', 'published')
+      .eq('quantity', 0)
+      .is('deleted_at', null)
+
+    outOfStockCount = outOfStock || 0
+
+    // Check for low stock listings (quantity > 0 and <= threshold)
+    const { count: lowStock } = await supabase
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('status', 'published')
+      .gt('quantity', 0)
+      .lte('quantity', LOW_STOCK_THRESHOLD)
+      .is('deleted_at', null)
+
+    lowStockCount = lowStock || 0
   }
 
   // Get all configured markets/pickup locations for this vendor
@@ -296,6 +324,48 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               }}
             >
               View My Listings
+            </Link>
+          </div>
+        )}
+
+        {/* Low Stock / Out of Stock Warning */}
+        {(outOfStockCount > 0 || lowStockCount > 0) && vendorProfile.status === 'approved' && (
+          <div style={{
+            padding: spacing.sm,
+            marginBottom: spacing.md,
+            backgroundColor: outOfStockCount > 0 ? '#fef2f2' : '#fffbeb',
+            border: `1px solid ${outOfStockCount > 0 ? '#fecaca' : '#fde68a'}`,
+            borderRadius: radius.md,
+            color: colors.textPrimary
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+              <span style={{ fontSize: typography.sizes.lg }}>{outOfStockCount > 0 ? '⚠️' : '📦'}</span>
+              <strong style={{ fontSize: typography.sizes.base, color: outOfStockCount > 0 ? '#dc2626' : '#d97706' }}>
+                {outOfStockCount > 0 && `${outOfStockCount} listing${outOfStockCount > 1 ? 's' : ''} out of stock`}
+                {outOfStockCount > 0 && lowStockCount > 0 && ' · '}
+                {lowStockCount > 0 && `${lowStockCount} listing${lowStockCount > 1 ? 's' : ''} low on stock`}
+              </strong>
+            </div>
+            <p style={{ margin: `${spacing['2xs']} 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: outOfStockCount > 0 ? '#991b1b' : '#92400e' }}>
+              {outOfStockCount > 0
+                ? 'Buyers cannot order out-of-stock items. Update your inventory to continue selling.'
+                : 'Consider restocking soon to avoid missing orders.'}
+            </p>
+            <Link
+              href={`/${vertical}/vendor/listings`}
+              style={{
+                display: 'inline-block',
+                padding: `${spacing['2xs']} ${spacing.sm}`,
+                backgroundColor: outOfStockCount > 0 ? '#dc2626' : '#d97706',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: radius.sm,
+                fontWeight: typography.weights.semibold,
+                fontSize: typography.sizes.sm,
+                minHeight: 44
+              }}
+            >
+              Update Inventory
             </Link>
           </div>
         )}
