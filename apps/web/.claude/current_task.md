@@ -162,30 +162,29 @@ Test results:
 "Your cart is empty" flashes briefly before checkout loads. Was fixed before, now back.
 Investigate what recent change caused this.
 
-### CRITICAL: Three Different Prices Displayed
-Same order shows THREE different totals:
+### FIXED: Three Different Prices Displayed (02/05/2026 Session 5)
+Same order was showing THREE different totals:
 - Success screen: $55.54
 - Orders list: $55.69
 - Stripe: $56.31
 
-This is a major UX problem. Fee calculations are inconsistent across:
-- Checkout success page
-- Orders list page
-- Stripe checkout session creation
+**Root Cause Analysis:**
+1. **Order record** (DB) - Correctly calculated with flat fee applied once
+2. **Success page** - Used `order.total_cents` from DB ✓
+3. **Orders list/detail pages** - Recalculated using `calculateDisplayPrice()` per item (added $0.15 per item instead of once)
+4. **Stripe line items** - Each item's price included $0.15 flat fee
 
-### Architecture Review: Fee Calculations
-**Problem identified**: Multiple calculation routines for fees instead of unified function
-- Stripe shows $33.48, app shows $33.32 (difference is the $0.15 flat fee)
-- `calculateDisplayPrice` in `src/lib/constants.ts` adds flat fee
-- But display in orders may not be using this consistently
+**Fixes Applied:**
+1. `src/app/[vertical]/buyer/orders/page.tsx` - Sum subtotals first, then apply `calculateDisplayPrice()` once
+2. `src/app/[vertical]/buyer/orders/[id]/page.tsx` - Same fix for order detail page
+3. `src/app/api/checkout/session/route.ts` - Stripe line items now:
+   - Only include percentage fee (6.5%) in per-item prices
+   - Add single "Service Fee" line item for $0.15 flat fee
 
-**Files with fee calculations:**
-- `src/lib/stripe/config.ts` - STRIPE_CONFIG with fee percentages
-- `src/lib/constants.ts` - calculateDisplayPrice, PLATFORM_FEE_RATE
-- `src/app/api/checkout/session/route.ts` - calculateFees function
-- `src/lib/stripe/payments.ts` - may have calculations
-
-**Action needed**: Audit all fee calculations, unify into single source of truth
+**Fee Calculation Architecture (now consistent):**
+- `calculateFees()` in payments.ts - Per-item calculation (for internal use)
+- `calculateDisplayPrice()` in constants.ts - Apply to ORDER total (not per item)
+- Stripe checkout - Percentage fee per item + single flat fee line item
 
 ## Commits Made This Session (02/05/2026 Session 3)
 

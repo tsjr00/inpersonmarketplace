@@ -929,9 +929,12 @@ export default function BuyerOrderDetailPage() {
         {/* Order Total with Breakdown */}
         {(() => {
           // Calculate totals from items (using buyer-facing prices, excluding cancelled)
-          const itemsSubtotal = order.items.reduce((sum, item) =>
-            item.cancelled_at ? sum : sum + calculateDisplayPrice(item.subtotal_cents), 0
+          // Sum subtotals first, then apply display price calculation ONCE to avoid
+          // adding the flat fee per item instead of per order
+          const activeItemsSubtotal = order.items.reduce((sum, item) =>
+            item.cancelled_at ? sum : sum + item.subtotal_cents, 0
           )
+          const itemsSubtotal = calculateDisplayPrice(activeItemsSubtotal)
           return (
             <div style={{
               padding: spacing.md,

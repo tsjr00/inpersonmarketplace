@@ -360,8 +360,11 @@ export default function BuyerOrdersPage() {
             const isCancelledOrder = ['cancelled', 'refunded'].includes(order.status)
             const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
             // Calculate buyer-facing total from items (excluding cancelled items)
-            const orderTotal = order.items?.reduce((sum, item) =>
-              item.cancelled_at ? sum : sum + calculateDisplayPrice(item.subtotal_cents), 0) || 0
+            // Sum subtotals first, then apply display price calculation ONCE to avoid
+            // adding the flat fee per item instead of per order
+            const activeItemsSubtotal = order.items?.reduce((sum, item) =>
+              item.cancelled_at ? sum : sum + item.subtotal_cents, 0) || 0
+            const orderTotal = calculateDisplayPrice(activeItemsSubtotal)
 
             // Determine visual urgency styling
             const isReady = order.status === 'ready'

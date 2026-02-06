@@ -451,16 +451,27 @@ export async function POST(request: NextRequest) {
     const successUrl = `${baseUrl}/${verticalId}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
     const cancelUrl = `${baseUrl}/${verticalId}/checkout`
 
+    // Build Stripe line items WITHOUT flat fee in per-item prices
+    // The flat fee should be charged once per order, not per item
     const checkoutItems = listings.map((listing) => {
       const item = items.find((i) => i.listingId === listing.id)!
-      const fees = calculateFees(listing.price_cents)
+      // Only apply percentage fee to per-item prices (6.5% buyer fee)
+      const priceWithPercentFee = Math.round(listing.price_cents * (1 + STRIPE_CONFIG.buyerFeePercent / 100))
 
       return {
         name: listing.title,
         description: listing.description || '',
-        amount: fees.buyerPaysCents,
+        amount: priceWithPercentFee,
         quantity: item.quantity,
       }
+    })
+
+    // Add single service fee line item (flat fee charged once per order)
+    checkoutItems.push({
+      name: 'Service Fee',
+      description: 'Platform service fee',
+      amount: STRIPE_CONFIG.buyerFlatFeeCents,
+      quantity: 1,
     })
 
     const session = await createCheckoutSession({
