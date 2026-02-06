@@ -108,20 +108,33 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
   - FW-2026-01719 (21:18:38)
   - FW-2026-05662 (21:17:45)
 
-### ROOT CAUSE IDENTIFIED: RLS Policy Issue
-- **Screenshot shows**: cancel request returned HTTP 500
-- **DB query works**: order_item joins to orders successfully in Supabase dashboard (service role)
-- **API fails**: Because it uses authenticated client subject to RLS
-- **Conclusion**: `order_items_select` RLS policy is blocking the query
+### ROOT CAUSE: RLS Policy Issue (Deep Investigation)
 
-### Next Steps
-1. Check RLS policy `order_items_select` - does it allow buyer access via orders.buyer_user_id?
-2. Run this query to see what the policy allows:
+**What we found:**
+- `order_items_select` policy: `order_id IN (SELECT user_buyer_order_ids())`
+- `user_buyer_order_ids()` function: `SELECT id FROM orders WHERE buyer_user_id = auth.uid()`
+- Function is SECURITY DEFINER with SET search_path = 'public' ✓
+- User ID `b81d3ff9-074c-439c-a8e4-1cfa16172bfd` = `cottagevendor1+test@test.com` ✓
+- Order exists with correct buyer_user_id ✓
+
+**The Mystery:**
+- Function definition looks correct
+- But RLS still blocks the query
+- Order detail page works (queries `orders` directly)
+- Cancel API fails (queries `order_items` directly, triggers RLS)
+
+**Next Steps to Try:**
+1. Add debug logging to see if `auth.uid()` returns correctly in API context
+2. Try bypassing the function - test inline RLS:
    ```sql
-   SELECT * FROM pg_policies WHERE tablename = 'order_items';
+   -- Test direct policy without function
+   SELECT * FROM order_items
+   WHERE order_id IN (
+     SELECT id FROM orders WHERE buyer_user_id = 'b81d3ff9-074c-439c-a8e4-1cfa16172bfd'
+   );
    ```
-3. Fix the RLS policy to allow buyers to select their order items
-4. File: `src/app/api/buyer/orders/[id]/cancel/route.ts`
+3. Consider rewriting RLS policy to not use helper function
+4. Check if orders table has RLS that blocks the SECURITY DEFINER function
 
 ## Commits Made This Session (02/05/2026 Session 3)
 
