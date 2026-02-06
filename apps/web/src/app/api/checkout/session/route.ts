@@ -469,7 +469,7 @@ export async function POST(request: NextRequest) {
     // Add service fee as separate line item (flat fee once per order)
     checkoutItems.push({
       name: 'Service Fee',
-      description: '',
+      description: 'Platform fee',
       amount: FEES.buyerFlatFeeCents,
       quantity: 1,
     })
