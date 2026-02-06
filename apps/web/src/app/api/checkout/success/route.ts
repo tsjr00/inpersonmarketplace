@@ -21,26 +21,41 @@ export async function GET(request: NextRequest) {
     }
 
     const orderId = session.metadata?.order_id
+    const paymentIntentId = session.payment_intent as string
+
+    console.log('[checkout/success] Processing payment:', { orderId, paymentIntentId, sessionId })
+
+    if (!orderId) {
+      console.error('[checkout/success] Missing order_id in session metadata')
+      throw traced.validation('ERR_CHECKOUT_004', 'Missing order_id in session metadata')
+    }
 
     // Get order to calculate platform fee
     crumb.supabase('select', 'orders')
-    const { data: order } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('platform_fee_cents')
       .eq('id', orderId)
       .single()
 
+    if (orderError) {
+      console.error('[checkout/success] Error fetching order:', orderError)
+    }
+
     // Update order status to paid
     // Note: grace_period_ends_at column doesn't exist - calculate from created_at when needed
     crumb.supabase('update', 'orders')
-    await supabase
+    const { error: updateError } = await supabase
       .from('orders')
       .update({ status: 'paid' })
       .eq('id', orderId)
 
+    if (updateError) {
+      console.error('[checkout/success] Error updating order status:', updateError)
+    }
+
     // Create payment record (idempotent - skip if already created by webhook)
     crumb.supabase('select', 'payments')
-    const paymentIntentId = session.payment_intent as string
     const { data: existingPayment } = await supabase
       .from('payments')
       .select('id')
@@ -49,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (!existingPayment) {
       crumb.supabase('insert', 'payments')
-      await supabase.from('payments').insert({
+      const { error: insertError } = await supabase.from('payments').insert({
         order_id: orderId,
         stripe_payment_intent_id: paymentIntentId,
         amount_cents: session.amount_total!,
@@ -57,6 +72,14 @@ export async function GET(request: NextRequest) {
         status: 'succeeded',
         paid_at: new Date().toISOString(),
       })
+
+      if (insertError) {
+        console.error('[checkout/success] Error inserting payment record:', insertError)
+        throw traced.fromSupabase(insertError, { table: 'payments', operation: 'insert' })
+      }
+      console.log('[checkout/success] Payment record created successfully')
+    } else {
+      console.log('[checkout/success] Payment record already exists')
     }
 
     // Clear the buyer's cart after successful payment
