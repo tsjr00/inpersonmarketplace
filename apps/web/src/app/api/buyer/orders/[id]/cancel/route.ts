@@ -62,7 +62,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             vendor_profile_id,
             vendor_profiles (
               id,
-              user_id
+              user_id,
+              profile_data
             )
           )
         )

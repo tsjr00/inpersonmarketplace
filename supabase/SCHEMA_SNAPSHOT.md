@@ -263,8 +263,57 @@ Where Schema = public : map
 | orders             | parent_order_id               | uuid                     | YES         | null                   |
 | orders             | order_suffix                  | character varying        | YES         | null                   |
 
+**IMPORTANT: `grace_period_ends_at` column does NOT EXIST on orders.**
+**The migration 20260127_001_cancellation_grace_period.sql was NOT applied. Use `created_at + 1 hour` for grace period calculation.**
+
 **IMPORTANT: `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST on order_items.**
 **Always use `pickup_snapshot.start_time` and `pickup_snapshot.end_time` instead.**
+
+## vendor_profiles (verified 02/05/2026)
+
+| column_name                | data_type                | is_nullable |
+| -------------------------- | ------------------------ | ----------- |
+| id                         | uuid                     | NO          |
+| user_id                    | uuid                     | YES         |
+| organization_id            | uuid                     | YES         |
+| vertical_id                | text                     | NO          |
+| status                     | USER-DEFINED             | YES         |
+| profile_data               | jsonb                    | YES         |
+| created_at                 | timestamp with time zone | YES         |
+| updated_at                 | timestamp with time zone | YES         |
+| deleted_at                 | timestamp with time zone | YES         |
+| stripe_account_id          | text                     | YES         |
+| stripe_onboarding_complete | boolean                  | YES         |
+| stripe_charges_enabled     | boolean                  | YES         |
+| stripe_payouts_enabled     | boolean                  | YES         |
+| tier                       | text                     | YES         |
+| profile_image_url          | text                     | YES         |
+| description                | text                     | YES         |
+| social_links               | jsonb                    | YES         |
+| home_market_id             | uuid                     | YES         |
+| latitude                   | numeric                  | YES         |
+| longitude                  | numeric                  | YES         |
+| geocoding_failed           | boolean                  | YES         |
+| referral_code              | text                     | YES         |
+| referred_by_vendor_id      | uuid                     | YES         |
+| is_founding_vendor         | boolean                  | YES         |
+| founding_vendor_granted_at | timestamp with time zone | YES         |
+| last_active_at             | timestamp with time zone | YES         |
+| last_login_at              | timestamp with time zone | YES         |
+| first_listing_at           | timestamp with time zone | YES         |
+| approved_at                | timestamp with time zone | YES         |
+| average_rating             | numeric                  | YES         |
+| rating_count               | integer                  | YES         |
+| subscription_status        | text                     | YES         |
+| subscription_cycle         | text                     | YES         |
+| tier_started_at            | timestamp with time zone | YES         |
+| tier_expires_at            | timestamp with time zone | YES         |
+| stripe_customer_id         | text                     | YES         |
+| venmo_username             | text                     | YES         |
+| cashapp_cashtag            | text                     | YES         |
+| paypal_username            | text                     | YES         |
+| accepts_cash_at_pickup     | boolean                  | YES         |
+| certifications             | jsonb                    | YES         |
 
 -- FOREIGN KEYS AS OF 02/05/2026
 
