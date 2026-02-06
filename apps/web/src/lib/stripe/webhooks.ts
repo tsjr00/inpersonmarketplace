@@ -83,11 +83,11 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   const orderId = session.metadata?.order_id
   if (!orderId) return
 
-  // Set grace period (1 hour from now)
-  const gracePeriodEndsAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+  // Update order status to paid
+  // Note: grace_period_ends_at column doesn't exist - calculate from created_at when needed
   await supabase
     .from('orders')
-    .update({ status: 'paid', grace_period_ends_at: gracePeriodEndsAt })
+    .update({ status: 'paid' })
     .eq('id', orderId)
 
   // Idempotent insert - skip if success route already created the record

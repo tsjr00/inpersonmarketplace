@@ -30,12 +30,12 @@ export async function GET(request: NextRequest) {
       .eq('id', orderId)
       .single()
 
-    // Update order status and set grace period (1 hour from now)
+    // Update order status to paid
+    // Note: grace_period_ends_at column doesn't exist - calculate from created_at when needed
     crumb.supabase('update', 'orders')
-    const gracePeriodEndsAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
     await supabase
       .from('orders')
-      .update({ status: 'paid', grace_period_ends_at: gracePeriodEndsAt })
+      .update({ status: 'paid' })
       .eq('id', orderId)
 
     // Create payment record (idempotent - skip if already created by webhook)
