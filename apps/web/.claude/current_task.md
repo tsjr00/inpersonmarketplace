@@ -74,6 +74,9 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
 - [x] Fix duplicate order bug (back button from Stripe) - DONE
 - [x] Fix $0.15 per-transaction fee (was per-item) - DONE
 - [x] Fix cancel order "Order item not found" RLS bug - DONE (Session 4)
+- [x] Fix price discrepancy (3 different totals shown) - DONE (Session 5)
+- [ ] Test payment record creation (diagnostic logging deployed)
+- [ ] Investigate cart flash regression
 - [ ] Checkout success screen - add feedback/review capture
 - [ ] Test full checkout flow with pickup snapshots
 - [ ] Test vendor dashboard upcoming pickups display
@@ -204,6 +207,10 @@ Same order was showing THREE different totals:
 7. `eadd97c` - Fix payment record creation: remove non-existent grace_period_ends_at
 8. `14b61ca` - Add verification vs hypothesis guidance to Data-First Policy
 
+## Commits Made Session 5 (02/05/2026)
+1. `b72abd4` - Add diagnostic logging to checkout success payment insert
+2. `4a894f8` - Fix price discrepancy: flat fee applied per order not per item
+
 ## New Rules Added to CLAUDE.md
 1. **Data-First Policy** - No assumptions when data available
 2. **Context Compaction Recovery Protocol** - Verify schema after compaction
@@ -216,6 +223,10 @@ Same order was showing THREE different totals:
 - Schema snapshot updated with critical warnings about pickup columns (supabase/SCHEMA_SNAPSHOT.md)
 - TypeScript check passes - no build errors
 - Cross-sell section now uses purple colors instead of yellow
+- **Fee calculation architecture (Session 5 fix)**:
+  - Stripe checkout now separates flat fee as "Service Fee" line item
+  - Orders pages calculate total by summing subtotals first, then applying `calculateDisplayPrice()` once
+  - Order record in DB has correct total (was already correct before this session)
 
 ### Cancel Bug Investigation Context
 - Cancel API: `src/app/api/buyer/orders/[id]/cancel/route.ts`
