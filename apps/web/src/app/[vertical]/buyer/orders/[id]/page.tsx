@@ -184,10 +184,12 @@ export default function BuyerOrderDetailPage() {
       // Show result message
       if (data.cancellation_fee_applied) {
         alert(`Item cancelled. A cancellation fee was applied. Refund amount: $${(data.refund_amount_cents / 100).toFixed(2)}`)
+      } else {
+        alert('Item cancelled successfully.')
       }
 
-      // Refresh order to get updated status
-      fetchOrder()
+      // Refresh order to get updated status - await to ensure UI updates
+      await fetchOrder()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to cancel item')
     } finally {
