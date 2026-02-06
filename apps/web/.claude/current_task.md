@@ -1,241 +1,79 @@
-# Current Task: Pickup Scheduling System Implementation
+# Current Task: Unified Pricing Module Complete
 Started: 2026-02-05
-Last Updated: 2026-02-06 (Session 4 - pre-compaction save)
+Last Updated: 2026-02-06 (Session 5)
 
-## Goal
-Implement pickup date selection where buyers choose specific pickup DATES (not just locations). Each date has its own order cutoff, allowing vendors to offer multiple pickup days per week.
+## COMPLETED: Unified Pricing System
 
-## CRITICAL BUG FIXED THIS SESSION
-**ERR_DB_010 "Invalid column reference" on buyer orders page**
-- **Root Cause**: API files were querying `pickup_start_time` and `pickup_end_time` columns that DON'T EXIST in order_items table
-- **The migration only added**: `schedule_id`, `pickup_date`, `pickup_snapshot` (NOT the time columns)
-- **Files Fixed**:
-  - `src/app/api/buyer/orders/route.ts` - Removed non-existent columns from query
-  - `src/app/api/buyer/orders/[id]/route.ts` - Removed non-existent columns from query
-  - `src/app/api/vendor/orders/route.ts` - Removed non-existent columns from query
-  - `src/app/api/checkout/success/route.ts` - Removed non-existent columns from query
-- **Solution**: Get start_time/end_time from `pickup_snapshot` JSONB field instead
+### The Problem We Solved
+Prices were inconsistent across screens because flat fee ($0.15) was applied per-item instead of per-order in some places.
 
-## UI IMPROVEMENTS IN PROGRESS (NOT YET COMMITTED)
+### The Solution: `src/lib/pricing.ts`
 
-### 1. Pickup Times on Checkout - DONE
-- Added `pickup_display` to CheckoutItem interface
-- Updated merge logic to include pickup_display from cart items
-- Updated checkout item display to show time: `@ 9:00 AM - 12:00 PM`
+Single source of truth for all pricing:
 
-### 2. Multiple Pickup Location Banner - DONE
-- Removed the large icon column layout
-- Put icon inline with header: `📍 Multiple Pickup Locations`
-- Condensed text to reduce rows
-- Made checkbox label shorter
+```typescript
+// Fee configuration
+FEES = {
+  buyerFeePercent: 6.5,
+  vendorFeePercent: 6.5,
+  buyerFlatFeeCents: 15,    // $0.15 service fee
+  vendorFlatFeeCents: 15,
+  minimumOrderCents: 1000,  // $10 minimum
+}
 
-### 3. Cross-sell Section Color Change - DONE
-- Changed background from yellow to soft lavender (`#F5F3FF`)
-- Changed border from accent yellow to light purple (`#DDD6FE`)
-- Changed card borders to light purple (`#E9D5FF`)
-- Changed button from yellow to purple (`#A78BFA`) with white text
-- Put vendor name on same line as price using flexbox
+// For ORDER TOTALS (includes flat fee once)
+calculateBuyerPrice(subtotalCents) → total buyer pays
 
-### 4. Checkout Success Screen Improvements - NOT STARTED
-- User wants to capture feedback/reviews while they have buyer's attention
-- Ideas: testimonial capture, feedback form, satisfaction rating
-- NOT STARTED
+// For INDIVIDUAL ITEM display (percentage only, no flat fee)
+calculateItemDisplayPrice(baseCents) → item display price
 
-## Phase 6 & 7 - COMPLETED
+// For complete order breakdown
+calculateOrderPricing(items) → { subtotalCents, buyerTotalCents, vendorPayoutCents, ... }
+```
 
-### Phase 6: Schedule Deletion Protection
-- [x] API blocks market deletion with pending orders
-- [x] API blocks pickup window removal with pending orders
-- [x] API blocks schedule deactivation with pending orders
-- [x] MarketScheduleSelector shows blocking errors in red
+### How Prices Display Now
 
-### Phase 7: Cart Schedule Validation
-- [x] Cart API validates schedules and returns `schedule_issue` for invalid items
-- [x] Cart API returns `hasScheduleIssues` flag
-- [x] CartItem interface extended with `pickup_display` and `schedule_issue`
-- [x] CartDrawer shows warning banner and highlights invalid items
-- [x] Checkout page blocks checkout when hasScheduleIssues is true
+| Screen | Item Price | Shows Service Fee? | Total |
+|--------|------------|-------------------|-------|
+| Browse | $8.52 | No | - |
+| Cart | $8.52 | No (in header) | $17.19 |
+| Checkout | $8.52 | Yes ($0.15 line) | $17.19 |
+| Stripe | $8.52 × 2 | Yes ($0.15 line) | $17.19 |
+| Success | - | - | $17.19 |
+| Orders List | $8.52 | Yes ($0.15 line) | $17.19 |
 
-## Files Modified This Session
-- `src/app/api/buyer/orders/route.ts` - Fixed ERR_DB_010 bug
-- `src/app/api/buyer/orders/[id]/route.ts` - Fixed ERR_DB_010 bug
-- `src/app/api/buyer/orders/[id]/cancel/route.ts` - Fixed RLS bypass for cancel (Session 4)
-- `src/app/api/vendor/orders/route.ts` - Fixed ERR_DB_010 bug
-- `src/app/api/checkout/success/route.ts` - Fixed ERR_DB_010 bug
-- `src/app/api/cart/route.ts` - Added schedule validation, pickup_display
-- `src/lib/hooks/useCart.tsx` - Added hasScheduleIssues, pickup_display
-- `src/components/cart/CartDrawer.tsx` - Shows pickup info and schedule warnings
-- `src/components/vendor/MarketScheduleSelector.tsx` - Shows blocking errors in red
-- `src/app/[vertical]/checkout/page.tsx` - Added pickup times, fixed multi-location banner
+### Key Files
+
+- `src/lib/pricing.ts` - THE source of truth
+- `src/lib/constants.ts` - Re-exports for backwards compatibility
+- `src/app/api/checkout/session/route.ts` - Uses calculateOrderPricing
+- `src/app/api/checkout/success/route.ts` - Uses serviceClient for payment insert
+- UI components import from constants.ts (which re-exports from pricing.ts)
+
+### Other Fixes This Session
+
+1. **Payment record not created** - Fixed by using serviceClient (buyers don't have RLS insert on payments)
+2. **RLS error on success screen** - Same fix as above
+3. **Cart flash** - Fixed (was related to pricing recalculation)
 
 ## What's Remaining
-- [x] Change cross-sell section background color (not yellow) - DONE
-- [x] Put vendor name on same line as price in cross-sell cards - DONE
-- [x] Fix duplicate order bug (back button from Stripe) - DONE
-- [x] Fix $0.15 per-transaction fee (was per-item) - DONE
-- [x] Fix cancel order "Order item not found" RLS bug - DONE (Session 4)
-- [x] Fix price discrepancy (3 different totals shown) - DONE (Session 5)
-- [ ] Test payment record creation (diagnostic logging deployed)
-- [ ] Investigate cart flash regression
+
+- [ ] Test the service fee display after latest deploy
 - [ ] Checkout success screen - add feedback/review capture
-- [ ] Test full checkout flow with pickup snapshots
-- [ ] Test vendor dashboard upcoming pickups display
-- [ ] End-to-end testing (Phase 8)
+- [ ] End-to-end testing
 
-## Critical Bug Fixes (02/05/2026 - Session 3)
+## Commits This Session
 
-### Duplicate Orders on Stripe Back Button
-- **Root cause**: Orders created BEFORE Stripe payment confirmation
-- **Fix**: Check for existing pending orders (matching items, quantities, recency within 30 min)
-- **If match found**: Verify Stripe session still open, return existing URL
-- **File**: `src/app/api/checkout/session/route.ts`
-
-### $0.15 Transaction Fee Applied Per-Item Instead of Per-Order
-- **Root cause**: `calculateFees()` called per item, adds $0.15 each time
-- **Fix**: After processing items, subtract extra flat fees: `(itemCount - 1) * flatFee`
-- **File**: `src/app/api/checkout/session/route.ts`
-
-## FIXED: Cancel Order "Order item not found" (Session 4 - 02/05/2026)
-
-### Root Cause
-- RLS policy on `order_items` blocked direct queries even though the function looked correct
-- `order_items_select` policy uses `user_buyer_order_ids()` function
-- Querying `order_items` directly triggered RLS failure
-- Querying `orders` directly works fine
-
-### Fix Applied
-File: `src/app/api/buyer/orders/[id]/cancel/route.ts`
-
-Changed query approach to bypass the RLS issue:
-1. Query `orders` first with nested `order_items` (buyer_user_id filter)
-2. Find the order containing the target order_item_id
-3. Extract both order and orderItem from the nested result
-4. Continue with cancellation logic
-
-This mirrors how the working order detail API operates - query orders first, get items nested.
-
-## Session 4 Changes (02/05-06/2026)
-
-### Cancel API Fixes
-1. **RLS bypass** - Query orders first with nested order_items instead of querying order_items directly
-2. **Removed non-existent columns**:
-   - `cancellation_fee_cents` - doesn't exist on order_items
-   - `grace_period_ends_at` - doesn't exist on orders (migration never applied)
-3. **Restored `profile_data`** - DOES exist on vendor_profiles (was incorrectly removed)
-4. **Grace period calculation** - Now uses `created_at + 1 hour` since column doesn't exist
-
-### Cancel UI Fixes
-1. Added `await` before `fetchOrder()` to ensure UI updates
-2. Added success alert for cancellations without fee
-3. Order total now excludes cancelled items (both list and detail pages)
-4. Added `cancelled_at` to Order interface and API response
-
-### Payment Record Fix
-- **Root cause**: Webhook and checkout success were updating `grace_period_ends_at` column that doesn't exist
-- **Files fixed**: `src/lib/stripe/webhooks.ts`, `src/app/api/checkout/success/route.ts`
-- **Status**: NEEDS TESTING - user should create new order to verify payment record creation
-
-### Schema Snapshot Updates
-- Added complete vendor_profiles columns (41 columns verified)
-- Added note: `grace_period_ends_at` does NOT exist on orders
-- Migration `20260127_001_cancellation_grace_period.sql` was NEVER applied
-
-### CLAUDE.md Updates
-- Added "When to Verify vs When to Hypothesize" guidance to Data-First Policy
-
-## PENDING - Next Session
-
-### CRITICAL: Payment Record Still Not Created (02/06 test)
-**Hypothesis about grace_period_ends_at was WRONG** - fix didn't work.
-
-Test results:
-- User created order, completed Stripe checkout
-- Payment query returned NO ROWS
-- Success screen showed $55.54
-- Orders list showed $55.69
-- Stripe charged $56.31
-
-**Next steps to investigate:**
-1. Check if Stripe webhook is configured in Stripe Dashboard
-2. Check if STRIPE_WEBHOOK_SECRET env var is set in Vercel
-3. Add error logging to payment insert in checkout/success/route.ts
-4. Check if orderId is being passed correctly through checkout flow
-
-### REGRESSION: Cart Flash Issue (02/06)
-"Your cart is empty" flashes briefly before checkout loads. Was fixed before, now back.
-Investigate what recent change caused this.
-
-### FIXED: Three Different Prices Displayed (02/05/2026 Session 5)
-Same order was showing THREE different totals:
-- Success screen: $55.54
-- Orders list: $55.69
-- Stripe: $56.31
-
-**Root Cause Analysis:**
-1. **Order record** (DB) - Correctly calculated with flat fee applied once
-2. **Success page** - Used `order.total_cents` from DB ✓
-3. **Orders list/detail pages** - Recalculated using `calculateDisplayPrice()` per item (added $0.15 per item instead of once)
-4. **Stripe line items** - Each item's price included $0.15 flat fee
-
-**Fixes Applied:**
-1. `src/app/[vertical]/buyer/orders/page.tsx` - Sum subtotals first, then apply `calculateDisplayPrice()` once
-2. `src/app/[vertical]/buyer/orders/[id]/page.tsx` - Same fix for order detail page
-3. `src/app/api/checkout/session/route.ts` - Stripe line items now:
-   - Only include percentage fee (6.5%) in per-item prices
-   - Add single "Service Fee" line item for $0.15 flat fee
-
-**Fee Calculation Architecture (now consistent):**
-- `calculateFees()` in payments.ts - Per-item calculation (for internal use)
-- `calculateDisplayPrice()` in constants.ts - Apply to ORDER total (not per item)
-- Stripe checkout - Percentage fee per item + single flat fee line item
-
-## Commits Made This Session (02/05/2026 Session 3)
-
-1. `cb9b0e8` - Fix ERR_DB_010 and complete pickup scheduling UI
-2. `4af90e9` - Add Data-First Policy and Context Compaction Recovery rules
-3. `93ba171` - Update migration log through 2026-02-05
-4. `6c9c9c2` - Add Migration File Management rule
-5. `4645ab9` - Fix duplicate orders and per-transaction fee bugs
-
-## Commits Made Session 4 (02/05-06/2026)
-1. `59335d6` - Fix order cancel API RLS bypass issue
-2. `22d87d8` - Fix cancel API: remove non-existent cancellation_fee_cents column
-3. `bb0826d` - Fix cancel API: remove potentially missing columns
-4. `6912677` - Update schema snapshot with verified data, fix cancel API
-5. `c208b79` - Fix cancel UI: await fetchOrder and add success message
-6. `ce35787` - Fix order total to exclude cancelled items
-7. `eadd97c` - Fix payment record creation: remove non-existent grace_period_ends_at
-8. `14b61ca` - Add verification vs hypothesis guidance to Data-First Policy
-
-## Commits Made Session 5 (02/05/2026)
-1. `b72abd4` - Add diagnostic logging to checkout success payment insert
-2. `4a894f8` - Fix price discrepancy: flat fee applied per order not per item
-
-## New Rules Added to CLAUDE.md
-1. **Data-First Policy** - No assumptions when data available
-2. **Context Compaction Recovery Protocol** - Verify schema after compaction
-3. **Migration File Management** - Move to applied/ after confirmed in both envs
-4. **When to Verify vs Hypothesize** - Added in Session 4
+1. `24a271b` - Fix cart/checkout display totals
+2. `3c0bf57` - Add unified pricing module
+3. `d377275` - Show service fee as separate line in Stripe
+4. `c690edb` - Fix empty description error
+5. `98e647a` - Separate item display price from order total
+6. `f3b88b2` - Add service fee breakdown to checkout and orders
 
 ## Key Context for Next Session
-- The `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST - always use `pickup_snapshot.start_time/end_time`
-- Cart items now have `pickup_display` with `date_formatted`, `time_formatted`, `day_name`
-- Schema snapshot updated with critical warnings about pickup columns (supabase/SCHEMA_SNAPSHOT.md)
-- TypeScript check passes - no build errors
-- Cross-sell section now uses purple colors instead of yellow
-- **Fee calculation architecture (Session 5 fix)**:
-  - Stripe checkout now separates flat fee as "Service Fee" line item
-  - Orders pages calculate total by summing subtotals first, then applying `calculateDisplayPrice()` once
-  - Order record in DB has correct total (was already correct before this session)
 
-### Cancel Bug Investigation Context
-- Cancel API: `src/app/api/buyer/orders/[id]/cancel/route.ts`
-- The `[id]` parameter is ORDER_ITEM id (not order id)
-- Query uses `orders!inner` join which requires RLS access to both tables
-- User: cottagevendor1+test@test.com, buyer_user_id: b81d3ff9-074c-439c-a8e4-1cfa16172bfd
-
-### Duplicate Order Fix Context
-- Added to `src/app/api/checkout/session/route.ts` (lines ~35-95)
-- Checks for pending orders within 30 minutes with matching items/quantities
-- If match found with valid Stripe session, returns existing URL
-- Prevents creating new order on back-button from Stripe
+- `calculateDisplayPrice` = `calculateItemDisplayPrice` (percentage only, for items)
+- `calculateBuyerPrice` = percentage + flat fee (for order totals)
+- Service fee shows as separate $0.15 line in: checkout summary, Stripe, orders list
+- Stripe line items: item prices (6.5% included) + "Service Fee" line
