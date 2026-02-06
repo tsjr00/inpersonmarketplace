@@ -1,7 +1,24 @@
 /**
  * Platform Constants
  * Central location for platform-wide configuration values
+ *
+ * NOTE: Pricing functions have moved to src/lib/pricing.ts
+ * Imports below are for backwards compatibility - use pricing.ts directly for new code
  */
+
+// Re-export pricing functions for backwards compatibility
+export {
+  formatPrice,
+  formatDisplayPrice,
+  calculateBuyerPrice as calculateDisplayPrice,
+  FEES,
+} from './pricing'
+
+// Re-export specific fee constants for backwards compatibility
+import { FEES } from './pricing'
+export const PLATFORM_FEE_RATE = FEES.buyerFeePercent / 100  // 0.065
+export const PLATFORM_FLAT_FEE_CENTS = FEES.buyerFlatFeeCents  // 15
+export const MINIMUM_ORDER_CENTS = FEES.minimumOrderCents  // 1000
 
 // Approved product categories for farmers market
 export const CATEGORIES = [
@@ -46,44 +63,6 @@ export const TIER_BADGES = {
 } as const
 
 export type VendorTierType = keyof typeof TIER_BADGES
-
-// Platform fee as decimal (6.5% = 0.065)
-export const PLATFORM_FEE_RATE = 0.065
-// Flat fee in cents added to buyer price
-export const PLATFORM_FLAT_FEE_CENTS = 15
-// Minimum order total in cents (before fees)
-export const MINIMUM_ORDER_CENTS = 1000
-
-/**
- * Calculate display price (what buyer sees)
- * Applies platform percentage fee + flat fee to base price
- */
-export function calculateDisplayPrice(basePriceCents: number): number {
-  return Math.round(basePriceCents * (1 + PLATFORM_FEE_RATE)) + PLATFORM_FLAT_FEE_CENTS
-}
-
-/**
- * Calculate base price from display price (reverse calculation)
- * Useful for understanding vendor's share
- */
-export function calculateBasePrice(displayPriceCents: number): number {
-  return Math.round((displayPriceCents - PLATFORM_FLAT_FEE_CENTS) / (1 + PLATFORM_FEE_RATE))
-}
-
-/**
- * Format cents to dollars string
- */
-export function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
-}
-
-/**
- * Format with fee applied
- * Use for buyer-facing displays
- */
-export function formatDisplayPrice(basePriceCents: number): string {
-  return formatPrice(calculateDisplayPrice(basePriceCents))
-}
 
 // Vendor tier limits
 // Note: Listings are counted per-account total, not per-market

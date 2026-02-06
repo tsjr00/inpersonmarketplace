@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { calculateFees, createCheckoutSession } from '@/lib/stripe/payments'
-import { stripe, STRIPE_CONFIG } from '@/lib/stripe/config'
+import { createCheckoutSession } from '@/lib/stripe/payments'
+import { stripe } from '@/lib/stripe/config'
+import { calculateOrderPricing, FEES } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 
@@ -335,20 +336,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Calculate totals
+    // Calculate totals using unified pricing module
     crumb.logic('Calculating order totals and fees')
-    let subtotalCents = 0
-    let buyerFeeCents = 0
-    let platformFeeCents = 0
 
+    // Build items for pricing calculation
+    const pricingItems = items.map((item) => {
+      const listing = listings.find((l) => l.id === item.listingId) as Listing
+      return { price_cents: listing.price_cents, quantity: item.quantity }
+    })
+
+    // Calculate order-level pricing (handles flat fee correctly - once per order)
+    const orderPricing = calculateOrderPricing(pricingItems)
+
+    // Enforce minimum order total (before fees)
+    if (orderPricing.subtotalCents < FEES.minimumOrderCents) {
+      const remaining = ((FEES.minimumOrderCents - orderPricing.subtotalCents) / 100).toFixed(2)
+      throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(FEES.minimumOrderCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
+    }
+
+    // Build order items with per-item fee breakdown
+    // Note: flat fee is at order level, so per-item fees are percentage-only
     const orderItems = items.map((item) => {
       const listing = listings.find((l) => l.id === item.listingId) as Listing
       const itemSubtotal = listing.price_cents * item.quantity
-      const fees = calculateFees(itemSubtotal)
 
-      subtotalCents += fees.basePriceCents
-      buyerFeeCents += fees.buyerFeeCents
-      platformFeeCents += fees.platformFeeCents
+      // Per-item fees (percentage only - flat fee handled at order level)
+      const itemPercentFee = Math.round(itemSubtotal * (FEES.buyerFeePercent + FEES.vendorFeePercent) / 100)
+      const vendorPercentFee = Math.round(itemSubtotal * FEES.vendorFeePercent / 100)
 
       // Get the pickup info from request or cart
       const key = `${item.listingId}|${item.scheduleId || ''}|${item.pickupDate || ''}`
@@ -359,34 +373,19 @@ export async function POST(request: NextRequest) {
         vendor_profile_id: listing.vendor_profile_id,
         quantity: item.quantity,
         unit_price_cents: listing.price_cents,
-        subtotal_cents: fees.basePriceCents,
-        platform_fee_cents: fees.platformFeeCents,
-        vendor_payout_cents: fees.vendorGetsCents,
+        subtotal_cents: itemSubtotal,
+        platform_fee_cents: itemPercentFee,
+        vendor_payout_cents: itemSubtotal - vendorPercentFee,
         market_id: pickupInfo?.marketId || null,
         schedule_id: item.scheduleId || ('scheduleId' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).scheduleId : null),
         pickup_date: item.pickupDate || ('pickupDate' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).pickupDate : null),
       }
     })
 
-    // Enforce minimum order total (before fees)
-    if (subtotalCents < STRIPE_CONFIG.minimumOrderCents) {
-      const remaining = ((STRIPE_CONFIG.minimumOrderCents - subtotalCents) / 100).toFixed(2)
-      throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(STRIPE_CONFIG.minimumOrderCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
-    }
-
-    // FIX: Flat fee should be per ORDER, not per ITEM
-    // calculateFees adds $0.15 buyer + $0.15 vendor per item, but for Stripe
-    // transactions this should only be added once per order.
-    if (items.length > 1) {
-      const extraBuyerFlatFees = (items.length - 1) * STRIPE_CONFIG.buyerFlatFeeCents
-      const extraVendorFlatFees = (items.length - 1) * STRIPE_CONFIG.vendorFlatFeeCents
-      buyerFeeCents -= extraBuyerFlatFees
-      platformFeeCents -= extraBuyerFlatFees + extraVendorFlatFees
-      crumb.logic(`Corrected flat fees: removed ${items.length - 1} extra flat fees`)
-    }
-
-    // Buyer pays: base price + buyer fee only (vendor fee is deducted from vendor payout)
-    const totalCents = subtotalCents + buyerFeeCents
+    // Use order-level totals from unified pricing
+    const subtotalCents = orderPricing.subtotalCents
+    const platformFeeCents = orderPricing.platformFeeCents
+    const totalCents = orderPricing.buyerTotalCents
 
     // Build pickup snapshots for each order item
     crumb.logic('Building pickup snapshots for order items')
@@ -458,14 +457,14 @@ export async function POST(request: NextRequest) {
 
     for (const listing of listings) {
       const item = items.find((i) => i.listingId === listing.id)!
-      const priceWithPercentFee = Math.round(listing.price_cents * (1 + STRIPE_CONFIG.buyerFeePercent / 100))
+      const priceWithPercentFee = Math.round(listing.price_cents * (1 + FEES.buyerFeePercent / 100))
 
       if (!flatFeeApplied && item.quantity === 1) {
         // Add flat fee to this single-quantity item
         checkoutItems.push({
           name: listing.title,
           description: listing.description || '',
-          amount: priceWithPercentFee + STRIPE_CONFIG.buyerFlatFeeCents,
+          amount: priceWithPercentFee + FEES.buyerFlatFeeCents,
           quantity: 1,
         })
         flatFeeApplied = true
@@ -474,7 +473,7 @@ export async function POST(request: NextRequest) {
         checkoutItems.push({
           name: listing.title,
           description: listing.description || '',
-          amount: priceWithPercentFee + STRIPE_CONFIG.buyerFlatFeeCents,
+          amount: priceWithPercentFee + FEES.buyerFlatFeeCents,
           quantity: 1,
         })
         if (item.quantity > 1) {

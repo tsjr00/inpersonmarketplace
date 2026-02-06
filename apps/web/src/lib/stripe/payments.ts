@@ -1,32 +1,7 @@
-import { stripe, STRIPE_CONFIG } from './config'
+import { stripe } from './config'
 
-/**
- * Calculate fees for transaction
- */
-export function calculateFees(basePriceCents: number) {
-  const buyerPercentFeeCents = Math.round(
-    basePriceCents * (STRIPE_CONFIG.buyerFeePercent / 100)
-  )
-  const vendorPercentFeeCents = Math.round(
-    basePriceCents * (STRIPE_CONFIG.vendorFeePercent / 100)
-  )
-
-  const buyerFeeCents = buyerPercentFeeCents + STRIPE_CONFIG.buyerFlatFeeCents
-  const vendorFeeCents = vendorPercentFeeCents + STRIPE_CONFIG.vendorFlatFeeCents
-
-  const buyerPaysCents = basePriceCents + buyerFeeCents
-  const vendorGetsCents = basePriceCents - vendorFeeCents
-  const platformFeeCents = buyerFeeCents + vendorFeeCents
-
-  return {
-    basePriceCents,
-    buyerFeeCents,
-    vendorFeeCents,
-    buyerPaysCents,
-    vendorGetsCents,
-    platformFeeCents,
-  }
-}
+// NOTE: Fee calculations have moved to src/lib/pricing.ts
+// Use calculateOrderPricing() from there instead
 
 /**
  * Create checkout session
