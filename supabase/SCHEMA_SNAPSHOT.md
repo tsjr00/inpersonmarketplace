@@ -12,6 +12,8 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-06 | (app code) | **Inventory Management**: `listings.quantity` decremented on successful payment in `checkout/success`. New notification types: `inventory_out_of_stock`, `inventory_low_stock` (threshold: 5). No schema changes. |
+| 2026-02-06 | (app code) | **Market Box Pricing**: Applied `calculateBuyerPrice()` to market box checkout - now includes 6.5% + $0.15 fee. No schema changes. |
 | 2026-02-05 | 20260205_001_pickup_scheduling_schema | Added to cart_items: `schedule_id`, `pickup_date`. Added to order_items: `schedule_id`, `pickup_date`, `pickup_snapshot` (JSONB). Added to orders: `parent_order_id`, `order_suffix`. **NOTE: pickup_start_time/pickup_end_time do NOT exist - use pickup_snapshot.start_time/end_time** |
 | 2026-02-05 | 20260205_002_pickup_scheduling_functions | Added functions: `get_available_pickup_dates()`, `validate_cart_item_schedule()`, `build_pickup_snapshot()` |
 | 2026-02-05 | 20260205_003_fix_cutoff_threshold | Added `cutoff_hours` to get_available_pickup_dates output |
@@ -915,3 +917,43 @@ These are SECURITY DEFINER functions used by RLS policies and triggers.
 |-------|---------------|-------|
 | `set_market_box_premium_window()` referenced `is_active` instead of `active` | 20260203_004 | Caused "record 'new' has no field 'is_active'" error on market box creation |
 | `is_platform_admin()` only checked `roles` array, not `role` column | 20260203_002 | Caused admins with `role = 'admin'` to not be recognized |
+
+---
+
+## Application Behavior (Not in Schema)
+
+### Inventory Management (added 2026-02-06)
+
+**Location:** `src/app/api/checkout/success/route.ts`
+
+When payment succeeds:
+1. `listings.quantity` is decremented by purchased amount
+2. If `quantity = null`, no decrement (unlimited stock)
+3. Decrement floors at 0 (never negative)
+4. Idempotent: only runs when payment record is first created
+
+**Low Stock Threshold:** 5 items
+
+### Notification Types (stored in `notifications.type`)
+
+| Type | Trigger | Message |
+|------|---------|---------|
+| `inventory_out_of_stock` | `listings.quantity` hits 0 after purchase | "X is now out of stock. Update your listing to add more inventory." |
+| `inventory_low_stock` | `listings.quantity` drops below 5 (and was above 5 before) | "X has only N left in stock." |
+| `pickup_issue_reported` | Buyer reports issue with order item | "A buyer reported an issue with their order: ..." |
+| `pickup_confirmation_needed` | Buyer acknowledges receipt, vendor has 30s to fulfill | "Buyer acknowledged receipt. Please tap Fulfill within 30 seconds." |
+
+### Pricing (in `src/lib/pricing.ts`)
+
+| Fee | Amount | Applied To |
+|-----|--------|------------|
+| Buyer % fee | 6.5% | Item prices (display & Stripe) |
+| Buyer flat fee | $0.15 | Order total (once per order) |
+| Vendor % fee | 6.5% | Deducted from vendor payout |
+| Vendor flat fee | $0.15 | Deducted from vendor payout |
+| Minimum order | $10.00 | Before fees |
+
+**Functions:**
+- `calculateItemDisplayPrice(baseCents)` → price with 6.5% (for item display)
+- `calculateBuyerPrice(subtotalCents)` → total with 6.5% + $0.15 (for order totals)
+- `calculateOrderPricing(items)` → full breakdown for checkout

@@ -1,6 +1,17 @@
-# Current Task: Inventory Decrement Complete
+# Current Task: Inventory Management Complete
 Started: 2026-02-05
 Last Updated: 2026-02-06 (Session 6)
+
+## COMPLETED: Full Inventory Management System
+
+### What Was Built (Session 6)
+
+1. **Inventory Decrement** - `checkout/success/route.ts`
+2. **Vendor Notifications** - Out of stock + low stock alerts
+3. **Stock Status Badges** - Vendor listings page
+4. **Dashboard Warning** - Low/out of stock banner
+
+---
 
 ## COMPLETED: Inventory Decrement on Purchase
 
@@ -44,6 +55,34 @@ for (const [listingId, quantityPurchased] of quantityByListing) {
 - `cart/add/route.ts:28` - Blocks add if `listing.quantity < quantity`
 - `cart/validate/route.ts:201-202` - Uses `null ? 999 : quantity` for availability
 - `checkout/page.tsx:697-709` - Disables + button at max quantity
+
+---
+
+## COMPLETED: Vendor Stock Notifications
+
+### In-App Notifications (checkout/success/route.ts)
+
+When inventory is updated after purchase, vendor receives notification:
+
+| Condition | Notification Type | Message |
+|-----------|------------------|---------|
+| quantity = 0 | `inventory_out_of_stock` | "X is now out of stock. Update your listing..." |
+| quantity <= 5 (crossed threshold) | `inventory_low_stock` | "X has only N left in stock." |
+
+### Visual Stock Badges (vendor/listings/page.tsx)
+
+| Condition | Badge |
+|-----------|-------|
+| quantity = 0 | **OUT OF STOCK** (red) |
+| quantity <= 5 | **LOW STOCK (N)** (orange) |
+| quantity > 5 or null | No badge |
+
+### Dashboard Warning Banner (vendor/dashboard/page.tsx)
+
+Shows if any listings are low or out of stock:
+- Red banner for out of stock: "Buyers cannot order out-of-stock items"
+- Orange banner for low stock: "Consider restocking soon"
+- "Update Inventory" button links to listings page
 
 ---
 
