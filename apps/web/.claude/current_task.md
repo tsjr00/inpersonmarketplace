@@ -89,6 +89,21 @@ Inventory count is NOT being decremented when items are purchased.
 2. Is there existing decrement logic anywhere?
 3. What happens when quantity hits 0? (check browse, cart, checkout)
 
+## ALSO: Market Box Pricing Issue
+
+### Problem
+- Detail screen: $79.88 (base $75 + 6.5%)
+- Stripe checkout: $75.00 (base only, missing fee)
+
+### Root cause
+Market box uses `createMarketBoxCheckoutSession()` in `lib/stripe/payments.ts` which passes `priceCents` directly without applying fees.
+
+### Fix needed
+Apply `calculateBuyerPrice()` to market box price before sending to Stripe.
+
+### Additional question
+Should market boxes be addable to cart with other items? Currently skips cart entirely.
+
 ## Commits This Session
 
 1. `24a271b` - Fix cart/checkout display totals
