@@ -215,6 +215,7 @@ export async function GET(request: NextRequest) {
           unit_price_cents: item.unit_price_cents,
           subtotal_cents: item.subtotal_cents,
           status: itemStatus,
+          cancelled_at: cancelledAt,
           expires_at: expiresAt,
           is_expired: expiresAt && new Date(expiresAt) < new Date() && itemStatus === 'pending' && !cancelledAt,
           pickup_date: pickupDate,

@@ -21,6 +21,7 @@ interface Order {
     quantity: number
     subtotal_cents: number
     status: string
+    cancelled_at: string | null
     pickup_date: string | null
     pickup_start_time: string | null
     pickup_end_time: string | null
@@ -358,8 +359,9 @@ export default function BuyerOrdersPage() {
             const isCompletedOrder = ['completed', 'fulfilled'].includes(order.status)
             const isCancelledOrder = ['cancelled', 'refunded'].includes(order.status)
             const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
-            // Calculate buyer-facing total from items
-            const orderTotal = order.items?.reduce((sum, item) => sum + calculateDisplayPrice(item.subtotal_cents), 0) || 0
+            // Calculate buyer-facing total from items (excluding cancelled items)
+            const orderTotal = order.items?.reduce((sum, item) =>
+              item.cancelled_at ? sum : sum + calculateDisplayPrice(item.subtotal_cents), 0) || 0
 
             // Determine visual urgency styling
             const isReady = order.status === 'ready'
