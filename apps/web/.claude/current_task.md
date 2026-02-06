@@ -123,18 +123,33 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
 - Order detail page works (queries `orders` directly)
 - Cancel API fails (queries `order_items` directly, triggers RLS)
 
-**Next Steps to Try:**
-1. Add debug logging to see if `auth.uid()` returns correctly in API context
-2. Try bypassing the function - test inline RLS:
-   ```sql
-   -- Test direct policy without function
-   SELECT * FROM order_items
-   WHERE order_id IN (
-     SELECT id FROM orders WHERE buyer_user_id = 'b81d3ff9-074c-439c-a8e4-1cfa16172bfd'
-   );
-   ```
-3. Consider rewriting RLS policy to not use helper function
-4. Check if orders table has RLS that blocks the SECURITY DEFINER function
+**NEXT SESSION: Implement Fix**
+File: `src/app/api/buyer/orders/[id]/cancel/route.ts`
+
+Change query approach to bypass RLS function issue:
+1. Query `orders` first with `.eq('buyer_user_id', user.id)` to verify ownership
+2. Then query `order_items` with `.eq('order_id', order.id)`
+3. This mirrors how order detail API works (which succeeds)
+
+```typescript
+// Step 1: Verify order ownership
+const { data: order } = await supabase
+  .from('orders')
+  .select('id, buyer_user_id, status, grace_period_ends_at')
+  .eq('id', orderIdFromItem)  // Need to get this from order_items first or pass it
+  .eq('buyer_user_id', user.id)
+  .single()
+
+// Step 2: Get order item with verified order
+const { data: orderItem } = await supabase
+  .from('order_items')
+  .select('id, status, subtotal_cents, ...')
+  .eq('id', orderItemId)
+  .eq('order_id', order.id)
+  .single()
+```
+
+Note: May need to adjust query order - get order_item first to find order_id, then verify order ownership, then proceed.
 
 ## Commits Made This Session (02/05/2026 Session 3)
 
