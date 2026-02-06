@@ -1,6 +1,6 @@
 # Current Task: Pickup Scheduling System Implementation
 Started: 2026-02-05
-Last Updated: 2026-02-05 (Session 3 - pre-compaction save)
+Last Updated: 2026-02-06 (Session 4 - pre-compaction save)
 
 ## Goal
 Implement pickup date selection where buyers choose specific pickup DATES (not just locations). Each date has its own order cutoff, allowing vendors to offer multiple pickup days per week.
@@ -111,6 +111,60 @@ Changed query approach to bypass the RLS issue:
 
 This mirrors how the working order detail API operates - query orders first, get items nested.
 
+## Session 4 Changes (02/05-06/2026)
+
+### Cancel API Fixes
+1. **RLS bypass** - Query orders first with nested order_items instead of querying order_items directly
+2. **Removed non-existent columns**:
+   - `cancellation_fee_cents` - doesn't exist on order_items
+   - `grace_period_ends_at` - doesn't exist on orders (migration never applied)
+3. **Restored `profile_data`** - DOES exist on vendor_profiles (was incorrectly removed)
+4. **Grace period calculation** - Now uses `created_at + 1 hour` since column doesn't exist
+
+### Cancel UI Fixes
+1. Added `await` before `fetchOrder()` to ensure UI updates
+2. Added success alert for cancellations without fee
+3. Order total now excludes cancelled items (both list and detail pages)
+4. Added `cancelled_at` to Order interface and API response
+
+### Payment Record Fix
+- **Root cause**: Webhook and checkout success were updating `grace_period_ends_at` column that doesn't exist
+- **Files fixed**: `src/lib/stripe/webhooks.ts`, `src/app/api/checkout/success/route.ts`
+- **Status**: NEEDS TESTING - user should create new order to verify payment record creation
+
+### Schema Snapshot Updates
+- Added complete vendor_profiles columns (41 columns verified)
+- Added note: `grace_period_ends_at` does NOT exist on orders
+- Migration `20260127_001_cancellation_grace_period.sql` was NEVER applied
+
+### CLAUDE.md Updates
+- Added "When to Verify vs When to Hypothesize" guidance to Data-First Policy
+
+## PENDING - Next Session
+
+### Immediate: Test Payment Record Creation
+User needs to create new order, complete Stripe checkout, then verify:
+```sql
+SELECT p.*, o.order_number
+FROM payments p
+JOIN orders o ON o.id = p.order_id
+ORDER BY p.created_at DESC LIMIT 5;
+```
+
+### Architecture Review: Fee Calculations
+**Problem identified**: Multiple calculation routines for fees instead of unified function
+- Stripe shows $33.48, app shows $33.32 (difference is the $0.15 flat fee)
+- `calculateDisplayPrice` in `src/lib/constants.ts` adds flat fee
+- But display in orders may not be using this consistently
+
+**Files with fee calculations:**
+- `src/lib/stripe/config.ts` - STRIPE_CONFIG with fee percentages
+- `src/lib/constants.ts` - calculateDisplayPrice, PLATFORM_FEE_RATE
+- `src/app/api/checkout/session/route.ts` - calculateFees function
+- `src/lib/stripe/payments.ts` - may have calculations
+
+**Action needed**: Audit all fee calculations, unify into single source of truth
+
 ## Commits Made This Session (02/05/2026 Session 3)
 
 1. `cb9b0e8` - Fix ERR_DB_010 and complete pickup scheduling UI
@@ -119,10 +173,21 @@ This mirrors how the working order detail API operates - query orders first, get
 4. `6c9c9c2` - Add Migration File Management rule
 5. `4645ab9` - Fix duplicate orders and per-transaction fee bugs
 
+## Commits Made Session 4 (02/05-06/2026)
+1. `59335d6` - Fix order cancel API RLS bypass issue
+2. `22d87d8` - Fix cancel API: remove non-existent cancellation_fee_cents column
+3. `bb0826d` - Fix cancel API: remove potentially missing columns
+4. `6912677` - Update schema snapshot with verified data, fix cancel API
+5. `c208b79` - Fix cancel UI: await fetchOrder and add success message
+6. `ce35787` - Fix order total to exclude cancelled items
+7. `eadd97c` - Fix payment record creation: remove non-existent grace_period_ends_at
+8. `14b61ca` - Add verification vs hypothesis guidance to Data-First Policy
+
 ## New Rules Added to CLAUDE.md
 1. **Data-First Policy** - No assumptions when data available
 2. **Context Compaction Recovery Protocol** - Verify schema after compaction
 3. **Migration File Management** - Move to applied/ after confirmed in both envs
+4. **When to Verify vs Hypothesize** - Added in Session 4
 
 ## Key Context for Next Session
 - The `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST - always use `pickup_snapshot.start_time/end_time`
