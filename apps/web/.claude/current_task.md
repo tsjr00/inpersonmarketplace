@@ -59,8 +59,35 @@ calculateOrderPricing(items) → { subtotalCents, buyerTotalCents, vendorPayoutC
 ## What's Remaining
 
 - [ ] Test the service fee display after latest deploy
+- [ ] **CRITICAL: Inventory decrement on purchase** (see below)
 - [ ] Checkout success screen - add feedback/review capture
 - [ ] End-to-end testing
+
+## NEXT TASK: Inventory Management
+
+### Problem
+Inventory count is NOT being decremented when items are purchased.
+
+### What needs to happen:
+1. **Decrement inventory** when order is placed/paid
+2. **Notify vendor** when inventory is low or zero
+3. **Block purchases** when inventory = 0 (may already exist)
+4. **Vendor updates inventory** via listing edit (already exists)
+
+### Where to look:
+- `src/app/api/checkout/session/route.ts` - Order creation (decrement here?)
+- `src/app/api/checkout/success/route.ts` - Payment confirmed (or here?)
+- Listing table has `available_quantity` column
+- Check existing logic for quantity=0 blocking
+
+### Display inventory status:
+- Vendor dashboard listing cards - show low/out of stock badge
+- Vendor can edit listing to update quantity
+
+### Questions to investigate:
+1. Where is `available_quantity` on listings table?
+2. Is there existing decrement logic anywhere?
+3. What happens when quantity hits 0? (check browse, cart, checkout)
 
 ## Commits This Session
 
