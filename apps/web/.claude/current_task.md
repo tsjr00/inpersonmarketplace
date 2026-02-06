@@ -59,6 +59,7 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
 ## Files Modified This Session
 - `src/app/api/buyer/orders/route.ts` - Fixed ERR_DB_010 bug
 - `src/app/api/buyer/orders/[id]/route.ts` - Fixed ERR_DB_010 bug
+- `src/app/api/buyer/orders/[id]/cancel/route.ts` - Fixed RLS bypass for cancel (Session 4)
 - `src/app/api/vendor/orders/route.ts` - Fixed ERR_DB_010 bug
 - `src/app/api/checkout/success/route.ts` - Fixed ERR_DB_010 bug
 - `src/app/api/cart/route.ts` - Added schedule validation, pickup_display
@@ -72,6 +73,7 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
 - [x] Put vendor name on same line as price in cross-sell cards - DONE
 - [x] Fix duplicate order bug (back button from Stripe) - DONE
 - [x] Fix $0.15 per-transaction fee (was per-item) - DONE
+- [x] Fix cancel order "Order item not found" RLS bug - DONE (Session 4)
 - [ ] Checkout success screen - add feedback/review capture
 - [ ] Test full checkout flow with pickup snapshots
 - [ ] Test vendor dashboard upcoming pickups display
@@ -90,66 +92,24 @@ Implement pickup date selection where buyers choose specific pickup DATES (not j
 - **Fix**: After processing items, subtract extra flat fees: `(itemCount - 1) * flatFee`
 - **File**: `src/app/api/checkout/session/route.ts`
 
-## ACTIVE BUG INVESTIGATION: Cancel Order "Order item not found"
+## FIXED: Cancel Order "Order item not found" (Session 4 - 02/05/2026)
 
-### Symptoms
-- User tried to cancel order FW-2026-62281
-- After providing reason and confirming, got error: "Order item not found"
-- This was during testing of the duplicate order bug
+### Root Cause
+- RLS policy on `order_items` blocked direct queries even though the function looked correct
+- `order_items_select` policy uses `user_buyer_order_ids()` function
+- Querying `order_items` directly triggered RLS failure
+- Querying `orders` directly works fine
 
-### Database State (verified)
-- **Order exists**: `8f575a50-2303-4bf6-8e48-21b3cf308a8e` (FW-2026-62281)
-- **Order status**: `pending` (NOT `paid` - Stripe callback may not have updated it)
-- **Order items exist**:
-  - `f2ba3ad4-f942-4ff9-824e-e0218e6a06e8` (Asparagus spears)
-  - `8019b3f6-2237-4271-bf4d-937fa8f5b271` (Wooden widgets)
-- **3 duplicate orders** from testing (duplicate order bug):
-  - FW-2026-62281 (21:19:13)
-  - FW-2026-01719 (21:18:38)
-  - FW-2026-05662 (21:17:45)
-
-### ROOT CAUSE: RLS Policy Issue (Deep Investigation)
-
-**What we found:**
-- `order_items_select` policy: `order_id IN (SELECT user_buyer_order_ids())`
-- `user_buyer_order_ids()` function: `SELECT id FROM orders WHERE buyer_user_id = auth.uid()`
-- Function is SECURITY DEFINER with SET search_path = 'public' ✓
-- User ID `b81d3ff9-074c-439c-a8e4-1cfa16172bfd` = `cottagevendor1+test@test.com` ✓
-- Order exists with correct buyer_user_id ✓
-
-**The Mystery:**
-- Function definition looks correct
-- But RLS still blocks the query
-- Order detail page works (queries `orders` directly)
-- Cancel API fails (queries `order_items` directly, triggers RLS)
-
-**NEXT SESSION: Implement Fix**
+### Fix Applied
 File: `src/app/api/buyer/orders/[id]/cancel/route.ts`
 
-Change query approach to bypass RLS function issue:
-1. Query `orders` first with `.eq('buyer_user_id', user.id)` to verify ownership
-2. Then query `order_items` with `.eq('order_id', order.id)`
-3. This mirrors how order detail API works (which succeeds)
+Changed query approach to bypass the RLS issue:
+1. Query `orders` first with nested `order_items` (buyer_user_id filter)
+2. Find the order containing the target order_item_id
+3. Extract both order and orderItem from the nested result
+4. Continue with cancellation logic
 
-```typescript
-// Step 1: Verify order ownership
-const { data: order } = await supabase
-  .from('orders')
-  .select('id, buyer_user_id, status, grace_period_ends_at')
-  .eq('id', orderIdFromItem)  // Need to get this from order_items first or pass it
-  .eq('buyer_user_id', user.id)
-  .single()
-
-// Step 2: Get order item with verified order
-const { data: orderItem } = await supabase
-  .from('order_items')
-  .select('id, status, subtotal_cents, ...')
-  .eq('id', orderItemId)
-  .eq('order_id', order.id)
-  .single()
-```
-
-Note: May need to adjust query order - get order_item first to find order_id, then verify order ownership, then proceed.
+This mirrors how the working order detail API operates - query orders first, get items nested.
 
 ## Commits Made This Session (02/05/2026 Session 3)
 

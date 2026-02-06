@@ -37,48 +37,63 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // No body provided, that's fine
     }
 
-    // Get the order item with order info including grace period
-    crumb.supabase('select', 'order_items')
-    const { data: orderItem, error: fetchError } = await supabase
-      .from('order_items')
+    // FIX: Query orders first to bypass RLS issue on order_items table
+    // The order_items_select RLS policy uses user_buyer_order_ids() which should work,
+    // but querying order_items directly fails. Querying orders first (with nested items) works.
+    crumb.supabase('select', 'orders')
+    const { data: userOrders, error: fetchError } = await supabase
+      .from('orders')
       .select(`
         id,
+        buyer_user_id,
         status,
-        subtotal_cents,
-        platform_fee_cents,
-        vendor_payout_cents,
-        cancelled_at,
-        listing:listings (
+        total_cents,
+        grace_period_ends_at,
+        order_items (
           id,
-          vendor_profile_id,
-          vendor_profiles (
-            id,
-            user_id,
-            profile_data
-          )
-        ),
-        order:orders!inner (
-          id,
-          buyer_user_id,
           status,
-          total_cents,
-          grace_period_ends_at
+          subtotal_cents,
+          platform_fee_cents,
+          vendor_payout_cents,
+          cancelled_at,
+          listing:listings (
+            id,
+            vendor_profile_id,
+            vendor_profiles (
+              id,
+              user_id,
+              profile_data
+            )
+          )
         )
       `)
-      .eq('id', orderItemId)
-      .single()
+      .eq('buyer_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50) // Reasonable limit for recent orders
 
-    if (fetchError || !orderItem) {
+    if (fetchError) {
+      throw traced.fromSupabase(fetchError, { table: 'orders', operation: 'select' })
+    }
+
+    // Find the order containing the target order_item
+    let order: typeof userOrders[0] | null = null
+    let orderItem: typeof userOrders[0]['order_items'][0] | null = null
+
+    for (const o of userOrders || []) {
+      const item = o.order_items?.find((i: { id: string }) => i.id === orderItemId)
+      if (item) {
+        order = o
+        orderItem = item
+        break
+      }
+    }
+
+    if (!order || !orderItem) {
       throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
     }
 
-    // Verify this order belongs to the current user
-    crumb.auth('Verifying order ownership')
-    const orderData = orderItem.order as unknown
-    const order = Array.isArray(orderData) ? orderData[0] : orderData
-    if (!order || (order as { buyer_user_id: string }).buyer_user_id !== user.id) {
-      throw traced.auth('ERR_AUTH_002', 'Not authorized to cancel this order item')
-    }
+    // Ownership already verified via buyer_user_id filter in query
+    crumb.auth('Order ownership verified via query filter')
 
     // Check if already cancelled
     if (orderItem.cancelled_at) {
@@ -95,9 +110,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Determine cancellation penalty eligibility
     // Layer 1: 1-hour grace period — always wins, no penalty
     // Layer 2: After grace period, penalty only applies if vendor has confirmed the order
-    const typedOrder = order as { id: string; grace_period_ends_at: string | null }
-    const gracePeriodEndsAt = typedOrder.grace_period_ends_at
-      ? new Date(typedOrder.grace_period_ends_at)
+    const gracePeriodEndsAt = order.grace_period_ends_at
+      ? new Date(order.grace_period_ends_at)
       : null
     const withinGracePeriod = gracePeriodEndsAt ? new Date() < gracePeriodEndsAt : true
     const vendorHasConfirmed = ['confirmed', 'ready', 'fulfilled'].includes(orderItem.status)
@@ -158,7 +172,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Check if all items in the order are now cancelled - if so, update order status
-    const orderId = typedOrder.id
+    const orderId = order.id
     crumb.supabase('select', 'order_items')
     const { data: remainingItems } = await supabase
       .from('order_items')
