@@ -40,6 +40,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // FIX: Query orders first to bypass RLS issue on order_items table
     // The order_items_select RLS policy uses user_buyer_order_ids() which should work,
     // but querying order_items directly fails. Querying orders first (with nested items) works.
+    // Note: Only select columns that definitely exist - grace_period_ends_at may not be applied
     crumb.supabase('select', 'orders')
     const { data: userOrders, error: fetchError } = await supabase
       .from('orders')
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         buyer_user_id,
         status,
         total_cents,
-        grace_period_ends_at,
+        created_at,
         order_items (
           id,
           status,
@@ -61,8 +62,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             vendor_profile_id,
             vendor_profiles (
               id,
-              user_id,
-              profile_data
+              user_id
             )
           )
         )
@@ -110,10 +110,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Determine cancellation penalty eligibility
     // Layer 1: 1-hour grace period — always wins, no penalty
     // Layer 2: After grace period, penalty only applies if vendor has confirmed the order
-    const gracePeriodEndsAt = order.grace_period_ends_at
-      ? new Date(order.grace_period_ends_at)
-      : null
-    const withinGracePeriod = gracePeriodEndsAt ? new Date() < gracePeriodEndsAt : true
+    // Note: grace_period_ends_at column may not exist, so we calculate from created_at
+    const orderCreatedAt = order.created_at ? new Date(order.created_at) : new Date()
+    const gracePeriodEndsAt = new Date(orderCreatedAt.getTime() + 60 * 60 * 1000) // 1 hour after creation
+    const withinGracePeriod = new Date() < gracePeriodEndsAt
     const vendorHasConfirmed = ['confirmed', 'ready', 'fulfilled'].includes(orderItem.status)
 
     // Calculate what buyer originally paid for this item
