@@ -154,6 +154,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Update the order item as cancelled
+    // Note: cancellation_fee_cents column doesn't exist - we only store refund_amount_cents
     crumb.supabase('update', 'order_items')
     const { error: updateError } = await supabase
       .from('order_items')
@@ -162,8 +163,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         cancelled_at: new Date().toISOString(),
         cancelled_by: 'buyer',
         cancellation_reason: reason || 'Cancelled by buyer',
-        refund_amount_cents: refundAmountCents,
-        cancellation_fee_cents: cancellationFeeCents
+        refund_amount_cents: refundAmountCents
       })
       .eq('id', orderItemId)
 
