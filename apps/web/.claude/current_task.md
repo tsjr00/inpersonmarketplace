@@ -1,8 +1,53 @@
-# Current Task: Unified Pricing Module Complete
+# Current Task: Inventory Decrement Complete
 Started: 2026-02-05
-Last Updated: 2026-02-06 (Session 5)
+Last Updated: 2026-02-06 (Session 6)
 
-## COMPLETED: Unified Pricing System
+## COMPLETED: Inventory Decrement on Purchase
+
+### The Problem We Solved
+Inventory count was NOT being decremented when items were purchased. A listing with quantity=10 would still show 10 after 5 were sold.
+
+### The Solution: `src/app/api/checkout/success/route.ts`
+
+Added idempotent inventory decrement after payment confirmation:
+
+```typescript
+// Inside the `!existingPayment` block (only runs once per order)
+
+// Get order items and group by listing_id
+const quantityByListing = new Map<string, number>()
+for (const item of orderItems) {
+  const current = quantityByListing.get(item.listing_id) || 0
+  quantityByListing.set(item.listing_id, current + item.quantity)
+}
+
+// Decrement each listing (skip if quantity is null = unlimited)
+for (const [listingId, quantityPurchased] of quantityByListing) {
+  const { data: listing } = await serviceClient.from('listings').select('quantity').eq('id', listingId).single()
+  if (listing && listing.quantity !== null) {
+    const newQuantity = Math.max(0, listing.quantity - quantityPurchased)
+    await serviceClient.from('listings').update({ quantity: newQuantity }).eq('id', listingId)
+  }
+}
+```
+
+### Key Design Decisions
+
+1. **Where**: In `checkout/success/route.ts` after payment confirmation, not during order creation
+2. **Idempotent**: Only decrements when `!existingPayment` (first processing)
+3. **Null = Unlimited**: If `listing.quantity` is null, don't decrement (unlimited stock)
+4. **Floor at 0**: `Math.max(0, ...)` prevents negative inventory
+5. **Service Client**: Uses service client to bypass RLS (buyer can't update listings)
+
+### Existing Inventory Checks (already working)
+
+- `cart/add/route.ts:28` - Blocks add if `listing.quantity < quantity`
+- `cart/validate/route.ts:201-202` - Uses `null ? 999 : quantity` for availability
+- `checkout/page.tsx:697-709` - Disables + button at max quantity
+
+---
+
+## COMPLETED: Unified Pricing System (Session 5)
 
 ### The Problem We Solved
 Prices were inconsistent across screens because flat fee ($0.15) was applied per-item instead of per-order in some places.
@@ -58,50 +103,31 @@ calculateOrderPricing(items) → { subtotalCents, buyerTotalCents, vendorPayoutC
 
 ## What's Remaining
 
-- [ ] Test the service fee display after latest deploy
-- [ ] **CRITICAL: Inventory decrement on purchase** (see below)
+- [x] ~~Inventory decrement on purchase~~ (DONE - Session 6)
+- [x] ~~Market box pricing fix~~ (DONE - Session 6)
+- [ ] Test inventory decrement after deploy
+- [ ] Test market box pricing after deploy
+- [ ] Low inventory vendor notification (optional enhancement)
+- [ ] Vendor dashboard - show low/out of stock badges (optional)
 - [ ] Checkout success screen - add feedback/review capture
 - [ ] End-to-end testing
 
-## NEXT TASK: Inventory Management
-
-### Problem
-Inventory count is NOT being decremented when items are purchased.
-
-### What needs to happen:
-1. **Decrement inventory** when order is placed/paid
-2. **Notify vendor** when inventory is low or zero
-3. **Block purchases** when inventory = 0 (may already exist)
-4. **Vendor updates inventory** via listing edit (already exists)
-
-### Where to look:
-- `src/app/api/checkout/session/route.ts` - Order creation (decrement here?)
-- `src/app/api/checkout/success/route.ts` - Payment confirmed (or here?)
-- Listing table has `available_quantity` column
-- Check existing logic for quantity=0 blocking
-
-### Display inventory status:
-- Vendor dashboard listing cards - show low/out of stock badge
-- Vendor can edit listing to update quantity
-
-### Questions to investigate:
-1. Where is `available_quantity` on listings table?
-2. Is there existing decrement logic anywhere?
-3. What happens when quantity hits 0? (check browse, cart, checkout)
-
-## ALSO: Market Box Pricing Issue
+## COMPLETED: Market Box Pricing Fix (Session 6)
 
 ### Problem
 - Detail screen: $79.88 (base $75 + 6.5%)
 - Stripe checkout: $75.00 (base only, missing fee)
 
-### Root cause
-Market box uses `createMarketBoxCheckoutSession()` in `lib/stripe/payments.ts` which passes `priceCents` directly without applying fees.
+### Solution
+In `src/app/api/buyer/market-boxes/route.ts`:
+```typescript
+import { calculateBuyerPrice } from '@/lib/pricing'
+// ...
+const buyerTotalCents = calculateBuyerPrice(priceCents)
+// Pass buyerTotalCents to createMarketBoxCheckoutSession
+```
 
-### Fix needed
-Apply `calculateBuyerPrice()` to market box price before sending to Stripe.
-
-### Additional question
+### Additional question (for later)
 Should market boxes be addable to cart with other items? Currently skips cart entirely.
 
 ## Commits This Session
