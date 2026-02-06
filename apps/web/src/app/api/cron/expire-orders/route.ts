@@ -141,16 +141,16 @@ export async function GET(request: NextRequest) {
         const vendor = item.vendor as any
         const vendorData = vendor?.profile_data as Record<string, unknown> | null
 
-        if (order?.buyer?.email) {
+        if (order?.buyer_user_id) {
           await notifyOrderExpired(
-            order.buyer.email,
-            order.buyer.display_name || 'Customer',
+            order.buyer_user_id,
             {
               orderNumber: order.order_number || item.order_id.slice(0, 8),
               itemTitle: listing?.title || 'Item',
               vendorName: (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor',
-              amount: item.subtotal_cents
-            }
+              amountCents: item.subtotal_cents
+            },
+            { userEmail: order.buyer?.email }
           )
         }
 

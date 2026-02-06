@@ -8,6 +8,7 @@ import PaymentMethodsCard from './PaymentMethodsCard'
 import FeeBalanceCard from './FeeBalanceCard'
 import PromoteCard from './PromoteCard'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
+import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -858,9 +859,14 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
           </div>
 
-        {/* Referral Card - Compact row */}
+        {/* Notifications & Referral - Side by side on desktop */}
         {vendorProfile.status === 'approved' && (
-          <div style={{ marginBottom: spacing.md }}>
+          <div className="promote-grow-grid" style={{
+            display: 'grid',
+            gap: spacing.sm,
+            marginBottom: spacing.md
+          }}>
+            <DashboardNotifications vertical={vertical} limit={5} />
             <ReferralCard vertical={vertical} />
           </div>
         )}
@@ -948,27 +954,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             )}
           </div>
         )}
-
-        {/* Coming Soon */}
-        <div style={{
-          padding: spacing.sm,
-          backgroundColor: colors.surfaceMuted,
-          color: colors.textPrimary,
-          border: `1px solid ${colors.border}`,
-          borderRadius: radius.md
-        }}>
-          <h3 style={{
-            margin: `0 0 ${spacing.xs} 0`,
-            color: colors.textMuted,
-            fontSize: typography.sizes.base,
-            fontWeight: typography.weights.semibold
-          }}>
-            Coming Soon
-          </h3>
-          <ul style={{ margin: 0, paddingLeft: 20, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-            <li>Customer messages</li>
-          </ul>
-        </div>
       </div>
 
       {/* Responsive Styles */}

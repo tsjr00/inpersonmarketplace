@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CartButton } from '@/components/cart/CartButton'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface HeaderProps {
@@ -195,7 +196,8 @@ export function Header({
 
           {/* Right Side - Cart & User */}
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-            {/* Cart - always visible */}
+            {/* Notifications & Cart - logged in users */}
+            {user && <NotificationBell primaryColor={colors.primary} vertical={vertical} />}
             {user && <CartButton primaryColor={colors.primary} />}
 
             {/* User Menu - Desktop */}

@@ -9,6 +9,7 @@ import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import FeedbackCard from '@/components/buyer/FeedbackCard'
 import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
 import RateOrderCard from '@/components/buyer/RateOrderCard'
+import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -364,9 +365,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         {/* Rate Recent Order Card */}
         <RateOrderCard vertical={vertical} />
 
-        <div style={{
+        <div className="shopper-grid" style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gridTemplateColumns: 'repeat(2, 1fr)',
           gap: spacing.sm
         }}>
           {/* Browse Products Card */}
@@ -448,6 +449,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               )}
             </p>
           </Link>
+
+          {/* Notifications Card */}
+          <DashboardNotifications vertical={vertical} limit={3} />
 
           {/* Share Feedback Card */}
           <FeedbackCard vertical={vertical} />
@@ -899,6 +903,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
       {/* ========== ONBOARDING TUTORIAL ========== */}
       <TutorialWrapper vertical={vertical} showTutorial={showTutorial} />
+
+      {/* Responsive Styles */}
+      <style>{`
+        @media (max-width: 540px) {
+          .shopper-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
