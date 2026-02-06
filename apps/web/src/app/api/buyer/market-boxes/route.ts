@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { createMarketBoxCheckoutSession } from '@/lib/stripe/payments'
+import { calculateBuyerPrice } from '@/lib/pricing'
 
 // Default subscriber limits by tier
 const SUBSCRIBER_LIMITS = {
@@ -284,14 +285,16 @@ export async function POST(request: NextRequest) {
     const verticalId = (offeringWithVertical?.market as any)?.vertical_id || 'farmers_market'
 
     // Create Stripe checkout session
+    // Apply buyer fee (6.5% + $0.15) to match what's shown on the detail page
     crumb.stripe('create checkout session')
+    const buyerTotalCents = calculateBuyerPrice(priceCents)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const session = await createMarketBoxCheckoutSession({
       offeringId: offering_id,
       offeringName: offering.name,
       userId: user.id,
       termWeeks: term_weeks,
-      priceCents,
+      priceCents: buyerTotalCents,
       startDate: subscriptionStartDate,
       successUrl: `${baseUrl}/${verticalId}/buyer/subscriptions?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}/${verticalId}/market-box/${offering_id}?cancelled=true`,
