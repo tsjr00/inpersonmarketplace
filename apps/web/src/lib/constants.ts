@@ -10,7 +10,8 @@
 export {
   formatPrice,
   formatDisplayPrice,
-  calculateBuyerPrice as calculateDisplayPrice,
+  calculateItemDisplayPrice as calculateDisplayPrice,  // For individual items (no flat fee)
+  calculateBuyerPrice,  // For order totals (includes flat fee)
   FEES,
 } from './pricing'
 

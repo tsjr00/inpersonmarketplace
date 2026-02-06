@@ -7,7 +7,7 @@ import OrderStatusSummary from '@/components/buyer/OrderStatusSummary'
 import OrderTimeline from '@/components/buyer/OrderTimeline'
 import PickupDetails from '@/components/buyer/PickupDetails'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
-import { formatPrice, calculateDisplayPrice } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice, calculateBuyerPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface Market {
@@ -929,12 +929,11 @@ export default function BuyerOrderDetailPage() {
         {/* Order Total with Breakdown */}
         {(() => {
           // Calculate totals from items (using buyer-facing prices, excluding cancelled)
-          // Sum subtotals first, then apply display price calculation ONCE to avoid
-          // adding the flat fee per item instead of per order
+          // Sum subtotals first, then apply buyer price (includes flat fee once)
           const activeItemsSubtotal = order.items.reduce((sum, item) =>
             item.cancelled_at ? sum : sum + item.subtotal_cents, 0
           )
-          const itemsSubtotal = calculateDisplayPrice(activeItemsSubtotal)
+          const itemsSubtotal = calculateBuyerPrice(activeItemsSubtotal)
           return (
             <div style={{
               padding: spacing.md,

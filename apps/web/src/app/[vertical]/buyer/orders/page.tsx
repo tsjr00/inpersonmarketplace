@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatPrice, calculateDisplayPrice } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice, calculateBuyerPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 
@@ -360,11 +360,10 @@ export default function BuyerOrdersPage() {
             const isCancelledOrder = ['cancelled', 'refunded'].includes(order.status)
             const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
             // Calculate buyer-facing total from items (excluding cancelled items)
-            // Sum subtotals first, then apply display price calculation ONCE to avoid
-            // adding the flat fee per item instead of per order
+            // Sum subtotals first, then apply buyer price (includes flat fee once)
             const activeItemsSubtotal = order.items?.reduce((sum, item) =>
               item.cancelled_at ? sum : sum + item.subtotal_cents, 0) || 0
-            const orderTotal = calculateDisplayPrice(activeItemsSubtotal)
+            const orderTotal = calculateBuyerPrice(activeItemsSubtotal)
 
             // Determine visual urgency styling
             const isReady = order.status === 'ready'

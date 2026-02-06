@@ -88,14 +88,27 @@ export function calculateOrderPricing(items: OrderItem[]): OrderPricing {
 }
 
 /**
- * Calculate buyer display price for a single item or subtotal
- * Use this for showing prices in UI
+ * Calculate buyer display price for ORDER TOTAL
+ * Includes percentage fee + flat fee (once per order)
+ * Use this for cart/checkout totals
  *
- * @param baseCents - Base price in cents (can be single item or order subtotal)
- * @returns Price buyer pays in cents
+ * @param subtotalCents - Order subtotal in cents
+ * @returns Total buyer pays in cents
  */
-export function calculateBuyerPrice(baseCents: number): number {
-  return Math.round(baseCents * (1 + FEES.buyerFeePercent / 100)) + FEES.buyerFlatFeeCents
+export function calculateBuyerPrice(subtotalCents: number): number {
+  return Math.round(subtotalCents * (1 + FEES.buyerFeePercent / 100)) + FEES.buyerFlatFeeCents
+}
+
+/**
+ * Calculate display price for a SINGLE ITEM
+ * Includes percentage fee only (flat fee is added once at checkout)
+ * Use this for browse pages, listing cards, cart items
+ *
+ * @param baseCents - Item base price in cents
+ * @returns Item display price in cents (without flat fee)
+ */
+export function calculateItemDisplayPrice(baseCents: number): number {
+  return Math.round(baseCents * (1 + FEES.buyerFeePercent / 100))
 }
 
 /**
@@ -119,14 +132,14 @@ export function formatPrice(cents: number): string {
 }
 
 /**
- * Format base price with fees applied as dollar string
- * Convenience function combining calculateBuyerPrice + formatPrice
+ * Format item price with percentage fee as dollar string
+ * For displaying individual item prices (flat fee added separately at checkout)
  *
  * @param basePriceCents - Base price in cents
- * @returns Formatted string like "$12.34" with fees included
+ * @returns Formatted string like "$8.52" with percentage fee included
  */
 export function formatDisplayPrice(basePriceCents: number): string {
-  return formatPrice(calculateBuyerPrice(basePriceCents))
+  return formatPrice(calculateItemDisplayPrice(basePriceCents))
 }
 
 /**

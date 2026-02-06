@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
-import { calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS } from '@/lib/constants'
+import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 
@@ -405,9 +405,8 @@ export default function CheckoutPage() {
   }, 0)
 
   // Calculate display total with platform fee
-  // Apply calculateDisplayPrice to the TOTAL, not per-item, to avoid
-  // adding flat fee per item instead of once per order
-  const total = calculateDisplayPrice(baseSubtotal)
+  // Use calculateBuyerPrice for order total (includes flat fee once)
+  const total = calculateBuyerPrice(baseSubtotal)
   const belowMinimum = baseSubtotal < MINIMUM_ORDER_CENTS
   const amountNeeded = belowMinimum ? ((MINIMUM_ORDER_CENTS - baseSubtotal) / 100).toFixed(2) : '0'
 

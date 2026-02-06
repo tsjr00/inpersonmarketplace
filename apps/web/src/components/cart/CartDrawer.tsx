@@ -2,7 +2,7 @@
 
 import { useRouter, useParams } from 'next/navigation'
 import { useCart, CartItem } from '@/lib/hooks/useCart'
-import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
+import { calculateBuyerPrice, calculateDisplayPrice, formatPrice } from '@/lib/constants'
 
 export function CartDrawer() {
   const router = useRouter()
@@ -11,12 +11,12 @@ export function CartDrawer() {
   const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen, loading, hasScheduleIssues } = useCart()
 
   // Calculate display total with platform fee
-  // Sum base prices first, then apply display price calculation ONCE
-  // to avoid adding flat fee per item instead of per order
+  // Sum base prices first, then apply buyer price calculation ONCE
+  // (includes percentage fee + flat fee once per order)
   const baseSubtotal = items.reduce((sum, item) => {
     return sum + (item.price_cents || 0) * item.quantity
   }, 0)
-  const displayTotal = calculateDisplayPrice(baseSubtotal)
+  const displayTotal = calculateBuyerPrice(baseSubtotal)
 
   function handleCheckout() {
     setIsOpen(false)
