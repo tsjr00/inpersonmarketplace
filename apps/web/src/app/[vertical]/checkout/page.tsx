@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
-import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS } from '@/lib/constants'
+import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS, FEES } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 
@@ -873,8 +873,18 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.sm,
                   color: colors.textMuted,
                 }}>
-                  <span>Items ({checkoutItems.reduce((s, i) => s + i.quantity, 0)})</span>
-                  <span>{formatPrice(total)}</span>
+                  <span>Subtotal ({checkoutItems.reduce((s, i) => s + i.quantity, 0)} items)</span>
+                  <span>{formatPrice(total - FEES.buyerFlatFeeCents)}</span>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: spacing['2xs'],
+                  fontSize: typography.sizes.sm,
+                  color: colors.textMuted,
+                }}>
+                  <span>Service Fee</span>
+                  <span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
                 </div>
                 <div style={{
                   display: 'flex',

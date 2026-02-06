@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatPrice, calculateDisplayPrice, calculateBuyerPrice } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 
@@ -527,6 +527,17 @@ export default function BuyerOrdersPage() {
                             </div>
                           )
                         })}
+                        {/* Service Fee */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          padding: `${spacing.xs} ${spacing.sm}`,
+                          fontSize: typography.sizes.sm,
+                          color: colors.textMuted,
+                        }}>
+                          <span>Service Fee</span>
+                          <span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
+                        </div>
                       </div>
                     ) : (
                       <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>
