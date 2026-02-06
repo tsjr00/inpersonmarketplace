@@ -13,7 +13,6 @@ export async function GET(request: Request) {
     return rateLimitResponse(rateLimitResult)
   }
 
-  console.log('[/api/admin/feedback] GET request received')
   try {
     const supabase = await createClient()
 
@@ -30,11 +29,8 @@ export async function GET(request: Request) {
       .single()
 
     if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
-      console.log('[/api/admin/feedback] Admin check failed:', { profileError, userProfile })
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
-
-    console.log('[/api/admin/feedback] Admin verified, user:', user.id)
 
     // Use service client to bypass RLS for admin queries
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -48,8 +44,6 @@ export async function GET(request: Request) {
     const category = searchParams.get('category')
     const status = searchParams.get('status')
     const source = searchParams.get('source') || 'shopper' // 'shopper' or 'vendor'
-
-    console.log('[/api/admin/feedback] Fetching feedback:', { vertical, category, status, source })
 
     // Choose table based on source
     const tableName = source === 'vendor' ? 'vendor_feedback' : 'shopper_feedback'
@@ -73,11 +67,9 @@ export async function GET(request: Request) {
     const { data: feedback, error: fetchError } = await query
 
     if (fetchError) {
-      console.error(`[/api/admin/feedback] Error fetching ${source} feedback:`, fetchError)
+      console.error('[/api/admin/feedback] Error fetching feedback:', fetchError.message)
       return NextResponse.json({ error: 'Failed to fetch feedback' }, { status: 500 })
     }
-
-    console.log(`[/api/admin/feedback] Found ${(feedback || []).length} ${source} feedback items for vertical: ${vertical || 'all'}`)
 
     // Get user emails for feedback items
     const userIds = [...new Set((feedback || []).map(f => f.user_id))]
@@ -134,7 +126,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ feedback: transformedFeedback, counts, source })
 
   } catch (error) {
-    console.error('[/api/admin/feedback] Unexpected error:', error)
+    console.error('[/api/admin/feedback] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -210,14 +202,14 @@ export async function PATCH(request: Request) {
       .single()
 
     if (updateError) {
-      console.error(`[/api/admin/feedback] Error updating ${source || 'shopper'} feedback:`, updateError)
+      console.error('[/api/admin/feedback] Error updating feedback:', updateError.message)
       return NextResponse.json({ error: 'Failed to update feedback' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, feedback })
 
   } catch (error) {
-    console.error('[/api/admin/feedback] Unexpected error:', error)
+    console.error('[/api/admin/feedback] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

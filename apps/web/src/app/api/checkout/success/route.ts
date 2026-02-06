@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/checkout/success', 'GET', async () => {
@@ -10,6 +11,13 @@ export async function GET(request: NextRequest) {
 
     if (!sessionId) {
       throw traced.validation('ERR_CHECKOUT_003', 'Missing session_id')
+    }
+
+    // Verify authenticated user before any processing
+    crumb.auth('Verifying user authentication')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
     // Verify session with Stripe
@@ -23,38 +31,40 @@ export async function GET(request: NextRequest) {
     const orderId = session.metadata?.order_id
     const paymentIntentId = session.payment_intent as string
 
-    console.log('[checkout/success] Processing payment:', { orderId, paymentIntentId, sessionId })
+    crumb.logic('Processing payment for order')
 
     if (!orderId) {
-      console.error('[checkout/success] Missing order_id in session metadata')
       throw traced.validation('ERR_CHECKOUT_004', 'Missing order_id in session metadata')
     }
 
     // Use service client for payment operations (buyers don't have RLS insert permission on payments)
     const serviceClient = createServiceClient()
 
-    // Get order to calculate platform fee
+    // Verify order ownership - the authenticated user must own this order
     crumb.supabase('select', 'orders')
     const { data: order, error: orderError } = await serviceClient
       .from('orders')
-      .select('platform_fee_cents')
+      .select('platform_fee_cents, buyer_user_id')
       .eq('id', orderId)
       .single()
 
-    if (orderError) {
-      console.error('[checkout/success] Error fetching order:', orderError)
+    if (orderError || !order) {
+      throw traced.validation('ERR_CHECKOUT_004', 'Order not found')
+    }
+
+    if (order.buyer_user_id !== user.id) {
+      throw traced.auth('ERR_AUTH_002', 'Not authorized for this order')
     }
 
     // Update order status to paid
-    // Note: grace_period_ends_at column doesn't exist - calculate from created_at when needed
     crumb.supabase('update', 'orders')
-    const { error: updateError } = await serviceClient
+    const { error: statusError } = await serviceClient
       .from('orders')
       .update({ status: 'paid' })
       .eq('id', orderId)
 
-    if (updateError) {
-      console.error('[checkout/success] Error updating order status:', updateError)
+    if (statusError) {
+      crumb.logic('Failed to update order status')
     }
 
     // Create payment record (idempotent - skip if already created by webhook)
@@ -71,16 +81,15 @@ export async function GET(request: NextRequest) {
         order_id: orderId,
         stripe_payment_intent_id: paymentIntentId,
         amount_cents: session.amount_total!,
-        platform_fee_cents: order?.platform_fee_cents || 0,
+        platform_fee_cents: order.platform_fee_cents || 0,
         status: 'succeeded',
         paid_at: new Date().toISOString(),
       })
 
       if (insertError) {
-        console.error('[checkout/success] Error inserting payment record:', insertError)
         throw traced.fromSupabase(insertError, { table: 'payments', operation: 'insert' })
       }
-      console.log('[checkout/success] Payment record created successfully')
+      crumb.logic('Payment record created')
 
       // Decrement inventory for purchased items (only on first successful payment processing)
       crumb.supabase('select', 'order_items')
@@ -90,7 +99,7 @@ export async function GET(request: NextRequest) {
         .eq('order_id', orderId)
 
       if (orderItemsError) {
-        console.error('[checkout/success] Error fetching order items for inventory update:', orderItemsError)
+        crumb.logic('Failed to fetch order items for inventory update')
       } else if (orderItems && orderItems.length > 0) {
         crumb.logic('Decrementing inventory for purchased items')
 
@@ -101,77 +110,107 @@ export async function GET(request: NextRequest) {
           quantityByListing.set(item.listing_id, current + item.quantity)
         }
 
-        // Decrement each listing's quantity (skip if quantity is null = unlimited)
-        const LOW_STOCK_THRESHOLD = 5
+        // Batch fetch all listings at once (instead of one-by-one)
+        const listingIds = Array.from(quantityByListing.keys())
+        crumb.supabase('select', 'listings (batch)')
+        const { data: listings } = await serviceClient
+          .from('listings')
+          .select('id, quantity, title, vendor_profile_id, vendor_profiles(user_id)')
+          .in('id', listingIds)
 
-        for (const [listingId, quantityPurchased] of quantityByListing) {
-          // Fetch listing with vendor info for notifications
-          const { data: listing } = await serviceClient
-            .from('listings')
-            .select('quantity, title, vendor_profile_id, vendor_profiles(user_id)')
-            .eq('id', listingId)
-            .single()
+        if (listings && listings.length > 0) {
+          // Atomic inventory updates + notification collection (parallel)
+          const notifications: Array<{
+            user_id: string
+            type: string
+            title: string
+            message: string
+            data: Record<string, unknown>
+          }> = []
 
-          if (listing && listing.quantity !== null) {
-            const newQuantity = Math.max(0, listing.quantity - quantityPurchased)
-            const { error: updateError } = await serviceClient
-              .from('listings')
-              .update({ quantity: newQuantity })
-              .eq('id', listingId)
+          crumb.supabase('update', 'listings (atomic batch)')
+          const updateResults = await Promise.all(
+            listings
+              .filter(listing => listing.quantity !== null)
+              .map(async (listing) => {
+                const quantityPurchased = quantityByListing.get(listing.id) || 0
+                const previousQuantity = listing.quantity as number
 
-            if (updateError) {
-              console.error(`[checkout/success] Error updating inventory for listing ${listingId}:`, updateError)
-            } else {
-              console.log(`[checkout/success] Inventory updated: listing ${listingId} ${listing.quantity} -> ${newQuantity}`)
-
-              // Notify vendor if inventory is low or out of stock
-              const vendorProfile = listing.vendor_profiles as unknown as { user_id: string } | null
-              const vendorUserId = vendorProfile?.user_id
-              if (vendorUserId) {
-                if (newQuantity === 0) {
-                  // Out of stock notification
-                  await serviceClient.from('notifications').insert({
-                    user_id: vendorUserId,
-                    type: 'inventory_out_of_stock',
-                    title: 'Out of Stock',
-                    message: `"${listing.title}" is now out of stock. Update your listing to add more inventory.`,
-                    data: { listing_id: listingId, listing_title: listing.title }
+                // Atomic decrement - prevents race condition between concurrent checkouts
+                const { data: updated, error: updateErr } = await serviceClient
+                  .rpc('atomic_decrement_inventory' as string, {
+                    p_listing_id: listing.id,
+                    p_quantity: quantityPurchased
                   })
-                  console.log(`[checkout/success] Sent out-of-stock notification for listing ${listingId}`)
-                } else if (newQuantity <= LOW_STOCK_THRESHOLD && listing.quantity > LOW_STOCK_THRESHOLD) {
-                  // Low stock notification (only if just crossed threshold)
-                  await serviceClient.from('notifications').insert({
-                    user_id: vendorUserId,
-                    type: 'inventory_low_stock',
-                    title: 'Low Stock Alert',
-                    message: `"${listing.title}" has only ${newQuantity} left in stock.`,
-                    data: { listing_id: listingId, listing_title: listing.title, quantity_remaining: newQuantity }
-                  })
-                  console.log(`[checkout/success] Sent low-stock notification for listing ${listingId}`)
+                  .single()
+
+                // Fallback if RPC doesn't exist yet (pre-migration)
+                let newQuantity: number
+                if (updateErr) {
+                  newQuantity = Math.max(0, previousQuantity - quantityPurchased)
+                  await serviceClient
+                    .from('listings')
+                    .update({ quantity: newQuantity })
+                    .eq('id', listing.id)
+                } else {
+                  newQuantity = (updated as { new_quantity: number })?.new_quantity ?? Math.max(0, previousQuantity - quantityPurchased)
                 }
-              }
+
+                // Collect notifications (don't send inline - batch later)
+                const vendorProfile = listing.vendor_profiles as unknown as { user_id: string } | null
+                const vendorUserId = vendorProfile?.user_id
+                if (vendorUserId) {
+                  if (newQuantity === 0) {
+                    notifications.push({
+                      user_id: vendorUserId,
+                      type: 'inventory_out_of_stock',
+                      title: 'Out of Stock',
+                      message: `"${listing.title}" is now out of stock. Update your listing to add more inventory.`,
+                      data: { listing_id: listing.id, listing_title: listing.title }
+                    })
+                  } else if (newQuantity <= LOW_STOCK_THRESHOLD && previousQuantity > LOW_STOCK_THRESHOLD) {
+                    notifications.push({
+                      user_id: vendorUserId,
+                      type: 'inventory_low_stock',
+                      title: 'Low Stock Alert',
+                      message: `"${listing.title}" has only ${newQuantity} left in stock.`,
+                      data: { listing_id: listing.id, listing_title: listing.title, quantity_remaining: newQuantity }
+                    })
+                  }
+                }
+
+                return { listingId: listing.id, previousQuantity, newQuantity }
+              })
+          )
+
+          crumb.logic(`Inventory updated for ${updateResults.length} listings`)
+
+          // Batch insert all notifications at once
+          if (notifications.length > 0) {
+            crumb.supabase('insert', 'notifications (batch)')
+            const { error: notifyError } = await serviceClient
+              .from('notifications')
+              .insert(notifications)
+            if (notifyError) {
+              crumb.logic(`Failed to send ${notifications.length} stock notifications`)
             }
           }
         }
       }
     } else {
-      console.log('[checkout/success] Payment record already exists (skipping inventory decrement)')
+      crumb.logic('Payment record already exists (skipping inventory decrement)')
     }
 
     // Clear the buyer's cart after successful payment
-    crumb.auth('Getting user for cart cleanup')
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      crumb.supabase('select', 'carts')
-      const { data: cart } = await supabase
-        .from('carts')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-      if (cart) {
-        crumb.supabase('delete', 'cart_items')
-        await supabase.from('cart_items').delete().eq('cart_id', cart.id)
-      }
+    crumb.supabase('select', 'carts')
+    const { data: cart } = await supabase
+      .from('carts')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+    if (cart) {
+      crumb.supabase('delete', 'cart_items')
+      await supabase.from('cart_items').delete().eq('cart_id', cart.id)
     }
 
     // Fetch full order details for the success page

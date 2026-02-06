@@ -8,6 +8,7 @@ import PaymentMethodsCard from './PaymentMethodsCard'
 import FeeBalanceCard from './FeeBalanceCard'
 import PromoteCard from './PromoteCard'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
+import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface VendorDashboardPageProps {
@@ -56,8 +57,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
   // Get draft listings count for approved vendors
   let draftCount = 0
-  // Low stock threshold
-  const LOW_STOCK_THRESHOLD = 5
+  // Low stock threshold (from centralized constants)
   let outOfStockCount = 0
   let lowStockCount = 0
 

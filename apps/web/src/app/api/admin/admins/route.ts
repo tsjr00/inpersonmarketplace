@@ -1,8 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 // GET - List all platform admins
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const supabase = await createClient()
 
@@ -18,14 +25,10 @@ export async function GET() {
       .eq('user_id', user.id)
       .single()
 
-    console.log('[/api/admin/admins] Caller profile:', JSON.stringify(callerProfile))
-
     const isAdmin = callerProfile?.role === 'admin' ||
                     callerProfile?.role === 'platform_admin' ||
                     callerProfile?.roles?.includes('admin') ||
                     callerProfile?.roles?.includes('platform_admin')
-
-    console.log('[/api/admin/admins] isAdmin check result:', isAdmin)
 
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
@@ -42,7 +45,7 @@ export async function GET() {
       .order('created_at', { ascending: true })
 
     if (error) {
-      console.error('[/api/admin/admins] Error fetching admins:', error)
+      console.error('[/api/admin/admins] Error fetching admins:', error instanceof Error ? error.message : 'Unknown error')
       return NextResponse.json({ error: 'Failed to fetch admins' }, { status: 500 })
     }
 
@@ -52,13 +55,19 @@ export async function GET() {
       isChiefAdmin: callerProfile?.is_chief_platform_admin || false
     })
   } catch (error) {
-    console.error('[/api/admin/admins] Unexpected error:', error)
+    console.error('[/api/admin/admins] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 // POST - Add a new platform admin
 export async function POST(request: Request) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const supabase = await createClient()
 
@@ -130,7 +139,7 @@ export async function POST(request: Request) {
       .eq('user_id', targetUser.user_id)
 
     if (updateError) {
-      console.error('[/api/admin/admins] Error updating user:', updateError)
+      console.error('[/api/admin/admins] Error updating user:', updateError instanceof Error ? updateError.message : 'Unknown error')
       return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
     }
 
@@ -151,7 +160,7 @@ export async function POST(request: Request) {
         : `${email} is now a platform admin`
     })
   } catch (error) {
-    console.error('[/api/admin/admins] Unexpected error:', error)
+    console.error('[/api/admin/admins] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

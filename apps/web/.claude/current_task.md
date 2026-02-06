@@ -1,186 +1,56 @@
-# Current Task: Inventory Management Complete
-Started: 2026-02-05
-Last Updated: 2026-02-06 (Session 6)
+# Current Task: Codebase Audit & Optimization Plan
+Started: 2026-02-06
 
-## COMPLETED: Full Inventory Management System
+## Goal
+Complete systems review of pricing, availability/cutoff, inventory, and security.
+Present audited plan to user for approval before making any changes.
 
-### What Was Built (Session 6)
+## Status
+- [x] Pricing/financial system review
+- [x] Availability/cutoff system review
+- [x] Inventory management review
+- [x] Security & API audit
+- [x] Synthesize findings into audited plan
+- [ ] User approval
+- [ ] Implementation
 
-1. **Inventory Decrement** - `checkout/success/route.ts`
-2. **Vendor Notifications** - Out of stock + low stock alerts
-3. **Stock Status Badges** - Vendor listings page
-4. **Dashboard Warning** - Low/out of stock banner
+## Key Findings Summary
+- CRITICAL: Race condition in inventory decrement (read-then-write, not atomic)
+- CRITICAL: Sensitive data in 211 console.log statements
+- HIGH: Cart validation skips private pickup cutoff checks
+- HIGH: No inventory re-validation at Stripe session creation
+- HIGH: N+1 queries in checkout/success (sequential per-listing)
+- MEDIUM: LOW_STOCK_THRESHOLD duplicated in 3 files
+- MEDIUM: Missing rate limiting on admin endpoints
+- GOOD: Unified pricing module correctly used everywhere
+- GOOD: Security headers excellent
+- GOOD: Stripe webhook verification solid
+- GOOD: Idempotency on payment processing works correctly
 
----
+## Approved Implementation Plan
 
-## COMPLETED: Inventory Decrement on Purchase
+| Step | What | Files |
+|------|------|-------|
+| 1 | Atomic inventory decrement (fix race condition) | `checkout/success/route.ts` |
+| 2 | Batch inventory queries (combine with step 1) | Same file |
+| 3 | Add order ownership check | Same file |
+| 4 | Sanitize console.logs + add withErrorTracing to touched routes | ~15 files (see below) |
+| 5 | Fix cart validation for all market types | `cart/validate/route.ts` |
+| 6 | Add inventory check to session creation | `checkout/session/route.ts` |
+| 7 | Centralize LOW_STOCK_THRESHOLD | `constants.ts` + 3 consumer files |
+| 8 | Document fee tiers | `vendor-fees.ts`, `pricing.ts` |
+| 9 | Rate limit admin routes | Admin route files |
 
-### The Problem We Solved
-Inventory count was NOT being decremented when items were purchased. A listing with quantity=10 would still show 10 after 5 were sold.
-
-### The Solution: `src/app/api/checkout/success/route.ts`
-
-Added idempotent inventory decrement after payment confirmation:
-
-```typescript
-// Inside the `!existingPayment` block (only runs once per order)
-
-// Get order items and group by listing_id
-const quantityByListing = new Map<string, number>()
-for (const item of orderItems) {
-  const current = quantityByListing.get(item.listing_id) || 0
-  quantityByListing.set(item.listing_id, current + item.quantity)
-}
-
-// Decrement each listing (skip if quantity is null = unlimited)
-for (const [listingId, quantityPurchased] of quantityByListing) {
-  const { data: listing } = await serviceClient.from('listings').select('quantity').eq('id', listingId).single()
-  if (listing && listing.quantity !== null) {
-    const newQuantity = Math.max(0, listing.quantity - quantityPurchased)
-    await serviceClient.from('listings').update({ quantity: newQuantity }).eq('id', listingId)
-  }
-}
-```
-
-### Key Design Decisions
-
-1. **Where**: In `checkout/success/route.ts` after payment confirmation, not during order creation
-2. **Idempotent**: Only decrements when `!existingPayment` (first processing)
-3. **Null = Unlimited**: If `listing.quantity` is null, don't decrement (unlimited stock)
-4. **Floor at 0**: `Math.max(0, ...)` prevents negative inventory
-5. **Service Client**: Uses service client to bypass RLS (buyer can't update listings)
-
-### Existing Inventory Checks (already working)
-
-- `cart/add/route.ts:28` - Blocks add if `listing.quantity < quantity`
-- `cart/validate/route.ts:201-202` - Uses `null ? 999 : quantity` for availability
-- `checkout/page.tsx:697-709` - Disables + button at max quantity
-
----
-
-## COMPLETED: Vendor Stock Notifications
-
-### In-App Notifications (checkout/success/route.ts)
-
-When inventory is updated after purchase, vendor receives notification:
-
-| Condition | Notification Type | Message |
-|-----------|------------------|---------|
-| quantity = 0 | `inventory_out_of_stock` | "X is now out of stock. Update your listing..." |
-| quantity <= 5 (crossed threshold) | `inventory_low_stock` | "X has only N left in stock." |
-
-### Visual Stock Badges (vendor/listings/page.tsx)
-
-| Condition | Badge |
-|-----------|-------|
-| quantity = 0 | **OUT OF STOCK** (red) |
-| quantity <= 5 | **LOW STOCK (N)** (orange) |
-| quantity > 5 or null | No badge |
-
-### Dashboard Warning Banner (vendor/dashboard/page.tsx)
-
-Shows if any listings are low or out of stock:
-- Red banner for out of stock: "Buyers cannot order out-of-stock items"
-- Orange banner for low stock: "Consider restocking soon"
-- "Update Inventory" button links to listings page
-
----
-
-## COMPLETED: Unified Pricing System (Session 5)
-
-### The Problem We Solved
-Prices were inconsistent across screens because flat fee ($0.15) was applied per-item instead of per-order in some places.
-
-### The Solution: `src/lib/pricing.ts`
-
-Single source of truth for all pricing:
-
-```typescript
-// Fee configuration
-FEES = {
-  buyerFeePercent: 6.5,
-  vendorFeePercent: 6.5,
-  buyerFlatFeeCents: 15,    // $0.15 service fee
-  vendorFlatFeeCents: 15,
-  minimumOrderCents: 1000,  // $10 minimum
-}
-
-// For ORDER TOTALS (includes flat fee once)
-calculateBuyerPrice(subtotalCents) → total buyer pays
-
-// For INDIVIDUAL ITEM display (percentage only, no flat fee)
-calculateItemDisplayPrice(baseCents) → item display price
-
-// For complete order breakdown
-calculateOrderPricing(items) → { subtotalCents, buyerTotalCents, vendorPayoutCents, ... }
-```
-
-### How Prices Display Now
-
-| Screen | Item Price | Shows Service Fee? | Total |
-|--------|------------|-------------------|-------|
-| Browse | $8.52 | No | - |
-| Cart | $8.52 | No (in header) | $17.19 |
-| Checkout | $8.52 | Yes ($0.15 line) | $17.19 |
-| Stripe | $8.52 × 2 | Yes ($0.15 line) | $17.19 |
-| Success | - | - | $17.19 |
-| Orders List | $8.52 | Yes ($0.15 line) | $17.19 |
-
-### Key Files
-
-- `src/lib/pricing.ts` - THE source of truth
-- `src/lib/constants.ts` - Re-exports for backwards compatibility
-- `src/app/api/checkout/session/route.ts` - Uses calculateOrderPricing
-- `src/app/api/checkout/success/route.ts` - Uses serviceClient for payment insert
-- UI components import from constants.ts (which re-exports from pricing.ts)
-
-### Other Fixes This Session
-
-1. **Payment record not created** - Fixed by using serviceClient (buyers don't have RLS insert on payments)
-2. **RLS error on success screen** - Same fix as above
-3. **Cart flash** - Fixed (was related to pricing recalculation)
-
-## What's Remaining
-
-- [x] ~~Inventory decrement on purchase~~ (DONE - Session 6)
-- [x] ~~Market box pricing fix~~ (DONE - Session 6)
-- [ ] Test inventory decrement after deploy
-- [ ] Test market box pricing after deploy
-- [ ] Low inventory vendor notification (optional enhancement)
-- [ ] Vendor dashboard - show low/out of stock badges (optional)
-- [ ] Checkout success screen - add feedback/review capture
-- [ ] End-to-end testing
-
-## COMPLETED: Market Box Pricing Fix (Session 6)
-
-### Problem
-- Detail screen: $79.88 (base $75 + 6.5%)
-- Stripe checkout: $75.00 (base only, missing fee)
-
-### Solution
-In `src/app/api/buyer/market-boxes/route.ts`:
-```typescript
-import { calculateBuyerPrice } from '@/lib/pricing'
-// ...
-const buyerTotalCents = calculateBuyerPrice(priceCents)
-// Pass buyerTotalCents to createMarketBoxCheckoutSession
-```
-
-### Additional question (for later)
-Should market boxes be addable to cart with other items? Currently skips cart entirely.
-
-## Commits This Session
-
-1. `24a271b` - Fix cart/checkout display totals
-2. `3c0bf57` - Add unified pricing module
-3. `d377275` - Show service fee as separate line in Stripe
-4. `c690edb` - Fix empty description error
-5. `98e647a` - Separate item display price from order total
-6. `f3b88b2` - Add service fee breakdown to checkout and orders
-
-## Key Context for Next Session
-
-- `calculateDisplayPrice` = `calculateItemDisplayPrice` (percentage only, for items)
-- `calculateBuyerPrice` = percentage + flat fee (for order totals)
-- Service fee shows as separate $0.15 line in: checkout summary, Stripe, orders list
-- Stripe line items: item prices (6.5% included) + "Service Fee" line
+### Step 4 Detail - Error Tracking Upgrade
+For routes I'm already touching to clean console.logs:
+- Remove ~80 debug console.log statements
+- Sanitize ~41 statements logging sensitive data (keep error logging, strip PII)
+- Add withErrorTracing() wrapper to routes that don't have it:
+  - admin/admins/route.ts
+  - admin/feedback/route.ts
+  - admin/order-issues/route.ts
+  - admin/vendor-activity/settings/route.ts
+  - admin/vendor-activity/flags/[id]/route.ts
+  - vendor/fees/pay/route.ts
+- For checkout/success (already has withErrorTracing): replace manual console.logs with crumb.info() breadcrumbs
+- DO NOT touch the ~78 remaining unwrapped routes (do incrementally in future tasks)

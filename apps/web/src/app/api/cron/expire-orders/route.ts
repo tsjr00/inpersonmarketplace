@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       .limit(100) // Process in batches
 
     if (fetchError) {
-      console.error('Error fetching expired items:', fetchError)
+      console.error('Error fetching expired items:', fetchError.message)
       return NextResponse.json({ error: fetchError.message }, { status: 500 })
     }
 
@@ -96,8 +96,6 @@ export async function GET(request: NextRequest) {
         processed: 0
       })
     }
-
-    console.log(`Found ${expiredItems.length} expired order items to process`)
 
     let processed = 0
     let errors = 0
@@ -117,7 +115,7 @@ export async function GET(request: NextRequest) {
           .eq('id', item.id)
 
         if (updateError) {
-          console.error(`Error expiring item ${item.id}:`, updateError)
+          console.error('Error expiring order item:', updateError.message)
           errors++
           continue
         }
@@ -161,7 +159,7 @@ export async function GET(request: NextRequest) {
         // TODO: In production, trigger Stripe refund here
 
       } catch (itemError) {
-        console.error(`Error processing expired item ${item.id}:`, itemError)
+        console.error('Error processing expired item:', itemError instanceof Error ? itemError.message : 'Unknown error')
         errors++
       }
     }
@@ -175,7 +173,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Cron job error:', error)
+    console.error('Cron job error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({
       error: 'Failed to process expired orders',
       details: error instanceof Error ? error.message : 'Unknown error'

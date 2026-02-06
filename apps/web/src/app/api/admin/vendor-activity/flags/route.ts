@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 /**
  * GET /api/admin/vendor-activity/flags
@@ -14,6 +15,12 @@ import { createClient } from '@/lib/supabase/server'
  * - offset: Pagination offset (default 0)
  */
 export async function GET(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const supabase = await createClient()
 
   // Verify user is authenticated

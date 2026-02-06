@@ -21,6 +21,9 @@ export const PLATFORM_FEE_RATE = FEES.buyerFeePercent / 100  // 0.065
 export const PLATFORM_FLAT_FEE_CENTS = FEES.buyerFlatFeeCents  // 15
 export const MINIMUM_ORDER_CENTS = FEES.minimumOrderCents  // 1000
 
+// Inventory thresholds
+export const LOW_STOCK_THRESHOLD = 5
+
 // Approved product categories for farmers market
 export const CATEGORIES = [
   'Produce',

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 interface RouteParams {
   params: Promise<{ verticalId: string; adminId: string }>
@@ -7,6 +8,12 @@ interface RouteParams {
 
 // DELETE - Remove vertical admin
 export async function DELETE(request: Request, { params }: RouteParams) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const { verticalId, adminId } = await params
     const supabase = await createClient()
@@ -93,7 +100,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       .eq('id', adminId)
 
     if (deleteError) {
-      console.error('[/api/admin/verticals/[verticalId]/admins/[adminId]] Delete error:', deleteError)
+      console.error('[/api/admin/verticals/[verticalId]/admins/[adminId]] Delete error:', deleteError instanceof Error ? deleteError.message : 'Delete failed')
       return NextResponse.json({ error: 'Failed to remove vertical admin' }, { status: 500 })
     }
 
@@ -113,7 +120,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       message: `Admin access removed for ${targetUser?.email || 'user'}`
     })
   } catch (error) {
-    console.error('[/api/admin/verticals/[verticalId]/admins/[adminId]] Unexpected error:', error)
+    console.error('[/api/admin/verticals/[verticalId]/admins/[adminId]] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

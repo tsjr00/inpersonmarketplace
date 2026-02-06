@@ -133,6 +133,9 @@ export const rateLimits = {
   // API reads
   api: { limit: 60, windowSeconds: 60 } as RateLimitConfig,
 
+  // Admin operations
+  admin: { limit: 30, windowSeconds: 60 } as RateLimitConfig,
+
   // Webhook endpoints (from trusted sources)
   webhook: { limit: 100, windowSeconds: 60 } as RateLimitConfig,
 }

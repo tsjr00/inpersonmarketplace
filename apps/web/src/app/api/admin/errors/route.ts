@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 /**
  * GET /api/admin/errors
@@ -17,6 +18,12 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
  *   - offset: Pagination offset
  */
 export async function GET(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   return withErrorTracing('/api/admin/errors', 'GET', async () => {
     const supabase = await createClient()
 

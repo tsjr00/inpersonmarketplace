@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 /**
  * GET /api/admin/vendor-activity/settings
@@ -10,6 +11,12 @@ import { createClient } from '@/lib/supabase/server'
  * - vertical: Get settings for a specific vertical (defaults to first found)
  */
 export async function GET(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const supabase = await createClient()
 
   // Verify user is authenticated
@@ -61,7 +68,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('[VENDOR-ACTIVITY-SETTINGS] Error:', error)
+    console.error('[VENDOR-ACTIVITY-SETTINGS] Error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({
       error: 'Failed to fetch settings',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -88,6 +95,12 @@ export async function GET(request: NextRequest) {
  * - checkIncompleteOnboarding: boolean
  */
 export async function PUT(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const supabase = await createClient()
 
   // Verify user is authenticated
@@ -169,15 +182,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    console.log(`[VENDOR-ACTIVITY-SETTINGS] Updated settings for vertical ${verticalId} by admin ${user.id}`)
-
     return NextResponse.json({
       success: true,
       settings
     })
 
   } catch (error) {
-    console.error('[VENDOR-ACTIVITY-SETTINGS] Error:', error)
+    console.error('[VENDOR-ACTIVITY-SETTINGS] Error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({
       error: 'Failed to update settings',
       details: error instanceof Error ? error.message : 'Unknown error'

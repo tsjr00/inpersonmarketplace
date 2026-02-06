@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       checkout_url: session.url
     })
   } catch (error: unknown) {
-    console.error('Error creating fee payment session:', error)
+    console.error('Error creating fee payment session:', error instanceof Error ? error.message : 'Unknown error')
     const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 500 })
   }

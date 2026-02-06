@@ -60,15 +60,13 @@ export async function GET(request: NextRequest) {
   const verticalId = searchParams.get('vertical') || null
 
   try {
-    console.log(`[VENDOR-ACTIVITY-SCAN] Starting scan${verticalId ? ` for vertical: ${verticalId}` : ' for all verticals'}`)
-
     // Call the database function to run the scan
     const { data, error } = await supabase
       .rpc('scan_vendor_activity', { p_vertical_id: verticalId })
       .single()
 
     if (error) {
-      console.error('[VENDOR-ACTIVITY-SCAN] Scan failed:', error)
+      console.error('[VENDOR-ACTIVITY-SCAN] Scan failed:', error.message)
       return NextResponse.json({
         error: 'Scan failed',
         details: error.message
@@ -76,8 +74,6 @@ export async function GET(request: NextRequest) {
     }
 
     const result = data as ScanResult
-
-    console.log(`[VENDOR-ACTIVITY-SCAN] Scan complete: ${result.vendors_scanned} vendors scanned, ${result.new_flags} new flags, ${result.auto_resolved} auto-resolved`)
 
     return NextResponse.json({
       success: true,
@@ -89,7 +85,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('[VENDOR-ACTIVITY-SCAN] Error:', error)
+    console.error('[VENDOR-ACTIVITY-SCAN] Error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({
       error: 'Failed to run vendor activity scan',
       details: error instanceof Error ? error.message : 'Unknown error'

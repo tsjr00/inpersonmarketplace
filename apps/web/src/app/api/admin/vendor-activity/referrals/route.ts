@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 /**
  * GET /api/admin/vendor-activity/referrals
@@ -11,6 +12,12 @@ import { createClient } from '@/lib/supabase/server'
  * - limit: Number of top referrers to return (default 20)
  */
 export async function GET(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const supabase = await createClient()
 
   // Verify user is authenticated
@@ -201,7 +208,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('[ADMIN-REFERRALS] Error:', error)
+    console.error('[ADMIN-REFERRALS] Error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({
       error: 'Failed to fetch referral data',
       details: error instanceof Error ? error.message : 'Unknown error'

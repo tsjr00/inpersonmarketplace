@@ -301,20 +301,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // OPTIMIZATION: Parallel cutoff checks for all listings at once
-    crumb.logic('Checking cutoff times for listings (parallel)')
+    // OPTIMIZATION: Parallel cutoff + inventory checks for all listings at once
+    crumb.logic('Checking cutoff times and inventory for listings (parallel)')
     const cutoffResults = await Promise.all(
-      listings.map(listing =>
-        supabase
+      listings.map(listing => {
+        const requestedItem = items.find(i => i.listingId === listing.id)
+        return supabase
           .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
-          .then(result => ({ listing, ...result }))
-      )
+          .then(result => ({ listing, requestedQuantity: requestedItem?.quantity || 0, ...result }))
+      })
     )
+
+    // Also fetch current inventory for all listings (single batch query)
+    crumb.supabase('select', 'listings (inventory check)')
+    const { data: inventoryData } = await supabase
+      .from('listings')
+      .select('id, quantity')
+      .in('id', listingIds)
+
+    const inventoryMap = new Map<string, number | null>()
+    for (const inv of inventoryData || []) {
+      inventoryMap.set(inv.id, inv.quantity)
+    }
+
+    // Check for inventory issues
+    for (const item of items) {
+      const currentQuantity = inventoryMap.get(item.listingId)
+      const listing = listings.find(l => l.id === item.listingId)
+      // null = unlimited stock, skip check
+      if (currentQuantity !== null && currentQuantity !== undefined && currentQuantity < item.quantity) {
+        const itemName = listing?.title || 'Item'
+        if (currentQuantity === 0) {
+          throw traced.validation('ERR_CHECKOUT_001', `"${itemName}" is now out of stock.`, { code: 'OUT_OF_STOCK' })
+        }
+        throw traced.validation('ERR_CHECKOUT_001', `Only ${currentQuantity} of "${itemName}" available (you requested ${item.quantity}).`, { code: 'INSUFFICIENT_STOCK' })
+      }
+    }
 
     // Check for any closed listings
     for (const { listing, data: isAccepting, error: cutoffError } of cutoffResults) {
       if (cutoffError) {
-        console.error('Cutoff check error:', cutoffError)
+        crumb.logic('Cutoff check unavailable (migration may not be applied)')
         // Continue if function doesn't exist yet (migration not applied)
       } else if (isAccepting === false) {
         // Get detailed availability info for better error message (only for the failed one)
@@ -402,7 +429,7 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         // Log but don't fail - snapshot is important but shouldn't block checkout
-        console.warn('[checkout] Could not build pickup snapshot:', error)
+        crumb.logic('Could not build pickup snapshot for schedule')
         return { ...item, pickup_snapshot: null }
       }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb, getResolutionSummary } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -13,6 +14,12 @@ interface RouteParams {
  * Includes error_logs data, resolution history, and similar reports.
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   return withErrorTracing('/api/admin/errors/[id]', 'GET', async () => {
     const { id } = await params
     const supabase = await createClient()
@@ -125,6 +132,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  *   - addNotes: Add admin notes
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   return withErrorTracing('/api/admin/errors/[id]', 'PATCH', async () => {
     const { id } = await params
     const supabase = await createClient()

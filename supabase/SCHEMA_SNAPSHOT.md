@@ -2,7 +2,7 @@
 
 **Source of truth for database structure. Updated after each confirmed migration.**
 
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-02-06
 **Database:** Dev (inpersonmarketplace)
 **Updated By:** Claude + User
 
@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-06 | 20260206_001_atomic_inventory_decrement | Added `atomic_decrement_inventory(UUID, INTEGER)` function (SECURITY DEFINER). Atomically decrements `listings.quantity` using `GREATEST(0, quantity - p_quantity)` with RETURNING clause. Prevents race condition in concurrent checkouts. Applied to Dev & Staging. |
 | 2026-02-06 | (app code) | **Inventory Management**: `listings.quantity` decremented on successful payment in `checkout/success`. New notification types: `inventory_out_of_stock`, `inventory_low_stock` (threshold: 5). No schema changes. |
 | 2026-02-06 | (app code) | **Market Box Pricing**: Applied `calculateBuyerPrice()` to market box checkout - now includes 6.5% + $0.15 fee. No schema changes. |
 | 2026-02-05 | 20260205_001_pickup_scheduling_schema | Added to cart_items: `schedule_id`, `pickup_date`. Added to order_items: `schedule_id`, `pickup_date`, `pickup_snapshot` (JSONB). Added to orders: `parent_order_id`, `order_suffix`. **NOTE: pickup_start_time/pickup_end_time do NOT exist - use pickup_snapshot.start_time/end_time** |

@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 // GET - Get all order issues (admin only)
 export async function GET(request: Request) {
-  console.log('[/api/admin/order-issues] GET request received')
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const supabase = await createClient()
 
@@ -20,11 +26,8 @@ export async function GET(request: Request) {
       .single()
 
     if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
-      console.log('[/api/admin/order-issues] Admin check failed:', { profileError, userProfile })
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
-
-    console.log('[/api/admin/order-issues] Admin verified, user:', user.id)
 
     // Use service client to bypass RLS for admin queries
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -36,8 +39,6 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const vertical = searchParams.get('vertical')
     const status = searchParams.get('status')
-
-    console.log('[/api/admin/order-issues] Fetching order issues:', { vertical, status })
 
     // Query order_items where issue_reported_at is not null
     let query = serviceClient
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
     const { data: issues, error: fetchError } = await query
 
     if (fetchError) {
-      console.error('[/api/admin/order-issues] Error fetching order issues:', fetchError)
+      console.error('[/api/admin/order-issues] Error fetching order issues:', fetchError.message)
       return NextResponse.json({ error: 'Failed to fetch order issues' }, { status: 500 })
     }
 
@@ -90,8 +91,6 @@ export async function GET(request: Request) {
         issue.listing?.vertical_id === vertical
       )
     }
-
-    console.log(`[/api/admin/order-issues] Found ${filteredIssues.length} order issues`)
 
     // Get order data for each issue
     const orderIds = [...new Set(filteredIssues.map((i: any) => i.order_id).filter(Boolean))]
@@ -189,13 +188,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ issues: transformedIssues, counts })
 
   } catch (error) {
-    console.error('[/api/admin/order-issues] Unexpected error:', error)
+    console.error('[/api/admin/order-issues] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 // PATCH - Update order issue status/notes (admin only)
 export async function PATCH(request: Request) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const supabase = await createClient()
 
@@ -255,14 +260,14 @@ export async function PATCH(request: Request) {
       .single()
 
     if (updateError) {
-      console.error('[/api/admin/order-issues] Error updating order issue:', updateError)
+      console.error('[/api/admin/order-issues] Error updating order issue:', updateError.message)
       return NextResponse.json({ error: 'Failed to update order issue' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, orderItem })
 
   } catch (error) {
-    console.error('[/api/admin/order-issues] Unexpected error:', error)
+    console.error('[/api/admin/order-issues] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

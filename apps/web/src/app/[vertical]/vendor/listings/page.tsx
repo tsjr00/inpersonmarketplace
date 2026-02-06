@@ -5,7 +5,7 @@ import Link from 'next/link'
 import PublishButton from './PublishButton'
 import DeleteListingButton from './DeleteListingButton'
 import ListingShareButton from './ListingShareButton'
-import { formatPrice, getListingLimit } from '@/lib/constants'
+import { formatPrice, getListingLimit, LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 
@@ -101,8 +101,7 @@ function calculateListingAvailability(listing: VendorListing): {
   return { status: 'open', hoursUntilCutoff: null }
 }
 
-// Low stock threshold
-const LOW_STOCK_THRESHOLD = 5
+// Low stock threshold (from centralized constants)
 
 // Stock status badge component
 function StockStatusBadge({ quantity }: { quantity: number | null }) {

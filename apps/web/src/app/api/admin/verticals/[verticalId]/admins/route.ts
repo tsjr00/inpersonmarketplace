@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 interface RouteParams {
   params: Promise<{ verticalId: string }>
@@ -7,6 +8,12 @@ interface RouteParams {
 
 // GET - List all admins for a vertical
 export async function GET(request: Request, { params }: RouteParams) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const { verticalId } = await params
     const supabase = await createClient()
@@ -58,7 +65,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       .order('granted_at', { ascending: true })
 
     if (error) {
-      console.error('[/api/admin/verticals/[verticalId]/admins] Error:', error)
+      console.error('[/api/admin/verticals/[verticalId]/admins] Error:', error instanceof Error ? error.message : 'Unknown error')
       return NextResponse.json({ error: 'Failed to fetch vertical admins' }, { status: 500 })
     }
 
@@ -92,13 +99,19 @@ export async function GET(request: Request, { params }: RouteParams) {
       isChiefPlatformAdmin: callerProfile?.is_chief_platform_admin || false
     })
   } catch (error) {
-    console.error('[/api/admin/verticals/[verticalId]/admins] Unexpected error:', error)
+    console.error('[/api/admin/verticals/[verticalId]/admins] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 // POST - Add a vertical admin
 export async function POST(request: Request, { params }: RouteParams) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const { verticalId } = await params
     const supabase = await createClient()
@@ -207,7 +220,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       })
 
     if (insertError) {
-      console.error('[/api/admin/verticals/[verticalId]/admins] Insert error:', insertError)
+      console.error('[/api/admin/verticals/[verticalId]/admins] Insert error:', insertError instanceof Error ? insertError.message : 'Insert failed')
       return NextResponse.json({ error: 'Failed to add vertical admin' }, { status: 500 })
     }
 
@@ -229,7 +242,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         : `${email} is now an admin for ${verticalId}`
     })
   } catch (error) {
-    console.error('[/api/admin/verticals/[verticalId]/admins] Unexpected error:', error)
+    console.error('[/api/admin/verticals/[verticalId]/admins] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

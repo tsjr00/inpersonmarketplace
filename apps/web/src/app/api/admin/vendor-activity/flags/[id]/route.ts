@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 /**
  * GET /api/admin/vendor-activity/flags/[id]
@@ -10,6 +11,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const supabase = await createClient()
   const { id: flagId } = await params
 
@@ -71,6 +78,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   const supabase = await createClient()
   const { id: flagId } = await params
 
@@ -220,11 +233,6 @@ export async function PATCH(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    // Log the action
-    const profileData = vendor.profile_data as Record<string, unknown> | null
-    const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Unknown'
-    console.log(`[VENDOR-ACTIVITY-FLAG] Action: ${actionTaken} on flag ${flagId} for vendor ${vendorName} (${vendor.id}) by admin ${user.id}`)
-
     return NextResponse.json({
       success: true,
       flag: updatedFlag,
@@ -233,7 +241,7 @@ export async function PATCH(
     })
 
   } catch (error) {
-    console.error('[VENDOR-ACTIVITY-FLAG] Error:', error)
+    console.error('[VENDOR-ACTIVITY-FLAG] Error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({
       error: 'Failed to process flag action',
       details: error instanceof Error ? error.message : 'Unknown error'

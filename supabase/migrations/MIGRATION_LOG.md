@@ -47,6 +47,7 @@
 | 20260205_001_pickup_scheduling_schema.sql | ✅ | 2026-02-05 | ❌ | - | schedule_id, pickup_date, pickup_snapshot columns |
 | 20260205_002_pickup_scheduling_functions.sql | ✅ | 2026-02-05 | ❌ | - | get_available_pickup_dates(), validate_cart_item_schedule() |
 | 20260205_003_fix_cutoff_threshold.sql | ✅ | 2026-02-05 | ❌ | - | Added cutoff_hours to function output |
+| 20260206_001_atomic_inventory_decrement.sql | ✅ | 2026-02-06 | ✅ | 2026-02-06 | Atomic inventory decrement function (race condition fix) |
 
 ---
 

@@ -55,8 +55,8 @@ export async function GET() {
   // Track cutoff info
   const cutoffWarnings: string[] = []
 
-  // First pass: collect market info and identify traditional market items needing cutoff check
-  const traditionalMarketItems: Array<{ id: string; title: string }> = []
+  // First pass: collect market info and identify items needing cutoff check
+  const itemsForCutoffCheck: Array<{ id: string; title: string; marketType: string }> = []
 
   for (const item of cartItems) {
     const listing = item.listings as unknown as {
@@ -78,16 +78,14 @@ export async function GET() {
     marketTypes.add(market.market_type)
     marketIds.add(market.id)
 
-    // Collect traditional market items for batch cutoff check
-    if (market.market_type === 'traditional') {
-      traditionalMarketItems.push({ id: listing.id, title: listing.title })
-    }
+    // Check cutoff for ALL market types (traditional and private pickup)
+    itemsForCutoffCheck.push({ id: listing.id, title: listing.title, marketType: market.market_type })
   }
 
-  // Batch cutoff checks in parallel instead of sequential
-  if (traditionalMarketItems.length > 0) {
+  // Batch cutoff checks in parallel for all items
+  if (itemsForCutoffCheck.length > 0) {
     const cutoffResults = await Promise.all(
-      traditionalMarketItems.map(async (item) => {
+      itemsForCutoffCheck.map(async (item) => {
         const { data: isAccepting } = await supabase
           .rpc('is_listing_accepting_orders', { p_listing_id: item.id })
         return { ...item, isAccepting }
@@ -96,7 +94,10 @@ export async function GET() {
 
     for (const result of cutoffResults) {
       if (result.isAccepting === false) {
-        cutoffWarnings.push(`Orders for "${result.title}" are closed - vendors are preparing for market day`)
+        const prepMessage = result.marketType === 'private_pickup'
+          ? 'Vendor needs time to prepare for pickup'
+          : 'Vendors are preparing for market day'
+        cutoffWarnings.push(`Orders for "${result.title}" are closed - ${prepMessage}`)
       }
     }
   }
@@ -166,7 +167,6 @@ export async function POST(request: NextRequest) {
       .is('deleted_at', null)
 
     if (error) {
-      console.error('Failed to fetch listings:', error)
       return NextResponse.json({ error: 'Failed to validate cart' }, { status: 500 })
     }
 
@@ -215,8 +215,7 @@ export async function POST(request: NextRequest) {
     }))
 
     return NextResponse.json({ items: validatedItems })
-  } catch (error) {
-    console.error('Cart validation error:', error)
+  } catch {
     return NextResponse.json({ error: 'Failed to validate cart' }, { status: 500 })
   }
 }

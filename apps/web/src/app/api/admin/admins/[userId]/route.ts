@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 interface RouteParams {
   params: Promise<{ userId: string }>
@@ -7,6 +8,12 @@ interface RouteParams {
 
 // DELETE - Remove platform admin status from a user
 export async function DELETE(request: Request, { params }: RouteParams) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult)
+  }
+
   try {
     const { userId: targetUserId } = await params
     const supabase = await createClient()
@@ -80,7 +87,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       .eq('user_id', targetUserId)
 
     if (updateError) {
-      console.error('[/api/admin/admins/[userId]] Error updating user:', updateError)
+      console.error('[/api/admin/admins/[userId]] Error updating user:', updateError instanceof Error ? updateError.message : 'Update failed')
       return NextResponse.json({ error: 'Failed to update user' }, { status: 500 })
     }
 
@@ -99,7 +106,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       message: `Admin access removed from ${targetUser.email}`
     })
   } catch (error) {
-    console.error('[/api/admin/admins/[userId]] Unexpected error:', error)
+    console.error('[/api/admin/admins/[userId]] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
