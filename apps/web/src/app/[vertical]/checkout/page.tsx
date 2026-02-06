@@ -399,15 +399,15 @@ export default function CheckoutPage() {
     }
   }
 
-  // Calculate totals with platform fee
-  const total = checkoutItems.reduce((sum, item) => {
-    return sum + calculateDisplayPrice(item.price_cents) * item.quantity
-  }, 0)
-
   // Calculate base subtotal (before fees) for minimum order check
   const baseSubtotal = checkoutItems.reduce((sum, item) => {
     return sum + item.price_cents * item.quantity
   }, 0)
+
+  // Calculate display total with platform fee
+  // Apply calculateDisplayPrice to the TOTAL, not per-item, to avoid
+  // adding flat fee per item instead of once per order
+  const total = calculateDisplayPrice(baseSubtotal)
   const belowMinimum = baseSubtotal < MINIMUM_ORDER_CENTS
   const amountNeeded = belowMinimum ? ((MINIMUM_ORDER_CENTS - baseSubtotal) / 100).toFixed(2) : '0'
 

@@ -11,9 +11,12 @@ export function CartDrawer() {
   const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen, loading, hasScheduleIssues } = useCart()
 
   // Calculate display total with platform fee
-  const displayTotal = items.reduce((sum, item) => {
-    return sum + calculateDisplayPrice(item.price_cents || 0) * item.quantity
+  // Sum base prices first, then apply display price calculation ONCE
+  // to avoid adding flat fee per item instead of per order
+  const baseSubtotal = items.reduce((sum, item) => {
+    return sum + (item.price_cents || 0) * item.quantity
   }, 0)
+  const displayTotal = calculateDisplayPrice(baseSubtotal)
 
   function handleCheckout() {
     setIsOpen(false)
