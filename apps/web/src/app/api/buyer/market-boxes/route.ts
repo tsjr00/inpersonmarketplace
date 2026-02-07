@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { createMarketBoxCheckoutSession } from '@/lib/stripe/payments'
 import { calculateBuyerPrice } from '@/lib/pricing'
+import { getAppUrl } from '@/lib/environment'
 
 // Default subscriber limits by tier
 const SUBSCRIBER_LIMITS = {
@@ -288,7 +289,7 @@ export async function POST(request: NextRequest) {
     // Apply buyer fee (6.5% + $0.15) to match what's shown on the detail page
     crumb.stripe('create checkout session')
     const buyerTotalCents = calculateBuyerPrice(priceCents)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = getAppUrl()
     const session = await createMarketBoxCheckoutSession({
       offeringId: offering_id,
       offeringName: offering.name,

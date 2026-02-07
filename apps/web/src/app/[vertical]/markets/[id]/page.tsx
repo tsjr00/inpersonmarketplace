@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { getAppUrl } from '@/lib/environment'
 import ScheduleDisplay from '@/components/markets/ScheduleDisplay'
 import ApplyToMarketButton from './ApplyToMarketButton'
 import MarketVendorsList from './MarketVendorsList'
@@ -39,7 +40,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   }
 
   // Fetch vendors with listings from API
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = getAppUrl()
   let vendorsData: { vendors: VendorWithListings[]; categories: string[] } = { vendors: [], categories: [] }
 
   try {

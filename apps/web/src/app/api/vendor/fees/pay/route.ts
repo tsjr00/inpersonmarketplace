@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getVendorFeeBalance } from '@/lib/payments/vendor-fees'
 import { stripe } from '@/lib/stripe/config'
+import { getAppUrl } from '@/lib/environment'
 
 /**
  * POST /api/vendor/fees/pay
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     // Create Stripe Checkout session
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const baseUrl = getAppUrl()
 
     // Use idempotency key to prevent duplicate fee payment sessions on network retry
     const idempotencyKey = `vendor-fee-${vendor_id}-${balanceCents}`
