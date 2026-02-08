@@ -132,6 +132,7 @@ interface MarketBoxOffering {
   active_subscribers: number
   max_subscribers: number | null
   is_at_capacity: boolean
+  spots_remaining: number | null
   premium_window_ends_at: string | null
   market: {
     id: string
@@ -270,6 +271,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         ...offering,
         active_subscribers: activeSubscribers,
         is_at_capacity: maxSubs !== null && activeSubscribers >= maxSubs,
+        spots_remaining: maxSubs !== null ? Math.max(0, maxSubs - activeSubscribers) : null,
         vendor_profiles: vendorProfile as MarketBoxOffering['vendor_profiles'],
         market: market as MarketBoxOffering['market'],
       }
@@ -1034,21 +1036,21 @@ function MarketBoxCard({
           4-Week Box
         </span>
 
-        {/* At Capacity Badge */}
-        {offering.is_at_capacity && (
+        {/* Availability Badge */}
+        {offering.spots_remaining !== null && (
           <span style={{
             position: 'absolute',
             top: spacing['2xs'],
             right: spacing['2xs'],
             padding: `${spacing['3xs']} ${spacing.xs}`,
-            backgroundColor: colors.surfaceSubtle,
-            color: colors.accent,
+            backgroundColor: offering.is_at_capacity ? colors.surfaceSubtle : '#dcfce7',
+            color: offering.is_at_capacity ? colors.accent : '#166534',
             borderRadius: radius.lg,
             fontSize: typography.sizes.xs,
             fontWeight: typography.weights.semibold,
             zIndex: 1
           }}>
-            Full
+            {offering.is_at_capacity ? 'Full' : `${offering.spots_remaining} spot${offering.spots_remaining !== 1 ? 's' : ''} left`}
           </span>
         )}
 

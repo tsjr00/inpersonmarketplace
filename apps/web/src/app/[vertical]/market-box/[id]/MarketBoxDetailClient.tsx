@@ -272,7 +272,7 @@ export default function MarketBoxDetailClient() {
               }}>
                 Prepaid Weekly Subscription
               </span>
-              {isAtCapacity && (
+              {isAtCapacity ? (
                 <span style={{
                   padding: '4px 12px',
                   backgroundColor: '#fee2e2',
@@ -282,6 +282,17 @@ export default function MarketBoxDetailClient() {
                   fontWeight: 600
                 }}>
                   Currently Full
+                </span>
+              ) : availability.spots_remaining !== null && (
+                <span style={{
+                  padding: '4px 12px',
+                  backgroundColor: '#dcfce7',
+                  color: '#166534',
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  {availability.spots_remaining} spot{availability.spots_remaining !== 1 ? 's' : ''} left
                 </span>
               )}
             </div>
