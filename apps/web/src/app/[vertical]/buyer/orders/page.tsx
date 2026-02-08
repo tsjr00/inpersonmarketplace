@@ -13,6 +13,23 @@ interface Order {
   status: string
   total_cents: number
   created_at: string
+  type?: 'order' | 'market_box'
+  market_box?: {
+    offering_name: string
+    offering_image: string | null
+    vendor_name: string
+    vendor_id: string | null
+    market: { id: string; name: string; type: string } | null
+    weeks_completed: number
+    total_weeks: number
+    term_weeks: number
+    extended_weeks: number
+    next_pickup: { date: string; status: string; week_number: number } | null
+    has_ready_pickup: boolean
+    pickup_day_of_week: number | null
+    pickup_start_time: string | null
+    pickup_end_time: string | null
+  }
   items: Array<{
     id: string
     listing_title: string
@@ -615,6 +632,191 @@ export default function BuyerOrdersPage() {
             )
           }
 
+          const renderMarketBox = (order: Order) => {
+            const mb = order.market_box!
+            const config = statusConfig[order.status] || statusConfig.confirmed
+            const isReady = order.status === 'ready'
+            const isCompleted = ['completed', 'fulfilled'].includes(order.status)
+            const isCancelled = ['cancelled'].includes(order.status)
+            const progressPercent = mb.total_weeks > 0
+              ? Math.round((mb.weeks_completed / mb.total_weeks) * 100)
+              : 0
+
+            return (
+              <div
+                key={order.id}
+                onClick={() => router.push(`/${vertical}/buyer/subscriptions/${order.id}`)}
+                style={{
+                  backgroundColor: colors.surfaceElevated,
+                  borderRadius: radius.md,
+                  border: isReady
+                    ? `2px solid #166534`
+                    : `1px solid ${colors.border}`,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'box-shadow 0.2s',
+                  marginBottom: spacing.sm,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = shadows.md }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none' }}
+              >
+                {/* Market Box Header */}
+                <div style={{
+                  padding: `${spacing.sm} ${spacing.md}`,
+                  borderBottom: (isCompleted || isCancelled) ? 'none' : `1px solid ${colors.borderMuted}`,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: isReady ? '#dcfce7' : colors.surfaceMuted,
+                  gap: spacing.xs,
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap', flex: 1 }}>
+                    {/* Teal Market Box Badge */}
+                    <div style={{
+                      backgroundColor: '#f0fdfa',
+                      color: '#0f766e',
+                      padding: `${spacing['2xs']} ${spacing.sm}`,
+                      borderRadius: radius.sm,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      border: '2px solid #0f766e20'
+                    }}>
+                      <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
+                        Market Box
+                      </span>
+                      <span style={{
+                        fontSize: typography.sizes.sm,
+                        fontWeight: typography.weights.bold,
+                        fontFamily: 'monospace',
+                      }}>
+                        Week {mb.weeks_completed} of {mb.total_weeks}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
+                        <span style={{
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          backgroundColor: config.bgColor,
+                          color: config.color,
+                          borderRadius: radius.full,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
+                        }}>
+                          {config.label}
+                        </span>
+                        <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
+                          {new Date(order.created_at).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                      <p style={{
+                        margin: `${spacing['3xs']} 0 0 0`,
+                        fontWeight: typography.weights.medium,
+                        color: colors.textPrimary,
+                        fontSize: typography.sizes.base,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {mb.offering_name}
+                      </p>
+                      {(isCompleted || isCancelled) && (
+                        <p style={{
+                          margin: `${spacing['3xs']} 0 0 0`,
+                          fontSize: typography.sizes.xs,
+                          color: colors.textMuted,
+                        }}>
+                          {mb.vendor_name}{mb.market ? ` \u2022 ${mb.market.name}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                    {formatPrice(order.total_cents)}
+                  </span>
+                </div>
+
+                {/* Market Box Details - Only for active orders */}
+                {!isCompleted && !isCancelled && (
+                  <div style={{ padding: `${spacing.md} ${spacing.md}` }}>
+                    <div style={{
+                      padding: `${spacing.xs} ${spacing.sm}`,
+                      backgroundColor: colors.surfaceMuted,
+                      borderRadius: radius.sm,
+                    }}>
+                      <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                        {mb.vendor_name}{mb.market ? ` \u2022 ${mb.market.name}` : ''}
+                      </p>
+                      {/* Progress bar */}
+                      <div style={{
+                        marginTop: spacing.xs,
+                        backgroundColor: '#e5e7eb',
+                        borderRadius: radius.full,
+                        height: 6,
+                        overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          width: `${progressPercent}%`,
+                          backgroundColor: '#0f766e',
+                          height: '100%',
+                          borderRadius: radius.full,
+                          transition: 'width 0.3s',
+                        }} />
+                      </div>
+                      <p style={{
+                        margin: `${spacing['3xs']} 0 0`,
+                        fontSize: typography.sizes.xs,
+                        color: colors.textMuted,
+                      }}>
+                        {mb.weeks_completed} of {mb.total_weeks} weeks completed
+                      </p>
+                      {mb.next_pickup && (
+                        <p style={{
+                          margin: `${spacing.xs} 0 0`,
+                          fontSize: typography.sizes.sm,
+                          color: mb.next_pickup.status === 'ready' ? '#166534' : '#1e40af',
+                          fontWeight: typography.weights.medium,
+                        }}>
+                          {mb.next_pickup.status === 'ready' ? 'Ready for pickup' : 'Next pickup'}:{' '}
+                          {formatPickupDate(mb.next_pickup.date)}
+                          {formatPickupTime(mb.pickup_start_time, mb.pickup_end_time) &&
+                            ` \u2022 ${formatPickupTime(mb.pickup_start_time, mb.pickup_end_time)}`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Ready banner */}
+                {isReady && (
+                  <div style={{
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    borderTop: '1px solid #86efac',
+                    backgroundColor: '#dcfce7',
+                  }}>
+                    <p style={{
+                      margin: 0,
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.semibold,
+                      color: '#166534',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing['2xs'],
+                    }}>
+                      Your market box is ready for pickup!
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          const renderItem = (order: Order) =>
+            order.type === 'market_box' ? renderMarketBox(order) : renderOrder(order)
+
           return (
             <div>
               {/* Section 1: Ready for Pickup */}
@@ -626,7 +828,7 @@ export default function BuyerOrdersPage() {
                     color="#166534"
                     bgColor="#dcfce7"
                   />
-                  {readyOrders.map(renderOrder)}
+                  {readyOrders.map(renderItem)}
                 </div>
               )}
 
@@ -639,7 +841,7 @@ export default function BuyerOrdersPage() {
                     color={colors.primaryDark}
                     bgColor={colors.primaryLight}
                   />
-                  {pendingOrders.map(renderOrder)}
+                  {pendingOrders.map(renderItem)}
                 </div>
               )}
 
@@ -652,7 +854,7 @@ export default function BuyerOrdersPage() {
                     color="#991b1b"
                     bgColor="#fee2e2"
                   />
-                  {cancelledOrders.map(renderOrder)}
+                  {cancelledOrders.map(renderItem)}
                 </div>
               )}
 
@@ -665,7 +867,7 @@ export default function BuyerOrdersPage() {
                     color={colors.textMuted}
                     bgColor={colors.surfaceMuted}
                   />
-                  {completedOrders.map(renderOrder)}
+                  {completedOrders.map(renderItem)}
                 </div>
               )}
             </div>
