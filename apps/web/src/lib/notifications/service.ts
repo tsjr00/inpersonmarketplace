@@ -6,12 +6,14 @@
  *
  * Channels:
  *   - in_app: Always (writes to notifications table)
- *   - email:  Stubbed (Resend - connect tomorrow)
- *   - sms:    Stubbed (Twilio - connect tomorrow)
+ *   - email:  Connected (Resend)
+ *   - sms:    Connected (Twilio)
  *   - push:   Stubbed (Web Push API - needs VAPID keys)
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { Resend } from 'resend'
+import twilio from 'twilio'
 import {
   type NotificationType,
   type NotificationTemplateData,
@@ -19,6 +21,28 @@ import {
   NOTIFICATION_REGISTRY,
   URGENCY_CHANNELS,
 } from './types'
+
+// ── External Clients (lazy init) ────────────────────────────────────
+
+let resendClient: Resend | null = null
+
+function getResendClient(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null
+  if (!resendClient) {
+    resendClient = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resendClient
+}
+
+let twilioClient: twilio.Twilio | null = null
+
+function getTwilioClient(): twilio.Twilio | null {
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) return null
+  if (!twilioClient) {
+    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  }
+  return twilioClient
+}
 
 // ── Channel Dispatch Results ─────────────────────────────────────────
 
@@ -107,44 +131,112 @@ async function sendInApp(
 }
 
 async function sendEmail(
-  _userEmail: string,
-  _subject: string,
-  _body: string
+  userEmail: string,
+  subject: string,
+  body: string
 ): Promise<ChannelResult> {
-  // STUB: Will connect Resend here
-  // import { Resend } from 'resend'
-  // const resend = new Resend(process.env.RESEND_API_KEY)
-  // const { data, error } = await resend.emails.send({
-  //   from: 'Farmers Marketing <noreply@farmersmarketing.app>',
-  //   to: userEmail,
-  //   subject,
-  //   text: body,
-  // })
-  return {
-    channel: 'email',
-    success: true,
-    skipped: true,
-    reason: 'Email service not yet connected (Resend)',
+  const resend = getResendClient()
+  if (!resend) {
+    return {
+      channel: 'email',
+      success: true,
+      skipped: true,
+      reason: 'RESEND_API_KEY not configured',
+    }
+  }
+
+  const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@farmersmarketing.app'
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `Farmers Marketing <${fromAddress}>`,
+      to: userEmail,
+      subject,
+      html: formatEmailHtml(subject, body),
+      text: body,
+    })
+
+    if (error) {
+      return { channel: 'email', success: false, error: error.message }
+    }
+
+    return { channel: 'email', success: true, messageId: data?.id }
+  } catch (err) {
+    return {
+      channel: 'email',
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown email error',
+    }
   }
 }
 
+/** Wrap plain-text email body in a clean HTML template */
+function formatEmailHtml(subject: string, body: string): string {
+  const htmlBody = body
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/─+/g, '<hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0">')
+    .replace(/\n\n/g, '</p><p style="margin:0 0 12px">')
+    .replace(/\n/g, '<br>')
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px">
+    <div style="background:#fff;border-radius:8px;padding:32px;border:1px solid #e5e7eb">
+      <div style="margin-bottom:24px">
+        <strong style="color:#166534;font-size:18px">Farmers Marketing</strong>
+      </div>
+      <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6">${htmlBody}</p>
+    </div>
+    <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:16px">
+      Farmers Marketing &middot; <a href="https://farmersmarketing.app" style="color:#9ca3af">farmersmarketing.app</a>
+    </p>
+  </div>
+</body>
+</html>`
+}
+
 async function sendSms(
-  _phoneNumber: string,
-  _body: string
+  phoneNumber: string,
+  body: string
 ): Promise<ChannelResult> {
-  // STUB: Will connect Twilio here
-  // import twilio from 'twilio'
-  // const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-  // const message = await client.messages.create({
-  //   body,
-  //   from: process.env.TWILIO_PHONE_NUMBER,
-  //   to: phoneNumber,
-  // })
-  return {
-    channel: 'sms',
-    success: true,
-    skipped: true,
-    reason: 'SMS service not yet connected (Twilio)',
+  const client = getTwilioClient()
+  if (!client) {
+    return {
+      channel: 'sms',
+      success: true,
+      skipped: true,
+      reason: 'Twilio credentials not configured',
+    }
+  }
+
+  const fromNumber = process.env.TWILIO_FROM_NUMBER
+  if (!fromNumber) {
+    return {
+      channel: 'sms',
+      success: true,
+      skipped: true,
+      reason: 'TWILIO_FROM_NUMBER not configured',
+    }
+  }
+
+  try {
+    const message = await client.messages.create({
+      body,
+      from: fromNumber,
+      to: phoneNumber,
+    })
+
+    return { channel: 'sms', success: true, messageId: message.sid }
+  } catch (err) {
+    return {
+      channel: 'sms',
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown SMS error',
+    }
   }
 }
 
@@ -201,18 +293,27 @@ export async function sendNotification(
   // Determine channels based on urgency
   const channels = URGENCY_CHANNELS[config.urgency]
 
-  // Fetch user preferences
+  // Fetch user preferences and email (for email channel)
   let preferences = DEFAULT_PREFERENCES
+  let userEmail = options?.userEmail
+  let userPhone = options?.userPhone
   try {
     const supabase = createServiceClient()
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('notification_preferences')
+      .select('notification_preferences, email, phone')
       .eq('id', userId)
       .single()
 
     if (profile?.notification_preferences) {
       preferences = { ...DEFAULT_PREFERENCES, ...profile.notification_preferences as UserPreferences }
+    }
+    // Auto-resolve email/phone from profile if not provided by caller
+    if (!userEmail && profile?.email) {
+      userEmail = profile.email
+    }
+    if (!userPhone && profile?.phone) {
+      userPhone = profile.phone
     }
   } catch {
     // Use defaults if we can't fetch preferences
@@ -247,14 +348,14 @@ export async function sendNotification(
         break
       }
       case 'email': {
-        if (options?.userEmail) {
-          results.push(await sendEmail(options.userEmail, title, message))
+        if (userEmail) {
+          results.push(await sendEmail(userEmail, title, message))
         } else {
           results.push({
             channel: 'email',
             success: true,
             skipped: true,
-            reason: 'No email address provided',
+            reason: 'No email address available',
           })
         }
         break
@@ -268,14 +369,14 @@ export async function sendNotification(
             skipped: true,
             reason: 'Push is enabled, SMS not needed',
           })
-        } else if (options?.userPhone) {
-          results.push(await sendSms(options.userPhone, `${title}: ${message}`))
+        } else if (userPhone) {
+          results.push(await sendSms(userPhone, `${title}: ${message}`))
         } else {
           results.push({
             channel: 'sms',
             success: true,
             skipped: true,
-            reason: 'No phone number provided',
+            reason: 'No phone number available',
           })
         }
         break
