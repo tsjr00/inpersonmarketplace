@@ -94,17 +94,67 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status)
     }
 
-    const { data: orders, error } = await query
+    // Market box subscriptions query (runs in parallel with orders)
+    const marketBoxQuery = supabase
+      .from('market_box_subscriptions')
+      .select(`
+        id,
+        total_paid_cents,
+        status,
+        weeks_completed,
+        term_weeks,
+        extended_weeks,
+        created_at,
+        completed_at,
+        cancelled_at,
+        offering:market_box_offerings (
+          id,
+          name,
+          image_urls,
+          pickup_day_of_week,
+          pickup_start_time,
+          pickup_end_time,
+          vendor:vendor_profiles (
+            id,
+            profile_data
+          ),
+          market:markets (
+            id,
+            name,
+            market_type
+          )
+        ),
+        pickups:market_box_pickups (
+          id,
+          week_number,
+          scheduled_date,
+          status,
+          ready_at
+        )
+      `)
+      .eq('buyer_user_id', user.id)
+      .order('created_at', { ascending: false })
 
-    if (error) {
-      throw traced.fromSupabase(error, {
+    // Run both queries in parallel (no added latency)
+    const [ordersResult, marketBoxResult] = await Promise.all([query, marketBoxQuery])
+
+    if (ordersResult.error) {
+      throw traced.fromSupabase(ordersResult.error, {
         table: 'orders',
         operation: 'select',
         userId: user.id,
       })
     }
+    if (marketBoxResult.error) {
+      throw traced.fromSupabase(marketBoxResult.error, {
+        table: 'market_box_subscriptions',
+        operation: 'select',
+        userId: user.id,
+      })
+    }
 
-    crumb.logic('Orders fetched', { count: orders?.length || 0 })
+    const orders = ordersResult.data
+    crumb.logic('Orders fetched', { orderCount: orders?.length || 0, marketBoxCount: marketBoxResult.data?.length || 0 })
 
     // Collect unique markets from all orders for the filter dropdown
     const marketsMap = new Map<string, { id: string; name: string; type: string }>()
@@ -158,6 +208,7 @@ export async function GET(request: NextRequest) {
       }
 
       return {
+        type: 'order' as const,
         id: order.id,
         order_number: order.order_number,
         status: effectiveStatus,
@@ -246,12 +297,109 @@ export async function GET(request: NextRequest) {
     }
   })
 
+    // Transform market box subscriptions into unified order shape
+    const marketBoxOrders = (marketBoxResult.data || []).map(sub => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const offering = sub.offering as any
+      const vendor = offering?.vendor
+      const profileData = vendor?.profile_data as Record<string, unknown> | null
+      const vendorName =
+        (profileData?.business_name as string) ||
+        (profileData?.farm_name as string) ||
+        'Vendor'
+      const market = offering?.market
+
+      // Sort pickups by week number
+      const pickups = ((sub.pickups as Array<Record<string, unknown>>) || [])
+        .sort((a, b) => (a.week_number as number) - (b.week_number as number))
+
+      // Determine pickup-based status
+      const hasReadyPickup = pickups.some(p => p.status === 'ready')
+      const today = new Date().toISOString().split('T')[0]
+      const nextPickup = pickups.find(p =>
+        (p.scheduled_date as string) >= today &&
+        ['scheduled', 'ready'].includes(p.status as string)
+      )
+
+      let mbEffectiveStatus: string
+      if (sub.status === 'cancelled') {
+        mbEffectiveStatus = 'cancelled'
+      } else if (sub.status === 'completed') {
+        mbEffectiveStatus = 'fulfilled'
+      } else if (hasReadyPickup) {
+        mbEffectiveStatus = 'ready'
+      } else {
+        mbEffectiveStatus = 'confirmed'
+      }
+
+      const termWeeks = (sub.term_weeks as number) || 4
+      const extendedWeeks = (sub.extended_weeks as number) || 0
+      const totalWeeks = termWeeks + extendedWeeks
+      const orderNumber = 'MB-' + sub.id.slice(0, 6).toUpperCase()
+
+      // Add market to filter dropdown map
+      if (market?.id) {
+        marketsMap.set(market.id as string, {
+          id: market.id as string,
+          name: (market.name as string) || 'Unknown',
+          type: (market.market_type as string) || 'traditional',
+        })
+      }
+
+      return {
+        type: 'market_box' as const,
+        id: sub.id,
+        order_number: orderNumber,
+        status: mbEffectiveStatus,
+        payment_status: sub.status,
+        total_cents: sub.total_paid_cents,
+        created_at: sub.created_at,
+        updated_at: sub.created_at,
+        market_box: {
+          offering_name: (offering?.name as string) || 'Market Box',
+          offering_image: ((offering?.image_urls as string[]) || [])[0] || null,
+          vendor_name: vendorName,
+          vendor_id: (vendor?.id as string) || null,
+          market: market ? {
+            id: market.id as string,
+            name: (market.name as string) || 'Unknown',
+            type: (market.market_type as string) || 'traditional',
+          } : null,
+          weeks_completed: (sub.weeks_completed as number) || 0,
+          total_weeks: totalWeeks,
+          term_weeks: termWeeks,
+          extended_weeks: extendedWeeks,
+          next_pickup: nextPickup ? {
+            date: nextPickup.scheduled_date as string,
+            status: nextPickup.status as string,
+            week_number: nextPickup.week_number as number,
+          } : null,
+          has_ready_pickup: hasReadyPickup,
+          pickup_day_of_week: (offering?.pickup_day_of_week as number) ?? null,
+          pickup_start_time: (offering?.pickup_start_time as string) || null,
+          pickup_end_time: (offering?.pickup_end_time as string) || null,
+        },
+        items: [] as typeof transformedOrders[number]['items'],
+      }
+    })
+
+    // Apply status filter to market box orders (regular orders already filtered at DB level)
+    const filteredMarketBoxOrders = status
+      ? marketBoxOrders.filter(o => o.status === status)
+      : marketBoxOrders
+
+    // Merge both order types into unified list, sorted by date descending
+    const allOrders = [...transformedOrders, ...filteredMarketBoxOrders]
+    allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
     // Filter by market if specified
     const filteredOrders = marketId
-      ? transformedOrders.filter(order =>
-          order.items.some(item => item.market?.id === marketId)
+      ? allOrders.filter(order =>
+          order.type === 'market_box'
+            ? order.market_box?.market?.id === marketId
+            : order.items.some(item => item.market?.id === marketId)
         )
-      : transformedOrders
+      : allOrders
 
     // Get unique markets for the filter dropdown
     const markets = Array.from(marketsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
