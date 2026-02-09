@@ -41,10 +41,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'pickup_id is required' }, { status: 400 })
   }
 
-  // Get the pickup
+  // Get the pickup with confirmation state
   const { data: pickup } = await supabase
     .from('market_box_pickups')
-    .select('id, status, subscription_id')
+    .select('id, status, subscription_id, vendor_confirmed_at, buyer_confirmed_at, confirmation_window_expires_at')
     .eq('id', pickup_id)
     .eq('subscription_id', subscriptionId)
     .single()
@@ -64,26 +64,87 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: `Cannot confirm pickup with status: ${pickup.status}` }, { status: 400 })
   }
 
-  // Mark as picked up
-  const { data: updated, error } = await supabase
-    .from('market_box_pickups')
-    .update({
-      status: 'picked_up',
-      picked_up_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', pickup_id)
-    .select()
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  // Check if already confirmed by buyer
+  if (pickup.buyer_confirmed_at) {
+    return NextResponse.json({ error: 'You already confirmed this pickup. Waiting for vendor.' }, { status: 400 })
   }
 
-  // The trigger will auto-update subscription.weeks_completed
+  const now = new Date()
+  const CONFIRMATION_WINDOW_SECONDS = 30
+  const vendorAlreadyConfirmed = !!pickup.vendor_confirmed_at
 
-  return NextResponse.json({
-    pickup: updated,
-    message: 'Pickup confirmed! Enjoy your market box.',
-  })
+  if (vendorAlreadyConfirmed) {
+    // Check if vendor's 30-second window is still valid
+    const windowExpires = pickup.confirmation_window_expires_at
+      ? new Date(pickup.confirmation_window_expires_at)
+      : null
+
+    if (windowExpires && now > windowExpires) {
+      // Window expired — reset vendor confirmation
+      await supabase
+        .from('market_box_pickups')
+        .update({
+          vendor_confirmed_at: null,
+          confirmation_window_expires_at: null,
+          updated_at: now.toISOString(),
+        })
+        .eq('id', pickup_id)
+
+      return NextResponse.json({
+        error: 'Confirmation window expired. Please ask the vendor to confirm handoff again.',
+        code: 'WINDOW_EXPIRED',
+      }, { status: 400 })
+    }
+
+    // Both confirmed! Complete the pickup
+    const { data: updated, error } = await supabase
+      .from('market_box_pickups')
+      .update({
+        status: 'picked_up',
+        picked_up_at: now.toISOString(),
+        buyer_confirmed_at: now.toISOString(),
+        confirmation_window_expires_at: null,
+        updated_at: now.toISOString(),
+      })
+      .eq('id', pickup_id)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // The trigger will auto-update subscription.weeks_completed
+
+    return NextResponse.json({
+      pickup: updated,
+      message: 'Pickup confirmed by both parties! Enjoy your market box.',
+      completed: true,
+    })
+  } else {
+    // Buyer confirming first — start 30s window, wait for vendor
+    const windowExpires = new Date(now.getTime() + CONFIRMATION_WINDOW_SECONDS * 1000)
+
+    const { data: updated, error } = await supabase
+      .from('market_box_pickups')
+      .update({
+        buyer_confirmed_at: now.toISOString(),
+        confirmation_window_expires_at: windowExpires.toISOString(),
+        updated_at: now.toISOString(),
+      })
+      .eq('id', pickup_id)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      pickup: updated,
+      message: 'Receipt acknowledged. Vendor has 30 seconds to confirm handoff.',
+      confirmation_window_expires_at: windowExpires.toISOString(),
+      completed: false,
+    })
+  }
 }

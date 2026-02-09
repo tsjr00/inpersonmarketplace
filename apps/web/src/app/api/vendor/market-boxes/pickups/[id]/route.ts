@@ -98,13 +98,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
   }
 
-  // Get pickup with offering info to verify ownership
+  // Get pickup with offering info to verify ownership + confirmation state
   const { data: pickup } = await supabase
     .from('market_box_pickups')
     .select(`
       id,
       status,
       ready_at,
+      buyer_confirmed_at,
+      vendor_confirmed_at,
+      confirmation_window_expires_at,
       subscription:market_box_subscriptions (
         id,
         offering:market_box_offerings (
@@ -147,17 +150,61 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updates.ready_at = new Date().toISOString()
       break
 
-    case 'picked_up':
-      // Mark as picked up (vendor confirms buyer got it)
+    case 'picked_up': {
+      // Mutual confirmation: both vendor and buyer must confirm within 30 seconds
       if (!['scheduled', 'ready'].includes(pickup.status)) {
-        return NextResponse.json({ error: 'Can only mark scheduled or ready pickups as picked up' }, { status: 400 })
+        return NextResponse.json({ error: 'Can only confirm scheduled or ready pickups' }, { status: 400 })
       }
-      updates.status = 'picked_up'
-      updates.picked_up_at = new Date().toISOString()
-      if (!pickup.ready_at) {
-        updates.ready_at = new Date().toISOString()
+
+      const now = new Date()
+      const CONFIRMATION_WINDOW_SECONDS = 30
+      const buyerAlreadyConfirmed = !!(pickup as Record<string, unknown>).buyer_confirmed_at
+
+      if (buyerAlreadyConfirmed) {
+        // Check if 30-second confirmation window is still valid
+        const windowExpires = (pickup as Record<string, unknown>).confirmation_window_expires_at
+          ? new Date((pickup as Record<string, unknown>).confirmation_window_expires_at as string)
+          : null
+
+        if (windowExpires && now > windowExpires) {
+          // Window expired — reset buyer confirmation, they must re-confirm
+          await supabase
+            .from('market_box_pickups')
+            .update({
+              buyer_confirmed_at: null,
+              confirmation_window_expires_at: null,
+              updated_at: now.toISOString(),
+            })
+            .eq('id', pickupId)
+
+          return NextResponse.json({
+            error: 'Confirmation window expired. Please ask the buyer to confirm pickup again.',
+            code: 'WINDOW_EXPIRED',
+          }, { status: 400 })
+        }
+
+        // Both confirmed! Complete the pickup
+        updates.status = 'picked_up'
+        updates.picked_up_at = now.toISOString()
+        updates.vendor_confirmed_at = now.toISOString()
+        updates.confirmation_window_expires_at = null
+        if (!pickup.ready_at) {
+          updates.ready_at = now.toISOString()
+        }
+      } else {
+        // Vendor confirming first — start 30s window, wait for buyer
+        updates.vendor_confirmed_at = now.toISOString()
+        updates.confirmation_window_expires_at = new Date(
+          now.getTime() + CONFIRMATION_WINDOW_SECONDS * 1000
+        ).toISOString()
+        // If still scheduled, also mark as ready
+        if (pickup.status === 'scheduled') {
+          updates.status = 'ready'
+          updates.ready_at = now.toISOString()
+        }
       }
       break
+    }
 
     case 'missed':
       // Mark as missed (buyer didn't show)
@@ -199,5 +246,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ pickup: updated })
+  // Include confirmation state in response
+  const completed = updated?.status === 'picked_up'
+  const waitingForBuyer = !completed && !!updates.vendor_confirmed_at
+  const waitingForVendor = !completed && !!updated?.buyer_confirmed_at
+
+  return NextResponse.json({
+    pickup: updated,
+    completed,
+    waiting_for_buyer: waitingForBuyer,
+    waiting_for_vendor: waitingForVendor,
+    confirmation_window_expires_at: waitingForBuyer
+      ? updates.confirmation_window_expires_at
+      : null,
+    message: completed
+      ? 'Pickup confirmed by both parties!'
+      : waitingForBuyer
+        ? 'Waiting for buyer to confirm pickup (30 seconds).'
+        : undefined,
+  })
 }

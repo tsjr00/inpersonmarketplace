@@ -15,6 +15,9 @@ interface Pickup {
   picked_up_at: string | null
   missed_at: string | null
   rescheduled_to: string | null
+  buyer_confirmed_at: string | null
+  vendor_confirmed_at: string | null
+  confirmation_window_expires_at: string | null
 }
 
 interface Subscription {
@@ -58,6 +61,9 @@ export default function BuyerSubscriptionDetailPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
+  const [confirmingPickup, setConfirmingPickup] = useState<string | null>(null)
+  const [waitingForVendor, setWaitingForVendor] = useState<string | null>(null)
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null)
 
   const fetchSubscription = useCallback(async () => {
     try {
@@ -93,6 +99,59 @@ export default function BuyerSubscriptionDetailPage() {
   useEffect(() => {
     fetchSubscription()
   }, [fetchSubscription])
+
+  // Poll for pickup completion when waiting for vendor
+  useEffect(() => {
+    if (!waitingForVendor) return
+    const interval = setInterval(() => {
+      fetchSubscription().then(() => {
+        // Check if the pickup we're waiting on is now complete
+        const pickup = subscription?.pickups?.find(p => p.id === waitingForVendor)
+        if (pickup?.status === 'picked_up') {
+          setWaitingForVendor(null)
+          setConfirmMessage('Pickup confirmed by both parties!')
+          setTimeout(() => setConfirmMessage(null), 5000)
+        }
+      })
+    }, 3000)
+    // Stop polling after 35 seconds (window is 30s + buffer)
+    const timeout = setTimeout(() => {
+      setWaitingForVendor(null)
+      clearInterval(interval)
+    }, 35000)
+    return () => { clearInterval(interval); clearTimeout(timeout) }
+  }, [waitingForVendor, fetchSubscription, subscription?.pickups])
+
+  const handleConfirmPickup = async (pickupId: string) => {
+    setConfirmingPickup(pickupId)
+    setConfirmMessage(null)
+    try {
+      const res = await fetch(`/api/buyer/market-boxes/${subscriptionId}/confirm-pickup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pickup_id: pickupId }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setConfirmMessage(data.error || 'Failed to confirm pickup')
+        return
+      }
+
+      if (data.completed) {
+        setConfirmMessage('Pickup confirmed by both parties!')
+        fetchSubscription()
+        setTimeout(() => setConfirmMessage(null), 5000)
+      } else {
+        setConfirmMessage('Waiting for vendor to confirm handoff (30 seconds)...')
+        setWaitingForVendor(pickupId)
+      }
+    } catch (err) {
+      setConfirmMessage(err instanceof Error ? err.message : 'Failed to confirm')
+    } finally {
+      setConfirmingPickup(null)
+    }
+  }
 
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -296,6 +355,22 @@ export default function BuyerSubscriptionDetailPage() {
           </div>
         )}
 
+        {/* Confirmation message */}
+        {confirmMessage && (
+          <div style={{
+            padding: '12px 16px',
+            marginBottom: 16,
+            backgroundColor: confirmMessage.includes('both parties') ? '#dcfce7' : confirmMessage.includes('Waiting') ? '#fef3c7' : '#fee2e2',
+            border: `1px solid ${confirmMessage.includes('both parties') ? '#86efac' : confirmMessage.includes('Waiting') ? '#fcd34d' : '#fecaca'}`,
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 500,
+            color: confirmMessage.includes('both parties') ? '#166534' : confirmMessage.includes('Waiting') ? '#92400e' : '#991b1b',
+          }}>
+            {confirmMessage}
+          </div>
+        )}
+
         {/* Pickup Schedule */}
         <div style={{
           padding: 20,
@@ -349,7 +424,7 @@ export default function BuyerSubscriptionDetailPage() {
                         </div>
                       )}
                     </div>
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                       <span style={{
                         padding: '4px 12px',
                         backgroundColor: 'white',
@@ -361,14 +436,60 @@ export default function BuyerSubscriptionDetailPage() {
                         {pickupStatus.label}
                       </span>
                       {pickup.picked_up_at && (
-                        <div style={{ fontSize: 12, color: '#166534', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, color: '#166534' }}>
                           Picked up {formatDateTime(pickup.picked_up_at)}
                         </div>
                       )}
                       {pickup.missed_at && (
-                        <div style={{ fontSize: 12, color: '#991b1b', marginTop: 4 }}>
+                        <div style={{ fontSize: 12, color: '#991b1b' }}>
                           Marked missed {formatDateTime(pickup.missed_at)}
                         </div>
+                      )}
+                      {/* Confirm Pickup button for ready pickups */}
+                      {pickup.status === 'ready' && !pickup.buyer_confirmed_at && (
+                        <button
+                          onClick={() => handleConfirmPickup(pickup.id)}
+                          disabled={confirmingPickup === pickup.id || waitingForVendor === pickup.id}
+                          style={{
+                            padding: '8px 16px',
+                            backgroundColor: waitingForVendor === pickup.id ? '#9ca3af' : '#166534',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 6,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: confirmingPickup === pickup.id ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {confirmingPickup === pickup.id ? 'Confirming...'
+                            : waitingForVendor === pickup.id ? 'Waiting for vendor...'
+                            : 'Confirm Pickup'}
+                        </button>
+                      )}
+                      {/* Waiting state after buyer confirmed */}
+                      {pickup.status === 'ready' && pickup.buyer_confirmed_at && !pickup.vendor_confirmed_at && (
+                        <div style={{ fontSize: 12, color: '#92400e', fontWeight: 500 }}>
+                          Waiting for vendor to confirm...
+                        </div>
+                      )}
+                      {/* Vendor confirmed first, waiting for buyer */}
+                      {pickup.status === 'ready' && pickup.vendor_confirmed_at && !pickup.buyer_confirmed_at && (
+                        <button
+                          onClick={() => handleConfirmPickup(pickup.id)}
+                          disabled={confirmingPickup === pickup.id}
+                          style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#b45309',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 6,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {confirmingPickup === pickup.id ? 'Confirming...' : 'Vendor is waiting — Confirm Now!'}
+                        </button>
                       )}
                     </div>
                   </div>
