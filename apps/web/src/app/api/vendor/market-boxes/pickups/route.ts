@@ -79,6 +79,9 @@ export async function GET(request: NextRequest) {
       is_extension,
       skipped_by_vendor_at,
       skip_reason,
+      buyer_confirmed_at,
+      vendor_confirmed_at,
+      confirmation_window_expires_at,
       subscription:market_box_subscriptions (
         id,
         start_date,

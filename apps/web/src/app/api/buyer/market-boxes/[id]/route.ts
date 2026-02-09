@@ -27,6 +27,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       start_date,
       status,
       weeks_completed,
+      term_weeks,
+      extended_weeks,
       created_at,
       completed_at,
       cancelled_at,
@@ -66,7 +68,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         picked_up_at,
         missed_at,
         rescheduled_to,
-        vendor_notes
+        vendor_notes,
+        buyer_confirmed_at,
+        vendor_confirmed_at,
+        confirmation_window_expires_at
       )
     `)
     .eq('id', subscriptionId)
@@ -95,10 +100,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     p.scheduled_date >= today && ['scheduled', 'ready'].includes(p.status)
   )
 
-  // Calculate end date (4 weeks from start)
+  // Calculate total weeks and end date
+  const termWeeks = (subscription as any).term_weeks || 4
+  const extendedWeeks = (subscription as any).extended_weeks || 0
+  const totalWeeks = termWeeks + extendedWeeks
   const startDate = new Date(subscription.start_date)
   const endDate = new Date(startDate)
-  endDate.setDate(startDate.getDate() + 21) // 3 weeks after first pickup
+  endDate.setDate(startDate.getDate() + (totalWeeks - 1) * 7)
   const endDateStr = endDate.toISOString().split('T')[0]
 
   return NextResponse.json({
@@ -109,7 +117,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       start_date: subscription.start_date,
       end_date: endDateStr,
       weeks_completed: subscription.weeks_completed,
-      weeks_remaining: 4 - (subscription.weeks_completed || 0),
+      term_weeks: termWeeks,
+      extended_weeks: extendedWeeks,
+      total_weeks: totalWeeks,
+      weeks_remaining: totalWeeks - (subscription.weeks_completed || 0),
       created_at: subscription.created_at,
       completed_at: subscription.completed_at,
       cancelled_at: subscription.cancelled_at,
