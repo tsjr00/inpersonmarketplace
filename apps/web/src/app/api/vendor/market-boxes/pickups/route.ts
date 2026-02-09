@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 /**
  * GET /api/vendor/market-boxes/pickups
@@ -60,8 +60,11 @@ export async function GET(request: NextRequest) {
 
   const subscriptionIds = subscriptions.map(s => s.id)
 
-  // Now get pickups for those subscriptions
-  let query = supabase
+  // Get pickups with buyer profile data
+  // Uses service client because RLS on user_profiles only allows reading own profile,
+  // but vendors need to see subscriber names for pickup management. Ownership verified above.
+  const serviceClient = createServiceClient()
+  let query = serviceClient
     .from('market_box_pickups')
     .select(`
       id,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { canActivateMarketBox, formatLimitError } from '@/lib/vendor-limits'
 
 interface RouteContext {
@@ -66,8 +66,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Offering not found' }, { status: 404 })
   }
 
-  // Get active subscriptions with pickup status
-  const { data: subscriptions } = await supabase
+  // Get subscriptions with buyer profile data
+  // Uses service client because RLS on user_profiles only allows reading own profile,
+  // but vendors need to see their subscribers' names. Ownership already verified above.
+  const serviceClient = createServiceClient()
+  const { data: subscriptions } = await serviceClient
     .from('market_box_subscriptions')
     .select(`
       id,
