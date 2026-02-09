@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
+import { withErrorTracing } from '@/lib/errors'
 
 interface ReportRequest {
   reportId: string
@@ -47,139 +48,141 @@ function formatDate(date: string | null): string {
 }
 
 export async function POST(request: NextRequest) {
-  const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
-  if (!rateLimitResult.success) {
-    return rateLimitResponse(rateLimitResult)
-  }
-
-  const supabase = await createClient()
-  const supabaseService = createServiceClient()
-
-  // Verify admin authentication
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Check if user is admin
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('roles')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!profile?.roles?.includes('admin')) {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-  }
-
-  const body: ReportRequest = await request.json()
-  const { reportId, dateFrom, dateTo, verticalId } = body
-
-  // Extend dateTo to end of day
-  const dateToEnd = `${dateTo}T23:59:59.999Z`
-  const dateFromStart = `${dateFrom}T00:00:00.000Z`
-
-  // For filename prefix
-  const verticalPrefix = verticalId ? `${verticalId}_` : ''
-
-  let csvContent: string
-  let filename: string
-
-  try {
-    switch (reportId) {
-      case 'sales_summary':
-        csvContent = await generateSalesSummary(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}sales_summary_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'revenue_fees':
-        csvContent = await generateRevenueFees(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}revenue_fees_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'sales_by_category':
-        csvContent = await generateSalesByCategory(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}sales_by_category_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'order_details':
-        csvContent = await generateOrderDetails(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}order_details_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'order_status':
-        csvContent = await generateOrderStatus(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}order_status_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'cancellations':
-        csvContent = await generateCancellations(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}cancellations_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'market_performance':
-        csvContent = await generateMarketPerformance(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}market_performance_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'vendor_performance':
-        csvContent = await generateVendorPerformance(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}vendor_performance_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'vendor_payouts':
-        csvContent = await generateVendorPayouts(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}vendor_payouts_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'vendor_roster':
-        csvContent = await generateVendorRoster(supabaseService, verticalId)
-        filename = `${verticalPrefix}vendor_roster_${dateTo}.csv`
-        break
-
-      case 'customer_summary':
-        csvContent = await generateCustomerSummary(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}customer_summary_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'top_customers':
-        csvContent = await generateTopCustomers(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}top_customers_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'customer_retention':
-        csvContent = await generateCustomerRetention(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}customer_retention_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      case 'listing_inventory':
-        csvContent = await generateListingInventory(supabaseService, verticalId)
-        filename = `${verticalPrefix}listing_inventory_${dateTo}.csv`
-        break
-
-      case 'product_performance':
-        csvContent = await generateProductPerformance(supabaseService, dateFromStart, dateToEnd, verticalId)
-        filename = `${verticalPrefix}product_performance_${dateFrom}_to_${dateTo}.csv`
-        break
-
-      default:
-        return NextResponse.json({ error: 'Unknown report type' }, { status: 400 })
+  return withErrorTracing('/api/admin/reports', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    if (!rateLimitResult.success) {
+      return rateLimitResponse(rateLimitResult)
     }
 
-    // Return CSV as downloadable file
-    return new NextResponse(csvContent, {
-      headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-      },
-    })
-  } catch (error) {
-    console.error(`[Reports] Error generating ${reportId}:`, error)
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : 'Failed to generate report'
-    }, { status: 500 })
-  }
+    const supabase = await createClient()
+    const supabaseService = createServiceClient()
+
+    // Verify admin authentication
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('roles')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!profile?.roles?.includes('admin')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    const body: ReportRequest = await request.json()
+    const { reportId, dateFrom, dateTo, verticalId } = body
+
+    // Extend dateTo to end of day
+    const dateToEnd = `${dateTo}T23:59:59.999Z`
+    const dateFromStart = `${dateFrom}T00:00:00.000Z`
+
+    // For filename prefix
+    const verticalPrefix = verticalId ? `${verticalId}_` : ''
+
+    let csvContent: string
+    let filename: string
+
+    try {
+      switch (reportId) {
+        case 'sales_summary':
+          csvContent = await generateSalesSummary(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}sales_summary_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'revenue_fees':
+          csvContent = await generateRevenueFees(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}revenue_fees_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'sales_by_category':
+          csvContent = await generateSalesByCategory(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}sales_by_category_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'order_details':
+          csvContent = await generateOrderDetails(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}order_details_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'order_status':
+          csvContent = await generateOrderStatus(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}order_status_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'cancellations':
+          csvContent = await generateCancellations(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}cancellations_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'market_performance':
+          csvContent = await generateMarketPerformance(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}market_performance_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'vendor_performance':
+          csvContent = await generateVendorPerformance(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}vendor_performance_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'vendor_payouts':
+          csvContent = await generateVendorPayouts(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}vendor_payouts_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'vendor_roster':
+          csvContent = await generateVendorRoster(supabaseService, verticalId)
+          filename = `${verticalPrefix}vendor_roster_${dateTo}.csv`
+          break
+
+        case 'customer_summary':
+          csvContent = await generateCustomerSummary(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}customer_summary_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'top_customers':
+          csvContent = await generateTopCustomers(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}top_customers_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'customer_retention':
+          csvContent = await generateCustomerRetention(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}customer_retention_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'listing_inventory':
+          csvContent = await generateListingInventory(supabaseService, verticalId)
+          filename = `${verticalPrefix}listing_inventory_${dateTo}.csv`
+          break
+
+        case 'product_performance':
+          csvContent = await generateProductPerformance(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}product_performance_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        default:
+          return NextResponse.json({ error: 'Unknown report type' }, { status: 400 })
+      }
+
+      // Return CSV as downloadable file
+      return new NextResponse(csvContent, {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+        },
+      })
+    } catch (error) {
+      console.error(`[Reports] Error generating ${reportId}:`, error)
+      return NextResponse.json({
+        error: error instanceof Error ? error.message : 'Failed to generate report'
+      }, { status: 500 })
+    }
+  })
 }
 
 // ============================================================================

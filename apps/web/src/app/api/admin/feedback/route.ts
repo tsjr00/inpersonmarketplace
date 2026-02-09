@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { withErrorTracing } from '@/lib/errors'
 
 // GET - Get all feedback (admin only)
 // Supports both shopper and vendor feedback via 'source' param
 export async function GET(request: Request) {
-  // Rate limit admin feedback requests
-  const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`admin-feedback:${clientIp}`, { limit: 60, windowSeconds: 60 })
+  return withErrorTracing('/api/admin/feedback', 'GET', async () => {
+    // Rate limit admin feedback requests
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`admin-feedback:${clientIp}`, { limit: 60, windowSeconds: 60 })
 
-  if (!rateLimitResult.success) {
-    return rateLimitResponse(rateLimitResult)
-  }
+    if (!rateLimitResult.success) {
+      return rateLimitResponse(rateLimitResult)
+    }
 
-  try {
+    try {
     const supabase = await createClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -125,24 +127,26 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ feedback: transformedFeedback, counts, source })
 
-  } catch (error) {
-    console.error('[/api/admin/feedback] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+    } catch (error) {
+      console.error('[/api/admin/feedback] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+  })
 }
 
 // PATCH - Update feedback status/notes (admin only)
 // Supports both shopper and vendor feedback via 'source' param
 export async function PATCH(request: Request) {
-  // Rate limit admin feedback updates
-  const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`admin-feedback-update:${clientIp}`, { limit: 30, windowSeconds: 60 })
+  return withErrorTracing('/api/admin/feedback', 'PATCH', async () => {
+    // Rate limit admin feedback updates
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`admin-feedback-update:${clientIp}`, { limit: 30, windowSeconds: 60 })
 
-  if (!rateLimitResult.success) {
-    return rateLimitResponse(rateLimitResult)
-  }
+    if (!rateLimitResult.success) {
+      return rateLimitResponse(rateLimitResult)
+    }
 
-  try {
+    try {
     const supabase = await createClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -208,8 +212,9 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true, feedback })
 
-  } catch (error) {
-    console.error('[/api/admin/feedback] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+    } catch (error) {
+      console.error('[/api/admin/feedback] Unexpected error:', error instanceof Error ? error.message : 'Unknown error')
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+  })
 }

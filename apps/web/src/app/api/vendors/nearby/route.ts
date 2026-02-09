@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withErrorTracing } from '@/lib/errors'
 
 const DEFAULT_RADIUS_MILES = 25
 const DEFAULT_PAGE_SIZE = 35
@@ -19,257 +20,259 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createClient()
+  return withErrorTracing('/api/vendors/nearby', 'GET', async () => {
+    try {
+      const supabase = await createClient()
 
-    const searchParams = request.nextUrl.searchParams
-    const lat = searchParams.get('lat')
-    const lng = searchParams.get('lng')
-    const vertical = searchParams.get('vertical')
-    const radiusMiles = parseFloat(searchParams.get('radius') || String(DEFAULT_RADIUS_MILES))
-    const limit = parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10)
-    const offset = parseInt(searchParams.get('offset') || '0', 10)
-    const market = searchParams.get('market')
-    const category = searchParams.get('category')
-    const search = searchParams.get('search')
-    const sort = searchParams.get('sort') || 'rating'
+      const searchParams = request.nextUrl.searchParams
+      const lat = searchParams.get('lat')
+      const lng = searchParams.get('lng')
+      const vertical = searchParams.get('vertical')
+      const radiusMiles = parseFloat(searchParams.get('radius') || String(DEFAULT_RADIUS_MILES))
+      const limit = parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10)
+      const offset = parseInt(searchParams.get('offset') || '0', 10)
+      const market = searchParams.get('market')
+      const category = searchParams.get('category')
+      const search = searchParams.get('search')
+      const sort = searchParams.get('sort') || 'rating'
 
-    // Validate required params
-    if (!lat || !lng) {
-      return NextResponse.json(
-        { error: 'Latitude and longitude are required' },
-        { status: 400 }
-      )
-    }
-
-    const latitude = parseFloat(lat)
-    const longitude = parseFloat(lng)
-
-    if (isNaN(latitude) || isNaN(longitude)) {
-      return NextResponse.json(
-        { error: 'Invalid coordinates' },
-        { status: 400 }
-      )
-    }
-
-    // Convert miles to meters for PostGIS function
-    const radiusMeters = radiusMiles * METERS_PER_MILE
-
-    // STEP 1: Use PostGIS function for efficient geographic query
-    // This does the distance calculation at the database level
-    const { data: nearbyVendors, error: postgisError } = await supabase.rpc(
-      'get_vendors_within_radius',
-      {
-        user_lat: latitude,
-        user_lng: longitude,
-        radius_meters: radiusMeters,
-        vertical_filter: vertical || null
+      // Validate required params
+      if (!lat || !lng) {
+        return NextResponse.json(
+          { error: 'Latitude and longitude are required' },
+          { status: 400 }
+        )
       }
-    )
 
-    // If PostGIS function fails (e.g., not available), fall back to cache-based method
-    if (postgisError) {
-      console.log('[Vendors Nearby] PostGIS function failed, using fallback:', postgisError.message)
-      return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, market, category, search, sort)
-    }
+      const latitude = parseFloat(lat)
+      const longitude = parseFloat(lng)
 
-    if (!nearbyVendors || nearbyVendors.length === 0) {
-      return NextResponse.json({
-        vendors: [],
-        center: { latitude, longitude },
-        radiusMiles
-      }, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+      if (isNaN(latitude) || isNaN(longitude)) {
+        return NextResponse.json(
+          { error: 'Invalid coordinates' },
+          { status: 400 }
+        )
+      }
+
+      // Convert miles to meters for PostGIS function
+      const radiusMeters = radiusMiles * METERS_PER_MILE
+
+      // STEP 1: Use PostGIS function for efficient geographic query
+      // This does the distance calculation at the database level
+      const { data: nearbyVendors, error: postgisError } = await supabase.rpc(
+        'get_vendors_within_radius',
+        {
+          user_lat: latitude,
+          user_lng: longitude,
+          radius_meters: radiusMeters,
+          vertical_filter: vertical || null
+        }
+      )
+
+      // If PostGIS function fails (e.g., not available), fall back to cache-based method
+      if (postgisError) {
+        console.log('[Vendors Nearby] PostGIS function failed, using fallback:', postgisError.message)
+        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, market, category, search, sort)
+      }
+
+      if (!nearbyVendors || nearbyVendors.length === 0) {
+        return NextResponse.json({
+          vendors: [],
+          center: { latitude, longitude },
+          radiusMiles
+        }, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+          }
+        })
+      }
+
+      // Get vendor IDs from PostGIS results
+      const vendorIds = nearbyVendors.map((v: { id: string }) => v.id)
+
+      // Create a map of distances from PostGIS results
+      const distanceMap = new Map<string, number>()
+      nearbyVendors.forEach((v: { id: string; distance_miles: number }) => {
+        distanceMap.set(v.id, v.distance_miles)
+      })
+
+      // STEP 2: Fetch additional vendor data in parallel (only for nearby vendors)
+      const [vendorProfilesResult, listingsResult, marketsResult] = await Promise.all([
+        // Get full vendor profiles with ratings
+        supabase
+          .from('vendor_profiles')
+          .select(`
+            id,
+            profile_data,
+            description,
+            profile_image_url,
+            tier,
+            created_at,
+            average_rating,
+            rating_count
+          `)
+          .in('id', vendorIds)
+          .eq('status', 'approved'),
+
+        // Get listings for categories and counts
+        supabase
+          .from('listings')
+          .select('vendor_profile_id, category')
+          .in('vendor_profile_id', vendorIds)
+          .eq('status', 'published')
+          .is('deleted_at', null),
+
+        // Get market associations with lat/lng for per-market distance calculation
+        supabase
+          .from('listing_markets')
+          .select(`
+            listings!inner(vendor_profile_id),
+            markets(id, name, market_type, latitude, longitude)
+          `)
+          .in('listings.vendor_profile_id', vendorIds)
+      ])
+
+      const vendorProfiles = vendorProfilesResult.data || []
+      const listings = listingsResult.data || []
+      const listingMarkets = marketsResult.data || []
+
+      // STEP 3: Enrich vendor data
+      const enrichedVendors = vendorProfiles.map(vendor => {
+        const profileData = vendor.profile_data as Record<string, unknown>
+        const vendorName = (profileData?.business_name as string) ||
+                          (profileData?.farm_name as string) ||
+                          'Vendor'
+
+        // Get listings for this vendor
+        const vendorListings = listings.filter(l => l.vendor_profile_id === vendor.id)
+        const listingCount = vendorListings.length
+        const categories = [...new Set(vendorListings.map(l => l.category).filter(Boolean))] as string[]
+
+        // Get markets from listing_markets with per-market distance calculation
+        const marketMap = new Map<string, { id: string; name: string; market_type: string; distance_miles: number }>()
+        listingMarkets
+          .filter(lm => {
+            const listing = lm.listings as unknown as { vendor_profile_id: string }
+            return listing?.vendor_profile_id === vendor.id && lm.markets
+          })
+          .forEach(lm => {
+            const m = lm.markets as unknown as {
+              id: string
+              name: string
+              market_type: string
+              latitude: number | null
+              longitude: number | null
+            }
+            if (m && !marketMap.has(m.id)) {
+              // Calculate distance from user to this specific market
+              let marketDistance = 999 // Default if no coordinates
+              if (m.latitude && m.longitude) {
+                marketDistance = Math.round(haversineDistance(latitude, longitude, m.latitude, m.longitude) * 10) / 10
+              }
+              marketMap.set(m.id, {
+                id: m.id,
+                name: m.name,
+                market_type: m.market_type || 'traditional',
+                distance_miles: marketDistance
+              })
+            }
+          })
+
+        // Sort markets by distance
+        const vendorMarkets = Array.from(marketMap.values()).sort((a, b) => a.distance_miles - b.distance_miles)
+
+        return {
+          id: vendor.id,
+          name: vendorName,
+          description: vendor.description as string | null,
+          imageUrl: vendor.profile_image_url as string | null,
+          tier: (vendor.tier || 'standard') as string,
+          createdAt: vendor.created_at,
+          averageRating: vendor.average_rating as number | null,
+          ratingCount: vendor.rating_count as number | null,
+          listingCount,
+          categories,
+          markets: vendorMarkets,
+          distance_miles: distanceMap.get(vendor.id) ?? null
         }
       })
-    }
 
-    // Get vendor IDs from PostGIS results
-    const vendorIds = nearbyVendors.map((v: { id: string }) => v.id)
+      // STEP 4: Apply additional filters
+      let filteredVendors = enrichedVendors.filter(v => v.listingCount > 0)
 
-    // Create a map of distances from PostGIS results
-    const distanceMap = new Map<string, number>()
-    nearbyVendors.forEach((v: { id: string; distance_miles: number }) => {
-      distanceMap.set(v.id, v.distance_miles)
-    })
-
-    // STEP 2: Fetch additional vendor data in parallel (only for nearby vendors)
-    const [vendorProfilesResult, listingsResult, marketsResult] = await Promise.all([
-      // Get full vendor profiles with ratings
-      supabase
-        .from('vendor_profiles')
-        .select(`
-          id,
-          profile_data,
-          description,
-          profile_image_url,
-          tier,
-          created_at,
-          average_rating,
-          rating_count
-        `)
-        .in('id', vendorIds)
-        .eq('status', 'approved'),
-
-      // Get listings for categories and counts
-      supabase
-        .from('listings')
-        .select('vendor_profile_id, category')
-        .in('vendor_profile_id', vendorIds)
-        .eq('status', 'published')
-        .is('deleted_at', null),
-
-      // Get market associations with lat/lng for per-market distance calculation
-      supabase
-        .from('listing_markets')
-        .select(`
-          listings!inner(vendor_profile_id),
-          markets(id, name, market_type, latitude, longitude)
-        `)
-        .in('listings.vendor_profile_id', vendorIds)
-    ])
-
-    const vendorProfiles = vendorProfilesResult.data || []
-    const listings = listingsResult.data || []
-    const listingMarkets = marketsResult.data || []
-
-    // STEP 3: Enrich vendor data
-    const enrichedVendors = vendorProfiles.map(vendor => {
-      const profileData = vendor.profile_data as Record<string, unknown>
-      const vendorName = (profileData?.business_name as string) ||
-                        (profileData?.farm_name as string) ||
-                        'Vendor'
-
-      // Get listings for this vendor
-      const vendorListings = listings.filter(l => l.vendor_profile_id === vendor.id)
-      const listingCount = vendorListings.length
-      const categories = [...new Set(vendorListings.map(l => l.category).filter(Boolean))] as string[]
-
-      // Get markets from listing_markets with per-market distance calculation
-      const marketMap = new Map<string, { id: string; name: string; market_type: string; distance_miles: number }>()
-      listingMarkets
-        .filter(lm => {
-          const listing = lm.listings as unknown as { vendor_profile_id: string }
-          return listing?.vendor_profile_id === vendor.id && lm.markets
-        })
-        .forEach(lm => {
-          const m = lm.markets as unknown as {
-            id: string
-            name: string
-            market_type: string
-            latitude: number | null
-            longitude: number | null
-          }
-          if (m && !marketMap.has(m.id)) {
-            // Calculate distance from user to this specific market
-            let marketDistance = 999 // Default if no coordinates
-            if (m.latitude && m.longitude) {
-              marketDistance = Math.round(haversineDistance(latitude, longitude, m.latitude, m.longitude) * 10) / 10
-            }
-            marketMap.set(m.id, {
-              id: m.id,
-              name: m.name,
-              market_type: m.market_type || 'traditional',
-              distance_miles: marketDistance
-            })
-          }
-        })
-
-      // Sort markets by distance
-      const vendorMarkets = Array.from(marketMap.values()).sort((a, b) => a.distance_miles - b.distance_miles)
-
-      return {
-        id: vendor.id,
-        name: vendorName,
-        description: vendor.description as string | null,
-        imageUrl: vendor.profile_image_url as string | null,
-        tier: (vendor.tier || 'standard') as string,
-        createdAt: vendor.created_at,
-        averageRating: vendor.average_rating as number | null,
-        ratingCount: vendor.rating_count as number | null,
-        listingCount,
-        categories,
-        markets: vendorMarkets,
-        distance_miles: distanceMap.get(vendor.id) ?? null
+      if (market) {
+        filteredVendors = filteredVendors.filter(v =>
+          v.markets.some(m => m.id === market)
+        )
       }
-    })
 
-    // STEP 4: Apply additional filters
-    let filteredVendors = enrichedVendors.filter(v => v.listingCount > 0)
-
-    if (market) {
-      filteredVendors = filteredVendors.filter(v =>
-        v.markets.some(m => m.id === market)
-      )
-    }
-
-    if (category) {
-      filteredVendors = filteredVendors.filter(v =>
-        v.categories.includes(category)
-      )
-    }
-
-    if (search) {
-      const searchLower = search.toLowerCase()
-      filteredVendors = filteredVendors.filter(v =>
-        v.name.toLowerCase().includes(searchLower) ||
-        (v.description?.toLowerCase().includes(searchLower))
-      )
-    }
-
-    // STEP 5: Sort vendors (always by distance first for location-based queries, then by selected sort within tier)
-    filteredVendors.sort((a, b) => {
-      // Premium/featured vendors first
-      const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
-      const aTier = tierOrder[a.tier] ?? 2
-      const bTier = tierOrder[b.tier] ?? 2
-      if (aTier !== bTier) return aTier - bTier
-
-      // Within same tier, sort by distance (closest first for location-based search)
-      const distA = a.distance_miles ?? 999
-      const distB = b.distance_miles ?? 999
-      if (distA !== distB) return distA - distB
-
-      // Then apply secondary sort
-      switch (sort) {
-        case 'rating':
-          if (a.averageRating && !b.averageRating) return -1
-          if (!a.averageRating && b.averageRating) return 1
-          if (a.averageRating && b.averageRating) return b.averageRating - a.averageRating
-          return a.name.localeCompare(b.name)
-        case 'name':
-          return a.name.localeCompare(b.name)
-        case 'listings':
-          return b.listingCount - a.listingCount
-        default:
-          return 0
+      if (category) {
+        filteredVendors = filteredVendors.filter(v =>
+          v.categories.includes(category)
+        )
       }
-    })
 
-    // STEP 6: Apply pagination
-    const total = filteredVendors.length
-    const paginatedVendors = filteredVendors.slice(offset, offset + limit)
-    const hasMore = offset + paginatedVendors.length < total
+      if (search) {
+        const searchLower = search.toLowerCase()
+        filteredVendors = filteredVendors.filter(v =>
+          v.name.toLowerCase().includes(searchLower) ||
+          (v.description?.toLowerCase().includes(searchLower))
+        )
+      }
 
-    return NextResponse.json(
-      {
-        vendors: paginatedVendors,
-        total,
-        hasMore,
-        center: { latitude, longitude },
-        radiusMiles
-      },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+      // STEP 5: Sort vendors (always by distance first for location-based queries, then by selected sort within tier)
+      filteredVendors.sort((a, b) => {
+        // Premium/featured vendors first
+        const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
+        const aTier = tierOrder[a.tier] ?? 2
+        const bTier = tierOrder[b.tier] ?? 2
+        if (aTier !== bTier) return aTier - bTier
+
+        // Within same tier, sort by distance (closest first for location-based search)
+        const distA = a.distance_miles ?? 999
+        const distB = b.distance_miles ?? 999
+        if (distA !== distB) return distA - distB
+
+        // Then apply secondary sort
+        switch (sort) {
+          case 'rating':
+            if (a.averageRating && !b.averageRating) return -1
+            if (!a.averageRating && b.averageRating) return 1
+            if (a.averageRating && b.averageRating) return b.averageRating - a.averageRating
+            return a.name.localeCompare(b.name)
+          case 'name':
+            return a.name.localeCompare(b.name)
+          case 'listings':
+            return b.listingCount - a.listingCount
+          default:
+            return 0
         }
-      }
-    )
-  } catch (error) {
-    console.error('Nearby vendors API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+      })
+
+      // STEP 6: Apply pagination
+      const total = filteredVendors.length
+      const paginatedVendors = filteredVendors.slice(offset, offset + limit)
+      const hasMore = offset + paginatedVendors.length < total
+
+      return NextResponse.json(
+        {
+          vendors: paginatedVendors,
+          total,
+          hasMore,
+          center: { latitude, longitude },
+          radiusMiles
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+          }
+        }
+      )
+    } catch (error) {
+      console.error('Nearby vendors API error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+  })
 }
 
 // Fallback method if PostGIS function doesn't work
