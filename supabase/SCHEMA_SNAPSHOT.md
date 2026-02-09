@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-09 | 20260209_006_vendor_cancellation_tracking | Added 3 columns to `vendor_profiles`: `orders_confirmed_count` (INT NOT NULL DEFAULT 0), `orders_cancelled_after_confirm_count` (INT NOT NULL DEFAULT 0), `cancellation_warning_sent_at` (TIMESTAMPTZ). Added 2 SECURITY DEFINER functions: `increment_vendor_confirmed(UUID)` returns void, `increment_vendor_cancelled(UUID)` returns TABLE(confirmed_count, cancelled_count). Applied to Dev & Staging. |
 | 2026-02-09 | 20260209_004_drop_remaining_old_policies | Dropped remaining old-named duplicate policies on 6 tables. transactions: 3 old SELECT/UPDATE. vendor_payouts: 1 old vendor_select. organizations: 1 old admin select. vendor_profiles: merged admin access into select/update, dropped 5 old. vendor_verifications: merged admin access into select, dropped 2 old. verticals: replaced ALL policy with specific admin INSERT/UPDATE/DELETE. Skipped user_profiles (recursion risk). Applied to Dev & Staging. |
 | 2026-02-09 | 20260209_003_merge_markets_select_policies | Merged `markets_select` + `markets_public_select` into single comprehensive `markets_select` policy. Includes: approved+active, vendor owns it, buyer order history (via order_items.market_id and listing_markets), platform admin, vertical admin. Applied to Dev & Staging. |
 | 2026-02-09 | 20260209_002_merge_duplicate_select_policies | Merged admin+regular SELECT policies into single policy on 6 tables: listings, orders, order_items, transactions, vendor_payouts, notifications. Dropped ~40 old-named policies from previous schema versions. Pure performance optimization — no behavioral change. Applied to Dev & Staging. |
@@ -282,7 +283,7 @@ Where Schema = public : map
 **IMPORTANT: `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST on order_items.**
 **Always use `pickup_snapshot.start_time` and `pickup_snapshot.end_time` instead.**
 
-## vendor_profiles (verified 02/05/2026)
+## vendor_profiles (verified 02/09/2026)
 
 | column_name                | data_type                | is_nullable |
 | -------------------------- | ------------------------ | ----------- |
@@ -327,6 +328,9 @@ Where Schema = public : map
 | paypal_username            | text                     | YES         |
 | accepts_cash_at_pickup     | boolean                  | YES         |
 | certifications             | jsonb                    | YES         |
+| orders_confirmed_count              | integer                  | NO (default 0) |
+| orders_cancelled_after_confirm_count| integer                  | NO (default 0) |
+| cancellation_warning_sent_at        | timestamp with time zone | YES         |
 
 -- FOREIGN KEYS AS OF 02/05/2026
 

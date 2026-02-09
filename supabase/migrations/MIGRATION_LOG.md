@@ -48,6 +48,12 @@
 | 20260205_002_pickup_scheduling_functions.sql | ✅ | 2026-02-05 | ❌ | - | get_available_pickup_dates(), validate_cart_item_schedule() |
 | 20260205_003_fix_cutoff_threshold.sql | ✅ | 2026-02-05 | ❌ | - | Added cutoff_hours to function output |
 | 20260206_001_atomic_inventory_decrement.sql | ✅ | 2026-02-06 | ✅ | 2026-02-06 | Atomic inventory decrement function (race condition fix) |
+| 20260208_001_market_box_mutual_confirmation.sql | ✅ | 2026-02-08 | ✅ | 2026-02-08 | 3 confirmation columns on market_box_pickups |
+| 20260209_001_add_performance_indexes.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | 10 performance indexes across 5 tables |
+| 20260209_002_merge_duplicate_select_policies.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Merged admin+regular SELECT policies on 6 tables |
+| 20260209_003_merge_markets_select_policies.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Merged markets SELECT policies into single comprehensive policy |
+| 20260209_004_drop_remaining_old_policies.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Dropped old duplicate policies on 6 tables |
+| 20260209_006_vendor_cancellation_tracking.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Vendor cancellation tracking: 3 columns + 2 RPC functions |
 
 ---
 
