@@ -7,7 +7,8 @@ const DEFAULT_PREFERENCES = {
   email_order_updates: true,
   email_marketing: false,
   sms_order_updates: false,
-  sms_marketing: false
+  sms_marketing: false,
+  push_enabled: false,
 }
 
 export async function GET() {
@@ -55,7 +56,8 @@ export async function PUT(request: Request) {
         email_order_updates: Boolean(preferences.email_order_updates),
         email_marketing: Boolean(preferences.email_marketing),
         sms_order_updates: Boolean(preferences.sms_order_updates),
-        sms_marketing: Boolean(preferences.sms_marketing)
+        sms_marketing: Boolean(preferences.sms_marketing),
+        push_enabled: Boolean(preferences.push_enabled),
       }
 
       // Update user profile with notification preferences

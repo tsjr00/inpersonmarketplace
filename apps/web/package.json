@@ -21,13 +21,15 @@
     "react-dom": "19.2.3",
     "resend": "^6.9.1",
     "stripe": "^20.1.2",
-    "twilio": "^5.12.1"
+    "twilio": "^5.12.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.23",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",

@@ -8,12 +8,13 @@
  *   - in_app: Always (writes to notifications table)
  *   - email:  Connected (Resend)
  *   - sms:    Connected (Twilio)
- *   - push:   Stubbed (Web Push API - needs VAPID keys)
+ *   - push:   Connected (Web Push API with VAPID)
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import twilio from 'twilio'
+import webpush from 'web-push'
 import {
   type NotificationType,
   type NotificationTemplateData,
@@ -42,6 +43,19 @@ function getTwilioClient(): twilio.Twilio | null {
     twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   }
   return twilioClient
+}
+
+let webPushConfigured = false
+
+function configureWebPush(): boolean {
+  if (webPushConfigured) return true
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  const subject = process.env.VAPID_SUBJECT
+  if (!publicKey || !privateKey || !subject) return false
+  webpush.setVapidDetails(subject, publicKey, privateKey)
+  webPushConfigured = true
+  return true
 }
 
 // ── Channel Dispatch Results ─────────────────────────────────────────
@@ -241,19 +255,85 @@ async function sendSms(
 }
 
 async function sendPush(
-  _userId: string,
-  _title: string,
-  _body: string,
-  _actionUrl: string
+  userId: string,
+  title: string,
+  body: string,
+  actionUrl: string
 ): Promise<ChannelResult> {
-  // STUB: Will implement Web Push here
-  // 1. Look up push_subscriptions for this user
-  // 2. Send via web-push library with VAPID keys
-  return {
-    channel: 'push',
-    success: true,
-    skipped: true,
-    reason: 'Push notifications not yet configured (needs VAPID keys)',
+  if (!configureWebPush()) {
+    return {
+      channel: 'push',
+      success: true,
+      skipped: true,
+      reason: 'VAPID keys not configured',
+    }
+  }
+
+  try {
+    const supabase = createServiceClient()
+    const { data: subscriptions, error } = await supabase
+      .from('push_subscriptions')
+      .select('id, endpoint, p256dh, auth')
+      .eq('user_id', userId)
+
+    if (error || !subscriptions?.length) {
+      return {
+        channel: 'push',
+        success: true,
+        skipped: true,
+        reason: error ? error.message : 'No push subscriptions found',
+      }
+    }
+
+    const payload = JSON.stringify({
+      title,
+      body,
+      url: actionUrl,
+      tag: 'notification',
+    })
+
+    const results = await Promise.allSettled(
+      subscriptions.map(sub =>
+        webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload
+        )
+      )
+    )
+
+    // Clean up stale subscriptions (410 Gone or 404 Not Found)
+    const staleIds: string[] = []
+    let successCount = 0
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]
+      if (result.status === 'fulfilled') {
+        successCount++
+      } else {
+        const statusCode = (result.reason as { statusCode?: number })?.statusCode
+        if (statusCode === 410 || statusCode === 404) {
+          staleIds.push(subscriptions[i].id)
+        }
+      }
+    }
+
+    if (staleIds.length > 0) {
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .in('id', staleIds)
+    }
+
+    return {
+      channel: 'push',
+      success: successCount > 0,
+      error: successCount === 0 ? 'All push subscriptions failed' : undefined,
+    }
+  } catch (err) {
+    return {
+      channel: 'push',
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown push error',
+    }
   }
 }
 

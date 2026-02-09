@@ -11,30 +11,43 @@ interface Preferences {
   email_marketing: boolean
   sms_order_updates: boolean
   sms_marketing: boolean
+  push_enabled: boolean
+}
+
+const DEFAULT_PREFS: Preferences = {
+  email_order_updates: true,
+  email_marketing: false,
+  sms_order_updates: false,
+  sms_marketing: false,
+  push_enabled: false,
 }
 
 export default function NotificationPreferences({ primaryColor }: NotificationPreferencesProps) {
-  const [preferences, setPreferences] = useState<Preferences>({
-    email_order_updates: true,
-    email_marketing: false,
-    sms_order_updates: false,
-    sms_marketing: false
-  })
+  const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
   const [loading, setLoading] = useState(false)
+  const [pushLoading, setPushLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
   const [initialPrefs, setInitialPrefs] = useState<Preferences | null>(null)
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushPermission, setPushPermission] = useState<string>('default')
 
   useEffect(() => {
-    // Load preferences from API
+    // Check push support
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+      setPushSupported(true)
+      setPushPermission(Notification.permission)
+    }
+
     const loadPreferences = async () => {
       try {
         const res = await fetch('/api/user/notifications')
         if (res.ok) {
           const data = await res.json()
           if (data.preferences) {
-            setPreferences(data.preferences)
-            setInitialPrefs(data.preferences)
+            const merged = { ...DEFAULT_PREFS, ...data.preferences }
+            setPreferences(merged)
+            setInitialPrefs(merged)
           }
         }
       } catch {
@@ -46,19 +59,81 @@ export default function NotificationPreferences({ primaryColor }: NotificationPr
 
   useEffect(() => {
     if (initialPrefs) {
-      const changed = Object.keys(preferences).some(
-        key => preferences[key as keyof Preferences] !== initialPrefs[key as keyof Preferences]
+      const changed = (Object.keys(preferences) as (keyof Preferences)[]).some(
+        key => preferences[key] !== initialPrefs[key]
       )
       setHasChanges(changed)
     }
   }, [preferences, initialPrefs])
 
   const handleToggle = (key: keyof Preferences) => {
+    if (key === 'push_enabled') return // Push has its own handler
     setPreferences(prev => ({
       ...prev,
       [key]: !prev[key]
     }))
     setMessage(null)
+  }
+
+  const handlePushToggle = async () => {
+    if (pushLoading) return
+    setPushLoading(true)
+    setMessage(null)
+
+    try {
+      if (!preferences.push_enabled) {
+        // Enabling push
+        const permission = await Notification.requestPermission()
+        setPushPermission(permission)
+        if (permission !== 'granted') {
+          setPushLoading(false)
+          return
+        }
+
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        })
+
+        const sub = subscription.toJSON()
+        const res = await fetch('/api/notifications/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: sub.endpoint,
+            keys: sub.keys,
+          }),
+        })
+
+        if (!res.ok) {
+          setMessage({ type: 'error', text: 'Failed to register push subscription' })
+          setPushLoading(false)
+          return
+        }
+
+        setPreferences(prev => ({ ...prev, push_enabled: true }))
+      } else {
+        // Disabling push
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.getSubscription()
+        if (subscription) {
+          const endpoint = subscription.endpoint
+          await subscription.unsubscribe()
+          await fetch('/api/notifications/push/subscribe', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint }),
+          })
+        }
+
+        setPreferences(prev => ({ ...prev, push_enabled: false }))
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to update push notifications' })
+    } finally {
+      setPushLoading(false)
+    }
   }
 
   const handleSave = async () => {
@@ -116,6 +191,15 @@ export default function NotificationPreferences({ primaryColor }: NotificationPr
     </button>
   )
 
+  const pushDisabled = !pushSupported || pushPermission === 'denied' || pushLoading
+  const pushStatusText = !pushSupported
+    ? 'Not supported in this browser'
+    : pushPermission === 'denied'
+      ? 'Blocked in browser settings'
+      : pushLoading
+        ? 'Setting up...'
+        : null
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Email Notifications */}
@@ -146,6 +230,30 @@ export default function NotificationPreferences({ primaryColor }: NotificationPr
             <ToggleSwitch
               checked={preferences.email_marketing}
               onChange={() => handleToggle('email_marketing')}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Push Notifications */}
+      <div>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: '0 0 12px 0' }}>
+          Push Notifications
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: pushDisabled && !pushLoading ? '#9ca3af' : undefined }}>
+                Browser Notifications
+              </p>
+              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: pushDisabled && !pushLoading ? '#9ca3af' : '#6b7280' }}>
+                {pushStatusText || 'Get instant alerts for orders and pickups'}
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={preferences.push_enabled}
+              onChange={handlePushToggle}
+              disabled={pushDisabled}
             />
           </div>
         </div>
