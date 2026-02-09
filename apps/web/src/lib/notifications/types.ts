@@ -93,7 +93,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   order_ready: {
-    urgency: 'standard',
+    urgency: 'immediate',
     audience: 'buyer',
     title: () => `Order Ready for Pickup`,
     message: (d) => `Your order #${d.orderNumber} from ${d.vendorName} has been marked ready for pickup${d.marketName ? ` at ${d.marketName}` : ''}. It will be waiting for you during pickup hours — no need to rush.`,
