@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { sendNotification } from '@/lib/notifications'
 
 export async function POST(
   request: NextRequest,
@@ -46,10 +47,14 @@ export async function POST(
     }, { status: 400 })
   }
 
-  // Verify vendor owns this order item (only need to check existence)
+  // Verify vendor owns this order item and get buyer/order info for notification
   const { data: orderItem } = await supabase
     .from('order_items')
-    .select('id')
+    .select(`
+      id,
+      order:orders!inner(id, order_number, buyer_user_id),
+      listing:listings(title, vendor_profiles(profile_data))
+    `)
     .eq('id', orderItemId)
     .eq('vendor_profile_id', vendorProfile.id)
     .single()
@@ -67,6 +72,16 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Notify buyer that vendor confirmed their order
+  const orderData = (orderItem as any).order as any
+  const listing = (orderItem as any).listing as any
+  const vendorName = listing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+  await sendNotification(orderData.buyer_user_id, 'order_confirmed', {
+    orderNumber: orderData.order_number,
+    vendorName,
+    itemTitle: listing?.title,
+  })
 
   return NextResponse.json({ success: true })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
+import { sendNotification } from '@/lib/notifications'
 
 /**
  * POST /api/vendor/orders/[id]/confirm-external-payment
@@ -25,7 +26,7 @@ export async function POST(
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
-    // Get order with items
+    // Get order with items and buyer info for notification
     crumb.supabase('select', 'orders')
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -36,13 +37,16 @@ export async function POST(
         subtotal_cents,
         total_cents,
         external_payment_confirmed_at,
+        order_number,
+        buyer_user_id,
         order_items (
           id,
           vendor_profile_id,
           subtotal_cents,
           vendor_profiles (
             id,
-            user_id
+            user_id,
+            profile_data
           )
         )
       `)
@@ -112,6 +116,13 @@ export async function POST(
     if (updateError) {
       throw traced.fromSupabase(updateError, { table: 'orders', operation: 'update' })
     }
+
+    // Notify buyer that external payment was confirmed
+    const extVendorName = (orderItems[0]?.vendor_profiles as any)?.profile_data?.business_name || 'Vendor'
+    await sendNotification(order.buyer_user_id, 'order_confirmed', {
+      orderNumber: order.order_number,
+      vendorName: extVendorName,
+    })
 
     // Clear buyer's cart (they've completed checkout)
     crumb.logic('Clearing buyer cart')

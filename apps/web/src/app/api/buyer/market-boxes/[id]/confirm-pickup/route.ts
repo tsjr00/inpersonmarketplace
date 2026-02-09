@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -20,10 +21,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify subscription belongs to user
+    // Verify subscription belongs to user and get vendor info for notification
     const { data: subscription } = await supabase
       .from('market_box_subscriptions')
-      .select('id, status')
+      .select(`
+        id, status,
+        offering:market_box_offerings(
+          id, name, vendor_profile_id,
+          vendor_profiles(user_id, profile_data)
+        )
+      `)
       .eq('id', subscriptionId)
       .eq('buyer_user_id', user.id)
       .single()
@@ -140,6 +147,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      // Notify vendor to confirm handoff
+      const offering = (subscription as any)?.offering
+      const vendorUserId = offering?.vendor_profiles?.user_id
+      if (vendorUserId) {
+        await sendNotification(vendorUserId, 'pickup_confirmation_needed', {
+          orderItemId: pickup_id,
+        })
       }
 
       return NextResponse.json({

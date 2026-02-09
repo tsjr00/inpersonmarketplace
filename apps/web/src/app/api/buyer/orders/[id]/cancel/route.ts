@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createRefund } from '@/lib/stripe/payments'
 import { STRIPE_CONFIG } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         status,
         total_cents,
         created_at,
+        order_number,
         order_items (
           id,
           status,
@@ -189,37 +191,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq('id', orderId)
     }
 
-    // Get vendor info for notification
+    // Notify vendor about cancellation (multi-channel via notification service)
     const listing = orderItem.listing as any
     const vendorProfile = listing?.vendor_profiles
     const vendorUserId = vendorProfile?.user_id
 
-    // Create notification for vendor about cancellation
     if (vendorUserId) {
-      crumb.supabase('insert', 'notifications')
-      const feeMessage = cancellationFeeApplied
-        ? ` A 25% cancellation fee applies — you will receive $${(vendorShareCents / 100).toFixed(2)}.`
-        : ''
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: vendorUserId,
-          type: 'order_cancelled',
-          title: 'Order Item Cancelled',
-          message: (reason
-            ? `A buyer cancelled an item. Reason: ${reason}.`
-            : 'A buyer cancelled an item from their order.') + feeMessage,
-          data: {
-            order_item_id: orderItemId,
-            cancellation_reason: reason,
-            refund_amount_cents: refundAmountCents,
-            cancellation_fee_cents: cancellationFeeCents,
-            vendor_share_cents: vendorShareCents,
-            platform_share_cents: platformShareCents
-          }
-        })
-        .select()
-        .single()
+      await sendNotification(vendorUserId, 'order_cancelled_by_buyer', {
+        orderNumber: order.order_number || undefined,
+        reason: reason || undefined,
+        itemTitle: listing?.title,
+      })
     }
 
     // Execute Stripe refund if payment exists

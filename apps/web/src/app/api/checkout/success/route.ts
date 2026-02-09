@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
+import { sendNotification } from '@/lib/notifications'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/checkout/success', 'GET', async () => {
@@ -234,12 +235,39 @@ export async function GET(request: NextRequest) {
           markets!market_id(id, name, market_type, address, city, state),
           listing:listings(
             title,
-            vendor_profiles(profile_data)
+            vendor_profiles(profile_data, user_id)
           )
         )
       `)
       .eq('id', orderId)
       .single()
+
+    // Notify vendors of new paid order
+    if (fullOrder?.order_items) {
+      const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
+      for (const item of fullOrder.order_items) {
+        const vp = (item.listing as any)?.vendor_profiles as any
+        const vendorUserId = vp?.user_id
+        if (!vendorUserId) continue
+        const existing = vendorNotifications.get(vendorUserId)
+        if (existing) {
+          existing.items.push((item.listing as any)?.title || 'Item')
+        } else {
+          vendorNotifications.set(vendorUserId, {
+            userId: vendorUserId,
+            items: [(item.listing as any)?.title || 'Item'],
+            marketName: (item.markets as any)?.name || '',
+          })
+        }
+      }
+      for (const [vendorUserId, info] of vendorNotifications) {
+        await sendNotification(vendorUserId, 'new_paid_order', {
+          orderNumber: fullOrder.order_number,
+          itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
+          marketName: info.marketName,
+        })
+      }
+    }
 
     return NextResponse.json({ success: true, orderId, order: fullOrder })
   })

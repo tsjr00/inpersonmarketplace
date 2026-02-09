@@ -65,11 +65,18 @@ Last Updated: 2026-02-09 (Session 10)
 9. `fd8476b` — Update schema snapshot, session context, archive old build docs
 10. `edd276d` — Drop remaining old-named policies (6 tables)
 
+### 11. Notification Triggers Wired into 11 API Routes (PENDING COMMIT)
+- 8 NEW notification triggers added to order lifecycle routes
+- 2 UPGRADED from direct DB inserts to multi-channel `sendNotification()` service
+- 1 NEW market box buyer route wired with vendor notification
+- Routes: checkout/success, vendor confirm/ready/fulfill/reject/confirm-handoff/confirm-external-payment, vendor market-box pickups, buyer confirm (upgrade), buyer cancel (upgrade), buyer market-box confirm-pickup
+- Zero type errors, no new files, no database changes
+
 ## Pending Items
 - [ ] Redis rate limiter (deferred — needs infrastructure/provider decision)
 - [ ] Admin dashboard testing after RLS policy merges (user hasn't tested yet)
 - [ ] A2P 10DLC campaign approval (waiting on Twilio/carrier)
-- [ ] Test email notifications on staging
+- [ ] Test notifications on staging (in-app + email via Resend dashboard)
 - [ ] Production data seeding (sign up, promote to platform_admin)
 - [ ] Stripe branding cleanup
 - [ ] Disconnect Wix from Stripe connected platforms
@@ -97,3 +104,15 @@ Last Updated: 2026-02-09 (Session 10)
 - `src/app/api/vendor/market-boxes/pickups/route.ts` — Confirmation columns in list
 - `src/app/[vertical]/buyer/subscriptions/[id]/page.tsx` — Confirmation UI
 - `src/app/[vertical]/vendor/market-boxes/[id]/page.tsx` — Confirmation UI
+- **Notification wiring (11 files):**
+  - `src/app/api/checkout/success/route.ts` — vendor new_paid_order notifications
+  - `src/app/api/vendor/orders/[id]/confirm/route.ts` — buyer order_confirmed
+  - `src/app/api/vendor/orders/[id]/ready/route.ts` — buyer order_ready (IMMEDIATE)
+  - `src/app/api/vendor/orders/[id]/fulfill/route.ts` — buyer order_fulfilled
+  - `src/app/api/vendor/orders/[id]/reject/route.ts` — buyer order_cancelled_by_vendor (URGENT)
+  - `src/app/api/vendor/orders/[id]/confirm-handoff/route.ts` — buyer order_fulfilled
+  - `src/app/api/vendor/orders/[id]/confirm-external-payment/route.ts` — buyer order_confirmed
+  - `src/app/api/vendor/market-boxes/pickups/[id]/route.ts` — buyer ready/fulfilled/expired
+  - `src/app/api/buyer/orders/[id]/confirm/route.ts` — UPGRADED to sendNotification
+  - `src/app/api/buyer/orders/[id]/cancel/route.ts` — UPGRADED to sendNotification
+  - `src/app/api/buyer/market-boxes/[id]/confirm-pickup/route.ts` — vendor pickup_confirmation_needed

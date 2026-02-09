@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -102,7 +103,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     }
 
-    // Get pickup with offering info to verify ownership + confirmation state
+    // Get pickup with offering info to verify ownership + confirmation state + buyer info for notifications
     const { data: pickup } = await supabase
       .from('market_box_pickups')
       .select(`
@@ -114,9 +115,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         confirmation_window_expires_at,
         subscription:market_box_subscriptions (
           id,
+          buyer_user_id,
           offering:market_box_offerings (
             id,
-            vendor_profile_id
+            name,
+            vendor_profile_id,
+            vendor_profiles(profile_data)
           )
         )
       `)
@@ -250,8 +254,36 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Include confirmation state in response
+    // Send buyer notifications based on action
+    const sub = pickup.subscription as any
+    const buyerUserId = sub?.buyer_user_id
+    const offeringName = sub?.offering?.name
+    const mbVendorName = sub?.offering?.vendor_profiles?.profile_data?.business_name || 'Vendor'
     const completed = updated?.status === 'picked_up'
+
+    if (buyerUserId) {
+      if (action === 'ready') {
+        await sendNotification(buyerUserId, 'order_ready', {
+          orderNumber: `MB-${pickupId.slice(0, 6).toUpperCase()}`,
+          vendorName: mbVendorName,
+          itemTitle: offeringName,
+        })
+      } else if (action === 'picked_up' && completed) {
+        await sendNotification(buyerUserId, 'order_fulfilled', {
+          orderNumber: `MB-${pickupId.slice(0, 6).toUpperCase()}`,
+          vendorName: mbVendorName,
+          itemTitle: offeringName,
+        })
+      } else if (action === 'missed') {
+        await sendNotification(buyerUserId, 'order_expired', {
+          orderNumber: `MB-${pickupId.slice(0, 6).toUpperCase()}`,
+          vendorName: mbVendorName,
+          itemTitle: offeringName,
+        })
+      }
+    }
+
+    // Include confirmation state in response
     const waitingForBuyer = !completed && !!updates.vendor_confirmed_at
     const waitingForVendor = !completed && !!updated?.buyer_confirmed_at
 
