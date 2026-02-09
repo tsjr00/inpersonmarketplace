@@ -26,8 +26,6 @@ interface MarketBoxOffering {
     city: string
     state: string
   } | null
-  active_subscribers: number
-  subscribers: Subscriber[]
 }
 
 interface Subscriber {
@@ -35,6 +33,8 @@ interface Subscriber {
   start_date: string
   status: string
   weeks_completed: number
+  term_weeks: number
+  extended_weeks: number
   buyer: {
     display_name: string
     email: string
@@ -78,6 +78,8 @@ export default function VendorMarketBoxDetailPage() {
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
   const [offering, setOffering] = useState<MarketBoxOffering | null>(null)
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([])
+  const [activeSubscriberCount, setActiveSubscriberCount] = useState(0)
   const [pickups, setPickups] = useState<Pickup[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
@@ -102,6 +104,25 @@ export default function VendorMarketBoxDetailPage() {
       }
 
       setOffering(data.offering)
+      setActiveSubscriberCount(data.active_count || 0)
+
+      // Transform subscriptions into Subscriber shape for the subscribers tab
+      const subs = (data.subscriptions || []).map((s: Record<string, unknown>) => {
+        const buyer = s.buyer as Record<string, unknown> | null
+        return {
+          id: s.id as string,
+          start_date: s.start_date as string,
+          status: s.status as string,
+          weeks_completed: (s.weeks_completed as number) || 0,
+          term_weeks: (s.term_weeks as number) || 4,
+          extended_weeks: (s.extended_weeks as number) || 0,
+          buyer: {
+            display_name: (buyer?.display_name as string) || 'Buyer',
+            email: (buyer?.email as string) || '',
+          },
+        }
+      })
+      setSubscribers(subs)
     } catch (err) {
       setError({ message: err instanceof Error ? err.message : 'Failed to load offering' })
     }
@@ -321,7 +342,7 @@ export default function VendorMarketBoxDetailPage() {
               }}
             >
               {tab}
-              {tab === 'subscribers' && ` (${offering.active_subscribers})`}
+              {tab === 'subscribers' && ` (${activeSubscriberCount})`}
               {tab === 'pickups' && ` (${pickups.filter(p => p.status === 'scheduled' || p.status === 'ready').length} upcoming)`}
             </button>
           ))}
@@ -361,7 +382,7 @@ export default function VendorMarketBoxDetailPage() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <span style={{ color: '#6b7280', minWidth: 120 }}>Subscribers:</span>
                   <span style={{ color: '#374151' }}>
-                    {offering.active_subscribers}
+                    {activeSubscriberCount}
                     {offering.max_subscribers && ` / ${offering.max_subscribers} max`}
                   </span>
                 </div>
@@ -371,7 +392,7 @@ export default function VendorMarketBoxDetailPage() {
             {/* Quick Stats */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16 }}>
               <div style={{ padding: 16, backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8, textAlign: 'center' }}>
-                <div style={{ fontSize: 32, fontWeight: 700, color: branding.colors.primary }}>{offering.active_subscribers}</div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: branding.colors.primary }}>{activeSubscriberCount}</div>
                 <div style={{ fontSize: 13, color: '#6b7280' }}>Active Subscribers</div>
               </div>
               <div style={{ padding: 16, backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8, textAlign: 'center' }}>
@@ -393,7 +414,7 @@ export default function VendorMarketBoxDetailPage() {
         {/* Subscribers Tab */}
         {activeTab === 'subscribers' && (
           <div>
-            {(!offering.subscribers || offering.subscribers.length === 0) ? (
+            {subscribers.length === 0 ? (
               <div style={{
                 padding: 40,
                 backgroundColor: 'white',
@@ -409,7 +430,7 @@ export default function VendorMarketBoxDetailPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {(offering.subscribers || []).map(sub => (
+                {subscribers.map(sub => (
                   <div
                     key={sub.id}
                     style={{
@@ -428,7 +449,7 @@ export default function VendorMarketBoxDetailPage() {
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: 13, color: '#6b7280' }}>Started {formatDate(sub.start_date)}</div>
                           <div style={{ fontSize: 13, color: '#374151' }}>
-                            Week {sub.weeks_completed + 1} of 4
+                            Week {sub.weeks_completed} of {sub.term_weeks + sub.extended_weeks}
                           </div>
                         </div>
                         <span style={{
@@ -519,7 +540,7 @@ export default function VendorMarketBoxDetailPage() {
                             </span>
                           </div>
                           <div style={{ fontSize: 13, color: '#6b7280' }}>
-                            Week {pickup.week_number} of {(pickup.subscription.term_weeks || 4) + (pickup.subscription.extended_weeks || 0)} • {pickup.subscription.buyer.display_name}
+                            Week {pickup.week_number} of {(pickup.subscription?.term_weeks || 4) + (pickup.subscription?.extended_weeks || 0)} • {pickup.subscription?.buyer?.display_name || 'Buyer'}
                             {pickup.is_extension && (
                               <span style={{
                                 marginLeft: 8,
@@ -654,7 +675,7 @@ export default function VendorMarketBoxDetailPage() {
             }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#374151' }}>Skip This Week?</h3>
               <p style={{ color: '#6b7280', margin: '0 0 16px 0', fontSize: 14 }}>
-                Skipping Week {skipModalPickup.week_number} for {skipModalPickup.subscription.buyer.display_name} will:
+                Skipping Week {skipModalPickup.week_number} for {skipModalPickup.subscription?.buyer?.display_name || 'this subscriber'} will:
               </p>
               <ul style={{ color: '#6b7280', fontSize: 14, margin: '0 0 16px 0', paddingLeft: 20 }}>
                 <li>Mark this pickup as skipped</li>
