@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getMarketVendorCounts } from '@/lib/db/markets'
+import { withErrorTracing } from '@/lib/errors'
 
 const MILES_TO_METERS = 1609.344
 const DEFAULT_RADIUS_MILES = 25
@@ -22,89 +23,91 @@ function getBoundingBox(lat: number, lng: number, radiusMiles: number) {
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createClient()
+  return withErrorTracing('/api/markets/nearby', 'GET', async () => {
+    try {
+      const supabase = await createClient()
 
-    const searchParams = request.nextUrl.searchParams
-    const lat = searchParams.get('lat')
-    const lng = searchParams.get('lng')
-    const vertical = searchParams.get('vertical')
-    const radiusMiles = parseFloat(searchParams.get('radius') || String(DEFAULT_RADIUS_MILES))
-    const limit = parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10)
-    const offset = parseInt(searchParams.get('offset') || '0', 10)
-    const type = searchParams.get('type')
-    const city = searchParams.get('city')
-    const search = searchParams.get('search')
+      const searchParams = request.nextUrl.searchParams
+      const lat = searchParams.get('lat')
+      const lng = searchParams.get('lng')
+      const vertical = searchParams.get('vertical')
+      const radiusMiles = parseFloat(searchParams.get('radius') || String(DEFAULT_RADIUS_MILES))
+      const limit = parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10)
+      const offset = parseInt(searchParams.get('offset') || '0', 10)
+      const type = searchParams.get('type')
+      const city = searchParams.get('city')
+      const search = searchParams.get('search')
 
-    // Validate required params
-    if (!lat || !lng) {
-      return NextResponse.json(
-        { error: 'Latitude and longitude are required' },
-        { status: 400 }
-      )
-    }
-
-    const latitude = parseFloat(lat)
-    const longitude = parseFloat(lng)
-
-    if (isNaN(latitude) || isNaN(longitude)) {
-      return NextResponse.json(
-        { error: 'Invalid coordinates' },
-        { status: 400 }
-      )
-    }
-
-    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-      return NextResponse.json(
-        { error: 'Coordinates out of range' },
-        { status: 400 }
-      )
-    }
-
-    const radiusMeters = radiusMiles * MILES_TO_METERS
-
-    // Try PostGIS RPC first (fastest)
-    const { data: markets, error } = await supabase.rpc('get_markets_within_radius', {
-      user_lat: latitude,
-      user_lng: longitude,
-      radius_meters: radiusMeters,
-      vertical_filter: vertical || null,
-      market_type_filter: type || null
-    })
-
-    if (error) {
-      // Fall back to JavaScript-based calculation
-      return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, type, city, search)
-    }
-
-    // Apply pagination to PostGIS results (already sorted by distance)
-    const allMarkets = markets || []
-    const total = allMarkets.length
-    const paginatedMarkets = allMarkets.slice(offset, offset + limit)
-    const hasMore = offset + paginatedMarkets.length < total
-
-    // Cache key for edge caching
-    const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
-
-    return NextResponse.json(
-      {
-        markets: paginatedMarkets,
-        total,
-        hasMore,
-        center: { latitude, longitude },
-        radiusMiles
-      },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-          'X-Cache-Key': cacheKey
-        }
+      // Validate required params
+      if (!lat || !lng) {
+        return NextResponse.json(
+          { error: 'Latitude and longitude are required' },
+          { status: 400 }
+        )
       }
-    )
-  } catch (error) {
-    console.error('Nearby markets API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+
+      const latitude = parseFloat(lat)
+      const longitude = parseFloat(lng)
+
+      if (isNaN(latitude) || isNaN(longitude)) {
+        return NextResponse.json(
+          { error: 'Invalid coordinates' },
+          { status: 400 }
+        )
+      }
+
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        return NextResponse.json(
+          { error: 'Coordinates out of range' },
+          { status: 400 }
+        )
+      }
+
+      const radiusMeters = radiusMiles * MILES_TO_METERS
+
+      // Try PostGIS RPC first (fastest)
+      const { data: markets, error } = await supabase.rpc('get_markets_within_radius', {
+        user_lat: latitude,
+        user_lng: longitude,
+        radius_meters: radiusMeters,
+        vertical_filter: vertical || null,
+        market_type_filter: type || null
+      })
+
+      if (error) {
+        // Fall back to JavaScript-based calculation
+        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, type, city, search)
+      }
+
+      // Apply pagination to PostGIS results (already sorted by distance)
+      const allMarkets = markets || []
+      const total = allMarkets.length
+      const paginatedMarkets = allMarkets.slice(offset, offset + limit)
+      const hasMore = offset + paginatedMarkets.length < total
+
+      // Cache key for edge caching
+      const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
+
+      return NextResponse.json(
+        {
+          markets: paginatedMarkets,
+          total,
+          hasMore,
+          center: { latitude, longitude },
+          radiusMiles
+        },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+            'X-Cache-Key': cacheKey
+          }
+        }
+      )
+    } catch (error) {
+      console.error('Nearby markets API error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+  })
 }
 
 // Fallback with bounding box optimization

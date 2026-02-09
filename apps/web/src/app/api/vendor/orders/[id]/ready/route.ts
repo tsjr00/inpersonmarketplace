@@ -1,62 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withErrorTracing } from '@/lib/errors'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createClient()
-  const { id: orderItemId } = await params
+  return withErrorTracing('/api/vendor/orders/[id]/ready', 'POST', async () => {
+    const supabase = await createClient()
+    const { id: orderItemId } = await params
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-  // Get vendor profile with Stripe account status
-  const { data: vendorProfile } = await supabase
-    .from('vendor_profiles')
-    .select('id, stripe_account_id')
-    .eq('user_id', user.id)
-    .single()
+    // Get vendor profile with Stripe account status
+    const { data: vendorProfile } = await supabase
+      .from('vendor_profiles')
+      .select('id, stripe_account_id')
+      .eq('user_id', user.id)
+      .single()
 
-  if (!vendorProfile) {
-    return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
-  }
+    if (!vendorProfile) {
+      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
 
-  // Require Stripe setup before vendors can mark orders as ready
-  const isProd = process.env.NODE_ENV === 'production'
-  if (isProd && !vendorProfile.stripe_account_id) {
-    return NextResponse.json({
-      error: 'Please complete your Stripe setup before processing orders. Go to Dashboard > Payment Methods to connect your account.',
-      code: 'STRIPE_NOT_CONNECTED'
-    }, { status: 400 })
-  }
+    // Require Stripe setup before vendors can mark orders as ready
+    const isProd = process.env.NODE_ENV === 'production'
+    if (isProd && !vendorProfile.stripe_account_id) {
+      return NextResponse.json({
+        error: 'Please complete your Stripe setup before processing orders. Go to Dashboard > Payment Methods to connect your account.',
+        code: 'STRIPE_NOT_CONNECTED'
+      }, { status: 400 })
+    }
 
-  // Verify vendor owns this order item (only need to check existence)
-  const { data: orderItem } = await supabase
-    .from('order_items')
-    .select('id')
-    .eq('id', orderItemId)
-    .eq('vendor_profile_id', vendorProfile.id)
-    .single()
+    // Verify vendor owns this order item (only need to check existence)
+    const { data: orderItem } = await supabase
+      .from('order_items')
+      .select('id')
+      .eq('id', orderItemId)
+      .eq('vendor_profile_id', vendorProfile.id)
+      .single()
 
-  if (!orderItem) {
-    return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
-  }
+    if (!orderItem) {
+      return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
+    }
 
-  // Update status
-  const { error } = await supabase
-    .from('order_items')
-    .update({ status: 'ready' })
-    .eq('id', orderItemId)
+    // Update status
+    const { error } = await supabase
+      .from('order_items')
+      .update({ status: 'ready' })
+      .eq('id', orderItemId)
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
-  return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true })
+  })
 }
