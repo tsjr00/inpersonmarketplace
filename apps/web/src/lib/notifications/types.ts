@@ -49,6 +49,7 @@ export type NotificationType =
   | 'inventory_low_stock'
   | 'inventory_out_of_stock'
   | 'payout_processed'
+  | 'vendor_cancellation_warning'
   // Admin-facing
   | 'new_vendor_application'
 
@@ -68,6 +69,9 @@ export interface NotificationTemplateData {
   vendorId?: string
   orderId?: string
   orderItemId?: string
+  cancellationRate?: number
+  cancelledCount?: number
+  confirmedCount?: number
 }
 
 export interface NotificationTypeConfig {
@@ -211,6 +215,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `Payout Processed`,
     message: (d) => `A payout${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been sent to your account.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers-market'}/vendor/dashboard`,
+  },
+
+  vendor_cancellation_warning: {
+    urgency: 'standard',
+    audience: 'vendor',
+    title: () => `Order Cancellation Rate Notice`,
+    message: (d) => `Your order cancellation rate is ${d.cancellationRate ? `${d.cancellationRate}%` : 'above average'} (${d.cancelledCount || 0} cancelled out of ${d.confirmedCount || 0} confirmed orders). Confirming an order is a commitment to fulfill it. Continued cancellations may result in account restrictions. If you are experiencing issues fulfilling orders, please reach out to support.`,
     actionUrl: (d) => `/${d.vertical || 'farmers-market'}/vendor/dashboard`,
   },
 

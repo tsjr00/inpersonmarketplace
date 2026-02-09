@@ -122,6 +122,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq('id', orderItem.order_id)
     }
 
+    // Track cancellation metrics — only counts if vendor had already confirmed
+    const wasConfirmed = ['confirmed', 'ready'].includes(orderItem.status)
+    if (wasConfirmed) {
+      const { data: counts } = await supabase.rpc('increment_vendor_cancelled' as any, {
+        p_vendor_id: vendorProfile.id,
+      }).single()
+
+      // Check cancellation rate thresholds (only after 10+ confirmed orders)
+      if (counts) {
+        const { confirmed_count, cancelled_count } = counts as { confirmed_count: number; cancelled_count: number }
+        if (confirmed_count >= 10) {
+          const rate = Math.round((cancelled_count / confirmed_count) * 100)
+          if (rate >= 10) {
+            // Send warning notification to vendor (email + in-app)
+            await sendNotification(user.id, 'vendor_cancellation_warning', {
+              cancellationRate: rate,
+              cancelledCount: cancelled_count,
+              confirmedCount: confirmed_count,
+            })
+            // Update warning timestamp
+            await supabase
+              .from('vendor_profiles')
+              .update({ cancellation_warning_sent_at: new Date().toISOString() })
+              .eq('id', vendorProfile.id)
+          }
+        }
+      }
+    }
+
     // Notify buyer that vendor cancelled their order (URGENT — SMS + in-app)
     const rejectOrderData = (orderItem as any).order as any
     const rejectListing = (orderItem as any).listing as any

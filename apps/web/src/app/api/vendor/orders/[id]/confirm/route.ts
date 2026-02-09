@@ -73,6 +73,11 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Increment vendor's confirmed order count (atomic, non-blocking)
+  await supabase.rpc('increment_vendor_confirmed' as any, {
+    p_vendor_id: vendorProfile.id,
+  })
+
   // Notify buyer that vendor confirmed their order
   const orderData = (orderItem as any).order as any
   const listing = (orderItem as any).listing as any

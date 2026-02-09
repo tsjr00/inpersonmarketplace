@@ -56,6 +56,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   // Parse profile_data JSON
   const profileData = vendorProfile.profile_data as Record<string, unknown>
 
+  // Cancellation rate warning level
+  const vpConfirmed = (vendorProfile as any).orders_confirmed_count || 0
+  const vpCancelled = (vendorProfile as any).orders_cancelled_after_confirm_count || 0
+  const vpCancellationRate = vpConfirmed >= 10 ? Math.round((vpCancelled / vpConfirmed) * 100) : 0
+  const cancellationWarningLevel: 'red' | 'orange' | null =
+    vpCancellationRate >= 20 ? 'red' : vpCancellationRate >= 10 ? 'orange' : null
+
   // Get draft listings count for approved vendors
   let draftCount = 0
   // Low stock threshold (from centralized constants)
@@ -603,9 +610,9 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           {/* Business Profile */}
           <div style={{
             padding: spacing.sm,
-            backgroundColor: colors.surfaceElevated,
+            backgroundColor: cancellationWarningLevel === 'red' ? '#fef2f2' : cancellationWarningLevel === 'orange' ? '#fff7ed' : colors.surfaceElevated,
             color: colors.textPrimary,
-            border: `1px solid ${colors.border}`,
+            border: `${cancellationWarningLevel ? '2px' : '1px'} solid ${cancellationWarningLevel === 'red' ? '#dc2626' : cancellationWarningLevel === 'orange' ? '#ea580c' : colors.border}`,
             borderRadius: radius.md,
             boxShadow: shadows.sm
           }}>
@@ -661,6 +668,22 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             }}>
               {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'} Plan
             </p>
+
+            {/* Cancellation rate warning */}
+            {cancellationWarningLevel && (
+              <p style={{
+                margin: `${spacing.xs} 0 0 0`,
+                fontSize: typography.sizes.xs,
+                color: cancellationWarningLevel === 'red' ? '#991b1b' : '#9a3412',
+                fontWeight: typography.weights.medium,
+                lineHeight: 1.4
+              }}>
+                Cancellation rate: {vpCancellationRate}% ({vpCancelled} of {vpConfirmed} confirmed orders).
+                {cancellationWarningLevel === 'red'
+                  ? ' Your account may be subject to review. Please contact support if you need assistance.'
+                  : ' Confirming an order is a commitment to fulfill it.'}
+              </p>
+            )}
           </div>
 
           {/* Payment Methods */}

@@ -85,6 +85,8 @@ HOW TO PICK UP
 2. Open the app and go to My Orders
 3. Show your order number: #{{order_number}}
 4. Confirm the pickup in the app
+5. Wait for {{vendor_name}} to confirm the handoff (within 30 seconds)
+6. Done
 
 See you at the market!
 Farmers Marketing
