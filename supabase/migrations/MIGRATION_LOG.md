@@ -54,6 +54,7 @@
 | 20260209_003_merge_markets_select_policies.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Merged markets SELECT policies into single comprehensive policy |
 | 20260209_004_drop_remaining_old_policies.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Dropped old duplicate policies on 6 tables |
 | 20260209_006_vendor_cancellation_tracking.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Vendor cancellation tracking: 3 columns + 2 RPC functions |
+| 20260209_007_vendor_documents_storage.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | vendor-documents storage bucket (10MB, PDF/JPG/PNG) + RLS policies |
 
 ---
 

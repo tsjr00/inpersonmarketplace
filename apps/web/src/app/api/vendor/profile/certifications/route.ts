@@ -9,6 +9,7 @@ interface Certification {
   state: string
   expires_at?: string
   verified?: boolean
+  document_url?: string
 }
 
 // PUT - Update vendor certifications
@@ -65,13 +66,18 @@ export async function PUT(request: Request) {
     }
 
     // Sanitize certifications (remove any admin-only fields that might have been tampered with)
+    // Preserve document_url if it's a valid vendor-documents URL
     const sanitizedCertifications = certifications.map(cert => ({
       type: cert.type,
       label: cert.label,
       registration_number: cert.registration_number.trim(),
       state: cert.state.toUpperCase(),
       expires_at: cert.expires_at || null,
-      verified: false // Always set to false - only admins can verify
+      verified: false, // Always set to false - only admins can verify
+      document_url: cert.document_url && typeof cert.document_url === 'string'
+        && cert.document_url.includes('vendor-documents')
+        ? cert.document_url
+        : null
     }))
 
     // Update vendor profile with certifications

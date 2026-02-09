@@ -1,118 +1,87 @@
-# Current Task: Session 10 — Audit Hardening + RLS Optimization
+# Current Task: Session 11 — Notifications, Cancellation Policy, Dashboard Reorg
 Started: 2026-02-09
-Last Updated: 2026-02-09 (Session 10)
+Last Updated: 2026-02-09
 
 ## What Was Completed This Session
 
-### 1. withErrorTracing on 90 API Routes (COMMITTED - `1c88c9e`)
-- Wrapped all 90 unwrapped API route handlers with `withErrorTracing()`
-- Pattern: `import { withErrorTracing } from '@/lib/errors'`, wrap each handler body
-- 5 parallel agents processed batches: admin, buyer/cart/auth, vendor batch 1, vendor batch 2, misc
-- No logic changes — purely mechanical wrapping
-
-### 2. Fee Structure Documentation (COMMITTED - `231986e`)
-- Created `docs/Fee_Structure.md` with complete breakdown
-- Stripe orders: 13% + $0.30 (6.5% buyer + 6.5% vendor + $0.15 flat each)
-- External payments: 10% (6.5% buyer + 3.5% vendor, no flat fee)
-- Market boxes: same as Stripe orders, `total_paid_cents` includes buyer fee
-- Auto-deduction: up to 50% of Stripe payouts for external fee balances
-- Invoice threshold: $50 or 40 days
-
-### 3. Performance Indexes (COMMITTED - `851c115`, APPLIED to Dev & Staging)
-- `supabase/migrations/20260209_001_add_performance_indexes.sql`
-- 10 indexes targeting high-traffic queries:
-  - Notifications: `idx_notifications_user_unread` (partial), `idx_notifications_user_created`
-  - Order items: `idx_order_items_status_expires` (cron), `idx_order_items_vendor_status_created`, `idx_order_items_pickup_date_market`
-  - Orders: `idx_orders_parent_id` (split orders), `idx_orders_vertical_created` (admin)
-  - Market boxes: `idx_market_box_pickups_sub_date_status`, `idx_market_box_offerings_vendor_active` (name collision, skipped), `idx_market_box_subscriptions_offering_active`
-
-### 4. RLS Policy Merge — 6 Tables (COMMITTED - `c68a2ea`, APPLIED to Dev & Staging)
-- `supabase/migrations/20260209_002_merge_duplicate_select_policies.sql`
-- Merged admin_select + regular select into single policy on: listings, orders, order_items, transactions, vendor_payouts, notifications
-- Dropped ~40 old-named policies from previous schema versions
-- Pure performance optimization — Postgres OR-combines permissive policies anyway
-
-### 5. RLS Policy Merge — Markets (COMMITTED - `99baf12`, APPLIED to Dev & Staging)
-- `supabase/migrations/20260209_003_merge_markets_select_policies.sql`
-- Merged `markets_select` + `markets_public_select` into single comprehensive `markets_select`
-- Includes: approved+active, vendor owns it, buyer order history (2 paths), platform admin, vertical admin
-- Split out from #4 as risk reduction (complex policy)
-
-### 6. Schema Snapshot Updated
-- `supabase/SCHEMA_SNAPSHOT.md` updated with all 4 migrations
-- Changelog, columns, RLS policies, and indexes all current
-
-## Earlier This Session (Before Audit Items)
-
-### Market Box Mutual Confirmation (COMMITTED - `5eaaf42`, APPLIED to Dev & Staging)
-- `supabase/migrations/20260208_001_market_box_mutual_confirmation.sql`
-- Added 3 columns to `market_box_pickups`: `buyer_confirmed_at`, `vendor_confirmed_at`, `confirmation_window_expires_at`
-- 30-second mutual confirmation window matching regular orders
-- API routes updated: buyer confirm-pickup, vendor pickup update, both list endpoints
-
-### Order Lifecycle Guide (COMMITTED - `8742605`)
-- `docs/Order_Lifecycle_Guide.md` — step-by-step buyer and vendor instructions
-
-## Commits This Session
-1. `5eaaf42` — 30-second mutual confirmation for market box pickups
-2. `8742605` — Order lifecycle guide
-3. `1c88c9e` — withErrorTracing on 90 routes
-4. `231986e` — Fee Structure documentation
-5. `851c115` — Performance indexes
-6. `c68a2ea` — Merge duplicate SELECT policies (6 tables)
-7. `99baf12` — Merge markets SELECT policies
-8. `72e2b89` — Add credentials/temp files to .gitignore
-9. `fd8476b` — Update schema snapshot, session context, archive old build docs
-10. `edd276d` — Drop remaining old-named policies (6 tables)
-
-### 11. Notification Triggers Wired into 11 API Routes (PENDING COMMIT)
+### 1. Notification Triggers Wired into 11 API Routes (COMMITTED - `04bfc61`)
 - 8 NEW notification triggers added to order lifecycle routes
 - 2 UPGRADED from direct DB inserts to multi-channel `sendNotification()` service
 - 1 NEW market box buyer route wired with vendor notification
 - Routes: checkout/success, vendor confirm/ready/fulfill/reject/confirm-handoff/confirm-external-payment, vendor market-box pickups, buyer confirm (upgrade), buyer cancel (upgrade), buyer market-box confirm-pickup
-- Zero type errors, no new files, no database changes
 
-## Pending Items
+### 2. Notification Template Refinements (COMMITTED - `8261052`, `807090f`)
+- `order_ready` tone changed to calmer wording ("has been marked ready...no need to rush")
+- `order_ready` urgency kept at `immediate` (push is free, helps buyers plan)
+- New `pickup_missed` notification type with neutral tone (not punitive)
+
+### 3. Vendor Cancellation Policy MVP (COMMITTED - `215d064`)
+- Migration `20260209_006_vendor_cancellation_tracking.sql` — APPLIED to Dev & Staging
+  - 3 columns: `orders_confirmed_count`, `orders_cancelled_after_confirm_count`, `cancellation_warning_sent_at`
+  - 2 SECURITY DEFINER RPCs: `increment_vendor_confirmed(uuid)`, `increment_vendor_cancelled(uuid)`
+- Confirm route increments confirmed count
+- Reject route increments cancelled count (only for confirmed/ready items), checks thresholds, sends warning
+- Thresholds: 10%+ = orange warning, 20%+ = red warning, min 10 orders
+- New notification type: `vendor_cancellation_warning`
+- Business Profile card shows orange/red border + warning text
+- Admin vendors table has "Cancel %" column with color-coded badges
+- Vendor order confirm has commitment dialog (window.confirm)
+
+### 4. External Payment Inventory Bug Fix (COMMITTED - `112ff59`)
+- `confirm-external-payment/route.ts` now calls `atomic_decrement_inventory` for each order item
+- Sends low stock / out of stock notifications matching Stripe flow
+- Was completely missing before — external payment orders left inventory untouched
+
+### 5. Vendor Dashboard Reorganization (COMMITTED - `112ff59`)
+- New layout by operational priority:
+  - Row 1: Pickup Mode | Upcoming Pickups | Manage Locations
+  - Row 2: Orders | Listings (with stock/draft badges) | Market Boxes
+  - Row 3: Business Profile | Payment Methods (with fee balance) | Analytics
+  - Row 4: Notifications | Reviews
+- Removed top banners (low stock, draft listings) — warnings now on Listings card
+- FeeBalanceCard collapsed into PaymentMethodsCard (shows inline when balance > 0)
+
+### 6. External Payment Refund Disclaimer (COMMITTED - `112ff59`)
+- Info box on external checkout page: "Refunds for orders paid via [method] are handled directly between you and the vendor."
+
+### 7. Schema & Migration Tracking Updated (COMMITTED - `4b30d41`)
+- Migration 20260209_006 moved to applied/
+- Schema snapshot updated with 3 new columns + 2 RPCs
+- Migration log updated with all Session 10+11 migrations
+
+## Commits This Session
+1. `04bfc61` — Wire sendNotification into 11 order lifecycle API routes
+2. `8261052` — Refine notification templates: calmer order_ready, new pickup_missed type
+3. `807090f` — Restore immediate urgency for order_ready
+4. `215d064` — Vendor cancellation policy MVP
+5. `4b30d41` — Move migration to applied, update schema snapshot + migration log
+6. `112ff59` — Fix external payment inventory bug, reorganize dashboard, add refund disclaimer
+
+## Pending / Backlog Items
+- [x] **Vendor document uploads** — BUILT (pending commit). Storage bucket migration, upload API route, CertificationsForm with file upload per cert, certifications API preserves document_url, admin vendor detail shows documents with download links.
 - [ ] Redis rate limiter (deferred — needs infrastructure/provider decision)
-- [ ] Admin dashboard testing after RLS policy merges (user hasn't tested yet)
 - [ ] A2P 10DLC campaign approval (waiting on Twilio/carrier)
 - [ ] Test notifications on staging (in-app + email via Resend dashboard)
-- [ ] Production data seeding (sign up, promote to platform_admin)
 - [ ] Stripe branding cleanup
-- [ ] Disconnect Wix from Stripe connected platforms
+- [ ] Per-vendor/listing low stock threshold (backlogged — small feature)
+- [ ] External payment confirmation UX copy change (backlogged — just button label)
+- [ ] Vendor cancellation: automatic pausing (deferred), excused cancellations (deferred), rolling 90-day window (deferred — using lifetime counts for MVP)
 
-## Key Architecture Notes
-- `withErrorTracing` pattern: `src/lib/errors` — wraps route handlers with structured error tracking
-- RLS policy merging: zero behavioral change, Postgres OR-combines permissive policies automatically
-- `(SELECT auth.uid())` vs `auth.uid()`: wrapped = evaluated once per query; functions with column args (e.g., `is_admin_for_vertical(vertical_id)`) MUST evaluate per row
-- `is_platform_admin()` wrapped as `(SELECT is_platform_admin())` since it has no column args
-- Fee constants: `src/lib/pricing.ts` (Stripe) + `src/lib/payments/vendor-fees.ts` (external)
+## Vendor Document Uploads — BUILT (Session 12)
+Files created/modified:
+1. `supabase/migrations/20260209_007_vendor_documents_storage.sql` — Storage bucket (10MB, PDF/JPG/PNG) + RLS policies
+2. `src/app/api/vendor/profile/certifications/upload/route.ts` — NEW upload endpoint with auth, validation, withErrorTracing
+3. `src/components/vendor/CertificationsForm.tsx` — Added document_url to interface, upload per cert, attach/replace/view buttons
+4. `src/app/api/vendor/profile/certifications/route.ts` — Preserves document_url in sanitization (validates it's a vendor-documents URL)
+5. `src/app/admin/vendors/[vendorId]/page.tsx` — Certifications & Documents section with View Document links
+Migration needs to be applied to dev & staging before testing.
 
-## Files Modified This Session
-- 90 API route files — withErrorTracing wrapping
-- `docs/Fee_Structure.md` — NEW: complete fee breakdown
-- `docs/Order_Lifecycle_Guide.md` — NEW: buyer/vendor step-by-step
-- `supabase/migrations/20260208_001_market_box_mutual_confirmation.sql` — NEW
-- `supabase/migrations/20260209_001_add_performance_indexes.sql` — NEW
-- `supabase/migrations/20260209_002_merge_duplicate_select_policies.sql` — NEW
-- `supabase/migrations/20260209_003_merge_markets_select_policies.sql` — NEW
-- `supabase/migrations/20260209_004_drop_remaining_old_policies.sql` — NEW
-- `supabase/SCHEMA_SNAPSHOT.md` — Updated with all changes
-- `src/app/api/buyer/market-boxes/[id]/route.ts` — Confirmation columns + term_weeks fix
-- `src/app/api/buyer/market-boxes/[id]/confirm-pickup/route.ts` — Mutual confirmation
-- `src/app/api/vendor/market-boxes/pickups/[id]/route.ts` — Mutual confirmation
-- `src/app/api/vendor/market-boxes/pickups/route.ts` — Confirmation columns in list
-- `src/app/[vertical]/buyer/subscriptions/[id]/page.tsx` — Confirmation UI
-- `src/app/[vertical]/vendor/market-boxes/[id]/page.tsx` — Confirmation UI
-- **Notification wiring (11 files):**
-  - `src/app/api/checkout/success/route.ts` — vendor new_paid_order notifications
-  - `src/app/api/vendor/orders/[id]/confirm/route.ts` — buyer order_confirmed
-  - `src/app/api/vendor/orders/[id]/ready/route.ts` — buyer order_ready (IMMEDIATE)
-  - `src/app/api/vendor/orders/[id]/fulfill/route.ts` — buyer order_fulfilled
-  - `src/app/api/vendor/orders/[id]/reject/route.ts` — buyer order_cancelled_by_vendor (URGENT)
-  - `src/app/api/vendor/orders/[id]/confirm-handoff/route.ts` — buyer order_fulfilled
-  - `src/app/api/vendor/orders/[id]/confirm-external-payment/route.ts` — buyer order_confirmed
-  - `src/app/api/vendor/market-boxes/pickups/[id]/route.ts` — buyer ready/fulfilled/expired
-  - `src/app/api/buyer/orders/[id]/confirm/route.ts` — UPGRADED to sendNotification
-  - `src/app/api/buyer/orders/[id]/cancel/route.ts` — UPGRADED to sendNotification
-  - `src/app/api/buyer/market-boxes/[id]/confirm-pickup/route.ts` — vendor pickup_confirmation_needed
+## User Preferences & Decisions Made This Session
+- Low stock warning: on Listings card, NOT as top banner (operational items only at top)
+- Dashboard order: Pickup Mode first, then Upcoming Pickups, Manage Locations
+- order_ready: calm tone but immediate urgency (push is free, prevents missed orders)
+- External payments for market boxes: restrict to Stripe only (decision made, not yet enforced in code — market boxes already use Stripe checkout)
+- External payment refunds: buyer-vendor responsibility, platform can't help
+- Vendor cancellation: MVP only (no auto-pausing, no excused cancellations, lifetime counts)
+- Fee balance: collapsed into Payment Methods card
+- Document uploads: PDF/JPG/PNG, 10MB max, part of profile settings not onboarding

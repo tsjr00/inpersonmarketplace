@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
 // Predefined certification types with display info
@@ -54,6 +54,7 @@ export interface Certification {
   state: string
   expires_at?: string
   verified?: boolean
+  document_url?: string
 }
 
 interface CertificationsFormProps {
@@ -78,7 +79,48 @@ export default function CertificationsForm({
     state: ''
   })
 
-  const handleAddCertification = () => {
+  // Document upload state
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
+  const [newCertFile, setNewCertFile] = useState<File | null>(null)
+  const [addingWithUpload, setAddingWithUpload] = useState(false)
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
+  const newFileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const uploadDocument = async (file: File): Promise<string | null> => {
+    const formData = new FormData()
+    formData.append('document', file)
+
+    try {
+      const res = await fetch('/api/vendor/profile/certifications/upload', {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      if (res.ok && data.documentUrl) {
+        return data.documentUrl
+      }
+      setMessage({ type: 'error', text: data.error || 'Failed to upload document' })
+      return null
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to upload document' })
+      return null
+    }
+  }
+
+  const handleUploadForExisting = async (index: number, file: File) => {
+    setUploadingIndex(index)
+    setMessage(null)
+    const url = await uploadDocument(file)
+    if (url) {
+      const updated = [...certifications]
+      updated[index] = { ...updated[index], document_url: url }
+      setCertifications(updated)
+      setMessage({ type: 'success', text: 'Document uploaded. Click "Save Certifications" to keep changes.' })
+    }
+    setUploadingIndex(null)
+  }
+
+  const handleAddCertification = async () => {
     if (!newCert.type || !newCert.registration_number || !newCert.state) {
       setMessage({ type: 'error', text: 'Please fill in all required fields' })
       return
@@ -90,17 +132,32 @@ export default function CertificationsForm({
       ? newCert.label
       : typeInfo?.label || newCert.type
 
+    let documentUrl: string | undefined
+
+    // Upload file if one was selected
+    if (newCertFile) {
+      setAddingWithUpload(true)
+      const url = await uploadDocument(newCertFile)
+      if (url) {
+        documentUrl = url
+      }
+      setAddingWithUpload(false)
+    }
+
     const cert: Certification = {
       type: newCert.type,
       label,
       registration_number: newCert.registration_number,
       state: newCert.state.toUpperCase(),
       expires_at: newCert.expires_at || undefined,
-      verified: false
+      verified: false,
+      document_url: documentUrl
     }
 
     setCertifications([...certifications, cert])
     setNewCert({ type: '', label: '', registration_number: '', state: '' })
+    setNewCertFile(null)
+    if (newFileInputRef.current) newFileInputRef.current.value = ''
     setShowAddForm(false)
     setMessage(null)
   }
@@ -138,6 +195,12 @@ export default function CertificationsForm({
     return CERTIFICATION_TYPES.find(t => t.type === type) || CERTIFICATION_TYPES[CERTIFICATION_TYPES.length - 1]
   }
 
+  const getFileExtLabel = (url: string) => {
+    if (url.endsWith('.pdf')) return 'PDF'
+    if (url.endsWith('.png')) return 'PNG'
+    return 'JPG'
+  }
+
   const US_STATES = [
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
     'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
@@ -166,7 +229,7 @@ export default function CertificationsForm({
         fontSize: typography.sizes.sm,
         color: colors.textSecondary
       }}>
-        Add your food safety certifications, licenses, and registrations. These will be displayed on your vendor profile.
+        Add your food safety certifications, licenses, and registrations. You can attach supporting documents (PDF, JPG, or PNG, up to 10MB).
       </p>
 
       {/* Message */}
@@ -188,13 +251,11 @@ export default function CertificationsForm({
         <div style={{ marginBottom: spacing.md }}>
           {certifications.map((cert, index) => {
             const typeInfo = getTypeInfo(cert.type)
+            const isUploading = uploadingIndex === index
             return (
               <div
                 key={index}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing.sm,
                   padding: spacing.sm,
                   marginBottom: spacing.xs,
                   backgroundColor: colors.surfaceMuted,
@@ -202,55 +263,135 @@ export default function CertificationsForm({
                   border: `1px solid ${colors.border}`
                 }}
               >
-                {/* Badge */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: spacing['2xs'],
-                  padding: `${spacing['2xs']} ${spacing.xs}`,
-                  backgroundColor: typeInfo.badgeBg,
-                  color: typeInfo.badgeColor,
-                  borderRadius: radius.sm,
-                  fontSize: typography.sizes.sm,
-                  fontWeight: typography.weights.semibold,
-                  whiteSpace: 'nowrap'
+                  gap: spacing.sm
                 }}>
-                  <span>{typeInfo.icon}</span>
-                  <span>{cert.label}</span>
-                </div>
-
-                {/* Details */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Badge */}
                   <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing['2xs'],
+                    padding: `${spacing['2xs']} ${spacing.xs}`,
+                    backgroundColor: typeInfo.badgeBg,
+                    color: typeInfo.badgeColor,
+                    borderRadius: radius.sm,
                     fontSize: typography.sizes.sm,
-                    color: colors.textPrimary
+                    fontWeight: typography.weights.semibold,
+                    whiteSpace: 'nowrap'
                   }}>
-                    #{cert.registration_number}
+                    <span>{typeInfo.icon}</span>
+                    <span>{cert.label}</span>
                   </div>
-                  <div style={{
-                    fontSize: typography.sizes.xs,
-                    color: colors.textMuted
-                  }}>
-                    {cert.state}
-                    {cert.expires_at && ` • Expires: ${new Date(cert.expires_at).toLocaleDateString()}`}
+
+                  {/* Details */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: typography.sizes.sm,
+                      color: colors.textPrimary
+                    }}>
+                      #{cert.registration_number}
+                    </div>
+                    <div style={{
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted
+                    }}>
+                      {cert.state}
+                      {cert.expires_at && ` • Expires: ${new Date(cert.expires_at).toLocaleDateString()}`}
+                    </div>
                   </div>
+
+                  {/* Remove button */}
+                  <button
+                    onClick={() => handleRemoveCertification(index)}
+                    style={{
+                      padding: spacing['2xs'],
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: colors.textMuted,
+                      cursor: 'pointer',
+                      fontSize: typography.sizes.lg
+                    }}
+                    title="Remove certification"
+                  >
+                    ×
+                  </button>
                 </div>
 
-                {/* Remove button */}
-                <button
-                  onClick={() => handleRemoveCertification(index)}
-                  style={{
-                    padding: spacing['2xs'],
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: colors.textMuted,
-                    cursor: 'pointer',
-                    fontSize: typography.sizes.lg
-                  }}
-                  title="Remove certification"
-                >
-                  ×
-                </button>
+                {/* Document row */}
+                <div style={{
+                  marginTop: spacing.xs,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.xs
+                }}>
+                  {cert.document_url ? (
+                    <>
+                      <a
+                        href={cert.document_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: spacing['3xs'],
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          backgroundColor: '#dcfce7',
+                          color: '#166534',
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.medium,
+                          textDecoration: 'none'
+                        }}
+                      >
+                        {getFileExtLabel(cert.document_url)} attached — View
+                      </a>
+                      <button
+                        onClick={() => fileInputRefs.current[index]?.click()}
+                        disabled={isUploading}
+                        style={{
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          backgroundColor: 'transparent',
+                          color: colors.textMuted,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          cursor: isUploading ? 'wait' : 'pointer'
+                        }}
+                      >
+                        {isUploading ? 'Uploading...' : 'Replace'}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRefs.current[index]?.click()}
+                      disabled={isUploading}
+                      style={{
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        backgroundColor: colors.surfaceElevated,
+                        color: colors.textSecondary,
+                        border: `1px dashed ${colors.border}`,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        cursor: isUploading ? 'wait' : 'pointer'
+                      }}
+                    >
+                      {isUploading ? 'Uploading...' : '+ Attach Document'}
+                    </button>
+                  )}
+                  <input
+                    ref={el => { fileInputRefs.current[index] = el }}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleUploadForExisting(index, file)
+                      e.target.value = ''
+                    }}
+                  />
+                </div>
               </div>
             )
           })}
@@ -404,7 +545,7 @@ export default function CertificationsForm({
           </div>
 
           {/* Expiration Date (optional) */}
-          <div style={{ marginBottom: spacing.md }}>
+          <div style={{ marginBottom: spacing.sm }}>
             <label style={{
               display: 'block',
               marginBottom: spacing['2xs'],
@@ -429,10 +570,44 @@ export default function CertificationsForm({
             />
           </div>
 
+          {/* Document Upload (optional) */}
+          <div style={{ marginBottom: spacing.md }}>
+            <label style={{
+              display: 'block',
+              marginBottom: spacing['2xs'],
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.medium
+            }}>
+              Supporting Document (optional)
+            </label>
+            <input
+              ref={newFileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => setNewCertFile(e.target.files?.[0] || null)}
+              style={{
+                width: '100%',
+                padding: spacing.xs,
+                borderRadius: radius.sm,
+                border: `1px solid ${colors.border}`,
+                fontSize: typography.sizes.sm,
+                boxSizing: 'border-box'
+              }}
+            />
+            <p style={{
+              margin: `${spacing['3xs']} 0 0 0`,
+              fontSize: typography.sizes.xs,
+              color: colors.textMuted
+            }}>
+              PDF, JPG, or PNG up to 10MB. Permits, licenses, or registration documents.
+            </p>
+          </div>
+
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: spacing.sm }}>
             <button
               onClick={handleAddCertification}
+              disabled={addingWithUpload}
               style={{
                 padding: `${spacing.xs} ${spacing.md}`,
                 backgroundColor: colors.primary,
@@ -441,16 +616,19 @@ export default function CertificationsForm({
                 borderRadius: radius.sm,
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,
-                cursor: 'pointer',
+                cursor: addingWithUpload ? 'wait' : 'pointer',
+                opacity: addingWithUpload ? 0.7 : 1,
                 minHeight: 44
               }}
             >
-              Add Certification
+              {addingWithUpload ? 'Uploading...' : 'Add Certification'}
             </button>
             <button
               onClick={() => {
                 setShowAddForm(false)
                 setNewCert({ type: '', label: '', registration_number: '', state: '' })
+                setNewCertFile(null)
+                if (newFileInputRef.current) newFileInputRef.current.value = ''
               }}
               style={{
                 padding: `${spacing.xs} ${spacing.md}`,
