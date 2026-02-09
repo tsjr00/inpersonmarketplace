@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { sendNotification } from '@/lib/notifications'
+import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 
 /**
  * POST /api/vendor/orders/[id]/confirm-external-payment
@@ -43,10 +44,17 @@ export async function POST(
           id,
           vendor_profile_id,
           subtotal_cents,
+          listing_id,
+          quantity,
           vendor_profiles (
             id,
             user_id,
             profile_data
+          ),
+          listings (
+            id,
+            title,
+            quantity
           )
         )
       `)
@@ -73,7 +81,10 @@ export async function POST(
       id: string
       vendor_profile_id: string
       subtotal_cents: number
-      vendor_profiles: { id: string; user_id: string }
+      listing_id: string
+      quantity: number
+      vendor_profiles: { id: string; user_id: string; profile_data?: any }
+      listings: { id: string; title: string; quantity: number | null } | null
     }>
 
     const isVendor = orderItems.some(item => item.vendor_profiles.user_id === user.id)
@@ -115,6 +126,33 @@ export async function POST(
 
     if (updateError) {
       throw traced.fromSupabase(updateError, { table: 'orders', operation: 'update' })
+    }
+
+    // Decrement inventory for each order item
+    crumb.logic('Decrementing inventory for external payment order')
+    for (const item of orderItems) {
+      if (!item.listings || item.listings.quantity === null) continue
+      const previousQuantity = item.listings.quantity
+      const { data: updated } = await serviceClient
+        .rpc('atomic_decrement_inventory' as string, {
+          p_listing_id: item.listing_id,
+          p_quantity: item.quantity
+        })
+        .single()
+
+      const newQuantity = (updated as any)?.new_quantity ?? Math.max(0, previousQuantity - item.quantity)
+      const vendorUserId = item.vendor_profiles?.user_id
+      if (vendorUserId) {
+        if (newQuantity === 0) {
+          await sendNotification(vendorUserId, 'inventory_out_of_stock', {
+            itemTitle: item.listings.title,
+          })
+        } else if (newQuantity <= LOW_STOCK_THRESHOLD && previousQuantity > LOW_STOCK_THRESHOLD) {
+          await sendNotification(vendorUserId, 'inventory_low_stock', {
+            itemTitle: item.listings.title,
+          })
+        }
+      }
     }
 
     // Notify buyer that external payment was confirmed

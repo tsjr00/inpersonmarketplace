@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -31,6 +31,38 @@ export default function PaymentMethodsCard({
   const [cashappCashtag, setCashappCashtag] = useState(initialValues.cashapp_cashtag || '')
   const [paypalUsername, setPaypalUsername] = useState(initialValues.paypal_username || '')
   const [acceptsCash, setAcceptsCash] = useState(initialValues.accepts_cash_at_pickup)
+
+  // Fee balance state (collapsed from FeeBalanceCard)
+  const [feeBalance, setFeeBalance] = useState<{ balance_cents: number; requires_payment: boolean } | null>(null)
+  const [feePaying, setFeePaying] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/vendor/fees?vendor_id=${vendorId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data && data.balance_cents > 0) setFeeBalance(data) })
+      .catch(() => {})
+  }, [vendorId])
+
+  const handlePayFees = async () => {
+    setFeePaying(true)
+    try {
+      const res = await fetch('/api/vendor/fees/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendor_id: vendorId, vertical_id: vertical })
+      })
+      const result = await res.json()
+      if (res.ok && result.checkout_url) {
+        window.location.href = result.checkout_url
+      } else {
+        setError(result.error || 'Failed to create payment')
+        setFeePaying(false)
+      }
+    } catch {
+      setError('Payment failed')
+      setFeePaying(false)
+    }
+  }
 
   const hasExternalMethods = venmoUsername || cashappCashtag || paypalUsername || acceptsCash
 
@@ -416,6 +448,61 @@ export default function PaymentMethodsCard({
               </span>
             )}
           </div>
+
+          {/* Fee Balance (only when balance > 0) */}
+          {feeBalance && (
+            <div style={{
+              marginTop: spacing.xs,
+              padding: spacing.xs,
+              backgroundColor: feeBalance.requires_payment ? '#fef3c7' : colors.surfaceMuted,
+              borderRadius: radius.sm,
+              border: feeBalance.requires_payment ? '1px solid #f59e0b' : 'none'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div>
+                  <div style={{
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.medium,
+                    color: feeBalance.requires_payment ? '#92400e' : colors.textSecondary
+                  }}>
+                    {feeBalance.requires_payment ? 'Platform fees due' : 'Platform fees'}
+                  </div>
+                  <div style={{
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.bold,
+                    color: feeBalance.requires_payment ? '#92400e' : colors.textPrimary
+                  }}>
+                    ${(feeBalance.balance_cents / 100).toFixed(2)}
+                  </div>
+                </div>
+                <button
+                  onClick={handlePayFees}
+                  disabled={feePaying}
+                  style={{
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: feeBalance.requires_payment ? '#f59e0b' : colors.surfaceMuted,
+                    color: feeBalance.requires_payment ? 'white' : colors.textSecondary,
+                    border: feeBalance.requires_payment ? 'none' : `1px solid ${colors.border}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    cursor: feePaying ? 'wait' : 'pointer',
+                    opacity: feePaying ? 0.7 : 1
+                  }}
+                >
+                  {feePaying ? '...' : 'Pay Now'}
+                </button>
+              </div>
+              {!feeBalance.requires_payment && (
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
+                  Auto-deducted from your next card sale
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

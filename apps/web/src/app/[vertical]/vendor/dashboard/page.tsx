@@ -1,11 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import EditProfileButton from './EditProfileButton'
 import ReferralCard from './ReferralCard'
 import PaymentMethodsCard from './PaymentMethodsCard'
-import FeeBalanceCard from './FeeBalanceCard'
 import PromoteCard from './PromoteCard'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
@@ -25,9 +23,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   if (error || !user) {
     redirect(`/${vertical}/login`)
   }
-
-  // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
   // Get vendor profile for THIS vertical
   const { data: vendorProfile, error: vendorError } = await supabase
@@ -65,7 +60,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
   // Get draft listings count for approved vendors
   let draftCount = 0
-  // Low stock threshold (from centralized constants)
   let outOfStockCount = 0
   let lowStockCount = 0
 
@@ -103,8 +97,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     lowStockCount = lowStock || 0
   }
 
+  // Stock warning level for Listings card border
+  const stockWarningLevel: 'red' | 'orange' | null =
+    outOfStockCount > 0 ? 'red' : lowStockCount > 0 ? 'orange' : null
+
   // Get all configured markets/pickup locations for this vendor
-  // This includes: private pickup locations they own + traditional markets they're associated with
   interface ActiveMarket {
     id: string
     name: string
@@ -184,16 +181,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     activeMarkets = Array.from(marketMap.values())
   }
 
-  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const traditionalMarkets = activeMarkets.filter(m => m.market_type === 'traditional')
-  const privatePickups = activeMarkets.filter(m => m.market_type === 'private_pickup')
-
   // Check for orders needing vendor action
-  let pendingOrdersToConfirm = 0  // Pending orders waiting for vendor to confirm they can fulfill
-  let needsFulfillment = 0        // Buyer acknowledged but vendor hasn't fulfilled yet
+  let pendingOrdersToConfirm = 0
+  let needsFulfillment = 0
 
   if (vendorProfile.status === 'approved') {
-    // Count pending orders that need initial confirmation
     const { count: pendingCount } = await supabase
       .from('order_items')
       .select('id', { count: 'exact', head: true })
@@ -203,8 +195,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
     pendingOrdersToConfirm = pendingCount || 0
 
-    // Count orders where buyer acknowledged but vendor hasn't fulfilled yet
-    // Only count if confirmation window hasn't expired (30-second window)
     const { count: needsFulfillCount } = await supabase
       .from('order_items')
       .select('id', { count: 'exact', head: true })
@@ -212,12 +202,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       .not('buyer_confirmed_at', 'is', null)
       .is('vendor_confirmed_at', null)
       .is('cancelled_at', null)
-      .gt('confirmation_window_expires_at', new Date().toISOString()) // Only active windows
+      .gt('confirmation_window_expires_at', new Date().toISOString())
 
     needsFulfillment = needsFulfillCount || 0
   }
 
-  // Total alerts for the Orders card
   const ordersNeedingAttention = pendingOrdersToConfirm + needsFulfillment
 
   // Get upcoming pickup dates with order counts (next 7 days)
@@ -254,7 +243,6 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     for (const item of upcomingItems || []) {
       if (item.pickup_date && item.market_id) {
         const key = `${item.pickup_date}|${item.market_id}`
-        // markets is returned as a single object from the FK relationship
         const market = item.markets as unknown as { name: string } | null
         const existing = pickupMap.get(key)
         if (existing) {
@@ -301,170 +289,42 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </h1>
         </div>
 
-        {/* Draft Listings Notice - for approved vendors with drafts */}
-        {draftCount > 0 && vendorProfile.status === 'approved' && (
-          <div style={{
-            padding: spacing.sm,
-            marginBottom: spacing.md,
-            backgroundColor: colors.primaryLight,
-            border: `1px solid ${colors.primary}`,
-            borderRadius: radius.md,
-            color: colors.textPrimary
-          }}>
-            <strong style={{ fontSize: typography.sizes.base }}>
-              You have {draftCount} draft listing{draftCount > 1 ? 's' : ''}!
-            </strong>
-            <p style={{ margin: `${spacing['2xs']} 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm }}>
-              Your account is approved. Visit your listings to publish them and make them visible to buyers.
-            </p>
-            <Link
-              href={`/${vertical}/vendor/listings`}
-              style={{
-                display: 'inline-block',
-                padding: `${spacing['2xs']} ${spacing.sm}`,
-                backgroundColor: colors.primary,
-                color: colors.textInverse,
-                textDecoration: 'none',
-                borderRadius: radius.sm,
-                fontWeight: typography.weights.semibold,
-                fontSize: typography.sizes.sm,
-                minHeight: 44
-              }}
-            >
-              View My Listings
-            </Link>
-          </div>
-        )}
-
-        {/* Low Stock / Out of Stock Warning */}
-        {(outOfStockCount > 0 || lowStockCount > 0) && vendorProfile.status === 'approved' && (
-          <div style={{
-            padding: spacing.sm,
-            marginBottom: spacing.md,
-            backgroundColor: outOfStockCount > 0 ? '#fef2f2' : '#fffbeb',
-            border: `1px solid ${outOfStockCount > 0 ? '#fecaca' : '#fde68a'}`,
-            borderRadius: radius.md,
-            color: colors.textPrimary
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-              <span style={{ fontSize: typography.sizes.lg }}>{outOfStockCount > 0 ? '⚠️' : '📦'}</span>
-              <strong style={{ fontSize: typography.sizes.base, color: outOfStockCount > 0 ? '#dc2626' : '#d97706' }}>
-                {outOfStockCount > 0 && `${outOfStockCount} listing${outOfStockCount > 1 ? 's' : ''} out of stock`}
-                {outOfStockCount > 0 && lowStockCount > 0 && ' · '}
-                {lowStockCount > 0 && `${lowStockCount} listing${lowStockCount > 1 ? 's' : ''} low on stock`}
-              </strong>
-            </div>
-            <p style={{ margin: `${spacing['2xs']} 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: outOfStockCount > 0 ? '#991b1b' : '#92400e' }}>
-              {outOfStockCount > 0
-                ? 'Buyers cannot order out-of-stock items. Update your inventory to continue selling.'
-                : 'Consider restocking soon to avoid missing orders.'}
-            </p>
-            <Link
-              href={`/${vertical}/vendor/listings`}
-              style={{
-                display: 'inline-block',
-                padding: `${spacing['2xs']} ${spacing.sm}`,
-                backgroundColor: outOfStockCount > 0 ? '#dc2626' : '#d97706',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: radius.sm,
-                fontWeight: typography.weights.semibold,
-                fontSize: typography.sizes.sm,
-                minHeight: 44
-              }}
-            >
-              Update Inventory
-            </Link>
-          </div>
-        )}
-
-        {/* TOP ROW - Market Day Focus: Manage Locations, Prep for Market, Pickup Mode */}
-        <div className="info-grid" style={{
+        {/* ============================================= */}
+        {/* ROW 1: Operational - Pickup Mode, Upcoming Pickups, Manage Locations */}
+        {/* ============================================= */}
+        <div className="row-1-grid" style={{
           display: 'grid',
           gap: spacing.sm,
           marginBottom: spacing.md
         }}>
-          {/* Manage Locations - shows list of locations */}
-          <div style={{
-            padding: spacing.sm,
-            backgroundColor: colors.surfaceElevated,
-            color: colors.textPrimary,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.md,
-            boxShadow: shadows.sm
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+          {/* Pickup Mode - Quick mobile-friendly order lookup */}
+          <Link
+            href={`/${vertical}/vendor/pickup`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: colors.primaryLight,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.primary}`,
+              borderRadius: radius.md,
+              cursor: 'pointer',
+              height: '100%',
+              boxShadow: shadows.sm
+            }}>
               <h3 style={{
-                color: colors.primary,
-                margin: 0,
+                color: colors.primaryDark,
+                margin: `0 0 ${spacing['2xs']} 0`,
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold
               }}>
-                Manage Locations
+                Pickup Mode
               </h3>
-              <Link
-                href={`/${vertical}/vendor/markets`}
-                style={{
-                  fontSize: typography.sizes.xs,
-                  color: colors.primary,
-                  textDecoration: 'none',
-                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: colors.surfaceMuted,
-                  borderRadius: radius.sm
-                }}
-              >
-                Edit →
-              </Link>
-            </div>
-
-            {vendorProfile.status !== 'approved' ? (
-              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                Available after approval
+              <p style={{ color: colors.primaryDark, margin: 0, fontSize: typography.sizes.sm }}>
+                Mobile-friendly view for market day fulfillment
               </p>
-            ) : activeMarkets.length === 0 ? (
-              <Link
-                href={`/${vertical}/vendor/markets`}
-                style={{
-                  display: 'block',
-                  padding: spacing.xs,
-                  backgroundColor: colors.primaryLight,
-                  borderRadius: radius.sm,
-                  fontSize: typography.sizes.sm,
-                  textDecoration: 'none',
-                  color: colors.primaryDark,
-                  textAlign: 'center'
-                }}
-              >
-                + Add your first location
-              </Link>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {activeMarkets.slice(0, 8).map(market => (
-                  <Link
-                    key={market.id}
-                    href={`/${vertical}/vendor/markets`}
-                    style={{
-                      fontSize: typography.sizes.sm,
-                      textDecoration: 'none',
-                      color: colors.textPrimary,
-                      display: 'block',
-                      lineHeight: 1.4
-                    }}
-                  >
-                    {market.market_type === 'private_pickup' ? '🏠 ' : '🛒 '}{market.name}
-                  </Link>
-                ))}
-                {activeMarkets.length > 8 && (
-                  <Link
-                    href={`/${vertical}/vendor/markets`}
-                    style={{ fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'none' }}
-                  >
-                    +{activeMarkets.length - 8} more →
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
+            </div>
+          </Link>
 
           {/* Upcoming Pickups - shows orders by date */}
           <div style={{
@@ -495,7 +355,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                   borderRadius: radius.sm
                 }}
               >
-                All Orders →
+                All Orders
               </Link>
             </div>
 
@@ -564,209 +424,104 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                     href={`/${vertical}/vendor/orders`}
                     style={{ fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'none', textAlign: 'center' }}
                   >
-                    +{upcomingPickups.length - 5} more pickup dates →
+                    +{upcomingPickups.length - 5} more pickup dates
                   </Link>
                 )}
               </div>
             )}
           </div>
 
-          {/* Pickup Mode - Quick mobile-friendly order lookup */}
-          <Link
-            href={`/${vertical}/vendor/pickup`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.primaryLight,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.primary}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              boxShadow: shadows.sm
-            }}>
-              <h3 style={{
-                color: colors.primaryDark,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Pickup Mode
-              </h3>
-              <p style={{ color: colors.primaryDark, margin: 0, fontSize: typography.sizes.sm }}>
-                Mobile-friendly view for market day fulfillment
-              </p>
-            </div>
-          </Link>
-        </div>
-
-        {/* MIDDLE ROW - Action Cards: Business Profile, Listings, Market Boxes, Orders, etc */}
-        <div className="action-grid" style={{
-          display: 'grid',
-          gap: spacing.sm,
-          marginBottom: spacing.md
-        }}>
-          {/* Business Profile */}
+          {/* Manage Locations - shows list of locations */}
           <div style={{
             padding: spacing.sm,
-            backgroundColor: cancellationWarningLevel === 'red' ? '#fef2f2' : cancellationWarningLevel === 'orange' ? '#fff7ed' : colors.surfaceElevated,
+            backgroundColor: colors.surfaceElevated,
             color: colors.textPrimary,
-            border: `${cancellationWarningLevel ? '2px' : '1px'} solid ${cancellationWarningLevel === 'red' ? '#dc2626' : cancellationWarningLevel === 'orange' ? '#ea580c' : colors.border}`,
+            border: `1px solid ${colors.border}`,
             borderRadius: radius.md,
             boxShadow: shadows.sm
           }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              marginBottom: spacing.xs,
-              gap: spacing['2xs']
-            }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
               <h3 style={{
                 color: colors.primary,
                 margin: 0,
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold
               }}>
-                Business Profile
+                Manage Locations
               </h3>
-              <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
-                <Link
-                  href={`/${vertical}/vendor/${vendorProfile.id}/profile`}
-                  target="_blank"
-                  style={{
-                    fontSize: typography.sizes.xs,
-                    color: colors.textSecondary,
-                    textDecoration: 'none',
-                    padding: `${spacing['3xs']} ${spacing.xs}`,
-                    backgroundColor: colors.surfaceMuted,
-                    borderRadius: radius.sm
-                  }}
-                  title="Preview your public profile"
-                >
-                  👁
-                </Link>
-                <EditProfileButton vertical={vertical} />
+              <Link
+                href={`/${vertical}/vendor/markets`}
+                style={{
+                  fontSize: typography.sizes.xs,
+                  color: colors.primary,
+                  textDecoration: 'none',
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.sm
+                }}
+              >
+                Edit
+              </Link>
+            </div>
+
+            {vendorProfile.status !== 'approved' ? (
+              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                Available after approval
+              </p>
+            ) : activeMarkets.length === 0 ? (
+              <Link
+                href={`/${vertical}/vendor/markets`}
+                style={{
+                  display: 'block',
+                  padding: spacing.xs,
+                  backgroundColor: colors.primaryLight,
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  textDecoration: 'none',
+                  color: colors.primaryDark,
+                  textAlign: 'center'
+                }}
+              >
+                + Add your first location
+              </Link>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {activeMarkets.slice(0, 8).map(market => (
+                  <Link
+                    key={market.id}
+                    href={`/${vertical}/vendor/markets`}
+                    style={{
+                      fontSize: typography.sizes.sm,
+                      textDecoration: 'none',
+                      color: colors.textPrimary,
+                      display: 'block',
+                      lineHeight: 1.4
+                    }}
+                  >
+                    {market.market_type === 'private_pickup' ? '🏠 ' : '🛒 '}{market.name}
+                  </Link>
+                ))}
+                {activeMarkets.length > 8 && (
+                  <Link
+                    href={`/${vertical}/vendor/markets`}
+                    style={{ fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'none' }}
+                  >
+                    +{activeMarkets.length - 8} more
+                  </Link>
+                )}
               </div>
-            </div>
-
-            <div style={{ fontSize: typography.sizes.sm }}>
-              <p style={{ margin: 0, fontWeight: typography.weights.medium }}>
-                {(profileData.business_name as string) || (profileData.farm_name as string) || 'Not provided'}
-              </p>
-              <p style={{ margin: `${spacing['3xs']} 0 0 0`, color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                {(profileData.phone as string) || 'No phone'} · {(profileData.email as string) || userProfile?.email || 'No email'}
-              </p>
-            </div>
-
-            {/* Tier */}
-            <p style={{
-              margin: `${spacing.xs} 0 0 0`,
-              fontSize: typography.sizes.xs,
-              color: vendorProfile.tier === 'premium' ? colors.accent : colors.textMuted
-            }}>
-              {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'} Plan
-            </p>
-
-            {/* Cancellation rate warning */}
-            {cancellationWarningLevel && (
-              <p style={{
-                margin: `${spacing.xs} 0 0 0`,
-                fontSize: typography.sizes.xs,
-                color: cancellationWarningLevel === 'red' ? '#991b1b' : '#9a3412',
-                fontWeight: typography.weights.medium,
-                lineHeight: 1.4
-              }}>
-                Cancellation rate: {vpCancellationRate}% ({vpCancelled} of {vpConfirmed} confirmed orders).
-                {cancellationWarningLevel === 'red'
-                  ? ' Your account may be subject to review. Please contact support if you need assistance.'
-                  : ' Confirming an order is a commitment to fulfill it.'}
-              </p>
             )}
           </div>
+        </div>
 
-          {/* Payment Methods */}
-          <PaymentMethodsCard
-            vendorId={vendorProfile.id}
-            vertical={vertical}
-            stripeConnected={!!vendorProfile.stripe_account_id}
-            initialValues={{
-              venmo_username: vendorProfile.venmo_username,
-              cashapp_cashtag: vendorProfile.cashapp_cashtag,
-              paypal_username: vendorProfile.paypal_username,
-              accepts_cash_at_pickup: vendorProfile.accepts_cash_at_pickup || false
-            }}
-          />
-
-          {/* Fee Balance (only shows if balance > 0) */}
-          <FeeBalanceCard
-            vendorId={vendorProfile.id}
-            vertical={vertical}
-          />
-
-          {/* Your Listings */}
-          <Link
-            href={`/${vertical}/vendor/listings`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              minHeight: 120,
-              boxShadow: shadows.sm
-            }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
-              <h3 style={{
-                color: colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Your Listings
-              </h3>
-              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                Create and manage your product listings
-              </p>
-            </div>
-          </Link>
-
-          {/* Market Boxes - 4-week subscription bundles */}
-          <Link
-            href={`/${vertical}/vendor/market-boxes`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              minHeight: 120,
-              boxShadow: shadows.sm
-            }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
-              <h3 style={{
-                color: colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Market Boxes
-              </h3>
-              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                Offer 4-week subscription bundles to premium buyers
-              </p>
-            </div>
-          </Link>
-
+        {/* ============================================= */}
+        {/* ROW 2: Daily Ops - Orders, Listings, Market Boxes */}
+        {/* ============================================= */}
+        <div className="row-2-grid" style={{
+          display: 'grid',
+          gap: spacing.sm,
+          marginBottom: spacing.md
+        }}>
           {/* Orders - highlight if there are unconfirmed handoffs */}
           <Link
             href={`/${vertical}/vendor/orders`}
@@ -818,6 +573,187 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </Link>
 
+          {/* Your Listings - with stock warnings on the card */}
+          <Link
+            href={`/${vertical}/vendor/listings`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: stockWarningLevel === 'red' ? '#fef2f2' : stockWarningLevel === 'orange' ? '#fffbeb' : colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `${stockWarningLevel ? '2px' : '1px'} solid ${stockWarningLevel === 'red' ? '#fecaca' : stockWarningLevel === 'orange' ? '#fde68a' : colors.border}`,
+              borderRadius: radius.md,
+              cursor: 'pointer',
+              height: '100%',
+              minHeight: 120,
+              boxShadow: shadows.sm
+            }}>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
+              <h3 style={{
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Your Listings
+                {draftCount > 0 && (
+                  <span style={{
+                    marginLeft: spacing.xs,
+                    backgroundColor: colors.primary,
+                    color: 'white',
+                    padding: `2px ${spacing.xs}`,
+                    borderRadius: radius.full,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.bold,
+                    verticalAlign: 'middle'
+                  }}>
+                    {draftCount} draft{draftCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </h3>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                {outOfStockCount > 0
+                  ? <span style={{ color: '#dc2626', fontWeight: typography.weights.medium }}>{outOfStockCount} out of stock{lowStockCount > 0 ? ` · ${lowStockCount} low` : ''}</span>
+                  : lowStockCount > 0
+                    ? <span style={{ color: '#d97706', fontWeight: typography.weights.medium }}>{lowStockCount} low on stock</span>
+                    : 'Create and manage your product listings'}
+              </p>
+            </div>
+          </Link>
+
+          {/* Market Boxes */}
+          <Link
+            href={`/${vertical}/vendor/market-boxes`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              cursor: 'pointer',
+              height: '100%',
+              minHeight: 120,
+              boxShadow: shadows.sm
+            }}>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
+              <h3 style={{
+                color: colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Market Boxes
+              </h3>
+              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                Offer 4-week subscription bundles to premium buyers
+              </p>
+            </div>
+          </Link>
+        </div>
+
+        {/* ============================================= */}
+        {/* ROW 3: Business - Business Profile, Payment Methods, Analytics */}
+        {/* ============================================= */}
+        <div className="row-3-grid" style={{
+          display: 'grid',
+          gap: spacing.sm,
+          marginBottom: spacing.md
+        }}>
+          {/* Business Profile */}
+          <div style={{
+            padding: spacing.sm,
+            backgroundColor: cancellationWarningLevel === 'red' ? '#fef2f2' : cancellationWarningLevel === 'orange' ? '#fff7ed' : colors.surfaceElevated,
+            color: colors.textPrimary,
+            border: `${cancellationWarningLevel ? '2px' : '1px'} solid ${cancellationWarningLevel === 'red' ? '#dc2626' : cancellationWarningLevel === 'orange' ? '#ea580c' : colors.border}`,
+            borderRadius: radius.md,
+            boxShadow: shadows.sm
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              marginBottom: spacing.xs,
+              gap: spacing['2xs']
+            }}>
+              <h3 style={{
+                color: colors.primary,
+                margin: 0,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Business Profile
+              </h3>
+              <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
+                <Link
+                  href={`/${vertical}/vendor/${vendorProfile.id}/profile`}
+                  target="_blank"
+                  style={{
+                    fontSize: typography.sizes.xs,
+                    color: colors.textSecondary,
+                    textDecoration: 'none',
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: colors.surfaceMuted,
+                    borderRadius: radius.sm
+                  }}
+                  title="Preview your public profile"
+                >
+                  Preview
+                </Link>
+                <EditProfileButton vertical={vertical} />
+              </div>
+            </div>
+
+            <div style={{ fontSize: typography.sizes.sm }}>
+              <p style={{ margin: 0, fontWeight: typography.weights.medium }}>
+                {(profileData.business_name as string) || (profileData.farm_name as string) || 'Not provided'}
+              </p>
+              <p style={{ margin: `${spacing['3xs']} 0 0 0`, color: colors.textMuted, fontSize: typography.sizes.xs }}>
+                {(profileData.phone as string) || 'No phone'} · {(profileData.email as string) || userProfile?.email || 'No email'}
+              </p>
+            </div>
+
+            {/* Tier */}
+            <p style={{
+              margin: `${spacing.xs} 0 0 0`,
+              fontSize: typography.sizes.xs,
+              color: vendorProfile.tier === 'premium' ? colors.accent : colors.textMuted
+            }}>
+              {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'} Plan
+            </p>
+
+            {/* Cancellation rate warning */}
+            {cancellationWarningLevel && (
+              <p style={{
+                margin: `${spacing.xs} 0 0 0`,
+                fontSize: typography.sizes.xs,
+                color: cancellationWarningLevel === 'red' ? '#991b1b' : '#9a3412',
+                fontWeight: typography.weights.medium,
+                lineHeight: 1.4
+              }}>
+                Cancellation rate: {vpCancellationRate}% ({vpCancelled} of {vpConfirmed} confirmed orders).
+                {cancellationWarningLevel === 'red'
+                  ? ' Your account may be subject to review. Please contact support if you need assistance.'
+                  : ' Confirming an order is a commitment to fulfill it.'}
+              </p>
+            )}
+          </div>
+
+          {/* Payment Methods (with fee balance collapsed in) */}
+          <PaymentMethodsCard
+            vendorId={vendorProfile.id}
+            vertical={vertical}
+            stripeConnected={!!vendorProfile.stripe_account_id}
+            initialValues={{
+              venmo_username: vendorProfile.venmo_username,
+              cashapp_cashtag: vendorProfile.cashapp_cashtag,
+              paypal_username: vendorProfile.paypal_username,
+              accepts_cash_at_pickup: vendorProfile.accepts_cash_at_pickup || false
+            }}
+          />
+
           {/* Analytics */}
           <Link
             href={`/${vertical}/vendor/analytics`}
@@ -848,53 +784,55 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
+        </div>
 
-          {/* Reviews */}
-          <Link
-            href={`/${vertical}/vendor/reviews`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              minHeight: 120,
-              boxShadow: shadows.sm
-            }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>⭐</div>
-              <h3 style={{
-                color: colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Reviews
-              </h3>
-              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                See feedback from your customers
-              </p>
-            </div>
-          </Link>
-
-          </div>
-
-        {/* Notifications & Referral - Side by side on desktop */}
+        {/* ============================================= */}
+        {/* ROW 4: Info - Notifications, Reviews */}
+        {/* ============================================= */}
         {vendorProfile.status === 'approved' && (
-          <div className="promote-grow-grid" style={{
+          <div className="row-4-grid" style={{
             display: 'grid',
             gap: spacing.sm,
             marginBottom: spacing.md
           }}>
             <DashboardNotifications vertical={vertical} limit={5} />
-            <ReferralCard vertical={vertical} />
+
+            {/* Reviews */}
+            <Link
+              href={`/${vertical}/vendor/reviews`}
+              style={{ textDecoration: 'none' }}
+            >
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                color: colors.textPrimary,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.md,
+                cursor: 'pointer',
+                height: '100%',
+                minHeight: 120,
+                boxShadow: shadows.sm
+              }}>
+                <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>⭐</div>
+                <h3 style={{
+                  color: colors.primary,
+                  margin: `0 0 ${spacing['2xs']} 0`,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold
+                }}>
+                  Reviews
+                </h3>
+                <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                  See feedback from your customers
+                </p>
+              </div>
+            </Link>
           </div>
         )}
 
-        {/* Promote & Grow Section - Side by side on desktop */}
+        {/* ============================================= */}
+        {/* Promote & Grow Section */}
+        {/* ============================================= */}
         {vendorProfile.status === 'approved' && (
           <div className="promote-grow-grid" style={{
             display: 'grid',
@@ -907,6 +845,9 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               vendorName={(profileData.business_name as string) || (profileData.farm_name as string) || 'My Business'}
               vertical={vertical}
             />
+
+            {/* Referral Card */}
+            <ReferralCard vertical={vertical} />
 
             {/* Upgrade Prompt - Only show for standard vendors */}
             {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
@@ -971,7 +912,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                     boxShadow: shadows.sm
                   }}
                 >
-                  Upgrade Now →
+                  Upgrade Now
                 </Link>
               </div>
             )}
@@ -981,20 +922,24 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
       {/* Responsive Styles */}
       <style>{`
-        .vendor-dashboard .info-grid {
+        .vendor-dashboard .row-1-grid,
+        .vendor-dashboard .row-2-grid,
+        .vendor-dashboard .row-3-grid {
           grid-template-columns: 1fr;
         }
-        .vendor-dashboard .action-grid {
+        .vendor-dashboard .row-4-grid {
           grid-template-columns: 1fr;
         }
         .vendor-dashboard .promote-grow-grid {
           grid-template-columns: 1fr;
         }
         @media (min-width: 640px) {
-          .vendor-dashboard .info-grid {
+          .vendor-dashboard .row-1-grid,
+          .vendor-dashboard .row-2-grid,
+          .vendor-dashboard .row-3-grid {
             grid-template-columns: repeat(2, 1fr);
           }
-          .vendor-dashboard .action-grid {
+          .vendor-dashboard .row-4-grid {
             grid-template-columns: repeat(2, 1fr);
           }
           .vendor-dashboard .promote-grow-grid {
@@ -1002,11 +947,10 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           }
         }
         @media (min-width: 1024px) {
-          .vendor-dashboard .info-grid {
+          .vendor-dashboard .row-1-grid,
+          .vendor-dashboard .row-2-grid,
+          .vendor-dashboard .row-3-grid {
             grid-template-columns: repeat(3, 1fr);
-          }
-          .vendor-dashboard .action-grid {
-            grid-template-columns: repeat(4, 1fr);
           }
         }
       `}</style>
