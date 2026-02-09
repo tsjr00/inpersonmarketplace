@@ -687,11 +687,12 @@ export default function BuyerOrdersPage() {
                         Market Box
                       </span>
                       <span style={{
-                        fontSize: typography.sizes.sm,
+                        fontSize: typography.sizes.lg,
                         fontWeight: typography.weights.bold,
                         fontFamily: 'monospace',
+                        letterSpacing: 1,
                       }}>
-                        Week {mb.weeks_completed} of {mb.total_weeks}
+                        {order.order_number}
                       </span>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -705,6 +706,16 @@ export default function BuyerOrdersPage() {
                           fontWeight: typography.weights.semibold,
                         }}>
                           {config.label}
+                        </span>
+                        <span style={{
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          backgroundColor: '#f0fdfa',
+                          color: '#0f766e',
+                          borderRadius: radius.full,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.medium,
+                        }}>
+                          Week {mb.weeks_completed} of {mb.total_weeks}
                         </span>
                         <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                           {new Date(order.created_at).toLocaleDateString('en-US', {

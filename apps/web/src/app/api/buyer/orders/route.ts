@@ -329,7 +329,9 @@ export async function GET(request: NextRequest) {
       } else if (hasReadyPickup) {
         mbEffectiveStatus = 'ready'
       } else {
-        mbEffectiveStatus = 'confirmed'
+        // Active subscription with no ready pickups — show as "Order Placed"
+        // Transitions to 'ready' when vendor marks a pickup as ready
+        mbEffectiveStatus = 'pending'
       }
 
       const termWeeks = (sub.term_weeks as number) || 4
