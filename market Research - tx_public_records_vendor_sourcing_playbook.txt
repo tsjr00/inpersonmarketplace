@@ -1,0 +1,214 @@
+TEXAS: Public-Info Sourcing for Farmers-Market / Pickup Preorder Vendors
+(Playbook + copy/paste request language)
+Last updated: 2026-01-17
+
+IMPORTANT CORRECTION (Cottage Food vs. Permits)
+- In Texas, local public health entities generally MAY NOT require a cottage food production operation (CFPO) to obtain a local license/permit or pay a fee to produce/sell cottage foods directly to consumers. (SB 541 changes take effect 9/1/2025 and add DSHS registration paths for certain cottage activities.)
+- Therefore: do NOT expect “county health permits” to be a reliable way to list ordinary cottage food producers.
+- Instead:
+  (1) Market organizer/vendor rosters (city/county-run or city/county-permitted markets)
+  (2) Temporary food permits (for non-exempt foods, prepared foods, TCS foods, etc.)
+  (3) DSHS cottage food registrations (statewide list for certain cottage categories beginning 9/1/2025)
+
+============================================================
+PRIORITY SOURCE 1 (Texas): MARKET ORGANIZER / MARKET ROSTERS
+============================================================
+
+What this finds
+- Vendors already selling in person on recurring schedules
+- Market owners/organizers (your best “platform partner” targets)
+- Vendor categories (produce, eggs, baked goods, crafts, etc.)
+
+Why it’s valuable
+- Directly matches your “order online → pickup at market/event” workflow
+- Provides BOTH sides of your acquisition problem:
+  - Vendors to onboard
+  - Organizers to partner with (bulk vendor acquisition)
+
+What to request (records that usually exist)
+- Vendor roster lists by season/date
+- Vendor applications
+- Booth/stall assignments (optional)
+- Market rules/handbooks (good for compliance UX)
+- Market permit or sponsorship agreements with the city/county (if applicable)
+
+Where these records live (Texas reality check)
+- If the market is run by a PUBLIC entity (city/county), records are usually with:
+  - Parks & Recreation
+  - Downtown/Main Street program
+  - City Manager / City Secretary
+  - County/community services department
+- If the market is run by a private nonprofit/business:
+  - The city may ONLY have the “special event permit” file (organizer, dates, insurance, etc.)
+  - The vendor list may NOT be a public record unless submitted to a public entity
+
+County-by-county “is this likely public?”
+- HIGH likelihood: counties with major cities that run markets directly (common in metro counties)
+- MEDIUM likelihood: counties where city issues recurring “market permits” and requires vendor rosters
+- LOW likelihood: privately-run markets with minimal city involvement
+
+Action steps (fastest way)
+1) Use the Texas Dept. of Agriculture “Certified Farmers Markets” tool to identify markets in your target area.
+2) For each market, determine: public-run vs private-run.
+3) If public-run: send the Public Information Act request to the city/county.
+4) If private-run: request the organizer’s contact info from the city (via permit file), then approach organizer directly.
+
+Copy/paste request language (Market Rosters)
+SUBJECT: Texas Public Information Act Request – Farmers Market Vendor Rosters and Applications
+
+Hello,
+Pursuant to the Texas Public Information Act (Texas Government Code, Chapter 552), I request copies of the following records for [MARKET NAME], and any other farmers market(s) operated, co-operated, sponsored, or permitted by [CITY/COUNTY] from January 1, 2023 to present:
+
+1) Vendor rosters or vendor lists (including vendor name, business name, contact email, phone, mailing address if available, and product category/type);
+2) Vendor applications and/or agreements submitted to [CITY/COUNTY] (redactions acceptable for sensitive personal information, but please retain business contact information where permissible);
+3) Market operating rules/handbooks and any standard vendor requirements provided to vendors.
+
+If available, please provide in a machine-readable format (CSV or Excel). If any portion is exempt, please produce the non-exempt portions and cite the specific exemption relied upon.
+Thank you,
+[YOUR NAME]
+[YOUR PHONE]
+[YOUR EMAIL]
+
+============================================================
+PRIORITY SOURCE 2 (Texas): TEMPORARY FOOD ESTABLISHMENT (TFE) / EVENT FOOD PERMITS
+============================================================
+
+What this finds
+- Vendors selling prepared foods, TCS foods, or foods not covered by cottage/produce exemptions
+- High-relevance operators (already compliant; often higher volume)
+
+Why it’s valuable
+- These vendors have operational maturity and repeat-event behavior
+- Permit records frequently include: name, business name, address, phone/email, event name/date
+
+Where these records live (who issues the permit)
+- If the event occurs in an area inspected/permitted by a CITY, COUNTY, or PUBLIC HEALTH DISTRICT:
+  -> you must request from that local authority.
+- Otherwise, DSHS Public Health Region may handle permitting.
+
+How to determine the correct authority for ANY county (the practical method)
+A) Go to Texas DSHS “Local Health Departments” pages by Public Health Region and find your county.
+B) If your county has a listed local health department/public health district:
+   -> request permits/records from that local entity.
+C) If your county is not covered by a local entity:
+   -> request from the DSHS Public Health Region office responsible for the county.
+
+Action steps
+1) Pick your target counties.
+2) Look up each county’s local health jurisdiction via DSHS Public Health Region LHD directory pages.
+3) Send the TFE permit request to the correct authority.
+4) Ask specifically for event name/date fields so you can map markets/fairs and recurring vendors.
+
+Copy/paste request language (TFE / Event Permits)
+SUBJECT: Texas Public Information Act Request – Temporary Food Establishment Permits (2023–Present)
+
+Hello,
+Under the Texas Public Information Act (Texas Government Code, Chapter 552), I request copies of records for Temporary Food Establishment (TFE) permits and/or temporary retail food permits issued by [AGENCY NAME] from January 1, 2023 to present, including:
+
+- Permit holder name
+- Business name (if any)
+- Mailing address (or business address)
+- Email and phone (if collected)
+- Permit type/category
+- Event name, event location, and event dates
+- Issue date and expiration date (if applicable)
+
+Please provide in CSV/Excel if available. If portions are exempt, please provide non-exempt portions and cite the applicable exemption(s).
+Thank you,
+[YOUR NAME]
+[YOUR PHONE]
+[YOUR EMAIL]
+
+============================================================
+PRIORITY SOURCE 3 (Texas): DSHS COTTAGE FOOD REGISTRATIONS (Statewide; starts 9/1/2025)
+============================================================
+
+What this finds
+Beginning 9/1/2025, DSHS indicates registration is required for certain cottage categories, including:
+- CFPOs selling TCS foods (foods requiring time/temperature control for safety)
+- Cottage food vendors who buy from CFPOs and sell directly to consumers
+- Optional: registration to use a registration number instead of publishing a home address on the label (depending on the DSHS pathway used)
+
+Why it’s valuable
+- This is the closest thing to a statewide “cottage-adjacent” list
+- Cottage food vendors (resellers/aggregators) are prime partnership targets
+
+Where these records live
+- Texas Department of State Health Services (DSHS) – Retail Food Establishments program (Open Records channel)
+
+Action steps
+1) Request the registry data by date range:
+   - 9/1/2025 to present (or current active registrations)
+2) Ask for registration type field(s) so you can segment:
+   - CFPO-TCS
+   - Cottage food vendor (reseller/aggregator)
+   - Label-address substitute registration (if tracked as such)
+
+Copy/paste request language (DSHS Cottage Food Registry)
+SUBJECT: Texas Public Information Act Request – DSHS Cottage Food Registry Data (9/1/2025–Present)
+
+Hello,
+Under the Texas Public Information Act (Texas Government Code, Chapter 552), I request records from the Texas DSHS Retail Food Establishments program for the Texas DSHS Cottage Food Registry from September 1, 2025 to present (or current active registrations), including:
+
+- Registrant name
+- Business name (if collected)
+- City and county
+- Mailing address (if collected)
+- Email and phone (if collected)
+- Registration type/category (e.g., CFPO selling TCS foods; cottage food vendor/reseller; other registry purpose)
+- Registration number
+- Registration start date and end/expiration date (if applicable)
+
+Please provide in CSV/Excel if available. If portions are exempt, please provide non-exempt portions and cite the applicable exemption(s).
+Thank you,
+[YOUR NAME]
+[YOUR PHONE]
+[YOUR EMAIL]
+
+============================================================
+COUNTY-BY-COUNTY “WHO’S DOING WHAT” (what I can and can’t guarantee from public web pages)
+============================================================
+
+What I CAN say with confidence (statewide rules)
+1) Temporary food/event food permitting exists statewide, but the issuer varies:
+   - Many counties are covered by a local health department or public health district.
+   - Remaining counties are covered primarily by a DSHS Public Health Region office.
+2) Cottage food registrations are maintained by DSHS statewide beginning 9/1/2025.
+3) Market/vendor rosters are only guaranteed as public records when a public entity operates or requires them as part of permitting.
+
+What I CANNOT fully verify “county-by-county” from only public websites in a reliable, automated way
+- A complete 254-county, fully validated listing of:
+  - which counties require vendor rosters for markets,
+  - which counties require organizer-submitted vendor lists,
+  - and which counties publish temporary vendor/market records online,
+because many counties/cities do not publish those operational details consistently, and “farmer’s market” governance often sits at the CITY level, not county.
+
+Best-practice workaround (still fast and precise)
+- Use the DSHS Public Health Region “Local Health Departments” directory pages to map each county to the correct permitting authority for TFE/event food permits.
+- Then focus your “market roster” requests on:
+  (a) cities/counties operating markets (public-run), and
+  (b) cities/counties issuing recurring special-event permits for markets/fairs.
+
+Quick examples (from DSHS region directory pages; not exhaustive)
+- Potter + Randall counties → Amarillo Public Health (local authority listing).
+- Lubbock county → City of Lubbock Health Department (local authority listing).
+- Harris county → Harris County Public Health; also City of Houston Health Department appears in the directory for Houston city jurisdiction.
+(Use the DSHS directory pages to look up any other county.)
+
+============================================================
+NEXT STEP CHECKLIST (if you want to build your lead list efficiently)
+============================================================
+
+1) Pick 10–20 target counties (start where you can sell/operate).
+2) For each county:
+   A) Determine local health authority from DSHS directory page.
+   B) Send the TFE permit request to that authority.
+3) Identify top farmers markets in those counties:
+   - TDA Certified Farmers Markets tool
+   - USDA Farmers Market Directory
+4) For each market:
+   A) If public-run: send market roster request to city/county
+   B) If private-run: pull the organizer info from permit file (city), then approach organizer
+5) Separately: send DSHS Cottage Food Registry request (statewide) and filter by county.
+
+END

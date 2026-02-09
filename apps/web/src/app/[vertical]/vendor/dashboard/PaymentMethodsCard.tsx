@@ -369,11 +369,11 @@ export default function PaymentMethodsCard({
             <Link
               href={`/${vertical}/vendor/dashboard/stripe`}
               style={{
-                padding: `${spacing['2xs']} ${spacing.sm}`,
+                padding: `${spacing['3xs']} ${spacing.xs}`,
                 backgroundColor: stripeConnected ? colors.surfaceMuted : colors.primary,
                 color: stripeConnected ? colors.textSecondary : colors.textInverse,
                 borderRadius: radius.sm,
-                fontSize: typography.sizes.sm,
+                fontSize: typography.sizes.xs,
                 textDecoration: 'none',
                 fontWeight: typography.weights.medium,
                 whiteSpace: 'nowrap',

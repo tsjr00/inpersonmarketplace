@@ -1,39 +1,6 @@
-# Database Schema Snapshot
-
-**Source of truth for database structure. Updated after each confirmed migration.**
-
-**Last Updated:** 2026-02-09
-**Database:** Dev (inpersonmarketplace)
-**Updated By:** Claude + User
-
----
-
-## Change Log
-
-| Date | Migration | Changes |
-|------|-----------|---------|
-| 2026-02-09 | 20260209_004_drop_remaining_old_policies | Dropped remaining old-named duplicate policies on 6 tables. transactions: 3 old SELECT/UPDATE. vendor_payouts: 1 old vendor_select. organizations: 1 old admin select. vendor_profiles: merged admin access into select/update, dropped 5 old. vendor_verifications: merged admin access into select, dropped 2 old. verticals: replaced ALL policy with specific admin INSERT/UPDATE/DELETE. Skipped user_profiles (recursion risk). Applied to Dev & Staging. |
-| 2026-02-09 | 20260209_003_merge_markets_select_policies | Merged `markets_select` + `markets_public_select` into single comprehensive `markets_select` policy. Includes: approved+active, vendor owns it, buyer order history (via order_items.market_id and listing_markets), platform admin, vertical admin. Applied to Dev & Staging. |
-| 2026-02-09 | 20260209_002_merge_duplicate_select_policies | Merged admin+regular SELECT policies into single policy on 6 tables: listings, orders, order_items, transactions, vendor_payouts, notifications. Dropped ~40 old-named policies from previous schema versions. Pure performance optimization — no behavioral change. Applied to Dev & Staging. |
-| 2026-02-09 | 20260209_001_add_performance_indexes | Added 10 performance indexes: notifications (user_unread, user_created), order_items (status_expires, vendor_status_created, pickup_date_market), orders (parent_id, vertical_created), market_box_pickups (sub_date_status), market_box_offerings (vendor_active w/ WHERE), market_box_subscriptions (offering_active). Note: 2 indexes had name collisions with existing indexes (IF NOT EXISTS skipped). Applied to Dev & Staging. |
-| 2026-02-08 | 20260208_001_market_box_mutual_confirmation | Added 3 columns to `market_box_pickups`: `buyer_confirmed_at` (TIMESTAMPTZ), `vendor_confirmed_at` (TIMESTAMPTZ), `confirmation_window_expires_at` (TIMESTAMPTZ). Enables 30-second mutual confirmation window for market box pickups, matching regular order confirmation flow. Applied to Dev & Staging. |
-| 2026-02-06 | 20260206_001_atomic_inventory_decrement | Added `atomic_decrement_inventory(UUID, INTEGER)` function (SECURITY DEFINER). Atomically decrements `listings.quantity` using `GREATEST(0, quantity - p_quantity)` with RETURNING clause. Prevents race condition in concurrent checkouts. Applied to Dev & Staging. |
-| 2026-02-06 | (app code) | **Inventory Management**: `listings.quantity` decremented on successful payment in `checkout/success`. New notification types: `inventory_out_of_stock`, `inventory_low_stock` (threshold: 5). No schema changes. |
-| 2026-02-06 | (app code) | **Market Box Pricing**: Applied `calculateBuyerPrice()` to market box checkout - now includes 6.5% + $0.15 fee. No schema changes. |
-| 2026-02-05 | 20260205_001_pickup_scheduling_schema | Added to cart_items: `schedule_id`, `pickup_date`. Added to order_items: `schedule_id`, `pickup_date`, `pickup_snapshot` (JSONB). Added to orders: `parent_order_id`, `order_suffix`. **NOTE: pickup_start_time/pickup_end_time do NOT exist - use pickup_snapshot.start_time/end_time** |
-| 2026-02-05 | 20260205_002_pickup_scheduling_functions | Added functions: `get_available_pickup_dates()`, `validate_cart_item_schedule()`, `build_pickup_snapshot()` |
-| 2026-02-05 | 20260205_003_fix_cutoff_threshold | Added `cutoff_hours` to get_available_pickup_dates output |
-| 2026-02-04 | 20260204_001_zip_codes_table | Added `zip_codes` table (33k+ US ZIP codes with coordinates); new functions: `get_zip_coordinates()`, `get_nearby_zip_codes()`, `get_region_zip_codes()` |
-| 2026-02-03 | 20260203_004_fix_market_box_trigger_column_name | Fixed `set_market_box_premium_window()` trigger: changed `is_active` to `active` (correct column name) |
-| 2026-02-03 | 20260203_003_add_vertical_admin_rls_support | Added vertical admin RLS support to 14 tables; new helper functions: `can_admin_market()`, `can_admin_order()`, `can_admin_vendor()` |
-| 2026-02-03 | 20260203_002_fix_admin_helper_functions | Fixed `is_platform_admin()` to check both `role` column and `roles` array; added `is_vertical_admin()`, `is_admin_for_vertical()`, `is_any_admin()`, `get_user_admin_verticals()` |
-| 2026-02-03 | Initial snapshot | Full schema capture |
-
----
-
 Where Schema = public : map
 
-## ALL TABLES AS OF 02/05/2026
+-- ALL TABLES AS OF 02/03/2026
 
 | table_name               |
 | ------------------------ |
@@ -79,28 +46,9 @@ Where Schema = public : map
 | vendor_verifications     |
 | vertical_admins          |
 | verticals                |
-| zip_codes                |
 
 
--- ALL COLUMNS WITH TYPES AS OF 02/05/2026
-
-**NOTE: Not all tables are fully documented below. Core tables (order_items, orders, cart_items) were verified against the database on 02/05/2026. When in doubt, query the database directly.**
-
-**CRITICAL - Pickup Scheduling Columns (added 02/05/2026):**
-- `order_items.schedule_id` (UUID, FK to market_schedules.id) - Reference to schedule at checkout
-- `order_items.pickup_date` (DATE) - Immutable promised pickup date
-- `order_items.pickup_snapshot` (JSONB) - Frozen pickup details (market_name, address, start_time, end_time)
-- `orders.parent_order_id` (UUID, FK to orders.id) - Links split orders from same checkout
-- `orders.order_suffix` (VARCHAR(5)) - Distinguishes split orders (-A, -B, etc.)
-- `cart_items.schedule_id` (UUID, FK to market_schedules.id) - Selected pickup schedule
-- `cart_items.pickup_date` (DATE) - Selected pickup date
-
-**IMPORTANT: `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST on order_items. Always use `pickup_snapshot.start_time` and `pickup_snapshot.end_time` instead.**
-
-**Market Box Mutual Confirmation Columns (added 02/08/2026):**
-- `market_box_pickups.buyer_confirmed_at` (TIMESTAMPTZ) - When buyer confirmed pickup
-- `market_box_pickups.vendor_confirmed_at` (TIMESTAMPTZ) - When vendor confirmed pickup
-- `market_box_pickups.confirmation_window_expires_at` (TIMESTAMPTZ) - 30-second window expiry after first confirmation
+-- ALL COLUMNS WITH TYPES AS OF 02/03/2026
 
 
 
@@ -166,8 +114,6 @@ Where Schema = public : map
 | cart_items         | created_at             | timestamp with time zone | NO          | now()                  |
 | cart_items         | updated_at             | timestamp with time zone | NO          | now()                  |
 | cart_items         | market_id              | uuid                     | YES         | null                   |
-| cart_items         | schedule_id            | uuid                     | YES         | null                   |
-| cart_items         | pickup_date            | date                     | YES         | null                   |
 | carts              | id                     | uuid                     | NO          | gen_random_uuid()      |
 | carts              | user_id                | uuid                     | NO          | null                   |
 | carts              | vertical_id            | uuid                     | NO          | null                   |
@@ -208,127 +154,10 @@ Where Schema = public : map
 | error_reports      | created_at             | timestamp with time zone | YES         | now()                  |
 | error_reports      | updated_at             | timestamp with time zone | YES         | now()                  |
 | error_resolutions  | id                     | uuid                     | NO          | gen_random_uuid()      |
-| zip_codes          | zip                    | character varying(5)     | NO          | null (PRIMARY KEY)     |
-| zip_codes          | city                   | character varying(100)   | NO          | null                   |
-| zip_codes          | state                  | character varying(2)     | NO          | null                   |
-| zip_codes          | state_name             | character varying(50)    | YES         | null                   |
-| zip_codes          | county                 | character varying(100)   | YES         | null                   |
-| zip_codes          | latitude               | numeric(9,6)             | NO          | null                   |
-| zip_codes          | longitude              | numeric(9,6)             | NO          | null                   |
-| zip_codes          | timezone               | character varying(50)    | YES         | null                   |
-| zip_codes          | population             | integer                  | YES         | null                   |
-| zip_codes          | region_code            | character varying(20)    | YES         | null                   |
-| zip_codes          | active_market_area     | boolean                  | YES         | false                  |
-| zip_codes          | created_at             | timestamp with time zone | YES         | now()                  |
-| zip_codes          | updated_at             | timestamp with time zone | YES         | now()                  |
 
--- VERIFIED FROM DATABASE 02/05/2026 --
 
-| order_items        | id                             | uuid                     | NO          | gen_random_uuid()      |
-| order_items        | order_id                       | uuid                     | NO          | null                   |
-| order_items        | listing_id                     | uuid                     | NO          | null                   |
-| order_items        | vendor_profile_id              | uuid                     | NO          | null                   |
-| order_items        | quantity                       | integer                  | NO          | null                   |
-| order_items        | unit_price_cents               | integer                  | NO          | null                   |
-| order_items        | subtotal_cents                 | integer                  | NO          | null                   |
-| order_items        | platform_fee_cents             | integer                  | NO          | null                   |
-| order_items        | vendor_payout_cents            | integer                  | NO          | null                   |
-| order_items        | status                         | USER-DEFINED             | NO          | null                   |
-| order_items        | pickup_confirmed_at            | timestamp with time zone | YES         | null                   |
-| order_items        | created_at                     | timestamp with time zone | YES         | null                   |
-| order_items        | updated_at                     | timestamp with time zone | YES         | null                   |
-| order_items        | buyer_confirmed_at             | timestamp with time zone | YES         | null                   |
-| order_items        | cancelled_at                   | timestamp with time zone | YES         | null                   |
-| order_items        | cancelled_by                   | text                     | YES         | null                   |
-| order_items        | cancellation_reason            | text                     | YES         | null                   |
-| order_items        | refund_amount_cents            | integer                  | YES         | null                   |
-| order_items        | expires_at                     | timestamp with time zone | YES         | null                   |
-| order_items        | pickup_date                    | date                     | YES         | null                   |
-| order_items        | market_id                      | uuid                     | YES         | null                   |
-| order_items        | vendor_confirmed_at            | timestamp with time zone | YES         | null                   |
-| order_items        | confirmation_window_expires_at | timestamp with time zone | YES         | null                   |
-| order_items        | lockdown_active                | boolean                  | YES         | null                   |
-| order_items        | lockdown_initiated_at          | timestamp with time zone | YES         | null                   |
-| order_items        | issue_reported_at              | timestamp with time zone | YES         | null                   |
-| order_items        | issue_reported_by              | text                     | YES         | null                   |
-| order_items        | issue_description              | text                     | YES         | null                   |
-| order_items        | issue_resolved_at              | timestamp with time zone | YES         | null                   |
-| order_items        | issue_resolved_by              | text                     | YES         | null                   |
-| order_items        | issue_status                   | text                     | YES         | null                   |
-| order_items        | issue_admin_notes              | text                     | YES         | null                   |
-| order_items        | schedule_id                    | uuid                     | YES         | null                   |
-| order_items        | pickup_snapshot                | jsonb                    | YES         | null                   |
 
-| orders             | id                            | uuid                     | NO          | gen_random_uuid()      |
-| orders             | buyer_user_id                 | uuid                     | NO          | null                   |
-| orders             | vertical_id                   | text                     | NO          | null                   |
-| orders             | order_number                  | text                     | NO          | null                   |
-| orders             | status                        | USER-DEFINED             | NO          | null                   |
-| orders             | subtotal_cents                | integer                  | NO          | null                   |
-| orders             | platform_fee_cents            | integer                  | NO          | null                   |
-| orders             | total_cents                   | integer                  | NO          | null                   |
-| orders             | stripe_checkout_session_id    | text                     | YES         | null                   |
-| orders             | created_at                    | timestamp with time zone | YES         | null                   |
-| orders             | updated_at                    | timestamp with time zone | YES         | null                   |
-| orders             | payment_method                | USER-DEFINED             | YES         | null                   |
-| orders             | external_payment_confirmed_at | timestamp with time zone | YES         | null                   |
-| orders             | external_payment_confirmed_by | uuid                     | YES         | null                   |
-| orders             | parent_order_id               | uuid                     | YES         | null                   |
-| orders             | order_suffix                  | character varying        | YES         | null                   |
-
-**IMPORTANT: `grace_period_ends_at` column does NOT EXIST on orders.**
-**The migration 20260127_001_cancellation_grace_period.sql was NOT applied. Use `created_at + 1 hour` for grace period calculation.**
-
-**IMPORTANT: `pickup_start_time` and `pickup_end_time` columns DO NOT EXIST on order_items.**
-**Always use `pickup_snapshot.start_time` and `pickup_snapshot.end_time` instead.**
-
-## vendor_profiles (verified 02/05/2026)
-
-| column_name                | data_type                | is_nullable |
-| -------------------------- | ------------------------ | ----------- |
-| id                         | uuid                     | NO          |
-| user_id                    | uuid                     | YES         |
-| organization_id            | uuid                     | YES         |
-| vertical_id                | text                     | NO          |
-| status                     | USER-DEFINED             | YES         |
-| profile_data               | jsonb                    | YES         |
-| created_at                 | timestamp with time zone | YES         |
-| updated_at                 | timestamp with time zone | YES         |
-| deleted_at                 | timestamp with time zone | YES         |
-| stripe_account_id          | text                     | YES         |
-| stripe_onboarding_complete | boolean                  | YES         |
-| stripe_charges_enabled     | boolean                  | YES         |
-| stripe_payouts_enabled     | boolean                  | YES         |
-| tier                       | text                     | YES         |
-| profile_image_url          | text                     | YES         |
-| description                | text                     | YES         |
-| social_links               | jsonb                    | YES         |
-| home_market_id             | uuid                     | YES         |
-| latitude                   | numeric                  | YES         |
-| longitude                  | numeric                  | YES         |
-| geocoding_failed           | boolean                  | YES         |
-| referral_code              | text                     | YES         |
-| referred_by_vendor_id      | uuid                     | YES         |
-| is_founding_vendor         | boolean                  | YES         |
-| founding_vendor_granted_at | timestamp with time zone | YES         |
-| last_active_at             | timestamp with time zone | YES         |
-| last_login_at              | timestamp with time zone | YES         |
-| first_listing_at           | timestamp with time zone | YES         |
-| approved_at                | timestamp with time zone | YES         |
-| average_rating             | numeric                  | YES         |
-| rating_count               | integer                  | YES         |
-| subscription_status        | text                     | YES         |
-| subscription_cycle         | text                     | YES         |
-| tier_started_at            | timestamp with time zone | YES         |
-| tier_expires_at            | timestamp with time zone | YES         |
-| stripe_customer_id         | text                     | YES         |
-| venmo_username             | text                     | YES         |
-| cashapp_cashtag            | text                     | YES         |
-| paypal_username            | text                     | YES         |
-| accepts_cash_at_pickup     | boolean                  | YES         |
-| certifications             | jsonb                    | YES         |
-
--- FOREIGN KEYS AS OF 02/05/2026
+-- FOREIGN KEYS AS OF 02/03/2026
 
 
 | table_name               | column_name            | foreign_table            | foreign_column |
@@ -366,9 +195,6 @@ Where Schema = public : map
 | order_items              | order_id               | orders                   | id             |
 | order_items              | vendor_profile_id      | vendor_profiles          | id             |
 | order_items              | listing_id             | listings                 | id             |
-| order_items              | schedule_id            | market_schedules         | id             |
-| cart_items               | schedule_id            | market_schedules         | id             |
-| orders                   | parent_order_id        | orders                   | id             |
 | order_ratings            | order_id               | orders                   | id             |
 | order_ratings            | vendor_profile_id      | vendor_profiles          | id             |
 | orders                   | vertical_id            | verticals                | vertical_id    |
@@ -461,7 +287,7 @@ Where Schema = public : map
   WHERE (listings.vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))))                                                                                                                                                    | null                                                                                                                                                                                                                                                                                 |
 | public     | listings                 | listings_delete                  | PERMISSIVE | {public} | DELETE | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
 | public     | listings                 | listings_insert                  | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                |
-| public     | listings                 | listings_select                  | PERMISSIVE | {public} | SELECT | ((status = 'published'::listing_status) OR (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR is_admin_for_vertical(vertical_id))                                                                                                                                                                                | null                                                                                                                                                                                                                                                                                 |
+| public     | listings                 | listings_select                  | PERMISSIVE | {public} | SELECT | ((status = 'published'::listing_status) OR (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))                                                                                                                                                                                | null                                                                                                                                                                                                                                                                                 |
 | public     | listings                 | listings_update                  | PERMISSIVE | {public} | UPDATE | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
 | public     | market_box_offerings     | market_box_offerings_delete      | PERMISSIVE | {public} | DELETE | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
 | public     | market_box_offerings     | market_box_offerings_insert      | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                |
@@ -501,12 +327,12 @@ Where Schema = public : map
   WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid))))                                                                                                                                                                      | null                                                                                                                                                                                                                                                                                 |
 | public     | markets                  | markets_delete                   | PERMISSIVE | {public} | DELETE | (submitted_by_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                       | null                                                                                                                                                                                                                                                                                 |
 | public     | markets                  | markets_insert                   | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (submitted_by_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                           |
-| public     | markets                  | markets_select                   | PERMISSIVE | {public} | SELECT | (((approval_status = 'approved'::market_approval_status) AND (active = true)) OR (submitted_by_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR (id IN (SELECT oi.market_id FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.buyer_user_id = (SELECT auth.uid()) AND oi.market_id IS NOT NULL)) OR (id IN (SELECT lm.market_id FROM listing_markets lm JOIN order_items oi ON oi.listing_id = lm.listing_id JOIN orders o ON o.id = oi.order_id WHERE o.buyer_user_id = (SELECT auth.uid()))) OR (SELECT is_platform_admin()) OR is_vertical_admin(vertical_id))                                                                                                                                     | null                                                                                                                                                                                                                                                                                 |
+| public     | markets                  | markets_select                   | PERMISSIVE | {public} | SELECT | (((approval_status = 'approved'::market_approval_status) AND (active = true)) OR (submitted_by_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))                                                                                                                                     | null                                                                                                                                                                                                                                                                                 |
 | public     | markets                  | markets_update                   | PERMISSIVE | {public} | UPDATE | (submitted_by_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                       | null                                                                                                                                                                                                                                                                                 |
-| public     | notifications            | notifications_select             | PERMISSIVE | {public} | SELECT | ((user_id = ( SELECT auth.uid() AS uid)) OR (SELECT is_platform_admin()))                                                                                                                                                                                                                                                                          | null                                                                                                                                                                                                                                                                                 |
+| public     | notifications            | notifications_select             | PERMISSIVE | {public} | SELECT | (user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                                                          | null                                                                                                                                                                                                                                                                                 |
 | public     | notifications            | notifications_update             | PERMISSIVE | {public} | UPDATE | (user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                                                          | null                                                                                                                                                                                                                                                                                 |
 | public     | order_items              | order_items_insert               | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (order_id IN ( SELECT user_buyer_order_ids() AS user_buyer_order_ids))                                                                                                                                                                                                               |
-| public     | order_items              | order_items_select               | PERMISSIVE | {public} | SELECT | ((order_id IN ( SELECT user_buyer_order_ids() AS user_buyer_order_ids)) OR (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR can_admin_order(order_id))                                                                                                                                                | null                                                                                                                                                                                                                                                                                 |
+| public     | order_items              | order_items_select               | PERMISSIVE | {public} | SELECT | ((order_id IN ( SELECT user_buyer_order_ids() AS user_buyer_order_ids)) OR (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))                                                                                                                                                | null                                                                                                                                                                                                                                                                                 |
 | public     | order_items              | order_items_update               | PERMISSIVE | {public} | UPDATE | ((vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR (order_id IN ( SELECT user_buyer_order_ids() AS user_buyer_order_ids)))                                                                                                                                                | null                                                                                                                                                                                                                                                                                 |
 | public     | order_ratings            | order_ratings_delete             | PERMISSIVE | {public} | DELETE | (buyer_user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                                                    | null                                                                                                                                                                                                                                                                                 |
 | public     | order_ratings            | order_ratings_insert             | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (order_id IN ( SELECT orders.id
@@ -518,7 +344,7 @@ Where Schema = public : map
    FROM order_items
   WHERE (order_items.vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))))                    | null                                                                                                                                                                                                                                                                                 |
 | public     | orders                   | orders_insert                    | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (buyer_user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                        |
-| public     | orders                   | orders_select                    | PERMISSIVE | {public} | SELECT | ((buyer_user_id = ( SELECT auth.uid() AS uid)) OR (id IN ( SELECT user_vendor_order_ids() AS user_vendor_order_ids)) OR is_admin_for_vertical(vertical_id))                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
+| public     | orders                   | orders_select                    | PERMISSIVE | {public} | SELECT | ((buyer_user_id = ( SELECT auth.uid() AS uid)) OR (id IN ( SELECT user_vendor_order_ids() AS user_vendor_order_ids)))                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
 | public     | orders                   | orders_update                    | PERMISSIVE | {public} | UPDATE | ((buyer_user_id = ( SELECT auth.uid() AS uid)) OR (id IN ( SELECT user_vendor_order_ids() AS user_vendor_order_ids)))                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
 | public     | organizations            | organizations_insert             | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (owner_user_id IN ( SELECT user_profiles.id
    FROM user_profiles
@@ -538,7 +364,7 @@ Where Schema = public : map
 | public     | shopper_feedback         | shopper_feedback_select          | PERMISSIVE | {public} | SELECT | (user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                                                          | null                                                                                                                                                                                                                                                                                 |
 | public     | shopper_feedback         | shopper_feedback_update          | PERMISSIVE | {public} | UPDATE | is_platform_admin()                                                                                                                                                                                                                                                                                              | null                                                                                                                                                                                                                                                                                 |
 | public     | transactions             | transactions_insert              | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (buyer_user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                        |
-| public     | transactions             | transactions_select              | PERMISSIVE | {public} | SELECT | ((buyer_user_id = ( SELECT auth.uid() AS uid)) OR (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR is_admin_for_vertical(vertical_id))                                                                                                                                    | null                                                                                                                                                                                                                                                                                 |
+| public     | transactions             | transactions_select              | PERMISSIVE | {public} | SELECT | ((buyer_user_id = ( SELECT auth.uid() AS uid)) OR (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))                                                                                                                                                                         | null                                                                                                                                                                                                                                                                                 |
 | public     | transactions             | transactions_update              | PERMISSIVE | {public} | UPDATE | ((buyer_user_id = ( SELECT auth.uid() AS uid)) OR (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))                                                                                                                                                                         | null                                                                                                                                                                                                                                                                                 |
 | public     | user_profiles            | user_profiles_insert             | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                              |
 | public     | user_profiles            | user_profiles_select             | PERMISSIVE | {public} | SELECT | (user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                                                          | null                                                                                                                                                                                                                                                                                 |
@@ -562,22 +388,17 @@ Where Schema = public : map
 | public     | vendor_market_schedules  | vms_insert                       | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                |
 | public     | vendor_market_schedules  | vms_select                       | PERMISSIVE | {public} | SELECT | true                                                                                                                                                                                                                                                                                                             | null                                                                                                                                                                                                                                                                                 |
 | public     | vendor_market_schedules  | vms_update                       | PERMISSIVE | {public} | UPDATE | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
-| public     | vendor_payouts           | vendor_payouts_select            | PERMISSIVE | {public} | SELECT | ((vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR can_admin_vendor(vendor_profile_id))                                                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
+| public     | vendor_payouts           | vendor_payouts_select            | PERMISSIVE | {public} | SELECT | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
 | public     | vendor_profiles          | vendor_profiles_insert           | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                              |
-| public     | vendor_profiles          | vendor_profiles_select           | PERMISSIVE | {public} | SELECT | (((status = 'approved'::vendor_status) AND (deleted_at IS NULL)) OR (user_id = ( SELECT auth.uid() AS uid)) OR (SELECT is_platform_admin()) OR is_admin_for_vertical(vertical_id))                                                                                                                                | null                                                                                                                                                                                                                                                                                 |
-| public     | vendor_profiles          | vendor_profiles_update           | PERMISSIVE | {public} | UPDATE | ((user_id = ( SELECT auth.uid() AS uid)) OR (SELECT is_platform_admin()) OR is_admin_for_vertical(vertical_id))                                                                                                                                                                                                  | null                                                                                                                                                                                                                                                                                 |
+| public     | vendor_profiles          | vendor_profiles_select           | PERMISSIVE | {public} | SELECT | (((status = 'approved'::vendor_status) AND (deleted_at IS NULL)) OR (user_id = ( SELECT auth.uid() AS uid)))                                                                                                                                                                                                     | null                                                                                                                                                                                                                                                                                 |
+| public     | vendor_profiles          | vendor_profiles_update           | PERMISSIVE | {public} | UPDATE | (user_id = ( SELECT auth.uid() AS uid))                                                                                                                                                                                                                                                                          | null                                                                                                                                                                                                                                                                                 |
 | public     | vendor_referral_credits  | vendor_referral_credits_select   | PERMISSIVE | {public} | SELECT | ((referrer_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR (referred_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))                                                                                                                               | null                                                                                                                                                                                                                                                                                 |
-| public     | vendor_verifications     | vendor_verifications_select      | PERMISSIVE | {public} | SELECT | ((vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR (SELECT is_platform_admin()) OR can_admin_vendor(vendor_profile_id))                                                                                                                                                     | null                                                                                                                                                                                                                                                                                 |
+| public     | vendor_verifications     | vendor_verifications_select      | PERMISSIVE | {public} | SELECT | (vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids))                                                                                                                                                                                                                            | null                                                                                                                                                                                                                                                                                 |
 | public     | verticals                | verticals_select                 | PERMISSIVE | {public} | SELECT | true                                                                                                                                                                                                                                                                                                             | null                                                                                                                                                                                                                                                                                 |
-| public     | verticals                | verticals_admin_insert           | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (SELECT is_platform_admin())                                                                                                                                                                                                                                                         |
-| public     | verticals                | verticals_admin_update           | PERMISSIVE | {public} | UPDATE | (SELECT is_platform_admin())                                                                                                                                                                                                                                                                                     | null                                                                                                                                                                                                                                                                                 |
-| public     | verticals                | verticals_admin_delete           | PERMISSIVE | {public} | DELETE | (SELECT is_platform_admin())                                                                                                                                                                                                                                                                                     | null                                                                                                                                                                                                                                                                                 |
-| public     | zip_codes                | zip_codes_public_read            | PERMISSIVE | {public} | SELECT | true                                                                                                                                                                                                                                                                                                             | null                                                                                                                                                                                                                                                                                 |
-| public     | zip_codes                | zip_codes_admin_all              | PERMISSIVE | {public} | ALL    | EXISTS (SELECT 1 FROM user_profiles WHERE user_id = auth.uid() AND role = 'admin')                                                                                                                                                                                                                              | null                                                                                                                                                                                                                                                                                 |
 
 
 
--- ALL INDEXES AS OF 02/09/2026
+-- ALL INDEXES AS OF 02/03/2026
 
 
 | tablename                | indexname                                          | indexdef                                                                                                                                                                                                              |
@@ -644,7 +465,6 @@ Where Schema = public : map
 | listings                 | idx_listings_vertical_status                       | CREATE INDEX idx_listings_vertical_status ON public.listings USING btree (vertical_id, status) WHERE (deleted_at IS NULL)                                                                                             |
 | listings                 | idx_listings_vertical_status_created               | CREATE INDEX idx_listings_vertical_status_created ON public.listings USING btree (vertical_id, status, created_at DESC) WHERE (deleted_at IS NULL)                                                                    |
 | listings                 | listings_pkey                                      | CREATE UNIQUE INDEX listings_pkey ON public.listings USING btree (id)                                                                                                                                                 |
-| listings                 | idx_listings_vertical_created                      | CREATE INDEX idx_listings_vertical_created ON public.listings USING btree (vertical_id, deleted_at, created_at DESC) WHERE (deleted_at IS NULL)                                                                       |
 | market_box_offerings     | idx_market_box_offerings_active                    | CREATE INDEX idx_market_box_offerings_active ON public.market_box_offerings USING btree (active) WHERE (active = true)                                                                                                |
 | market_box_offerings     | idx_market_box_offerings_market                    | CREATE INDEX idx_market_box_offerings_market ON public.market_box_offerings USING btree (pickup_market_id)                                                                                                            |
 | market_box_offerings     | idx_market_box_offerings_vendor                    | CREATE INDEX idx_market_box_offerings_vendor ON public.market_box_offerings USING btree (vendor_profile_id)                                                                                                           |
@@ -658,7 +478,6 @@ Where Schema = public : map
 | market_box_pickups       | idx_market_box_pickups_upcoming                    | CREATE INDEX idx_market_box_pickups_upcoming ON public.market_box_pickups USING btree (scheduled_date, status) WHERE (status = ANY (ARRAY['scheduled'::market_box_pickup_status, 'ready'::market_box_pickup_status])) |
 | market_box_pickups       | market_box_pickups_pkey                            | CREATE UNIQUE INDEX market_box_pickups_pkey ON public.market_box_pickups USING btree (id)                                                                                                                             |
 | market_box_pickups       | market_box_pickups_subscription_id_week_number_key | CREATE UNIQUE INDEX market_box_pickups_subscription_id_week_number_key ON public.market_box_pickups USING btree (subscription_id, week_number)                                                                        |
-| market_box_pickups       | idx_market_box_pickups_sub_date_status             | CREATE INDEX idx_market_box_pickups_sub_date_status ON public.market_box_pickups USING btree (subscription_id, scheduled_date, status) WHERE (status IN ('scheduled', 'ready'))                                       |
 | market_box_subscriptions | idx_market_box_subs_active                         | CREATE INDEX idx_market_box_subs_active ON public.market_box_subscriptions USING btree (offering_id, status) WHERE (status = 'active'::market_box_subscription_status)                                                |
 | market_box_subscriptions | idx_market_box_subs_buyer                          | CREATE INDEX idx_market_box_subs_buyer ON public.market_box_subscriptions USING btree (buyer_user_id)                                                                                                                 |
 | market_box_subscriptions | idx_market_box_subs_offering                       | CREATE INDEX idx_market_box_subs_offering ON public.market_box_subscriptions USING btree (offering_id)                                                                                                                |
@@ -668,7 +487,6 @@ Where Schema = public : map
 | market_box_subscriptions | idx_market_box_subscriptions_payment_intent        | CREATE UNIQUE INDEX idx_market_box_subscriptions_payment_intent ON public.market_box_subscriptions USING btree (stripe_payment_intent_id) WHERE (stripe_payment_intent_id IS NOT NULL)                                |
 | market_box_subscriptions | idx_market_box_subscriptions_user                  | CREATE INDEX idx_market_box_subscriptions_user ON public.market_box_subscriptions USING btree (buyer_user_id, status)                                                                                                 |
 | market_box_subscriptions | market_box_subscriptions_pkey                      | CREATE UNIQUE INDEX market_box_subscriptions_pkey ON public.market_box_subscriptions USING btree (id)                                                                                                                 |
-| market_box_subscriptions | idx_market_box_subscriptions_offering_active       | CREATE INDEX idx_market_box_subscriptions_offering_active ON public.market_box_subscriptions USING btree (offering_id, status) WHERE (status = 'active')                                                              |
 | market_schedules         | idx_market_schedules_day                           | CREATE INDEX idx_market_schedules_day ON public.market_schedules USING btree (day_of_week)                                                                                                                            |
 | market_schedules         | idx_market_schedules_market                        | CREATE INDEX idx_market_schedules_market ON public.market_schedules USING btree (market_id)                                                                                                                           |
 | market_schedules         | idx_market_schedules_market_active                 | CREATE INDEX idx_market_schedules_market_active ON public.market_schedules USING btree (market_id, active) WHERE (active = true)                                                                                      |
@@ -685,23 +503,10 @@ Where Schema = public : map
 | markets                  | idx_markets_pending                                | CREATE INDEX idx_markets_pending ON public.markets USING btree (status, vertical_id) WHERE (status = 'pending'::text)                                                                                                 |
 | markets                  | idx_markets_status                                 | CREATE INDEX idx_markets_status ON public.markets USING btree (status)                                                                                                                                                |
 | markets                  | idx_markets_submitted_by                           | CREATE INDEX idx_markets_submitted_by ON public.markets USING btree (submitted_by)                                                                                                                                    |
-| notifications            | idx_notifications_user_unread                      | CREATE INDEX idx_notifications_user_unread ON public.notifications USING btree (user_id, read_at, created_at DESC) WHERE (read_at IS NULL)                                                                            |
-| notifications            | idx_notifications_user_created                     | CREATE INDEX idx_notifications_user_created ON public.notifications USING btree (user_id, created_at DESC)                                                                                                            |
-| order_items              | idx_order_items_status_expires                     | CREATE INDEX idx_order_items_status_expires ON public.order_items USING btree (status, expires_at) WHERE (status = 'pending' AND cancelled_at IS NULL)                                                                |
-| order_items              | idx_order_items_vendor_status_created              | CREATE INDEX idx_order_items_vendor_status_created ON public.order_items USING btree (vendor_profile_id, status, created_at DESC) WHERE (cancelled_at IS NULL)                                                        |
-| order_items              | idx_order_items_pickup_date_market                 | CREATE INDEX idx_order_items_pickup_date_market ON public.order_items USING btree (pickup_date, market_id, status) WHERE (status != 'cancelled' AND pickup_date IS NOT NULL)                                          |
-| orders                   | idx_orders_parent_id                               | CREATE INDEX idx_orders_parent_id ON public.orders USING btree (parent_order_id) WHERE (parent_order_id IS NOT NULL)                                                                                                  |
-| orders                   | idx_orders_vertical_created                        | CREATE INDEX idx_orders_vertical_created ON public.orders USING btree (vertical_id, created_at DESC)                                                                                                                  |
-| zip_codes                | zip_codes_pkey                                     | CREATE UNIQUE INDEX zip_codes_pkey ON public.zip_codes USING btree (zip)                                                                                                                                              |
-| zip_codes                | idx_zip_codes_state                                | CREATE INDEX idx_zip_codes_state ON public.zip_codes USING btree (state)                                                                                                                                              |
-| zip_codes                | idx_zip_codes_region                               | CREATE INDEX idx_zip_codes_region ON public.zip_codes USING btree (region_code) WHERE (region_code IS NOT NULL)                                                                                                       |
-| zip_codes                | idx_zip_codes_active_market                        | CREATE INDEX idx_zip_codes_active_market ON public.zip_codes USING btree (active_market_area) WHERE (active_market_area = true)                                                                                       |
-| zip_codes                | idx_zip_codes_city_state                           | CREATE INDEX idx_zip_codes_city_state ON public.zip_codes USING btree (city, state)                                                                                                                                   |
-| zip_codes                | idx_zip_codes_coords                               | CREATE INDEX idx_zip_codes_coords ON public.zip_codes USING btree (latitude, longitude)                                                                                                                               |
 
 
 
--- ALL FUNCTIONS AS OF 02/04/2026 
+-- ALL FUNCTIONS AS OF 02/03/2026 
 
 
 
@@ -810,7 +615,7 @@ Where Schema = public : map
 
 
 
--- ALL TRIGGERS AS OF 02/04/2026 
+-- ALL TRIGGERS AS OF 02/03/2026 
 
 
 
@@ -875,7 +680,7 @@ Where Schema = public : map
 
 
 
--- ALL VIEWS AS OF 02/04/2026
+-- ALL VIEWS AS OF 02/03/20226
 
 
 
@@ -891,93 +696,3 @@ Where Schema = public : map
 | v_verified_solutions               |
 | v_vertical_admin_pending_reports   |
 | vendor_referral_summary            |
-
-
-
----
-
-## Key Helper Functions
-
-These are SECURITY DEFINER functions used by RLS policies and triggers.
-
-### Admin Role Functions (20260203_002)
-
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `is_platform_admin()` | BOOLEAN | Returns true if current user has `role = 'admin'` OR `'admin' = ANY(roles)` in user_profiles |
-| `is_vertical_admin(p_vertical_id TEXT)` | BOOLEAN | Returns true if current user is in `vertical_admins` table for the specified vertical |
-| `is_admin_for_vertical(p_vertical_id TEXT)` | BOOLEAN | Returns true if user is platform admin OR vertical admin for the specified vertical |
-| `is_any_admin()` | BOOLEAN | Returns true if user is any type of admin (platform or any vertical) |
-| `get_user_admin_verticals()` | TABLE(vertical_id, is_platform_admin, is_vertical_admin) | Returns list of verticals the current user can administer |
-
-### Vertical Admin Helper Functions (20260203_003)
-
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `can_admin_market(p_market_id UUID)` | BOOLEAN | Returns true if user can admin the market's vertical |
-| `can_admin_order(p_order_id UUID)` | BOOLEAN | Returns true if user can admin the order's vertical |
-| `can_admin_vendor(p_vendor_profile_id UUID)` | BOOLEAN | Returns true if user can admin the vendor's vertical |
-
-### ZIP Code Lookup Functions (20260204_001)
-
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `get_zip_coordinates(zip_code VARCHAR(5))` | TABLE(latitude, longitude, city, state) | Returns coordinates and location info for a ZIP code |
-| `get_nearby_zip_codes(user_lat, user_lng, limit_count)` | TABLE(zip, city, state, distance_miles) | Finds nearby ZIP codes using Haversine formula |
-| `get_region_zip_codes(region VARCHAR(20))` | TABLE(zip, city, state, latitude, longitude) | Returns all ZIP codes in a partner territory region |
-
-### Premium Window Trigger Functions
-
-| Function | Trigger On | Description |
-|----------|------------|-------------|
-| `set_listing_premium_window()` | listings INSERT/UPDATE | Sets `premium_window_ends_at` when listing is published or restocked |
-| `set_market_box_premium_window()` | market_box_offerings INSERT/UPDATE | Sets `premium_window_ends_at` when offering is activated or capacity increased. **Note:** Uses `active` column (not `is_active`) - fixed in 20260203_004 |
-
----
-
-## Known Issues & Fixes
-
-| Issue | Fix Migration | Notes |
-|-------|---------------|-------|
-| `set_market_box_premium_window()` referenced `is_active` instead of `active` | 20260203_004 | Caused "record 'new' has no field 'is_active'" error on market box creation |
-| `is_platform_admin()` only checked `roles` array, not `role` column | 20260203_002 | Caused admins with `role = 'admin'` to not be recognized |
-
----
-
-## Application Behavior (Not in Schema)
-
-### Inventory Management (added 2026-02-06)
-
-**Location:** `src/app/api/checkout/success/route.ts`
-
-When payment succeeds:
-1. `listings.quantity` is decremented by purchased amount
-2. If `quantity = null`, no decrement (unlimited stock)
-3. Decrement floors at 0 (never negative)
-4. Idempotent: only runs when payment record is first created
-
-**Low Stock Threshold:** 5 items
-
-### Notification Types (stored in `notifications.type`)
-
-| Type | Trigger | Message |
-|------|---------|---------|
-| `inventory_out_of_stock` | `listings.quantity` hits 0 after purchase | "X is now out of stock. Update your listing to add more inventory." |
-| `inventory_low_stock` | `listings.quantity` drops below 5 (and was above 5 before) | "X has only N left in stock." |
-| `pickup_issue_reported` | Buyer reports issue with order item | "A buyer reported an issue with their order: ..." |
-| `pickup_confirmation_needed` | Buyer acknowledges receipt, vendor has 30s to fulfill | "Buyer acknowledged receipt. Please tap Fulfill within 30 seconds." |
-
-### Pricing (in `src/lib/pricing.ts`)
-
-| Fee | Amount | Applied To |
-|-----|--------|------------|
-| Buyer % fee | 6.5% | Item prices (display & Stripe) |
-| Buyer flat fee | $0.15 | Order total (once per order) |
-| Vendor % fee | 6.5% | Deducted from vendor payout |
-| Vendor flat fee | $0.15 | Deducted from vendor payout |
-| Minimum order | $10.00 | Before fees |
-
-**Functions:**
-- `calculateItemDisplayPrice(baseCents)` → price with 6.5% (for item display)
-- `calculateBuyerPrice(subtotalCents)` → total with 6.5% + $0.15 (for order totals)
-- `calculateOrderPricing(items)` → full breakdown for checkout

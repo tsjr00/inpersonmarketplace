@@ -1,0 +1,87 @@
+02052026 schema check
+
+querry 1:
+| column_name                    | data_type                | is_nullable |
+| ------------------------------ | ------------------------ | ----------- |
+| id                             | uuid                     | NO          |
+| order_id                       | uuid                     | NO          |
+| listing_id                     | uuid                     | NO          |
+| vendor_profile_id              | uuid                     | NO          |
+| quantity                       | integer                  | NO          |
+| unit_price_cents               | integer                  | NO          |
+| subtotal_cents                 | integer                  | NO          |
+| platform_fee_cents             | integer                  | NO          |
+| vendor_payout_cents            | integer                  | NO          |
+| status                         | USER-DEFINED             | NO          |
+| pickup_confirmed_at            | timestamp with time zone | YES         |
+| created_at                     | timestamp with time zone | YES         |
+| updated_at                     | timestamp with time zone | YES         |
+| buyer_confirmed_at             | timestamp with time zone | YES         |
+| cancelled_at                   | timestamp with time zone | YES         |
+| cancelled_by                   | text                     | YES         |
+| cancellation_reason            | text                     | YES         |
+| refund_amount_cents            | integer                  | YES         |
+| expires_at                     | timestamp with time zone | YES         |
+| pickup_date                    | date                     | YES         |
+| market_id                      | uuid                     | YES         |
+| vendor_confirmed_at            | timestamp with time zone | YES         |
+| confirmation_window_expires_at | timestamp with time zone | YES         |
+| lockdown_active                | boolean                  | YES         |
+| lockdown_initiated_at          | timestamp with time zone | YES         |
+| issue_reported_at              | timestamp with time zone | YES         |
+| issue_reported_by              | text                     | YES         |
+| issue_description              | text                     | YES         |
+| issue_resolved_at              | timestamp with time zone | YES         |
+| issue_resolved_by              | text                     | YES         |
+| issue_status                   | text                     | YES         |
+| issue_admin_notes              | text                     | YES         |
+| schedule_id                    | uuid                     | YES         |
+| pickup_snapshot                | jsonb                    | YES         |
+
+
+querry 2:
+
+| column_name | data_type                | is_nullable |
+| ----------- | ------------------------ | ----------- |
+| id          | uuid                     | NO          |
+| cart_id     | uuid                     | NO          |
+| listing_id  | uuid                     | NO          |
+| quantity    | integer                  | NO          |
+| created_at  | timestamp with time zone | NO          |
+| updated_at  | timestamp with time zone | NO          |
+| market_id   | uuid                     | YES         |
+| schedule_id | uuid                     | YES         |
+| pickup_date | date                     | YES         |
+
+
+querry 3:
+
+| column_name                   | data_type                | is_nullable |
+| ----------------------------- | ------------------------ | ----------- |
+| id                            | uuid                     | NO          |
+| buyer_user_id                 | uuid                     | NO          |
+| vertical_id                   | text                     | NO          |
+| order_number                  | text                     | NO          |
+| status                        | USER-DEFINED             | NO          |
+| subtotal_cents                | integer                  | NO          |
+| platform_fee_cents            | integer                  | NO          |
+| total_cents                   | integer                  | NO          |
+| stripe_checkout_session_id    | text                     | YES         |
+| created_at                    | timestamp with time zone | YES         |
+| updated_at                    | timestamp with time zone | YES         |
+| payment_method                | USER-DEFINED             | YES         |
+| external_payment_confirmed_at | timestamp with time zone | YES         |
+| external_payment_confirmed_by | uuid                     | YES         |
+| parent_order_id               | uuid                     | YES         |
+| order_suffix                  | character varying        | YES         |
+
+
+querry 4 - migration status:
+
+Error: Failed to run sql query: ERROR: 42P01: relation "supabase_migrations.schema_migrations" does not exist LINE 1: SELECT * FROM supabase_migrations.schema_migrations ^
+
+
+
+
+
+
