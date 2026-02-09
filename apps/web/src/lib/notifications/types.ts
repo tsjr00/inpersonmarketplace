@@ -37,6 +37,7 @@ export type NotificationType =
   | 'order_fulfilled'
   | 'order_cancelled_by_vendor'
   | 'order_expired'
+  | 'pickup_missed'
   // Vendor-facing
   | 'new_paid_order'
   | 'order_cancelled_by_buyer'
@@ -92,10 +93,10 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   order_ready: {
-    urgency: 'immediate',
+    urgency: 'standard',
     audience: 'buyer',
-    title: () => `Order Ready for Pickup!`,
-    message: (d) => `Your order #${d.orderNumber} from ${d.vendorName} is ready! Head to ${d.marketName || 'the market'} to pick it up.`,
+    title: () => `Order Ready for Pickup`,
+    message: (d) => `Your order #${d.orderNumber} from ${d.vendorName} has been marked ready for pickup${d.marketName ? ` at ${d.marketName}` : ''}. It will be waiting for you during pickup hours — no need to rush.`,
     actionUrl: (d) => `/${d.vertical || 'farmers-market'}/buyer/orders`,
   },
 
@@ -120,6 +121,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'buyer',
     title: () => `Order Expired`,
     message: (d) => `Order #${d.orderNumber} has expired because it wasn't confirmed in time.${d.amountCents ? ` A refund of $${(d.amountCents / 100).toFixed(2)} will be processed.` : ''}`,
+    actionUrl: (d) => `/${d.vertical || 'farmers-market'}/buyer/orders`,
+  },
+
+  pickup_missed: {
+    urgency: 'standard',
+    audience: 'buyer',
+    title: () => `Pickup Not Confirmed`,
+    message: (d) => `Your order #${d.orderNumber}${d.itemTitle ? ` (${d.itemTitle})` : ''} from ${d.vendorName} was not marked as picked up during the scheduled pickup window. If you did pick up your items, please mark it as received in the app now. If there was a miscommunication, please reach out to the vendor directly to clarify.`,
     actionUrl: (d) => `/${d.vertical || 'farmers-market'}/buyer/orders`,
   },
 

@@ -275,7 +275,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           itemTitle: offeringName,
         })
       } else if (action === 'missed') {
-        await sendNotification(buyerUserId, 'order_expired', {
+        await sendNotification(buyerUserId, 'pickup_missed', {
           orderNumber: `MB-${pickupId.slice(0, 6).toUpperCase()}`,
           vendorName: mbVendorName,
           itemTitle: offeringName,
