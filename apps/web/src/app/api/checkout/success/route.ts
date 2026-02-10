@@ -229,6 +229,7 @@ export async function GET(request: NextRequest) {
           quantity,
           subtotal_cents,
           market_id,
+          vendor_profile_id,
           schedule_id,
           pickup_date,
           pickup_snapshot,
@@ -243,12 +244,36 @@ export async function GET(request: NextRequest) {
       .single()
 
     // Notify vendors of new paid order
+    // Uses vendor_profile_id directly (not FK traversal) + service client (bypasses RLS)
     if (fullOrder?.order_items) {
+      const vendorProfileIds = [...new Set(
+        fullOrder.order_items
+          .map((item: Record<string, unknown>) => item.vendor_profile_id as string)
+          .filter(Boolean)
+      )]
+
+      // Look up vendor user_ids via service client (reliable, bypasses RLS)
+      let vendorUserMap = new Map<string, string>()
+      if (vendorProfileIds.length > 0) {
+        crumb.supabase('select', 'vendor_profiles (notification lookup)')
+        const { data: vendorProfiles } = await serviceClient
+          .from('vendor_profiles')
+          .select('id, user_id')
+          .in('id', vendorProfileIds)
+
+        vendorUserMap = new Map(
+          (vendorProfiles || []).map(vp => [vp.id, vp.user_id])
+        )
+      }
+
       const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
       for (const item of fullOrder.order_items) {
-        const vp = (item.listing as any)?.vendor_profiles as any
-        const vendorUserId = vp?.user_id
-        if (!vendorUserId) continue
+        const vendorProfileId = (item as Record<string, unknown>).vendor_profile_id as string
+        const vendorUserId = vendorUserMap.get(vendorProfileId)
+        if (!vendorUserId) {
+          crumb.logic('Skipping vendor notification — no user_id found', { vendorProfileId })
+          continue
+        }
         const existing = vendorNotifications.get(vendorUserId)
         if (existing) {
           existing.items.push((item.listing as any)?.title || 'Item')
