@@ -229,7 +229,6 @@ export async function GET(request: NextRequest) {
           quantity,
           subtotal_cents,
           market_id,
-          vendor_profile_id,
           schedule_id,
           pickup_date,
           pickup_snapshot,
@@ -244,50 +243,52 @@ export async function GET(request: NextRequest) {
       .single()
 
     // Notify vendors of new paid order
-    // Uses vendor_profile_id directly (not FK traversal) + service client (bypasses RLS)
-    if (fullOrder?.order_items) {
-      const vendorProfileIds = [...new Set(
-        fullOrder.order_items
-          .map((item: Record<string, unknown>) => item.vendor_profile_id as string)
-          .filter(Boolean)
-      )]
+    // Fully independent query via service client — does NOT depend on buyer's fullOrder query
+    crumb.supabase('select', 'order_items (vendor notifications)')
+    const { data: notifyItems, error: notifyItemsError } = await serviceClient
+      .from('order_items')
+      .select(`
+        vendor_profile_id,
+        market_id,
+        listing:listings(title),
+        markets!market_id(name),
+        vendor_profiles!vendor_profile_id(user_id)
+      `)
+      .eq('order_id', orderId)
 
-      // Look up vendor user_ids via service client (reliable, bypasses RLS)
-      let vendorUserMap = new Map<string, string>()
-      if (vendorProfileIds.length > 0) {
-        crumb.supabase('select', 'vendor_profiles (notification lookup)')
-        const { data: vendorProfiles } = await serviceClient
-          .from('vendor_profiles')
-          .select('id, user_id')
-          .in('id', vendorProfileIds)
-
-        vendorUserMap = new Map(
-          (vendorProfiles || []).map(vp => [vp.id, vp.user_id])
-        )
-      }
+    if (notifyItemsError) {
+      crumb.logic('Failed to fetch order items for vendor notifications', { error: notifyItemsError.message })
+    } else if (notifyItems && notifyItems.length > 0) {
+      // Get order number for notification message
+      const orderNumber = fullOrder?.order_number || ''
 
       const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
-      for (const item of fullOrder.order_items) {
-        const vendorProfileId = (item as Record<string, unknown>).vendor_profile_id as string
-        const vendorUserId = vendorUserMap.get(vendorProfileId)
+      for (const item of notifyItems) {
+        const vp = item.vendor_profiles as unknown as { user_id: string } | null
+        const vendorUserId = vp?.user_id
         if (!vendorUserId) {
-          crumb.logic('Skipping vendor notification — no user_id found', { vendorProfileId })
+          crumb.logic('Skipping vendor notification — no user_id', {
+            vendorProfileId: item.vendor_profile_id
+          })
           continue
         }
+        const listing = item.listing as unknown as { title: string } | null
+        const market = item.markets as unknown as { name: string } | null
         const existing = vendorNotifications.get(vendorUserId)
         if (existing) {
-          existing.items.push((item.listing as any)?.title || 'Item')
+          existing.items.push(listing?.title || 'Item')
         } else {
           vendorNotifications.set(vendorUserId, {
             userId: vendorUserId,
-            items: [(item.listing as any)?.title || 'Item'],
-            marketName: (item.markets as any)?.name || '',
+            items: [listing?.title || 'Item'],
+            marketName: market?.name || '',
           })
         }
       }
+      crumb.logic(`Sending notifications to ${vendorNotifications.size} vendor(s)`)
       for (const [vendorUserId, info] of vendorNotifications) {
         await sendNotification(vendorUserId, 'new_paid_order', {
-          orderNumber: fullOrder.order_number,
+          orderNumber,
           itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
           marketName: info.marketName,
         })
