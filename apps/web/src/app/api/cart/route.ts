@@ -207,19 +207,10 @@ export async function GET(request: Request) {
       return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`
     }
 
-    // Helper to format date for display
-    // Uses America/Chicago (Central) since all markets are in that region
+    // Format date for display — returns weekday format only
+    // Today/Tomorrow labels are handled client-side (browser knows user's timezone)
     const formatPickupDate = (dateStr: string | null): string => {
       if (!dateStr) return ''
-      const nowCentral = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
-      const todayStr = `${nowCentral.getFullYear()}-${String(nowCentral.getMonth() + 1).padStart(2, '0')}-${String(nowCentral.getDate()).padStart(2, '0')}`
-      const tomorrowCentral = new Date(nowCentral)
-      tomorrowCentral.setDate(tomorrowCentral.getDate() + 1)
-      const tomorrowStr = `${tomorrowCentral.getFullYear()}-${String(tomorrowCentral.getMonth() + 1).padStart(2, '0')}-${String(tomorrowCentral.getDate()).padStart(2, '0')}`
-
-      if (dateStr === todayStr) return 'Today'
-      if (dateStr === tomorrowStr) return 'Tomorrow'
-
       const date = new Date(dateStr + 'T00:00:00')
       return date.toLocaleDateString('en-US', {
         weekday: 'short',

@@ -166,9 +166,19 @@ export function formatPickupTime(time: string): string {
 }
 
 /**
- * Format pickup date for display
+ * Format pickup date for display (client-side only — uses browser timezone)
+ * Returns "Today", "Tomorrow", or "Tue, Feb 10" format
  */
 export function formatPickupDate(dateStr: string): string {
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
+
+  if (dateStr === todayStr) return 'Today'
+  if (dateStr === tomorrowStr) return 'Tomorrow'
+
   const date = new Date(dateStr + 'T00:00:00')
   return date.toLocaleDateString('en-US', {
     weekday: 'short',

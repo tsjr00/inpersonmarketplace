@@ -9,6 +9,7 @@ import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import UpcomingPickupItem from './UpcomingPickupItem'
 
 interface VendorDashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -369,60 +370,16 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-                {upcomingPickups.slice(0, 5).map(pickup => {
-                  const nowCentral = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
-                  const todayStr = `${nowCentral.getFullYear()}-${String(nowCentral.getMonth() + 1).padStart(2, '0')}-${String(nowCentral.getDate()).padStart(2, '0')}`
-                  const tomorrowCentral = new Date(nowCentral)
-                  tomorrowCentral.setDate(tomorrowCentral.getDate() + 1)
-                  const tomorrowStr = `${tomorrowCentral.getFullYear()}-${String(tomorrowCentral.getMonth() + 1).padStart(2, '0')}-${String(tomorrowCentral.getDate()).padStart(2, '0')}`
-                  const isToday = pickup.pickup_date === todayStr
-                  const isTomorrow = pickup.pickup_date === tomorrowStr
-                  const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : new Date(pickup.pickup_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-
-                  return (
-                    <Link
-                      key={`${pickup.pickup_date}-${pickup.market_id}`}
-                      href={`/${vertical}/vendor/orders?pickup_date=${pickup.pickup_date}`}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: `${spacing['2xs']} ${spacing.xs}`,
-                        backgroundColor: isToday ? '#dcfce7' : 'white',
-                        borderRadius: radius.sm,
-                        border: isToday ? '1px solid #16a34a' : `1px solid ${colors.borderMuted}`,
-                        textDecoration: 'none'
-                      }}
-                    >
-                      <div>
-                        <span style={{
-                          fontSize: typography.sizes.sm,
-                          fontWeight: isToday ? typography.weights.bold : typography.weights.medium,
-                          color: isToday ? '#166534' : colors.textPrimary
-                        }}>
-                          {dateLabel}
-                        </span>
-                        <span style={{
-                          fontSize: typography.sizes.sm,
-                          color: colors.textMuted,
-                          marginLeft: spacing['2xs']
-                        }}>
-                          · {pickup.market_name}
-                        </span>
-                      </div>
-                      <span style={{
-                        fontSize: typography.sizes.sm,
-                        fontWeight: typography.weights.semibold,
-                        color: isToday ? '#166534' : colors.primary,
-                        backgroundColor: isToday ? '#bbf7d0' : colors.primaryLight,
-                        padding: `2px ${spacing.xs}`,
-                        borderRadius: radius.full
-                      }}>
-                        {pickup.item_count} item{pickup.item_count !== 1 ? 's' : ''}
-                      </span>
-                    </Link>
-                  )
-                })}
+                {upcomingPickups.slice(0, 5).map(pickup => (
+                  <UpcomingPickupItem
+                    key={`${pickup.pickup_date}-${pickup.market_id}`}
+                    vertical={vertical}
+                    pickup_date={pickup.pickup_date}
+                    market_id={pickup.market_id}
+                    market_name={pickup.market_name}
+                    item_count={pickup.item_count}
+                  />
+                ))}
                 {upcomingPickups.length > 5 && (
                   <Link
                     href={`/${vertical}/vendor/orders`}

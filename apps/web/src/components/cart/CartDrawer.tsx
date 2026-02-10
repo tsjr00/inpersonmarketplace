@@ -3,6 +3,7 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useCart, CartItem } from '@/lib/hooks/useCart'
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
+import { formatPickupDate } from '@/types/pickup'
 
 export function CartDrawer() {
   const router = useRouter()
@@ -271,7 +272,7 @@ function CartItemCard({
           color: hasIssue ? '#7f1d1d' : '#0369a1',
         }}>
           <span style={{ fontWeight: 600 }}>Pickup:</span>{' '}
-          {item.pickup_display.date_formatted}
+          {item.pickup_date ? formatPickupDate(item.pickup_date) : item.pickup_display.date_formatted}
           {item.pickup_display.time_formatted && (
             <span> · {item.pickup_display.time_formatted}</span>
           )}
