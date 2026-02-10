@@ -185,24 +185,32 @@ export async function GET(request: NextRequest) {
           return itemStatus
         })
 
-        // If ALL items are fulfilled (buyer confirmed), order is fulfilled
-        if (effectiveStatuses.every(s => s === 'fulfilled')) {
+        // Only consider non-cancelled items for order-level status
+        const activeStatuses = effectiveStatuses.filter(s => s !== 'cancelled')
+
+        if (activeStatuses.length === 0) {
+          // All items cancelled
+          effectiveStatus = 'cancelled'
+        }
+        // If ALL active items are fulfilled (buyer confirmed), order is fulfilled
+        else if (activeStatuses.every(s => s === 'fulfilled')) {
           effectiveStatus = 'fulfilled'
         }
         // If ANY item is handed_off (vendor fulfilled, awaiting buyer), show handed_off
-        else if (effectiveStatuses.some(s => s === 'handed_off')) {
+        else if (activeStatuses.some(s => s === 'handed_off')) {
           effectiveStatus = 'handed_off'
         }
-        // If ANY item is ready (and none cancelled), show ready
-        else if (effectiveStatuses.some(s => s === 'ready') && !effectiveStatuses.some(s => s === 'cancelled')) {
+        // If ANY item is ready, show ready (buyer needs to know for pickup)
+        else if (activeStatuses.some(s => s === 'ready')) {
           effectiveStatus = 'ready'
         }
-        // If ANY item is confirmed (and none cancelled/ready), show confirmed
-        else if (effectiveStatuses.some(s => s === 'confirmed') && !effectiveStatuses.some(s => ['cancelled', 'ready'].includes(s))) {
+        // If ALL active items are confirmed, show confirmed
+        // (must be every() — one vendor confirming shouldn't mark the whole order confirmed)
+        else if (activeStatuses.every(s => s === 'confirmed')) {
           effectiveStatus = 'confirmed'
         }
-        // If all items pending and order is paid, show pending (awaiting vendor confirmation)
-        else if (effectiveStatuses.every(s => s === 'pending') && order.status === 'paid') {
+        // Default: pending (some items still awaiting vendor action)
+        else if (order.status === 'paid') {
           effectiveStatus = 'pending' // Will show "Order Placed"
         }
       }

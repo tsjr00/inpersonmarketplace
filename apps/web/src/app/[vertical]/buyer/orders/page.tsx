@@ -624,7 +624,7 @@ export default function BuyerOrdersPage() {
                       gap: spacing['2xs'],
                     }}>
                       <span style={{ fontSize: typography.sizes.lg }}>✓</span>
-                      Your order has been confirmed by the vendor
+                      All items in your order have been confirmed
                     </p>
                   </div>
                 )}
