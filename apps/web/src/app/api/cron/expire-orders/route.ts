@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { notifyOrderExpired } from '@/lib/notifications'
+import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
 import { createRefund } from '@/lib/stripe/payments'
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
@@ -320,6 +320,74 @@ export async function GET(request: NextRequest) {
       }
     } catch (phase3Error) {
       console.error('Phase 3 error:', phase3Error instanceof Error ? phase3Error.message : 'Unknown error')
+    }
+
+    // ============================================================
+    // PHASE 4: Notify buyers about missed pickups
+    // Order items with status 'ready' where pickup_date has passed
+    // Vendor marked ready but buyer never showed up
+    // ============================================================
+    try {
+      const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+
+      const { data: missedItems, error: missedError } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          order_id,
+          pickup_date,
+          listing:listings (
+            title
+          ),
+          order:orders (
+            id,
+            order_number,
+            buyer_user_id
+          ),
+          vendor:vendor_profiles (
+            id,
+            profile_data
+          )
+        `)
+        .eq('status', 'ready')
+        .is('cancelled_at', null)
+        .lt('pickup_date', today)
+        .limit(100)
+
+      if (missedError) {
+        console.error('Error fetching missed pickup items:', missedError.message)
+      } else if (missedItems && missedItems.length > 0) {
+        for (const item of missedItems) {
+          try {
+            const order = item.order as any
+            const listing = item.listing as any
+            const vendor = item.vendor as any
+            const vendorData = vendor?.profile_data as Record<string, unknown> | null
+
+            // Send pickup_missed notification to buyer
+            if (order?.buyer_user_id) {
+              await sendNotification(order.buyer_user_id, 'pickup_missed', {
+                orderNumber: order.order_number || item.order_id.slice(0, 8),
+                itemTitle: listing?.title || 'Item',
+                vendorName: (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor',
+              })
+            }
+
+            // Mark as fulfilled — vendor did their part, buyer didn't show
+            await supabase
+              .from('order_items')
+              .update({ status: 'fulfilled' })
+              .eq('id', item.id)
+
+            totalProcessed++
+          } catch (itemError) {
+            console.error('Error processing missed pickup:', itemError instanceof Error ? itemError.message : 'Unknown error')
+            totalErrors++
+          }
+        }
+      }
+    } catch (phase4Error) {
+      console.error('Phase 4 error:', phase4Error instanceof Error ? phase4Error.message : 'Unknown error')
     }
 
     return NextResponse.json({
