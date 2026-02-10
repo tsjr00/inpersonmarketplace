@@ -79,6 +79,8 @@ export default function CheckoutPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null)
   const [vendorPaymentInfo, setVendorPaymentInfo] = useState<VendorPaymentInfo[]>([])
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
+  const [validationFailed, setValidationFailed] = useState(false)
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
   const isSubmittingRef = useRef(false)
@@ -135,8 +137,10 @@ export default function CheckoutPage() {
             }
           })
           setCheckoutItems(mergedItems)
+          setValidationFailed(false)
         } else {
-          // Fall back to local cart data
+          // Validation failed — show items but block checkout
+          setValidationFailed(true)
           setCheckoutItems(items.map(item => ({
             listingId: item.listingId,
             quantity: item.quantity,
@@ -157,6 +161,7 @@ export default function CheckoutPage() {
         }
       } catch (err) {
         console.error('Cart validation error:', err)
+        setValidationFailed(true)
         setCheckoutItems(items.map(item => ({
           listingId: item.listingId,
           quantity: item.quantity,
@@ -549,6 +554,45 @@ export default function CheckoutPage() {
               </div>
             )}
 
+            {validationFailed && (
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: '#fef2f2',
+                border: '2px solid #dc2626',
+                borderRadius: radius.md,
+                marginBottom: spacing.sm,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: spacing.sm,
+              }}>
+                <div>
+                  <p style={{ margin: 0, fontWeight: 600, color: '#991b1b', fontSize: typography.sizes.sm }}>
+                    Could not verify item availability
+                  </p>
+                  <p style={{ margin: `${spacing['3xs']} 0 0`, color: '#7f1d1d', fontSize: typography.sizes.xs }}>
+                    Checkout is disabled until items can be validated. Please retry.
+                  </p>
+                </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    padding: `${spacing.xs} ${spacing.sm}`,
+                    backgroundColor: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: radius.sm,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: typography.sizes.sm,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
             {marketWarnings.length > 0 && (
               <div style={{
                 padding: spacing.sm,
@@ -656,22 +700,27 @@ export default function CheckoutPage() {
                         <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>Qty:</span>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               const cartItem = items.find(ci => ci.listingId === item.listingId)
-                              if (cartItem) updateQuantity(cartItem.id, item.quantity - 1)
+                              if (cartItem) {
+                                setUpdatingItemId(item.listingId)
+                                try { await updateQuantity(cartItem.id, item.quantity - 1) } finally { setUpdatingItemId(null) }
+                              }
                             }}
+                            disabled={updatingItemId === item.listingId}
                             style={{
                               width: 36,
                               height: 36,
                               border: `1px solid ${colors.border}`,
                               borderRadius: `${radius.sm} 0 0 ${radius.sm}`,
                               backgroundColor: colors.surfaceElevated,
-                              cursor: 'pointer',
+                              cursor: updatingItemId === item.listingId ? 'default' : 'pointer',
                               fontSize: typography.sizes.lg,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               color: colors.textPrimary,
+                              opacity: updatingItemId === item.listingId ? 0.5 : 1,
                             }}
                           >
                             −
@@ -690,23 +739,26 @@ export default function CheckoutPage() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               const cartItem = items.find(ci => ci.listingId === item.listingId)
-                              if (cartItem) updateQuantity(cartItem.id, item.quantity + 1)
+                              if (cartItem) {
+                                setUpdatingItemId(item.listingId)
+                                try { await updateQuantity(cartItem.id, item.quantity + 1) } finally { setUpdatingItemId(null) }
+                              }
                             }}
-                            disabled={item.available_quantity !== null && item.quantity >= item.available_quantity}
+                            disabled={updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)}
                             style={{
                               width: 36,
                               height: 36,
                               border: `1px solid ${colors.border}`,
                               borderRadius: `0 ${radius.sm} ${radius.sm} 0`,
                               backgroundColor: colors.surfaceElevated,
-                              cursor: item.available_quantity !== null && item.quantity >= item.available_quantity ? 'not-allowed' : 'pointer',
+                              cursor: (updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)) ? 'not-allowed' : 'pointer',
                               fontSize: typography.sizes.lg,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              opacity: item.available_quantity !== null && item.quantity >= item.available_quantity ? 0.5 : 1,
+                              opacity: (updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)) ? 0.5 : 1,
                               color: colors.textPrimary,
                             }}
                           >
@@ -1085,7 +1137,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={processing || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)}
+                disabled={processing || validationFailed || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -1094,16 +1146,16 @@ export default function CheckoutPage() {
                   padding: `${spacing.sm} ${spacing.md}`,
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold,
-                  backgroundColor: processing || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? colors.border : colors.primary,
+                  backgroundColor: processing || validationFailed || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? colors.border : colors.primary,
                   color: colors.textInverse,
                   border: 'none',
                   borderRadius: radius.sm,
-                  cursor: processing || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'not-allowed' : 'pointer',
+                  cursor: processing || validationFailed || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'not-allowed' : 'pointer',
                   minHeight: 48,
-                  boxShadow: processing || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'none' : shadows.primary,
+                  boxShadow: processing || validationFailed || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'none' : shadows.primary,
                 }}
               >
-                {processing ? 'Processing...' : belowMinimum ? `Add $${amountNeeded} More` : !marketValid ? 'Fix Market Issues' : hasScheduleIssues ? 'Remove Unavailable Items' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`}
+                {processing ? 'Processing...' : validationFailed ? 'Validation Required' : belowMinimum ? `Add $${amountNeeded} More` : !marketValid ? 'Fix Market Issues' : hasScheduleIssues ? 'Remove Unavailable Items' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`}
               </button>
 
               {/* Security messaging */}

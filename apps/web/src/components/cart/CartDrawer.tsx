@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useCart, CartItem } from '@/lib/hooks/useCart'
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
@@ -185,9 +186,19 @@ function CartItemCard({
   onRemove: (cartItemId: string) => Promise<void>
   onUpdateQuantity: (cartItemId: string, quantity: number) => Promise<void>
 }) {
+  const [updatingQty, setUpdatingQty] = useState(false)
   const displayPriceCents = calculateDisplayPrice(item.price_cents || 0)
   const itemTotalCents = displayPriceCents * item.quantity
   const hasIssue = Boolean(item.schedule_issue)
+
+  const handleQuantityChange = async (newQty: number) => {
+    setUpdatingQty(true)
+    try {
+      await onUpdateQuantity(item.id, newQty)
+    } finally {
+      setUpdatingQty(false)
+    }
+  }
 
   return (
     <div style={{
@@ -291,15 +302,17 @@ function CartItemCard({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <button
-            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+            onClick={() => handleQuantityChange(item.quantity - 1)}
+            disabled={updatingQty}
             style={{
               width: 28,
               height: 28,
               border: '1px solid #ddd',
               borderRadius: 4,
               backgroundColor: 'white',
-              cursor: 'pointer',
+              cursor: updatingQty ? 'default' : 'pointer',
               fontSize: 16,
+              opacity: updatingQty ? 0.5 : 1,
             }}
           >
             -
@@ -313,15 +326,17 @@ function CartItemCard({
             {item.quantity}
           </span>
           <button
-            onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+            onClick={() => handleQuantityChange(item.quantity + 1)}
+            disabled={updatingQty}
             style={{
               width: 28,
               height: 28,
               border: '1px solid #ddd',
               borderRadius: 4,
               backgroundColor: 'white',
-              cursor: 'pointer',
+              cursor: updatingQty ? 'default' : 'pointer',
               fontSize: 16,
+              opacity: updatingQty ? 0.5 : 1,
             }}
           >
             +

@@ -160,24 +160,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
       }
 
-      // Check if all items in order are now complete
-      crumb.supabase('select', 'order_items')
-      const { data: allItems } = await supabase
-        .from('order_items')
-        .select('status, buyer_confirmed_at, vendor_confirmed_at, cancelled_at')
-        .eq('order_id', orderItem.order_id)
-
-      const activeItems = allItems?.filter(i => !i.cancelled_at) || []
-      const allComplete = activeItems.length > 0 &&
-        activeItems.every(i => i.buyer_confirmed_at && i.vendor_confirmed_at)
-
-      if (allComplete) {
-        crumb.supabase('update', 'orders')
-        await supabase
-          .from('orders')
-          .update({ status: 'completed' })
-          .eq('id', orderItem.order_id)
-      }
+      // Atomically mark order completed if all items are fully confirmed
+      crumb.logic('Checking atomic order completion')
+      await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
 
       return NextResponse.json({
         success: true,

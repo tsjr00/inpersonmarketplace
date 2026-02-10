@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Smartphone, Download } from 'lucide-react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { defaultBranding } from '@/lib/branding'
@@ -17,10 +18,10 @@ interface GetTheAppProps {
 export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
   const isFarmersMarket = vertical === 'farmers_market'
+  const [showInstallTip, setShowInstallTip] = useState(false)
 
   const handleDownloadClick = () => {
-    // For now, just show a message. Later this will trigger PWA install or app store redirect
-    alert('App download coming soon! For now, you can add this site to your home screen for the best experience.')
+    setShowInstallTip(true)
   }
 
   if (variant === 'compact') {
@@ -92,6 +93,16 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
             Download
           </button>
         </div>
+        {showInstallTip && (
+          <p style={{
+            textAlign: 'center',
+            marginTop: spacing.sm,
+            fontSize: typography.sizes.sm,
+            color: colors.textSecondary,
+          }}>
+            Add this site to your home screen for the best app-like experience.
+          </p>
+        )}
       </section>
     )
   }
