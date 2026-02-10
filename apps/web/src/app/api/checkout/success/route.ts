@@ -92,7 +92,8 @@ export async function GET(request: NextRequest) {
       }
       crumb.logic('Payment record created')
 
-      // Decrement inventory for purchased items (only on first successful payment processing)
+      // Inventory was already decremented at checkout time (checkout/session route).
+      // Check stock levels and send notifications to vendors if needed.
       crumb.supabase('select', 'order_items')
       const { data: orderItems, error: orderItemsError } = await serviceClient
         .from('order_items')
@@ -100,18 +101,16 @@ export async function GET(request: NextRequest) {
         .eq('order_id', orderId)
 
       if (orderItemsError) {
-        crumb.logic('Failed to fetch order items for inventory update')
+        crumb.logic('Failed to fetch order items for stock notifications')
       } else if (orderItems && orderItems.length > 0) {
-        crumb.logic('Decrementing inventory for purchased items')
-
-        // Group quantities by listing_id (same listing could appear multiple times)
+        // Group quantities by listing_id
         const quantityByListing = new Map<string, number>()
         for (const item of orderItems) {
           const current = quantityByListing.get(item.listing_id) || 0
           quantityByListing.set(item.listing_id, current + item.quantity)
         }
 
-        // Batch fetch all listings at once (instead of one-by-one)
+        // Batch fetch all listings to check stock levels
         const listingIds = Array.from(quantityByListing.keys())
         crumb.supabase('select', 'listings (batch)')
         const { data: listings } = await serviceClient
@@ -120,80 +119,22 @@ export async function GET(request: NextRequest) {
           .in('id', listingIds)
 
         if (listings && listings.length > 0) {
-          // Atomic inventory updates + notification collection (parallel)
-          const notifications: Array<{
-            user_id: string
-            type: string
-            title: string
-            message: string
-            data: Record<string, unknown>
-          }> = []
+          // Send stock notifications for low/out-of-stock items
+          for (const listing of listings) {
+            if (listing.quantity === null) continue // Unlimited inventory
+            const vendorProfile = listing.vendor_profiles as unknown as { user_id: string } | null
+            const vendorUserId = vendorProfile?.user_id
+            if (!vendorUserId) continue
 
-          crumb.supabase('update', 'listings (atomic batch)')
-          const updateResults = await Promise.all(
-            listings
-              .filter(listing => listing.quantity !== null)
-              .map(async (listing) => {
-                const quantityPurchased = quantityByListing.get(listing.id) || 0
-                const previousQuantity = listing.quantity as number
-
-                // Atomic decrement - prevents race condition between concurrent checkouts
-                const { data: updated, error: updateErr } = await serviceClient
-                  .rpc('atomic_decrement_inventory' as string, {
-                    p_listing_id: listing.id,
-                    p_quantity: quantityPurchased
-                  })
-                  .single()
-
-                // Fallback if RPC doesn't exist yet (pre-migration)
-                let newQuantity: number
-                if (updateErr) {
-                  newQuantity = Math.max(0, previousQuantity - quantityPurchased)
-                  await serviceClient
-                    .from('listings')
-                    .update({ quantity: newQuantity })
-                    .eq('id', listing.id)
-                } else {
-                  newQuantity = (updated as { new_quantity: number })?.new_quantity ?? Math.max(0, previousQuantity - quantityPurchased)
-                }
-
-                // Collect notifications (don't send inline - batch later)
-                const vendorProfile = listing.vendor_profiles as unknown as { user_id: string } | null
-                const vendorUserId = vendorProfile?.user_id
-                if (vendorUserId) {
-                  if (newQuantity === 0) {
-                    notifications.push({
-                      user_id: vendorUserId,
-                      type: 'inventory_out_of_stock',
-                      title: 'Out of Stock',
-                      message: `"${listing.title}" is now out of stock. Update your listing to add more inventory.`,
-                      data: { listing_id: listing.id, listing_title: listing.title }
-                    })
-                  } else if (newQuantity <= LOW_STOCK_THRESHOLD && previousQuantity > LOW_STOCK_THRESHOLD) {
-                    notifications.push({
-                      user_id: vendorUserId,
-                      type: 'inventory_low_stock',
-                      title: 'Low Stock Alert',
-                      message: `"${listing.title}" has only ${newQuantity} left in stock.`,
-                      data: { listing_id: listing.id, listing_title: listing.title, quantity_remaining: newQuantity }
-                    })
-                  }
-                }
-
-                return { listingId: listing.id, previousQuantity, newQuantity }
+            if (listing.quantity === 0) {
+              await sendNotification(vendorUserId, 'inventory_out_of_stock', {
+                listingTitle: listing.title,
               })
-          )
-
-          crumb.logic(`Inventory updated for ${updateResults.length} listings`)
-
-          // Batch insert all notifications at once
-          if (notifications.length > 0) {
-            crumb.supabase('insert', 'notifications (batch)')
-            const { error: notifyError } = await serviceClient
-              .from('notifications')
-              .insert(notifications)
-            if (notifyError) {
-              crumb.logic(`Failed to send ${notifications.length} stock notifications`)
+            } else if (listing.quantity <= LOW_STOCK_THRESHOLD) {
+              await sendNotification(vendorUserId, 'inventory_low_stock', {
+                listingTitle: listing.title,
+                quantity: listing.quantity,
+              })
             }
           }
         }

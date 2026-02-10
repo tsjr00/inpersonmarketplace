@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
-    // Step 2: Handle event - return 200 even on failure to prevent infinite Stripe retries
-    // Log the error for admin investigation but acknowledge receipt
+    // Step 2: Handle event - return 500 on failure so Stripe retries
+    // Stripe retries up to 16 times over 72 hours with exponential backoff
     try {
       await handleWebhookEvent(event)
       return NextResponse.json({ received: true })
@@ -37,12 +37,14 @@ export async function POST(request: NextRequest) {
         error: handlerError instanceof Error ? handlerError.message : handlerError,
       })
 
-      // Return 200 to acknowledge receipt - Stripe won't retry
-      // The error is logged above for admin to investigate
-      return NextResponse.json({
-        received: true,
-        warning: 'Event received but handler failed - see logs'
-      })
+      // Return 500 so Stripe retries — transient errors (DB down, network blip)
+      // are the most likely cause. Stripe will retry with exponential backoff.
+      // Permanent errors (missing metadata, unknown event) are handled via early
+      // returns inside handleWebhookEvent and never reach this catch block.
+      return NextResponse.json(
+        { error: 'Processing failed - will be retried' },
+        { status: 500 }
+      )
     }
   })
 }

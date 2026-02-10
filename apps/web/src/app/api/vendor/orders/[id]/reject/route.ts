@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createRefund } from '@/lib/stripe/payments'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
+import { restoreInventory } from '@/lib/inventory'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -53,10 +55,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id,
         status,
+        quantity,
         subtotal_cents,
         cancelled_at,
         vendor_profile_id,
         order_id,
+        listing_id,
         order:orders!inner(id, order_number, buyer_user_id),
         listing:listings(title, vendor_profiles(profile_data))
       `)
@@ -105,6 +109,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (updateError) {
       console.error('Error rejecting order item:', updateError)
       return NextResponse.json({ error: 'Failed to reject item' }, { status: 500 })
+    }
+
+    // Restore inventory for rejected item
+    const rejectServiceClient = createServiceClient()
+    if (orderItem.listing_id) {
+      await restoreInventory(rejectServiceClient, orderItem.listing_id, orderItem.quantity || 1)
+    }
+
+    // Process Stripe refund for vendor rejection (full refund)
+    let stripeRefundId: string | null = null
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('stripe_payment_intent_id, status')
+      .eq('order_id', orderItem.order_id)
+      .eq('status', 'succeeded')
+      .single()
+
+    if (payment?.stripe_payment_intent_id) {
+      try {
+        const refund = await createRefund(payment.stripe_payment_intent_id, orderItem.subtotal_cents)
+        stripeRefundId = refund.id
+      } catch (refundError) {
+        console.error('Stripe refund failed for vendor rejection:', refundError)
+        // DB already updated — admin will need to manually process this refund
+      }
     }
 
     // Check if all items in the order are now cancelled
