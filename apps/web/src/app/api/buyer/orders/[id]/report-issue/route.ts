@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         vendor_profile_id,
         order:orders!inner (
           id,
+          order_number,
           buyer_user_id
         )
       `)
@@ -94,19 +96,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single()
 
     if (vendorProfile?.user_id) {
-      crumb.supabase('insert', 'notifications')
-      await supabase.from('notifications').insert({
-        user_id: vendorProfile.user_id,
-        type: 'pickup_issue_reported',
-        title: 'Issue Reported by Buyer',
-        message: `A buyer reported an issue with their order: ${description}`,
-        data: { order_item_id: orderItemId, issue_description: description }
+      crumb.logic('Sending pickup issue notification to vendor')
+      await sendNotification(vendorProfile.user_id, 'pickup_issue_reported', {
+        orderNumber: (order as { order_number?: string }).order_number || orderItemId.slice(0, 8),
+        reason: description,
       })
     }
-
-    // Notify admins (if error_logs or admin notification table exists)
-    // For now, log it
-    console.warn(`[PICKUP ISSUE] Order item ${orderItemId}: ${description}`)
 
     return NextResponse.json({
       success: true,

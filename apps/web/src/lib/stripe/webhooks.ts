@@ -1,6 +1,7 @@
 import { stripe } from './config'
 import Stripe from 'stripe'
 import { createServiceClient } from '@/lib/supabase/server'
+import { sendNotification } from '@/lib/notifications'
 
 /**
  * Verify webhook signature
@@ -480,6 +481,20 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
       transferred_at: new Date().toISOString(),
     })
     .eq('order_item_id', orderItemId)
+
+  // Notify vendor that payout was processed
+  const { data: orderItem } = await supabase
+    .from('order_items')
+    .select('vendor_profiles!vendor_profile_id(user_id)')
+    .eq('id', orderItemId)
+    .single()
+
+  const vendorProfile = (orderItem as any)?.vendor_profiles as { user_id: string } | null
+  if (vendorProfile?.user_id) {
+    await sendNotification(vendorProfile.user_id, 'payout_processed', {
+      amountCents: transfer.amount,
+    })
+  }
 }
 
 async function handleTransferFailed(transfer: Stripe.Transfer) {
