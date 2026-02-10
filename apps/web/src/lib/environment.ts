@@ -15,3 +15,33 @@ export function getAppUrl(): string {
   }
   return 'http://localhost:3002'
 }
+
+const REQUIRED_SERVER_ENV = [
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'STRIPE_SECRET_KEY',
+] as const
+
+const OPTIONAL_SERVER_ENV: Record<string, string> = {
+  RESEND_API_KEY: 'Email notifications disabled',
+  TWILIO_ACCOUNT_SID: 'SMS notifications disabled',
+  VAPID_PRIVATE_KEY: 'Push notifications disabled',
+  CRON_SECRET: 'Cron endpoint security disabled',
+}
+
+/**
+ * Validates required environment variables on server startup.
+ * Called from Next.js instrumentation hook.
+ */
+export function validateEnv() {
+  const missing = REQUIRED_SERVER_ENV.filter(key => !process.env[key])
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
+  }
+  for (const [key, message] of Object.entries(OPTIONAL_SERVER_ENV)) {
+    if (!process.env[key]) {
+      console.warn(`[env] ${key} not set — ${message}`)
+    }
+  }
+}

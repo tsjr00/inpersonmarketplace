@@ -20,12 +20,19 @@ export async function PATCH(request: Request) {
     if (typeof display_name !== 'string') {
       return NextResponse.json({ error: 'Invalid display name' }, { status: 400 })
     }
+    const trimmedName = display_name.trim()
+    if (trimmedName.length < 2) {
+      return NextResponse.json({ error: 'Display name must be at least 2 characters' }, { status: 400 })
+    }
+    if (trimmedName.length > 50) {
+      return NextResponse.json({ error: 'Display name must be 50 characters or less' }, { status: 400 })
+    }
 
     // Update user_profiles
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({
-        display_name: display_name.trim(),
+        display_name: trimmedName,
         updated_at: new Date().toISOString()
       })
       .eq('user_id', user.id)

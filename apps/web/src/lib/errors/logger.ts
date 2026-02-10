@@ -72,6 +72,39 @@ export function isDbLoggingEnabled(): boolean {
 }
 
 /**
+ * Send an email alert to the admin for high-severity errors.
+ * Silently fails if Resend is not configured.
+ */
+async function sendAdminAlert(error: TracedError): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+  const adminEmail = process.env.ADMIN_ALERT_EMAIL
+  if (!apiKey || !adminEmail) return
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+
+    await resend.emails.send({
+      from: 'alerts@farmersmarketing.app',
+      to: adminEmail,
+      subject: `[${error.severity.toUpperCase()}] ${error.code}: ${error.message}`,
+      html: [
+        `<h2>${error.code}</h2>`,
+        `<p><strong>Message:</strong> ${error.message}</p>`,
+        `<p><strong>Trace ID:</strong> ${error.traceId}</p>`,
+        error.context?.route ? `<p><strong>Route:</strong> ${error.context.method} ${error.context.route}</p>` : '',
+        error.context?.userId ? `<p><strong>User:</strong> ${error.context.userId}</p>` : '',
+        error.context?.breadcrumbs?.length
+          ? `<h3>Breadcrumbs</h3><ol>${error.context.breadcrumbs.map((b) => `<li>[${b.category}] ${b.message}</li>`).join('')}</ol>`
+          : '',
+      ].filter(Boolean).join('\n'),
+    })
+  } catch {
+    // Admin alerting should never break the app
+  }
+}
+
+/**
  * Log error to both console and database
  */
 export async function logError(error: TracedError): Promise<void> {
@@ -81,5 +114,10 @@ export async function logError(error: TracedError): Promise<void> {
   // Log to database if enabled
   if (isDbLoggingEnabled()) {
     await logErrorToDb(error)
+  }
+
+  // Email admin for high-severity errors
+  if (error.severity === 'high') {
+    await sendAdminAlert(error)
   }
 }

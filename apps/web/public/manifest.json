@@ -1,8 +1,13 @@
 {
   "name": "Farmers Marketing",
   "short_name": "FarmMkt",
+  "description": "Pre-order fresh produce and goods from local farmers and artisans",
   "start_url": "/",
-  "display": "browser",
+  "display": "standalone",
+  "theme_color": "#166534",
+  "background_color": "#ffffff",
+  "orientation": "any",
+  "categories": ["shopping", "food"],
   "icons": [
     {
       "src": "/logos/logo-icon-color.png",

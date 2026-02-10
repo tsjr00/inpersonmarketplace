@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
 interface TutorialSlide {
@@ -88,6 +88,14 @@ export default function TutorialModal({ vertical, mode, onComplete, onSkip }: Tu
 
   const isLastSlide = currentSlide === slides.length - 1
   const isFirstSlide = currentSlide === 0
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onSkip()
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [onSkip])
 
   const handleNext = () => {
     if (isLastSlide) {
