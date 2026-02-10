@@ -370,10 +370,14 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                 {upcomingPickups.slice(0, 5).map(pickup => {
-                  const pickupDate = new Date(pickup.pickup_date + 'T00:00:00')
-                  const isToday = pickupDate.toDateString() === new Date().toDateString()
-                  const isTomorrow = pickupDate.toDateString() === new Date(Date.now() + 86400000).toDateString()
-                  const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : pickupDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                  const nowCentral = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+                  const todayStr = `${nowCentral.getFullYear()}-${String(nowCentral.getMonth() + 1).padStart(2, '0')}-${String(nowCentral.getDate()).padStart(2, '0')}`
+                  const tomorrowCentral = new Date(nowCentral)
+                  tomorrowCentral.setDate(tomorrowCentral.getDate() + 1)
+                  const tomorrowStr = `${tomorrowCentral.getFullYear()}-${String(tomorrowCentral.getMonth() + 1).padStart(2, '0')}-${String(tomorrowCentral.getDate()).padStart(2, '0')}`
+                  const isToday = pickup.pickup_date === todayStr
+                  const isTomorrow = pickup.pickup_date === tomorrowStr
+                  const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : new Date(pickup.pickup_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
                   return (
                     <Link
