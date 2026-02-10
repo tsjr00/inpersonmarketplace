@@ -208,17 +208,19 @@ export async function GET(request: Request) {
     }
 
     // Helper to format date for display
+    // Uses America/Chicago (Central) since all markets are in that region
     const formatPickupDate = (dateStr: string | null): string => {
       if (!dateStr) return ''
+      const nowCentral = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+      const todayStr = `${nowCentral.getFullYear()}-${String(nowCentral.getMonth() + 1).padStart(2, '0')}-${String(nowCentral.getDate()).padStart(2, '0')}`
+      const tomorrowCentral = new Date(nowCentral)
+      tomorrowCentral.setDate(tomorrowCentral.getDate() + 1)
+      const tomorrowStr = `${tomorrowCentral.getFullYear()}-${String(tomorrowCentral.getMonth() + 1).padStart(2, '0')}-${String(tomorrowCentral.getDate()).padStart(2, '0')}`
+
+      if (dateStr === todayStr) return 'Today'
+      if (dateStr === tomorrowStr) return 'Tomorrow'
+
       const date = new Date(dateStr + 'T00:00:00')
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-
-      if (date.getTime() === today.getTime()) return 'Today'
-      if (date.getTime() === tomorrow.getTime()) return 'Tomorrow'
-
       return date.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
