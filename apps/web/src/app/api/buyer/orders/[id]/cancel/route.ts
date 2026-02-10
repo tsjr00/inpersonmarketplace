@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund } from '@/lib/stripe/payments'
 import { STRIPE_CONFIG } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
+import { restoreInventory } from '@/lib/inventory'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         order_items (
           id,
           status,
+          quantity,
           subtotal_cents,
           platform_fee_cents,
           vendor_payout_cents,
@@ -172,6 +174,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (updateError) {
       throw traced.fromSupabase(updateError, { table: 'order_items', operation: 'update' })
+    }
+
+    // Restore inventory for cancelled item
+    crumb.logic('Restoring inventory for cancelled item')
+    const cancelServiceClient = createServiceClient()
+    const cancelListing = orderItem.listing as any
+    if (cancelListing?.id) {
+      await restoreInventory(cancelServiceClient, cancelListing.id, (orderItem as any).quantity || 1)
     }
 
     // Check if all items in the order are now cancelled - if so, update order status

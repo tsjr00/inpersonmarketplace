@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
 import { calculateOrderPricing, FEES } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { restoreOrderInventory } from '@/lib/inventory'
+import { randomUUID } from 'crypto'
 
 interface CartItem {
   listingId: string
@@ -56,13 +58,53 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================================
+    // EXPIRED ORDER CLEANUP
+    // Cancel pending Stripe orders older than 10 minutes where
+    // payment was never completed. Restores inventory.
+    // ============================================================
+    const serviceClient = createServiceClient()
+    crumb.logic('Cleaning up expired pending orders')
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+
+    const { data: expiredPendingOrders } = await serviceClient
+      .from('orders')
+      .select('id')
+      .eq('buyer_user_id', user.id)
+      .eq('status', 'pending')
+      .lte('created_at', tenMinutesAgo)
+      .not('stripe_checkout_session_id', 'is', null) // Only Stripe orders (not external)
+
+    if (expiredPendingOrders && expiredPendingOrders.length > 0) {
+      for (const expired of expiredPendingOrders) {
+        // Restore inventory for expired order
+        await restoreOrderInventory(serviceClient, expired.id)
+        // Cancel the order and its items
+        await serviceClient
+          .from('order_items')
+          .update({
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            cancelled_by: 'system',
+            cancellation_reason: 'Payment not completed within 10 minutes'
+          })
+          .eq('order_id', expired.id)
+          .is('cancelled_at', null)
+        await serviceClient
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', expired.id)
+      }
+      crumb.logic(`Cleaned up ${expiredPendingOrders.length} expired pending order(s)`)
+    }
+
+    // ============================================================
     // DUPLICATE ORDER PREVENTION
     // Check for existing pending orders with matching items/quantities
     // before creating a new one. This handles users pressing "back"
     // from Stripe and trying to checkout again.
     // ============================================================
     crumb.logic('Checking for existing pending orders')
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+    const tenMinFromNow = new Date(Date.now() - 10 * 60 * 1000).toISOString()
 
     const { data: pendingOrders } = await supabase
       .from('orders')
@@ -80,7 +122,7 @@ export async function POST(request: NextRequest) {
       `)
       .eq('buyer_user_id', user.id)
       .eq('status', 'pending')
-      .gte('created_at', thirtyMinutesAgo)
+      .gte('created_at', tenMinFromNow)
       .order('created_at', { ascending: false })
 
     if (pendingOrders && pendingOrders.length > 0) {
@@ -438,47 +480,24 @@ export async function POST(request: NextRequest) {
 
     const orderItemsWithSnapshots = await Promise.all(pickupSnapshotPromises)
 
-    // Create order record
-    crumb.supabase('insert', 'orders')
+    // ============================================================
+    // STRIPE SESSION FIRST, THEN ORDER
+    // Pre-generate order ID and number, create Stripe session first.
+    // If Stripe fails, nothing is in our DB (clean failure).
+    // If DB insert fails after Stripe, session just expires unused.
+    // ============================================================
+
+    // Pre-generate order ID and number
+    const orderId = randomUUID()
     const orderNumber = `FW-${new Date().getFullYear()}-${Math.random().toString().slice(2, 7)}`
 
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        buyer_user_id: user.id,
-        vertical_id: (listings[0] as Listing).vertical_id,
-        order_number: orderNumber,
-        status: 'pending',
-        subtotal_cents: subtotalCents,
-        platform_fee_cents: platformFeeCents,
-        total_cents: totalCents,
-      })
-      .select()
-      .single()
-
-    if (orderError) throw traced.fromSupabase(orderError, { table: 'orders', operation: 'insert' })
-
-    // Create order items with pickup snapshots
-    crumb.supabase('insert', 'order_items')
-    const { error: itemsError } = await supabase.from('order_items').insert(
-      orderItemsWithSnapshots.map((item) => ({
-        ...item,
-        order_id: order.id,
-      }))
-    )
-
-    if (itemsError) throw traced.fromSupabase(itemsError, { table: 'order_items', operation: 'insert' })
-
-    // Create Stripe checkout session
-    crumb.logic('Creating Stripe checkout session')
+    // Build Stripe line items
+    crumb.logic('Creating Stripe checkout session (before order)')
     const baseUrl = request.nextUrl.origin
-    // Use vertical from request, or fall back to the listing's vertical_id
     const verticalId = vertical || (listings[0] as Listing).vertical_id
     const successUrl = `${baseUrl}/${verticalId}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
     const cancelUrl = `${baseUrl}/${verticalId}/checkout`
 
-    // Build Stripe line items
-    // Each item shows at percentage-fee price, flat fee is separate line
     const checkoutItems: Array<{ name: string; description: string; amount: number; quantity: number }> = []
 
     for (const listing of listings) {
@@ -501,9 +520,10 @@ export async function POST(request: NextRequest) {
       quantity: 1,
     })
 
+    // Create Stripe session FIRST — if this fails, nothing touches our DB
     const session = await createCheckoutSession({
-      orderId: order.id,
-      orderNumber: order.order_number,
+      orderId,
+      orderNumber,
       items: checkoutItems,
       successUrl,
       cancelUrl,
@@ -513,12 +533,49 @@ export async function POST(request: NextRequest) {
       throw traced.external('ERR_CHECKOUT_002', 'Stripe checkout session creation failed')
     }
 
-    // Save session ID
-    crumb.supabase('update', 'orders')
-    await supabase
+    // Create order record (with session ID already populated — no orphan risk)
+    crumb.supabase('insert', 'orders')
+    const { error: orderError } = await supabase
       .from('orders')
-      .update({ stripe_checkout_session_id: session.id })
-      .eq('id', order.id)
+      .insert({
+        id: orderId,
+        buyer_user_id: user.id,
+        vertical_id: (listings[0] as Listing).vertical_id,
+        order_number: orderNumber,
+        status: 'pending',
+        subtotal_cents: subtotalCents,
+        platform_fee_cents: platformFeeCents,
+        total_cents: totalCents,
+        stripe_checkout_session_id: session.id,
+      })
+
+    if (orderError) throw traced.fromSupabase(orderError, { table: 'orders', operation: 'insert' })
+
+    // Create order items with pickup snapshots
+    crumb.supabase('insert', 'order_items')
+    const { error: itemsError } = await supabase.from('order_items').insert(
+      orderItemsWithSnapshots.map((item) => ({
+        ...item,
+        order_id: orderId,
+      }))
+    )
+
+    if (itemsError) throw traced.fromSupabase(itemsError, { table: 'order_items', operation: 'insert' })
+
+    // Decrement inventory at checkout time (not at payment success)
+    // This reserves the items — inventory is restored if order is cancelled/expires
+    crumb.logic('Decrementing inventory at checkout')
+    for (const item of items) {
+      const currentQuantity = inventoryMap.get(item.listingId)
+      // Only decrement if listing has managed inventory (not null/unlimited)
+      if (currentQuantity !== null && currentQuantity !== undefined) {
+        await serviceClient
+          .rpc('atomic_decrement_inventory' as string, {
+            p_listing_id: item.listingId,
+            p_quantity: item.quantity
+          })
+      }
+    }
 
     return NextResponse.json({ sessionId: session.id, url: session.url })
   })
