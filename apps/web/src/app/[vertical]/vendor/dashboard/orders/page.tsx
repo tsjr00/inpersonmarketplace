@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import Toast, { type ToastType } from '@/components/shared/Toast'
 
 interface OrderItem {
   id: string
@@ -39,7 +40,9 @@ export default function VendorOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('all')
+  const [viewMode, setViewMode] = useState<'active' | 'history'>('active')
   const [stripeConnected, setStripeConnected] = useState<boolean | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
 
   // Use ref to track interval so we can clear/restart it
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -140,20 +143,33 @@ export default function VendorOrdersPage() {
       await fetchOrdersCallback()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update order status'
-      alert(errorMessage)
+      setToast({ message: errorMessage, type: 'error' })
       console.error('Order status update error:', errorMessage)
     }
   }
 
-  const filteredOrders = orders.filter(order => {
+  const activeStatuses = ['pending', 'confirmed', 'ready']
+  const historyStatuses = ['fulfilled', 'cancelled', 'refunded']
+
+  const viewOrders = orders.filter(order =>
+    viewMode === 'active'
+      ? activeStatuses.includes(order.status)
+      : historyStatuses.includes(order.status)
+  )
+
+  const filteredOrders = viewOrders.filter(order => {
     if (activeTab === 'all') return true
     return order.status === activeTab
   })
 
-  const pendingCount = orders.filter(o => o.status === 'pending').length
-  const confirmedCount = orders.filter(o => o.status === 'confirmed').length
-  const readyCount = orders.filter(o => o.status === 'ready').length
-  const fulfilledCount = orders.filter(o => o.status === 'fulfilled').length
+  const pendingCount = viewOrders.filter(o => o.status === 'pending').length
+  const confirmedCount = viewOrders.filter(o => o.status === 'confirmed').length
+  const readyCount = viewOrders.filter(o => o.status === 'ready').length
+  const fulfilledCount = viewOrders.filter(o => o.status === 'fulfilled').length
+  const cancelledCount = viewOrders.filter(o => o.status === 'cancelled').length
+
+  const totalActive = orders.filter(o => activeStatuses.includes(o.status)).length
+  const totalHistory = orders.filter(o => historyStatuses.includes(o.status)).length
 
   if (loading) {
     return (
@@ -276,7 +292,51 @@ export default function VendorOrdersPage() {
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Active / History Toggle */}
+      <div style={{
+        display: 'flex',
+        gap: 0,
+        marginBottom: 12,
+        backgroundColor: '#e5e7eb',
+        borderRadius: 8,
+        padding: 3,
+        width: 'fit-content',
+      }}>
+        <button
+          onClick={() => { setViewMode('active'); setActiveTab('all') }}
+          style={{
+            padding: '8px 20px',
+            backgroundColor: viewMode === 'active' ? 'white' : 'transparent',
+            color: viewMode === 'active' ? '#111' : '#666',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontWeight: viewMode === 'active' ? 600 : 400,
+            fontSize: 14,
+            boxShadow: viewMode === 'active' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+          }}
+        >
+          Active{totalActive > 0 ? ` (${totalActive})` : ''}
+        </button>
+        <button
+          onClick={() => { setViewMode('history'); setActiveTab('all') }}
+          style={{
+            padding: '8px 20px',
+            backgroundColor: viewMode === 'history' ? 'white' : 'transparent',
+            color: viewMode === 'history' ? '#111' : '#666',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontWeight: viewMode === 'history' ? 600 : 400,
+            fontSize: 14,
+            boxShadow: viewMode === 'history' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+          }}
+        >
+          History{totalHistory > 0 ? ` (${totalHistory})` : ''}
+        </button>
+      </div>
+
+      {/* Status Tabs */}
       <div style={{
         display: 'flex',
         gap: 5,
@@ -287,29 +347,41 @@ export default function VendorOrdersPage() {
         <TabButton
           active={activeTab === 'all'}
           onClick={() => setActiveTab('all')}
-          label={`All (${orders.length})`}
+          label={`All (${viewOrders.length})`}
         />
-        <TabButton
-          active={activeTab === 'pending'}
-          onClick={() => setActiveTab('pending')}
-          label={`Pending${pendingCount > 0 ? ` (${pendingCount})` : ''}`}
-          highlight={pendingCount > 0}
-        />
-        <TabButton
-          active={activeTab === 'confirmed'}
-          onClick={() => setActiveTab('confirmed')}
-          label={`Confirmed${confirmedCount > 0 ? ` (${confirmedCount})` : ''}`}
-        />
-        <TabButton
-          active={activeTab === 'ready'}
-          onClick={() => setActiveTab('ready')}
-          label={`Ready${readyCount > 0 ? ` (${readyCount})` : ''}`}
-        />
-        <TabButton
-          active={activeTab === 'fulfilled'}
-          onClick={() => setActiveTab('fulfilled')}
-          label={`Fulfilled${fulfilledCount > 0 ? ` (${fulfilledCount})` : ''}`}
-        />
+        {viewMode === 'active' ? (
+          <>
+            <TabButton
+              active={activeTab === 'pending'}
+              onClick={() => setActiveTab('pending')}
+              label={`Pending${pendingCount > 0 ? ` (${pendingCount})` : ''}`}
+              highlight={pendingCount > 0}
+            />
+            <TabButton
+              active={activeTab === 'confirmed'}
+              onClick={() => setActiveTab('confirmed')}
+              label={`Confirmed${confirmedCount > 0 ? ` (${confirmedCount})` : ''}`}
+            />
+            <TabButton
+              active={activeTab === 'ready'}
+              onClick={() => setActiveTab('ready')}
+              label={`Ready${readyCount > 0 ? ` (${readyCount})` : ''}`}
+            />
+          </>
+        ) : (
+          <>
+            <TabButton
+              active={activeTab === 'fulfilled'}
+              onClick={() => setActiveTab('fulfilled')}
+              label={`Fulfilled${fulfilledCount > 0 ? ` (${fulfilledCount})` : ''}`}
+            />
+            <TabButton
+              active={activeTab === 'cancelled'}
+              onClick={() => setActiveTab('cancelled')}
+              label={`Cancelled${cancelledCount > 0 ? ` (${cancelledCount})` : ''}`}
+            />
+          </>
+        )}
       </div>
 
       {/* Orders List */}
@@ -322,10 +394,10 @@ export default function VendorOrdersPage() {
             padding: 60,
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: 48, marginBottom: 15 }}>📦</div>
+            <div style={{ fontSize: 48, marginBottom: 15 }}>{viewMode === 'history' ? '📋' : '📦'}</div>
             <p style={{ color: '#666', margin: 0 }}>
               {activeTab === 'all'
-                ? 'No orders yet'
+                ? viewMode === 'active' ? 'No active orders' : 'No order history yet'
                 : `No ${activeTab} orders`
               }
             </p>
@@ -340,6 +412,13 @@ export default function VendorOrdersPage() {
           ))
         )}
       </div>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

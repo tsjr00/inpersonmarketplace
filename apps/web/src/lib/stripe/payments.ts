@@ -113,9 +113,8 @@ export async function createMarketBoxCheckoutSession({
   successUrl: string
   cancelUrl: string
 }) {
-  // Generate unique idempotency key per attempt (offering + user + timestamp)
-  // Duplicate purchase prevention is handled at the API level (existing subscription check)
-  const idempotencyKey = `market-box-${offeringId}-${userId}-${termWeeks}w-${Date.now()}`
+  // Deterministic idempotency key — retries hit the same Stripe session instead of creating duplicates
+  const idempotencyKey = `market-box-${offeringId}-${userId}-${startDate}`
 
   const session = await stripe.checkout.sessions.create(
     {

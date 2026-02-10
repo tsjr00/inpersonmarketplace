@@ -79,6 +79,7 @@ export default function CheckoutPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null)
   const [vendorPaymentInfo, setVendorPaymentInfo] = useState<VendorPaymentInfo[]>([])
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
   const isSubmittingRef = useRef(false)
@@ -656,22 +657,27 @@ export default function CheckoutPage() {
                         <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>Qty:</span>
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               const cartItem = items.find(ci => ci.listingId === item.listingId)
-                              if (cartItem) updateQuantity(cartItem.id, item.quantity - 1)
+                              if (cartItem) {
+                                setUpdatingItemId(item.listingId)
+                                try { await updateQuantity(cartItem.id, item.quantity - 1) } finally { setUpdatingItemId(null) }
+                              }
                             }}
+                            disabled={updatingItemId === item.listingId}
                             style={{
                               width: 36,
                               height: 36,
                               border: `1px solid ${colors.border}`,
                               borderRadius: `${radius.sm} 0 0 ${radius.sm}`,
                               backgroundColor: colors.surfaceElevated,
-                              cursor: 'pointer',
+                              cursor: updatingItemId === item.listingId ? 'default' : 'pointer',
                               fontSize: typography.sizes.lg,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               color: colors.textPrimary,
+                              opacity: updatingItemId === item.listingId ? 0.5 : 1,
                             }}
                           >
                             −
@@ -690,23 +696,26 @@ export default function CheckoutPage() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               const cartItem = items.find(ci => ci.listingId === item.listingId)
-                              if (cartItem) updateQuantity(cartItem.id, item.quantity + 1)
+                              if (cartItem) {
+                                setUpdatingItemId(item.listingId)
+                                try { await updateQuantity(cartItem.id, item.quantity + 1) } finally { setUpdatingItemId(null) }
+                              }
                             }}
-                            disabled={item.available_quantity !== null && item.quantity >= item.available_quantity}
+                            disabled={updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)}
                             style={{
                               width: 36,
                               height: 36,
                               border: `1px solid ${colors.border}`,
                               borderRadius: `0 ${radius.sm} ${radius.sm} 0`,
                               backgroundColor: colors.surfaceElevated,
-                              cursor: item.available_quantity !== null && item.quantity >= item.available_quantity ? 'not-allowed' : 'pointer',
+                              cursor: (updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)) ? 'not-allowed' : 'pointer',
                               fontSize: typography.sizes.lg,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              opacity: item.available_quantity !== null && item.quantity >= item.available_quantity ? 0.5 : 1,
+                              opacity: (updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)) ? 0.5 : 1,
                               color: colors.textPrimary,
                             }}
                           >

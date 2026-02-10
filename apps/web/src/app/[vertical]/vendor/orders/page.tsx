@@ -6,6 +6,7 @@ import Link from 'next/link'
 import OrderCard from '@/components/vendor/OrderCard'
 import OrderFilters from '@/components/vendor/OrderFilters'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import Toast, { type ToastType } from '@/components/shared/Toast'
 
 interface OrderItem {
   id: string
@@ -73,6 +74,7 @@ export default function VendorOrdersPage() {
   const [marketFilter, setMarketFilter] = useState<string | null>(null)
   const [pickupDateFilter, setPickupDateFilter] = useState<string | null>(null)
   const [dateRangeFilter, setDateRangeFilter] = useState<string | null>('30days') // Default to last 30 days
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
 
   useEffect(() => {
     fetchOrders()
@@ -137,11 +139,11 @@ export default function VendorOrdersPage() {
         fetchOrders()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to confirm item')
+        setToast({ message: error.error || 'Failed to confirm item', type: 'error' })
       }
     } catch (error) {
       console.error('Error confirming item:', error)
-      alert('An error occurred')
+      setToast({ message: 'An error occurred', type: 'error' })
     }
   }
 
@@ -154,11 +156,11 @@ export default function VendorOrdersPage() {
         fetchOrders()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to mark item ready')
+        setToast({ message: error.error || 'Failed to mark item ready', type: 'error' })
       }
     } catch (error) {
       console.error('Error marking item ready:', error)
-      alert('An error occurred')
+      setToast({ message: 'An error occurred', type: 'error' })
     }
   }
 
@@ -173,11 +175,11 @@ export default function VendorOrdersPage() {
         fetchOrders()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to fulfill item')
+        setToast({ message: error.error || 'Failed to fulfill item', type: 'error' })
       }
     } catch (error) {
       console.error('Error fulfilling item:', error)
-      alert('An error occurred')
+      setToast({ message: 'An error occurred', type: 'error' })
     }
   }
 
@@ -196,11 +198,11 @@ export default function VendorOrdersPage() {
         fetchOrders()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to reject item')
+        setToast({ message: error.error || 'Failed to reject item', type: 'error' })
       }
     } catch (error) {
       console.error('Error rejecting item:', error)
-      alert('An error occurred')
+      setToast({ message: 'An error occurred', type: 'error' })
     }
   }
 
@@ -469,6 +471,13 @@ export default function VendorOrdersPage() {
               : 'Orders will appear here when customers make purchases.'}
           </p>
         </div>
+      )}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   )

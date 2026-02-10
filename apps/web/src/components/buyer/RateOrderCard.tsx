@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import Toast, { type ToastType } from '@/components/shared/Toast'
 
 interface UnratedOrder {
   id: string
@@ -26,6 +27,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
   const [selectedRating, setSelectedRating] = useState<number>(0)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
 
   useEffect(() => {
     fetchUnratedOrders()
@@ -69,10 +71,10 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
         fetchUnratedOrders()
       } else {
         const data = await res.json()
-        alert(data.error || 'Failed to submit rating')
+        setToast({ message: data.error || 'Failed to submit rating', type: 'error' })
       }
     } catch (err) {
-      alert('Failed to submit rating')
+      setToast({ message: 'Failed to submit rating', type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -300,6 +302,13 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
             </div>
           </div>
         </div>
+      )}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </>
   )
