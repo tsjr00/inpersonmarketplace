@@ -8,6 +8,7 @@ import {
   calculateAutoDeductAmount,
   recordFeeCredit
 } from '@/lib/payments/vendor-fees'
+import { sendNotification } from '@/lib/notifications'
 
 export async function POST(
   request: NextRequest,
@@ -53,11 +54,16 @@ export async function POST(
       throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before fulfilling orders.')
     }
 
-    // Get order item with payment info and confirmation window
+    // Get order item with payment info, confirmation window, and buyer/order info for notification
     crumb.supabase('select', 'order_items')
     const { data: orderItem } = await supabase
       .from('order_items')
-      .select('id, status, vendor_payout_cents, order_id, buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at')
+      .select(`
+        id, status, vendor_payout_cents, order_id,
+        buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
+        order:orders!inner(id, order_number, buyer_user_id),
+        listing:listings(title, vendor_profiles(profile_data))
+      `)
       .eq('id', orderItemId)
       .eq('vendor_profile_id', vendorProfile.id)
       .single()
@@ -214,6 +220,16 @@ export async function POST(
           .update({ status: 'completed' })
           .eq('id', orderItem.order_id)
       }
+
+      // Notify buyer that order is fulfilled
+      const fulfillOrderData = (orderItem as any).order as any
+      const fulfillListing = (orderItem as any).listing as any
+      const fulfillVendorName = fulfillListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+      await sendNotification(fulfillOrderData.buyer_user_id, 'order_fulfilled', {
+        orderNumber: fulfillOrderData.order_number,
+        vendorName: fulfillVendorName,
+        itemTitle: fulfillListing?.title,
+      })
 
       return NextResponse.json({
         success: true,

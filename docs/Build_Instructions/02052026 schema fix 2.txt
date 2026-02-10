@@ -1,0 +1,70 @@
+02052026 schema fix 2:
+
+  -- What columns actually exist on orders?
+| column_name                   | data_type                | is_nullable |
+| ----------------------------- | ------------------------ | ----------- |
+| id                            | uuid                     | NO          |
+| buyer_user_id                 | uuid                     | NO          |
+| vertical_id                   | text                     | NO          |
+| order_number                  | text                     | NO          |
+| status                        | USER-DEFINED             | NO          |
+| subtotal_cents                | integer                  | NO          |
+| platform_fee_cents            | integer                  | NO          |
+| total_cents                   | integer                  | NO          |
+| stripe_checkout_session_id    | text                     | YES         |
+| created_at                    | timestamp with time zone | YES         |
+| updated_at                    | timestamp with time zone | YES         |
+| payment_method                | USER-DEFINED             | YES         |
+| external_payment_confirmed_at | timestamp with time zone | YES         |
+| external_payment_confirmed_by | uuid                     | YES         |
+| parent_order_id               | uuid                     | YES         |
+| order_suffix                  | character varying        | YES         |
+
+
+
+
+
+  -- What columns actually exist on vendor_profiles?
+| column_name                | data_type                | is_nullable |
+| -------------------------- | ------------------------ | ----------- |
+| id                         | uuid                     | NO          |
+| user_id                    | uuid                     | YES         |
+| organization_id            | uuid                     | YES         |
+| vertical_id                | text                     | NO          |
+| status                     | USER-DEFINED             | YES         |
+| profile_data               | jsonb                    | YES         |
+| created_at                 | timestamp with time zone | YES         |
+| updated_at                 | timestamp with time zone | YES         |
+| deleted_at                 | timestamp with time zone | YES         |
+| stripe_account_id          | text                     | YES         |
+| stripe_onboarding_complete | boolean                  | YES         |
+| stripe_charges_enabled     | boolean                  | YES         |
+| stripe_payouts_enabled     | boolean                  | YES         |
+| tier                       | text                     | YES         |
+| profile_image_url          | text                     | YES         |
+| description                | text                     | YES         |
+| social_links               | jsonb                    | YES         |
+| home_market_id             | uuid                     | YES         |
+| latitude                   | numeric                  | YES         |
+| longitude                  | numeric                  | YES         |
+| geocoding_failed           | boolean                  | YES         |
+| referral_code              | text                     | YES         |
+| referred_by_vendor_id      | uuid                     | YES         |
+| is_founding_vendor         | boolean                  | YES         |
+| founding_vendor_granted_at | timestamp with time zone | YES         |
+| last_active_at             | timestamp with time zone | YES         |
+| last_login_at              | timestamp with time zone | YES         |
+| first_listing_at           | timestamp with time zone | YES         |
+| approved_at                | timestamp with time zone | YES         |
+| average_rating             | numeric                  | YES         |
+| rating_count               | integer                  | YES         |
+| subscription_status        | text                     | YES         |
+| subscription_cycle         | text                     | YES         |
+| tier_started_at            | timestamp with time zone | YES         |
+| tier_expires_at            | timestamp with time zone | YES         |
+| stripe_customer_id         | text                     | YES         |
+| venmo_username             | text                     | YES         |
+| cashapp_cashtag            | text                     | YES         |
+| paypal_username            | text                     | YES         |
+| accepts_cash_at_pickup     | boolean                  | YES         |
+| certifications             | jsonb                    | YES         |

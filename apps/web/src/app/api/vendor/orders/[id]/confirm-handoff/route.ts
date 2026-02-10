@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -40,11 +41,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before confirming handoffs.')
     }
 
-    // Get order item - must belong to this vendor and buyer must have confirmed
+    // Get order item with buyer/order info for notification
     crumb.supabase('select', 'order_items')
     const { data: orderItem, error: fetchError } = await supabase
       .from('order_items')
-      .select('id, status, vendor_payout_cents, order_id, buyer_confirmed_at, vendor_confirmed_at, vendor_profile_id')
+      .select(`
+        id, status, vendor_payout_cents, order_id,
+        buyer_confirmed_at, vendor_confirmed_at, vendor_profile_id,
+        order:orders!inner(id, order_number, buyer_user_id),
+        listing:listings(title, vendor_profiles(profile_data))
+      `)
       .eq('id', orderItemId)
       .eq('vendor_profile_id', vendorProfile.id)
       .single()
@@ -137,6 +143,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .update({ status: 'completed' })
         .eq('id', orderItem.order_id)
     }
+
+    // Notify buyer that order is fulfilled
+    const handoffOrderData = (orderItem as any).order as any
+    const handoffListing = (orderItem as any).listing as any
+    const handoffVendorName = handoffListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+    await sendNotification(handoffOrderData.buyer_user_id, 'order_fulfilled', {
+      orderNumber: handoffOrderData.order_number,
+      vendorName: handoffVendorName,
+      itemTitle: handoffListing?.title,
+    })
 
     return NextResponse.json({
       success: true,

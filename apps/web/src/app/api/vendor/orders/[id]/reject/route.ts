@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
-    // Get the order item and verify it belongs to this vendor
+    // Get the order item with buyer/order info for notification
     const { data: orderItem, error: fetchError } = await supabase
       .from('order_items')
       .select(`
@@ -55,7 +56,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         subtotal_cents,
         cancelled_at,
         vendor_profile_id,
-        order_id
+        order_id,
+        order:orders!inner(id, order_number, buyer_user_id),
+        listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
       .single()
@@ -119,10 +122,45 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq('id', orderItem.order_id)
     }
 
-    // TODO: In production:
-    // 1. Trigger Stripe refund
-    // 2. Send notification email to buyer
-    // 3. Track vendor rejection rate for accountability
+    // Track cancellation metrics — only counts if vendor had already confirmed
+    const wasConfirmed = ['confirmed', 'ready'].includes(orderItem.status)
+    if (wasConfirmed) {
+      const { data: counts } = await supabase.rpc('increment_vendor_cancelled' as any, {
+        p_vendor_id: vendorProfile.id,
+      }).single()
+
+      // Check cancellation rate thresholds (only after 10+ confirmed orders)
+      if (counts) {
+        const { confirmed_count, cancelled_count } = counts as { confirmed_count: number; cancelled_count: number }
+        if (confirmed_count >= 10) {
+          const rate = Math.round((cancelled_count / confirmed_count) * 100)
+          if (rate >= 10) {
+            // Send warning notification to vendor (email + in-app)
+            await sendNotification(user.id, 'vendor_cancellation_warning', {
+              cancellationRate: rate,
+              cancelledCount: cancelled_count,
+              confirmedCount: confirmed_count,
+            })
+            // Update warning timestamp
+            await supabase
+              .from('vendor_profiles')
+              .update({ cancellation_warning_sent_at: new Date().toISOString() })
+              .eq('id', vendorProfile.id)
+          }
+        }
+      }
+    }
+
+    // Notify buyer that vendor cancelled their order (URGENT — SMS + in-app)
+    const rejectOrderData = (orderItem as any).order as any
+    const rejectListing = (orderItem as any).listing as any
+    const rejectVendorName = rejectListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+    await sendNotification(rejectOrderData.buyer_user_id, 'order_cancelled_by_vendor', {
+      orderNumber: rejectOrderData.order_number,
+      vendorName: rejectVendorName,
+      itemTitle: rejectListing?.title,
+      reason,
+    })
 
     return NextResponse.json({
       success: true,

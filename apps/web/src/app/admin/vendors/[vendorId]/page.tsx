@@ -130,6 +130,73 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
             </div>
           </div>
 
+          {/* Certifications & Documents */}
+          {vendor.certifications && Array.isArray(vendor.certifications) && (vendor.certifications as Array<Record<string, unknown>>).length > 0 && (
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: 8,
+              padding: 25,
+              marginBottom: 20,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
+              <h2 style={{ color: '#333', marginBottom: 20 }}>Certifications & Documents</h2>
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                {(vendor.certifications as Array<Record<string, unknown>>).map((cert, i) => (
+                  <div key={i} style={{
+                    padding: 12,
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: 6,
+                    border: '1px solid #eee'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: '#333' }}>
+                          {cert.label as string || cert.type as string}
+                        </div>
+                        <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
+                          #{cert.registration_number as string} — {cert.state as string}
+                          {cert.expires_at ? ` — Expires: ${new Date(cert.expires_at as string).toLocaleDateString()}` : null}
+                        </div>
+                      </div>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: 12,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        backgroundColor: cert.verified ? '#d4edda' : '#fff3cd',
+                        color: cert.verified ? '#155724' : '#856404'
+                      }}>
+                        {cert.verified ? 'Verified' : 'Unverified'}
+                      </span>
+                    </div>
+                    {cert.document_url ? (
+                      <div style={{ marginTop: 8 }}>
+                        <a
+                          href={cert.document_url as string}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-block',
+                            padding: '4px 10px',
+                            backgroundColor: '#0070f3',
+                            color: 'white',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            textDecoration: 'none',
+                            fontWeight: 500
+                          }}
+                        >
+                          View Document {(cert.document_url as string).endsWith('.pdf') ? '(PDF)' : '(Image)'}
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* User Account */}
           {userProfile && (
             <div style={{

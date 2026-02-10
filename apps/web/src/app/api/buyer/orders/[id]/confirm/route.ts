@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
+import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -202,7 +203,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         throw traced.fromSupabase(updateError, { table: 'order_items', operation: 'update' })
       }
 
-      // Create notification for vendor to fulfill
+      // Notify vendor to fulfill (multi-channel via notification service)
       crumb.supabase('select', 'vendor_profiles')
       const { data: vendorProfile } = await supabase
         .from('vendor_profiles')
@@ -211,16 +212,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .single()
 
       if (vendorProfile?.user_id) {
-        crumb.supabase('insert', 'notifications')
-        await supabase.from('notifications').insert({
-          user_id: vendorProfile.user_id,
-          type: 'pickup_confirmation_needed',
-          title: 'Buyer Acknowledged Receipt',
-          message: 'A buyer acknowledged they received their order. Please tap Fulfill within 30 seconds.',
-          data: {
-            order_item_id: orderItemId,
-            confirmation_window_expires_at: windowExpires.toISOString()
-          }
+        await sendNotification(vendorProfile.user_id, 'pickup_confirmation_needed', {
+          orderItemId,
         })
       }
 

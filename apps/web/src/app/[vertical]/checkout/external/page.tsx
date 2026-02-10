@@ -272,6 +272,21 @@ export default function ExternalCheckoutPage() {
           </div>
         )}
 
+        {/* Refund Policy Notice */}
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          marginBottom: spacing.md,
+          backgroundColor: colors.surfaceMuted,
+          borderRadius: radius.md,
+          fontSize: typography.sizes.xs,
+          color: colors.textMuted,
+          lineHeight: 1.5
+        }}>
+          <strong style={{ color: colors.textSecondary }}>Refund policy for external payments:</strong>{' '}
+          Refunds for orders paid via {getPaymentMethodLabel(orderData.payment_method)} are handled directly
+          between you and the vendor. The platform cannot process refunds for external payments.
+        </div>
+
         {/* After Payment */}
         {paymentInitiated && !isCash && (
           <div style={{

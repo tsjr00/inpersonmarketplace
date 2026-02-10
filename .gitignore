@@ -41,6 +41,22 @@ coverage/
 # Misc
 *.pem
 
+# Credentials / secrets
+Twilio account info.jpg
+twilio_2FA_recovery_code.txt
+docs/Build_Instructions/Stripe Test Mode Connection*
+
+# Windows artifacts
+NUL
+apps/web/NUL
+
+# Supabase CLI temp files
+supabase/.temp/
+apps/web/supabase/.temp/
+
+# Excel lock files
+~$*.xlsx
+
 # Data directory (uploads/exports only, not app data)
 data/*
 !data/.gitkeep

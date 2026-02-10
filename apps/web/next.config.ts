@@ -45,6 +45,7 @@ const securityHeaders = [
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
+      "worker-src 'self'",
       "frame-ancestors 'none'",
     ].join('; '),
   },

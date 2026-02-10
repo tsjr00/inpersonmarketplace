@@ -273,6 +273,7 @@ export default function VendorsTableClient({
               <th style={thStyle}>Vertical</th>
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Tier</th>
+              <th style={thStyle}>Cancel %</th>
               <th style={thStyle}>Created</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Action</th>
             </tr>
@@ -280,7 +281,7 @@ export default function VendorsTableClient({
           <tbody>
             {vendors.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: spacing.lg, textAlign: 'center', color: colors.textMuted }}>
+                <td colSpan={8} style={{ padding: spacing.lg, textAlign: 'center', color: colors.textMuted }}>
                   No vendors found matching your filters
                 </td>
               </tr>
@@ -355,6 +356,28 @@ export default function VendorsTableClient({
                       }}>
                         {vendorTier}
                       </span>
+                    </td>
+                    <td style={tdStyle}>
+                      {(() => {
+                        const confirmed = (vendor as any).orders_confirmed_count || 0
+                        const cancelled = (vendor as any).orders_cancelled_after_confirm_count || 0
+                        if (confirmed < 10) return <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>—</span>
+                        const rate = Math.round((cancelled / confirmed) * 100)
+                        const isRed = rate >= 20
+                        const isOrange = rate >= 10
+                        return (
+                          <span style={{
+                            padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                            backgroundColor: isRed ? '#fee2e2' : isOrange ? '#ffedd5' : '#dcfce7',
+                            color: isRed ? '#991b1b' : isOrange ? '#9a3412' : '#166534'
+                          }}>
+                            {rate}%
+                          </span>
+                        )
+                      })()}
                     </td>
                     <td style={tdStyle}>
                       {new Date(vendor.created_at).toLocaleDateString()}

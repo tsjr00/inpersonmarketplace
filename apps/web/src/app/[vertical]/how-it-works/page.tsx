@@ -83,7 +83,7 @@ export default function HowItWorksPage() {
           <InfoCard title="The Pickup Confirmation Step" variant="green">
             <p>After the vendor hands you your items:</p>
             <ol style={{ paddingLeft: '1.2rem', margin: `${spacing.xs} 0` }}>
-              <li>Tap <strong>&quot;Confirm Receipt&quot;</strong> in your app</li>
+              <li>Tap <strong>&quot;Acknowledge Receipt&quot;</strong> in your app</li>
               <li>Vendor confirms on their end within 30 seconds</li>
               <li>Both see a green confirmation screen</li>
             </ol>
@@ -114,7 +114,7 @@ export default function HowItWorksPage() {
             'Buyer arrives at your booth on market day',
             'Verify the buyer and the order number',
             'Hand over all items',
-            'When buyer confirms receipt, tap "Yes, I Handed It Off" within 30 seconds',
+            'When buyer acknowledges receipt, tap "Yes, I Handed It Off" within 30 seconds',
             'See green confirmation screen',
           ]} />
 
@@ -168,7 +168,7 @@ export default function HowItWorksPage() {
                 <li>Open your order details</li>
                 <li>Present your order information to the vendor</li>
                 <li>Verify you received all items</li>
-                <li>Tap &quot;Confirm Receipt&quot;</li>
+                <li>Tap &quot;Acknowledge Receipt&quot;</li>
                 <li>Wait for vendor to confirm (30 seconds)</li>
                 <li>Green screen = you&apos;re done!</li>
                 <li><strong>Don&apos;t leave until you see the green screen</strong></li>

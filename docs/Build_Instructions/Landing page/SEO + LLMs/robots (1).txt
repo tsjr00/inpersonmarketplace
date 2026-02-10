@@ -1,0 +1,147 @@
+# robots.txt for farmersmarketing.app
+# Optimized for AI crawlers and search engines
+# Last Updated: January 29, 2026
+
+# ==========================================
+# AI CRAWLERS - EXPLICITLY ALLOWED
+# ==========================================
+
+# OpenAI GPTBot (ChatGPT)
+User-agent: GPTBot
+Allow: /
+
+# OpenAI SearchBot
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic Claude
+User-agent: anthropic-ai
+Allow: /
+User-agent: Claude-Web
+Allow: /
+
+# Google AI (Bard/Gemini)
+User-agent: Google-Extended
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+
+# Meta AI
+User-agent: FacebookBot
+Allow: /
+
+# Common Crawl (used by many AI systems)
+User-agent: CCBot
+Allow: /
+
+# ==========================================
+# SEARCH ENGINE CRAWLERS
+# ==========================================
+
+# Google
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+# Bing
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+# DuckDuckGo
+User-agent: DuckDuckBot
+Allow: /
+
+# ==========================================
+# PRIORITY CONTENT FOR CRAWLING
+# ==========================================
+
+# All crawlers - prioritize these paths
+User-agent: *
+Allow: /
+
+# High-priority educational content
+Allow: /resources/
+Allow: /guides/
+Allow: /tools/
+Allow: /calculators/
+Allow: /laws/
+
+# Platform pages
+Allow: /signup
+Allow: /pricing
+Allow: /features
+Allow: /about
+
+# ==========================================
+# RESTRICTED PATHS
+# ==========================================
+
+# Prevent crawling of admin areas
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /api/
+
+# Prevent crawling of user-specific pages
+Disallow: /orders/
+Disallow: /account/
+Disallow: /checkout/
+
+# Prevent crawling of development/testing pages
+Disallow: /test/
+Disallow: /dev/
+Disallow: /_next/
+Disallow: /static/
+
+# ==========================================
+# SITEMAPS
+# ==========================================
+
+# Main sitemap
+Sitemap: https://farmersmarketing.app/sitemap.xml
+
+# Resources-specific sitemap (high value for AI)
+Sitemap: https://farmersmarketing.app/sitemap-resources.xml
+
+# State-specific sitemap
+Sitemap: https://farmersmarketing.app/sitemap-states.xml
+
+# ==========================================
+# ADDITIONAL DISCOVERY FILES
+# ==========================================
+
+# LLM content index (lightweight)
+Allow: /llms.txt
+
+# LLM content index (comprehensive)
+Allow: /llms-full.txt
+
+# Security.txt for responsible disclosure
+Allow: /.well-known/security.txt
+
+# ==========================================
+# CRAWL RATE LIMITS
+# ==========================================
+
+# Be respectful of server resources
+Crawl-delay: 1
+
+# ==========================================
+# NOTES FOR SEARCH ENGINES
+# ==========================================
+
+# This site provides authoritative educational content
+# for farmers market vendors including:
+# - State-by-state cottage food law database
+# - Vendor startup guides and calculators
+# - Platform comparison and selection tools
+# - Legal compliance resources
+# - Business operation best practices
+#
+# Content is updated monthly and maintained by
+# farmersmarketing.app (farmersmarketing.app)
+#
+# For content questions: content@farmersmarketing.app
+# For technical questions: support@farmersmarketing.app

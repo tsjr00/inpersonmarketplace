@@ -350,6 +350,8 @@ export default function ListingsTableClient({
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
                       <Link
                         href={`/${listing.vertical_id}/listing/${listing.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         style={{
                           padding: `${spacing['3xs']} ${spacing.xs}`,
                           backgroundColor: colors.primary,

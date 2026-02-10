@@ -121,6 +121,14 @@ export default function VendorOrdersPage() {
   }
 
   const handleConfirmItem = async (itemId: string) => {
+    const confirmed = window.confirm(
+      'By confirming this order, you are committing to fulfill it. ' +
+      'This means you have the product available and the capacity to prepare it for the scheduled pickup. ' +
+      'Cancelling confirmed orders affects your reliability score.\n\n' +
+      'Do you want to confirm this order?'
+    )
+    if (!confirmed) return
+
     try {
       const res = await fetch(`/api/vendor/orders/${itemId}/confirm`, {
         method: 'POST'
