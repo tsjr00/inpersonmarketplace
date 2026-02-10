@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useCart, CartItem } from '@/lib/hooks/useCart'
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
@@ -23,6 +23,16 @@ export function CartDrawer() {
     setIsOpen(false)
     router.push(`/${vertical}/checkout`)
   }
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+    if (isOpen) {
+      window.addEventListener('keydown', handleEsc)
+      return () => window.removeEventListener('keydown', handleEsc)
+    }
+  }, [isOpen, setIsOpen])
 
   if (!isOpen) return null
 

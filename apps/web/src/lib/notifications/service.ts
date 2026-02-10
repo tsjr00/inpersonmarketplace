@@ -395,8 +395,8 @@ export async function sendNotification(
     if (!userPhone && profile?.phone) {
       userPhone = profile.phone
     }
-  } catch {
-    // Use defaults if we can't fetch preferences
+  } catch (prefError) {
+    console.warn('[notifications] Failed to fetch user preferences, using defaults:', prefError)
   }
 
   // Dispatch to each channel
