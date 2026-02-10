@@ -12,6 +12,9 @@
 --      is_listing_accepting_orders() automatically.
 -- =====================================================
 
+-- Drop existing function first (return type change requires it)
+DROP FUNCTION IF EXISTS get_available_pickup_dates(uuid);
+
 CREATE OR REPLACE FUNCTION get_available_pickup_dates(
   p_listing_id UUID
 )
