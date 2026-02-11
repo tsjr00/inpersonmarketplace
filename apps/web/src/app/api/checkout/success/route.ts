@@ -4,6 +4,7 @@ import { stripe } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { sendNotification } from '@/lib/notifications'
+import { logPublicActivityEvent } from '@/lib/marketing/activity-events'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/checkout/success', 'GET', async () => {
@@ -110,12 +111,12 @@ export async function GET(request: NextRequest) {
           quantityByListing.set(item.listing_id, current + item.quantity)
         }
 
-        // Batch fetch all listings to check stock levels
+        // Batch fetch all listings to check stock levels + activity event data
         const listingIds = Array.from(quantityByListing.keys())
         crumb.supabase('select', 'listings (batch)')
         const { data: listings } = await serviceClient
           .from('listings')
-          .select('id, quantity, title, vendor_profile_id, vendor_profiles(user_id)')
+          .select('id, quantity, title, category, vendor_profile_id, vendor_profiles(user_id, profile_data, vertical_id)')
           .in('id', listingIds)
 
         if (listings && listings.length > 0) {
@@ -134,6 +135,47 @@ export async function GET(request: NextRequest) {
               await sendNotification(vendorUserId, 'inventory_low_stock', {
                 listingTitle: listing.title,
                 quantity: listing.quantity,
+              })
+            }
+          }
+
+          // Log public activity events for social proof toasts
+          // Fetch market city for purchase events
+          const { data: orderItemsWithMarket } = await serviceClient
+            .from('order_items')
+            .select('listing_id, markets!market_id(city)')
+            .eq('order_id', orderId)
+
+          const marketCityByListing = new Map<string, string>()
+          if (orderItemsWithMarket) {
+            for (const oi of orderItemsWithMarket) {
+              const m = oi.markets as unknown as { city?: string } | null
+              if (m?.city) marketCityByListing.set(oi.listing_id, m.city)
+            }
+          }
+
+          for (const listing of listings) {
+            const vp = listing.vendor_profiles as unknown as { user_id: string; profile_data: Record<string, unknown>; vertical_id: string } | null
+            const vpData = vp?.profile_data
+            const vName = (vpData?.business_name as string) || (vpData?.farm_name as string) || undefined
+            const verticalId = vp?.vertical_id || 'farmers-market'
+
+            await logPublicActivityEvent({
+              vertical_id: verticalId,
+              event_type: 'purchase',
+              city: marketCityByListing.get(listing.id) || undefined,
+              item_name: listing.title || undefined,
+              vendor_display_name: vName,
+              item_category: listing.category || undefined,
+            })
+
+            // If item sold out from this purchase
+            if (listing.quantity === 0) {
+              await logPublicActivityEvent({
+                vertical_id: verticalId,
+                event_type: 'sold_out',
+                item_name: listing.title || undefined,
+                vendor_display_name: vName,
               })
             }
           }

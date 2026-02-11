@@ -6,6 +6,8 @@ import ListingPurchaseSection from '@/components/listings/ListingPurchaseSection
 import ListingImageGallery from '@/components/listings/ListingImageGallery'
 import PickupLocationsCard from '@/components/listings/PickupLocationsCard'
 import BackLink from '@/components/shared/BackLink'
+import ShareButton from '@/components/marketing/ShareButton'
+import { listingJsonLd } from '@/lib/marketing/json-ld'
 import { formatDisplayPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { groupPickupDatesByMarket, type AvailablePickupDate } from '@/types/pickup'
@@ -186,6 +188,18 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const isInPremiumWindow = !!(premiumWindowEndsAt && premiumWindowEndsAt > now)
   const isPremiumRestricted = isInPremiumWindow && !isPremiumBuyer
 
+  const primaryImage = listingImages.find(img => img.is_primary) || listingImages[0]
+  const jsonLd = listingJsonLd({
+    name: listing.title,
+    description: listing.description,
+    imageUrl: primaryImage?.url || null,
+    url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/listing/${listingId}`,
+    priceCents: listing.price_cents || 0,
+    quantity: listing.quantity,
+    category: listing.category,
+    vendorName,
+  })
+
   return (
     <div
       style={{
@@ -195,13 +209,17 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
       }}
       className="listing-detail-page"
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Back Link - uses browser history to go back to previous page */}
       <div style={{
         padding: spacing.sm,
         borderBottom: `1px solid ${colors.border}`,
         backgroundColor: colors.surfaceElevated
       }}>
-        <div style={{ maxWidth: containers.xl, margin: '0 auto' }}>
+        <div style={{ maxWidth: containers.xl, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <BackLink
             fallbackHref={`/${vertical}/browse`}
             fallbackLabel="Back to Browse"
@@ -209,6 +227,12 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               color: colors.primary,
               fontSize: typography.sizes.sm
             }}
+          />
+          <ShareButton
+            url={`${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/listing/${listingId}`}
+            title={listing.title}
+            text={`${listing.title} from ${vendorName}`}
+            variant="compact"
           />
         </div>
       </div>

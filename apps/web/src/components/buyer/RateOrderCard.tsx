@@ -27,6 +27,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
   const [selectedRating, setSelectedRating] = useState<number>(0)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showGoogleReview, setShowGoogleReview] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
 
   useEffect(() => {
@@ -63,11 +64,17 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
       })
 
       if (res.ok) {
-        // Close modal and refresh list
-        setRatingOrder(null)
-        setRatingVendor(null)
-        setSelectedRating(0)
-        setComment('')
+        const googlePlaceId = process.env.NEXT_PUBLIC_GOOGLE_PLACE_ID
+        if (selectedRating >= 4 && googlePlaceId) {
+          // Show Google review prompt for good ratings
+          setShowGoogleReview(true)
+        } else {
+          // Close modal and refresh list
+          setRatingOrder(null)
+          setRatingVendor(null)
+          setSelectedRating(0)
+          setComment('')
+        }
         fetchUnratedOrders()
       } else {
         const data = await res.json()
@@ -156,6 +163,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
             setRatingVendor(null)
             setSelectedRating(0)
             setComment('')
+            setShowGoogleReview(false)
           }}
         >
           <div
@@ -168,138 +176,224 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div style={{
-              padding: spacing.lg,
-              borderBottom: `1px solid ${colors.border}`,
-              textAlign: 'center'
-            }}>
-              <span style={{ fontSize: '3rem', display: 'block', marginBottom: spacing.xs }}>⭐</span>
-              <h2 style={{
-                margin: 0,
-                fontSize: typography.sizes.xl,
-                fontWeight: typography.weights.bold,
-                color: colors.textPrimary
-              }}>
-                Rate {ratingVendor.name}
-              </h2>
-              <p style={{
-                margin: `${spacing.xs} 0 0`,
-                fontSize: typography.sizes.sm,
-                color: colors.textMuted
-              }}>
-                Order {ratingOrder.order_number}
-              </p>
-            </div>
-
-            {/* Rating Stars */}
-            <div style={{ padding: spacing.lg }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                gap: spacing.sm,
-                marginBottom: spacing.md
-              }}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setSelectedRating(star)}
+            {showGoogleReview ? (
+              <>
+                {/* Google Review Prompt */}
+                <div style={{
+                  padding: spacing.lg,
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '3rem', marginBottom: spacing.xs }}>🎉</div>
+                  <h2 style={{
+                    margin: 0,
+                    fontSize: typography.sizes.xl,
+                    fontWeight: typography.weights.bold,
+                    color: colors.textPrimary
+                  }}>
+                    Thanks for the great rating!
+                  </h2>
+                  <p style={{
+                    margin: `${spacing.sm} 0 0`,
+                    fontSize: typography.sizes.sm,
+                    color: colors.textSecondary,
+                    lineHeight: 1.5
+                  }}>
+                    Would you mind leaving us a quick Google review? It helps local vendors get discovered.
+                  </p>
+                </div>
+                <div style={{
+                  padding: spacing.md,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: spacing.sm
+                }}>
+                  <a
+                    href={`https://search.google.com/local/writereview?placeid=${process.env.NEXT_PUBLIC_GOOGLE_PLACE_ID}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     style={{
-                      background: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: spacing.xs,
+                      padding: spacing.sm,
+                      backgroundColor: '#4285f4',
+                      color: 'white',
                       border: 'none',
-                      fontSize: '2.5rem',
-                      cursor: 'pointer',
-                      padding: spacing['2xs'],
-                      opacity: star <= selectedRating ? 1 : 0.3,
-                      transform: star <= selectedRating ? 'scale(1.1)' : 'scale(1)',
-                      transition: 'all 0.15s ease'
+                      borderRadius: radius.md,
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.semibold,
+                      textDecoration: 'none',
+                      minHeight: 48,
+                      cursor: 'pointer'
                     }}
-                    aria-label={`${star} star${star !== 1 ? 's' : ''}`}
+                    onClick={() => {
+                      setRatingOrder(null)
+                      setRatingVendor(null)
+                      setSelectedRating(0)
+                      setComment('')
+                      setShowGoogleReview(false)
+                    }}
                   >
-                    ⭐
+                    Review on Google
+                  </a>
+                  <button
+                    onClick={() => {
+                      setRatingOrder(null)
+                      setRatingVendor(null)
+                      setSelectedRating(0)
+                      setComment('')
+                      setShowGoogleReview(false)
+                    }}
+                    style={{
+                      padding: spacing.sm,
+                      backgroundColor: 'transparent',
+                      color: colors.textMuted,
+                      border: 'none',
+                      fontSize: typography.sizes.sm,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Not now
                   </button>
-                ))}
-              </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Header */}
+                <div style={{
+                  padding: spacing.lg,
+                  borderBottom: `1px solid ${colors.border}`,
+                  textAlign: 'center'
+                }}>
+                  <span style={{ fontSize: '3rem', display: 'block', marginBottom: spacing.xs }}>⭐</span>
+                  <h2 style={{
+                    margin: 0,
+                    fontSize: typography.sizes.xl,
+                    fontWeight: typography.weights.bold,
+                    color: colors.textPrimary
+                  }}>
+                    Rate {ratingVendor.name}
+                  </h2>
+                  <p style={{
+                    margin: `${spacing.xs} 0 0`,
+                    fontSize: typography.sizes.sm,
+                    color: colors.textMuted
+                  }}>
+                    Order {ratingOrder.order_number}
+                  </p>
+                </div>
 
-              <p style={{
-                textAlign: 'center',
-                fontSize: typography.sizes.sm,
-                color: colors.textSecondary,
-                marginBottom: spacing.md
-              }}>
-                {selectedRating === 0 && 'Tap a star to rate'}
-                {selectedRating === 1 && 'Poor'}
-                {selectedRating === 2 && 'Fair'}
-                {selectedRating === 3 && 'Good'}
-                {selectedRating === 4 && 'Very Good'}
-                {selectedRating === 5 && 'Excellent!'}
-              </p>
+                {/* Rating Stars */}
+                <div style={{ padding: spacing.lg }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: spacing.sm,
+                    marginBottom: spacing.md
+                  }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setSelectedRating(star)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          fontSize: '2.5rem',
+                          cursor: 'pointer',
+                          padding: spacing['2xs'],
+                          opacity: star <= selectedRating ? 1 : 0.3,
+                          transform: star <= selectedRating ? 'scale(1.1)' : 'scale(1)',
+                          transition: 'all 0.15s ease'
+                        }}
+                        aria-label={`${star} star${star !== 1 ? 's' : ''}`}
+                      >
+                        ⭐
+                      </button>
+                    ))}
+                  </div>
 
-              {/* Optional Comment */}
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Add a comment (optional)"
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: spacing.sm,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: radius.md,
-                  fontSize: typography.sizes.base,
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
+                  <p style={{
+                    textAlign: 'center',
+                    fontSize: typography.sizes.sm,
+                    color: colors.textSecondary,
+                    marginBottom: spacing.md
+                  }}>
+                    {selectedRating === 0 && 'Tap a star to rate'}
+                    {selectedRating === 1 && 'Poor'}
+                    {selectedRating === 2 && 'Fair'}
+                    {selectedRating === 3 && 'Good'}
+                    {selectedRating === 4 && 'Very Good'}
+                    {selectedRating === 5 && 'Excellent!'}
+                  </p>
 
-            {/* Actions */}
-            <div style={{
-              padding: spacing.md,
-              borderTop: `1px solid ${colors.border}`,
-              display: 'flex',
-              gap: spacing.sm
-            }}>
-              <button
-                onClick={() => {
-                  setRatingOrder(null)
-                  setRatingVendor(null)
-                  setSelectedRating(0)
-                  setComment('')
-                }}
-                style={{
-                  flex: 1,
-                  padding: spacing.sm,
-                  backgroundColor: colors.surfaceMuted,
-                  color: colors.textSecondary,
-                  border: 'none',
-                  borderRadius: radius.md,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.medium,
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitRating}
-                disabled={selectedRating === 0 || submitting}
-                style={{
-                  flex: 1,
-                  padding: spacing.sm,
-                  backgroundColor: selectedRating === 0 || submitting ? colors.textMuted : '#f59e0b',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: radius.md,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold,
-                  cursor: selectedRating === 0 || submitting ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {submitting ? 'Submitting...' : 'Submit Rating'}
-              </button>
-            </div>
+                  {/* Optional Comment */}
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Add a comment (optional)"
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      padding: spacing.sm,
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.md,
+                      fontSize: typography.sizes.base,
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div style={{
+                  padding: spacing.md,
+                  borderTop: `1px solid ${colors.border}`,
+                  display: 'flex',
+                  gap: spacing.sm
+                }}>
+                  <button
+                    onClick={() => {
+                      setRatingOrder(null)
+                      setRatingVendor(null)
+                      setSelectedRating(0)
+                      setComment('')
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: spacing.sm,
+                      backgroundColor: colors.surfaceMuted,
+                      color: colors.textSecondary,
+                      border: 'none',
+                      borderRadius: radius.md,
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.medium,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmitRating}
+                    disabled={selectedRating === 0 || submitting}
+                    style={{
+                      flex: 1,
+                      padding: spacing.sm,
+                      backgroundColor: selectedRating === 0 || submitting ? colors.textMuted : '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: radius.md,
+                      fontSize: typography.sizes.base,
+                      fontWeight: typography.weights.semibold,
+                      cursor: selectedRating === 0 || submitting ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {submitting ? 'Submitting...' : 'Submit Rating'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

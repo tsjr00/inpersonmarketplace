@@ -7,6 +7,7 @@ import OrderStatusSummary from '@/components/buyer/OrderStatusSummary'
 import OrderTimeline from '@/components/buyer/OrderTimeline'
 import PickupDetails from '@/components/buyer/PickupDetails'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import PostPurchaseSharePrompt from '@/components/marketing/PostPurchaseSharePrompt'
 import { formatPrice, calculateDisplayPrice, calculateBuyerPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -38,6 +39,7 @@ interface OrderItem {
   subtotal_cents: number
   status: string
   vendor_name: string
+  vendor_profile_id: string | null
   vendor_email: string | null
   vendor_phone: string | null
   market: Market
@@ -91,6 +93,10 @@ export default function BuyerOrderDetailPage() {
   const [cancellingItemId, setCancellingItemId] = useState<string | null>(null)
   const [reportingItemId, setReportingItemId] = useState<string | null>(null)
 
+  // Share prompt state (shown after pickup confirmation)
+  const [showSharePrompt, setShowSharePrompt] = useState(false)
+  const [shareVendors, setShareVendors] = useState<{ id: string; name: string }[]>([])
+
   // Problem reporting state
   const [showProblemSection, setShowProblemSection] = useState(false)
   const [problemItems, setProblemItems] = useState<Record<string, boolean>>({})
@@ -139,6 +145,23 @@ export default function BuyerOrderDetailPage() {
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || 'Failed to confirm pickup')
+      }
+
+      // Collect unique vendors for share prompt
+      if (order) {
+        const vendorMap = new Map<string, { id: string; name: string }>()
+        for (const item of order.items) {
+          if (item.vendor_profile_id && !item.cancelled_at) {
+            vendorMap.set(item.vendor_profile_id, {
+              id: item.vendor_profile_id,
+              name: item.vendor_name,
+            })
+          }
+        }
+        if (vendorMap.size > 0) {
+          setShareVendors(Array.from(vendorMap.values()))
+          setShowSharePrompt(true)
+        }
       }
 
       // Refresh order to get updated status
@@ -961,6 +984,15 @@ export default function BuyerOrderDetailPage() {
         </div>{/* end content padding wrapper */}
 
       </div>
+
+      {/* Share Prompt - shown after pickup confirmation */}
+      {showSharePrompt && shareVendors.length > 0 && (
+        <PostPurchaseSharePrompt
+          vendors={shareVendors}
+          vertical={vertical}
+          onClose={() => setShowSharePrompt(false)}
+        />
+      )}
     </div>
   )
 }

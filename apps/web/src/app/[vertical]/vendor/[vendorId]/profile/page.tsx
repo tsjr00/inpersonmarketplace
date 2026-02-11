@@ -6,6 +6,8 @@ import { formatDisplayPrice, VendorTierType } from '@/lib/constants'
 import VendorAvatar from '@/components/shared/VendorAvatar'
 import TierBadge from '@/components/shared/TierBadge'
 import BackLink from '@/components/shared/BackLink'
+import ShareButton from '@/components/marketing/ShareButton'
+import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 import type { Metadata } from 'next'
 
@@ -372,6 +374,16 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
   const hasActiveMarketBoxes = (marketBoxes?.length || 0) > 0
 
+  const jsonLd = vendorProfileJsonLd({
+    name: vendorName,
+    url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/vendor/${vendorId}/profile`,
+    description: vendorDescription,
+    imageUrl: vendorImageUrl,
+    averageRating,
+    ratingCount,
+    socialLinks,
+  })
+
   return (
     <div
       style={{
@@ -381,6 +393,10 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
       }}
       className="vendor-profile-page"
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Admin Status Banner for non-approved vendors */}
       {isAdmin && vendorStatus !== 'approved' && (
         <div style={{
@@ -415,7 +431,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
         borderBottom: '1px solid #eee',
         backgroundColor: 'white'
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <BackLink
             fallbackHref={`/${vertical}/browse`}
             fallbackLabel="Back"
@@ -424,6 +440,12 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               fontSize: 14,
               fontWeight: 600
             }}
+          />
+          <ShareButton
+            url={`${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/vendor/${vendorId}/profile`}
+            title={vendorName}
+            text={`Check out ${vendorName} on ${branding.brand_name}`}
+            variant="compact"
           />
         </div>
       </div>
