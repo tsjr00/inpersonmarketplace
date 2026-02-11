@@ -139,7 +139,5 @@ AS
     10000 - (SELECT COALESCE(SUM(credit_amount_cents), 0) FROM vendor_referral_credits WHERE referrer_vendor_id = vp.id AND status IN ('earned','applied') AND earned_at >= DATE_TRUNC('year', NOW())) AS remaining_cap_cents
   FROM vendor_profiles vp;
 
--- ============================================================
--- 9. Enable RLS on spatial_ref_sys (PostGIS system table)
--- ============================================================
-ALTER TABLE IF EXISTS public.spatial_ref_sys ENABLE ROW LEVEL SECURITY;
+-- NOTE: spatial_ref_sys (PostGIS system table) also flagged by Supabase linter
+-- but is owned by supabase_admin — cannot ALTER from migrations. Safe to ignore.
