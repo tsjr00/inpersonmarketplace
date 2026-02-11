@@ -6,6 +6,7 @@ import ReferralCard from './ReferralCard'
 import PaymentMethodsCard from './PaymentMethodsCard'
 import PromoteCard from './PromoteCard'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
+import OnboardingChecklist from '@/components/vendor/OnboardingChecklist'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -289,6 +290,13 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             Vendor Dashboard
           </h1>
         </div>
+
+        {/* Onboarding Checklist — shown until vendor can publish listings */}
+        {vendorProfile.status !== 'approved' && (
+          <div style={{ marginBottom: spacing.md }}>
+            <OnboardingChecklist vertical={vertical} vendorStatus={vendorProfile.status} />
+          </div>
+        )}
 
         {/* ============================================= */}
         {/* ROW 1: Operational - Pickup Mode, Upcoming Pickups, Manage Locations */}
