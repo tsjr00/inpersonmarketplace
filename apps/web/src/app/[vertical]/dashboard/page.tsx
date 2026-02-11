@@ -71,6 +71,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         id,
         status,
         pickup_date,
+        pickup_snapshot,
         market:markets (
           id,
           name,
@@ -144,10 +145,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       const groupKey = `${vendorId}-${marketId}`
 
       if (!acc[groupKey]) {
+        const snapshot = item.pickup_snapshot as Record<string, unknown> | null
         acc[groupKey] = {
           vendor_name: vendorName,
           market: item.market,
           pickup_date: item.pickup_date,
+          pickup_start_time: (snapshot?.start_time as string) || null,
+          pickup_end_time: (snapshot?.end_time as string) || null,
           items: []
         }
       }
@@ -248,24 +252,29 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               display: 'flex',
               alignItems: 'center',
               gap: spacing.xs,
-              marginBottom: spacing.sm
+              marginBottom: spacing.sm,
+              flexWrap: 'nowrap'
             }}>
-              <span style={{ fontSize: typography.sizes['2xl'] }}>📦</span>
+              <span style={{ fontSize: typography.sizes.xl, flexShrink: 0 }}>📦</span>
               <h3 style={{
                 margin: 0,
-                fontSize: typography.sizes.xl,
+                fontSize: typography.sizes.lg,
                 fontWeight: typography.weights.bold,
-                color: '#166534'
+                color: '#166534',
+                whiteSpace: 'nowrap'
               }}>
                 Ready for Pickup!
               </h3>
               <span style={{
                 backgroundColor: '#16a34a',
                 color: 'white',
-                padding: `${spacing['3xs']} ${spacing.xs}`,
+                padding: `${spacing['3xs']} ${spacing['2xs']}`,
                 borderRadius: radius.full,
-                fontSize: typography.sizes.sm,
-                fontWeight: typography.weights.bold
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.bold,
+                flexShrink: 0,
+                minWidth: '20px',
+                textAlign: 'center'
               }}>
                 {ordersReadyForPickup.length}
               </span>
@@ -285,82 +294,92 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     border: '1px solid #bbf7d0'
                   }}
                 >
-                  {/* Order header */}
+                  {/* Order number */}
                   <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
+                    fontWeight: typography.weights.bold,
+                    color: colors.textPrimary,
+                    fontSize: typography.sizes.base,
+                    fontFamily: 'monospace'
+                  }}>
+                    {order.order_number}
+                  </div>
+                  {/* Item readiness count */}
+                  <div style={{
+                    color: '#166534',
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
                     marginBottom: spacing.xs,
                     paddingBottom: spacing.xs,
-                    borderBottom: '1px solid #dcfce7'
+                    borderBottom: `1px solid ${colors.primary}`
                   }}>
-                    <div style={{
-                      fontWeight: typography.weights.bold,
-                      color: colors.textPrimary,
-                      fontSize: typography.sizes.base,
-                      fontFamily: 'monospace'
-                    }}>
-                      {order.order_number}
-                    </div>
-                    <div style={{
-                      color: '#166534',
-                      fontSize: typography.sizes.sm,
-                      fontWeight: typography.weights.semibold
-                    }}>
-                      {order.ready_item_count < order.total_active_count
-                        ? `${order.ready_item_count} of ${order.total_active_count} items ready`
-                        : `${order.ready_item_count} item${order.ready_item_count !== 1 ? 's' : ''} ready`
-                      }
-                    </div>
+                    {order.ready_item_count < order.total_active_count
+                      ? `${order.ready_item_count} of ${order.total_active_count} items ready`
+                      : `${order.ready_item_count} item${order.ready_item_count !== 1 ? 's' : ''} ready`
+                    }
                   </div>
 
-                  {/* Pickup details by vendor */}
+                  {/* Pickup details by vendor — stacked single-column for mobile */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
                     {order.pickups.map((pickup: any, idx: number) => (
-                      <div key={idx} style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: spacing.sm,
-                        fontSize: typography.sizes.sm
-                      }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{
-                            fontWeight: typography.weights.semibold,
-                            color: colors.textPrimary
+                      <div key={idx} style={{ fontSize: typography.sizes.sm }}>
+                        {/* Vendor name */}
+                        <div style={{
+                          fontWeight: typography.weights.semibold,
+                          color: colors.textPrimary,
+                          marginBottom: spacing['3xs']
+                        }}>
+                          {pickup.vendor_name}
+                        </div>
+                        {/* Item names — each on own line */}
+                        {pickup.items.map((item: any, itemIdx: number) => (
+                          <div key={itemIdx} style={{
+                            color: colors.textMuted,
+                            fontSize: typography.sizes.xs,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                           }}>
-                            {pickup.vendor_name}
+                            {item.title}
                           </div>
+                        ))}
+                        {/* Market / pickup location */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: spacing['3xs'],
+                          color: colors.textSecondary,
+                          marginTop: spacing['3xs']
+                        }}>
+                          <span style={{ fontSize: typography.sizes.xs }}>
+                            {pickup.market?.market_type === 'private_pickup' ? '🏠' : '🧺'}
+                          </span>
+                          <span style={{
+                            fontWeight: typography.weights.medium,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {pickup.market?.name || 'Pickup'}
+                          </span>
+                        </div>
+                        {/* Day, date, and time window */}
+                        {pickup.pickup_date && (
                           <div style={{
                             color: colors.textMuted,
-                            fontSize: typography.sizes.xs
+                            fontSize: typography.sizes.xs,
+                            marginTop: spacing['3xs']
                           }}>
-                            {pickup.items.map((item: any) => item.title).join(', ')}
+                            {new Date(pickup.pickup_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            {pickup.pickup_start_time && pickup.pickup_end_time && (
+                              <span>
+                                {' · '}
+                                {pickup.pickup_start_time.replace(/:00$/, '')}
+                                {' – '}
+                                {pickup.pickup_end_time.replace(/:00$/, '')}
+                              </span>
+                            )}
                           </div>
-                        </div>
-                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: spacing['3xs'],
-                            color: colors.textSecondary
-                          }}>
-                            <span style={{ fontSize: typography.sizes.xs }}>
-                              {pickup.market?.market_type === 'private_pickup' ? '🏠' : '🧺'}
-                            </span>
-                            <span style={{ fontWeight: typography.weights.medium }}>
-                              {pickup.market?.name || 'Pickup'}
-                            </span>
-                          </div>
-                          {pickup.pickup_date && (
-                            <div style={{
-                              color: colors.textMuted,
-                              fontSize: typography.sizes.xs
-                            }}>
-                              {new Date(pickup.pickup_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                     ))}
                   </div>

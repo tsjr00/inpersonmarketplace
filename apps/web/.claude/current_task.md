@@ -1,66 +1,68 @@
-# Current Task: Fix Push Notifications + Multi-Vendor Order Status Display
+# Current Task: Session 17 — Bug Fixes + UI Polish
 Started: 2026-02-11
 
-## Status: ALL 5 STEPS COMPLETE — Ready to commit + push staging
+## Status: COMPLETE — Dashboard pickup card mobile fix (ready to commit)
 
-## Previous Task (COMPLETED)
-UI Overhaul (9 batches, 15 files) — committed as `0e9400f`, pushed to staging.
+## Session 17 Summary (all pushed to main + staging)
 
-## Plan
-Plan file: `nested-gliding-dove.md`
+### Commit `0e9400f` — UI Overhaul (9 batches, 15 files)
+Previous session work, already on main+staging.
 
-## User Clarifications
-- Do NOT change `order_confirmed` urgency (standard is intentional)
-- Do NOT add buyer purchase notification (buyer knows they purchased)
-- In-app notifications ARE working for all status changes
-- Push is the only broken channel — `push_enabled` never gets set
-- "There should be a notification when the order is marked ready" — already works via in-app + push (once push_enabled fixed)
+### Commit `5542e7b` — Push Notifications + Multi-Vendor Status
+- **Push fix**: Auto-sync `push_enabled` in `notification_preferences` when subscribing/unsubscribing
+- **Status fallthrough fix**: `[fulfilled, confirmed]` no longer falls through to 'pending'
+- **Count metadata**: API returns `readyCount`, `fulfilledCount`, `handedOffCount`, `totalActiveCount`
+- **Partial readiness**: "X of Y items ready" in hero, OrderStatusSummary, orders list, dashboard
+- **primaryItem fix**: Hero shows the ready vendor, not just the first vendor
+- Files: subscribe/route.ts, buyer/orders/route.ts, [id]/page.tsx, orders/page.tsx, OrderStatusSummary.tsx, dashboard/page.tsx
 
-## Steps
+### Commit `b0c9009` — External Payment Fixes
+- **Cart clearing bug**: Database cart_items now cleared in external checkout API after order creation
+- **Success screen restyle**: Yellow warning box → neutral info box matching refund policy styling, added "My Orders" + "Continue Shopping" buttons
+- **Code cleanup**: useMemo instead of useEffect+setState for URL params
+- Files: checkout/external/route.ts, checkout/external/page.tsx
 
-### Step 1: Auto-set `push_enabled` in push subscribe route
-**File:** `src/app/api/notifications/push/subscribe/route.ts`
-- POST: after subscription upsert, set `push_enabled: true` in `user_profiles.notification_preferences`
-- DELETE: after subscription delete, count remaining subs — if 0, set `push_enabled: false`
-- Status: COMPLETE
+### Market Box Checkout Integration Plan (documented, NOT started)
+- **Plan file**: `docs/Build_Instructions/Market_Box_Checkout_Integration_Plan.md`
+- 8 phases, ~12-15 files, 2-3 sessions estimated
 
-### Step 2: Fix status fallthrough + add count metadata in API
-**File:** `src/app/api/buyer/orders/route.ts`
-- Added `else if (activeStatuses.some(s => s === 'fulfilled'))` block after confirmed check
-- Added readyCount, fulfilledCount, handedOffCount, totalActiveCount to response
-- Status: COMPLETE
+## Current Work: Dashboard Pickup Card Mobile Fix
+**File:** `src/app/[vertical]/dashboard/page.tsx` (lines ~255-345)
 
-### Step 3: Fix order detail page — status, primaryItem, hero
-**File:** `src/app/[vertical]/buyer/orders/[id]/page.tsx`
-- Fixed computeEffectiveStatus() — filters cancelled, handles fulfilled+confirmed mix
-- Fixed primaryItem selection (prioritize ready → handed_off → active → any)
-- Added partial readiness context to hero ("X of Y items ready")
-- Added multi-vendor count display
-- Passes readyCount/totalActiveCount to OrderStatusSummary
-- Status: COMPLETE
+**Problem:** Ready-for-pickup card uses two-column layout that breaks on mobile — vendor name and market name on same row causes wrapping/overflow, items text gets cramped, market name overflows the white box.
 
-### Step 4: Update OrderStatusSummary + orders list page
-**Files:** `src/components/buyer/OrderStatusSummary.tsx` + `src/app/[vertical]/buyer/orders/page.tsx`
-- Added readyCount/totalActiveCount optional props to OrderStatusSummary
-- "Partially Ready" title + "X of Y items ready" message when partial
-- Updated Order interface for count fields
-- Updated ready banner for partial messaging
-- Status: COMPLETE
+**Fix — Restructure to stacked single-column layout:**
+Inside the white order card, top to bottom:
+1. Order number (full width, not wrapped)
+2. "X of Y items ready" count
+3. --- teal divider ---
+4. Vendor name
+5. Item names (each on own line, no wrapping)
+6. Market/pickup location name
+7. Day, date, and time window
 
-### Step 5: Update dashboard card for partial readiness
-**File:** `src/app/[vertical]/dashboard/page.tsx`
-- Added lightweight query for total active item counts per ready order
-- Shows "X of Y items ready" when partial, "X items ready" when all ready
-- Status: COMPLETE
+"Ready for Pickup" header should be full width across top, not wrapped. The green count badge can be smaller.
 
-## Files To Modify (~6 total)
-- `src/app/api/notifications/push/subscribe/route.ts` (Step 1)
-- `src/app/api/buyer/orders/route.ts` (Step 2)
-- `src/app/[vertical]/buyer/orders/[id]/page.tsx` (Step 3)
-- `src/app/[vertical]/buyer/orders/page.tsx` (Step 4)
-- `src/components/buyer/OrderStatusSummary.tsx` (Step 4)
-- `src/app/[vertical]/dashboard/page.tsx` (Step 5)
+**Status:** COMPLETE — `npx tsc --noEmit` passes
 
-## Deferred Items (from previous session)
+**Changes made:**
+- Added `pickup_snapshot` to readyOrders query to get time window data
+- Passed `pickup_start_time`/`pickup_end_time` through pickup groups
+- Restructured card from two-column flex to stacked single-column
+- Header: smaller badge (`xs` font), `nowrap` on title, `flexShrink: 0` on icon/badge
+- Order card: order number → item count → teal divider → vendor → items (each on own line with ellipsis) → market → date + time window
+- Time window shown as "Sat, Feb 15 · 8:00 AM – 12:00 PM" format
+
+## User Decisions (this session)
+- External payment + multi-vendor edge case: leave as-is, FAQ later
+- Market boxes: Stripe-only (no external payments)
+- `order_confirmed` urgency stays `standard`
+- No buyer purchase notification needed
+- Someday: different icons for market box vs regular listing items
+
+## Deferred Items
 - Item 14: Size/measurement field on listings
 - Item 15: Vendor listing best practices guide
+- Market box checkout integration (see plan file)
+- FAQ / help content for edge cases
+- Different icons for market box vs regular listing (someday)
