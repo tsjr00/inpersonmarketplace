@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { useMemo } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -19,16 +19,10 @@ interface OrderData {
 export default function ExternalCheckoutPage() {
   const params = useParams()
   const searchParams = useSearchParams()
-  const router = useRouter()
   const vertical = params?.vertical as string
 
-  const [orderData, setOrderData] = useState<OrderData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [paymentInitiated, setPaymentInitiated] = useState(false)
-
-  // Get order data from URL params (passed from checkout)
-  useEffect(() => {
+  // Derive order data from URL params (passed from checkout)
+  const { orderData, error } = useMemo(() => {
     const orderId = searchParams.get('order_id')
     const orderNumber = searchParams.get('order_number')
     const paymentMethod = searchParams.get('payment_method')
@@ -39,27 +33,23 @@ export default function ExternalCheckoutPage() {
     const vendorName = searchParams.get('vendor_name')
 
     if (!orderId || !orderNumber || !paymentMethod) {
-      setError('Missing order information')
-      setLoading(false)
-      return
+      return { orderData: null, error: 'Missing order information' }
     }
 
-    setOrderData({
-      order_id: orderId,
-      order_number: orderNumber,
-      payment_method: paymentMethod,
-      payment_link: paymentLink ? decodeURIComponent(paymentLink) : null,
-      subtotal_cents: parseInt(subtotal || '0', 10),
-      buyer_fee_cents: parseInt(buyerFee || '0', 10),
-      total_cents: parseInt(total || '0', 10),
-      vendor_name: vendorName ? decodeURIComponent(vendorName) : 'Vendor'
-    })
-    setLoading(false)
+    return {
+      orderData: {
+        order_id: orderId,
+        order_number: orderNumber,
+        payment_method: paymentMethod,
+        payment_link: paymentLink ? decodeURIComponent(paymentLink) : null,
+        subtotal_cents: parseInt(subtotal || '0', 10),
+        buyer_fee_cents: parseInt(buyerFee || '0', 10),
+        total_cents: parseInt(total || '0', 10),
+        vendor_name: vendorName ? decodeURIComponent(vendorName) : 'Vendor'
+      } as OrderData,
+      error: null
+    }
   }, [searchParams])
-
-  const handlePaymentClick = () => {
-    setPaymentInitiated(true)
-  }
 
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
@@ -73,20 +63,6 @@ export default function ExternalCheckoutPage() {
 
   const formatCurrency = (cents: number) => {
     return `$${(cents / 100).toFixed(2)}`
-  }
-
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: colors.surfaceBase,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <p style={{ color: colors.textMuted }}>Loading...</p>
-      </div>
-    )
   }
 
   if (error || !orderData) {
@@ -250,7 +226,6 @@ export default function ExternalCheckoutPage() {
             {orderData.payment_link && (
               <a
                 href={orderData.payment_link}
-                onClick={handlePaymentClick}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -275,10 +250,10 @@ export default function ExternalCheckoutPage() {
         {/* Refund Policy Notice */}
         <div style={{
           padding: `${spacing.xs} ${spacing.sm}`,
-          marginBottom: spacing.md,
+          marginBottom: spacing.sm,
           backgroundColor: colors.surfaceMuted,
           borderRadius: radius.md,
-          fontSize: typography.sizes.xs,
+          fontSize: typography.sizes.sm,
           color: colors.textMuted,
           lineHeight: 1.5
         }}>
@@ -287,41 +262,74 @@ export default function ExternalCheckoutPage() {
           between you and the vendor. The platform cannot process refunds for external payments.
         </div>
 
-        {/* After Payment */}
-        {paymentInitiated && !isCash && (
-          <div style={{
-            backgroundColor: '#fef3c7',
-            borderRadius: radius.lg,
-            padding: spacing.md,
-            marginBottom: spacing.md,
-            border: '1px solid #f59e0b'
-          }}>
-            <h3 style={{
-              color: '#92400e',
-              fontSize: typography.sizes.base,
-              fontWeight: typography.weights.semibold,
-              margin: `0 0 ${spacing.xs} 0`
-            }}>
-              Completed your payment?
-            </h3>
-            <p style={{
-              color: '#92400e',
-              fontSize: typography.sizes.sm,
-              margin: 0
-            }}>
-              The vendor will confirm they received your payment.
-              You can view your order status in your orders page.
-            </p>
-          </div>
-        )}
+        {/* What's Next */}
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          marginBottom: spacing.md,
+          backgroundColor: colors.surfaceMuted,
+          borderRadius: radius.md,
+          fontSize: typography.sizes.sm,
+          color: colors.textMuted,
+          lineHeight: 1.5
+        }}>
+          <strong style={{ color: colors.textSecondary }}>
+            {isCash ? 'What\'s next?' : 'Completed your payment?'}
+          </strong>{' '}
+          {isCash
+            ? 'Your order has been placed. You can continue shopping or monitor your order status from your orders page.'
+            : 'Once you\'ve completed your payment, you can continue shopping or monitor your order status from your orders page.'
+          }
+        </div>
 
+        {/* Navigation Buttons */}
+        <div style={{
+          display: 'flex',
+          gap: spacing.sm,
+          marginBottom: spacing.md
+        }}>
+          <Link
+            href={`/${vertical}/buyer/orders`}
+            style={{
+              flex: 1,
+              display: 'block',
+              padding: spacing.sm,
+              backgroundColor: colors.primary,
+              color: colors.textInverse,
+              textAlign: 'center',
+              textDecoration: 'none',
+              borderRadius: radius.md,
+              fontWeight: typography.weights.semibold,
+              fontSize: typography.sizes.base
+            }}
+          >
+            My Orders
+          </Link>
+          <Link
+            href={`/${vertical}/browse`}
+            style={{
+              flex: 1,
+              display: 'block',
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              textAlign: 'center',
+              textDecoration: 'none',
+              borderRadius: radius.md,
+              fontWeight: typography.weights.semibold,
+              fontSize: typography.sizes.base,
+              border: `1px solid ${colors.border}`
+            }}
+          >
+            Continue Shopping
+          </Link>
+        </div>
 
         {/* Help text */}
         <p style={{
           textAlign: 'center',
           fontSize: typography.sizes.xs,
           color: colors.textMuted,
-          marginTop: spacing.lg
+          marginTop: spacing.sm
         }}>
           Questions? Contact the vendor directly or check your order status.
         </p>
