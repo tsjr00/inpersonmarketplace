@@ -51,8 +51,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cart_items_market_box_unique
 CREATE INDEX IF NOT EXISTS idx_cart_items_offering_id
   ON public.cart_items(offering_id) WHERE offering_id IS NOT NULL;
 
--- Step 8: Create or replace get_cart_summary to handle both item types
--- This function calculates totals including market box term prices
+-- Step 8: Replace get_cart_summary to handle both item types
+-- Must DROP first because the return type (OUT parameters) is changing
+DROP FUNCTION IF EXISTS public.get_cart_summary(UUID);
 CREATE OR REPLACE FUNCTION public.get_cart_summary(p_cart_id UUID)
 RETURNS TABLE(total_items BIGINT, total_cents BIGINT, vendor_count BIGINT) AS $$
   SELECT
