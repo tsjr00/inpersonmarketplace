@@ -271,7 +271,7 @@ export default function VendorOrdersPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md, flexWrap: 'wrap', gap: spacing.sm }}>
         <div>
           <h1 style={{ color: colors.primary, marginBottom: spacing['2xs'], marginTop: 0, fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold }}>
-            Orders
+            Customer Orders
           </h1>
           <p style={{ color: colors.textSecondary, margin: 0 }}>
             Manage customer orders and pickup fulfillment

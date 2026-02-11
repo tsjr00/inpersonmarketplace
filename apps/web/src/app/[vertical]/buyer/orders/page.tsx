@@ -413,77 +413,84 @@ export default function BuyerOrdersPage() {
                 <div style={{
                   padding: `${spacing.sm} ${spacing.md}`,
                   borderBottom: (isCompletedOrder || isCancelledOrder) ? 'none' : `1px solid ${colors.borderMuted}`,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
                   backgroundColor: needsAttention
                     ? (isHandedOff ? '#fef3c7' : '#dcfce7')
                     : colors.surfaceMuted,
-                  gap: spacing.xs,
-                  flexWrap: 'wrap'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap', flex: 1 }}>
-                    {/* Prominent Order Number - colored by status */}
-                    <div style={{
-                      backgroundColor: config.bgColor,
+                  {/* Top row: Price, Status, Date */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: spacing.xs,
+                    flexWrap: 'wrap',
+                    gap: spacing['2xs']
+                  }}>
+                    <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                      {formatPrice(orderTotal)}
+                    </span>
+                    <span style={{
                       color: config.color,
-                      padding: `${spacing['2xs']} ${spacing.sm}`,
-                      borderRadius: radius.sm,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      border: `2px solid ${config.color}20`
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
                     }}>
-                      <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
-                        Order
-                      </span>
-                      <span style={{
-                        fontSize: typography.sizes.lg,
-                        fontWeight: typography.weights.bold,
-                        fontFamily: 'monospace',
-                        letterSpacing: 1
-                      }}>
-                        {order.order_number || order.id.slice(0, 8).toUpperCase()}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
-                        <span style={{
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: config.bgColor,
-                          color: config.color,
-                          borderRadius: radius.full,
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.semibold,
-                        }}>
-                          {config.label}
-                        </span>
-                        <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
-                          {new Date(order.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </span>
-                      </div>
-                      {/* Show item names inline for completed/cancelled orders */}
-                      {(isCompletedOrder || isCancelledOrder) && itemNames && (
-                        <p style={{
-                          margin: `${spacing['3xs']} 0 0 0`,
-                          fontSize: typography.sizes.xs,
-                          color: colors.textMuted,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {itemNames}
-                        </p>
-                      )}
-                    </div>
+                      {config.label}
+                    </span>
+                    <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
+                      {new Date(order.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
                   </div>
-                  <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-                    {formatPrice(orderTotal)}
-                  </span>
+                  {/* Order Number Box */}
+                  <div style={{
+                    backgroundColor: config.bgColor,
+                    color: config.color,
+                    padding: `${spacing['2xs']} ${spacing.sm}`,
+                    borderRadius: radius.sm,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    border: `2px solid ${config.color}20`
+                  }}>
+                    <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
+                      Order
+                    </span>
+                    <span style={{
+                      fontSize: typography.sizes.lg,
+                      fontWeight: typography.weights.bold,
+                      fontFamily: 'monospace',
+                      letterSpacing: 1
+                    }}>
+                      {order.order_number || order.id.slice(0, 8).toUpperCase()}
+                    </span>
+                  </div>
+                  {/* Tap for details */}
+                  <p style={{
+                    margin: `${spacing['2xs']} 0 0`,
+                    fontSize: typography.sizes.xs,
+                    color: colors.textMuted,
+                    textAlign: 'center',
+                    fontStyle: 'italic'
+                  }}>
+                    Tap for details
+                  </p>
+                  {/* Show item names inline for completed/cancelled orders */}
+                  {(isCompletedOrder || isCancelledOrder) && itemNames && (
+                    <p style={{
+                      margin: `${spacing['3xs']} 0 0 0`,
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      textAlign: 'center'
+                    }}>
+                      {itemNames}
+                    </p>
+                  )}
                 </div>
 
                 {/* Order Items - Only show for active orders (not completed/cancelled) */}
@@ -519,7 +526,6 @@ export default function BuyerOrdersPage() {
                                     margin: `${spacing['3xs']} 0 0`,
                                     fontSize: typography.sizes.sm,
                                     color: '#1e40af',
-                                    fontWeight: typography.weights.medium
                                   }}>
                                     Pickup: {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
                                     {formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time) && ` • ${formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time)}`}
@@ -544,17 +550,6 @@ export default function BuyerOrdersPage() {
                             </div>
                           )
                         })}
-                        {/* Service Fee */}
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          padding: `${spacing.xs} ${spacing.sm}`,
-                          fontSize: typography.sizes.sm,
-                          color: colors.textMuted,
-                        }}>
-                          <span>Service Fee</span>
-                          <span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
-                        </div>
                       </div>
                     ) : (
                       <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>

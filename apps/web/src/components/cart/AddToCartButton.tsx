@@ -162,17 +162,21 @@ export function AddToCartButton({
       {hasAcceptingDates && (
         <div style={{ marginBottom: 12 }}>
           <label style={{
-            display: 'block',
-            fontSize: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 13,
             fontWeight: 600,
             color: '#374151',
             marginBottom: 6
           }}>
-            Select Pickup Date
+            <span style={{ color: primaryColor }}>✓</span>
+            Select a Pickup Date below:
           </label>
+          <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
 
           {hasMultipleOptions ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ border: `1px solid ${primaryColor}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {marketGroups.map(market => {
                 // Only show markets with at least one accepting date
                 const acceptingMarketDates = market.dates.filter(d => d.is_accepting)
@@ -187,9 +191,14 @@ export function AddToCartButton({
                       gap: 6,
                       marginBottom: 6
                     }}>
-                      <span style={{ fontSize: 14 }}>
-                        {market.market_type === 'traditional' ? '🏪' : '📦'}
-                      </span>
+                      <span style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: market.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                        flexShrink: 0,
+                        display: 'inline-block'
+                      }} />
                       <span style={{
                         fontWeight: 600,
                         color: '#374151',
@@ -302,9 +311,14 @@ export function AddToCartButton({
             }}>
               {acceptingDates[0] && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <span style={{ fontSize: 14, marginTop: 2 }}>
-                    {acceptingDates[0].market_type === 'traditional' ? '🏪' : '📦'}
-                  </span>
+                  <span style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    backgroundColor: acceptingDates[0].market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                    flexShrink: 0,
+                    marginTop: 5
+                  }} />
                   <div>
                     {/* Line 1: Market name */}
                     <div style={{ fontWeight: 600, color: '#374151', fontSize: 13 }}>

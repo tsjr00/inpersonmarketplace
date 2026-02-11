@@ -175,108 +175,43 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
       }}>
         {/* Market Header Card */}
         <div style={{
-          padding: spacing.lg,
+          padding: spacing.sm,
           backgroundColor: colors.surfaceElevated,
           borderRadius: radius.lg,
           border: `1px solid ${colors.border}`,
           marginBottom: spacing.md,
           boxShadow: shadows.sm
         }}>
-          <div className="market-header" style={{
+          {/* Icon + Name on same line */}
+          <div style={{
             display: 'flex',
-            gap: spacing.lg,
-            alignItems: 'flex-start'
+            alignItems: 'center',
+            gap: spacing.xs,
+            marginBottom: spacing.xs,
+            flexWrap: 'wrap'
           }}>
-            {/* Market Icon */}
-            <div style={{
-              width: 80,
-              height: 80,
-              borderRadius: radius.lg,
-              backgroundColor: colors.primaryLight,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 36,
-              flexShrink: 0
+            <span style={{ fontSize: 28, flexShrink: 0 }}>🧺</span>
+            <h1 style={{
+              color: branding.colors.primary,
+              margin: 0,
+              fontSize: typography.sizes['2xl'],
+              fontWeight: typography.weights.bold,
+              lineHeight: 1.3
             }}>
-              🧺
-            </div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Name and Badge */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: spacing.sm,
-                marginBottom: spacing.xs,
-                flexWrap: 'wrap'
-              }}>
-                <h1 style={{
-                  color: branding.colors.primary,
-                  margin: 0,
-                  fontSize: typography.sizes['2xl'],
-                  fontWeight: typography.weights.bold,
-                  lineHeight: 1.3
-                }}>
-                  {market.name}
-                </h1>
-                <span style={{
-                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                  borderRadius: radius.full,
-                  fontSize: typography.sizes.xs,
-                  fontWeight: typography.weights.semibold,
-                  backgroundColor: '#e8f5e9',
-                  color: '#2e7d32'
-                }}>
-                  Farmers Market
-                </span>
-              </div>
-
-              {/* Description */}
-              {market.description && (
-                <p style={{
-                  margin: `0 0 ${spacing.sm} 0`,
-                  fontSize: typography.sizes.base,
-                  lineHeight: typography.leading.relaxed,
-                  color: colors.textSecondary
-                }}>
-                  {market.description}
-                </p>
-              )}
-
-              {/* Meta info */}
-              <div className="market-meta" style={{
-                display: 'flex',
-                gap: spacing.md,
-                flexWrap: 'wrap',
-                color: colors.textMuted,
-                fontSize: typography.sizes.sm,
-                marginTop: spacing.xs
-              }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                  👥 {vendorsData.vendors.length} vendor{vendorsData.vendors.length !== 1 ? 's' : ''}
-                </span>
-                {nextMarketDate && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                    📅 Next: {nextMarketDate.toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </span>
-                )}
-              </div>
-            </div>
-
+              {market.name}
+            </h1>
             {/* Apply button for vendors */}
             {userVendorProfile && !hasApplied && (
-              <ApplyToMarketButton
-                marketId={id}
-                vendorProfileId={userVendorProfile.id}
-              />
+              <div style={{ marginLeft: 'auto' }}>
+                <ApplyToMarketButton
+                  marketId={id}
+                  vendorProfileId={userVendorProfile.id}
+                />
+              </div>
             )}
             {hasApplied && (
               <span style={{
+                marginLeft: 'auto',
                 padding: `${spacing['2xs']} ${spacing.sm}`,
                 backgroundColor: colors.primaryLight,
                 color: colors.primaryDark,
@@ -289,41 +224,75 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             )}
           </div>
 
+          {/* Description */}
+          {market.description && (
+            <p style={{
+              margin: `0 0 ${spacing.xs} 0`,
+              fontSize: typography.sizes.base,
+              lineHeight: typography.leading.relaxed,
+              color: colors.textSecondary
+            }}>
+              {market.description}
+            </p>
+          )}
+
           {/* Location */}
           {fullAddress && (
             <div style={{
-              marginTop: spacing.md,
-              paddingTop: spacing.md,
-              borderTop: `1px solid ${colors.borderMuted}`
+              paddingTop: spacing.xs,
+              paddingBottom: spacing.xs,
+              borderTop: `1px solid ${colors.borderMuted}`,
+              borderBottom: `1px solid ${colors.borderMuted}`
             }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: spacing.xs
               }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2" style={{ marginTop: 2, flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2" style={{ marginTop: 2, flexShrink: 0 }}>
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <div>
-                  <div style={{ fontSize: typography.sizes.base, color: colors.textPrimary }}>{fullAddress}</div>
-                </div>
+                <div style={{ fontSize: typography.sizes.base, color: colors.textPrimary }}>{fullAddress}</div>
               </div>
             </div>
           )}
 
+          {/* Vendor count + Next date on one line */}
+          <div style={{
+            display: 'flex',
+            gap: spacing.md,
+            flexWrap: 'wrap',
+            color: colors.textMuted,
+            fontSize: typography.sizes.sm,
+            marginTop: spacing.xs
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+              👥 {vendorsData.vendors.length} vendor{vendorsData.vendors.length !== 1 ? 's' : ''}
+            </span>
+            {nextMarketDate && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+                📅 Next: {nextMarketDate.toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric'
+                })}
+              </span>
+            )}
+          </div>
+
           {/* Schedule */}
           {market.market_schedules && market.market_schedules.length > 0 && (
             <div style={{
-              marginTop: spacing.md,
-              paddingTop: spacing.md,
+              marginTop: spacing.sm,
+              paddingTop: spacing.xs,
               borderTop: `1px solid ${colors.borderMuted}`
             }}>
               <h3 style={{
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,
                 color: colors.textSecondary,
-                margin: `0 0 ${spacing.xs} 0`
+                margin: `0 0 ${spacing['2xs']} 0`
               }}>
                 Market Hours
               </h3>
@@ -334,15 +303,15 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           {/* Season Dates */}
           {(market.season_start || market.season_end) && (
             <div style={{
-              marginTop: spacing.md,
-              paddingTop: spacing.md,
+              marginTop: spacing.xs,
+              paddingTop: spacing.xs,
               borderTop: `1px solid ${colors.borderMuted}`
             }}>
               <h3 style={{
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,
                 color: colors.textSecondary,
-                margin: `0 0 ${spacing.xs} 0`
+                margin: `0 0 ${spacing['2xs']} 0`
               }}>
                 Season
               </h3>
@@ -374,8 +343,8 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
           {/* Contact */}
           {(market.contact_email || market.contact_phone) && (
             <div style={{
-              marginTop: spacing.md,
-              paddingTop: spacing.md,
+              marginTop: spacing.xs,
+              paddingTop: spacing.xs,
               borderTop: `1px solid ${colors.borderMuted}`,
               display: 'flex',
               gap: spacing.md,
@@ -432,12 +401,12 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
         }}>
           <p style={{
             margin: 0,
-            fontSize: typography.sizes.xs,
+            fontSize: typography.sizes.sm,
             color: colors.textMuted,
             textAlign: 'center',
             lineHeight: typography.leading.relaxed
           }}>
-            This market is listed as a pickup location by the vendors shown below. This platform is not affiliated with the management of the market.
+            This market is listed as a pickup location by the vendors shown below. This platform is not affiliated with the market management.
           </p>
         </div>
 
@@ -466,31 +435,8 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
         </div>
       </div>
 
-      {/* Responsive Styles */}
-      <style>{`
-        .market-profile-page .market-header {
-          flex-direction: column;
-          text-align: center;
-        }
-        .market-profile-page .market-header > div:first-child {
-          margin: 0 auto;
-        }
-        .market-profile-page .market-meta {
-          justify-content: center;
-        }
-        @media (min-width: 640px) {
-          .market-profile-page .market-header {
-            flex-direction: row;
-            text-align: left;
-          }
-          .market-profile-page .market-header > div:first-child {
-            margin: 0;
-          }
-          .market-profile-page .market-meta {
-            justify-content: flex-start;
-          }
-        }
-      `}</style>
+      {/* Responsive Styles - placeholder for future breakpoints */}
+      <style>{``}</style>
     </div>
   )
 }

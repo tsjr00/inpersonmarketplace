@@ -97,16 +97,6 @@ export default function OrderTimeline({ status, createdAt, updatedAt }: OrderTim
                     Please confirm you received your items
                   </p>
                 )}
-                {isCurrent && !isAwaitingAction && (
-                  <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                    {new Date(updatedAt).toLocaleString()}
-                  </p>
-                )}
-                {index === 0 && !isCurrent && (
-                  <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                    {new Date(createdAt).toLocaleString()}
-                  </p>
-                )}
               </div>
             </div>
           )

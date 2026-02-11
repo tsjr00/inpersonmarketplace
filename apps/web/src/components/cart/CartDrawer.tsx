@@ -180,6 +180,23 @@ export function CartDrawer() {
             >
               Proceed to Checkout
             </button>
+            <button
+              onClick={() => setIsOpen(false)}
+              style={{
+                width: '100%',
+                padding: '12px 20px',
+                fontSize: 14,
+                fontWeight: 500,
+                backgroundColor: 'transparent',
+                color: '#666',
+                border: '1px solid #ddd',
+                borderRadius: 6,
+                cursor: 'pointer',
+                marginTop: 8,
+              }}
+            >
+              Continue Shopping
+            </button>
           </div>
         )}
       </div>

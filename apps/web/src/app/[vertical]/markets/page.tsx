@@ -76,12 +76,12 @@ export const revalidate = 600
 
 interface MarketsPageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ city?: string; search?: string; zip?: string }>
+  searchParams: Promise<{ city?: string; search?: string; zip?: string; state?: string }>
 }
 
 export default async function MarketsPage({ params, searchParams }: MarketsPageProps) {
   const { vertical } = await params
-  const { city, search, zip } = await searchParams
+  const { city, search, zip, state } = await searchParams
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
@@ -99,6 +99,10 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     .eq('approval_status', 'approved')
     .order('name', { ascending: true })
 
+  if (state) {
+    query = query.ilike('state', state)
+  }
+
   if (city) {
     query = query.ilike('city', `%${city}%`)
   }
@@ -114,7 +118,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     query,
     supabase
       .from('markets')
-      .select('city')
+      .select('city, state')
       .eq('vertical_id', vertical)
       .eq('status', 'active')
       .eq('market_type', 'traditional')
@@ -143,6 +147,27 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     }
   })
   const cities = Array.from(cityMap.values()).sort()
+
+  // Extract unique states from markets
+  const stateMap = new Map<string, string>()
+  allMarkets?.forEach(m => {
+    if (m.state) {
+      const key = m.state.toLowerCase().trim()
+      if (!stateMap.has(key)) {
+        stateMap.set(key, m.state.trim().toUpperCase())
+      }
+    }
+  })
+  const states = Array.from(stateMap.values()).sort()
+
+  // If state is selected, filter cities to only those in that state
+  const filteredCities = state
+    ? Array.from(new Set(
+        allMarkets
+          ?.filter(m => m.city && m.state && m.state.toLowerCase().trim() === state.toLowerCase().trim())
+          .map(m => properCase(m.city!.trim()))
+      )).sort()
+    : cities
 
   // Fetch true vendor counts from the market_vendor_counts view
   const marketIds = markets?.map(m => m.id) || []
@@ -192,7 +217,9 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
       <MarketFilters
         currentCity={city}
         currentSearch={search}
-        cities={cities}
+        currentState={state}
+        cities={filteredCities}
+        states={states}
       />
 
       {/* Markets with Location Filtering */}

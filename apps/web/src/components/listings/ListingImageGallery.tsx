@@ -37,7 +37,7 @@ export default function ListingImageGallery({ images, title }: ListingImageGalle
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        maxHeight: 500
+        maxHeight: 400
       }}>
         <span style={{ fontSize: 80, color: colors.textMuted }}>📦</span>
       </div>
@@ -51,7 +51,7 @@ export default function ListingImageGallery({ images, title }: ListingImageGalle
         position: 'relative',
         width: '100%',
         aspectRatio: '1',
-        maxHeight: 500,
+        maxHeight: 400,
         borderRadius: radius.md,
         overflow: 'hidden',
         backgroundColor: colors.surfaceMuted,

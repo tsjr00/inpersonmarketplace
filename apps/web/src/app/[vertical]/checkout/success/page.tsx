@@ -329,77 +329,77 @@ export default function CheckoutSuccessPage() {
               boxShadow: shadows.sm,
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
-                <span style={{ fontSize: typography.sizes.xl }}>{'\u{1F4CD}'}</span>
-                <div style={{ flex: 1 }}>
-                  <h2 style={{
-                    marginTop: 0,
-                    marginBottom: spacing.sm,
-                    fontSize: typography.sizes.lg,
-                    color: locations.length > 1 ? '#856404' : colors.textPrimary,
-                  }}>
-                    {locations.length > 1 ? 'Multiple Pickup Locations' : 'Pickup Location'}
-                  </h2>
+                <span style={{ fontSize: typography.sizes.lg, flexShrink: 0 }}>{'\u{1F4CD}'}</span>
+                <h2 style={{
+                  marginTop: 0,
+                  marginBottom: 0,
+                  fontSize: typography.sizes.lg,
+                  color: locations.length > 1 ? '#856404' : colors.textPrimary,
+                }}>
+                  {locations.length > 1 ? 'Multiple Pickup Locations' : 'Pickup Location'}
+                </h2>
+              </div>
 
-                  {locations.length > 1 && (
-                    <p style={{
-                      margin: `0 0 ${spacing.sm} 0`,
-                      color: '#856404',
-                      fontSize: typography.sizes.sm,
-                    }}>
-                      Your order includes items from <strong>{locations.length} different locations</strong>.
-                      Please visit each location to pick up your items.
-                    </p>
-                  )}
+              {locations.length > 1 && (
+                <p style={{
+                  margin: `${spacing.xs} 0 0`,
+                  color: '#856404',
+                  fontSize: typography.sizes.sm,
+                }}>
+                  Your order includes items from <strong>{locations.length} different locations</strong>.
+                  Please visit each location to pick up your items.
+                </p>
+              )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                    {locations.map((item, idx) => (
-                      <div
-                        key={item.market_id || idx}
-                        style={{
-                          padding: spacing.sm,
-                          backgroundColor: locations.length > 1 ? 'rgba(255,255,255,0.5)' : colors.surfaceMuted,
-                          borderRadius: radius.sm,
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-                          <span style={{ fontSize: typography.sizes.lg }}>
-                            {item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}
-                          </span>
-                          <div>
-                            <p style={{
-                              margin: 0,
-                              fontWeight: typography.weights.semibold,
-                              color: locations.length > 1 ? '#856404' : colors.textPrimary,
-                            }}>
-                              {item.market_name}
-                            </p>
-                            {item.pickup_date && (
-                              <p style={{
-                                margin: `${spacing['3xs']} 0 0`,
-                                fontSize: typography.sizes.sm,
-                                fontWeight: typography.weights.semibold,
-                                color: colors.primary,
-                              }}>
-                                {formatPickupDate(item.pickup_date)}
-                                {formatPickupTime(item.pickup_start_time, item.pickup_end_time) && ` • ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}`}
-                              </p>
-                            )}
-                            {(item.market_address || item.market_city) && (
-                              <p style={{
-                                margin: `${spacing['3xs']} 0 0`,
-                                fontSize: typography.sizes.xs,
-                                color: locations.length > 1 ? '#856404' : colors.textMuted,
-                              }}>
-                                {item.market_address && <>{item.market_address}<br /></>}
-                                {item.market_city && <>{item.market_city}, {item.market_state}</>}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'], marginTop: spacing.xs }}>
+                {locations.map((item, idx) => (
+                  <div
+                    key={item.market_id || idx}
+                    style={{
+                      padding: spacing.xs,
+                      backgroundColor: locations.length > 1 ? 'rgba(255,255,255,0.5)' : colors.surfaceMuted,
+                      borderRadius: radius.sm,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing['2xs'] }}>
+                      <span style={{
+                        width: 10, height: 10, borderRadius: '50%',
+                        backgroundColor: item.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                        flexShrink: 0, marginTop: 4
+                      }} />
+                      <div>
+                        <p style={{
+                          margin: 0,
+                          fontWeight: typography.weights.semibold,
+                          color: locations.length > 1 ? '#856404' : colors.textPrimary,
+                        }}>
+                          {item.market_name}
+                        </p>
+                        {item.pickup_date && (
+                          <p style={{
+                            margin: `${spacing['3xs']} 0 0`,
+                            fontSize: typography.sizes.sm,
+                            fontWeight: typography.weights.semibold,
+                            color: colors.primary,
+                          }}>
+                            {formatPickupDate(item.pickup_date)}
+                            {formatPickupTime(item.pickup_start_time, item.pickup_end_time) && ` \u2022 ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}`}
+                          </p>
+                        )}
+                        {(item.market_address || item.market_city) && (
+                          <p style={{
+                            margin: `${spacing['3xs']} 0 0`,
+                            fontSize: typography.sizes.xs,
+                            color: locations.length > 1 ? '#856404' : colors.textMuted,
+                          }}>
+                            {item.market_address}{item.market_address && item.market_city ? ', ' : ''}
+                            {item.market_city && <>{item.market_city}, {item.market_state}</>}
+                          </p>
+                        )}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
           )
@@ -422,7 +422,7 @@ export default function CheckoutSuccessPage() {
           }}>
             What&apos;s Next?
           </h2>
-          <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary, lineHeight: typography.leading.loose }}>
+          <ul style={{ margin: 0, paddingLeft: spacing.sm, color: colors.textSecondary, lineHeight: typography.leading.loose, listStyleType: 'disc' }}>
             <li>The vendor will be notified and will confirm your order</li>
             <li>You&apos;ll receive a notification when your items are ready for pickup</li>
             <li>Pick up your items at the designated market location{order?.items && [...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : ''}</li>
@@ -446,6 +446,10 @@ export default function CheckoutSuccessPage() {
               borderRadius: radius.sm,
               fontWeight: typography.weights.semibold,
               boxShadow: shadows.primary,
+              textAlign: 'center',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             View My Orders
@@ -460,6 +464,10 @@ export default function CheckoutSuccessPage() {
               borderRadius: radius.sm,
               fontWeight: typography.weights.semibold,
               border: `2px solid ${colors.primary}`,
+              textAlign: 'center',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             Continue Shopping
