@@ -10,7 +10,8 @@ import { colors, spacing, typography, radius, shadows, containers } from '@/lib/
 import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 
 interface CheckoutItem {
-  listingId: string
+  itemType?: 'listing' | 'market_box'
+  listingId: string | null
   quantity: number
   title: string
   price_cents: number
@@ -24,13 +25,22 @@ interface CheckoutItem {
   market_city?: string
   market_state?: string
   // Pickup scheduling fields
-  schedule_id?: string
-  pickup_date?: string  // YYYY-MM-DD format
+  schedule_id?: string | null
+  pickup_date?: string | null  // YYYY-MM-DD format
   pickup_display?: {
     date_formatted: string
     time_formatted: string | null
     day_name: string | null
   } | null
+  // Market box fields
+  offeringId?: string | null
+  offeringName?: string | null
+  termWeeks?: number | null
+  startDate?: string | null
+  termPriceCents?: number | null
+  pickupDayOfWeek?: number | null
+  pickupStartTime?: string | null
+  pickupEndTime?: string | null
 }
 
 interface SuggestedProduct {

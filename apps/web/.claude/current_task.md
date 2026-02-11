@@ -1,68 +1,65 @@
-# Current Task: Session 17 — Bug Fixes + UI Polish
+# Current Task: Market Box Checkout Integration
+
 Started: 2026-02-11
+Plan: `docs/Build_Instructions/Market_Box_Checkout_Integration_Plan.md`
 
-## Status: COMPLETE — Dashboard pickup card mobile fix (ready to commit)
+## Status: IN PROGRESS — Phase 4 (Market Box Detail Page)
 
-## Session 17 Summary (all pushed to main + staging)
+## Phase Checklist
+- [x] **Phase 1**: Database migration — `20260211_001_cart_items_market_box_support.sql`
+- [x] **Phase 2**: Cart API — POST/GET handlers accept market box items
+- [x] **Phase 3**: Cart context + UI — useCart + CartDrawer support market box items
+- [ ] **Phase 4**: Market box detail page — Subscribe → Add to Cart
+- [ ] **Phase 5**: Checkout page — mixed cart display, payment method logic
+- [ ] **Phase 6**: Checkout session API — handle mixed carts in Stripe session
+- [ ] **Phase 7**: Payment success / webhook — process market box subscriptions after payment
+- [ ] **Phase 8**: Success page — show market box confirmation
 
-### Commit `0e9400f` — UI Overhaul (9 batches, 15 files)
-Previous session work, already on main+staging.
+## Key Design Decisions
+- **Single Stripe session** for mixed carts (listings + market boxes)
+- **cart_items extended** with `item_type` discriminator, `offering_id`, `term_weeks`, `start_date`
+- **One order, two record types**: regular → `order_items`, market box → `market_box_subscriptions` (linked by `order_id`)
+- **Market boxes are Stripe-only** — mixed cart disables external payment
+- **Existing `/api/buyer/market-boxes` endpoint** kept as fallback, removed later
 
-### Commit `5542e7b` — Push Notifications + Multi-Vendor Status
-- **Push fix**: Auto-sync `push_enabled` in `notification_preferences` when subscribing/unsubscribing
-- **Status fallthrough fix**: `[fulfilled, confirmed]` no longer falls through to 'pending'
-- **Count metadata**: API returns `readyCount`, `fulfilledCount`, `handedOffCount`, `totalActiveCount`
-- **Partial readiness**: "X of Y items ready" in hero, OrderStatusSummary, orders list, dashboard
-- **primaryItem fix**: Hero shows the ready vendor, not just the first vendor
-- Files: subscribe/route.ts, buyer/orders/route.ts, [id]/page.tsx, orders/page.tsx, OrderStatusSummary.tsx, dashboard/page.tsx
+## Current cart_items Schema (BEFORE migration)
+| Column | Type | Nullable |
+|--------|------|----------|
+| id | uuid | NO (PK) |
+| cart_id | uuid | NO (FK→carts) |
+| listing_id | uuid | NO (FK→listings) |
+| quantity | integer | NO |
+| created_at | timestamptz | NO |
+| updated_at | timestamptz | NO |
+| market_id | uuid | YES (FK→markets) |
+| schedule_id | uuid | YES (FK→market_schedules) |
+| pickup_date | date | YES |
 
-### Commit `b0c9009` — External Payment Fixes
-- **Cart clearing bug**: Database cart_items now cleared in external checkout API after order creation
-- **Success screen restyle**: Yellow warning box → neutral info box matching refund policy styling, added "My Orders" + "Continue Shopping" buttons
-- **Code cleanup**: useMemo instead of useEffect+setState for URL params
-- Files: checkout/external/route.ts, checkout/external/page.tsx
+## market_box_offerings Key Columns
+- `id`, `vendor_profile_id`, `vertical_id`, `name`, `description`, `image_urls`
+- `price_4week_cents`, `price_8week_cents`
+- `pickup_market_id`, `pickup_day_of_week`, `pickup_start_time`, `pickup_end_time`
+- `max_subscribers`, `active`, `premium_window_ends_at`
 
-### Market Box Checkout Integration Plan (documented, NOT started)
-- **Plan file**: `docs/Build_Instructions/Market_Box_Checkout_Integration_Plan.md`
-- 8 phases, ~12-15 files, 2-3 sessions estimated
+## market_box_subscriptions Key Columns
+- `id`, `offering_id` (FK), `buyer_user_id` (FK), `order_id` (FK→orders, nullable)
+- `total_paid_cents`, `start_date`, `status`, `term_weeks`, `weeks_completed`
+- `stripe_payment_intent_id`
 
-## Current Work: Dashboard Pickup Card Mobile Fix
-**File:** `src/app/[vertical]/dashboard/page.tsx` (lines ~255-345)
+## Files Modified So Far
+- `supabase/migrations/20260211_001_cart_items_market_box_support.sql` (NEW) — Phase 1
+- `src/app/api/cart/items/route.ts` — Phase 2: POST supports `type: 'market_box'`
+- `src/app/api/cart/route.ts` — Phase 2: GET returns market box items with offering details
+- `src/lib/hooks/useCart.tsx` — Phase 3: `addMarketBoxToCart()`, extended CartItem interface
+- `src/components/cart/CartDrawer.tsx` — Phase 3: MarketBoxCartItemCard, mixed cart notice
+- `src/app/[vertical]/checkout/page.tsx` — Phase 5 prep: CheckoutItem interface extended
 
-**Problem:** Ready-for-pickup card uses two-column layout that breaks on mobile — vendor name and market name on same row causes wrapping/overflow, items text gets cramped, market name overflows the white box.
+## Commits
+- (pending commit for Phases 1-3)
 
-**Fix — Restructure to stacked single-column layout:**
-Inside the white order card, top to bottom:
-1. Order number (full width, not wrapped)
-2. "X of Y items ready" count
-3. --- teal divider ---
-4. Vendor name
-5. Item names (each on own line, no wrapping)
-6. Market/pickup location name
-7. Day, date, and time window
-
-"Ready for Pickup" header should be full width across top, not wrapped. The green count badge can be smaller.
-
-**Status:** COMPLETE — `npx tsc --noEmit` passes
-
-**Changes made:**
-- Added `pickup_snapshot` to readyOrders query to get time window data
-- Passed `pickup_start_time`/`pickup_end_time` through pickup groups
-- Restructured card from two-column flex to stacked single-column
-- Header: smaller badge (`xs` font), `nowrap` on title, `flexShrink: 0` on icon/badge
-- Order card: order number → item count → teal divider → vendor → items (each on own line with ellipsis) → market → date + time window
-- Time window shown as "Sat, Feb 15 · 8:00 AM – 12:00 PM" format
-
-## User Decisions (this session)
-- External payment + multi-vendor edge case: leave as-is, FAQ later
-- Market boxes: Stripe-only (no external payments)
-- `order_confirmed` urgency stays `standard`
-- No buyer purchase notification needed
-- Someday: different icons for market box vs regular listing items
-
-## Deferred Items
-- Item 14: Size/measurement field on listings
-- Item 15: Vendor listing best practices guide
-- Market box checkout integration (see plan file)
-- FAQ / help content for edge cases
-- Different icons for market box vs regular listing (someday)
+## Gotchas / Watch Out For
+- `listing_id` on cart_items is currently NOT NULL — migration must ALTER to allow NULL
+- `get_cart_summary` RPC may need updating for market box items (uses listing price_cents)
+- Market box quantity is always 1, no qty selector
+- DB trigger auto-creates pickup records on market_box_subscriptions INSERT
+- Stripe idempotency keys must be DETERMINISTIC (never use Date.now())
