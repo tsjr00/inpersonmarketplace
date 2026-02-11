@@ -4,6 +4,7 @@ import { hasAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
+import { logPublicActivityEvent } from '@/lib/marketing/activity-events'
 
 /**
  * POST /api/admin/vendors/[id]/verify
@@ -100,6 +101,15 @@ export async function POST(
         { vendorName: businessName },
         { vertical: vendor.vertical_id }
       )
+
+      // Log public activity event for social proof on vendor approval
+      if (action === 'approve' && vendor.vertical_id) {
+        await logPublicActivityEvent({
+          vertical_id: vendor.vertical_id,
+          event_type: 'new_vendor',
+          vendor_display_name: businessName,
+        })
+      }
     }
 
     return NextResponse.json({ success: true, status: newStatus })

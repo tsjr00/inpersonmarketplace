@@ -125,6 +125,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             (profileData?.business_name as string) ||
             (profileData?.farm_name as string) ||
             'Vendor',
+          vendor_profile_id: vendorProfile?.id || null,
           vendor_email: (profileData?.email as string) || null,
           vendor_phone: (profileData?.phone as string) || null,
           market: {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { formatDisplayPrice } from '@/lib/constants'
+import { marketBoxJsonLd } from '@/lib/marketing/json-ld'
 import MarketBoxDetailClient from './MarketBoxDetailClient'
 import type { Metadata } from 'next'
 
@@ -70,6 +71,56 @@ export async function generateMetadata({ params }: MarketBoxPageProps): Promise<
   }
 }
 
-export default function MarketBoxDetailPage() {
-  return <MarketBoxDetailClient />
+export default async function MarketBoxDetailPage({ params }: MarketBoxPageProps) {
+  const { vertical, id: offeringId } = await params
+  const supabase = await createClient()
+
+  // Next.js deduplicates this query (same as generateMetadata)
+  const { data: offering } = await supabase
+    .from('market_box_offerings')
+    .select(`
+      name,
+      description,
+      image_urls,
+      price_4week_cents,
+      price_cents,
+      vendor_profiles!inner (
+        profile_data
+      )
+    `)
+    .eq('id', offeringId)
+    .eq('active', true)
+    .single()
+
+  let jsonLdScript = null
+  if (offering) {
+    const vendorProfile = offering.vendor_profiles as unknown as { profile_data: Record<string, unknown> } | null
+    const vendorData = vendorProfile?.profile_data
+    const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
+    const imageUrls = offering.image_urls as string[] | null
+    const priceCents = offering.price_4week_cents || offering.price_cents
+
+    const jsonLd = marketBoxJsonLd({
+      name: offering.name,
+      description: offering.description,
+      imageUrl: imageUrls?.[0] || null,
+      url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/market-box/${offeringId}`,
+      priceCents: priceCents || 0,
+      vendorName,
+    })
+
+    jsonLdScript = (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+    )
+  }
+
+  return (
+    <>
+      {jsonLdScript}
+      <MarketBoxDetailClient />
+    </>
+  )
 }

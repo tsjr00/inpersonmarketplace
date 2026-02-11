@@ -9,6 +9,7 @@ import TierBadge from '@/components/shared/TierBadge'
 import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
+import SocialProofToast from '@/components/marketing/SocialProofToast'
 
 // Cache page for 5 minutes - listings don't change every second
 export const revalidate = 300
@@ -761,6 +762,9 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           </div>
         )}
       </div>
+
+      {/* Social Proof Toast — shows anonymized recent activity */}
+      <SocialProofToast vertical={vertical} />
 
       {/* Responsive Grid - cards fill available space with minimum width */}
       <style>{`

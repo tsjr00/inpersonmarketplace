@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { defaultBranding } from '@/lib/branding'
 import { formatDisplayPrice, calculateDisplayPrice } from '@/lib/constants'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import ShareButton from '@/components/marketing/ShareButton'
 
 interface AvailableTerm {
   weeks: number
@@ -216,12 +217,20 @@ export default function MarketBoxDetailClient() {
     <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
         {/* Back Link */}
-        <Link
-          href={`/${vertical}/browse?view=market-boxes`}
-          style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
-        >
-          ← Back to Market Boxes
-        </Link>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Link
+            href={`/${vertical}/browse?view=market-boxes`}
+            style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
+          >
+            ← Back to Market Boxes
+          </Link>
+          <ShareButton
+            url={`${window.location.origin}/${vertical}/market-box/${offeringId}`}
+            title={data?.offering.name || 'Market Box'}
+            text={`${data?.offering.name || 'Market Box'} from ${data?.vendor.name || 'vendor'}`}
+            variant="compact"
+          />
+        </div>
 
         {/* Main Content */}
         <div style={{ marginTop: 24, display: 'grid', gap: 24 }}>
