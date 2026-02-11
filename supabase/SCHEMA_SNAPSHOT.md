@@ -2,7 +2,7 @@
 
 **Source of truth for database structure. Updated after each confirmed migration.**
 
-**Last Updated:** 2026-02-09
+**Last Updated:** 2026-02-10
 **Database:** Dev (inpersonmarketplace)
 **Updated By:** Claude + User
 
@@ -12,6 +12,9 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-10 | 20260210_012_vendor_onboarding | Extended `vendor_verifications` for 3-gate onboarding: added `requested_categories` (TEXT[]), `category_verifications` (JSONB), `coi_documents` (JSONB), `coi_status` (TEXT w/ CHECK), `coi_verified_at`, `coi_verified_by` (FK→user_profiles), `prohibited_items_acknowledged_at`, `onboarding_completed_at`. Added 3 RLS policies: `vendor_verifications_insert`, `vendor_verifications_vendor_update`, `vendor_verifications_admin_update`. Added `auto_create_vendor_verification()` trigger on vendor_profiles INSERT. Backfill for existing profiles. Added `can_vendor_publish(UUID, TEXT)` SECURITY DEFINER function. Applied to Dev & Staging. |
+| 2026-02-09 | 20260209_009_fix_premium_window_restock_regression | Fixed `set_listing_premium_window()`: removed restock condition that was re-added by 20260201_002, undoing the fix from 20260129_002. Restocking (quantity increase) no longer resets premium_window_ends_at. Cleared any stuck premium windows. Applied to Dev & Staging. |
+| 2026-02-09 | 20260209_008_push_subscriptions | Added `push_subscriptions` table: `id` (UUID PK), `user_id` (UUID FK→auth.users ON DELETE CASCADE), `endpoint` (TEXT NOT NULL), `p256dh` (TEXT NOT NULL), `auth` (TEXT NOT NULL), `created_at` (TIMESTAMPTZ). UNIQUE(user_id, endpoint). Index: `idx_push_subscriptions_user_id`. RLS: users SELECT/INSERT/DELETE own rows. Service role bypasses for sendPush(). Applied to Dev & Staging. |
 | 2026-02-09 | 20260209_007_vendor_documents_storage | Added `vendor-documents` storage bucket: 10MB limit, allowed MIME types `image/jpeg`, `image/png`, `application/pdf`. Public bucket. 4 RLS policies: authenticated INSERT/UPDATE/DELETE, public SELECT. Files stored as `certifications/{vendorId}/{timestamp}.{ext}`. Applied to Dev & Staging. |
 | 2026-02-09 | 20260209_006_vendor_cancellation_tracking | Added 3 columns to `vendor_profiles`: `orders_confirmed_count` (INT NOT NULL DEFAULT 0), `orders_cancelled_after_confirm_count` (INT NOT NULL DEFAULT 0), `cancellation_warning_sent_at` (TIMESTAMPTZ). Added 2 SECURITY DEFINER functions: `increment_vendor_confirmed(UUID)` returns void, `increment_vendor_cancelled(UUID)` returns TABLE(confirmed_count, cancelled_count). Applied to Dev & Staging. |
 | 2026-02-09 | 20260209_004_drop_remaining_old_policies | Dropped remaining old-named duplicate policies on 6 tables. transactions: 3 old SELECT/UPDATE. vendor_payouts: 1 old vendor_select. organizations: 1 old admin select. vendor_profiles: merged admin access into select/update, dropped 5 old. vendor_verifications: merged admin access into select, dropped 2 old. verticals: replaced ALL policy with specific admin INSERT/UPDATE/DELETE. Skipped user_profiles (recursion risk). Applied to Dev & Staging. |
@@ -103,6 +106,16 @@ Where Schema = public : map
 - `market_box_pickups.buyer_confirmed_at` (TIMESTAMPTZ) - When buyer confirmed pickup
 - `market_box_pickups.vendor_confirmed_at` (TIMESTAMPTZ) - When vendor confirmed pickup
 - `market_box_pickups.confirmation_window_expires_at` (TIMESTAMPTZ) - 30-second window expiry after first confirmation
+
+**Vendor Onboarding Columns (added 02/10/2026 — migration 012):**
+- `vendor_verifications.requested_categories` (TEXT[] DEFAULT '{}') - Categories the vendor wants to sell in
+- `vendor_verifications.category_verifications` (JSONB DEFAULT '{}') - Per-category verification status and documents
+- `vendor_verifications.coi_documents` (JSONB DEFAULT '[]') - Array of COI document metadata
+- `vendor_verifications.coi_status` (TEXT DEFAULT 'not_submitted') - CHECK: not_submitted/pending/approved/rejected
+- `vendor_verifications.coi_verified_at` (TIMESTAMPTZ) - When COI was approved
+- `vendor_verifications.coi_verified_by` (UUID FK→user_profiles.id ON DELETE SET NULL) - Who approved COI
+- `vendor_verifications.prohibited_items_acknowledged_at` (TIMESTAMPTZ) - When vendor acknowledged prohibited items policy
+- `vendor_verifications.onboarding_completed_at` (TIMESTAMPTZ) - When all 3 gates were first satisfied
 
 
 
@@ -406,6 +419,7 @@ Where Schema = public : map
 | vendor_referral_credits  | referrer_vendor_id     | vendor_profiles          | id             |
 | vendor_verifications     | vendor_profile_id      | vendor_profiles          | id             |
 | vendor_verifications     | reviewed_by            | user_profiles            | id             |
+| vendor_verifications     | coi_verified_by        | user_profiles            | id             |
 | vertical_admins          | vertical_id            | verticals                | vertical_id    |
 
 
@@ -573,6 +587,9 @@ Where Schema = public : map
 | public     | vendor_profiles          | vendor_profiles_update           | PERMISSIVE | {public} | UPDATE | ((user_id = ( SELECT auth.uid() AS uid)) OR (SELECT is_platform_admin()) OR is_admin_for_vertical(vertical_id))                                                                                                                                                                                                  | null                                                                                                                                                                                                                                                                                 |
 | public     | vendor_referral_credits  | vendor_referral_credits_select   | PERMISSIVE | {public} | SELECT | ((referrer_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR (referred_vendor_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)))                                                                                                                               | null                                                                                                                                                                                                                                                                                 |
 | public     | vendor_verifications     | vendor_verifications_select      | PERMISSIVE | {public} | SELECT | ((vendor_profile_id IN ( SELECT user_vendor_profile_ids() AS user_vendor_profile_ids)) OR (SELECT is_platform_admin()) OR can_admin_vendor(vendor_profile_id))                                                                                                                                                     | null                                                                                                                                                                                                                                                                                 |
+| public     | vendor_verifications     | vendor_verifications_insert      | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (vendor_profile_id IN ( SELECT user_vendor_profile_ids()))                                                                                                                                                                                                                           |
+| public     | vendor_verifications     | vendor_verifications_vendor_update | PERMISSIVE | {public} | UPDATE | (vendor_profile_id IN ( SELECT user_vendor_profile_ids()))                                                                                                                                                                                                                            | (vendor_profile_id IN ( SELECT user_vendor_profile_ids()))                                                                                                                                                                                                                           |
+| public     | vendor_verifications     | vendor_verifications_admin_update | PERMISSIVE | {public} | UPDATE | ((SELECT is_platform_admin()) OR can_admin_vendor(vendor_profile_id))                                                                                                                                                                                                                | ((SELECT is_platform_admin()) OR can_admin_vendor(vendor_profile_id))                                                                                                                                                                                                                |
 | public     | verticals                | verticals_select                 | PERMISSIVE | {public} | SELECT | true                                                                                                                                                                                                                                                                                                             | null                                                                                                                                                                                                                                                                                 |
 | public     | verticals                | verticals_admin_insert           | PERMISSIVE | {public} | INSERT | null                                                                                                                                                                                                                                                                                                             | (SELECT is_platform_admin())                                                                                                                                                                                                                                                         |
 | public     | verticals                | verticals_admin_update           | PERMISSIVE | {public} | UPDATE | (SELECT is_platform_admin())                                                                                                                                                                                                                                                                                     | null                                                                                                                                                                                                                                                                                 |
@@ -762,6 +779,7 @@ Where Schema = public : map
 | addgeometrycolumn                   | FUNCTION     | text                     |
 | addgeometrycolumn                   | FUNCTION     | text                     |
 | auto_add_schedule_to_vendors        | FUNCTION     | trigger                  |
+| auto_create_vendor_verification     | FUNCTION     | trigger                  |
 | auto_create_vendor_schedules        | FUNCTION     | trigger                  |
 | auto_create_vendor_schedules_insert | FUNCTION     | trigger                  |
 | award_referral_credit_on_first_sale | FUNCTION     | trigger                  |
@@ -784,6 +802,7 @@ Where Schema = public : map
 | can_access_pickup                   | FUNCTION     | boolean                  |
 | can_access_subscription             | FUNCTION     | boolean                  |
 | can_vendor_add_fixed_market         | FUNCTION     | boolean                  |
+| can_vendor_publish                  | FUNCTION     | boolean                  |
 | can_vendor_add_listing_to_market    | FUNCTION     | boolean                  |
 | check_subscription_completion       | FUNCTION     | trigger                  |
 | checkauth                           | FUNCTION     | integer                  |
@@ -874,6 +893,7 @@ Where Schema = public : map
 | trg_vlc_vendor_change                       | DELETE             | vendor_profiles          | EXECUTE FUNCTION trg_refresh_vendor_location()         |
 | update_vendor_profiles_updated_at           | UPDATE             | vendor_profiles          | EXECUTE FUNCTION update_updated_at_column()            |
 | vendor_referral_code_trigger                | INSERT             | vendor_profiles          | EXECUTE FUNCTION trigger_generate_referral_code()      |
+| auto_create_vendor_verification_trigger     | INSERT             | vendor_profiles          | EXECUTE FUNCTION auto_create_vendor_verification()     |
 | sync_vendor_verification                    | UPDATE             | vendor_verifications     | EXECUTE FUNCTION sync_verification_status()            |
 | update_vendor_verifications_updated_at      | UPDATE             | vendor_verifications     | EXECUTE FUNCTION update_updated_at_column()            |
 | update_verticals_updated_at                 | UPDATE             | verticals                | EXECUTE FUNCTION update_updated_at_column()            |
