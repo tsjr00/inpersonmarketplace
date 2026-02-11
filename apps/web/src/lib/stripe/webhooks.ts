@@ -80,7 +80,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     return
   }
 
-  // Handle regular product checkout
+  // Handle regular product checkout (may include market box items)
   const orderId = session.metadata?.order_id
   if (!orderId) return
 
@@ -103,7 +103,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     // Get platform fee from order for accurate record
     const { data: order } = await supabase
       .from('orders')
-      .select('platform_fee_cents')
+      .select('platform_fee_cents, buyer_user_id')
       .eq('id', orderId)
       .single()
 
@@ -115,6 +115,47 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
       status: 'succeeded',
       paid_at: new Date().toISOString(),
     })
+
+    // Process market box subscriptions from unified checkout (idempotent)
+    if (session.metadata?.has_market_boxes === 'true' && session.metadata?.market_box_items && order?.buyer_user_id) {
+      try {
+        const marketBoxItems = JSON.parse(session.metadata.market_box_items) as Array<{
+          offeringId: string
+          termWeeks: number
+          startDate?: string
+          priceCents: number
+        }>
+
+        for (const mbItem of marketBoxItems) {
+          const { data: existingSub } = await supabase
+            .from('market_box_subscriptions')
+            .select('id')
+            .eq('offering_id', mbItem.offeringId)
+            .eq('buyer_user_id', order.buyer_user_id)
+            .eq('order_id', orderId)
+            .single()
+
+          if (!existingSub) {
+            await supabase
+              .from('market_box_subscriptions')
+              .insert({
+                offering_id: mbItem.offeringId,
+                buyer_user_id: order.buyer_user_id,
+                order_id: orderId,
+                total_paid_cents: mbItem.priceCents,
+                start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
+                term_weeks: mbItem.termWeeks,
+                status: 'active',
+                weeks_completed: 0,
+                stripe_payment_intent_id: paymentIntentId,
+              })
+          }
+        }
+        console.log(`[webhook] Created ${marketBoxItems.length} market box subscription(s) for order ${orderId}`)
+      } catch {
+        console.error('[webhook] Failed to parse market box items metadata')
+      }
+    }
   }
 }
 

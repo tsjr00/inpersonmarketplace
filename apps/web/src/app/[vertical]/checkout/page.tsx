@@ -75,7 +75,7 @@ export default function CheckoutPage() {
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
-  const { items, clearCart, removeFromCart, updateQuantity, hasMultiplePickupLocations, hasScheduleIssues } = useCart()
+  const { items, clearCart, removeFromCart, updateQuantity, hasMultiplePickupLocations, hasScheduleIssues, hasMarketBoxItems } = useCart()
 
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -113,11 +113,49 @@ export default function CheckoutPage() {
           return
         }
 
+        // Separate listing items from market box items
+        const listingItems = items.filter(i => i.itemType !== 'market_box')
+        const marketBoxItems = items.filter(i => i.itemType === 'market_box')
+
+        // Market box items are pre-validated at add-to-cart time
+        const marketBoxCheckoutItems: CheckoutItem[] = marketBoxItems.map(item => ({
+          itemType: 'market_box',
+          listingId: null,
+          quantity: 1,
+          title: item.offeringName || item.title || 'Market Box',
+          price_cents: item.termPriceCents || item.price_cents || 0,
+          vendor_name: item.vendor_name || 'Unknown Vendor',
+          available: true,
+          available_quantity: null,
+          market_id: item.market_id,
+          market_name: item.market_name,
+          market_type: item.market_type,
+          market_city: item.market_city,
+          market_state: item.market_state,
+          offeringId: item.offeringId,
+          offeringName: item.offeringName,
+          termWeeks: item.termWeeks,
+          startDate: item.startDate,
+          termPriceCents: item.termPriceCents,
+          pickupDayOfWeek: item.pickupDayOfWeek,
+          pickupStartTime: item.pickupStartTime,
+          pickupEndTime: item.pickupEndTime,
+          pickup_display: item.pickup_display,
+        }))
+
+        // Only validate listing items (market box items skip validation)
+        if (listingItems.length === 0) {
+          setCheckoutItems(marketBoxCheckoutItems)
+          setValidationFailed(false)
+          setLoading(false)
+          return
+        }
+
         const response = await fetch('/api/cart/validate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            items: items.map(item => ({
+            items: listingItems.map(item => ({
               listingId: item.listingId,
               quantity: item.quantity,
             })),
@@ -129,13 +167,14 @@ export default function CheckoutPage() {
           // Merge with cart item market and pickup info
           const mergedItems = (data.items || []).map((validatedItem: CheckoutItem) => {
             // Find by listing + schedule + date (same item can have different pickup dates)
-            const cartItem = items.find(i =>
+            const cartItem = listingItems.find(i =>
               i.listingId === validatedItem.listingId &&
               i.schedule_id === validatedItem.schedule_id &&
               i.pickup_date === validatedItem.pickup_date
-            ) || items.find(i => i.listingId === validatedItem.listingId)
+            ) || listingItems.find(i => i.listingId === validatedItem.listingId)
             return {
               ...validatedItem,
+              itemType: 'listing' as const,
               market_id: cartItem?.market_id,
               market_name: cartItem?.market_name,
               market_type: cartItem?.market_type,
@@ -146,12 +185,41 @@ export default function CheckoutPage() {
               pickup_display: cartItem?.pickup_display,
             }
           })
-          setCheckoutItems(mergedItems)
+          setCheckoutItems([...mergedItems, ...marketBoxCheckoutItems])
           setValidationFailed(false)
         } else {
           // Validation failed — show items but block checkout
           setValidationFailed(true)
-          setCheckoutItems(items.map(item => ({
+          setCheckoutItems([
+            ...listingItems.map(item => ({
+              itemType: 'listing' as const,
+              listingId: item.listingId,
+              quantity: item.quantity,
+              title: item.title || 'Unknown Item',
+              price_cents: item.price_cents || 0,
+              vendor_name: item.vendor_name || 'Unknown Vendor',
+              available: true,
+              available_quantity: null,
+              market_id: item.market_id,
+              market_name: item.market_name,
+              market_type: item.market_type,
+              market_city: item.market_city,
+              market_state: item.market_state,
+              schedule_id: item.schedule_id,
+              pickup_date: item.pickup_date,
+              pickup_display: item.pickup_display,
+            })),
+            ...marketBoxCheckoutItems
+          ])
+        }
+      } catch (err) {
+        console.error('Cart validation error:', err)
+        setValidationFailed(true)
+        const listingItems = items.filter(i => i.itemType !== 'market_box')
+        const marketBoxItems = items.filter(i => i.itemType === 'market_box')
+        setCheckoutItems([
+          ...listingItems.map(item => ({
+            itemType: 'listing' as const,
             listingId: item.listingId,
             quantity: item.quantity,
             title: item.title || 'Unknown Item',
@@ -167,28 +235,23 @@ export default function CheckoutPage() {
             schedule_id: item.schedule_id,
             pickup_date: item.pickup_date,
             pickup_display: item.pickup_display,
-          })))
-        }
-      } catch (err) {
-        console.error('Cart validation error:', err)
-        setValidationFailed(true)
-        setCheckoutItems(items.map(item => ({
-          listingId: item.listingId,
-          quantity: item.quantity,
-          title: item.title || 'Unknown Item',
-          price_cents: item.price_cents || 0,
-          vendor_name: item.vendor_name || 'Unknown Vendor',
-          available: true,
-          available_quantity: null,
-          market_id: item.market_id,
-          market_name: item.market_name,
-          market_type: item.market_type,
-          market_city: item.market_city,
-          market_state: item.market_state,
-          schedule_id: item.schedule_id,
-          pickup_date: item.pickup_date,
-          pickup_display: item.pickup_display,
-        })))
+          })),
+          ...marketBoxItems.map(item => ({
+            itemType: 'market_box' as const,
+            listingId: null,
+            quantity: 1,
+            title: item.offeringName || item.title || 'Market Box',
+            price_cents: item.termPriceCents || item.price_cents || 0,
+            vendor_name: item.vendor_name || 'Unknown Vendor',
+            available: true,
+            available_quantity: null,
+            offeringId: item.offeringId,
+            offeringName: item.offeringName,
+            termWeeks: item.termWeeks,
+            startDate: item.startDate,
+            termPriceCents: item.termPriceCents,
+          }))
+        ])
       } finally {
         setLoading(false)
       }
@@ -258,10 +321,25 @@ export default function CheckoutPage() {
   }, [checkoutItems, vertical])
 
   // Fetch available payment methods from vendors
+  // Market box items force Stripe-only (no external payments)
   useEffect(() => {
     async function fetchPaymentMethods() {
       if (checkoutItems.length === 0) {
         setPaymentMethods([])
+        setVendorPaymentInfo([])
+        return
+      }
+
+      // Market boxes require Stripe — no external payment options
+      const cartHasMarketBox = checkoutItems.some(i => i.itemType === 'market_box')
+      if (cartHasMarketBox) {
+        setPaymentMethods([{
+          id: 'stripe',
+          name: 'Credit/Debit Card',
+          icon: '💳',
+          description: 'Pay securely with card'
+        }])
+        setSelectedPaymentMethod('stripe')
         setVendorPaymentInfo([])
         return
       }
@@ -371,16 +449,25 @@ export default function CheckoutPage() {
         return
       }
 
-      // Stripe checkout flow
+      // Stripe checkout flow — include both listing and market box items
+      const listingCheckoutItems = checkoutItems.filter(i => i.itemType !== 'market_box')
+      const marketBoxCheckoutItems = checkoutItems.filter(i => i.itemType === 'market_box')
+
       const response = await fetch('/api/checkout/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: checkoutItems.map(item => ({
+          items: listingCheckoutItems.map(item => ({
             listingId: item.listingId,
             quantity: item.quantity,
             scheduleId: item.schedule_id,
             pickupDate: item.pickup_date,
+          })),
+          marketBoxItems: marketBoxCheckoutItems.map(item => ({
+            offeringId: item.offeringId,
+            termWeeks: item.termWeeks,
+            startDate: item.startDate,
+            priceCents: item.termPriceCents || item.price_cents,
           })),
           vertical,
         }),
@@ -416,6 +503,9 @@ export default function CheckoutPage() {
 
   // Calculate base subtotal (before fees) for minimum order check
   const baseSubtotal = checkoutItems.reduce((sum, item) => {
+    if (item.itemType === 'market_box') {
+      return sum + (item.termPriceCents || item.price_cents || 0)
+    }
     return sum + item.price_cents * item.quantity
   }, 0)
 
@@ -623,7 +713,22 @@ export default function CheckoutPage() {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-              {checkoutItems.map(item => (
+              {/* Market box notice */}
+              {hasMarketBoxItems && checkoutItems.some(i => i.itemType !== 'market_box') && (
+                <div style={{
+                  padding: spacing.xs,
+                  backgroundColor: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: radius.md,
+                  color: '#0c4a6e',
+                  fontSize: typography.sizes.xs,
+                }}>
+                  This order includes Market Box subscriptions. Card payment is required.
+                </div>
+              )}
+
+              {/* Listing items */}
+              {checkoutItems.filter(i => i.itemType !== 'market_box').map(item => (
                 <div
                   key={item.listingId}
                   style={{
@@ -807,6 +912,124 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               ))}
+
+              {/* Market Box items */}
+              {checkoutItems.filter(i => i.itemType === 'market_box').length > 0 && (
+                <>
+                  {checkoutItems.some(i => i.itemType !== 'market_box') && (
+                    <div style={{
+                      borderTop: `1px solid ${colors.border}`,
+                      paddingTop: spacing.xs,
+                      marginTop: spacing['2xs'],
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      color: colors.textMuted,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                    }}>
+                      Market Box Subscriptions
+                    </div>
+                  )}
+                  {checkoutItems.filter(i => i.itemType === 'market_box').map(item => {
+                    const termLabel = item.termWeeks === 8 ? '8-week' : '4-week'
+                    const displayPrice = calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
+                    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+                    return (
+                      <div
+                        key={item.offeringId}
+                        style={{
+                          padding: spacing.sm,
+                          backgroundColor: '#f8fafc',
+                          borderRadius: radius.md,
+                          border: '1px solid #dbeafe',
+                          boxShadow: shadows.sm,
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          gap: spacing.xs,
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
+                              <span style={{ fontSize: typography.sizes.sm }}>📦</span>
+                              <h3 style={{
+                                margin: 0,
+                                fontSize: typography.sizes.base,
+                                color: colors.textPrimary,
+                              }}>
+                                {item.offeringName || item.title}
+                              </h3>
+                            </div>
+                            <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']} 0` }}>
+                              {item.vendor_name} · {termLabel} subscription
+                            </p>
+
+                            {/* Pickup schedule */}
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: spacing['2xs'],
+                              padding: `${spacing['2xs']} ${spacing.xs}`,
+                              backgroundColor: '#eff6ff',
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              color: '#1e40af',
+                            }}>
+                              <span>📅</span>
+                              <span>
+                                <strong>Pickup:</strong>{' '}
+                                {item.pickupDayOfWeek != null ? DAY_NAMES[item.pickupDayOfWeek] + 's' : 'TBD'}
+                                {item.pickup_display?.time_formatted && ` · ${item.pickup_display.time_formatted}`}
+                                {item.market_name && (
+                                  <span style={{ display: 'block', marginTop: 2, color: colors.textMuted }}>
+                                    @ {item.market_name}
+                                    {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
+                                  </span>
+                                )}
+                                {item.startDate && (
+                                  <span style={{ display: 'block', marginTop: 2, color: colors.textMuted }}>
+                                    Starting {new Date(item.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, margin: `0 0 ${spacing['3xs']} 0`, color: colors.textPrimary }}>
+                              {formatPrice(displayPrice)}
+                            </p>
+                            <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: `0 0 ${spacing['2xs']} 0` }}>
+                              {termLabel} total
+                            </p>
+                            <button
+                              onClick={() => {
+                                const cartItem = items.find(ci => ci.offeringId === item.offeringId)
+                                if (cartItem) removeFromCart(cartItem.id)
+                              }}
+                              style={{
+                                padding: `${spacing['3xs']} ${spacing.xs}`,
+                                backgroundColor: colors.surfaceElevated,
+                                color: '#dc3545',
+                                border: '1px solid #dc3545',
+                                borderRadius: radius.sm,
+                                cursor: 'pointer',
+                                fontSize: typography.sizes.xs,
+                                minHeight: 36,
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
             </div>
 
             {/* Cross-Sell Section */}
@@ -935,7 +1158,7 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.sm,
                   color: colors.textMuted,
                 }}>
-                  <span>Subtotal ({checkoutItems.reduce((s, i) => s + i.quantity, 0)} items)</span>
+                  <span>Subtotal ({checkoutItems.reduce((s, i) => s + (i.itemType === 'market_box' ? 1 : i.quantity), 0)} items)</span>
                   <span>{formatPrice(total - FEES.buyerFlatFeeCents)}</span>
                 </div>
                 <div style={{

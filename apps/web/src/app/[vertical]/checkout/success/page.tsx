@@ -52,6 +52,22 @@ interface OrderItem {
   pickup_end_time?: string | null
 }
 
+interface MarketBoxSubscription {
+  id: string
+  term_weeks: number
+  start_date: string
+  total_paid_cents: number
+  status: string
+  offering_name: string
+  vendor_name: string
+  pickup_day_of_week: number | null
+  pickup_start_time: string | null
+  pickup_end_time: string | null
+  market_name: string | null
+  market_city: string | null
+  market_state: string | null
+}
+
 interface OrderDetails {
   id: string
   order_number: string
@@ -59,6 +75,7 @@ interface OrderDetails {
   total_cents: number
   created_at: string
   items: OrderItem[]
+  marketBoxSubscriptions: MarketBoxSubscription[]
 }
 
 export default function CheckoutSuccessPage() {
@@ -86,7 +103,7 @@ export default function CheckoutSuccessPage() {
           if (response.ok) {
             const data = await response.json()
             if (data.order) {
-              setOrder(transformOrder(data.order))
+              setOrder(transformOrder(data.order, data.marketBoxSubscriptions))
             }
             // Refresh client-side cart state (server already cleared DB cart)
             refreshCart()
@@ -292,6 +309,55 @@ export default function CheckoutSuccessPage() {
                 </div>
               </>
             )}
+
+            {order.marketBoxSubscriptions && order.marketBoxSubscriptions.length > 0 && (
+              <>
+                <h3 style={{ fontSize: typography.sizes.base, marginTop: spacing.md, marginBottom: spacing.sm, color: colors.textPrimary }}>
+                  Market Box Subscriptions
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                  {order.marketBoxSubscriptions.map((sub) => (
+                    <div
+                      key={sub.id}
+                      style={{
+                        padding: `${spacing.xs} ${spacing.sm}`,
+                        backgroundColor: colors.surfaceMuted,
+                        borderRadius: radius.sm,
+                        borderLeft: `3px solid ${colors.primary}`,
+                      }}
+                    >
+                      <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>
+                        {sub.offering_name}
+                      </p>
+                      <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                        {sub.vendor_name} &bull; {sub.term_weeks}-week subscription &bull; ${(sub.total_paid_cents / 100).toFixed(2)}
+                      </p>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing['2xs'],
+                        marginTop: spacing['2xs'],
+                        padding: `${spacing['2xs']} ${spacing.xs}`,
+                        backgroundColor: colors.primaryLight,
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        color: colors.textSecondary,
+                        flexWrap: 'wrap',
+                      }}>
+                        <span>{'\u{1F4E6}'}</span>
+                        <span>
+                          <strong>Starts:</strong> {new Date(sub.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          {sub.pickup_day_of_week !== null && ` \u2022 Every ${DAY_NAMES[sub.pickup_day_of_week]}`}
+                          {formatPickupTime(sub.pickup_start_time, sub.pickup_end_time) && `, ${formatPickupTime(sub.pickup_start_time, sub.pickup_end_time)}`}
+                          {sub.market_name && ` at ${sub.market_name}`}
+                          {sub.market_city && `, ${sub.market_city}`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -423,9 +489,19 @@ export default function CheckoutSuccessPage() {
             What&apos;s Next?
           </h2>
           <ul style={{ margin: 0, paddingLeft: spacing.sm, color: colors.textSecondary, lineHeight: typography.leading.loose, listStyleType: 'disc' }}>
-            <li>The vendor will be notified and will confirm your order</li>
-            <li>You&apos;ll receive a notification when your items are ready for pickup</li>
-            <li>Pick up your items at the designated market location{order?.items && [...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : ''}</li>
+            {order?.items && order.items.length > 0 && (
+              <>
+                <li>The vendor will be notified and will confirm your order</li>
+                <li>You&apos;ll receive a notification when your items are ready for pickup</li>
+                <li>Pick up your items at the designated market location{[...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : ''}</li>
+              </>
+            )}
+            {order?.marketBoxSubscriptions && order.marketBoxSubscriptions.length > 0 && (
+              <>
+                <li>Your market box subscription is now active</li>
+                <li>You&apos;ll receive weekly pickup reminders before each market day</li>
+              </>
+            )}
             <li>Track your order status in your orders page</li>
           </ul>
         </div>
@@ -478,8 +554,10 @@ export default function CheckoutSuccessPage() {
   )
 }
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
 /** Transform raw Supabase order data into the display format */
-function transformOrder(raw: Record<string, unknown>): OrderDetails {
+function transformOrder(raw: Record<string, unknown>, rawMarketBoxSubs?: Array<Record<string, unknown>>): OrderDetails {
   const items = (raw.order_items as Array<Record<string, unknown>> || []).map(item => {
     const listing = item.listing as Record<string, unknown> | null
     const vendorProfiles = listing?.vendor_profiles as Record<string, unknown> | null
@@ -508,6 +586,31 @@ function transformOrder(raw: Record<string, unknown>): OrderDetails {
     }
   })
 
+  // Transform market box subscriptions
+  const marketBoxSubscriptions: MarketBoxSubscription[] = (rawMarketBoxSubs || []).map(sub => {
+    const offering = sub.market_box_offerings as Record<string, unknown> | null
+    const vendorProfiles = offering?.vendor_profiles as Record<string, unknown> | null
+    const profileData = vendorProfiles?.profile_data as Record<string, unknown> | null
+    const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+    const market = offering?.markets as Record<string, unknown> | null
+
+    return {
+      id: sub.id as string,
+      term_weeks: sub.term_weeks as number,
+      start_date: sub.start_date as string,
+      total_paid_cents: sub.total_paid_cents as number,
+      status: sub.status as string,
+      offering_name: (offering?.name as string) || 'Market Box',
+      vendor_name: vendorName,
+      pickup_day_of_week: (offering?.pickup_day_of_week as number) ?? null,
+      pickup_start_time: (offering?.pickup_start_time as string) || null,
+      pickup_end_time: (offering?.pickup_end_time as string) || null,
+      market_name: (market?.name as string) || null,
+      market_city: (market?.city as string) || null,
+      market_state: (market?.state as string) || null,
+    }
+  })
+
   return {
     id: raw.id as string,
     order_number: raw.order_number as string,
@@ -515,5 +618,6 @@ function transformOrder(raw: Record<string, unknown>): OrderDetails {
     total_cents: raw.total_cents as number,
     created_at: raw.created_at as string,
     items,
+    marketBoxSubscriptions,
   }
 }

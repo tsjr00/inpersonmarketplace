@@ -16,6 +16,13 @@ interface CartItem {
   pickupDate?: string
 }
 
+interface MarketBoxCheckoutItem {
+  offeringId: string
+  termWeeks: number
+  startDate?: string
+  priceCents: number
+}
+
 interface Listing {
   id: string
   title: string
@@ -23,6 +30,10 @@ interface Listing {
   price_cents: number
   vertical_id: string
   vendor_profile_id: string
+  listing_markets?: Array<{
+    market_id: string
+    markets: { id: string; name: string; market_type: string }
+  }>
 }
 
 interface CartItemFromDB {
@@ -46,7 +57,12 @@ export async function POST(request: NextRequest) {
 
   return withErrorTracing('/api/checkout/session', 'POST', async () => {
     const supabase = await createClient()
-    const { items, vertical } = await request.json() as { items: CartItem[]; vertical?: string }
+    const { items, marketBoxItems, vertical } = await request.json() as {
+      items: CartItem[]
+      marketBoxItems?: MarketBoxCheckoutItem[]
+      vertical?: string
+    }
+    const hasMarketBoxes = marketBoxItems && marketBoxItems.length > 0
 
     crumb.auth('Checking user authentication')
     const {
@@ -187,33 +203,56 @@ export async function POST(request: NextRequest) {
     crumb.supabase('select', 'listings + verticals (parallel)')
     const listingIds = items.map((i) => i.listingId)
 
-    const [listingsResult, verticalResult] = await Promise.all([
-      // Fetch listings with vendor info
-      supabase
-        .from('listings')
-        .select(`
-          id, title, description, price_cents, vertical_id, vendor_profile_id,
-          listing_markets (
-            market_id,
-            markets (
-              id,
-              name,
-              market_type
-            )
-          )
-        `)
-        .in('id', listingIds),
+    const [listingsResult, verticalResult, marketBoxOfferingsResult] = await Promise.all([
+      // Fetch listings with vendor info (skip if no listing items)
+      listingIds.length > 0
+        ? supabase
+            .from('listings')
+            .select(`
+              id, title, description, price_cents, vertical_id, vendor_profile_id,
+              listing_markets (
+                market_id,
+                markets (
+                  id,
+                  name,
+                  market_type
+                )
+              )
+            `)
+            .in('id', listingIds)
+        : Promise.resolve({ data: [] as Listing[], error: null }),
       // Fetch vertical ID (if provided)
       vertical
         ? supabase.from('verticals').select('id').eq('vertical_id', vertical).single()
-        : Promise.resolve({ data: null })
+        : Promise.resolve({ data: null }),
+      // Fetch market box offerings (if any)
+      hasMarketBoxes
+        ? supabase
+            .from('market_box_offerings')
+            .select('id, name, description, price_4week_cents, price_8week_cents, vendor_profile_id, vertical_id, pickup_market_id, active')
+            .in('id', marketBoxItems!.map(i => i.offeringId))
+        : Promise.resolve({ data: [] as Array<{ id: string; name: string; description: string | null; price_4week_cents: number; price_8week_cents: number | null; vendor_profile_id: string; vertical_id: string; pickup_market_id: string | null; active: boolean }>, error: null })
     ])
 
-    const listings = listingsResult.data
+    const listings = listingsResult.data || []
     const verticalData = verticalResult.data
+    const marketBoxOfferings = marketBoxOfferingsResult.data || []
 
-    if (!listings || listings.length !== items.length) {
-      throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: items.length, got: listings?.length ?? 0 })
+    if (listingIds.length > 0 && listings.length !== items.length) {
+      throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: items.length, got: listings.length })
+    }
+
+    // Validate market box offerings
+    if (hasMarketBoxes) {
+      for (const mbItem of marketBoxItems!) {
+        const offering = marketBoxOfferings.find(o => o.id === mbItem.offeringId)
+        if (!offering) {
+          throw traced.validation('ERR_CHECKOUT_001', 'Market box offering not found')
+        }
+        if (!offering.active) {
+          throw traced.validation('ERR_CHECKOUT_001', `Market box "${offering.name}" is no longer available`)
+        }
+      }
     }
 
     // Get cart items with market selections (sequential - depends on vertical)
@@ -408,11 +447,22 @@ export async function POST(request: NextRequest) {
     // Calculate totals using unified pricing module
     crumb.logic('Calculating order totals and fees')
 
-    // Build items for pricing calculation
+    // Build items for pricing calculation (listings + market boxes)
     const pricingItems = items.map((item) => {
       const listing = listings.find((l) => l.id === item.listingId) as Listing
       return { price_cents: listing.price_cents, quantity: item.quantity }
     })
+
+    // Add market box items to pricing
+    if (hasMarketBoxes) {
+      for (const mbItem of marketBoxItems!) {
+        const offering = marketBoxOfferings.find(o => o.id === mbItem.offeringId)!
+        const termPrice = mbItem.termWeeks === 8
+          ? (offering.price_8week_cents || offering.price_4week_cents)
+          : offering.price_4week_cents
+        pricingItems.push({ price_cents: termPrice, quantity: 1 })
+      }
+    }
 
     // Calculate order-level pricing (handles flat fee correctly - once per order)
     const orderPricing = calculateOrderPricing(pricingItems)
@@ -494,7 +544,14 @@ export async function POST(request: NextRequest) {
     // Build Stripe line items
     crumb.logic('Creating Stripe checkout session (before order)')
     const baseUrl = request.nextUrl.origin
-    const verticalId = vertical || (listings[0] as Listing).vertical_id
+    // Resolve vertical_id from listings or market box offerings
+    const verticalId = vertical
+      || (listings.length > 0 ? (listings[0] as Listing).vertical_id : null)
+      || (marketBoxOfferings.length > 0 ? marketBoxOfferings[0].vertical_id : null)
+
+    if (!verticalId) {
+      throw traced.validation('ERR_CHECKOUT_001', 'Could not determine vertical for checkout')
+    }
     const successUrl = `${baseUrl}/${verticalId}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
     const cancelUrl = `${baseUrl}/${verticalId}/checkout`
 
@@ -512,6 +569,24 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Add market box line items
+    if (hasMarketBoxes) {
+      for (const mbItem of marketBoxItems!) {
+        const offering = marketBoxOfferings.find(o => o.id === mbItem.offeringId)!
+        const termPrice = mbItem.termWeeks === 8
+          ? (offering.price_8week_cents || offering.price_4week_cents)
+          : offering.price_4week_cents
+        const priceWithPercentFee = Math.round(termPrice * (1 + FEES.buyerFeePercent / 100))
+
+        checkoutItems.push({
+          name: `${offering.name} - ${mbItem.termWeeks} Week Market Box`,
+          description: `Prepaid ${mbItem.termWeeks}-week subscription`,
+          amount: priceWithPercentFee,
+          quantity: 1,
+        })
+      }
+    }
+
     // Add service fee as separate line item (flat fee once per order)
     checkoutItems.push({
       name: 'Service Fee',
@@ -527,6 +602,15 @@ export async function POST(request: NextRequest) {
       items: checkoutItems,
       successUrl,
       cancelUrl,
+      metadata: hasMarketBoxes ? {
+        has_market_boxes: 'true',
+        market_box_items: JSON.stringify(marketBoxItems!.map(mb => ({
+          offeringId: mb.offeringId,
+          termWeeks: mb.termWeeks,
+          startDate: mb.startDate,
+          priceCents: mb.priceCents,
+        }))),
+      } : undefined,
     })
 
     if (!session) {
@@ -534,13 +618,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Create order record (with session ID already populated — no orphan risk)
+    // Resolve vertical UUID — verticalData.id is the UUID, verticalId may be the slug
+    const verticalUUID = verticalData?.id
+      || (listings.length > 0 ? (listings[0] as Listing).vertical_id : null)
+      || (marketBoxOfferings.length > 0 ? marketBoxOfferings[0].vertical_id : null)
+
     crumb.supabase('insert', 'orders')
     const { error: orderError } = await supabase
       .from('orders')
       .insert({
         id: orderId,
         buyer_user_id: user.id,
-        vertical_id: (listings[0] as Listing).vertical_id,
+        vertical_id: verticalUUID!,
         order_number: orderNumber,
         status: 'pending',
         subtotal_cents: subtotalCents,
@@ -551,29 +640,32 @@ export async function POST(request: NextRequest) {
 
     if (orderError) throw traced.fromSupabase(orderError, { table: 'orders', operation: 'insert' })
 
-    // Create order items with pickup snapshots
-    crumb.supabase('insert', 'order_items')
-    const { error: itemsError } = await supabase.from('order_items').insert(
-      orderItemsWithSnapshots.map((item) => ({
-        ...item,
-        order_id: orderId,
-      }))
-    )
+    // Create order items with pickup snapshots (listing items only)
+    // Market box subscriptions are created after payment succeeds (webhook/success handler)
+    if (orderItemsWithSnapshots.length > 0) {
+      crumb.supabase('insert', 'order_items')
+      const { error: itemsError } = await supabase.from('order_items').insert(
+        orderItemsWithSnapshots.map((item) => ({
+          ...item,
+          order_id: orderId,
+        }))
+      )
 
-    if (itemsError) throw traced.fromSupabase(itemsError, { table: 'order_items', operation: 'insert' })
+      if (itemsError) throw traced.fromSupabase(itemsError, { table: 'order_items', operation: 'insert' })
 
-    // Decrement inventory at checkout time (not at payment success)
-    // This reserves the items — inventory is restored if order is cancelled/expires
-    crumb.logic('Decrementing inventory at checkout')
-    for (const item of items) {
-      const currentQuantity = inventoryMap.get(item.listingId)
-      // Only decrement if listing has managed inventory (not null/unlimited)
-      if (currentQuantity !== null && currentQuantity !== undefined) {
-        await serviceClient
-          .rpc('atomic_decrement_inventory' as string, {
-            p_listing_id: item.listingId,
-            p_quantity: item.quantity
-          })
+      // Decrement inventory at checkout time (not at payment success)
+      // This reserves the items — inventory is restored if order is cancelled/expires
+      crumb.logic('Decrementing inventory at checkout')
+      for (const item of items) {
+        const currentQuantity = inventoryMap.get(item.listingId)
+        // Only decrement if listing has managed inventory (not null/unlimited)
+        if (currentQuantity !== null && currentQuantity !== undefined) {
+          await serviceClient
+            .rpc('atomic_decrement_inventory' as string, {
+              p_listing_id: item.listingId,
+              p_quantity: item.quantity
+            })
+        }
       }
     }
 
