@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
       .from('market_box_subscriptions')
       .select(`
         id,
+        order_id,
         total_paid_cents,
         status,
         weeks_completed,
@@ -332,6 +333,13 @@ export async function GET(request: NextRequest) {
     }
   })
 
+    // Collect order IDs linked to market box subscriptions — used to avoid duplicate entries
+    const marketBoxOrderIds = new Set(
+      (marketBoxResult.data || [])
+        .map(sub => sub.order_id as string | null)
+        .filter(Boolean)
+    )
+
     // Transform market box subscriptions into unified order shape
     const marketBoxOrders = (marketBoxResult.data || []).map(sub => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -372,7 +380,17 @@ export async function GET(request: NextRequest) {
       const termWeeks = (sub.term_weeks as number) || 4
       const extendedWeeks = (sub.extended_weeks as number) || 0
       const totalWeeks = termWeeks + extendedWeeks
-      const orderNumber = 'MB-' + sub.id.slice(0, 6).toUpperCase()
+
+      // Use linked order's total_cents (includes platform fees) if available
+      const linkedOrder = sub.order_id
+        ? (orders || []).find(o => o.id === sub.order_id)
+        : null
+      const orderNumber = linkedOrder
+        ? linkedOrder.order_number
+        : 'MB-' + sub.id.slice(0, 6).toUpperCase()
+      const displayTotal = linkedOrder
+        ? linkedOrder.total_cents
+        : sub.total_paid_cents
 
       // Add market to filter dropdown map
       if (market?.id) {
@@ -389,7 +407,7 @@ export async function GET(request: NextRequest) {
         order_number: orderNumber,
         status: mbEffectiveStatus,
         payment_status: sub.status,
-        total_cents: sub.total_paid_cents,
+        total_cents: displayTotal,
         created_at: sub.created_at,
         updated_at: sub.created_at,
         market_box: {
@@ -425,8 +443,14 @@ export async function GET(request: NextRequest) {
       ? marketBoxOrders.filter(o => o.status === status)
       : marketBoxOrders
 
+    // Exclude orders that are purely market-box orders (no listing items, linked to a subscription)
+    // These show up as market_box entries instead — avoids duplicate display
+    const regularOrders = transformedOrders.filter(o =>
+      o.items.length > 0 || !marketBoxOrderIds.has(o.id)
+    )
+
     // Merge both order types into unified list, sorted by date descending
-    const allOrders = [...transformedOrders, ...filteredMarketBoxOrders]
+    const allOrders = [...regularOrders, ...filteredMarketBoxOrders]
     allOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     // Filter by market if specified
