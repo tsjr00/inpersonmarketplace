@@ -356,27 +356,27 @@ export default function BuyerOrderDetailPage() {
     // Compute effective status per item
     const effectiveStatuses = order.items.map(i => {
       if (i.cancelled_at) return 'cancelled'
-      // Buyer confirmed = fully fulfilled
       if (i.buyer_confirmed_at) return 'fulfilled'
-      // Vendor fulfilled but buyer hasn't confirmed = handed_off
       if (i.status === 'fulfilled') return 'handed_off'
       return i.status
     })
 
-    // If ALL items are fulfilled (buyer confirmed), order is fulfilled
-    if (effectiveStatuses.every(s => s === 'fulfilled')) return 'fulfilled'
+    // Only consider non-cancelled items for order-level status
+    const activeStatuses = effectiveStatuses.filter(s => s !== 'cancelled')
 
-    // If ANY item is handed_off (vendor fulfilled, awaiting buyer), show handed_off
-    if (effectiveStatuses.some(s => s === 'handed_off')) return 'handed_off'
-
-    // If ANY item is ready (and none cancelled), show ready
-    if (effectiveStatuses.some(s => s === 'ready') && !effectiveStatuses.some(s => s === 'cancelled')) return 'ready'
-
-    // If ANY item is confirmed (and none cancelled/ready), show confirmed
-    if (effectiveStatuses.some(s => s === 'confirmed') && !effectiveStatuses.some(s => ['cancelled', 'ready'].includes(s))) return 'confirmed'
-
-    // Default to payment status (pending/paid)
-    return order.status
+    if (activeStatuses.length === 0) return 'cancelled'
+    if (activeStatuses.every(s => s === 'fulfilled')) return 'fulfilled'
+    if (activeStatuses.some(s => s === 'handed_off')) return 'handed_off'
+    if (activeStatuses.some(s => s === 'ready')) return 'ready'
+    if (activeStatuses.every(s => s === 'confirmed')) return 'confirmed'
+    // Some items fulfilled (picked up), rest still in progress
+    if (activeStatuses.some(s => s === 'fulfilled')) {
+      const remaining = activeStatuses.filter(s => s !== 'fulfilled')
+      if (remaining.some(s => s === 'ready')) return 'ready'
+      if (remaining.some(s => s === 'confirmed')) return 'confirmed'
+      return 'pending'
+    }
+    return order.status === 'paid' ? 'pending' : order.status
   }
 
   const effectiveStatus = computeEffectiveStatus()
@@ -397,10 +397,21 @@ export default function BuyerOrderDetailPage() {
     return acc
   }, {} as Record<string, { market: Market; items: OrderItem[]; pickupDate: string | null; display: OrderItem['display'] }>)
 
+  // Count metadata for partial readiness display
+  const activeItems = order.items.filter(i => !i.cancelled_at)
+  const readyCount = activeItems.filter(i => i.status === 'ready' && !i.buyer_confirmed_at).length
+  const totalActiveCount = activeItems.length
+  const isPartiallyReady = readyCount > 0 && readyCount < totalActiveCount
+  const uniqueVendors = new Set(activeItems.map(i => i.vendor_name)).size
+  const isMultiVendor = uniqueVendors > 1
+
   // Is this order in a pickup-ready state? Show the mobile pickup presentation
   const isPickupReady = ['ready', 'handed_off'].includes(effectiveStatus)
-  // Get primary vendor/market for the hero section
-  const primaryItem = order.items.find(i => !i.cancelled_at)
+  // Get primary vendor/market for the hero section — prioritize ready items
+  const primaryItem = order.items.find(i => i.status === 'ready' && !i.cancelled_at)
+    || order.items.find(i => i.status === 'fulfilled' && !i.buyer_confirmed_at && !i.cancelled_at)
+    || order.items.find(i => !i.cancelled_at && !i.buyer_confirmed_at)
+    || order.items.find(i => !i.cancelled_at)
   const primaryVendor = primaryItem?.vendor_name || 'Vendor'
   const primaryMarket = primaryItem?.market?.name || 'Market'
   // Count items needing confirmation
@@ -486,13 +497,17 @@ export default function BuyerOrderDetailPage() {
                 Vendor: {primaryVendor}
               </p>
 
-              {/* Item count */}
+              {/* Item count — with partial readiness context */}
               <p style={{
                 margin: 0,
                 fontSize: typography.sizes.sm,
                 opacity: 0.8
               }}>
-                {order.items.filter(i => !i.cancelled_at).length} item{order.items.filter(i => !i.cancelled_at).length !== 1 ? 's' : ''} in this order
+                {isPartiallyReady
+                  ? `${readyCount} of ${totalActiveCount} items ready for pickup`
+                  : `${totalActiveCount} item${totalActiveCount !== 1 ? 's' : ''} in this order`
+                }
+                {isMultiVendor && ` • ${uniqueVendors} vendors`}
               </p>
             </div>
 
@@ -701,7 +716,12 @@ export default function BuyerOrderDetailPage() {
               </div>
 
               {/* Status Summary - inline in header */}
-              <OrderStatusSummary status={effectiveStatus} updatedAt={order.updated_at} />
+              <OrderStatusSummary
+                status={effectiveStatus}
+                updatedAt={order.updated_at}
+                readyCount={readyCount}
+                totalActiveCount={totalActiveCount}
+              />
 
               {/* Placed + Last Updated dates */}
               <p style={{ color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.sm }}>

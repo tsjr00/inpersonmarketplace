@@ -209,11 +209,34 @@ export async function GET(request: NextRequest) {
         else if (activeStatuses.every(s => s === 'confirmed')) {
           effectiveStatus = 'confirmed'
         }
+        // Some items fulfilled (picked up), rest still in progress — use highest remaining status
+        else if (activeStatuses.some(s => s === 'fulfilled')) {
+          const remaining = activeStatuses.filter(s => s !== 'fulfilled')
+          if (remaining.some(s => s === 'ready')) effectiveStatus = 'ready'
+          else if (remaining.some(s => s === 'confirmed')) effectiveStatus = 'confirmed'
+          else effectiveStatus = 'pending'
+        }
         // Default: pending (some items still awaiting vendor action)
         else if (order.status === 'paid') {
           effectiveStatus = 'pending' // Will show "Order Placed"
         }
       }
+
+      // Count metadata for partial readiness display
+      const activeStatuses2 = items.length > 0
+        ? items.map((i: Record<string, unknown>) => {
+            const cancelled = i.cancelled_at as string | null
+            if (cancelled) return 'cancelled'
+            const buyerConfirmed = i.buyer_confirmed_at as string | null
+            if (buyerConfirmed) return 'fulfilled'
+            if ((i.status as string) === 'fulfilled') return 'handed_off'
+            return i.status as string
+          }).filter(s => s !== 'cancelled')
+        : []
+      const readyCount = activeStatuses2.filter(s => s === 'ready').length
+      const fulfilledCount = activeStatuses2.filter(s => s === 'fulfilled').length
+      const handedOffCount = activeStatuses2.filter(s => s === 'handed_off').length
+      const totalActiveCount = activeStatuses2.length
 
       return {
         type: 'order' as const,
@@ -224,6 +247,10 @@ export async function GET(request: NextRequest) {
         total_cents: order.total_cents,
         created_at: order.created_at,
         updated_at: order.updated_at,
+        readyCount,
+        fulfilledCount,
+        handedOffCount,
+        totalActiveCount,
         items: items.map((item: Record<string, unknown>) => {
         const listing = item.listing as Record<string, unknown> | null
         const vendorProfiles = listing?.vendor_profiles as Record<string, unknown> | null

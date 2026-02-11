@@ -1,94 +1,66 @@
-# Current Task: UI Overhaul — Test Feedback (Session 16-17)
+# Current Task: Fix Push Notifications + Multi-Vendor Order Status Display
 Started: 2026-02-11
 
-## Status: ALL 9 BATCHES COMPLETE — Ready to commit + push staging
+## Status: ALL 5 STEPS COMPLETE — Ready to commit + push staging
 
-## Source
-User feedback file: `docs/Build_Instructions/02112026 - changes & test results.txt`
-Plan file: `nested-gliding-dove.md` (9 batches, 15 files)
+## Previous Task (COMPLETED)
+UI Overhaul (9 batches, 15 files) — committed as `0e9400f`, pushed to staging.
+
+## Plan
+Plan file: `nested-gliding-dove.md`
 
 ## User Clarifications
-- Image height: 80% of current (500→400px max), preserve aspect ratio
-- City/state filter: progressive filter only, DO NOT touch radius/geo logic
-- No maps anywhere
-- Items 14 (size/measurement field) + 15 (vendor best practices) deferred to later session
+- Do NOT change `order_confirmed` urgency (standard is intentional)
+- Do NOT add buyer purchase notification (buyer knows they purchased)
+- In-app notifications ARE working for all status changes
+- Push is the only broken channel — `push_enabled` never gets set
+- "There should be a notification when the order is marked ready" — already works via in-app + push (once push_enabled fixed)
 
-## What Was Done
+## Steps
 
-### Batch 1: Quick Wins
-- Vendor orders title: "Orders" → "Customer Orders"
-- Listing nav bar: reduced vertical padding (sm → 2xs)
-- Allergen warning: reduced padding/margin (sm → xs)
+### Step 1: Auto-set `push_enabled` in push subscribe route
+**File:** `src/app/api/notifications/push/subscribe/route.ts`
+- POST: after subscription upsert, set `push_enabled: true` in `user_profiles.notification_preferences`
+- DELETE: after subscription delete, count remaining subs — if 0, set `push_enabled: false`
+- Status: COMPLETE
 
-### Batch 2: Cart "Continue Shopping"
-- Added secondary "Continue Shopping" button in CartDrawer footer
+### Step 2: Fix status fallthrough + add count metadata in API
+**File:** `src/app/api/buyer/orders/route.ts`
+- Added `else if (activeStatuses.some(s => s === 'fulfilled'))` block after confirmed check
+- Added readyCount, fulfilledCount, handedOffCount, totalActiveCount to response
+- Status: COMPLETE
 
-### Batch 3: State Dropdown on Markets
-- Added State filter left of City in MarketFilters
-- Cascading: changing state clears city selection
-- Did NOT touch radius/geo logic
+### Step 3: Fix order detail page — status, primaryItem, hero
+**File:** `src/app/[vertical]/buyer/orders/[id]/page.tsx`
+- Fixed computeEffectiveStatus() — filters cancelled, handles fulfilled+confirmed mix
+- Fixed primaryItem selection (prioritize ready → handed_off → active → any)
+- Added partial readiness context to hero ("X of Y items ready")
+- Added multi-vendor count display
+- Passes readyCount/totalActiveCount to OrderStatusSummary
+- Status: COMPLETE
 
-### Batch 4: Listing Pickup Section Visuals
-- PickupLocationsCard: border 2px→1px, moved border to options container, font xs→sm
-- AddToCartButton: "Select a Pickup Date below:" with checkmark, divider line, colored dots (purple=private, blue=traditional), border around dates
+### Step 4: Update OrderStatusSummary + orders list page
+**Files:** `src/components/buyer/OrderStatusSummary.tsx` + `src/app/[vertical]/buyer/orders/page.tsx`
+- Added readyCount/totalActiveCount optional props to OrderStatusSummary
+- "Partially Ready" title + "X of Y items ready" message when partial
+- Updated Order interface for count fields
+- Updated ready banner for partial messaging
+- Status: COMPLETE
 
-### Batch 5: Listing Detail Layout Restructure
-- Title+Price+Qty moved above image (always full-width)
-- Separate Pickup Section card (PickupLocationsCard + ListingPurchaseSection)
-- Image maxHeight: 500→400
+### Step 5: Update dashboard card for partial readiness
+**File:** `src/app/[vertical]/dashboard/page.tsx`
+- Added lightweight query for total active item counts per ready order
+- Shows "X of Y items ready" when partial, "X items ready" when all ready
+- Status: COMPLETE
 
-### Batch 6: Market Detail Layout Restructure
-- Inline 28px emoji + market name on same line (removed 80x80 icon)
-- Removed "Farmers Market" pill
-- Address with border lines above/below
-- Vendor count + next date on one line
-- Reduced padding throughout, increased disclaimer font
+## Files To Modify (~6 total)
+- `src/app/api/notifications/push/subscribe/route.ts` (Step 1)
+- `src/app/api/buyer/orders/route.ts` (Step 2)
+- `src/app/[vertical]/buyer/orders/[id]/page.tsx` (Step 3)
+- `src/app/[vertical]/buyer/orders/page.tsx` (Step 4)
+- `src/components/buyer/OrderStatusSummary.tsx` (Step 4)
+- `src/app/[vertical]/dashboard/page.tsx` (Step 5)
 
-### Batch 7: Checkout/Success Multi-Pickup + What's Next
-- Replaced emoji icons with colored dots (purple/blue) in both checkout and success
-- Success: combined address to one line, reduced gaps
-- What's Next: visible disc bullets, reduced paddingLeft
-- Action buttons: centered text
-
-### Batch 8: Buyer Orders List Cards
-- New top row: Price (left) + Status text (center) + Date (right)
-- Order number box below, "Tap for details" below that
-- Removed status pill background (just colored text)
-- Removed service fee from order list cards
-- Pickup date: removed bold, kept blue
-
-### Batch 9: Buyer Order Detail Restructure
-- 9A: OrderStatusSummary moved into header, dates in numeric format (m/d/yy + time)
-- 9B: Removed timestamps from OrderTimeline steps
-- 9C: PickupDetails address on one line, consistent date/time font, removed late pickup warning
-- 9D: Removed image placeholders, left-justified content, Status + Cancel on same row, service fee above Total
-
-## Verification
-- `npx tsc --noEmit` — zero errors after all batches
-
-## Files Modified (15 total)
-- `src/app/[vertical]/vendor/orders/page.tsx` (Batch 1)
-- `src/app/[vertical]/listing/[listingId]/page.tsx` (Batches 1, 5)
-- `src/components/listings/ListingImageGallery.tsx` (Batch 5)
-- `src/components/listings/PickupLocationsCard.tsx` (Batch 4)
-- `src/components/cart/AddToCartButton.tsx` (Batch 4)
-- `src/components/cart/CartDrawer.tsx` (Batch 2)
-- `src/app/[vertical]/markets/page.tsx` (Batch 3)
-- `src/app/[vertical]/markets/MarketFilters.tsx` (Batch 3)
-- `src/app/[vertical]/markets/[id]/page.tsx` (Batch 6)
-- `src/app/[vertical]/checkout/page.tsx` (Batch 7)
-- `src/app/[vertical]/checkout/success/page.tsx` (Batch 7)
-- `src/app/[vertical]/buyer/orders/page.tsx` (Batch 8)
-- `src/app/[vertical]/buyer/orders/[id]/page.tsx` (Batch 9)
-- `src/components/buyer/OrderTimeline.tsx` (Batch 9)
-- `src/components/buyer/PickupDetails.tsx` (Batch 9)
-
-## Next Steps
-1. Commit all changes
-2. Push to staging
-3. User tests on staging
-4. After user confirms: push main to origin
-
-## Deferred Items
+## Deferred Items (from previous session)
 - Item 14: Size/measurement field on listings
 - Item 15: Vendor listing best practices guide
