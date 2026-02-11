@@ -46,7 +46,33 @@ export default function ListingForm({
 
   // Check if vendor is pending approval (status='submitted' means awaiting approval)
   // Note: vendor_status enum values are: 'draft', 'submitted', 'approved', 'rejected', 'suspended'
-  const isPendingVendor = vendorStatus === 'submitted'
+  const isPendingVendor = vendorStatus !== 'approved'
+
+  // Onboarding gate check - fetched on mount
+  const [canPublish, setCanPublish] = useState<boolean | null>(null)
+  const [publishBlockReason, setPublishBlockReason] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (vendorStatus === 'approved') {
+      fetch('/api/vendor/onboarding/status')
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            setCanPublish(data.canPublishListings)
+            if (!data.canPublishListings) {
+              if (data.gate1.status !== 'approved') {
+                setPublishBlockReason('Business verification pending')
+              } else if (data.gate3.coiStatus !== 'approved') {
+                setPublishBlockReason('Certificate of Insurance not yet verified')
+              } else {
+                setPublishBlockReason('Category authorization pending')
+              }
+            }
+          }
+        })
+        .catch(() => { /* silent */ })
+    }
+  }, [vendorStatus])
 
   // Extract listing_data for allergen info
   const listingData = listing?.listing_data as Record<string, unknown> | null
@@ -57,7 +83,7 @@ export default function ListingForm({
     price: listing?.price_cents ? ((listing.price_cents as number) / 100).toFixed(2) : '',
     quantity: listing?.quantity?.toString() || '',
     category: (listing?.category as string) || '',
-    // Force draft for pending vendors
+    // Force draft for pending/incomplete onboarding vendors
     status: isPendingVendor ? 'draft' : ((listing?.status as string) || 'draft')
   })
 
@@ -94,6 +120,7 @@ export default function ListingForm({
       const saved = sessionStorage.getItem(storageKey)
       if (saved) {
         const draft = JSON.parse(saved)
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time initialization from sessionStorage
         setFormData(prev => ({ ...prev, ...draft.formData }))
         if (draft.containsAllergens !== undefined) setContainsAllergens(draft.containsAllergens)
         if (draft.ingredients) setIngredients(draft.ingredients)
@@ -186,7 +213,9 @@ export default function ListingForm({
       ? Math.round(parseFloat(formData.price) * 100)
       : 0
 
-    // Prepare data - force draft status for pending vendors
+    // Prepare data - force draft status for pending vendors or vendors who can't publish
+    // Gate check: if vendor can't publish, force draft
+    const canPublishListing = !isPendingVendor && canPublish !== false
     const submitData = {
       vendor_profile_id: vendorProfileId,
       vertical_id: vertical,
@@ -195,7 +224,7 @@ export default function ListingForm({
       price_cents: priceCents,
       quantity: formData.quantity ? parseInt(formData.quantity) : null,
       category: formData.category.trim() || null,
-      status: isPendingVendor ? 'draft' : formData.status,
+      status: canPublishListing ? formData.status : 'draft',
       listing_data: {
         contains_allergens: containsAllergens,
         ingredients: containsAllergens ? ingredients.trim() : null,
@@ -351,8 +380,8 @@ export default function ListingForm({
         </div>
       )}
 
-      {/* Pending vendor notice */}
-      {isPendingVendor && (
+      {/* Pending vendor / onboarding notice */}
+      {(isPendingVendor || canPublish === false) && (
         <div style={{
           padding: 15,
           marginBottom: 20,
@@ -361,7 +390,11 @@ export default function ListingForm({
           borderRadius: 6,
           color: '#854d0e'
         }}>
-          <strong>Note:</strong> Your vendor account is pending approval. Listings will be saved as drafts and can be published once your account is approved.
+          <strong>Note:</strong> {isPendingVendor
+            ? 'Your vendor account is pending approval. Listings will be saved as drafts and can be published once your account is approved.'
+            : publishBlockReason
+              ? `Listings will be saved as drafts. ${publishBlockReason}. Complete your onboarding checklist to publish.`
+              : 'Complete your vendor onboarding to publish listings.'}
         </div>
       )}
 
@@ -651,8 +684,8 @@ export default function ListingForm({
           />
         </div>
 
-        {/* Status - only show full options for approved vendors */}
-        {!isPendingVendor ? (
+        {/* Status - only show full options for fully onboarded vendors */}
+        {!isPendingVendor && canPublish !== false ? (
           <div style={{ marginBottom: 30 }}>
             <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
               Status
@@ -693,10 +726,12 @@ export default function ListingForm({
               backgroundColor: '#f9fafb',
               color: '#6b7280'
             }}>
-              Draft (pending vendor approval)
+              Draft ({isPendingVendor ? 'pending vendor approval' : 'onboarding incomplete'})
             </div>
             <p style={{ fontSize: 12, color: '#666', marginTop: 5 }}>
-              You can publish listings after your vendor account is approved.
+              {isPendingVendor
+                ? 'You can publish listings after your vendor account is approved.'
+                : 'Complete your vendor onboarding to publish listings.'}
             </p>
           </div>
         )}

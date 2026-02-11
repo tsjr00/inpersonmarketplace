@@ -127,6 +127,25 @@ export async function POST(request: Request) {
           .select()
           .single();
 
+        // Set requested_categories on auto-created vendor_verifications row
+        if (!error && vendor) {
+          const profileData = data as Record<string, unknown>
+          const vendorType = profileData?.vendor_type
+          // Map vendor_type selection(s) to categories for onboarding
+          let categories: string[] = []
+          if (Array.isArray(vendorType)) {
+            categories = vendorType as string[]
+          } else if (typeof vendorType === 'string' && vendorType) {
+            categories = [vendorType]
+          }
+          if (categories.length > 0) {
+            await supabaseAdmin
+              .from('vendor_verifications')
+              .update({ requested_categories: categories })
+              .eq('vendor_profile_id', vendor.id)
+          }
+        }
+
         // If vendor was referred, create pending referral credit
         if (!error && vendor && referredByVendorId) {
           await supabaseAdmin
