@@ -181,6 +181,53 @@ export async function GET(request: NextRequest) {
           }
         }
       }
+      // Process market box subscriptions if this order includes them
+      if (session.metadata?.has_market_boxes === 'true' && session.metadata?.market_box_items) {
+        crumb.logic('Processing market box subscriptions from unified checkout')
+        try {
+          const marketBoxItems = JSON.parse(session.metadata.market_box_items) as Array<{
+            offeringId: string
+            termWeeks: number
+            startDate?: string
+            priceCents: number
+          }>
+
+          for (const mbItem of marketBoxItems) {
+            // Idempotent: check if subscription already exists
+            const { data: existingSub } = await serviceClient
+              .from('market_box_subscriptions')
+              .select('id')
+              .eq('offering_id', mbItem.offeringId)
+              .eq('buyer_user_id', user.id)
+              .eq('order_id', orderId)
+              .single()
+
+            if (!existingSub) {
+              const { error: subError } = await serviceClient
+                .from('market_box_subscriptions')
+                .insert({
+                  offering_id: mbItem.offeringId,
+                  buyer_user_id: user.id,
+                  order_id: orderId,
+                  total_paid_cents: mbItem.priceCents,
+                  start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
+                  term_weeks: mbItem.termWeeks,
+                  status: 'active',
+                  weeks_completed: 0,
+                  stripe_payment_intent_id: paymentIntentId,
+                })
+
+              if (subError) {
+                crumb.logic('Failed to create market box subscription', { error: subError.message, offeringId: mbItem.offeringId })
+              } else {
+                crumb.logic('Market box subscription created', { offeringId: mbItem.offeringId })
+              }
+            }
+          }
+        } catch (parseErr) {
+          crumb.logic('Failed to parse market box items metadata')
+        }
+      }
     } else {
       crumb.logic('Payment record already exists (skipping inventory decrement)')
     }
@@ -224,6 +271,32 @@ export async function GET(request: NextRequest) {
       `)
       .eq('id', orderId)
       .single()
+
+    // Fetch market box subscriptions linked to this order (if any)
+    let marketBoxSubscriptions: Array<Record<string, unknown>> | null = null
+    if (session.metadata?.has_market_boxes === 'true') {
+      crumb.supabase('select', 'market_box_subscriptions')
+      const { data: mbSubs } = await serviceClient
+        .from('market_box_subscriptions')
+        .select(`
+          id,
+          term_weeks,
+          start_date,
+          total_paid_cents,
+          status,
+          market_box_offerings!offering_id(
+            name,
+            pickup_day_of_week,
+            pickup_start_time,
+            pickup_end_time,
+            vendor_profiles(profile_data),
+            markets:markets!pickup_market_id(name, city, state)
+          )
+        `)
+        .eq('order_id', orderId)
+
+      marketBoxSubscriptions = mbSubs as unknown as Array<Record<string, unknown>> | null
+    }
 
     // Notify vendors of new paid order
     // Fully independent query via service client — does NOT depend on buyer's fullOrder query
@@ -278,6 +351,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, orderId, order: fullOrder })
+    return NextResponse.json({
+      success: true,
+      orderId,
+      order: fullOrder,
+      marketBoxSubscriptions: marketBoxSubscriptions || [],
+    })
   })
 }

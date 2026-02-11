@@ -12,6 +12,7 @@ export async function createCheckoutSession({
   items,
   successUrl,
   cancelUrl,
+  metadata,
 }: {
   orderId: string
   orderNumber: string
@@ -23,6 +24,7 @@ export async function createCheckoutSession({
   }>
   successUrl: string
   cancelUrl: string
+  metadata?: Record<string, string>
 }) {
   const lineItems = items.map((item) => ({
     price_data: {
@@ -47,6 +49,7 @@ export async function createCheckoutSession({
       metadata: {
         order_id: orderId,
         order_number: orderNumber,
+        ...(metadata || {}),
       },
     },
     {

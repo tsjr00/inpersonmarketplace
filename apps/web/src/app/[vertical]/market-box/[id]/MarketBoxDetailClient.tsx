@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { defaultBranding } from '@/lib/branding'
-import { formatDisplayPrice, calculateDisplayPrice } from '@/lib/constants'
+import { formatDisplayPrice } from '@/lib/constants'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
+import { useCart } from '@/lib/hooks/useCart'
 
 interface AvailableTerm {
   weeks: number
@@ -66,10 +67,10 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 
 export default function MarketBoxDetailClient() {
   const params = useParams()
-  const router = useRouter()
   const vertical = params.vertical as string
   const offeringId = params.id as string
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const { addMarketBoxToCart } = useCart()
 
   const [data, setData] = useState<MarketBoxData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -103,40 +104,15 @@ export default function MarketBoxDetailClient() {
     fetchOffering()
   }, [fetchOffering])
 
-  const handleSubscribe = async () => {
+  const handleAddToCart = async () => {
     setSubscribing(true)
     setError(null)
 
     try {
-      const res = await fetch('/api/buyer/market-boxes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          offering_id: offeringId,
-          term_weeks: selectedTermWeeks,
-        }),
-      })
-
-      const responseData = await res.json()
-
-      if (!res.ok) {
-        setError({
-          message: responseData.error || 'Failed to subscribe',
-          code: responseData.code,
-          traceId: responseData.traceId
-        })
-        return
-      }
-
-      // Redirect to Stripe Checkout
-      if (responseData.checkout_url) {
-        window.location.href = responseData.checkout_url
-      } else {
-        // Fallback for any legacy behavior
-        router.push(`/${vertical}/buyer/subscriptions`)
-      }
+      await addMarketBoxToCart(offeringId, selectedTermWeeks)
+      // Cart drawer opens automatically via addMarketBoxToCart
     } catch (err) {
-      setError({ message: err instanceof Error ? err.message : 'Failed to subscribe' })
+      setError({ message: err instanceof Error ? err.message : 'Failed to add to cart' })
     } finally {
       setSubscribing(false)
     }
@@ -412,7 +388,7 @@ export default function MarketBoxDetailClient() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
-                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Pay {formatPrice(selectedTerm?.price_cents || offering.price_cents)} today</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Pay {formatPrice(selectedTerm?.price_cents || offering.price_cents)} upfront for {selectedTermWeeks} weeks</span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
@@ -595,7 +571,7 @@ export default function MarketBoxDetailClient() {
             )}
 
             <button
-              onClick={handleSubscribe}
+              onClick={handleAddToCart}
               disabled={subscribing || !purchase.can_purchase}
               style={{
                 width: '100%',
@@ -609,11 +585,11 @@ export default function MarketBoxDetailClient() {
                 cursor: subscribing || !purchase.can_purchase ? 'not-allowed' : 'pointer'
               }}
             >
-              {subscribing ? 'Processing...' : `Purchase for ${formatPrice(selectedTerm?.price_cents || offering.price_cents)}`}
+              {subscribing ? 'Adding...' : `Add to Cart — ${formatPrice(selectedTerm?.price_cents || offering.price_cents)}`}
             </button>
 
             <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: '#6b7280' }}>
-              You&apos;ll be charged the full amount today for {selectedTermWeeks} weeks.
+              {selectedTermWeeks}-week subscription · Full amount charged at checkout
             </p>
           </div>
         </div>

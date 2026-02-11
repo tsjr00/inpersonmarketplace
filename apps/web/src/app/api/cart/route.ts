@@ -3,11 +3,13 @@ import { NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 
 /*
- * PICKUP SCHEDULING CONTEXT
+ * CART API
  *
- * Cart items now include schedule_id and pickup_date for specific pickup selection.
+ * Returns cart items of two types:
+ * - 'listing': Regular marketplace items with pickup scheduling
+ * - 'market_box': Market box subscriptions (qty always 1)
  *
- * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ * See: docs/Build_Instructions/Market_Box_Checkout_Integration_Plan.md
  */
 
 interface CartItemListing {
@@ -17,6 +19,7 @@ interface CartItemListing {
   quantity: number | null
   status: string
   vendor_profiles: {
+    id: string
     profile_data: Record<string, unknown>
   } | null
 }
@@ -37,20 +40,40 @@ interface CartItemSchedule {
   active: boolean
 }
 
-interface VendorMarketSchedule {
-  schedule_id: string
-  is_active: boolean
+interface CartItemOffering {
+  id: string
+  name: string
+  description: string | null
+  image_urls: string[]
+  price_4week_cents: number
+  price_8week_cents: number | null
+  pickup_day_of_week: number
+  pickup_start_time: string
+  pickup_end_time: string
+  active: boolean
+  vendor_profiles: {
+    id: string
+    profile_data: Record<string, unknown>
+  } | null
+  markets: CartItemMarket | null
 }
 
 interface CartItemResult {
   id: string
+  item_type: string
   quantity: number
   market_id: string | null
   schedule_id: string | null
   pickup_date: string | null
-  listings: CartItemListing
+  // Market box fields
+  offering_id: string | null
+  term_weeks: number | null
+  start_date: string | null
+  // Joined relations
+  listings: CartItemListing | null
   markets: CartItemMarket | null
   market_schedules: CartItemSchedule | null
+  market_box_offerings: CartItemOffering | null
 }
 
 // GET - Get user's cart with items
@@ -93,16 +116,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Failed to get cart' }, { status: 500 })
     }
 
-    // Get cart items with listing, market, and schedule details
-    // Include schedule_id and pickup_date for new pickup scheduling
+    // Get cart items with listing, market, schedule, AND market_box_offerings details
     const { data: items, error: itemsError } = await supabase
       .from('cart_items')
       .select(`
         id,
+        item_type,
         quantity,
         market_id,
         schedule_id,
         pickup_date,
+        offering_id,
+        term_weeks,
+        start_date,
         listings (
           id,
           title,
@@ -127,6 +153,29 @@ export async function GET(request: Request) {
           start_time,
           end_time,
           active
+        ),
+        market_box_offerings!offering_id (
+          id,
+          name,
+          description,
+          image_urls,
+          price_4week_cents,
+          price_8week_cents,
+          pickup_day_of_week,
+          pickup_start_time,
+          pickup_end_time,
+          active,
+          vendor_profiles (
+            id,
+            profile_data
+          ),
+          markets:markets!pickup_market_id (
+            id,
+            name,
+            market_type,
+            city,
+            state
+          )
         )
       `)
       .eq('cart_id', cartId)
@@ -139,17 +188,15 @@ export async function GET(request: Request) {
     // Type the items for processing
     const typedItems = items as unknown as CartItemResult[] | null
 
-    // Build a map to check vendor schedule activation status
-    // For traditional markets, we need to check vendor_market_schedules
+    // ── Schedule validation for listing items ────────────────────────────
     const scheduleValidationMap = new Map<string, boolean>()
 
-    // Get unique schedule IDs that need validation (traditional markets only)
+    // Traditional market schedule validation
     const traditionalScheduleItems = (typedItems || []).filter(
-      item => item.schedule_id && item.markets?.market_type === 'traditional'
+      item => item.item_type === 'listing' && item.schedule_id && item.markets?.market_type === 'traditional'
     )
 
     if (traditionalScheduleItems.length > 0) {
-      // Get unique schedule_id + vendor_profile_id combinations to check
       const checkPairs = traditionalScheduleItems.map(item => ({
         scheduleId: item.schedule_id!,
         vendorProfileId: (item.listings?.vendor_profiles as unknown as { id: string })?.id,
@@ -157,7 +204,6 @@ export async function GET(request: Request) {
       })).filter(p => p.vendorProfileId && p.marketId)
 
       if (checkPairs.length > 0) {
-        // Query vendor_market_schedules to check if vendors are still attending
         const scheduleIds = [...new Set(checkPairs.map(p => p.scheduleId))]
         const { data: vendorSchedules } = await supabase
           .from('vendor_market_schedules')
@@ -165,12 +211,10 @@ export async function GET(request: Request) {
           .in('schedule_id', scheduleIds)
           .eq('is_active', true)
 
-        // Build lookup of active vendor+schedule combos
         const activeVendorSchedules = new Set(
           (vendorSchedules || []).map(vs => `${vs.vendor_profile_id}|${vs.schedule_id}`)
         )
 
-        // Mark each cart item's schedule as valid or invalid
         for (const item of traditionalScheduleItems) {
           const vendorId = (item.listings?.vendor_profiles as unknown as { id: string })?.id
           const key = `${vendorId}|${item.schedule_id}`
@@ -180,17 +224,16 @@ export async function GET(request: Request) {
       }
     }
 
-    // For private pickup markets, check if the schedule itself is still active
+    // Private pickup schedule validation
     const privateScheduleItems = (typedItems || []).filter(
-      item => item.schedule_id && item.markets?.market_type === 'private_pickup'
+      item => item.item_type === 'listing' && item.schedule_id && item.markets?.market_type === 'private_pickup'
     )
     for (const item of privateScheduleItems) {
-      // Schedule is valid if it exists and is active
       const scheduleActive = item.market_schedules?.active ?? false
       scheduleValidationMap.set(item.id, scheduleActive)
     }
 
-    // Get cart summary
+    // Get cart summary (updated function handles both item types)
     const { data: summary, error: summaryError } = await supabase
       .rpc('get_cart_summary', { p_cart_id: cartId })
 
@@ -198,7 +241,8 @@ export async function GET(request: Request) {
       console.error('Error getting cart summary:', summaryError)
     }
 
-    // Helper to format time for display
+    // ── Helpers ──────────────────────────────────────────────────────────
+
     const formatTime12h = (time24: string): string => {
       if (!time24) return ''
       const [hours, minutes] = time24.split(':').map(Number)
@@ -207,8 +251,6 @@ export async function GET(request: Request) {
       return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`
     }
 
-    // Format date for display — returns weekday format only
-    // Today/Tomorrow labels are handled client-side (browser knows user's timezone)
     const formatPickupDate = (dateStr: string | null): string => {
       if (!dateStr) return ''
       const date = new Date(dateStr + 'T00:00:00')
@@ -219,14 +261,68 @@ export async function GET(request: Request) {
       })
     }
 
-    // Transform items for response
+    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+    // ── Transform items ─────────────────────────────────────────────────
+
     const cartItems = (typedItems || []).map(item => {
+      const isMarketBox = item.item_type === 'market_box'
+
+      if (isMarketBox) {
+        // Market box item
+        const offering = item.market_box_offerings
+        const vendorProfile = offering?.vendor_profiles as unknown as { id: string; profile_data: Record<string, unknown> } | null
+        const profileData = vendorProfile?.profile_data || {}
+        const vendorName = (profileData.business_name as string) ||
+                           (profileData.farm_name as string) || 'Vendor'
+        const offeringMarket = offering?.markets as unknown as CartItemMarket | null
+
+        const termWeeks = item.term_weeks || 4
+        const priceCents = termWeeks === 8
+          ? (offering?.price_8week_cents || offering?.price_4week_cents || 0)
+          : (offering?.price_4week_cents || 0)
+
+        return {
+          id: item.id,
+          itemType: 'market_box' as const,
+          listingId: null,
+          offeringId: item.offering_id,
+          offeringName: offering?.name || 'Market Box',
+          quantity: 1,
+          title: offering?.name || 'Market Box',
+          price_cents: priceCents,
+          termWeeks,
+          startDate: item.start_date,
+          termPriceCents: priceCents,
+          vendor_name: vendorName,
+          quantity_available: null,
+          status: offering?.active ? 'active' : 'inactive',
+          market_id: item.market_id,
+          market_name: offeringMarket?.name || item.markets?.name,
+          market_type: offeringMarket?.market_type || item.markets?.market_type,
+          market_city: offeringMarket?.city || item.markets?.city,
+          market_state: offeringMarket?.state || item.markets?.state,
+          pickupDayOfWeek: offering?.pickup_day_of_week ?? null,
+          pickupStartTime: offering?.pickup_start_time || null,
+          pickupEndTime: offering?.pickup_end_time || null,
+          // Pickup display for market boxes
+          schedule_id: null,
+          pickup_date: item.start_date,
+          pickup_display: offering ? {
+            date_formatted: item.start_date ? formatPickupDate(item.start_date) : `Starts ${DAY_NAMES[offering.pickup_day_of_week] || 'TBD'}`,
+            time_formatted: `${formatTime12h(offering.pickup_start_time)} - ${formatTime12h(offering.pickup_end_time)}`,
+            day_name: DAY_NAMES[offering.pickup_day_of_week] || null
+          } : null,
+          schedule_issue: offering && !offering.active ? 'This market box is no longer available' : null
+        }
+      }
+
+      // Regular listing item
       const vendorProfile = item.listings?.vendor_profiles as unknown as { id: string; profile_data: Record<string, unknown> } | null
       const profileData = vendorProfile?.profile_data || {}
       const vendorName = (profileData.business_name as string) ||
                          (profileData.farm_name as string) || 'Vendor'
 
-      // Determine schedule validity
       let scheduleIssue: string | null = null
       if (item.schedule_id) {
         const isValid = scheduleValidationMap.get(item.id)
@@ -239,44 +335,51 @@ export async function GET(request: Request) {
         }
       }
 
-      // Build pickup display info
       const schedule = item.market_schedules
       const pickupDisplay = item.pickup_date ? {
         date_formatted: formatPickupDate(item.pickup_date),
         time_formatted: schedule ? `${formatTime12h(schedule.start_time)} - ${formatTime12h(schedule.end_time)}` : null,
-        day_name: schedule ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][schedule.day_of_week] : null
+        day_name: schedule ? DAY_NAMES[schedule.day_of_week] : null
       } : null
 
       return {
         id: item.id,
-        listingId: item.listings.id,
+        itemType: 'listing' as const,
+        listingId: item.listings?.id || null,
+        offeringId: null,
+        offeringName: null,
         quantity: item.quantity,
-        title: item.listings.title,
-        price_cents: item.listings.price_cents,
+        title: item.listings?.title || 'Unknown Item',
+        price_cents: item.listings?.price_cents || 0,
+        termWeeks: null,
+        startDate: null,
+        termPriceCents: null,
         vendor_name: vendorName,
-        quantity_available: item.listings.quantity,
-        status: item.listings.status,
+        quantity_available: item.listings?.quantity ?? null,
+        status: item.listings?.status || 'unknown',
         market_id: item.market_id,
         market_name: item.markets?.name,
         market_type: item.markets?.market_type,
         market_city: item.markets?.city,
         market_state: item.markets?.state,
-        // New pickup scheduling fields
+        pickupDayOfWeek: null,
+        pickupStartTime: null,
+        pickupEndTime: null,
         schedule_id: item.schedule_id,
         pickup_date: item.pickup_date,
         pickup_display: pickupDisplay,
-        // Schedule validation
         schedule_issue: scheduleIssue
       }
     })
 
-    // Check if any items have schedule issues
     const hasScheduleIssues = cartItems.some(item => item.schedule_issue !== null)
+    const hasMarketBoxItems = cartItems.some(item => item.itemType === 'market_box')
 
     return NextResponse.json({
       items: cartItems,
       summary: summary?.[0] || { total_items: 0, total_cents: 0, vendor_count: 0 },
-      hasScheduleIssues
+      hasScheduleIssues,
+      hasMarketBoxItems
     })
   })
 }

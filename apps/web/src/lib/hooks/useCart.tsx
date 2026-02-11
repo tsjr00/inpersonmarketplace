@@ -3,17 +3,20 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 
 /*
- * PICKUP SCHEDULING CONTEXT
+ * CART CONTEXT
  *
- * Cart items now include schedule_id and pickup_date for specific pickup selection.
- * This enables ordering the same item for different pickup dates.
+ * Supports two item types:
+ * - 'listing': Regular marketplace items with pickup scheduling
+ * - 'market_box': Market box subscriptions (qty always 1, Stripe-only)
  *
- * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
+ * See: docs/Build_Instructions/Market_Box_Checkout_Integration_Plan.md
  */
 
 export interface CartItem {
   id: string
-  listingId: string
+  itemType: 'listing' | 'market_box'
+  // Listing fields (when itemType === 'listing')
+  listingId: string | null
   quantity: number
   title?: string
   price_cents?: number
@@ -25,9 +28,9 @@ export interface CartItem {
   market_type?: string
   market_city?: string
   market_state?: string
-  // Pickup scheduling fields
-  schedule_id?: string
-  pickup_date?: string  // YYYY-MM-DD format
+  // Pickup scheduling fields (listings)
+  schedule_id?: string | null
+  pickup_date?: string | null  // YYYY-MM-DD format
   pickup_display?: {
     date_formatted: string
     time_formatted: string | null
@@ -35,6 +38,15 @@ export interface CartItem {
   } | null
   // Schedule validation
   schedule_issue?: string | null
+  // Market box fields (when itemType === 'market_box')
+  offeringId?: string | null
+  offeringName?: string | null
+  termWeeks?: number | null
+  startDate?: string | null
+  termPriceCents?: number | null
+  pickupDayOfWeek?: number | null
+  pickupStartTime?: string | null
+  pickupEndTime?: string | null
 }
 
 interface CartSummary {
@@ -54,6 +66,11 @@ interface CartContextType {
     scheduleId?: string,
     pickupDate?: string
   ) => Promise<void>
+  addMarketBoxToCart: (
+    offeringId: string,
+    termWeeks: number,
+    startDate?: string
+  ) => Promise<void>
   removeFromCart: (cartItemId: string) => Promise<void>
   updateQuantity: (cartItemId: string, quantity: number) => Promise<void>
   clearCart: () => void
@@ -64,6 +81,7 @@ interface CartContextType {
   hasMultiplePickupLocations: boolean
   hasMultiplePickupDates: boolean
   hasScheduleIssues: boolean
+  hasMarketBoxItems: boolean
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -84,6 +102,7 @@ export function CartProvider({
   const [loading, setLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(false)
   const [hasScheduleIssues, setHasScheduleIssues] = useState(false)
+  const [hasMarketBoxItems, setHasMarketBoxItems] = useState(false)
 
   // Clear localStorage cart on mount (migration cleanup)
   useEffect(() => {
@@ -105,11 +124,12 @@ export function CartProvider({
         setItems(data.items || [])
         setSummary(data.summary || { total_items: 0, total_cents: 0, vendor_count: 0 })
         setHasScheduleIssues(data.hasScheduleIssues || false)
+        setHasMarketBoxItems(data.hasMarketBoxItems || false)
       } else if (res.status === 401) {
-        // User not logged in - clear cart
         setItems([])
         setSummary({ total_items: 0, total_cents: 0, vendor_count: 0 })
         setHasScheduleIssues(false)
+        setHasMarketBoxItems(false)
       }
     } catch (error) {
       console.error('Error fetching cart:', error)
@@ -118,7 +138,6 @@ export function CartProvider({
     }
   }, [vertical])
 
-  // Fetch cart on mount and vertical change
   useEffect(() => {
     refreshCart()
   }, [refreshCart])
@@ -150,25 +169,58 @@ export function CartProvider({
       }
 
       await refreshCart()
-      setIsOpen(true) // Open cart drawer after adding
+      setIsOpen(true)
     } catch (error) {
       console.error('Error adding to cart:', error)
       throw error
     }
   }
 
+  const addMarketBoxToCart = async (
+    offeringId: string,
+    termWeeks: number,
+    startDate?: string
+  ) => {
+    try {
+      const res = await fetch('/api/cart/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'market_box',
+          vertical,
+          offeringId,
+          termWeeks,
+          startDate
+        })
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to add market box to cart')
+      }
+
+      await refreshCart()
+      setIsOpen(true)
+    } catch (error) {
+      console.error('Error adding market box to cart:', error)
+      throw error
+    }
+  }
+
   const removeFromCart = async (cartItemId: string) => {
-    // Optimistic update - remove from UI immediately
     const previousItems = [...items]
     const previousSummary = { ...summary }
 
     const itemToRemove = items.find(item => item.id === cartItemId)
     if (itemToRemove) {
       setItems(prevItems => prevItems.filter(item => item.id !== cartItemId))
+      const removedValue = itemToRemove.itemType === 'market_box'
+        ? (itemToRemove.termPriceCents || 0)
+        : (itemToRemove.quantity * (itemToRemove.price_cents || 0))
       setSummary(prev => ({
         ...prev,
-        total_items: prev.total_items - itemToRemove.quantity,
-        total_cents: prev.total_cents - (itemToRemove.quantity * (itemToRemove.price_cents || 0))
+        total_items: prev.total_items - (itemToRemove.itemType === 'market_box' ? 1 : itemToRemove.quantity),
+        total_cents: prev.total_cents - removedValue
       }))
     }
 
@@ -178,14 +230,11 @@ export function CartProvider({
       })
 
       if (!res.ok) {
-        // Revert optimistic update on error
         setItems(previousItems)
         setSummary(previousSummary)
         throw new Error('Failed to remove item from cart')
       }
-      // Success - no need to refresh
     } catch (error) {
-      // Revert on any error
       setItems(previousItems)
       setSummary(previousSummary)
       console.error('Error removing from cart:', error)
@@ -199,7 +248,6 @@ export function CartProvider({
       return
     }
 
-    // Optimistic update - update UI immediately
     const previousItems = [...items]
     const previousSummary = { ...summary }
 
@@ -211,7 +259,6 @@ export function CartProvider({
       )
     )
 
-    // Update summary optimistically
     const itemBeingUpdated = items.find(item => item.id === cartItemId)
     if (itemBeingUpdated) {
       const quantityDiff = quantity - itemBeingUpdated.quantity
@@ -230,15 +277,12 @@ export function CartProvider({
       })
 
       if (!res.ok) {
-        // Revert optimistic update on error
         setItems(previousItems)
         setSummary(previousSummary)
         const error = await res.json()
         throw new Error(error.error || 'Failed to update quantity')
       }
-      // Success - no need to refresh, optimistic update is already in place
     } catch (error) {
-      // Revert on any error
       setItems(previousItems)
       setSummary(previousSummary)
       console.error('Error updating quantity:', error)
@@ -250,21 +294,20 @@ export function CartProvider({
     setItems([])
     setSummary({ total_items: 0, total_cents: 0, vendor_count: 0 })
     setHasScheduleIssues(false)
+    setHasMarketBoxItems(false)
   }
 
   const itemCount = summary.total_items
 
-  // Check if cart has items from multiple pickup locations
   const hasMultiplePickupLocations = (() => {
     const marketIds = new Set(items.map(item => item.market_id).filter(Boolean))
     return marketIds.size > 1
   })()
 
-  // Check if cart has items for multiple pickup dates
   const hasMultiplePickupDates = (() => {
     const pickupKeys = new Set(
       items
-        .filter(item => item.schedule_id && item.pickup_date)
+        .filter(item => item.itemType === 'listing' && item.schedule_id && item.pickup_date)
         .map(item => `${item.schedule_id}-${item.pickup_date}`)
     )
     return pickupKeys.size > 1
@@ -276,6 +319,7 @@ export function CartProvider({
       summary,
       loading,
       addToCart,
+      addMarketBoxToCart,
       removeFromCart,
       updateQuantity,
       clearCart,
@@ -285,7 +329,8 @@ export function CartProvider({
       setIsOpen,
       hasMultiplePickupLocations,
       hasMultiplePickupDates,
-      hasScheduleIssues
+      hasScheduleIssues,
+      hasMarketBoxItems
     }}>
       {children}
     </CartContext.Provider>

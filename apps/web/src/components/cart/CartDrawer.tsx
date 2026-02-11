@@ -10,11 +10,14 @@ export function CartDrawer() {
   const router = useRouter()
   const params = useParams()
   const vertical = params?.vertical as string
-  const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen, loading, hasScheduleIssues } = useCart()
+  const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen, loading, hasScheduleIssues, hasMarketBoxItems } = useCart()
 
   // Calculate display total with percentage fee only
   // Flat fee ($0.15) is added at checkout, not in cart
   const baseSubtotal = items.reduce((sum, item) => {
+    if (item.itemType === 'market_box') {
+      return sum + (item.termPriceCents || item.price_cents || 0)
+    }
     return sum + (item.price_cents || 0) * item.quantity
   }, 0)
   const displayTotal = calculateDisplayPrice(baseSubtotal)
@@ -35,6 +38,10 @@ export function CartDrawer() {
   }, [isOpen, setIsOpen])
 
   if (!isOpen) return null
+
+  // Separate items by type for display
+  const listingItems = items.filter(i => i.itemType !== 'market_box')
+  const marketBoxItems = items.filter(i => i.itemType === 'market_box')
 
   return (
     <>
@@ -133,7 +140,23 @@ export function CartDrawer() {
                   </p>
                 </div>
               )}
-              {items.map(item => (
+
+              {/* Market box notice */}
+              {hasMarketBoxItems && listingItems.length > 0 && (
+                <div style={{
+                  padding: 12,
+                  backgroundColor: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: 8,
+                  color: '#0c4a6e',
+                  fontSize: 12,
+                }}>
+                  Market Box subscriptions require card payment. External payment options will not be available for this order.
+                </div>
+              )}
+
+              {/* Listing items */}
+              {listingItems.map(item => (
                 <CartItemCard
                   key={item.id}
                   item={item}
@@ -141,6 +164,33 @@ export function CartDrawer() {
                   onUpdateQuantity={updateQuantity}
                 />
               ))}
+
+              {/* Market box items section */}
+              {marketBoxItems.length > 0 && (
+                <>
+                  {listingItems.length > 0 && (
+                    <div style={{
+                      borderTop: '1px solid #e5e7eb',
+                      paddingTop: 10,
+                      marginTop: 5,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#6b7280',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                    }}>
+                      Market Box Subscriptions
+                    </div>
+                  )}
+                  {marketBoxItems.map(item => (
+                    <MarketBoxCartItemCard
+                      key={item.id}
+                      item={item}
+                      onRemove={removeFromCart}
+                    />
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -203,6 +253,8 @@ export function CartDrawer() {
     </>
   )
 }
+
+// ── Regular listing cart item card ──────────────────────────────────────
 
 function CartItemCard({
   item,
@@ -371,6 +423,135 @@ function CartItemCard({
         </div>
         <span style={{ fontSize: 16, fontWeight: 'bold' }}>
           {formatPrice(itemTotalCents)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ── Market box cart item card ───────────────────────────────────────────
+
+function MarketBoxCartItemCard({
+  item,
+  onRemove,
+}: {
+  item: CartItem
+  onRemove: (cartItemId: string) => Promise<void>
+}) {
+  const termLabel = item.termWeeks === 8 ? '8-week' : '4-week'
+  const displayPrice = calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
+  const hasIssue = Boolean(item.schedule_issue)
+
+  return (
+    <div style={{
+      padding: 15,
+      border: hasIssue ? '2px solid #fca5a5' : '1px solid #dbeafe',
+      borderRadius: 8,
+      backgroundColor: hasIssue ? '#fef2f2' : '#f8fafc',
+    }}>
+      {item.schedule_issue && (
+        <div style={{
+          marginBottom: 10,
+          padding: '8px 10px',
+          backgroundColor: '#fee2e2',
+          borderRadius: 6,
+          fontSize: 12,
+          color: '#991b1b',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}>
+          <span>⚠️</span>
+          <span>{item.schedule_issue}</span>
+        </div>
+      )}
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 10,
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 4,
+          }}>
+            <span style={{ fontSize: 14 }}>📦</span>
+            <h4 style={{
+              margin: 0,
+              fontSize: 15,
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              {item.offeringName || item.title || 'Market Box'}
+            </h4>
+          </div>
+          <p style={{
+            margin: '2px 0 0',
+            fontSize: 13,
+            color: '#888',
+          }}>
+            {item.vendor_name} · {termLabel} subscription
+          </p>
+        </div>
+        <button
+          onClick={() => onRemove(item.id)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#999',
+            cursor: 'pointer',
+            padding: 5,
+            fontSize: 18,
+          }}
+          title="Remove from cart"
+        >
+          🗑️
+        </button>
+      </div>
+
+      {/* Pickup schedule info */}
+      <div style={{
+        marginBottom: 10,
+        padding: '6px 10px',
+        backgroundColor: '#eff6ff',
+        borderRadius: 6,
+        fontSize: 12,
+        color: '#1e40af',
+      }}>
+        <span style={{ fontWeight: 600 }}>Pickup:</span>{' '}
+        {item.pickup_display?.day_name || 'TBD'}s
+        {item.pickup_display?.time_formatted && (
+          <span> · {item.pickup_display.time_formatted}</span>
+        )}
+        {item.market_name && (
+          <span style={{ display: 'block', marginTop: 2, color: '#6b7280' }}>
+            @ {item.market_name}
+          </span>
+        )}
+        {item.startDate && (
+          <span style={{ display: 'block', marginTop: 2, color: '#6b7280' }}>
+            Starting {new Date(item.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+        )}
+      </div>
+
+      {/* Price — no quantity controls for market boxes */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <span style={{ fontSize: 12, color: '#6b7280' }}>
+          {termLabel} total
+        </span>
+        <span style={{ fontSize: 16, fontWeight: 'bold' }}>
+          {formatPrice(displayPrice)}
         </span>
       </div>
     </div>
