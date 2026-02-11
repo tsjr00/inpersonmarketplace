@@ -248,6 +248,10 @@ export async function POST(request: NextRequest) {
       throw traced.fromSupabase(itemsError, { table: 'order_items', operation: 'insert' })
     }
 
+    // Clear the buyer's cart now that order is created
+    crumb.supabase('delete', 'cart_items')
+    await supabase.from('cart_items').delete().eq('cart_id', cartId)
+
     // Generate payment link
     const paymentLink = generatePaymentLink(
       payment_method,
