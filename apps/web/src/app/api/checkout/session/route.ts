@@ -618,10 +618,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Create order record (with session ID already populated — no orphan risk)
-    // Resolve vertical UUID — verticalData.id is the UUID, verticalId may be the slug
-    const verticalUUID = verticalData?.id
-      || (listings.length > 0 ? (listings[0] as Listing).vertical_id : null)
+    // orders.vertical_id is TEXT referencing verticals.vertical_id (the slug, not the UUID)
+    const orderVerticalId = (listings.length > 0 ? (listings[0] as Listing).vertical_id : null)
       || (marketBoxOfferings.length > 0 ? marketBoxOfferings[0].vertical_id : null)
+      || vertical
 
     crumb.supabase('insert', 'orders')
     const { error: orderError } = await supabase
@@ -629,7 +629,7 @@ export async function POST(request: NextRequest) {
       .insert({
         id: orderId,
         buyer_user_id: user.id,
-        vertical_id: verticalUUID!,
+        vertical_id: orderVerticalId!,
         order_number: orderNumber,
         status: 'pending',
         subtotal_cents: subtotalCents,
