@@ -16,10 +16,9 @@ CREATE TABLE IF NOT EXISTS public.public_activity_events (
   expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days')
 );
 
--- Index for efficient recent event queries
+-- Index for efficient recent event queries (no partial — now() isn't IMMUTABLE)
 CREATE INDEX idx_public_activity_recent
-  ON public_activity_events(vertical_id, created_at DESC)
-  WHERE expires_at > now();
+  ON public_activity_events(vertical_id, created_at DESC);
 
 -- RLS: public read, only service role writes
 ALTER TABLE public_activity_events ENABLE ROW LEVEL SECURITY;
