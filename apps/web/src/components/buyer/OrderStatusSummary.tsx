@@ -3,6 +3,8 @@
 interface OrderStatusSummaryProps {
   status: string
   updatedAt: string
+  readyCount?: number
+  totalActiveCount?: number
 }
 
 const STATUS_INFO: Record<string, { icon: string; color: string; bg: string; title: string; message: string }> = {
@@ -64,9 +66,16 @@ const STATUS_INFO: Record<string, { icon: string; color: string; bg: string; tit
   }
 }
 
-export default function OrderStatusSummary({ status, updatedAt }: OrderStatusSummaryProps) {
+export default function OrderStatusSummary({ status, updatedAt, readyCount, totalActiveCount }: OrderStatusSummaryProps) {
   const info = STATUS_INFO[status] || STATUS_INFO.pending
   const lastUpdated = new Date(updatedAt).toLocaleString()
+
+  // Override messaging for partial readiness
+  const isPartiallyReady = status === 'ready' && readyCount !== undefined && totalActiveCount !== undefined && readyCount < totalActiveCount
+  const displayTitle = isPartiallyReady ? 'Partially Ready' : info.title
+  const displayMessage = isPartiallyReady
+    ? `${readyCount} of ${totalActiveCount} items ready for pickup`
+    : info.message
 
   return (
     <div style={{
@@ -80,10 +89,10 @@ export default function OrderStatusSummary({ status, updatedAt }: OrderStatusSum
         <span style={{ fontSize: 32 }}>{info.icon}</span>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: info.color }}>
-            {info.title}
+            {displayTitle}
           </h2>
           <p style={{ margin: '4px 0 0 0', fontSize: 14, color: info.color }}>
-            {info.message}
+            {displayMessage}
           </p>
         </div>
       </div>

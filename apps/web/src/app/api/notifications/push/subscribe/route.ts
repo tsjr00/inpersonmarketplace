@@ -46,6 +46,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to save subscription' }, { status: 500 })
     }
 
+    // Auto-sync push_enabled preference so notification service sends push
+    crumb.supabase('select', 'user_profiles', { field: 'notification_preferences' })
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('notification_preferences')
+      .eq('user_id', user.id)
+      .single()
+
+    const currentPrefs = (profile?.notification_preferences as Record<string, unknown>) || {}
+    if (!currentPrefs.push_enabled) {
+      crumb.supabase('update', 'user_profiles', { field: 'notification_preferences.push_enabled' })
+      await supabase
+        .from('user_profiles')
+        .update({
+          notification_preferences: { ...currentPrefs, push_enabled: true }
+        })
+        .eq('user_id', user.id)
+    }
+
     return NextResponse.json({ success: true })
   })
 }
@@ -80,6 +99,33 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: 'Failed to remove subscription' }, { status: 500 })
+    }
+
+    // Sync push_enabled if no subscriptions remain on any device
+    crumb.supabase('select', 'push_subscriptions', { operation: 'count' })
+    const { count } = await supabase
+      .from('push_subscriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+
+    if (count === 0) {
+      crumb.supabase('select', 'user_profiles', { field: 'notification_preferences' })
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('notification_preferences')
+        .eq('user_id', user.id)
+        .single()
+
+      const currentPrefs = (profile?.notification_preferences as Record<string, unknown>) || {}
+      if (currentPrefs.push_enabled) {
+        crumb.supabase('update', 'user_profiles', { field: 'notification_preferences.push_enabled' })
+        await supabase
+          .from('user_profiles')
+          .update({
+            notification_preferences: { ...currentPrefs, push_enabled: false }
+          })
+          .eq('user_id', user.id)
+      }
     }
 
     return NextResponse.json({ success: true })

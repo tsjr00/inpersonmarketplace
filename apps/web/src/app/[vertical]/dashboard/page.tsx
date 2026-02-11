@@ -114,6 +114,23 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
   const confirmationNeededCount = ordersNeedingConfirmation?.length || 0
 
+  // Get total active (non-cancelled) item counts for ready orders
+  // This lets us show "X of Y items ready" for partial readiness
+  const readyOrderIds = (readyOrders || []).map(o => o.id)
+  const { data: activeItemCounts } = readyOrderIds.length > 0
+    ? await supabase
+        .from('order_items')
+        .select('order_id')
+        .in('order_id', readyOrderIds)
+        .is('cancelled_at', null)
+    : { data: null }
+
+  // Count total active items per order
+  const activeCountByOrder = (activeItemCounts || []).reduce((acc: Record<string, number>, item: { order_id: string }) => {
+    acc[item.order_id] = (acc[item.order_id] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
   // Transform ready orders to get unique orders with their ready items grouped by vendor+market
   const ordersReadyForPickup = (readyOrders || []).map(order => {
     const readyItems = (order.order_items || []).filter((item: any) => item.status === 'ready')
@@ -140,11 +157,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       })
       return acc
     }, {})
+    const totalActiveItems = activeCountByOrder[order.id] || readyItems.length
     return {
       id: order.id,
       order_number: order.order_number,
       created_at: order.created_at,
       ready_item_count: readyItems.length,
+      total_active_count: totalActiveItems,
       pickups: Object.values(pickupGroups)
     }
   })
@@ -288,7 +307,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       fontSize: typography.sizes.sm,
                       fontWeight: typography.weights.semibold
                     }}>
-                      {order.ready_item_count} item{order.ready_item_count !== 1 ? 's' : ''} ready
+                      {order.ready_item_count < order.total_active_count
+                        ? `${order.ready_item_count} of ${order.total_active_count} items ready`
+                        : `${order.ready_item_count} item${order.ready_item_count !== 1 ? 's' : ''} ready`
+                      }
                     </div>
                   </div>
 

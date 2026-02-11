@@ -14,6 +14,10 @@ interface Order {
   total_cents: number
   created_at: string
   type?: 'order' | 'market_box'
+  readyCount?: number
+  fulfilledCount?: number
+  handedOffCount?: number
+  totalActiveCount?: number
   market_box?: {
     offering_name: string
     offering_image: string | null
@@ -576,7 +580,10 @@ export default function BuyerOrdersPage() {
                       gap: spacing['2xs'],
                     }}>
                       <span style={{ fontSize: typography.sizes.xl }}>📍</span>
-                      Your order is ready for pickup!
+                      {order.readyCount && order.totalActiveCount && order.readyCount < order.totalActiveCount
+                        ? `${order.readyCount} of ${order.totalActiveCount} items ready for pickup`
+                        : 'Your order is ready for pickup!'
+                      }
                     </p>
                   </div>
                 )}
