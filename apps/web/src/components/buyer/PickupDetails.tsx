@@ -91,10 +91,7 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
       {displayAddress && (
         <div style={{ marginBottom: 12 }}>
           <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-            {displayAddress}
-          </p>
-          <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-            {displayCity}, {displayState} {market.zip}
+            {displayAddress}, {displayCity}, {displayState} {market.zip}
           </p>
         </div>
       )}
@@ -108,7 +105,7 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
           <p style={{ margin: 0, fontSize: 14, color: '#1e40af', fontWeight: 500 }}>
             {formatPickupDate(displayPickupDate)}
             {displayStartTime && (
-              <span style={{ color: '#6b7280', fontWeight: 400 }}>
+              <span>
                 {' '}{formatTime(displayStartTime)}{displayEndTime && ` - ${formatTime(displayEndTime)}`}
               </span>
             )}
@@ -128,18 +125,6 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
             </p>
           ))}
         </div>
-      )}
-
-      {/* Late pickup warning */}
-      {isTraditional && (
-        <p style={{
-          margin: '8px 0 0 0',
-          fontSize: 13,
-          color: '#ef4444',
-          fontWeight: 600
-        }}>
-          ⚠️ Late pickup may incur a fee
-        </p>
       )}
 
       {/* Contact Info */}

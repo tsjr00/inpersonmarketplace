@@ -1,63 +1,94 @@
-# Current Task: Marketing & Organic Growth Features (Session 16)
-Started: 2026-02-10
+# Current Task: UI Overhaul — Test Feedback (Session 16-17)
+Started: 2026-02-11
 
-## Status: All 4 Phases COMPLETE, TypeScript check in progress
+## Status: ALL 9 BATCHES COMPLETE — Ready to commit + push staging
 
-## What Was Built
+## Source
+User feedback file: `docs/Build_Instructions/02112026 - changes & test results.txt`
+Plan file: `nested-gliding-dove.md` (9 batches, 15 files)
 
-### Phase 1: ShareButton Integration — COMPLETE
-- Added ShareButton to vendor profile, listing detail, and market box detail pages
-- Files modified: `[vertical]/vendor/[vendorId]/profile/page.tsx`, `[vertical]/listing/[listingId]/page.tsx`, `[vertical]/market-box/[id]/MarketBoxDetailClient.tsx`
+## User Clarifications
+- Image height: 80% of current (500→400px max), preserve aspect ratio
+- City/state filter: progressive filter only, DO NOT touch radius/geo logic
+- No maps anywhere
+- Items 14 (size/measurement field) + 15 (vendor best practices) deferred to later session
 
-### Phase 2: JSON-LD Structured Data — COMPLETE
-- New file: `src/lib/marketing/json-ld.ts` — 3 generators (vendorProfileJsonLd, listingJsonLd, marketBoxJsonLd)
-- Added script tags to vendor profile, listing, and market box pages
-- Market box page made async to fetch data for JSON-LD (Next.js deduplicates query)
+## What Was Done
 
-### Phase 3: Post-Purchase Share + Google Review — COMPLETE
-- New file: `src/components/marketing/PostPurchaseSharePrompt.tsx` — modal after pickup confirmation
-- Added `vendor_profile_id` to order API response
-- Added share prompt trigger to `handleConfirmPickup` in order detail page
-- Added Google review prompt to `RateOrderCard` — shows after 4-5 star rating when NEXT_PUBLIC_GOOGLE_PLACE_ID is set
-- Files modified: `api/buyer/orders/[id]/route.ts`, `[vertical]/buyer/orders/[id]/page.tsx`, `components/buyer/RateOrderCard.tsx`
+### Batch 1: Quick Wins
+- Vendor orders title: "Orders" → "Customer Orders"
+- Listing nav bar: reduced vertical padding (sm → 2xs)
+- Allergen warning: reduced padding/margin (sm → xs)
 
-### Phase 4: Social Proof Activity Toast — COMPLETE
-- New migration: `supabase/migrations/20260210_013_public_activity_events.sql`
-- New file: `src/lib/marketing/activity-events.ts` — event logger (service client, never throws)
-- New file: `src/app/api/marketing/activity-feed/route.ts` — public GET, 60s cache
-- New file: `src/components/marketing/SocialProofToast.tsx` — bottom-left rotating toast
-- Added event logging: checkout success (purchase + sold_out), vendor verify (new_vendor)
-- Added SocialProofToast to browse page
-- Note: `new_listing` event deferred (PublishButton is client-side, would need new API route)
+### Batch 2: Cart "Continue Shopping"
+- Added secondary "Continue Shopping" button in CartDrawer footer
 
-## Files Created (NEW)
-- `src/lib/marketing/json-ld.ts`
-- `src/components/marketing/PostPurchaseSharePrompt.tsx`
-- `src/components/marketing/SocialProofToast.tsx`
-- `src/lib/marketing/activity-events.ts`
-- `src/app/api/marketing/activity-feed/route.ts`
-- `supabase/migrations/20260210_013_public_activity_events.sql`
+### Batch 3: State Dropdown on Markets
+- Added State filter left of City in MarketFilters
+- Cascading: changing state clears city selection
+- Did NOT touch radius/geo logic
 
-## Files Modified
-- `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` — ShareButton + JSON-LD
-- `src/app/[vertical]/listing/[listingId]/page.tsx` — ShareButton + JSON-LD
-- `src/app/[vertical]/market-box/[id]/MarketBoxDetailClient.tsx` — ShareButton
-- `src/app/[vertical]/market-box/[id]/page.tsx` — JSON-LD + async page
-- `src/app/[vertical]/buyer/orders/[id]/page.tsx` — PostPurchaseSharePrompt
-- `src/app/[vertical]/browse/page.tsx` — SocialProofToast
-- `src/app/api/buyer/orders/[id]/route.ts` — vendor_profile_id
-- `src/app/api/checkout/success/route.ts` — activity event logging
-- `src/app/api/admin/vendors/[id]/verify/route.ts` — activity event logging
-- `src/components/buyer/RateOrderCard.tsx` — Google review prompt
+### Batch 4: Listing Pickup Section Visuals
+- PickupLocationsCard: border 2px→1px, moved border to options container, font xs→sm
+- AddToCartButton: "Select a Pickup Date below:" with checkmark, divider line, colored dots (purple=private, blue=traditional), border around dates
 
-## Environment Variables Needed
-- `NEXT_PUBLIC_GOOGLE_PLACE_ID` — Optional. When set, shows Google review prompt after 4-5 star ratings.
+### Batch 5: Listing Detail Layout Restructure
+- Title+Price+Qty moved above image (always full-width)
+- Separate Pickup Section card (PickupLocationsCard + ListingPurchaseSection)
+- Image maxHeight: 500→400
 
-## Migration Pending
-- `20260210_013_public_activity_events.sql` — NOT applied to any DB yet
+### Batch 6: Market Detail Layout Restructure
+- Inline 28px emoji + market name on same line (removed 80x80 icon)
+- Removed "Farmers Market" pill
+- Address with border lines above/below
+- Vendor count + next date on one line
+- Reduced padding throughout, increased disclaimer font
 
-## What's Left
-1. Run `npx tsc --noEmit` — fix any errors
-2. Commit all changes
-3. Push to staging
-4. User applies migration 013 to Dev and Staging
+### Batch 7: Checkout/Success Multi-Pickup + What's Next
+- Replaced emoji icons with colored dots (purple/blue) in both checkout and success
+- Success: combined address to one line, reduced gaps
+- What's Next: visible disc bullets, reduced paddingLeft
+- Action buttons: centered text
+
+### Batch 8: Buyer Orders List Cards
+- New top row: Price (left) + Status text (center) + Date (right)
+- Order number box below, "Tap for details" below that
+- Removed status pill background (just colored text)
+- Removed service fee from order list cards
+- Pickup date: removed bold, kept blue
+
+### Batch 9: Buyer Order Detail Restructure
+- 9A: OrderStatusSummary moved into header, dates in numeric format (m/d/yy + time)
+- 9B: Removed timestamps from OrderTimeline steps
+- 9C: PickupDetails address on one line, consistent date/time font, removed late pickup warning
+- 9D: Removed image placeholders, left-justified content, Status + Cancel on same row, service fee above Total
+
+## Verification
+- `npx tsc --noEmit` — zero errors after all batches
+
+## Files Modified (15 total)
+- `src/app/[vertical]/vendor/orders/page.tsx` (Batch 1)
+- `src/app/[vertical]/listing/[listingId]/page.tsx` (Batches 1, 5)
+- `src/components/listings/ListingImageGallery.tsx` (Batch 5)
+- `src/components/listings/PickupLocationsCard.tsx` (Batch 4)
+- `src/components/cart/AddToCartButton.tsx` (Batch 4)
+- `src/components/cart/CartDrawer.tsx` (Batch 2)
+- `src/app/[vertical]/markets/page.tsx` (Batch 3)
+- `src/app/[vertical]/markets/MarketFilters.tsx` (Batch 3)
+- `src/app/[vertical]/markets/[id]/page.tsx` (Batch 6)
+- `src/app/[vertical]/checkout/page.tsx` (Batch 7)
+- `src/app/[vertical]/checkout/success/page.tsx` (Batch 7)
+- `src/app/[vertical]/buyer/orders/page.tsx` (Batch 8)
+- `src/app/[vertical]/buyer/orders/[id]/page.tsx` (Batch 9)
+- `src/components/buyer/OrderTimeline.tsx` (Batch 9)
+- `src/components/buyer/PickupDetails.tsx` (Batch 9)
+
+## Next Steps
+1. Commit all changes
+2. Push to staging
+3. User tests on staging
+4. After user confirms: push main to origin
+
+## Deferred Items
+- Item 14: Size/measurement field on listings
+- Item 15: Vendor listing best practices guide

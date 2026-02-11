@@ -80,15 +80,13 @@ export default function PickupLocationsCard({
 
   return (
     <div style={{
-      border: `2px solid ${primaryColor}`,
       borderRadius: radius.sm,
       overflow: 'hidden'
     }}>
-      {/* Header - compact */}
+      {/* Header */}
       <div style={{
         padding: `${spacing['2xs']} ${spacing.xs}`,
-        backgroundColor: colors.surfaceElevated,
-        borderBottom: `1px solid ${colors.border}`
+        backgroundColor: colors.surfaceElevated
       }}>
         <div style={{
           display: 'flex',
@@ -99,7 +97,7 @@ export default function PickupLocationsCard({
           <span style={{
             fontWeight: typography.weights.semibold,
             color: colors.textPrimary,
-            fontSize: typography.sizes.xs
+            fontSize: typography.sizes.sm
           }}>
             Pickup Options
           </span>
@@ -109,6 +107,8 @@ export default function PickupLocationsCard({
       {/* Markets and their dates */}
       <div style={{
         padding: spacing['2xs'],
+        border: `1px solid ${primaryColor}`,
+        borderRadius: radius.sm,
         display: 'flex',
         flexDirection: 'column',
         gap: spacing.xs,

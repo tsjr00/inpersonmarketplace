@@ -1105,14 +1105,19 @@ export default function CheckoutPage() {
                   }}>
                     Your order has items from different locations. You&apos;ll visit each to collect:
                   </p>
-                  <ul style={{ margin: `0 0 ${spacing.xs} 0`, paddingLeft: spacing.md }}>
+                  <div style={{ margin: `0 0 ${spacing.xs} 0`, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {[...new Map(checkoutItems.filter(i => i.market_name).map(i => [i.market_id, i])).values()].map(item => (
-                      <li key={item.market_id} style={{ fontSize: typography.sizes.xs, color: '#856404', marginBottom: 2 }}>
-                        {item.market_type === 'traditional' ? '🏪' : '📦'} <strong>{item.market_name}</strong>
+                      <div key={item.market_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: typography.sizes.xs, color: '#856404' }}>
+                        <span style={{
+                          width: 8, height: 8, borderRadius: '50%',
+                          backgroundColor: item.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                          flexShrink: 0
+                        }} />
+                        <strong>{item.market_name}</strong>
                         {item.market_city && ` (${item.market_city}, ${item.market_state})`}
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                   <label style={{
                     display: 'flex',
                     alignItems: 'center',

@@ -8,7 +8,7 @@ import OrderTimeline from '@/components/buyer/OrderTimeline'
 import PickupDetails from '@/components/buyer/PickupDetails'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import PostPurchaseSharePrompt from '@/components/marketing/PostPurchaseSharePrompt'
-import { formatPrice, calculateDisplayPrice, calculateBuyerPrice } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface Market {
@@ -675,7 +675,7 @@ export default function BuyerOrderDetailPage() {
               ← Back to Orders
             </Link>
 
-            {/* Header with Prominent Order Number */}
+            {/* Header with Order Number + Status + Dates */}
             <div style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
               {/* Large Order Number Box */}
               <div style={{
@@ -699,12 +699,29 @@ export default function BuyerOrderDetailPage() {
                   {order.order_number || order.id.slice(0, 8).toUpperCase()}
                 </p>
               </div>
-              <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
-                Placed on {new Date(order.created_at).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'long',
+
+              {/* Status Summary - inline in header */}
+              <OrderStatusSummary status={effectiveStatus} updatedAt={order.updated_at} />
+
+              {/* Placed + Last Updated dates */}
+              <p style={{ color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.sm }}>
+                Placed: {new Date(order.created_at).toLocaleDateString('en-US', {
+                  month: 'numeric',
                   day: 'numeric',
-                  year: 'numeric'
+                  year: '2-digit'
+                })} {new Date(order.created_at).toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit'
+                })}
+              </p>
+              <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.sm }}>
+                Last updated: {new Date(order.updated_at).toLocaleDateString('en-US', {
+                  month: 'numeric',
+                  day: 'numeric',
+                  year: '2-digit'
+                })} {new Date(order.updated_at).toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit'
                 })}
               </p>
             </div>
@@ -713,9 +730,6 @@ export default function BuyerOrderDetailPage() {
 
         {/* Content below hero gets horizontal padding in pickup mode */}
         <div style={isPickupReady ? { padding: `${spacing.sm} ${spacing.md} 0` } : undefined}>
-        {/* Status Summary */}
-        <OrderStatusSummary status={effectiveStatus} updatedAt={order.updated_at} />
-
         {/* Timeline */}
         <OrderTimeline
           status={effectiveStatus}
@@ -744,212 +758,165 @@ export default function BuyerOrderDetailPage() {
                 Items from {group.display?.market_name || group.market.name}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-                {group.items.map(item => (
+                {group.items.map(item => {
+                  // Determine effective item status
+                  let effectiveItemStatus = item.status
+                  if (item.cancelled_at) {
+                    effectiveItemStatus = 'cancelled'
+                  } else if (item.buyer_confirmed_at) {
+                    effectiveItemStatus = 'fulfilled'
+                  } else if (item.status === 'fulfilled') {
+                    effectiveItemStatus = 'handed_off'
+                  }
+
+                  const statusLabel =
+                    effectiveItemStatus === 'cancelled' ? 'Cancelled' :
+                    effectiveItemStatus === 'fulfilled' ? 'Picked Up' :
+                    effectiveItemStatus === 'handed_off' ? 'Vendor Handed Off' :
+                    effectiveItemStatus === 'ready' ? 'Ready for Pickup' :
+                    effectiveItemStatus === 'confirmed' ? 'Preparing' :
+                    effectiveItemStatus.charAt(0).toUpperCase() + effectiveItemStatus.slice(1)
+
+                  const statusColor =
+                    effectiveItemStatus === 'cancelled' ? '#991b1b' :
+                    effectiveItemStatus === 'fulfilled' ? colors.primaryDark :
+                    effectiveItemStatus === 'handed_off' ? '#b45309' :
+                    effectiveItemStatus === 'ready' ? colors.accent :
+                    effectiveItemStatus === 'confirmed' ? colors.accent :
+                    colors.textSecondary
+
+                  return (
                   <div key={item.id} style={{
-                    display: 'flex',
-                    gap: spacing.sm,
                     paddingBottom: spacing.sm,
                     borderBottom: `1px solid ${colors.borderMuted}`
                   }}>
-                    {/* Image */}
+                    <h4 style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                      {item.listing_title}
+                    </h4>
+                    <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                      by {item.vendor_name}
+                    </p>
+                    <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                      Quantity: {item.quantity} × {formatPrice(calculateDisplayPrice(item.unit_price_cents))} = <strong>{formatPrice(calculateDisplayPrice(item.subtotal_cents))}</strong>
+                    </p>
+
+                    {/* Status + Cancel on same row */}
                     <div style={{
-                      width: 80,
-                      height: 80,
-                      backgroundColor: colors.surfaceMuted,
-                      borderRadius: radius.sm,
-                      flexShrink: 0,
-                      overflow: 'hidden'
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.xs,
+                      flexWrap: 'wrap'
                     }}>
-                      {item.listing_image ? (
-                        <img
-                          src={item.listing_image}
-                          alt={item.listing_title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: typography.sizes['2xl']
-                        }}>
-                          📦
-                        </div>
+                      <span style={{
+                        fontSize: typography.sizes.sm,
+                        color: statusColor,
+                        fontWeight: typography.weights.semibold,
+                      }}>
+                        Status: {statusLabel}
+                      </span>
+
+                      {/* Cancel Button - on same row as status */}
+                      {!['completed', 'cancelled', 'fulfilled'].includes(effectiveStatus) &&
+                       ['pending', 'paid', 'confirmed', 'ready'].includes(item.status) &&
+                       !item.cancelled_at &&
+                       !item.buyer_confirmed_at && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCancelItem(item.id, item.status) }}
+                          disabled={cancellingItemId === item.id}
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.sm}`,
+                            backgroundColor: cancellingItemId === item.id ? colors.textMuted : '#dc2626',
+                            color: colors.textInverse,
+                            border: 'none',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            fontWeight: typography.weights.semibold,
+                            cursor: cancellingItemId === item.id ? 'not-allowed' : 'pointer',
+                            marginLeft: 'auto'
+                          }}
+                        >
+                          {cancellingItemId === item.id ? 'Cancelling...' : 'Cancel Item'}
+                        </button>
                       )}
                     </div>
 
-                    {/* Details */}
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                        {item.listing_title}
-                      </h4>
-                      <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                        by {item.vendor_name}
-                      </p>
-                      <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        Quantity: {item.quantity} × {formatPrice(calculateDisplayPrice(item.unit_price_cents))} = <strong>{formatPrice(calculateDisplayPrice(item.subtotal_cents))}</strong>
-                      </p>
-
-                      {/* Item Status & Confirmation */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: spacing.xs,
-                        flexWrap: 'wrap'
+                    {/* Cancellation fee warning */}
+                    {!['completed', 'cancelled', 'fulfilled'].includes(effectiveStatus) &&
+                     ['confirmed', 'ready'].includes(item.status) &&
+                     !item.cancelled_at &&
+                     !item.buyer_confirmed_at && (
+                      <span style={{
+                        fontSize: typography.sizes.xs,
+                        color: '#991b1b',
+                        fontStyle: 'italic'
                       }}>
-                        {/* Status Badge - show effective status considering buyer confirmation */}
-                        {(() => {
-                          // Determine effective item status:
-                          // - If buyer confirmed → fulfilled (picked up)
-                          // - If vendor fulfilled but buyer hasn't confirmed → handed_off
-                          // - Otherwise use item.status
-                          let effectiveItemStatus = item.status
-                          if (item.cancelled_at) {
-                            effectiveItemStatus = 'cancelled'
-                          } else if (item.buyer_confirmed_at) {
-                            effectiveItemStatus = 'fulfilled'
-                          } else if (item.status === 'fulfilled') {
-                            effectiveItemStatus = 'handed_off'
-                          }
+                        Cancellation/restocking fee may apply
+                      </span>
+                    )}
 
-                          return (
-                            <span style={{
-                              padding: `${spacing['3xs']} ${spacing.xs}`,
-                              borderRadius: radius.sm,
-                              fontSize: typography.sizes.xs,
-                              fontWeight: typography.weights.semibold,
-                              backgroundColor:
-                                effectiveItemStatus === 'cancelled' ? '#fee2e2' :
-                                effectiveItemStatus === 'fulfilled' ? colors.primaryLight :
-                                effectiveItemStatus === 'handed_off' ? '#fef3c7' :
-                                effectiveItemStatus === 'ready' ? colors.surfaceSubtle :
-                                effectiveItemStatus === 'confirmed' ? colors.surfaceSubtle :
-                                colors.surfaceMuted,
-                              color:
-                                effectiveItemStatus === 'cancelled' ? '#991b1b' :
-                                effectiveItemStatus === 'fulfilled' ? colors.primaryDark :
-                                effectiveItemStatus === 'handed_off' ? '#b45309' :
-                                effectiveItemStatus === 'ready' ? colors.accent :
-                                effectiveItemStatus === 'confirmed' ? colors.accent :
-                                colors.textSecondary
-                            }}>
-                              {effectiveItemStatus === 'cancelled' ? 'Cancelled' :
-                               effectiveItemStatus === 'fulfilled' ? 'Picked Up' :
-                               effectiveItemStatus === 'handed_off' ? 'Vendor Handed Off' :
-                               effectiveItemStatus === 'ready' ? 'Ready for Pickup' :
-                               effectiveItemStatus === 'confirmed' ? 'Preparing' :
-                               effectiveItemStatus.charAt(0).toUpperCase() + effectiveItemStatus.slice(1)}
-                            </span>
-                          )
-                        })()}
-
-                        {/* Cancellation Info */}
-                        {item.cancelled_at && (
-                          <div style={{
-                            padding: `${spacing['2xs']} ${spacing.xs}`,
-                            backgroundColor: '#fef2f2',
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            color: '#991b1b',
-                            width: '100%'
-                          }}>
-                            <p style={{ margin: 0, fontWeight: typography.weights.semibold }}>
-                              {item.cancelled_by === 'vendor' ? 'Cancelled by vendor' : 'You cancelled this item'}
-                            </p>
-                            {item.cancellation_reason && (
-                              <p style={{ margin: `${spacing['3xs']} 0 0 0` }}>
-                                Reason: {item.cancellation_reason}
-                              </p>
-                            )}
-                            {item.refund_amount_cents && (
-                              <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontWeight: typography.weights.medium }}>
-                                Refund: {formatPrice(item.refund_amount_cents)}
-                              </p>
-                            )}
-                          </div>
+                    {/* Cancellation Info */}
+                    {item.cancelled_at && (
+                      <div style={{
+                        padding: `${spacing['2xs']} ${spacing.xs}`,
+                        backgroundColor: '#fef2f2',
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        color: '#991b1b',
+                        marginTop: spacing['2xs']
+                      }}>
+                        <p style={{ margin: 0, fontWeight: typography.weights.semibold }}>
+                          {item.cancelled_by === 'vendor' ? 'Cancelled by vendor' : 'You cancelled this item'}
+                        </p>
+                        {item.cancellation_reason && (
+                          <p style={{ margin: `${spacing['3xs']} 0 0 0` }}>
+                            Reason: {item.cancellation_reason}
+                          </p>
                         )}
-
-                        {/* Buyer Confirmed Badge - only show if status badge doesn't already indicate pickup */}
-                        {/* Since we now show "Picked Up" when buyer confirmed, this would be redundant */}
-                        {/* Keeping this hidden but can be re-enabled if needed for clarity */}
-
-                        {/* Issue Already Reported Badge */}
-                        {item.issue_reported_at && !item.cancelled_at && (
-                          <div style={{
-                            padding: `${spacing['2xs']} ${spacing.xs}`,
-                            backgroundColor: '#fef3c7',
-                            border: '1px solid #f59e0b',
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.xs,
-                            color: '#92400e',
-                            width: '100%'
-                          }}>
-                            Issue reported on {new Date(item.issue_reported_at).toLocaleDateString()}. Contact vendor for fastest resolution.
-                          </div>
-                        )}
-
-                        {/* Status message for items awaiting confirmation (buttons are now in the problem section above) */}
-                        {['ready', 'fulfilled'].includes(item.status) && !item.buyer_confirmed_at && !item.cancelled_at && !item.issue_reported_at && (
-                          <span style={{
-                            fontSize: typography.sizes.xs,
-                            color: item.status === 'fulfilled' ? '#b45309' : colors.textMuted,
-                            fontStyle: 'italic'
-                          }}>
-                            {item.status === 'fulfilled'
-                              ? 'Vendor marked as handed to you. Use the confirmation section above.'
-                              : 'Ready for pickup. Use the confirmation section above.'}
-                          </span>
-                        )}
-
-                        {/* Cancel Button - show for pending/paid (free cancel) and confirmed/ready (with fee) */}
-                        {/* Not available for completed orders, fulfilled items, or after buyer confirms receipt */}
-                        {!['completed', 'cancelled', 'fulfilled'].includes(effectiveStatus) &&
-                         ['pending', 'paid', 'confirmed', 'ready'].includes(item.status) &&
-                         !item.cancelled_at &&
-                         !item.buyer_confirmed_at && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: spacing['3xs'] }}>
-                            <button
-                              onClick={() => handleCancelItem(item.id, item.status)}
-                              disabled={cancellingItemId === item.id}
-                              style={{
-                                padding: `${spacing['2xs']} ${spacing.sm}`,
-                                backgroundColor: cancellingItemId === item.id ? colors.textMuted : '#dc2626',
-                                color: colors.textInverse,
-                                border: 'none',
-                                borderRadius: radius.sm,
-                                fontSize: typography.sizes.sm,
-                                fontWeight: typography.weights.semibold,
-                                cursor: cancellingItemId === item.id ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: spacing['3xs']
-                              }}
-                            >
-                              {cancellingItemId === item.id ? 'Cancelling...' : 'Cancel Item'}
-                            </button>
-                            {['confirmed', 'ready'].includes(item.status) && (
-                              <span style={{
-                                fontSize: typography.sizes.xs,
-                                color: '#991b1b',
-                                fontStyle: 'italic'
-                              }}>
-                                Cancellation/restocking fee may apply
-                              </span>
-                            )}
-                          </div>
+                        {item.refund_amount_cents && (
+                          <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontWeight: typography.weights.medium }}>
+                            Refund: {formatPrice(item.refund_amount_cents)}
+                          </p>
                         )}
                       </div>
-                    </div>
+                    )}
+
+                    {/* Issue Already Reported Badge */}
+                    {item.issue_reported_at && !item.cancelled_at && (
+                      <div style={{
+                        padding: `${spacing['2xs']} ${spacing.xs}`,
+                        backgroundColor: '#fef3c7',
+                        border: '1px solid #f59e0b',
+                        borderRadius: radius.sm,
+                        fontSize: typography.sizes.xs,
+                        color: '#92400e',
+                        marginTop: spacing['2xs']
+                      }}>
+                        Issue reported on {new Date(item.issue_reported_at).toLocaleDateString()}. Contact vendor for fastest resolution.
+                      </div>
+                    )}
+
+                    {/* Status message for items awaiting confirmation */}
+                    {['ready', 'fulfilled'].includes(item.status) && !item.buyer_confirmed_at && !item.cancelled_at && !item.issue_reported_at && (
+                      <p style={{
+                        margin: `${spacing['2xs']} 0 0 0`,
+                        fontSize: typography.sizes.xs,
+                        color: item.status === 'fulfilled' ? '#b45309' : colors.textMuted,
+                        fontStyle: 'italic'
+                      }}>
+                        {item.status === 'fulfilled'
+                          ? 'Vendor marked as handed to you. Use the confirmation section above.'
+                          : 'Ready for pickup. Use the confirmation section above.'}
+                      </p>
+                    )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </div>
         ))}
 
-        {/* Order Total with Breakdown */}
+        {/* Service Fee + Order Total */}
         {(() => {
           // Calculate totals from items (using buyer-facing prices, excluding cancelled)
           // Sum subtotals first, then apply buyer price (includes flat fee once)
@@ -964,12 +931,27 @@ export default function BuyerOrderDetailPage() {
               border: `1px solid ${colors.border}`,
               borderRadius: radius.md,
             }}>
+              {/* Service Fee */}
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                paddingTop: spacing.xs,
-                borderTop: `2px solid ${colors.border}`,
+                paddingBottom: spacing.xs,
+                marginBottom: spacing.xs,
+                borderBottom: `1px solid ${colors.borderMuted}`,
+              }}>
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                  Service Fee
+                </span>
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                  {formatPrice(FEES.buyerFlatFeeCents)}
+                </span>
+              </div>
+              {/* Total */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}>
                 <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                   Total

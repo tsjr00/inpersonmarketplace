@@ -215,7 +215,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
       />
       {/* Back Link - uses browser history to go back to previous page */}
       <div style={{
-        padding: spacing.sm,
+        padding: `${spacing['2xs']} ${spacing.sm}`,
         borderBottom: `1px solid ${colors.border}`,
         backgroundColor: colors.surfaceElevated
       }}>
@@ -243,6 +243,44 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
         margin: '0 auto',
         padding: `${spacing.md} ${spacing.sm}`
       }}>
+        {/* Title + Price + Quantity - above the grid */}
+        <div style={{ marginBottom: spacing.xs }}>
+          <h1 style={{
+            color: colors.textPrimary,
+            margin: `0 0 ${spacing['2xs']} 0`,
+            fontSize: typography.sizes.xl,
+            lineHeight: typography.leading.snug
+          }}>
+            {listing.title}
+          </h1>
+          <div style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: spacing.sm,
+            flexWrap: 'wrap'
+          }}>
+            <div style={{
+              fontSize: typography.sizes['2xl'],
+              fontWeight: typography.weights.bold,
+              color: colors.primary
+            }}>
+              {formatDisplayPrice(listing.price_cents || 0)}
+            </div>
+            <div style={{
+              fontSize: typography.sizes.base,
+              color: listing.quantity === 0 ? '#dc2626' : colors.textSecondary,
+              fontWeight: typography.weights.medium
+            }}>
+              {listing.quantity === null
+                ? 'In Stock'
+                : listing.quantity > 0
+                  ? `Qty: ${listing.quantity}`
+                  : 'Sold Out'
+              }
+            </div>
+          </div>
+        </div>
+
         {/* Main Content - single col mobile, two col desktop */}
         <div className="main-grid" style={{
           display: 'grid',
@@ -258,7 +296,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
 
           {/* Right: Details */}
           <div>
-            {/* Description - Moved up for better mobile UX */}
+            {/* Description */}
             <div style={{
               padding: spacing.sm,
               backgroundColor: colors.surfaceElevated,
@@ -287,8 +325,8 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               {/* Allergen Warning */}
               {listing.listing_data?.contains_allergens && (
                 <div style={{
-                  marginTop: spacing.sm,
-                  padding: spacing.sm,
+                  marginTop: spacing.xs,
+                  padding: spacing.xs,
                   backgroundColor: colors.surfaceSubtle,
                   border: `1px solid ${colors.accent}`,
                   borderRadius: radius.md
@@ -314,73 +352,51 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               )}
             </div>
 
-            {/* Listing Info Card */}
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              borderRadius: radius.md,
-              border: `1px solid ${colors.border}`,
-              marginBottom: spacing.sm
-            }}>
-              {/* Title - Category pill removed since user already clicked on item */}
-              <h1 style={{
-                color: colors.textPrimary,
-                margin: `0 0 ${spacing.xs} 0`,
-                fontSize: typography.sizes.xl,
-                lineHeight: typography.leading.snug
-              }}>
-                {listing.title}
-              </h1>
-
-              {/* Price and Quantity - Combined on mobile */}
+            {/* Pickup Section */}
+            {marketPickupDates.length > 0 && (
               <div style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: spacing.sm,
-                marginBottom: spacing.xs,
-                flexWrap: 'wrap'
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                borderRadius: radius.md,
+                border: `1px solid ${colors.border}`,
+                marginBottom: spacing.sm
               }}>
-                <div style={{
-                  fontSize: typography.sizes['2xl'],
-                  fontWeight: typography.weights.bold,
-                  color: colors.primary
-                }}>
-                  {formatDisplayPrice(listing.price_cents || 0)}
-                </div>
-                <div style={{
-                  fontSize: typography.sizes.base,
-                  color: listing.quantity === 0 ? '#dc2626' : colors.textSecondary,
-                  fontWeight: typography.weights.medium
-                }}>
-                  {listing.quantity === null
-                    ? 'In Stock'
-                    : listing.quantity > 0
-                      ? `Qty: ${listing.quantity}`
-                      : 'Sold Out'
-                  }
-                </div>
-              </div>
-
-              {/* Pickup Locations Status - shows which locations are open/closed */}
-              {marketPickupDates.length > 0 && (
                 <div style={{ marginBottom: spacing.xs }}>
                   <PickupLocationsCard
                     marketPickupDates={marketPickupDates}
                     primaryColor={branding.colors.primary}
                   />
                 </div>
-              )}
+                <ListingPurchaseSection
+                  listingId={listingId}
+                  maxQuantity={listing.quantity}
+                  primaryColor={branding.colors.primary}
+                  vertical={vertical}
+                  isPremiumRestricted={isPremiumRestricted}
+                  availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
+                />
+              </div>
+            )}
 
-              {/* Market Selector + Warning + Quantity + Add to Cart */}
-              <ListingPurchaseSection
-                listingId={listingId}
-                maxQuantity={listing.quantity}
-                primaryColor={branding.colors.primary}
-                vertical={vertical}
-                isPremiumRestricted={isPremiumRestricted}
-                availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
-              />
-            </div>
+            {/* Add to cart for listings without markets/pickup dates */}
+            {marketPickupDates.length === 0 && (
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                borderRadius: radius.md,
+                border: `1px solid ${colors.border}`,
+                marginBottom: spacing.sm
+              }}>
+                <ListingPurchaseSection
+                  listingId={listingId}
+                  maxQuantity={listing.quantity}
+                  primaryColor={branding.colors.primary}
+                  vertical={vertical}
+                  isPremiumRestricted={isPremiumRestricted}
+                  availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
+                />
+              </div>
+            )}
 
             {/* Vendor Card */}
             <div style={{
