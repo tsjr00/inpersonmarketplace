@@ -2,7 +2,7 @@
 
 **Source of truth for database structure. Updated after each confirmed migration.**
 
-**Last Updated:** 2026-02-10
+**Last Updated:** 2026-02-12
 **Database:** Dev (inpersonmarketplace)
 **Updated By:** Claude + User
 
@@ -12,6 +12,8 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-12 | 20260212_013_knowledge_base | Added `knowledge_articles` table: `id` (UUID PK), `vertical_id` (TEXT FK→verticals.vertical_id), `category` (TEXT NOT NULL), `title` (TEXT NOT NULL), `body` (TEXT NOT NULL), `sort_order` (INT DEFAULT 0), `is_published` (BOOL DEFAULT false), `created_at`, `updated_at`. Index on (is_published, vertical_id, category, sort_order). RLS: public read published, admin full access. Applied to Dev & Staging. |
+| 2026-02-12 | 20260123_001_user_notification_preferences | Added to `user_profiles`: `notification_preferences` (JSONB, default email_order_updates=true, others false), `deleted_at` (TIMESTAMPTZ, for soft delete). Index on `deleted_at` WHERE NULL. Applied to Dev & Staging. |
 | 2026-02-10 | 20260210_012_vendor_onboarding | Extended `vendor_verifications` for 3-gate onboarding: added `requested_categories` (TEXT[]), `category_verifications` (JSONB), `coi_documents` (JSONB), `coi_status` (TEXT w/ CHECK), `coi_verified_at`, `coi_verified_by` (FK→user_profiles), `prohibited_items_acknowledged_at`, `onboarding_completed_at`. Added 3 RLS policies: `vendor_verifications_insert`, `vendor_verifications_vendor_update`, `vendor_verifications_admin_update`. Added `auto_create_vendor_verification()` trigger on vendor_profiles INSERT. Backfill for existing profiles. Added `can_vendor_publish(UUID, TEXT)` SECURITY DEFINER function. Applied to Dev & Staging. |
 | 2026-02-09 | 20260209_009_fix_premium_window_restock_regression | Fixed `set_listing_premium_window()`: removed restock condition that was re-added by 20260201_002, undoing the fix from 20260129_002. Restocking (quantity increase) no longer resets premium_window_ends_at. Cleared any stuck premium windows. Applied to Dev & Staging. |
 | 2026-02-09 | 20260209_008_push_subscriptions | Added `push_subscriptions` table: `id` (UUID PK), `user_id` (UUID FK→auth.users ON DELETE CASCADE), `endpoint` (TEXT NOT NULL), `p256dh` (TEXT NOT NULL), `auth` (TEXT NOT NULL), `created_at` (TIMESTAMPTZ). UNIQUE(user_id, endpoint). Index: `idx_push_subscriptions_user_id`. RLS: users SELECT/INSERT/DELETE own rows. Service role bypasses for sendPush(). Applied to Dev & Staging. |
@@ -106,6 +108,13 @@ Where Schema = public : map
 - `market_box_pickups.buyer_confirmed_at` (TIMESTAMPTZ) - When buyer confirmed pickup
 - `market_box_pickups.vendor_confirmed_at` (TIMESTAMPTZ) - When vendor confirmed pickup
 - `market_box_pickups.confirmation_window_expires_at` (TIMESTAMPTZ) - 30-second window expiry after first confirmation
+
+**User Notification Preferences (added 02/12/2026 — migration 20260123_001):**
+- `user_profiles.notification_preferences` (JSONB DEFAULT '{"email_order_updates":true,"email_marketing":false,"sms_order_updates":false,"sms_marketing":false}') - User notification channel preferences
+- `user_profiles.deleted_at` (TIMESTAMPTZ DEFAULT NULL) - Soft delete timestamp, null means active
+
+**Knowledge Base (added 02/12/2026 — migration 013):**
+- New table `knowledge_articles`: id, vertical_id, category, title, body, sort_order, is_published, created_at, updated_at
 
 **Vendor Onboarding Columns (added 02/10/2026 — migration 012):**
 - `vendor_verifications.requested_categories` (TEXT[] DEFAULT '{}') - Categories the vendor wants to sell in
