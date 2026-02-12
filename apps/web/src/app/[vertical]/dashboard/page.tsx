@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
@@ -184,49 +186,47 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       color: colors.textSecondary,
       padding: spacing.xl
     }}>
-      {/* Page Title */}
-      <h1 style={{
-        color: colors.primary,
+      {/* Page Title + Welcome */}
+      <div className="dashboard-header" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: spacing['2xs'],
         margin: 0,
         marginBottom: spacing.lg,
         paddingBottom: spacing.md,
         borderBottom: `2px solid ${colors.primary}`,
-        fontSize: typography.sizes['2xl'],
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.xs
       }}>
-        <Image
-          src="/logos/logo-icon-color.png"
-          alt=""
-          width={0}
-          height={0}
-          sizes="40px"
-          style={{ width: 'auto', height: 32 }}
-        />
-        User Dashboard
-      </h1>
-
-      {/* Welcome Section */}
-      <div style={{
-        padding: spacing.md,
-        backgroundColor: colors.surfaceElevated,
-        color: colors.textPrimary,
-        border: `1px solid ${colors.border}`,
-        borderRadius: radius.md,
-        marginBottom: spacing.lg
-      }}>
-        <h2 style={{ marginTop: 0, marginBottom: spacing['3xs'], fontSize: typography.sizes.xl }}>
-          Welcome back, {user.user_metadata?.full_name || user.email?.split('@')[0]}!
-        </h2>
-        <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-          {user.email}
+        <h1 style={{
+          color: colors.primary,
+          margin: 0,
+          fontSize: typography.sizes['2xl'],
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.xs
+        }}>
+          <Image
+            src="/logos/logo-icon-color.png"
+            alt=""
+            width={0}
+            height={0}
+            sizes="40px"
+            style={{ width: 'auto', height: 32 }}
+          />
+          Dashboard
+        </h1>
+        <span style={{
+          color: colors.textMuted,
+          fontSize: typography.sizes.sm,
+        }}>
+          Welcome back, {user.user_metadata?.full_name || user.email?.split('@')[0]}
           {isPremiumBuyer && (
-            <span style={{ marginLeft: spacing.sm, color: colors.accent }}>
-              • Premium Member
+            <span style={{ marginLeft: spacing.xs, color: colors.accent }}>
+              • Premium
             </span>
           )}
-        </p>
+        </span>
       </div>
 
       {/* SMS Opt-In Nudge — hidden once user has phone + consent */}
@@ -992,6 +992,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         @media (max-width: 540px) {
           .shopper-grid {
             grid-template-columns: 1fr !important;
+          }
+          .dashboard-header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
           }
         }
       `}</style>

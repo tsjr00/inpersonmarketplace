@@ -28,16 +28,14 @@ export default function ShareButton({
 }: ShareButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [showNative, setShowNative] = useState(false)
+  const [showNative, setShowNative] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return canUseNativeShare()
+  })
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   const shareData: ShareData = { url, title, text }
-
-  // Check native share support on mount
-  useEffect(() => {
-    setShowNative(canUseNativeShare())
-  }, [])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -161,7 +159,8 @@ export default function ShareButton({
           style={{
             position: 'absolute',
             top: '100%',
-            right: 0,
+            right: 'auto',
+            left: 0,
             marginTop: 4,
             backgroundColor: '#ffffff',
             border: '1px solid #e5e7eb',

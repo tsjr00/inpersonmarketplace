@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
@@ -558,7 +560,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               minHeight: 120,
               boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🏷️</div>
               <h3 style={{
                 color: colors.primary,
                 margin: `0 0 ${spacing['2xs']} 0`,
@@ -607,7 +609,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               minHeight: 120,
               boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🧺</div>
               <h3 style={{
                 color: colors.primary,
                 margin: `0 0 ${spacing['2xs']} 0`,
@@ -617,7 +619,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 Market Boxes
               </h3>
               <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                Offer 4-week subscription bundles to premium buyers
+                Offer four or eight week pre-paid subscription bundles
               </p>
             </div>
           </Link>
