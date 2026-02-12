@@ -4,7 +4,7 @@ All copy for every notification type across every channel.
 Variables use `{{variable_name}}` syntax. Review and approve before implementation.
 
 **Sender identity:**
-- Email from: `Farmers Marketing <noreply@farmersmarketing.app>`
+- Email from: `Farmers Marketing <noreply@mail.farmersmarketing.app>`
 - SMS from: Twilio number (no branding in body — carrier rules)
 - Push: Shows app name from manifest
 

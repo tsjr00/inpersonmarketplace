@@ -159,7 +159,7 @@ async function sendEmail(
     }
   }
 
-  const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@farmersmarketing.app'
+  const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
 
   try {
     const { data, error } = await resend.emails.send({
