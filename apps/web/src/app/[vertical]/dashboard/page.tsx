@@ -10,6 +10,7 @@ import { colors, spacing, typography, radius, shadows, containers } from '@/lib/
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import FeedbackCard from '@/components/buyer/FeedbackCard'
 import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
+import ReferralCard from '@/app/[vertical]/vendor/dashboard/ReferralCard'
 import RateOrderCard from '@/components/buyer/RateOrderCard'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 
@@ -797,9 +798,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 </p>
               </Link>
 
-              {/* My Listings Card */}
+              {/* Help & FAQ Card */}
               <Link
-                href={`/${vertical}/vendor/listings`}
+                href={`/${vertical}/help`}
                 style={{
                   display: 'block',
                   padding: spacing.md,
@@ -811,36 +812,86 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 }}
               >
                 <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                  My Listings
+                  Help & FAQ
                 </h3>
                 <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                  View and manage your products
-                </p>
-              </Link>
-
-              {/* My Market Boxes Card */}
-              <Link
-                href={`/${vertical}/vendor/market-boxes`}
-                style={{
-                  display: 'block',
-                  padding: spacing.md,
-                  backgroundColor: colors.surfaceElevated,
-                  color: colors.textPrimary,
-                  border: `1px solid ${colors.primary}`,
-                  borderRadius: radius.md,
-                  textDecoration: 'none'
-                }}
-              >
-                <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                  My Market Boxes
-                </h3>
-                <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                  Create subscription bundles for premium buyers
+                  Guides, tips, and answers to common questions
                 </p>
               </Link>
 
               {/* Vendor Feedback Card */}
               <VendorFeedbackCard vertical={vertical} />
+
+              {/* Upgrade Prompt - Only show for standard vendors */}
+              {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
+                <div style={{
+                  padding: spacing.md,
+                  background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
+                  border: '2px solid #fcd34d',
+                  borderRadius: radius.md,
+                  boxShadow: shadows.md
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    marginBottom: spacing.xs
+                  }}>
+                    <span style={{ fontSize: typography.sizes['2xl'] }}>🚀</span>
+                    <h3 style={{
+                      color: '#92400e',
+                      margin: 0,
+                      fontSize: typography.sizes.lg,
+                      fontWeight: typography.weights.bold
+                    }}>
+                      Grow Your Business
+                    </h3>
+                  </div>
+
+                  <p style={{
+                    margin: `0 0 ${spacing.sm} 0`,
+                    fontSize: typography.sizes.sm,
+                    color: '#78350f',
+                    fontWeight: typography.weights.medium
+                  }}>
+                    Upgrade to Premium for just <strong>$24.99/month</strong>
+                  </p>
+
+                  <ul style={{
+                    margin: `0 0 ${spacing.sm} 0`,
+                    paddingLeft: 20,
+                    fontSize: typography.sizes.sm,
+                    color: '#78350f',
+                    lineHeight: 1.6
+                  }}>
+                    <li><strong>15 listings</strong> (vs 5)</li>
+                    <li><strong>4 markets + 5 private locations</strong></li>
+                    <li><strong>4 active Market Boxes</strong> with up to 20 subscribers each</li>
+                    <li><strong>Priority placement</strong> in search & featured sections</li>
+                    <li><strong>Premium badge</strong> & advanced analytics</li>
+                  </ul>
+
+                  <Link
+                    href={`/${vertical}/vendor/dashboard/upgrade`}
+                    style={{
+                      display: 'inline-block',
+                      padding: `${spacing.xs} ${spacing.md}`,
+                      backgroundColor: '#d97706',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: radius.md,
+                      fontWeight: typography.weights.bold,
+                      fontSize: typography.sizes.base,
+                      boxShadow: shadows.sm
+                    }}
+                  >
+                    Upgrade Now
+                  </Link>
+                </div>
+              )}
+
+              {/* Referral Card */}
+              <ReferralCard vertical={vertical} />
             </div>
           ) : (
             <div>
@@ -892,46 +943,26 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   </p>
                 </Link>
 
-                {/* My Listings Card */}
+                {/* Help & FAQ Card */}
                 <Link
-                  href={`/${vertical}/vendor/listings`}
+                  href={`/${vertical}/help`}
                   style={{
                     display: 'block',
                     padding: spacing.md,
                     backgroundColor: colors.surfaceElevated,
                     color: colors.textPrimary,
-                    border: `1px solid ${colors.accent}`,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: radius.md,
                     textDecoration: 'none'
                   }}
                 >
                   <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                    My Listings
+                    Help & FAQ
                   </h3>
                   <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                    View and edit your draft listings
+                    Guides, tips, and answers to common questions
                   </p>
                 </Link>
-
-                {/* My Market Boxes Card - greyed out for pending vendors */}
-                <div
-                  style={{
-                    display: 'block',
-                    padding: spacing.md,
-                    backgroundColor: colors.surfaceMuted,
-                    color: colors.textMuted,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: radius.md,
-                    opacity: 0.7
-                  }}
-                >
-                  <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.textMuted }}>
-                    My Market Boxes
-                  </h3>
-                  <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                    Available after approval - create subscription bundles
-                  </p>
-                </div>
 
                 {/* Vendor Feedback Card */}
                 <VendorFeedbackCard vertical={vertical} />
