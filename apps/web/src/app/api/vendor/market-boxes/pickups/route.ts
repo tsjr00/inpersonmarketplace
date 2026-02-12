@@ -28,15 +28,22 @@ export async function GET(request: NextRequest) {
 
     // Get query params for filtering
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') // scheduled, ready, picked_up, missed
+    const status = searchParams.get('status') // single or comma-separated: scheduled,ready,picked_up,missed
     const offeringId = searchParams.get('offering_id')
+    const marketId = searchParams.get('market_id') // filter by pickup market
     const upcoming = searchParams.get('upcoming') === 'true'
 
-    // Get vendor's offering IDs
-    const { data: offerings } = await supabase
+    // Get vendor's offering IDs (optionally filtered by market)
+    let offeringsQuery = supabase
       .from('market_box_offerings')
       .select('id')
       .eq('vendor_profile_id', vendor.id)
+
+    if (marketId) {
+      offeringsQuery = offeringsQuery.eq('pickup_market_id', marketId)
+    }
+
+    const { data: offerings } = await offeringsQuery
 
     if (!offerings || offerings.length === 0) {
       return NextResponse.json({ pickups: [], pickups_by_date: {}, total: 0 })
@@ -114,7 +121,12 @@ export async function GET(request: NextRequest) {
 
     // Apply filters
     if (status) {
-      query = query.eq('status', status)
+      const statuses = status.split(',').map(s => s.trim()).filter(Boolean)
+      if (statuses.length === 1) {
+        query = query.eq('status', statuses[0])
+      } else if (statuses.length > 1) {
+        query = query.in('status', statuses)
+      }
     }
 
     if (upcoming) {

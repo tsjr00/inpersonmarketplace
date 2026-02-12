@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS knowledge_articles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  vertical_id TEXT REFERENCES verticals(id) ON DELETE SET NULL,  -- null = global (all verticals)
+  vertical_id TEXT REFERENCES verticals(vertical_id) ON DELETE SET NULL,  -- null = global (all verticals)
   category TEXT NOT NULL,
   title TEXT NOT NULL,
   body TEXT NOT NULL,
