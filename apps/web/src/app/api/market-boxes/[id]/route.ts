@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
-
-// Default subscriber limits by tier
-const SUBSCRIBER_LIMITS = {
-  standard: 2,
-  premium: null, // unlimited
-} as const
+import { getSubscriberDefault } from '@/lib/vendor-limits'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -92,8 +87,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const vendor = offering.vendor as any
-    const tier = (vendor?.tier || 'standard') as keyof typeof SUBSCRIBER_LIMITS
-    const maxSubscribers = offering.max_subscribers ?? SUBSCRIBER_LIMITS[tier]
+    const tier = (vendor?.tier || 'standard')
+    const maxSubscribers = offering.max_subscribers ?? getSubscriberDefault(tier)
     const activeSubscribers = count || 0
     const isAvailable = maxSubscribers === null || activeSubscribers < maxSubscribers
 

@@ -15,6 +15,9 @@ interface Pickup {
   picked_up_at: string | null
   missed_at: string | null
   rescheduled_to: string | null
+  is_extension?: boolean
+  skipped_by_vendor_at?: string | null
+  skip_reason?: string | null
   buyer_confirmed_at: string | null
   vendor_confirmed_at: string | null
   confirmation_window_expires_at: string | null
@@ -25,6 +28,9 @@ interface Subscription {
   start_date: string
   status: string
   weeks_completed: number
+  term_weeks?: number
+  extended_weeks?: number
+  total_weeks?: number
   total_paid_cents: number
   created_at: string
   offering: {
@@ -201,6 +207,7 @@ export default function BuyerSubscriptionDetailPage() {
       case 'ready': return { bg: '#fef3c7', text: '#92400e', label: 'Ready for Pickup' }
       case 'picked_up': return { bg: '#dcfce7', text: '#166534', label: 'Picked Up' }
       case 'missed': return { bg: '#fee2e2', text: '#991b1b', label: 'Missed' }
+      case 'skipped': return { bg: '#fee2e2', text: '#991b1b', label: 'Skipped' }
       case 'rescheduled': return { bg: '#f3e8ff', text: '#6b21a8', label: 'Rescheduled' }
       default: return { bg: '#f3f4f6', text: '#374151', label: status }
     }
@@ -251,6 +258,8 @@ export default function BuyerSubscriptionDetailPage() {
   const nextPickup = (subscription.pickups || []).find(
     p => p.scheduled_date >= today && (p.status === 'scheduled' || p.status === 'ready')
   )
+  const termWeeks = subscription.term_weeks || 4
+  const totalWeeks = subscription.total_weeks || (termWeeks + (subscription.extended_weeks || 0))
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, color: branding.colors.text }}>
@@ -290,7 +299,7 @@ export default function BuyerSubscriptionDetailPage() {
                 {formatPrice(subscription.total_paid_cents)}
               </div>
               <div style={{ fontSize: 13, color: '#6b7280' }}>
-                {subscription.weeks_completed} of 4 weeks completed
+                {subscription.weeks_completed} of {totalWeeks} weeks completed
               </div>
             </div>
           </div>
@@ -325,7 +334,7 @@ export default function BuyerSubscriptionDetailPage() {
                 fontWeight: 600,
                 color: '#374151'
               }}>
-                Week {nextPickup.week_number} of 4
+                Week {nextPickup.week_number} of {totalWeeks}
               </div>
             </div>
           </div>
@@ -384,14 +393,20 @@ export default function BuyerSubscriptionDetailPage() {
               const pickupStatus = getPickupStatusColor(pickup.status)
               const isToday = pickup.scheduled_date === today
               const isPast = pickup.scheduled_date < today
+              // Extension weeks get green tint, skipped weeks get red tint
+              const rowBg = pickup.is_extension
+                ? '#f0fdf4'
+                : pickup.status === 'skipped'
+                  ? '#fef2f2'
+                  : pickupStatus.bg
 
               return (
                 <div
                   key={pickup.id}
                   style={{
                     padding: 16,
-                    backgroundColor: pickupStatus.bg,
-                    border: isToday ? `2px solid ${branding.colors.primary}` : '1px solid transparent',
+                    backgroundColor: rowBg,
+                    border: isToday ? `2px solid ${branding.colors.primary}` : pickup.is_extension ? '1px solid #bbf7d0' : pickup.status === 'skipped' ? '1px solid #fecaca' : '1px solid transparent',
                     borderRadius: 8,
                     opacity: pickup.status === 'missed' ? 0.7 : 1
                   }}
@@ -402,6 +417,18 @@ export default function BuyerSubscriptionDetailPage() {
                         <span style={{ fontWeight: 600, color: pickupStatus.text }}>
                           Week {pickup.week_number}
                         </span>
+                        {pickup.is_extension && (
+                          <span style={{
+                            padding: '2px 6px',
+                            backgroundColor: '#dcfce7',
+                            color: '#166534',
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 600
+                          }}>
+                            Extension
+                          </span>
+                        )}
                         {isToday && (
                           <span style={{
                             padding: '2px 8px',
@@ -421,6 +448,11 @@ export default function BuyerSubscriptionDetailPage() {
                       {pickup.rescheduled_to && (
                         <div style={{ fontSize: 13, color: '#6b21a8', marginTop: 4 }}>
                           Rescheduled to {formatDate(pickup.rescheduled_to)}
+                        </div>
+                      )}
+                      {pickup.status === 'skipped' && pickup.skip_reason && (
+                        <div style={{ fontSize: 13, color: '#991b1b', marginTop: 4 }}>
+                          Reason: {pickup.skip_reason}
                         </div>
                       )}
                     </div>
@@ -519,7 +551,7 @@ export default function BuyerSubscriptionDetailPage() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: '#6b7280' }}>Per Week</span>
-              <span style={{ color: '#374151' }}>{formatPrice(subscription.total_paid_cents / 4)}</span>
+              <span style={{ color: '#374151' }}>{formatPrice(subscription.total_paid_cents / termWeeks)}</span>
             </div>
           </div>
         </div>

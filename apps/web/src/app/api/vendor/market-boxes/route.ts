@@ -9,11 +9,7 @@ import {
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
 
-// Subscriber limits per offering (separate from tier limits)
-const SUBSCRIBER_LIMITS = {
-  standard: 2,
-  premium: null, // unlimited
-} as const
+import { getSubscriberDefault } from '@/lib/vendor-limits'
 
 /**
  * GET /api/vendor/market-boxes
@@ -99,12 +95,11 @@ export async function GET() {
 
     // Get tier for limits calculation
     const tier = vendor.tier || 'standard'
-    const subscriberTierKey = tier as keyof typeof SUBSCRIBER_LIMITS
 
     // Build response with counts from the map
     const offeringsWithCounts = (offerings || []).map((offering) => {
       const count = subscriberCountsMap.get(offering.id) || 0
-      const maxSubscribers = offering.max_subscribers ?? SUBSCRIBER_LIMITS[subscriberTierKey]
+      const maxSubscribers = offering.max_subscribers ?? getSubscriberDefault(tier)
 
       return {
         ...offering,
@@ -134,7 +129,7 @@ export async function GET() {
         // Legacy fields for backwards compatibility
         max_offerings: tierLimits.activeMarketBoxes,
         current_offerings: activeCount,
-        subscriber_limit: SUBSCRIBER_LIMITS[subscriberTierKey],
+        subscriber_limit: getSubscriberDefault(tier),
       },
     })
   })

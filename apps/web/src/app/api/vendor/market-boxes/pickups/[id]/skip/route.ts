@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { sendNotification } from '@/lib/notifications/service'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -18,10 +19,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get vendor profile
+  // Get vendor profile with display name
   const { data: vendor } = await supabase
     .from('vendor_profiles')
-    .select('id')
+    .select('id, profile_data')
     .eq('user_id', user.id)
     .single()
 
@@ -40,8 +41,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id,
         term_weeks,
         extended_weeks,
+        buyer_user_id,
         offering:market_box_offerings (
           id,
+          name,
+          vertical_id,
           vendor_profile_id
         )
       )
@@ -111,6 +115,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
     .select('id, term_weeks, extended_weeks, original_end_date')
     .eq('id', subscription.id)
     .single()
+
+  // Notify buyer about the skip
+  const buyerUserId = subscription?.buyer_user_id
+  const offeringName = offering?.name
+  const verticalId = offering?.vertical_id
+  if (buyerUserId) {
+    const profileData = vendor.profile_data as Record<string, unknown> | null
+    const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Your vendor'
+    const pickupDate = skippedPickup?.scheduled_date
+      ? new Date(skippedPickup.scheduled_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+      : 'an upcoming date'
+
+    await sendNotification(buyerUserId, 'market_box_skip', {
+      vendorName,
+      pickupDate,
+      offeringName: offeringName || undefined,
+      reason: reason || undefined,
+    }, {
+      vertical: verticalId || undefined,
+    })
+  }
 
   return NextResponse.json({
     success: true,

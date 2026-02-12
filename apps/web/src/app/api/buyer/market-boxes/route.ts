@@ -5,11 +5,7 @@ import { createMarketBoxCheckoutSession } from '@/lib/stripe/payments'
 import { calculateBuyerPrice } from '@/lib/pricing'
 import { getAppUrl } from '@/lib/environment'
 
-// Default subscriber limits by tier
-const SUBSCRIBER_LIMITS = {
-  standard: 2,
-  premium: null, // unlimited
-} as const
+import { getSubscriberDefault } from '@/lib/vendor-limits'
 
 /**
  * GET /api/buyer/market-boxes
@@ -224,8 +220,8 @@ export async function POST(request: NextRequest) {
 
     // Check capacity
     const vendor = offering.vendor as any
-    const tier = (vendor?.tier || 'standard') as keyof typeof SUBSCRIBER_LIMITS
-    const maxSubscribers = offering.max_subscribers ?? SUBSCRIBER_LIMITS[tier]
+    const tier = (vendor?.tier || 'standard')
+    const maxSubscribers = offering.max_subscribers ?? getSubscriberDefault(tier)
 
     crumb.supabase('select', 'market_box_subscriptions (count)')
     const { count: activeCount, error: countError } = await supabase

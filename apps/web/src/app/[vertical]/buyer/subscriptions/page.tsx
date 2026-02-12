@@ -125,7 +125,8 @@ export default function BuyerSubscriptionsPage() {
       case 'ready': return { bg: '#fef3c7', text: '#92400e' }
       case 'picked_up': return { bg: '#dcfce7', text: '#166534' }
       case 'missed': return { bg: '#fee2e2', text: '#991b1b' }
-      case 'skipped': return { bg: '#e5e7eb', text: '#6b7280' }
+      case 'skipped': return { bg: '#fee2e2', text: '#991b1b' }
+      case 'rescheduled': return { bg: '#f3e8ff', text: '#6b21a8' }
       default: return { bg: '#f3f4f6', text: '#374151' }
     }
   }
@@ -372,22 +373,32 @@ export default function BuyerSubscriptionsPage() {
                       const pickupColor = getPickupStatusColor(pickup.status)
                       const isToday = pickup.scheduled_date === today
 
+                      // Extension weeks get green background override
+                      const pillBg = pickup.is_extension && pickup.status !== 'picked_up'
+                        ? '#dcfce7'
+                        : pickupColor.bg
+                      const pillBorder = pickup.is_extension
+                        ? '1px solid #bbf7d0'
+                        : pickup.status === 'skipped'
+                          ? '1px solid #fecaca'
+                          : '1px solid transparent'
+
                       return (
                         <div
                           key={pickup.id}
                           style={{
                             padding: '8px 12px',
-                            backgroundColor: pickupColor.bg,
-                            border: isToday ? `2px solid ${branding.colors.primary}` : '1px solid transparent',
+                            backgroundColor: pillBg,
+                            border: isToday ? `2px solid ${branding.colors.primary}` : pillBorder,
                             borderRadius: 6,
                             textAlign: 'center',
                             minWidth: 80
                           }}
                         >
-                          <div style={{ fontSize: 11, color: pickupColor.text, fontWeight: 600 }}>
+                          <div style={{ fontSize: 11, color: pickup.is_extension ? '#166534' : pickupColor.text, fontWeight: 600 }}>
                             Week {pickup.week_number}
                             {pickup.is_extension && (
-                              <span style={{ fontSize: 9, display: 'block', color: '#6b21a8' }}>+ext</span>
+                              <span style={{ fontSize: 9, display: 'block', color: '#166534' }}>Extension</span>
                             )}
                           </div>
                           <div style={{ fontSize: 12, color: pickupColor.text }}>
@@ -405,7 +416,7 @@ export default function BuyerSubscriptionsPage() {
                             <div style={{ fontSize: 10, marginTop: 2 }}>✗</div>
                           )}
                           {pickup.status === 'skipped' && (
-                            <div style={{ fontSize: 10, marginTop: 2, color: '#6b7280' }}>SKIPPED</div>
+                            <div style={{ fontSize: 10, marginTop: 2, color: '#991b1b', fontWeight: 600 }}>SKIPPED</div>
                           )}
                         </div>
                       )

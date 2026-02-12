@@ -67,6 +67,32 @@ interface Order {
   created_at: string
 }
 
+interface MarketBoxPickup {
+  id: string
+  week_number: number
+  scheduled_date: string
+  status: string
+  ready_at: string | null
+  picked_up_at: string | null
+  buyer_confirmed_at: string | null
+  vendor_confirmed_at: string | null
+  confirmation_window_expires_at: string | null
+  is_extension: boolean
+  skip_reason: string | null
+  vendor_notes: string | null
+  subscription: {
+    id: string
+    buyer: {
+      display_name: string
+      email: string
+    }
+    offering: {
+      id: string
+      name: string
+    }
+  }
+}
+
 interface Market {
   id: string
   name: string
@@ -89,14 +115,19 @@ export default function VendorPickupPage() {
   const preselectedMarket = searchParams.get('market')
 
   const [orders, setOrders] = useState<Order[]>([])
+  const [marketBoxPickups, setMarketBoxPickups] = useState<MarketBoxPickup[]>([])
   const [markets, setMarkets] = useState<Market[]>([])
   const [marketSchedules, setMarketSchedules] = useState<MarketSchedule[]>([])
   const [selectedMarket, setSelectedMarket] = useState<string>(preselectedMarket || '')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [processingItem, setProcessingItem] = useState<string | null>(null)
+  const [processingMBPickup, setProcessingMBPickup] = useState<string | null>(null)
   const [needsFulfillment, setNeedsFulfillment] = useState<number>(0)
   const [windowExpiredError, setWindowExpiredError] = useState<string | null>(null)
+  const [skipModalPickup, setSkipModalPickup] = useState<MarketBoxPickup | null>(null)
+  const [skipReason, setSkipReason] = useState('')
+  const mbPollRef = useRef<NodeJS.Timeout | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const hiddenAtRef = useRef<number | null>(null)
@@ -257,15 +288,24 @@ export default function VendorPickupPage() {
     if (!selectedMarket) return
 
     try {
-      // Fetch orders that are ready or confirmed for this market
+      // Fetch regular orders that are ready for this market
       const params = new URLSearchParams()
       params.set('market_id', selectedMarket)
       params.set('status', 'ready') // Focus on ready-for-pickup items
 
-      const res = await fetch(`/api/vendor/orders?${params.toString()}`)
-      if (res.ok) {
-        const data = await res.json()
+      const [ordersRes, mbRes] = await Promise.all([
+        fetch(`/api/vendor/orders?${params.toString()}`),
+        fetch(`/api/vendor/market-boxes/pickups?market_id=${selectedMarket}&status=scheduled,ready`),
+      ])
+
+      if (ordersRes.ok) {
+        const data = await ordersRes.json()
         setOrders(data.orders || [])
+      }
+
+      if (mbRes.ok) {
+        const data = await mbRes.json()
+        setMarketBoxPickups(data.pickups || [])
       }
     } catch (error) {
       console.error('Error fetching orders:', error)
@@ -304,6 +344,93 @@ export default function VendorPickupPage() {
     }
   }
 
+  // Market box pickup actions
+  const handleMBAction = async (pickupId: string, action: string) => {
+    setProcessingMBPickup(pickupId)
+    setWindowExpiredError(null)
+    try {
+      const res = await fetch(`/api/vendor/market-boxes/pickups/${pickupId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data.code === 'WINDOW_EXPIRED') {
+          setWindowExpiredError(data.error)
+          fetchOrders()
+        } else {
+          alert(data.error || 'Action failed')
+        }
+        return
+      }
+
+      // If waiting for buyer confirmation, start polling for that pickup
+      if (data.waiting_for_buyer) {
+        startMBConfirmationPoll(pickupId)
+      }
+
+      fetchOrders()
+    } catch {
+      alert('An error occurred')
+    } finally {
+      setProcessingMBPickup(null)
+    }
+  }
+
+  const handleMBSkip = async () => {
+    if (!skipModalPickup) return
+    setProcessingMBPickup(skipModalPickup.id)
+    try {
+      const res = await fetch(`/api/vendor/market-boxes/pickups/${skipModalPickup.id}/skip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: skipReason || null }),
+      })
+      if (res.ok) {
+        setSkipModalPickup(null)
+        setSkipReason('')
+        fetchOrders()
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed to skip')
+      }
+    } catch {
+      alert('An error occurred')
+    } finally {
+      setProcessingMBPickup(null)
+    }
+  }
+
+  // Poll for buyer confirmation on a specific market box pickup
+  const startMBConfirmationPoll = (pickupId: string) => {
+    if (mbPollRef.current) clearInterval(mbPollRef.current)
+    mbPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/vendor/market-boxes/pickups/${pickupId}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.pickup?.status === 'picked_up') {
+            // Complete — stop polling and refresh
+            if (mbPollRef.current) clearInterval(mbPollRef.current)
+            mbPollRef.current = null
+            fetchOrders()
+          }
+        }
+      } catch { /* ignore polling errors */ }
+    }, 3000)
+
+    // Auto-stop after 35 seconds (window is 30s)
+    setTimeout(() => {
+      if (mbPollRef.current) {
+        clearInterval(mbPollRef.current)
+        mbPollRef.current = null
+        fetchOrders()
+      }
+    }, 35000)
+  }
+
   // Filter orders by search query (order number or customer name)
   const filteredOrders = orders.filter(order => {
     if (!searchQuery.trim()) return true
@@ -314,11 +441,26 @@ export default function VendorPickupPage() {
     )
   })
 
+  // Filter market box pickups by search query (subscriber name or offering name)
+  const filteredMBPickups = marketBoxPickups.filter(pickup => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase().trim()
+    const sub = pickup.subscription as any
+    const buyerName = sub?.buyer?.display_name || sub?.buyer?.email || ''
+    const offeringName = sub?.offering?.name || ''
+    return (
+      buyerName.toLowerCase().includes(query) ||
+      offeringName.toLowerCase().includes(query)
+    )
+  })
+
   // Get count of ready items
   const readyItemsCount = orders.reduce(
     (count, order) => count + order.items.filter(item => item.status === 'ready').length,
     0
   )
+  const mbScheduledCount = marketBoxPickups.filter(p => p.status === 'scheduled').length
+  const mbReadyCount = marketBoxPickups.filter(p => p.status === 'ready').length
 
   if (loading) {
     return (
@@ -398,7 +540,7 @@ export default function VendorPickupPage() {
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Search by order # or customer name..."
+            placeholder="Search orders or subscribers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -539,18 +681,22 @@ export default function VendorPickupPage() {
       {selectedMarket && (
         <div style={{
           padding: '12px 16px',
-          backgroundColor: readyItemsCount > 0 ? '#dcfce7' : '#f3f4f6',
+          backgroundColor: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? '#dcfce7' : '#f3f4f6',
           borderBottom: '1px solid #e5e7eb'
         }}>
           <p style={{
             margin: 0,
             fontSize: 14,
             fontWeight: 600,
-            color: readyItemsCount > 0 ? '#166534' : '#6b7280'
+            color: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? '#166534' : '#6b7280'
           }}>
-            {readyItemsCount > 0
-              ? `${readyItemsCount} item${readyItemsCount !== 1 ? 's' : ''} ready for pickup`
-              : 'No items ready for pickup'}
+            {(() => {
+              const parts: string[] = []
+              if (readyItemsCount > 0) parts.push(`${readyItemsCount} order item${readyItemsCount !== 1 ? 's' : ''} ready`)
+              if (mbReadyCount > 0) parts.push(`${mbReadyCount} box pickup${mbReadyCount !== 1 ? 's' : ''} ready`)
+              if (mbScheduledCount > 0) parts.push(`${mbScheduledCount} box pickup${mbScheduledCount !== 1 ? 's' : ''} scheduled`)
+              return parts.length > 0 ? parts.join(' · ') : 'No items ready for pickup'
+            })()}
           </p>
         </div>
       )}
@@ -569,7 +715,7 @@ export default function VendorPickupPage() {
               Select a market to view pickup orders
             </p>
           </div>
-        ) : filteredOrders.length === 0 ? (
+        ) : (filteredOrders.length === 0 && filteredMBPickups.length === 0) ? (
           <div style={{
             padding: 40,
             textAlign: 'center',
@@ -580,7 +726,7 @@ export default function VendorPickupPage() {
             <p style={{ color: '#6b7280', margin: 0 }}>
               {searchQuery
                 ? 'No orders match your search'
-                : 'No orders ready for pickup at this market'}
+                : 'No orders or market box pickups at this market'}
             </p>
           </div>
         ) : (
@@ -741,9 +887,359 @@ export default function VendorPickupPage() {
                 </div>
               </div>
             ))}
+
+            {/* Market Box Pickups Section */}
+            {filteredMBPickups.length > 0 && (
+              <>
+                {filteredOrders.length > 0 && (
+                  <div style={{
+                    padding: '8px 0',
+                    borderTop: '2px solid #0d9488',
+                    marginTop: 8
+                  }}>
+                    <p style={{
+                      margin: 0,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: '#0d9488',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5
+                    }}>
+                      Market Box Pickups
+                    </p>
+                  </div>
+                )}
+
+                {filteredMBPickups.map(pickup => {
+                  const sub = pickup.subscription as any
+                  const buyerName = sub?.buyer?.display_name || sub?.buyer?.email || 'Subscriber'
+                  const offeringName = sub?.offering?.name || 'Market Box'
+                  const isWaitingForBuyer = !!pickup.vendor_confirmed_at && !pickup.buyer_confirmed_at && pickup.status !== 'picked_up'
+                  const isWaitingForVendor = !!pickup.buyer_confirmed_at && !pickup.vendor_confirmed_at && pickup.status !== 'picked_up'
+                  const windowActive = pickup.confirmation_window_expires_at
+                    ? new Date(pickup.confirmation_window_expires_at) > new Date()
+                    : false
+
+                  return (
+                    <div
+                      key={pickup.id}
+                      style={{
+                        backgroundColor: 'white',
+                        borderRadius: 8,
+                        border: '1px solid #e5e7eb',
+                        borderLeft: '4px solid #0d9488',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {/* MB Pickup Header */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: 12,
+                        backgroundColor: '#f0fdfa',
+                        borderBottom: '1px solid #e5e7eb'
+                      }}>
+                        <div style={{
+                          backgroundColor: '#0d9488',
+                          color: 'white',
+                          padding: '12px 18px',
+                          borderRadius: 8,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          flexShrink: 0
+                        }}>
+                          <span style={{
+                            fontSize: 10,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5,
+                            opacity: 0.8
+                          }}>
+                            Week
+                          </span>
+                          <span style={{
+                            fontSize: 24,
+                            fontWeight: 'bold',
+                            fontFamily: 'monospace'
+                          }}>
+                            {pickup.week_number}
+                          </span>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{
+                            margin: 0,
+                            fontSize: 16,
+                            fontWeight: 600,
+                            color: '#111827'
+                          }}>
+                            {buyerName}
+                          </p>
+                          <p style={{
+                            margin: '4px 0 0 0',
+                            fontSize: 13,
+                            color: '#6b7280'
+                          }}>
+                            {offeringName}
+                            {pickup.is_extension && (
+                              <span style={{
+                                marginLeft: 8,
+                                padding: '1px 6px',
+                                backgroundColor: '#dcfce7',
+                                color: '#166534',
+                                borderRadius: 4,
+                                fontSize: 11,
+                                fontWeight: 600
+                              }}>
+                                Extension
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        {/* Status Badge */}
+                        <span style={{
+                          padding: '6px 10px',
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          backgroundColor: pickup.status === 'ready' ? '#dcfce7' : '#e0f2fe',
+                          color: pickup.status === 'ready' ? '#166534' : '#0369a1',
+                          flexShrink: 0
+                        }}>
+                          {pickup.status === 'ready' ? 'Ready' : 'Scheduled'}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{
+                        padding: 12,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap'
+                      }}>
+                        {/* Waiting for buyer indicator */}
+                        {isWaitingForBuyer && windowActive && (
+                          <div style={{
+                            flex: '1 1 100%',
+                            padding: '8px 12px',
+                            backgroundColor: '#fff7ed',
+                            border: '1px solid #fdba74',
+                            borderRadius: 6,
+                            marginBottom: 4,
+                            fontSize: 13,
+                            color: '#c2410c',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8
+                          }}>
+                            <span style={{
+                              display: 'inline-block',
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: '#ea580c',
+                              animation: 'pulse 1.5s infinite'
+                            }} />
+                            Waiting for buyer to confirm...
+                          </div>
+                        )}
+
+                        {/* Buyer confirmed indicator */}
+                        {isWaitingForVendor && windowActive && (
+                          <div style={{
+                            flex: '1 1 100%',
+                            padding: '8px 12px',
+                            backgroundColor: '#ecfdf5',
+                            border: '1px solid #6ee7b7',
+                            borderRadius: 6,
+                            marginBottom: 4,
+                            fontSize: 13,
+                            color: '#059669',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8
+                          }}>
+                            <span style={{
+                              display: 'inline-block',
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: '#059669',
+                              animation: 'pulse 1.5s infinite'
+                            }} />
+                            Buyer confirmed — tap Confirm Handoff!
+                          </div>
+                        )}
+
+                        {pickup.status === 'scheduled' && (
+                          <button
+                            onClick={() => handleMBAction(pickup.id, 'ready')}
+                            disabled={processingMBPickup === pickup.id}
+                            style={{
+                              padding: '10px 16px',
+                              backgroundColor: '#0d9488',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontSize: 14,
+                              fontWeight: 600,
+                              cursor: processingMBPickup === pickup.id ? 'not-allowed' : 'pointer',
+                              opacity: processingMBPickup === pickup.id ? 0.7 : 1,
+                              minHeight: 44
+                            }}
+                          >
+                            {processingMBPickup === pickup.id ? '...' : 'Mark Ready'}
+                          </button>
+                        )}
+
+                        {['scheduled', 'ready'].includes(pickup.status) && (
+                          <button
+                            onClick={() => handleMBAction(pickup.id, 'picked_up')}
+                            disabled={processingMBPickup === pickup.id}
+                            style={{
+                              padding: '10px 16px',
+                              backgroundColor: (isWaitingForVendor && windowActive) ? '#059669' : '#374151',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontSize: 14,
+                              fontWeight: 600,
+                              cursor: processingMBPickup === pickup.id ? 'not-allowed' : 'pointer',
+                              opacity: processingMBPickup === pickup.id ? 0.7 : 1,
+                              minHeight: 44
+                            }}
+                          >
+                            {processingMBPickup === pickup.id ? '...' : 'Confirm Handoff'}
+                          </button>
+                        )}
+
+                        {['scheduled', 'ready'].includes(pickup.status) && !pickup.is_extension && (
+                          <button
+                            onClick={() => {
+                              setSkipModalPickup(pickup)
+                              setSkipReason('')
+                            }}
+                            disabled={processingMBPickup === pickup.id}
+                            style={{
+                              padding: '10px 16px',
+                              backgroundColor: '#fee2e2',
+                              color: '#991b1b',
+                              border: 'none',
+                              borderRadius: 6,
+                              fontSize: 14,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              minHeight: 44
+                            }}
+                          >
+                            Skip Week
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {/* Skip Week Modal */}
+      {skipModalPickup && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 20,
+          zIndex: 50
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: 12,
+            padding: 24,
+            maxWidth: 400,
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: 18, color: '#111827' }}>
+              Skip Week {skipModalPickup.week_number}?
+            </h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: 14, color: '#6b7280' }}>
+              The subscriber will be notified and an extension week will be added to their subscription.
+            </p>
+            <textarea
+              value={skipReason}
+              onChange={(e) => setSkipReason(e.target.value)}
+              placeholder="Reason (optional) — e.g., weather, supply issue"
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: 8,
+                fontSize: 14,
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                boxSizing: 'border-box',
+                marginBottom: 16
+              }}
+            />
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={handleMBSkip}
+                disabled={processingMBPickup === skipModalPickup.id}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: processingMBPickup === skipModalPickup.id ? 'not-allowed' : 'pointer',
+                  opacity: processingMBPickup === skipModalPickup.id ? 0.7 : 1
+                }}
+              >
+                {processingMBPickup === skipModalPickup.id ? 'Skipping...' : 'Skip This Week'}
+              </button>
+              <button
+                onClick={() => {
+                  setSkipModalPickup(null)
+                  setSkipReason('')
+                }}
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pulse animation for confirmation indicators */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
 
       {/* Quick Actions Footer - jumps to search bar (helpful when scrolled down on mobile) */}
       <div style={{
@@ -778,7 +1274,7 @@ export default function VendorPickupPage() {
           }}
         >
           <span style={{ fontSize: 18 }}>🔍</span>
-          Search Orders
+          Search
         </button>
       </div>
 

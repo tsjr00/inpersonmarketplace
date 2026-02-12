@@ -38,6 +38,7 @@ export type NotificationType =
   | 'order_cancelled_by_vendor'
   | 'order_expired'
   | 'pickup_missed'
+  | 'market_box_skip'
   // Vendor-facing
   | 'new_paid_order'
   | 'order_cancelled_by_buyer'
@@ -72,6 +73,8 @@ export interface NotificationTemplateData {
   cancellationRate?: number
   cancelledCount?: number
   confirmedCount?: number
+  offeringName?: string
+  subscriptionId?: string
 }
 
 export interface NotificationTypeConfig {
@@ -134,6 +137,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `Pickup Not Confirmed`,
     message: (d) => `Your order #${d.orderNumber}${d.itemTitle ? ` (${d.itemTitle})` : ''} from ${d.vendorName} was not marked as picked up during the scheduled pickup window. If you did pick up your items, please mark it as received in the app now. If there was a miscommunication, please reach out to the vendor directly to clarify.`,
     actionUrl: (d) => `/${d.vertical || 'farmers-market'}/buyer/orders`,
+  },
+
+  market_box_skip: {
+    urgency: 'standard',
+    audience: 'buyer',
+    title: () => `Market Box Week Skipped`,
+    message: (d) => `${d.vendorName} has skipped your ${d.offeringName || 'Market Box'} pickup scheduled for ${d.pickupDate}. An extension week has been added to your subscription.${d.reason ? ` Reason: ${d.reason}` : ''}`,
+    actionUrl: (d) => `/${d.vertical || 'farmers-market'}/buyer/subscriptions`,
   },
 
   // ── Vendor-facing ────────────────────────────────────────────────
