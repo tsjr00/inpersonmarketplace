@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 
 interface FeaturedMarketsProps {
   vertical: string
@@ -35,45 +35,53 @@ export function FeaturedMarkets({ vertical }: FeaturedMarketsProps) {
           Discover Markets in Your Community
         </h2>
 
-        <p
+        <div
           style={{
-            fontSize: typography.sizes.lg,
-            color: colors.textSecondary,
-            lineHeight: typography.leading.relaxed,
-            maxWidth: '580px',
+            maxWidth: '640px',
             marginLeft: 'auto',
             marginRight: 'auto',
-            marginBottom: spacing.lg,
           }}
         >
-          Browse farmers markets near you and discover fresh products from local vendors.
-          Pre-order online and pick up at your neighborhood market.
-        </p>
+          <p
+            style={{
+              fontSize: typography.sizes.base,
+              color: colors.textSecondary,
+              lineHeight: typography.leading.relaxed,
+              marginBottom: spacing.sm,
+            }}
+          >
+            Farmers markets are more than shopping — they&apos;re the heartbeat of local
+            communities. For many family farms and small businesses, a weekly market stand
+            is essential revenue that keeps their operations alive.
+          </p>
 
-        <Link
-          href={`/${vertical}/markets`}
-          className="inline-flex items-center justify-center transition-all"
-          style={{
-            backgroundColor: colors.primary,
-            color: colors.textInverse,
-            padding: `${spacing.sm} ${spacing.xl}`,
-            borderRadius: radius.full,
-            fontSize: typography.sizes.base,
-            fontWeight: typography.weights.semibold,
-            minWidth: '200px',
-            boxShadow: shadows.primary,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = colors.primaryDark
-            e.currentTarget.style.transform = 'translateY(-2px)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = colors.primary
-            e.currentTarget.style.transform = 'translateY(0)'
-          }}
-        >
-          Find Markets Near You
-        </Link>
+          <p
+            style={{
+              fontSize: typography.sizes.base,
+              color: colors.textSecondary,
+              lineHeight: typography.leading.relaxed,
+              marginBottom: spacing.md,
+            }}
+          >
+            Every dollar spent locally circulates back into your neighborhood, supporting
+            the growers, makers, and families who make your community vibrant. We&apos;re here
+            to make that connection easier.
+          </p>
+
+          <Link
+            href={`/${vertical}/markets`}
+            style={{
+              fontSize: typography.sizes.sm,
+              color: colors.textSecondary,
+              textDecoration: 'none',
+              fontStyle: 'italic',
+              borderBottom: `1px solid ${colors.textMuted}`,
+              paddingBottom: 2,
+            }}
+          >
+            Find markets near you
+          </Link>
+        </div>
       </div>
     </section>
   )

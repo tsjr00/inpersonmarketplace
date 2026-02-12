@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { MapPin, Search } from 'lucide-react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -19,29 +19,33 @@ interface StoredLocation {
   timestamp: number
 }
 
-export function LocationEntry({ vertical, initialCity, onLocationSet }: LocationEntryProps) {
-  const [zipCode, setZipCode] = useState('')
-  const [savedLocation, setSavedLocation] = useState<StoredLocation | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [error, setError] = useState('')
-
-  // Load saved location from localStorage on mount
-  useEffect(() => {
+export function LocationEntry({ vertical: _vertical, initialCity, onLocationSet }: LocationEntryProps) {
+  const [savedLocation, setSavedLocation] = useState<StoredLocation | null>(() => {
+    if (typeof window === 'undefined') return null
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as StoredLocation
-        // Check if location is less than 30 days old
         const thirtyDays = 30 * 24 * 60 * 60 * 1000
-        if (Date.now() - parsed.timestamp < thirtyDays) {
-          setSavedLocation(parsed)
-          setZipCode(parsed.zipCode)
-        }
-      } catch {
-        // Invalid stored data, ignore
-      }
+        if (Date.now() - parsed.timestamp < thirtyDays) return parsed
+      } catch { /* invalid stored data */ }
     }
-  }, [])
+    return null
+  })
+  const [zipCode, setZipCode] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as StoredLocation
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000
+        if (Date.now() - parsed.timestamp < thirtyDays) return parsed.zipCode
+      } catch { /* invalid stored data */ }
+    }
+    return ''
+  })
+  const [isEditing, setIsEditing] = useState(false)
+  const [error, setError] = useState('')
 
   const validateZipCode = (zip: string): boolean => {
     // US zip code: 5 digits or 5+4 format
@@ -72,13 +76,6 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
     if (onLocationSet) {
       onLocationSet(trimmedZip)
     }
-  }
-
-  const handleClear = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    setSavedLocation(null)
-    setZipCode('')
-    setIsEditing(true)
   }
 
   // If we have a saved location and not editing, show the saved state
@@ -175,7 +172,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
           placeholder="Enter zip code"
           maxLength={10}
           style={{
-            padding: `${spacing.sm} ${spacing.md}`,
+            padding: `${spacing.xs} ${spacing.md}`,
             fontSize: typography.sizes.base,
             border: error ? `2px solid #ef4444` : `2px solid ${colors.border}`,
             borderRadius: radius.full,
@@ -206,7 +203,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
             alignItems: 'center',
             justifyContent: 'center',
             gap: spacing.xs,
-            padding: `${spacing.sm} ${spacing.md}`,
+            padding: `${spacing.xs} ${spacing.md}`,
             backgroundColor: colors.primary,
             color: colors.textInverse,
             border: '2px solid transparent',

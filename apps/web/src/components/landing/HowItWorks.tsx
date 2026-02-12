@@ -30,7 +30,7 @@ export function HowItWorks({ vertical }: HowItWorksProps) {
       icon: Package,
       title: 'Pick Up Fresh',
       description: isFarmersMarket
-        ? 'Visit the market. Collect your pre-order items with guaranteed availability.'
+        ? 'Visit the market. Collect your pre-ordered items — your selections are set aside and waiting.'
         : 'Collect your items at the designated pickup point. Quick, easy, and convenient.'
     },
     {
@@ -70,20 +70,6 @@ export function HowItWorks({ vertical }: HowItWorksProps) {
           >
             How It Works
           </h2>
-          <p
-            style={{
-              fontSize: typography.sizes.lg,
-              color: colors.textSecondary,
-              maxWidth: '540px',
-              marginLeft: 'auto',
-              marginRight: 'auto',
-            }}
-          >
-            {isFarmersMarket
-              ? 'From farm to table in four simple steps.'
-              : 'A simple, streamlined experience from discovery to pickup.'
-            }
-          </p>
         </div>
 
         {/* Steps Grid */}
@@ -158,8 +144,8 @@ export function HowItWorks({ vertical }: HowItWorksProps) {
           })}
         </div>
 
-        {/* Stacked Circle CTA */}
-        <div className="text-center">
+        {/* Stacked Circle CTA — centered vertically between cards and next section */}
+        <div className="text-center" style={{ paddingTop: spacing.lg, paddingBottom: spacing.lg }}>
           <Link
             href={`/${vertical}/browse`}
             className="inline-flex flex-col items-center justify-center transition-all"
@@ -187,6 +173,22 @@ export function HowItWorks({ vertical }: HowItWorksProps) {
               Shopping
             </span>
           </Link>
+
+          <div style={{ marginTop: spacing.md }}>
+            <Link
+              href={`/${vertical}/help`}
+              style={{
+                fontSize: typography.sizes.sm,
+                color: colors.textSecondary,
+                textDecoration: 'none',
+                fontStyle: 'italic',
+                borderBottom: `1px solid ${colors.textMuted}`,
+                paddingBottom: 2,
+              }}
+            >
+              Want a more detailed walkthrough? Visit our Help Center
+            </Link>
+          </div>
         </div>
       </div>
     </section>

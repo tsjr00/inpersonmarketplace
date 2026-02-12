@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, ArrowRight } from 'lucide-react'
+import { Check } from 'lucide-react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -146,9 +146,23 @@ export function VendorPitch({ vertical }: VendorPitchProps) {
             }}
           >
             Become a Vendor
-            <ArrowRight style={{ width: 20, height: 20 }} />
           </Link>
 
+          <p
+            style={{
+              marginTop: spacing.md,
+              fontSize: typography.sizes.sm,
+              color: colors.textInverseMuted,
+              maxWidth: '480px',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              lineHeight: typography.leading.relaxed,
+            }}
+          >
+            Everything you need in one place — manage listings, track orders, and grow your
+            customer base. Designed to support vendors of all sizes, from weekend market stands
+            to full-time operations.
+          </p>
         </div>
       </div>
     </section>

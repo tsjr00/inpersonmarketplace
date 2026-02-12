@@ -1,9 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { Smartphone, Download } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Smartphone, Download, Plus } from 'lucide-react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
-import { defaultBranding } from '@/lib/branding'
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
 
 interface GetTheAppProps {
   vertical: string
@@ -13,15 +17,32 @@ interface GetTheAppProps {
 /**
  * Get The App Section
  * Encourages users to install as PWA (Progressive Web App)
- * Shows download buttons for future app store listings
+ * Shows "Add to Home Screen" prompt
  */
-export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
-  const isFarmersMarket = vertical === 'farmers_market'
+export function GetTheApp({ vertical: _vertical, variant = 'full' }: GetTheAppProps) {
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showInstallTip, setShowInstallTip] = useState(false)
 
-  const handleDownloadClick = () => {
-    setShowInstallTip(true)
+  // Listen for the beforeinstallprompt event (PWA install)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e as BeforeInstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      const result = await deferredPrompt.userChoice
+      if (result.outcome === 'accepted') {
+        setDeferredPrompt(null)
+      }
+    } else {
+      setShowInstallTip(true)
+    }
   }
 
   if (variant === 'compact') {
@@ -61,19 +82,19 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
                 fontWeight: typography.weights.semibold,
                 color: colors.textPrimary
               }}>
-                Get the {branding.brand_name} App
+                Fresh & Local, Wherever You Go
               </p>
               <p style={{
                 margin: 0,
                 fontSize: typography.sizes.sm,
                 color: colors.textSecondary
               }}>
-                Shop faster with our mobile app
+                Add to your home screen for instant access
               </p>
             </div>
           </div>
           <button
-            onClick={handleDownloadClick}
+            onClick={handleInstallClick}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -90,7 +111,7 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
             }}
           >
             <Download style={{ width: 18, height: 18 }} />
-            Download
+            Install App
           </button>
         </div>
         {showInstallTip && (
@@ -100,7 +121,7 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
             fontSize: typography.sizes.sm,
             color: colors.textSecondary,
           }}>
-            Add this site to your home screen for the best app-like experience.
+            Tap the share button in your browser, then select &quot;Add to Home Screen&quot; for the best experience.
           </p>
         )}
       </section>
@@ -173,7 +194,7 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
               marginBottom: spacing.sm,
               lineHeight: 1.2
             }}>
-              Take {branding.brand_name} With You
+              Fresh & Local, Wherever You Go
             </h2>
 
             <p style={{
@@ -182,9 +203,8 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
               marginBottom: spacing.lg,
               lineHeight: 1.6
             }}>
-              {isFarmersMarket
-                ? 'Browse vendors, place orders, and manage pickups right from your phone. Get notifications when your order is ready.'
-                : 'Shop local vendors, track orders, and get pickup reminders. Everything you need in your pocket.'}
+              Browse vendors, place orders, and manage pickups right from your phone.
+              Get notifications when your order is ready — all without leaving home.
             </p>
 
             <ul style={{
@@ -199,7 +219,7 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
                 'Quick ordering from anywhere',
                 'Real-time order notifications',
                 'Easy vendor discovery',
-                'Save favorites for fast reorder'
+                'Browse on the go from your phone'
               ].map((feature, i) => (
                 <li key={i} style={{
                   display: 'flex',
@@ -226,71 +246,41 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
               ))}
             </ul>
 
-            {/* Download buttons */}
-            <div style={{
-              display: 'flex',
-              gap: spacing.sm,
-              flexWrap: 'wrap'
-            }}>
-              <button
-                onClick={handleDownloadClick}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing.sm,
-                  padding: `${spacing.sm} ${spacing.lg}`,
-                  backgroundColor: '#000',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: radius.lg,
-                  cursor: 'pointer',
-                  minHeight: 50
-                }}
-              >
-                <svg viewBox="0 0 24 24" style={{ width: 24, height: 24, fill: 'white' }}>
-                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08M12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25"/>
-                </svg>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: 10, opacity: 0.8 }}>Download on the</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, marginTop: -2 }}>App Store</div>
-                </div>
-              </button>
+            {/* Install button */}
+            <button
+              onClick={handleInstallClick}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.sm,
+                padding: `${spacing.sm} ${spacing.xl}`,
+                backgroundColor: colors.primary,
+                color: 'white',
+                border: 'none',
+                borderRadius: radius.lg,
+                cursor: 'pointer',
+                minHeight: 50,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold,
+                boxShadow: shadows.primary,
+              }}
+            >
+              <Plus style={{ width: 20, height: 20 }} />
+              Add to Home Screen
+            </button>
 
-              <button
-                onClick={handleDownloadClick}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing.sm,
-                  padding: `${spacing.sm} ${spacing.lg}`,
-                  backgroundColor: '#000',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: radius.lg,
-                  cursor: 'pointer',
-                  minHeight: 50
-                }}
-              >
-                <svg viewBox="0 0 24 24" style={{ width: 24, height: 24, fill: 'white' }}>
-                  <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 010 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.802 8.99l-2.303 2.303-8.635-8.635z"/>
-                </svg>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: 10, opacity: 0.8 }}>Get it on</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, marginTop: -2 }}>Google Play</div>
-                </div>
-              </button>
-            </div>
-
-            <p style={{
-              marginTop: spacing.md,
-              fontSize: typography.sizes.sm,
-              color: colors.textMuted
-            }}>
-              Coming soon to app stores. Add to home screen for the best experience now.
-            </p>
+            {showInstallTip && (
+              <p style={{
+                marginTop: spacing.sm,
+                fontSize: typography.sizes.sm,
+                color: colors.textMuted
+              }}>
+                Tap the share button in your browser, then select &quot;Add to Home Screen&quot; for instant access.
+              </p>
+            )}
           </div>
 
-          {/* Right side - Phone mockup */}
+          {/* Right side - Phone mockup with realistic product browse */}
           <div style={{
             display: 'flex',
             justifyContent: 'center'
@@ -319,58 +309,96 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
                 zIndex: 10
               }} />
 
-              {/* Screen content mockup */}
+              {/* Screen content - realistic product browse */}
               <div style={{
                 height: '100%',
-                background: `linear-gradient(180deg, ${colors.primary}15 0%, ${colors.surfaceBase} 100%)`,
-                padding: spacing.lg,
-                paddingTop: 50
+                background: `linear-gradient(180deg, ${colors.primary}10 0%, ${colors.surfaceBase} 100%)`,
+                paddingTop: 40
               }}>
-                {/* App header mockup */}
+                {/* Search bar mockup */}
                 <div style={{
-                  fontSize: typography.sizes.xl,
-                  fontWeight: typography.weights.bold,
-                  color: colors.primary,
-                  marginBottom: spacing.lg,
-                  textAlign: 'center'
+                  margin: '0 16px 12px',
+                  padding: '8px 12px',
+                  backgroundColor: colors.surfaceElevated,
+                  borderRadius: radius.md,
+                  border: `1px solid ${colors.border}`,
+                  fontSize: 11,
+                  color: colors.textMuted,
                 }}>
-                  {branding.brand_name}
+                  Search products...
                 </div>
 
-                {/* Product cards mockup */}
-                {[1, 2, 3].map((i) => (
-                  <div key={i} style={{
-                    backgroundColor: colors.surfaceElevated,
-                    borderRadius: radius.md,
-                    padding: spacing.sm,
-                    marginBottom: spacing.sm,
-                    display: 'flex',
-                    gap: spacing.sm,
-                    boxShadow: shadows.sm
-                  }}>
-                    <div style={{
-                      width: 50,
-                      height: 50,
-                      backgroundColor: colors.surfaceMuted,
-                      borderRadius: radius.sm
-                    }} />
-                    <div style={{ flex: 1 }}>
+                {/* Product grid mockup - 2x2 */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 8,
+                  padding: '0 12px',
+                }}>
+                  {[
+                    { name: 'Fresh Tomatoes', price: '$4.50', color: '#e74c3c' },
+                    { name: 'Local Honey', price: '$12.00', color: '#f39c12' },
+                    { name: 'Sourdough Bread', price: '$7.00', color: '#d4a574' },
+                    { name: 'Mixed Berries', price: '$6.00', color: '#8e44ad' },
+                  ].map((product, i) => (
+                    <div key={i} style={{
+                      backgroundColor: colors.surfaceElevated,
+                      borderRadius: radius.sm,
+                      overflow: 'hidden',
+                      boxShadow: shadows.sm,
+                    }}>
+                      {/* Product image placeholder */}
                       <div style={{
-                        height: 12,
-                        backgroundColor: colors.surfaceMuted,
-                        borderRadius: 4,
-                        marginBottom: 6,
-                        width: '80%'
-                      }} />
-                      <div style={{
-                        height: 10,
-                        backgroundColor: colors.surfaceMuted,
-                        borderRadius: 4,
-                        width: '60%'
-                      }} />
+                        height: 80,
+                        backgroundColor: product.color + '25',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <div style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: '50%',
+                          backgroundColor: product.color + '40',
+                        }} />
+                      </div>
+                      <div style={{ padding: '6px 8px' }}>
+                        <div style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: colors.textPrimary,
+                          marginBottom: 2,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          {product.name}
+                        </div>
+                        <div style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: colors.primary,
+                        }}>
+                          {product.price}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+
+                {/* Add to cart button mockup */}
+                <div style={{
+                  margin: '12px 12px 0',
+                  padding: '8px',
+                  backgroundColor: colors.primary,
+                  borderRadius: radius.sm,
+                  textAlign: 'center',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'white',
+                }}>
+                  View Cart (2 items)
+                </div>
 
                 {/* Bottom nav mockup */}
                 <div style={{
@@ -378,7 +406,7 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
                   bottom: 20,
                   left: 20,
                   right: 20,
-                  height: 50,
+                  height: 46,
                   backgroundColor: colors.surfaceElevated,
                   borderRadius: radius.lg,
                   display: 'flex',
@@ -387,7 +415,7 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
                   boxShadow: shadows.md
                 }}>
                   {['🏠', '🔍', '🛒', '👤'].map((icon, i) => (
-                    <span key={i} style={{ fontSize: 20, opacity: i === 0 ? 1 : 0.4 }}>
+                    <span key={i} style={{ fontSize: 18, opacity: i === 1 ? 1 : 0.4 }}>
                       {icon}
                     </span>
                   ))}

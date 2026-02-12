@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { LocationEntry } from './LocationEntry'
 
 interface HeroProps {
@@ -15,7 +14,7 @@ export function Hero({ vertical, initialCity }: HeroProps) {
   const isFarmersMarket = vertical === 'farmers_market'
   const [userZipCode, setUserZipCode] = useState<string | null>(null)
 
-  // Build browse URL with location if available
+  // Build URLs with location if available
   const browseUrl = userZipCode
     ? `/${vertical}/browse?zip=${userZipCode}`
     : `/${vertical}/browse`
@@ -23,6 +22,10 @@ export function Hero({ vertical, initialCity }: HeroProps) {
   const marketsUrl = userZipCode
     ? `/${vertical}/markets?zip=${userZipCode}`
     : `/${vertical}/markets`
+
+  const vendorsUrl = userZipCode
+    ? `/${vertical}/vendors?zip=${userZipCode}`
+    : `/${vertical}/vendors`
 
   return (
     <section
@@ -65,9 +68,9 @@ export function Hero({ vertical, initialCity }: HeroProps) {
           >
             {isFarmersMarket ? (
               <>
-                Fresh, Local Food
+                Fresh, Local Food &
                 <br />
-                <span style={{ color: colors.primaryDark }}>From Your Community</span>
+                <span style={{ color: colors.primaryDark }}>Locally Made Products</span>
               </>
             ) : (
               <>
@@ -96,61 +99,40 @@ export function Hero({ vertical, initialCity }: HeroProps) {
             }
           </p>
 
-          {/* CTAs */}
+          {/* CTAs — 3 outlined buttons, same style */}
           <div
             className="flex flex-col sm:flex-row justify-center items-center"
             style={{ gap: spacing.xs, marginBottom: spacing.xl }}
           >
-            {/* Primary CTA */}
-            <Link
-              href={browseUrl}
-              className="inline-flex items-center justify-center gap-2 transition-all"
-              style={{
-                backgroundColor: colors.primary,
-                color: colors.textInverse,
-                padding: `${spacing.sm} ${spacing.lg}`,
-                borderRadius: radius.full,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold,
-                minWidth: '200px',
-                boxShadow: shadows.primary,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = colors.primaryDark
-                e.currentTarget.style.transform = 'translateY(-2px)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = colors.primary
-                e.currentTarget.style.transform = 'translateY(0)'
-              }}
-            >
-              Browse Products
-              <ArrowRight style={{ width: 20, height: 20 }} />
-            </Link>
-
-            {/* Secondary CTA */}
-            <Link
-              href={marketsUrl}
-              className="inline-flex items-center justify-center gap-2 transition-all"
-              style={{
-                backgroundColor: 'transparent',
-                color: colors.primaryDark,
-                padding: `${spacing.sm} ${spacing.lg}`,
-                borderRadius: radius.full,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold,
-                minWidth: '200px',
-                border: `2px solid ${colors.primary}`,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = colors.primaryLight
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent'
-              }}
-            >
-              Find {isFarmersMarket ? 'Markets' : 'Locations'}
-            </Link>
+            {[
+              { label: 'Browse Products', href: browseUrl },
+              { label: isFarmersMarket ? 'Find Markets' : 'Find Locations', href: marketsUrl },
+              { label: 'Find Vendors', href: vendorsUrl },
+            ].map((cta) => (
+              <Link
+                key={cta.label}
+                href={cta.href}
+                className="inline-flex items-center justify-center transition-all"
+                style={{
+                  backgroundColor: 'transparent',
+                  color: colors.primaryDark,
+                  padding: `${spacing.sm} ${spacing.lg}`,
+                  borderRadius: radius.full,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold,
+                  minWidth: '180px',
+                  border: `2px solid ${colors.primary}`,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = colors.primaryLight
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                }}
+              >
+                {cta.label}
+              </Link>
+            ))}
           </div>
 
           {/* Trust indicators */}
