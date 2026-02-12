@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 
 interface NotificationPreferencesProps {
   primaryColor: string
+  smsEnabled?: boolean
 }
 
 interface Preferences {
@@ -22,7 +23,7 @@ const DEFAULT_PREFS: Preferences = {
   push_enabled: false,
 }
 
-export default function NotificationPreferences({ primaryColor }: NotificationPreferencesProps) {
+export default function NotificationPreferences({ primaryColor, smsEnabled = false }: NotificationPreferencesProps) {
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
   const [loading, setLoading] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
@@ -263,43 +264,45 @@ export default function NotificationPreferences({ primaryColor }: NotificationPr
       <div>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: '0 0 12px 0' }}>
           SMS Notifications
-          <span style={{
-            marginLeft: 8,
-            padding: '2px 8px',
-            backgroundColor: '#fef3c7',
-            color: '#92400e',
-            borderRadius: 4,
-            fontSize: 11,
-            fontWeight: 500
-          }}>
-            Coming Soon
-          </span>
+          {!smsEnabled && (
+            <span style={{
+              marginLeft: 8,
+              padding: '2px 8px',
+              backgroundColor: '#fef3c7',
+              color: '#92400e',
+              borderRadius: 4,
+              fontSize: 11,
+              fontWeight: 500
+            }}>
+              Add phone number above to enable
+            </span>
+          )}
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#9ca3af' }}>Order Updates</p>
-              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#9ca3af' }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: smsEnabled ? undefined : '#9ca3af' }}>Order Updates</p>
+              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: smsEnabled ? '#6b7280' : '#9ca3af' }}>
                 Get text alerts about your orders
               </p>
             </div>
             <ToggleSwitch
               checked={preferences.sms_order_updates}
               onChange={() => handleToggle('sms_order_updates')}
-              disabled={true}
+              disabled={!smsEnabled}
             />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#9ca3af' }}>Marketing & Promotions</p>
-              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#9ca3af' }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: smsEnabled ? undefined : '#9ca3af' }}>Marketing & Promotions</p>
+              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: smsEnabled ? '#6b7280' : '#9ca3af' }}>
                 Receive deals via text message
               </p>
             </div>
             <ToggleSwitch
               checked={preferences.sms_marketing}
               onChange={() => handleToggle('sms_marketing')}
-              disabled={true}
+              disabled={!smsEnabled}
             />
           </div>
         </div>

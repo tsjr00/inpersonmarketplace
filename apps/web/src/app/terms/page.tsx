@@ -70,7 +70,7 @@ export default function TermsPage() {
           Terms of Service
         </h1>
         <p style={{ marginBottom: spacing.lg, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-          <em>Last updated: January 2026</em>
+          <em>Last updated: February 2026</em>
         </p>
 
         <div style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>
@@ -305,9 +305,61 @@ export default function TermsPage() {
             </p>
           </section>
 
-          {/* 8. Changes to Terms */}
+          {/* 8. SMS and Text Messaging Terms */}
           <section style={sectionStyle}>
-            <h2 id="changes" style={h2Style}>8. Changes to Terms</h2>
+            <h2 id="sms-terms" style={h2Style}>8. SMS and Text Messaging Terms</h2>
+
+            <h3 style={h3Style}>8.1 Consent to Receive Messages</h3>
+            <p style={pStyle}>
+              By creating an account on farmersmarketing.app and providing your mobile phone number, you may
+              opt in to receive SMS/text message notifications related to your account and orders. SMS notifications
+              are used for time-sensitive, transactional messages including but not limited to:
+            </p>
+            <ul style={listStyle}>
+              <li>Order cancellation alerts</li>
+              <li>Pickup issue notifications</li>
+              <li>Urgent order status changes</li>
+            </ul>
+            <p style={pStyle}>
+              By opting in, you consent to receive recurring automated text messages from farmersmarketing.app
+              at the mobile number you provide. Consent is not a condition of purchase. Message frequency varies
+              based on your order activity (typically 1-5 messages per week during active order periods).
+            </p>
+
+            <h3 style={h3Style}>8.2 Message and Data Rates</h3>
+            <p style={pStyle}>
+              Message and data rates may apply. Your mobile carrier&apos;s standard messaging and data rates will apply
+              to any SMS messages you receive from us. Check with your carrier for details about your plan.
+            </p>
+
+            <h3 style={h3Style}>8.3 Opt-Out and Help</h3>
+            <p style={pStyle}>
+              You can opt out of SMS notifications at any time by:
+            </p>
+            <ul style={listStyle}>
+              <li>Replying <strong>STOP</strong> to any text message from us</li>
+              <li>Disabling SMS notifications in your account notification preferences</li>
+              <li>Removing your phone number from your account profile</li>
+            </ul>
+            <p style={pStyle}>
+              After opting out, you will receive one final confirmation message. You will still receive
+              in-app and email notifications for order updates.
+            </p>
+            <p style={pStyle}>
+              For help with SMS messaging, reply <strong>HELP</strong> to any text message from us, or
+              contact us through our <Link href="/about#contact" style={{ color: colors.primary }}>contact form</Link>.
+            </p>
+
+            <h3 style={h3Style}>8.4 Supported Carriers</h3>
+            <p style={pStyle}>
+              SMS messaging is supported on most major US carriers. Carriers are not liable for delayed or
+              undelivered messages.
+            </p>
+          </section>
+
+          {/* 9. Changes to Terms */}
+          <section style={sectionStyle}>
+            <h2 id="changes" style={h2Style}>9. Changes to Terms</h2>
             <p style={pStyle}>
               We may modify these Terms at any time. We will notify users of significant changes via email
               or platform notification. Continued use of the platform after changes constitutes acceptance
@@ -354,9 +406,19 @@ export default function TermsPage() {
             </p>
             <ul style={listStyle}>
               <li><strong>With Vendors/Shoppers:</strong> Order information is shared between parties to facilitate transactions</li>
-              <li><strong>Service Providers:</strong> With third parties who perform services on our behalf (payment processing, email delivery)</li>
+              <li><strong>Service Providers:</strong> With third parties who perform services on our behalf (payment processing, email delivery, SMS messaging)</li>
               <li><strong>Legal Requirements:</strong> When required by law or to protect rights, safety, or property</li>
               <li><strong>Business Transfers:</strong> In connection with any merger, acquisition, or sale of assets</li>
+            </ul>
+
+            <h3 style={h3Style}>Mobile Information Privacy</h3>
+            <p style={pStyle}>
+              We are committed to protecting your mobile information:
+            </p>
+            <ul style={listStyle}>
+              <li>We will <strong>never sell, rent, or share your mobile phone number</strong> with third parties or affiliates for promotional or marketing purposes</li>
+              <li>Your phone number is used solely for transactional notifications related to your account and orders on farmersmarketing.app</li>
+              <li>Third-party SMS service providers who deliver messages on our behalf are contractually prohibited from using your phone number for any purpose other than delivering our messages</li>
             </ul>
 
             <h3 style={h3Style}>Data Security</h3>
@@ -372,6 +434,7 @@ export default function TermsPage() {
             <ul style={listStyle}>
               <li>Access, update, or delete your account information at any time</li>
               <li>Opt out of promotional communications</li>
+              <li>Opt out of SMS notifications by replying STOP, disabling SMS in your notification preferences, or removing your phone number from your profile</li>
               <li>Request a copy of your personal data</li>
               <li>Request deletion of your account and associated data</li>
             </ul>

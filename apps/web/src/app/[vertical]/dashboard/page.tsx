@@ -42,13 +42,17 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   // Get user profile to check for admin role, buyer tier, and tutorial status
   const { data: userProfile } = await supabase
     .from('user_profiles')
-    .select('role, roles, buyer_tier, buyer_tier_expires_at, tutorial_completed_at, tutorial_skipped_at, created_at')
+    .select('role, roles, buyer_tier, buyer_tier_expires_at, tutorial_completed_at, tutorial_skipped_at, created_at, phone, notification_preferences')
     .eq('user_id', user.id)
     .single()
 
   const isAdmin = userProfile ? hasAdminRole(userProfile) : false
   const buyerTier = (userProfile?.buyer_tier as string) || 'free'
   const isPremiumBuyer = buyerTier === 'premium'
+
+  // Check if user has opted into SMS notifications
+  const notifPrefs = (userProfile?.notification_preferences as Record<string, unknown>) || {}
+  const hasSmsOptIn = Boolean(userProfile?.phone) && Boolean(notifPrefs.sms_order_updates)
 
   // Show tutorial for new users who haven't completed or skipped it
   const hasSeenTutorial = !!(userProfile?.tutorial_completed_at || userProfile?.tutorial_skipped_at)
@@ -224,6 +228,44 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           )}
         </p>
       </div>
+
+      {/* SMS Opt-In Nudge — hidden once user has phone + consent */}
+      {!hasSmsOptIn && (
+        <Link
+          href={`/${vertical}/settings`}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: spacing.sm,
+            padding: spacing.md,
+            backgroundColor: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: radius.md,
+            marginBottom: spacing.lg,
+            textDecoration: 'none',
+            color: 'inherit'
+          }}
+        >
+          <span style={{ fontSize: typography.sizes.xl, flexShrink: 0, lineHeight: 1 }}>📱</span>
+          <div>
+            <p style={{
+              margin: 0,
+              fontWeight: typography.weights.semibold,
+              fontSize: typography.sizes.base,
+              color: '#1e40af'
+            }}>
+              Never miss a pickup — turn on text alerts
+            </p>
+            <p style={{
+              margin: `${spacing['3xs']} 0 0`,
+              fontSize: typography.sizes.sm,
+              color: '#3b82f6'
+            }}>
+              Get a text the moment your order is ready so you can head to the market with confidence. Quick setup in Settings.
+            </p>
+          </div>
+        </Link>
+      )}
 
       {/* ========== SHOPPER SECTION ========== */}
       <section style={{ marginBottom: spacing.lg }}>
