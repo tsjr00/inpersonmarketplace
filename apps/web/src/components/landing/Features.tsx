@@ -36,15 +36,15 @@ export function Features({ vertical }: FeaturesProps) {
       icon: MapPin,
       title: 'Local Focus',
       description: isFarmersMarket
-        ? 'Find markets and vendors within 25 miles of your location. Support businesses in your own community.'
+        ? 'Search from 10 to 100 miles to find what\'s nearest to you. Built to serve both urban neighborhoods and rural communities — always focused on your most local vendors first.'
         : 'Discover sellers near you. All transactions happen locally for easy pickup.'
     },
     {
       icon: CheckCircle,
       title: 'No Sold-Out Items',
       description: isFarmersMarket
-        ? 'Pre-order your favorites with guaranteed availability. Sleep in on market day and still get everything you want.'
-        : 'Reserve products ahead of time. Guaranteed availability means no disappointment.'
+        ? 'Pre-order your favorites with confirmed availability from the vendor. Sleep in on market day and still get everything you want.'
+        : 'Reserve products ahead of time. Confirmed availability means no disappointment.'
     },
     {
       icon: Clock,
@@ -56,12 +56,12 @@ export function Features({ vertical }: FeaturesProps) {
     {
       icon: Smartphone,
       title: 'Mobile Friendly',
-      description: 'Shop from any device - mobile or desktop. Landscape mode on mobile shows more products at once for easier browsing.'
+      description: 'Shop from any device, whether you\'re on the go or browsing from home. No laptop needed — everything works beautifully from your phone.'
     },
     {
       icon: Bell,
       title: 'Order Updates',
-      description: 'Get notified when your order is confirmed, ready for pickup, and when new products are available.'
+      description: 'Stay informed with in-app, SMS, and email notifications. Opt into what you prefer and never miss an update.'
     }
   ]
 

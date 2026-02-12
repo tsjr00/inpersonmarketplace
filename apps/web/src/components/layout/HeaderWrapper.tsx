@@ -4,9 +4,10 @@ import { Header } from './Header'
 
 interface HeaderWrapperProps {
   vertical: string
+  isLandingPage?: boolean
 }
 
-export async function HeaderWrapper({ vertical }: HeaderWrapperProps) {
+export async function HeaderWrapper({ vertical, isLandingPage }: HeaderWrapperProps) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -41,6 +42,7 @@ export async function HeaderWrapper({ vertical }: HeaderWrapperProps) {
       userProfile={userProfile}
       vendorProfile={vendorProfile}
       branding={branding}
+      isLandingPage={isLandingPage}
     />
   )
 }

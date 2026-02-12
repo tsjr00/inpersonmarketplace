@@ -24,6 +24,7 @@ interface HeaderProps {
       text: string
     }
   }
+  isLandingPage?: boolean
 }
 
 export function Header({
@@ -31,7 +32,8 @@ export function Header({
   user,
   userProfile,
   vendorProfile,
-  branding
+  branding,
+  isLandingPage = false
 }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -78,6 +80,9 @@ export function Header({
     router.refresh()
   }
 
+  // Detect landing page: path is exactly /{vertical} (no subpath)
+  const isOnLandingPage = isLandingPage || (pathname && pathname.split('/').filter(Boolean).length === 1)
+
   const isAdmin = userProfile?.role === 'admin' ||
     userProfile?.role === 'platform_admin' ||
     userProfile?.roles?.includes('admin') ||
@@ -88,10 +93,12 @@ export function Header({
 
   return (
     <header style={{
-      backgroundColor: colors.surfaceElevated,
-      borderBottom: `1px solid ${colors.border}`,
-      position: 'sticky',
+      backgroundColor: isOnLandingPage ? 'transparent' : colors.surfaceElevated,
+      borderBottom: isOnLandingPage ? 'none' : `1px solid ${colors.border}`,
+      position: isOnLandingPage ? 'absolute' : 'sticky',
       top: 0,
+      left: 0,
+      right: 0,
       zIndex: 50
     }}>
       <div style={{
@@ -120,8 +127,8 @@ export function Header({
                 alt={branding.brand_name}
                 width={0}
                 height={0}
-                sizes="200px"
-                style={{ width: 'auto', height: 44 }}
+                sizes={isOnLandingPage ? '280px' : '200px'}
+                style={{ width: 'auto', height: isOnLandingPage ? 72 : 44 }}
                 priority
               />
             ) : (
