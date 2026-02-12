@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
+import { getAccountStatus } from '@/lib/stripe/connect'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import {
@@ -51,7 +52,29 @@ export async function POST(
     // Verify Stripe account is ready for payouts before proceeding
     const isProd = process.env.NODE_ENV === 'production'
     if (isProd && vendorProfile.stripe_account_id && !vendorProfile.stripe_payouts_enabled) {
-      throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before fulfilling orders.')
+      // Cached value may be stale/null — do a live check before blocking
+      crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
+      try {
+        const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id)
+        // Update DB with fresh values
+        await supabase
+          .from('vendor_profiles')
+          .update({
+            stripe_charges_enabled: liveStatus.chargesEnabled,
+            stripe_payouts_enabled: liveStatus.payoutsEnabled,
+            stripe_onboarding_complete: liveStatus.detailsSubmitted,
+          })
+          .eq('user_id', user.id)
+
+        if (!liveStatus.payoutsEnabled) {
+          throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before fulfilling orders.')
+        }
+      } catch (err) {
+        // Re-throw if it's our traced validation error
+        if (err && typeof err === 'object' && 'code' in err) throw err
+        // Stripe API error — log but don't block fulfillment
+        console.error('Stripe live status check failed:', err)
+      }
     }
 
     // Get order item with payment info, confirmation window, and buyer/order info for notification
