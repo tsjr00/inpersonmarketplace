@@ -54,18 +54,8 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Update user_profiles
-    const { error: updateError } = await supabase
-      .from('user_profiles')
-      .update(updates)
-      .eq('user_id', user.id)
-
-    if (updateError) {
-      console.error('Profile update error:', updateError)
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
-    }
-
-    // If sms_consent is being toggled, update notification_preferences
+    // If sms_consent is being toggled, merge it into notification_preferences
+    // in the SAME update (avoids race conditions with two sequential writes)
     if (sms_consent !== undefined) {
       const { data: profile } = await supabase
         .from('user_profiles')
@@ -74,21 +64,22 @@ export async function PATCH(request: Request) {
         .single()
 
       const currentPrefs = (profile?.notification_preferences as Record<string, unknown>) || {}
-      const updatedPrefs = {
+      updates.notification_preferences = {
         ...currentPrefs,
         sms_order_updates: Boolean(sms_consent),
         sms_consent_at: sms_consent ? new Date().toISOString() : null,
       }
+    }
 
-      const { error: prefsError } = await supabase
-        .from('user_profiles')
-        .update({ notification_preferences: updatedPrefs })
-        .eq('user_id', user.id)
+    // Single atomic update for all fields (phone, display_name, notification_preferences)
+    const { error: updateError } = await supabase
+      .from('user_profiles')
+      .update(updates)
+      .eq('user_id', user.id)
 
-      if (prefsError) {
-        console.error('SMS consent update error:', prefsError)
-        // Non-fatal — profile was already saved
-      }
+    if (updateError) {
+      console.error('Profile update error:', updateError)
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })

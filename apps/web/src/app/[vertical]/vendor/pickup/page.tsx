@@ -346,7 +346,7 @@ export default function VendorPickupPage() {
         backgroundColor: '#111827',
         color: 'white',
         padding: '12px 16px',
-        zIndex: 100
+        zIndex: 40
       }}>
         <div style={{
           display: 'flex',
@@ -512,7 +512,7 @@ export default function VendorPickupPage() {
                 color: '#991b1b',
                 lineHeight: 1.4
               }}>
-                The buyer's acknowledgment has timed out. Please ask the buyer to confirm receipt again on their device, then tap Fulfill within 30 seconds.
+                The buyer&apos;s acknowledgment has timed out. Please ask the buyer to confirm receipt again on their device, then tap Fulfill within 30 seconds.
               </p>
               <button
                 onClick={() => setWindowExpiredError(null)}
