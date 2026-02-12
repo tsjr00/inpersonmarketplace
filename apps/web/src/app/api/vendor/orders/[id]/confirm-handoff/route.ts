@@ -67,20 +67,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const now = new Date()
 
-    // Set vendor confirmation and clear lockdown
-    crumb.supabase('update', 'order_items')
-    await supabase
-      .from('order_items')
-      .update({
-        vendor_confirmed_at: now.toISOString(),
-        lockdown_active: false,
-        lockdown_initiated_at: null,
-        status: 'fulfilled' // Ensure status is fulfilled
-      })
-      .eq('id', orderItemId)
-
-    // Verify Stripe account before transferring
-    crumb.logic('Processing vendor payout')
+    // Verify Stripe is ready BEFORE marking fulfilled (so we don't get fulfilled + no payout)
     const isProd = process.env.NODE_ENV === 'production'
     const isDev = !isProd
     const hasStripe = !!vendorProfile.stripe_account_id
@@ -106,6 +93,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
         console.error('Stripe live status check failed:', err)
       }
     }
+
+    // Set vendor confirmation and clear lockdown
+    crumb.supabase('update', 'order_items')
+    await supabase
+      .from('order_items')
+      .update({
+        vendor_confirmed_at: now.toISOString(),
+        lockdown_active: false,
+        lockdown_initiated_at: null,
+        status: 'fulfilled'
+      })
+      .eq('id', orderItemId)
+
+    // Trigger Stripe transfer to vendor
+    crumb.logic('Processing vendor payout')
 
     if (hasStripe) {
       try {

@@ -98,26 +98,12 @@ export async function POST(
       }
 
       // NORMAL FLOW: Buyer acknowledged first, vendor fulfills within 30-second window
-      // Complete the transaction and trigger payment
-      crumb.supabase('update', 'order_items')
-      await supabase
-        .from('order_items')
-        .update({
-          status: 'fulfilled',
-          vendor_confirmed_at: now.toISOString(),
-          pickup_confirmed_at: now.toISOString(),
-          confirmation_window_expires_at: null, // Clear the window since transaction is complete
-        })
-        .eq('id', orderItemId)
-
-      // Verify Stripe account is ready for payouts before transferring
-      crumb.logic('Processing vendor payout')
+      // Verify Stripe is ready BEFORE marking fulfilled (so we don't get fulfilled + no payout)
       const isProd = process.env.NODE_ENV === 'production'
       const isDev = !isProd
       const hasStripe = !!vendorProfile.stripe_account_id
 
       if (isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
-        // Cached value may be stale/null — do a live check before blocking
         crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
         try {
           const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id)
@@ -138,6 +124,20 @@ export async function POST(
           console.error('Stripe live status check failed:', err)
         }
       }
+
+      // Complete the transaction and trigger payment
+      crumb.supabase('update', 'order_items')
+      await supabase
+        .from('order_items')
+        .update({
+          status: 'fulfilled',
+          vendor_confirmed_at: now.toISOString(),
+          pickup_confirmed_at: now.toISOString(),
+          confirmation_window_expires_at: null,
+        })
+        .eq('id', orderItemId)
+
+      crumb.logic('Processing vendor payout')
 
       // Check for outstanding fee balance and calculate deduction
       let feeDeductionCents = 0
