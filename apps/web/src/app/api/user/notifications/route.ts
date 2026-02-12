@@ -21,15 +21,15 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      // Get user profile with notification preferences
+      // Get user profile (use * to avoid schema cache dependency on new columns)
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('notification_preferences')
+        .select('*')
         .eq('user_id', user.id)
         .single()
 
       // Return stored preferences or defaults
-      const preferences = profile?.notification_preferences || DEFAULT_PREFERENCES
+      const preferences = (profile as Record<string, unknown>)?.notification_preferences || DEFAULT_PREFERENCES
 
       return NextResponse.json({ preferences })
     } catch (error) {

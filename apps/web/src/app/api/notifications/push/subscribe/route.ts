@@ -50,11 +50,11 @@ export async function POST(request: NextRequest) {
     crumb.supabase('select', 'user_profiles', { field: 'notification_preferences' })
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('notification_preferences')
+      .select('*')
       .eq('user_id', user.id)
       .single()
 
-    const currentPrefs = (profile?.notification_preferences as Record<string, unknown>) || {}
+    const currentPrefs = ((profile as Record<string, unknown>)?.notification_preferences as Record<string, unknown>) || {}
     if (!currentPrefs.push_enabled) {
       crumb.supabase('update', 'user_profiles', { field: 'notification_preferences.push_enabled' })
       await supabase
@@ -112,11 +112,11 @@ export async function DELETE(request: NextRequest) {
       crumb.supabase('select', 'user_profiles', { field: 'notification_preferences' })
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('notification_preferences')
+        .select('*')
         .eq('user_id', user.id)
         .single()
 
-      const currentPrefs = (profile?.notification_preferences as Record<string, unknown>) || {}
+      const currentPrefs = ((profile as Record<string, unknown>)?.notification_preferences as Record<string, unknown>) || {}
       if (currentPrefs.push_enabled) {
         crumb.supabase('update', 'user_profiles', { field: 'notification_preferences.push_enabled' })
         await supabase

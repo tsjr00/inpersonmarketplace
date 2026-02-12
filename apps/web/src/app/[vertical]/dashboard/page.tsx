@@ -45,7 +45,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   // Get user profile to check for admin role, buyer tier, and tutorial status
   const { data: userProfile } = await supabase
     .from('user_profiles')
-    .select('role, roles, buyer_tier, buyer_tier_expires_at, tutorial_completed_at, tutorial_skipped_at, created_at, phone, notification_preferences')
+    .select('*')
     .eq('user_id', user.id)
     .single()
 

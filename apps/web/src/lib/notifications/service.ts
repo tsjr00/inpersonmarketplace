@@ -381,7 +381,7 @@ export async function sendNotification(
     const supabase = createServiceClient()
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('notification_preferences, email, phone')
+      .select('*')
       .eq('id', userId)
       .single()
 
