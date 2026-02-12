@@ -36,34 +36,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw traced.notFound('ERR_ORDER_001', 'Vendor not found')
     }
 
-    // Verify Stripe account is ready for payouts before proceeding
-    const isProd = process.env.NODE_ENV === 'production'
-    if (isProd && vendorProfile.stripe_account_id && !vendorProfile.stripe_payouts_enabled) {
-      // Cached value may be stale/null — do a live check before blocking
-      crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
-      try {
-        const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id)
-        // Update DB with fresh values
-        await supabase
-          .from('vendor_profiles')
-          .update({
-            stripe_charges_enabled: liveStatus.chargesEnabled,
-            stripe_payouts_enabled: liveStatus.payoutsEnabled,
-            stripe_onboarding_complete: liveStatus.detailsSubmitted,
-          })
-          .eq('user_id', user.id)
-
-        if (!liveStatus.payoutsEnabled) {
-          throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before confirming handoffs.')
-        }
-      } catch (err) {
-        // Re-throw if it's our traced validation error
-        if (err && typeof err === 'object' && 'code' in err) throw err
-        // Stripe API error — log but don't block handoff
-        console.error('Stripe live status check failed:', err)
-      }
-    }
-
     // Get order item with buyer/order info for notification
     crumb.supabase('select', 'order_items')
     const { data: orderItem, error: fetchError } = await supabase
@@ -107,10 +79,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       .eq('id', orderItemId)
 
-    // Trigger Stripe transfer to vendor
+    // Verify Stripe account before transferring
     crumb.logic('Processing vendor payout')
-    const isDev = process.env.NODE_ENV !== 'production'
+    const isProd = process.env.NODE_ENV === 'production'
+    const isDev = !isProd
     const hasStripe = !!vendorProfile.stripe_account_id
+
+    if (isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
+      crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
+      try {
+        const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id)
+        await supabase
+          .from('vendor_profiles')
+          .update({
+            stripe_charges_enabled: liveStatus.chargesEnabled,
+            stripe_payouts_enabled: liveStatus.payoutsEnabled,
+            stripe_onboarding_complete: liveStatus.detailsSubmitted,
+          })
+          .eq('user_id', user.id)
+
+        if (!liveStatus.payoutsEnabled) {
+          throw traced.validation('ERR_ORDER_005', 'Your Stripe account is not yet enabled for payouts. Please complete your Stripe verification before confirming handoffs.')
+        }
+      } catch (err) {
+        if (err && typeof err === 'object' && 'code' in err) throw err
+        console.error('Stripe live status check failed:', err)
+      }
+    }
 
     if (hasStripe) {
       try {
