@@ -71,6 +71,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
           missed_at,
           rescheduled_to,
           vendor_notes,
+          is_extension,
+          skipped_by_vendor_at,
+          skip_reason,
           buyer_confirmed_at,
           vendor_confirmed_at,
           confirmation_window_expires_at

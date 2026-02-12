@@ -9,6 +9,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
  * - Pickup windows per location: 2
  * - Total Market Boxes: 2 (active + inactive)
  * - Active Market Boxes: 1
+ * - Max subscribers per offering: 5
  * - Product listings: 5 (total across all markets)
  *
  * Premium Vendors:
@@ -17,6 +18,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
  * - Pickup windows per location: 6
  * - Total Market Boxes: 6 (active + inactive)
  * - Active Market Boxes: 4
+ * - Max subscribers per offering: 20 (default 10)
  * - Product listings: 15 (total across all markets)
  *
  * Note: Product listings are counted per-account (total), not per-market.
@@ -32,6 +34,8 @@ export const TIER_LIMITS = {
     pickupWindowsPerLocation: 2,
     totalMarketBoxes: 2,
     activeMarketBoxes: 1,
+    maxSubscribersPerOffering: 5,
+    defaultSubscribersPerOffering: 5,
     productListings: 5,
   },
   premium: {
@@ -40,6 +44,8 @@ export const TIER_LIMITS = {
     pickupWindowsPerLocation: 6,
     totalMarketBoxes: 6,
     activeMarketBoxes: 4,
+    maxSubscribersPerOffering: 20,
+    defaultSubscribersPerOffering: 10,
     productListings: 15,
   },
   // Featured tier has same limits as premium
@@ -49,9 +55,21 @@ export const TIER_LIMITS = {
     pickupWindowsPerLocation: 6,
     totalMarketBoxes: 6,
     activeMarketBoxes: 4,
+    maxSubscribersPerOffering: 20,
+    defaultSubscribersPerOffering: 10,
     productListings: 15,
   },
 } as const
+
+/**
+ * Get subscriber limits for a tier.
+ * - `max`: Hard cap on subscribers per offering
+ * - `default`: Default value when vendor hasn't set max_subscribers
+ */
+export function getSubscriberDefault(tier: string): number {
+  const limits = getTierLimits(tier)
+  return limits.defaultSubscribersPerOffering
+}
 
 export function getTierLimits(tier: string) {
   const normalizedTier = (tier || 'standard').toLowerCase() as VendorTier

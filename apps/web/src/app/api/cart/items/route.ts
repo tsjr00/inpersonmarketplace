@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { getSubscriberDefault } from '@/lib/vendor-limits'
 
 /*
  * CART ITEMS API
@@ -322,7 +323,9 @@ async function handleMarketBoxAdd(
     throw traced.fromSupabase(countError, { table: 'market_box_subscriptions', operation: 'select' })
   }
 
-  if (offering.max_subscribers !== null && (activeCount || 0) >= offering.max_subscribers) {
+  const vendorTier = (offering.vendor as any)?.tier || 'standard'
+  const effectiveMaxSubscribers = offering.max_subscribers ?? getSubscriberDefault(vendorTier)
+  if (effectiveMaxSubscribers !== null && (activeCount || 0) >= effectiveMaxSubscribers) {
     throw traced.validation('ERR_CART_007', 'This market box is at capacity. Please try again later.')
   }
 
