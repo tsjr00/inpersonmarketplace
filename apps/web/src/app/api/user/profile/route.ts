@@ -59,11 +59,11 @@ export async function PATCH(request: Request) {
     if (sms_consent !== undefined) {
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('notification_preferences')
+        .select('*')
         .eq('user_id', user.id)
         .single()
 
-      const currentPrefs = (profile?.notification_preferences as Record<string, unknown>) || {}
+      const currentPrefs = ((profile as Record<string, unknown>)?.notification_preferences as Record<string, unknown>) || {}
       updates.notification_preferences = {
         ...currentPrefs,
         sms_order_updates: Boolean(sms_consent),
