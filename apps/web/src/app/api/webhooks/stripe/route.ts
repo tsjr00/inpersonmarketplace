@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { constructEvent, handleWebhookEvent } from '@/lib/stripe/webhooks'
 import { withErrorTracing } from '@/lib/errors'
+import { TracedError } from '@/lib/errors/traced-error'
+import { logError } from '@/lib/errors/logger'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/webhooks/stripe', 'POST', async () => {
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
         process.env.STRIPE_WEBHOOK_SECRET!
       )
     } catch (signatureError) {
-      console.error('Webhook signature verification failed:', signatureError)
+      await logError(new TracedError('ERR_WEBHOOK_008', 'Webhook signature verification failed', { route: '/api/webhooks/stripe', method: 'POST' }))
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
@@ -31,11 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     } catch (handlerError) {
       // Log the error with event details for debugging
-      console.error('Webhook handler error:', {
-        eventId: event.id,
-        eventType: event.type,
-        error: handlerError instanceof Error ? handlerError.message : handlerError,
-      })
+      await logError(new TracedError('ERR_WEBHOOK_009', `Webhook handler error: ${handlerError instanceof Error ? handlerError.message : String(handlerError)}`, { route: '/api/webhooks/stripe', method: 'POST' }))
 
       // Return 500 so Stripe retries — transient errors (DB down, network blip)
       // are the most likely cause. Stripe will retry with exponential backoff.
