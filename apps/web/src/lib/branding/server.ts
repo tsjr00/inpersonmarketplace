@@ -58,7 +58,7 @@ function getVerticalConfigFallback(verticalId: string): VerticalConfig | null {
 
   return {
     vertical_id: verticalId,
-    name_public: verticalId === 'fireworks' ? 'Fireworks Marketplace' : 'Farmers Market',
+    name_public: { fireworks: 'Fireworks Marketplace', farmers_market: 'Farmers Market', food_trucks: 'Food Trucks' }[verticalId] || verticalId,
     branding
   }
 }
@@ -182,6 +182,11 @@ function getAllVerticalsFallback(): VerticalConfig[] {
       vertical_id: 'farmers_market',
       name_public: 'Farmers Market',
       branding: defaultBranding.farmers_market
+    },
+    {
+      vertical_id: 'food_trucks',
+      name_public: 'Food Trucks',
+      branding: defaultBranding.food_trucks
     }
   ]
 }
