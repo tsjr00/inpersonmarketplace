@@ -11,26 +11,16 @@
 ALTER TABLE public.carts
   DROP CONSTRAINT IF EXISTS carts_vertical_id_fkey;
 
--- Step 2: Drop indexes that reference the column (will recreate after type change)
+-- Step 2: Drop unique constraint and indexes that reference the column (will recreate after type change)
+ALTER TABLE public.carts DROP CONSTRAINT IF EXISTS carts_user_id_vertical_id_key;
 DROP INDEX IF EXISTS idx_carts_vertical;
-DROP INDEX IF EXISTS carts_user_id_vertical_id_key;
 
 -- Step 3: Alter column type from UUID to TEXT
--- Any existing UUID values will be cast to text (harmless for dev/staging with empty carts)
 ALTER TABLE public.carts
   ALTER COLUMN vertical_id TYPE text USING vertical_id::text;
 
--- Step 4: Recreate FK to verticals.vertical_id (TEXT slug) instead of verticals.id (UUID)
-ALTER TABLE public.carts
-  ADD CONSTRAINT carts_vertical_id_fkey
-  FOREIGN KEY (vertical_id) REFERENCES public.verticals(vertical_id);
-
--- Step 5: Recreate indexes
-CREATE INDEX idx_carts_vertical ON public.carts USING btree (vertical_id);
-CREATE UNIQUE INDEX carts_user_id_vertical_id_key ON public.carts USING btree (user_id, vertical_id);
-
--- Step 6: Clear any orphaned cart data where vertical_id was a UUID string
--- (won't match any verticals.vertical_id since those are slugs like 'farmers_market')
+-- Step 4: Clean up orphaned carts with UUID values BEFORE adding new FK
+-- (existing rows have UUIDs like '16859045-...' which won't match text slugs like 'farmers_market')
 DELETE FROM public.cart_items
 WHERE cart_id IN (
   SELECT c.id FROM public.carts c
@@ -42,6 +32,15 @@ DELETE FROM public.carts c
 WHERE NOT EXISTS (
   SELECT 1 FROM public.verticals v WHERE v.vertical_id = c.vertical_id
 );
+
+-- Step 5: Recreate FK to verticals.vertical_id (TEXT slug) instead of verticals.id (UUID)
+ALTER TABLE public.carts
+  ADD CONSTRAINT carts_vertical_id_fkey
+  FOREIGN KEY (vertical_id) REFERENCES public.verticals(vertical_id);
+
+-- Step 6: Recreate indexes
+CREATE INDEX idx_carts_vertical ON public.carts USING btree (vertical_id);
+CREATE UNIQUE INDEX carts_user_id_vertical_id_key ON public.carts USING btree (user_id, vertical_id);
 
 -- Notify PostgREST to reload schema cache
 NOTIFY pgrst, 'reload schema';
