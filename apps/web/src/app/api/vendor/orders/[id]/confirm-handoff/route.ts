@@ -128,7 +128,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
       } catch (transferError) {
         console.error('Stripe transfer failed:', transferError)
-        throw traced.external('ERR_ORDER_004', 'Failed to process vendor payout', { orderItemId })
+        // Record failed payout for retry cron — handoff already happened
+        crumb.supabase('insert', 'vendor_payouts (failed)')
+        await supabase.from('vendor_payouts').insert({
+          order_item_id: orderItem.id,
+          vendor_profile_id: vendorProfile.id,
+          amount_cents: orderItem.vendor_payout_cents,
+          stripe_transfer_id: null,
+          status: 'failed',
+        })
       }
     } else if (isDev) {
       // Dev mode without Stripe
