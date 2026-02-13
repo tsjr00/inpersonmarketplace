@@ -147,7 +147,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
             })
           } catch (transferError) {
             console.error('Stripe transfer failed:', transferError)
-            // Don't throw - buyer did their part, payment issue is admin concern
+            // Record failed payout for retry cron — buyer did their part
+            crumb.supabase('insert', 'vendor_payouts (failed)')
+            await supabase.from('vendor_payouts').insert({
+              order_item_id: orderItem.id,
+              vendor_profile_id: vendorProfile.id,
+              amount_cents: orderItem.vendor_payout_cents,
+              stripe_transfer_id: null,
+              status: 'failed',
+            })
           }
         } else if (isDev) {
           console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)

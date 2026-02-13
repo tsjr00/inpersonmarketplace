@@ -198,35 +198,26 @@ export async function GET(request: NextRequest) {
           }>
 
           for (const mbItem of marketBoxItems) {
-            // Idempotent: check if subscription already exists
-            const { data: existingSub } = await serviceClient
-              .from('market_box_subscriptions')
-              .select('id')
-              .eq('offering_id', mbItem.offeringId)
-              .eq('buyer_user_id', user.id)
-              .eq('order_id', orderId)
-              .single()
+            // Atomic subscribe with capacity check (prevents race condition)
+            const { data: result, error: rpcError } = await serviceClient
+              .rpc('subscribe_to_market_box_if_capacity', {
+                p_offering_id: mbItem.offeringId,
+                p_buyer_user_id: user.id,
+                p_order_id: orderId,
+                p_total_paid_cents: mbItem.priceCents,
+                p_start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
+                p_term_weeks: mbItem.termWeeks,
+                p_stripe_payment_intent_id: paymentIntentId,
+              })
 
-            if (!existingSub) {
-              const { error: subError } = await serviceClient
-                .from('market_box_subscriptions')
-                .insert({
-                  offering_id: mbItem.offeringId,
-                  buyer_user_id: user.id,
-                  order_id: orderId,
-                  total_paid_cents: mbItem.priceCents,
-                  start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
-                  term_weeks: mbItem.termWeeks,
-                  status: 'active',
-                  weeks_completed: 0,
-                  stripe_payment_intent_id: paymentIntentId,
-                })
-
-              if (subError) {
-                crumb.logic('Failed to create market box subscription', { error: subError.message, offeringId: mbItem.offeringId })
-              } else {
-                crumb.logic('Market box subscription created', { offeringId: mbItem.offeringId })
-              }
+            if (rpcError) {
+              crumb.logic('Failed to create market box subscription', { error: rpcError.message, offeringId: mbItem.offeringId })
+            } else if (result && !result.success) {
+              crumb.logic('Market box at capacity, subscription not created', { offeringId: mbItem.offeringId, ...result })
+            } else if (result?.already_existed) {
+              crumb.logic('Market box subscription already exists (idempotent)', { offeringId: mbItem.offeringId })
+            } else {
+              crumb.logic('Market box subscription created', { offeringId: mbItem.offeringId, id: result?.id })
             }
           }
         } catch (parseErr) {
