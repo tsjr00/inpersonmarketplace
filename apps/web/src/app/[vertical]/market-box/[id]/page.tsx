@@ -29,6 +29,7 @@ export async function generateMetadata({ params }: MarketBoxPageProps): Promise<
       )
     `)
     .eq('id', offeringId)
+    .eq('vertical_id', vertical)
     .eq('active', true)
     .single()
 
@@ -89,6 +90,7 @@ export default async function MarketBoxDetailPage({ params }: MarketBoxPageProps
       )
     `)
     .eq('id', offeringId)
+    .eq('vertical_id', vertical)
     .eq('active', true)
     .single()
 
