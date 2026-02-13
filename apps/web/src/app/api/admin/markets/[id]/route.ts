@@ -13,6 +13,7 @@ async function verifyAdminAccess(supabase: SupabaseClient, userId: string, verti
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .single()
 
   if (hasAdminRole(userProfile || {})) {

@@ -1,14 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 interface RouteParams {
   params: Promise<{ userId: string }>
 }
 
 // DELETE - Remove platform admin status from a user
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/admin/admins/[userId]', 'DELETE', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -30,12 +31,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
-      const isAdmin = callerProfile?.role === 'admin' ||
-                      callerProfile?.role === 'platform_admin' ||
-                      callerProfile?.roles?.includes('admin') ||
-                      callerProfile?.roles?.includes('platform_admin')
+      const isAdmin = hasAdminRole(callerProfile || {})
       if (!isAdmin) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
       }
@@ -48,6 +47,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         .from('user_profiles')
         .select('user_id, email, role, roles, is_chief_platform_admin')
         .eq('user_id', targetUserId)
+        .is('deleted_at', null)
         .single()
 
       if (findError || !targetUser) {
@@ -70,6 +70,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
           .from('user_profiles')
           .select('*', { count: 'exact', head: true })
           .eq('is_chief_platform_admin', true)
+          .is('deleted_at', null)
 
         if ((count || 0) <= 1) {
           return NextResponse.json({ error: 'Cannot remove the last chief platform admin' }, { status: 400 })

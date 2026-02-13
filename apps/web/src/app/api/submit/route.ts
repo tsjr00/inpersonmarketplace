@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from "@/lib/rate-limit";
@@ -10,7 +10,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return withErrorTracing('/api/submit', 'POST', async () => {
     // Rate limit by IP address
     const clientIp = getClientIp(request);

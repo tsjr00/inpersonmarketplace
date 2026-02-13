@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
       .select('id, average_rating, rating_count')
       .eq('user_id', user.id)
       .eq('vertical_id', vertical)
+      .is('deleted_at', null)
       .single()
 
     if (vpError || !vendorProfile) {

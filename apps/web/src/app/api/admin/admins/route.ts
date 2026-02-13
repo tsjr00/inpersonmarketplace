@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 // GET - List all platform admins
 export async function GET(request: NextRequest) {
@@ -25,12 +26,10 @@ export async function GET(request: NextRequest) {
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
-      const isAdmin = callerProfile?.role === 'admin' ||
-                      callerProfile?.role === 'platform_admin' ||
-                      callerProfile?.roles?.includes('admin') ||
-                      callerProfile?.roles?.includes('platform_admin')
+      const isAdmin = hasAdminRole(callerProfile || {})
 
       if (!isAdmin) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
@@ -43,6 +42,7 @@ export async function GET(request: NextRequest) {
         .from('user_profiles')
         .select('user_id, email, display_name, role, roles, is_chief_platform_admin, created_at')
         .or('role.eq.admin,roles.cs.{admin}')
+        .is('deleted_at', null)
         .order('is_chief_platform_admin', { ascending: false })
         .order('created_at', { ascending: true })
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Add a new platform admin
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return withErrorTracing('/api/admin/admins', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -85,12 +85,10 @@ export async function POST(request: Request) {
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
-      const isAdmin = callerProfile?.role === 'admin' ||
-                      callerProfile?.role === 'platform_admin' ||
-                      callerProfile?.roles?.includes('admin') ||
-                      callerProfile?.roles?.includes('platform_admin')
+      const isAdmin = hasAdminRole(callerProfile || {})
       if (!isAdmin) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
       }
@@ -115,6 +113,7 @@ export async function POST(request: Request) {
         .from('user_profiles')
         .select('user_id, email, role, roles, is_chief_platform_admin')
         .eq('email', email.toLowerCase().trim())
+        .is('deleted_at', null)
         .single()
 
       if (findError || !targetUser) {

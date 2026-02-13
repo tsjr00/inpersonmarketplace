@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTierLimits, isPremiumTier } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
@@ -84,7 +84,7 @@ async function geocodeZipCode(zip: string): Promise<{ latitude: number; longitud
 }
 
 // GET - Get vendor's markets
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const clientIp = getClientIp(request)
   const rateLimitResult = checkRateLimit(`vendor-markets-get:${clientIp}`, rateLimits.api)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
@@ -110,6 +110,7 @@ export async function GET(request: Request) {
       .select('id, tier, home_market_id')
       .eq('user_id', user.id)
       .eq('vertical_id', vertical)
+      .is('deleted_at', null)
       .single()
 
     if (vpError || !vendorProfile) {
@@ -231,7 +232,7 @@ export async function GET(request: Request) {
 }
 
 // POST - Create new private pickup market
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const clientIp = getClientIp(request)
   const rateLimitResult = checkRateLimit(`vendor-markets-post:${clientIp}`, rateLimits.api)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
@@ -292,6 +293,7 @@ export async function POST(request: Request) {
       .select('id, tier')
       .eq('user_id', user.id)
       .eq('vertical_id', vertical)
+      .is('deleted_at', null)
       .single()
 
     if (tierError || !vendorProfileForTier) {

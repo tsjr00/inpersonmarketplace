@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/user/profile', 'PATCH', async () => {
     const supabase = await createClient()
 
@@ -61,6 +61,7 @@ export async function PATCH(request: Request) {
         .from('user_profiles')
         .select('*')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
       const currentPrefs = ((profile as Record<string, unknown>)?.notification_preferences as Record<string, unknown>) || {}

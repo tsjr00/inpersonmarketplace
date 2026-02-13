@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 
@@ -39,7 +39,7 @@ export async function GET() {
   })
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   return withErrorTracing('/api/user/notifications', 'PUT', async () => {
     try {
       const supabase = await createClient()

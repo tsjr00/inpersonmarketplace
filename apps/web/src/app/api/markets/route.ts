@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
     const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')

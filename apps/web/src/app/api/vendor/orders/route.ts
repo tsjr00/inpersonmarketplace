@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
       .from('vendor_profiles')
       .select('id')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
     if (vertical) {
       vpQuery = vpQuery.eq('vertical_id', vertical)
     }

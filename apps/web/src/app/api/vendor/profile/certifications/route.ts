@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -14,7 +14,7 @@ interface Certification {
 }
 
 // PUT - Update vendor certifications
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile/certifications', 'PUT', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vendor-certifications-put:${clientIp}`, rateLimits.submit)
@@ -104,7 +104,7 @@ export async function PUT(request: Request) {
 }
 
 // GET - Get vendor certifications
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile/certifications', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vendor-certifications-get:${clientIp}`, rateLimits.submit)

@@ -1,14 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 interface RouteParams {
   params: Promise<{ verticalId: string; adminId: string }>
 }
 
 // DELETE - Remove vertical admin
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/admin/verticals/[verticalId]/admins/[adminId]', 'DELETE', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -30,12 +31,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
-      const isPlatformAdmin = callerProfile?.role === 'admin' ||
-                              callerProfile?.role === 'platform_admin' ||
-                              callerProfile?.roles?.includes('admin') ||
-                              callerProfile?.roles?.includes('platform_admin')
+      const isPlatformAdmin = hasAdminRole(callerProfile || {})
 
       const { data: callerVerticalAdmin } = await supabase
         .from('vertical_admins')

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
@@ -12,7 +12,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
  * Upload Certificate of Insurance for Gate 3 verification.
  * Accepts FormData with 'document' file field.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/onboarding/coi', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`onboarding-coi:${clientIp}`, { limit: 10, windowSeconds: 60 })

@@ -1,11 +1,12 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 // GET - Get all feedback (admin only)
 // Supports both shopper and vendor feedback via 'source' param
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/feedback', 'GET', async () => {
     // Rate limit admin feedback requests
     const clientIp = getClientIp(request)
@@ -28,9 +29,10 @@ export async function GET(request: Request) {
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
-    if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
+    if (profileError || !userProfile || !hasAdminRole(userProfile || {})) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -75,13 +77,14 @@ export async function GET(request: Request) {
 
     // Get user emails for feedback items
     const userIds = [...new Set((feedback || []).map(f => f.user_id))]
-    let userMap: Record<string, string> = {}
+    const userMap: Record<string, string> = {}
 
     if (userIds.length > 0) {
       const { data: users } = await serviceClient
         .from('user_profiles')
         .select('user_id, email')
         .in('user_id', userIds)
+        .is('deleted_at', null)
 
       if (users) {
         users.forEach(u => {
@@ -91,7 +94,7 @@ export async function GET(request: Request) {
     }
 
     // For vendor feedback, also get vendor business names
-    let vendorMap: Record<string, string> = {}
+    const vendorMap: Record<string, string> = {}
     if (source === 'vendor') {
       const vendorProfileIds = [...new Set((feedback || []).map(f => f.vendor_profile_id).filter(Boolean))]
       if (vendorProfileIds.length > 0) {
@@ -136,7 +139,7 @@ export async function GET(request: Request) {
 
 // PATCH - Update feedback status/notes (admin only)
 // Supports both shopper and vendor feedback via 'source' param
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/admin/feedback', 'PATCH', async () => {
     // Rate limit admin feedback updates
     const clientIp = getClientIp(request)
@@ -159,9 +162,10 @@ export async function PATCH(request: Request) {
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
-    if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
+    if (profileError || !userProfile || !hasAdminRole(userProfile || {})) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 

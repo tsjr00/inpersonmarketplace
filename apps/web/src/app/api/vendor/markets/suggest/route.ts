@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // POST - Submit a traditional market suggestion for admin approval
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/markets/suggest', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vendor-market-suggest:${clientIp}`, rateLimits.submit)

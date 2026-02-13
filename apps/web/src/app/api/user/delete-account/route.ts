@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   return withErrorTracing('/api/user/delete-account', 'DELETE', async () => {
     try {
       // Rate limit: 3 requests per hour for account deletion

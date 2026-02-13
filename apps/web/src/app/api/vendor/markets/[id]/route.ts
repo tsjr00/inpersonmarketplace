@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTierLimits } from '@/lib/vendor-limits'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
@@ -79,7 +79,7 @@ interface RouteParams {
 }
 
 // PUT - Update market
-export async function PUT(request: Request, { params }: RouteParams) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id: marketId } = await params
 
   return withErrorTracing(`/api/vendor/markets/${marketId}`, 'PUT', async () => {
@@ -279,7 +279,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 // DELETE - Delete market
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const { id: marketId } = await params
 
   return withErrorTracing(`/api/vendor/markets/${marketId}`, 'DELETE', async () => {

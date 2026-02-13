@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { validatePaymentUsername, ExternalPaymentMethod } from '@/lib/payments/external-links'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile', 'PATCH', async () => {
     // Rate limit vendor profile updates
     const clientIp = getClientIp(request)
@@ -38,6 +38,7 @@ export async function PATCH(request: Request) {
         .from('vendor_profiles')
         .select('id, user_id, tier, stripe_account_id')
         .eq('id', vendorId)
+        .is('deleted_at', null)
         .single()
 
       if (!vendor || vendor.user_id !== user.id) {

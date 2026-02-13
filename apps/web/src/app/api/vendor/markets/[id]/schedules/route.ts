@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -8,7 +8,7 @@ interface RouteParams {
 }
 
 // GET - Get vendor's schedule attendance for a market
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/vendor/markets/[id]/schedules', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vendor-market-schedules-get:${clientIp}`, rateLimits.submit)
@@ -88,7 +88,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 }
 
 // PUT - Update vendor's schedule attendance (bulk update)
-export async function PUT(request: Request, { params }: RouteParams) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/vendor/markets/[id]/schedules', 'PUT', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vendor-market-schedules-put:${clientIp}`, rateLimits.submit)
@@ -259,7 +259,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 // PATCH - Toggle a single schedule
-export async function PATCH(request: Request, { params }: RouteParams) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/vendor/markets/[id]/schedules', 'PATCH', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vendor-market-schedules-patch:${clientIp}`, rateLimits.submit)
