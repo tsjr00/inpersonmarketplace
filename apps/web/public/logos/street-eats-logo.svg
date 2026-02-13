@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" fill="none">
+  <rect width="240" height="60" rx="8" fill="#e85d04" opacity="0.1"/>
+  <circle cx="30" cy="30" r="20" fill="#e85d04"/>
+  <path d="M20 35 L25 20 H35 L40 35 Z" fill="white"/>
+  <rect x="22" y="35" width="16" height="3" rx="1.5" fill="white"/>
+  <circle cx="26" cy="41" r="2" fill="#e85d04"/>
+  <circle cx="34" cy="41" r="2" fill="#e85d04"/>
+  <text x="60" y="38" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#e85d04">Street Eats</text>
+</svg>

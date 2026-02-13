@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getServerDomainConfig } from '@/lib/domain/server'
 import { createClient } from '@/lib/supabase/server'
-import { getVerticalConfig } from '@/lib/branding/server'
+import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -20,324 +20,6 @@ export default async function HomePage() {
 
   // Multi-vertical domain (localhost, staging): show marketplace selector
   return <MultiVerticalHome />
-}
-
-// Single vertical homepage (fastwrks.com, farmersmarketing.app)
-async function SingleVerticalHome({
-  verticalId,
-  domainConfig
-}: {
-  verticalId: string
-  domainConfig: { brandName: string; logoPath: string | null }
-}) {
-  const supabase = await createClient()
-  const config = await getVerticalConfig(verticalId)
-  const branding = config?.branding
-
-  if (!branding) {
-    return <div>Marketplace not found</div>
-  }
-
-  // Get listing count
-  const { count } = await supabase
-    .from('listings')
-    .select('*', { count: 'exact', head: true })
-    .eq('vertical_id', verticalId)
-    .eq('status', 'published')
-    .is('deleted_at', null)
-
-  // Check auth
-  const { data: { user } } = await supabase.auth.getUser()
-
-  return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: branding.colors.background,
-      color: branding.colors.text
-    }}>
-      {/* Navigation */}
-      <nav style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '15px 40px',
-        borderBottom: `1px solid ${branding.colors.secondary}30`
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-          {domainConfig.logoPath && (
-            <Image
-              src={domainConfig.logoPath}
-              alt={domainConfig.brandName}
-              width={150}
-              height={50}
-              style={{ objectFit: 'contain' }}
-            />
-          )}
-          {!domainConfig.logoPath && (
-            <span style={{
-              fontSize: 24,
-              fontWeight: 'bold',
-              color: branding.colors.primary
-            }}>
-              {domainConfig.brandName}
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
-          <Link
-            href="/browse"
-            style={{
-              color: branding.colors.text,
-              textDecoration: 'none',
-              fontWeight: 600
-            }}
-          >
-            Browse
-          </Link>
-          {user ? (
-            <Link
-              href="/dashboard"
-              style={{
-                padding: '8px 16px',
-                backgroundColor: branding.colors.primary,
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: 6,
-                fontWeight: 600
-              }}
-            >
-              Dashboard
-            </Link>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                style={{
-                  color: branding.colors.primary,
-                  textDecoration: 'none',
-                  fontWeight: 600
-                }}
-              >
-                Login
-              </Link>
-              <Link
-                href="/signup"
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: branding.colors.primary,
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: 6,
-                  fontWeight: 600
-                }}
-              >
-                Sign Up
-              </Link>
-            </>
-          )}
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section style={{
-        padding: '80px 40px',
-        textAlign: 'center'
-      }}>
-        {domainConfig.logoPath && (
-          <div style={{ marginBottom: 30 }}>
-            <Image
-              src={domainConfig.logoPath}
-              alt={domainConfig.brandName}
-              width={300}
-              height={100}
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
-        )}
-
-        <h1 style={{
-          fontSize: 48,
-          fontWeight: 'bold',
-          marginBottom: 20,
-          color: branding.colors.primary,
-          lineHeight: 1.2
-        }}>
-          {branding.tagline || `Welcome to ${domainConfig.brandName}`}
-        </h1>
-
-        <p style={{
-          fontSize: 20,
-          color: branding.colors.secondary,
-          maxWidth: 600,
-          margin: '0 auto 40px',
-          lineHeight: 1.6
-        }}>
-          {branding.meta?.description || 'Find local vendors and products'}
-        </p>
-
-        <div style={{
-          display: 'flex',
-          gap: 20,
-          justifyContent: 'center',
-          flexWrap: 'wrap'
-        }}>
-          <Link
-            href="/browse"
-            style={{
-              padding: '18px 40px',
-              backgroundColor: branding.colors.primary,
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 18
-            }}
-          >
-            Start Shopping
-          </Link>
-          <Link
-            href="/vendor-signup"
-            style={{
-              padding: '18px 40px',
-              backgroundColor: 'transparent',
-              color: branding.colors.primary,
-              border: `2px solid ${branding.colors.primary}`,
-              textDecoration: 'none',
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 18
-            }}
-          >
-            Start Selling
-          </Link>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section style={{
-        padding: '60px 40px',
-        backgroundColor: branding.colors.primary + '10'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 60,
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: 48,
-              fontWeight: 'bold',
-              color: branding.colors.primary
-            }}>
-              {count || 0}
-            </div>
-            <div style={{ fontSize: 18, color: branding.colors.secondary }}>
-              Active Listings
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: 48,
-              fontWeight: 'bold',
-              color: branding.colors.primary
-            }}>
-              ✓
-            </div>
-            <div style={{ fontSize: 18, color: branding.colors.secondary }}>
-              Verified Vendors
-            </div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{
-              fontSize: 48,
-              fontWeight: 'bold',
-              color: branding.colors.primary
-            }}>
-              🛡️
-            </div>
-            <div style={{ fontSize: 18, color: branding.colors.secondary }}>
-              Trusted Platform
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section style={{
-        padding: '80px 40px',
-        backgroundColor: branding.colors.primary,
-        textAlign: 'center'
-      }}>
-        <h2 style={{
-          fontSize: 36,
-          fontWeight: 'bold',
-          color: 'white',
-          marginBottom: 20
-        }}>
-          Ready to Get Started?
-        </h2>
-
-        <p style={{
-          fontSize: 18,
-          color: 'rgba(255,255,255,0.9)',
-          marginBottom: 40,
-          maxWidth: 500,
-          margin: '0 auto 40px'
-        }}>
-          Join our marketplace today
-        </p>
-
-        <div style={{
-          display: 'flex',
-          gap: 15,
-          justifyContent: 'center',
-          flexWrap: 'wrap'
-        }}>
-          <Link
-            href="/browse"
-            style={{
-              padding: '18px 40px',
-              backgroundColor: 'white',
-              color: branding.colors.primary,
-              textDecoration: 'none',
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 18
-            }}
-          >
-            Browse Products
-          </Link>
-          <Link
-            href="/vendor-signup"
-            style={{
-              padding: '18px 40px',
-              backgroundColor: 'transparent',
-              color: 'white',
-              border: '2px solid white',
-              textDecoration: 'none',
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 18
-            }}
-          >
-            Become a Vendor
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer style={{
-        padding: '30px 40px',
-        borderTop: `1px solid ${branding.colors.secondary}30`,
-        textAlign: 'center',
-        color: branding.colors.secondary
-      }}>
-        <p>© 2026 {domainConfig.brandName}. All rights reserved.</p>
-      </footer>
-    </div>
-  )
 }
 
 // Multi-vertical homepage (localhost, staging, umbrella)
@@ -391,25 +73,44 @@ async function MultiVerticalHome() {
         margin: '0 auto'
       }}>
         {verticals?.map((v: { vertical_id: string; name_public: string; config?: { branding?: { brand_name?: string; tagline?: string; colors?: { primary?: string; background?: string; secondary?: string } } } }) => {
-          const branding = v.config?.branding
+          const dbBranding = v.config?.branding
+          const fallback = defaultBranding[v.vertical_id]
+          const brandName = dbBranding?.brand_name || fallback?.brand_name || v.name_public
+          const tagline = dbBranding?.tagline || fallback?.tagline || 'Marketplace'
+          const primary = dbBranding?.colors?.primary || fallback?.colors.primary || '#0070f3'
+          const background = dbBranding?.colors?.background || fallback?.colors.background || 'white'
+          const secondary = dbBranding?.colors?.secondary || fallback?.colors.text || '#666'
+          const logoPath = fallback?.logo_path
+
           return (
             <div key={v.vertical_id} style={{
               padding: 30,
-              backgroundColor: branding?.colors?.background || 'white',
-              border: `2px solid ${branding?.colors?.primary || '#ccc'}`,
+              backgroundColor: background,
+              border: `2px solid ${primary}`,
               borderRadius: 12
             }}>
+              {logoPath && (
+                <div style={{ marginBottom: 15 }}>
+                  <Image
+                    src={logoPath}
+                    alt={brandName}
+                    width={180}
+                    height={50}
+                    style={{ objectFit: 'contain' }}
+                  />
+                </div>
+              )}
               <h2 style={{
-                color: branding?.colors?.primary || '#333',
+                color: primary,
                 marginBottom: 15
               }}>
-                {branding?.brand_name || v.name_public}
+                {brandName}
               </h2>
               <p style={{
-                color: branding?.colors?.secondary || '#666',
+                color: secondary,
                 marginBottom: 20
               }}>
-                {branding?.tagline || 'Marketplace'}
+                {tagline}
               </p>
               <div style={{ display: 'flex', gap: 10 }}>
                 <Link
@@ -417,7 +118,7 @@ async function MultiVerticalHome() {
                   style={{
                     flex: 1,
                     padding: '12px',
-                    backgroundColor: branding?.colors?.primary || '#0070f3',
+                    backgroundColor: primary,
                     color: 'white',
                     textDecoration: 'none',
                     borderRadius: 6,
@@ -432,8 +133,8 @@ async function MultiVerticalHome() {
                   style={{
                     flex: 1,
                     padding: '12px',
-                    border: `2px solid ${branding?.colors?.primary || '#0070f3'}`,
-                    color: branding?.colors?.primary || '#0070f3',
+                    border: `2px solid ${primary}`,
+                    color: primary,
                     textDecoration: 'none',
                     borderRadius: 6,
                     textAlign: 'center',
@@ -618,6 +319,40 @@ function UmbrellaHome() {
                 Visit farmersmarketing.app →
               </span>
             </a>
+
+            {/* Street Eats Card */}
+            <a
+              href="https://streeteats.app"
+              style={{
+                display: 'block',
+                padding: 30,
+                backgroundColor: '#fff8f0',
+                borderRadius: 12,
+                textDecoration: 'none',
+                border: '2px solid #e85d04',
+                transition: 'transform 0.2s'
+              }}
+            >
+              <h3 style={{
+                color: '#e85d04',
+                fontSize: 24,
+                marginBottom: 10
+              }}>
+                Street Eats
+              </h3>
+              <p style={{ color: '#555', lineHeight: 1.6 }}>
+                Find food trucks near you. Pre-order your favorites,
+                skip the line, and support local food truck operators.
+              </p>
+              <span style={{
+                display: 'inline-block',
+                marginTop: 15,
+                color: '#e85d04',
+                fontWeight: 600
+              }}>
+                Visit streeteats.app →
+              </span>
+            </a>
           </div>
         </div>
       </section>
@@ -667,7 +402,7 @@ function UmbrellaHome() {
         textAlign: 'center'
       }}>
         <div style={{ marginBottom: 15 }}>
-          <a
+          <Link
             href="/admin"
             style={{
               color: '#666',
@@ -676,7 +411,7 @@ function UmbrellaHome() {
             }}
           >
             Admin Login
-          </a>
+          </Link>
         </div>
         <p style={{ fontSize: 14 }}>
           © 2026 815 Enterprises. All rights reserved.
