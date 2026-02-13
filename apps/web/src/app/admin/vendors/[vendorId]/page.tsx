@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import VendorActions from './VendorActions'
 import VendorLocationEditor from './VendorLocationEditor'
+import VendorVerificationWrapper from './VendorVerificationWrapper'
 
 interface VendorDetailPageProps {
   params: Promise<{ vendorId: string }>
@@ -48,6 +49,27 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
     .select('*', { count: 'exact', head: true })
     .eq('vendor_profile_id', vendorId)
     .is('deleted_at', null)
+
+  // Get vendor verification/onboarding data
+  const { data: verification } = await supabase
+    .from('vendor_verifications')
+    .select('*')
+    .eq('vendor_profile_id', vendorId)
+    .single()
+
+  const verificationData = verification ? {
+    status: (verification.status as string) || 'pending',
+    documents: Array.isArray(verification.documents) ? verification.documents as Array<{ url: string; filename: string; type: string; uploaded_at: string }> : [],
+    notes: verification.notes as string | null,
+    reviewed_at: verification.reviewed_at as string | null,
+    requested_categories: (verification.requested_categories || []) as string[],
+    category_verifications: (verification.category_verifications || {}) as Record<string, { status: string; doc_type?: string; documents?: Array<{ url: string; filename: string; doc_type: string }>; notes?: string; reviewed_at?: string }>,
+    coi_status: (verification.coi_status as string) || 'not_submitted',
+    coi_documents: Array.isArray(verification.coi_documents) ? verification.coi_documents as Array<{ url: string; filename: string; uploaded_at: string }> : [],
+    coi_verified_at: verification.coi_verified_at as string | null,
+    prohibited_items_acknowledged_at: verification.prohibited_items_acknowledged_at as string | null,
+    onboarding_completed_at: verification.onboarding_completed_at as string | null,
+  } : null
 
   return (
     <div>
@@ -196,6 +218,21 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
               </div>
             </div>
           )}
+
+          {/* Vendor Verification / Onboarding */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: 8,
+            padding: 25,
+            marginBottom: 20,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
+            <h2 style={{ color: '#333', marginBottom: 20 }}>Vendor Onboarding</h2>
+            <VendorVerificationWrapper
+              vendorId={vendorId}
+              verification={verificationData}
+            />
+          </div>
 
           {/* User Account */}
           {userProfile && (
