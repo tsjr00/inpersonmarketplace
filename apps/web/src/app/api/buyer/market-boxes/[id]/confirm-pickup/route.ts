@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id, status,
         offering:market_box_offerings(
-          id, name, vendor_profile_id,
+          id, name, vertical_id, vendor_profile_id,
           vendor_profiles(user_id, profile_data)
         )
       `)
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (vendorUserId) {
         await sendNotification(vendorUserId, 'pickup_confirmation_needed', {
           orderItemId: pickup_id,
-        })
+        }, { vertical: offering?.vertical_id })
       }
 
       return NextResponse.json({

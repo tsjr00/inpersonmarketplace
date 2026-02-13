@@ -56,7 +56,7 @@ export async function POST(
       .select(`
         id, status, vendor_payout_cents, order_id,
         buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
-        order:orders!inner(id, order_number, buyer_user_id),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -192,8 +192,19 @@ export async function POST(
             )
           }
         } catch (transferError) {
+          // C2 FIX: Revert status on failed transfer to prevent orphaned fulfillment
+          crumb.logic('Stripe transfer failed, reverting order item status')
+          await supabase
+            .from('order_items')
+            .update({
+              status: 'ready',
+              vendor_confirmed_at: null,
+              pickup_confirmed_at: null,
+            })
+            .eq('id', orderItemId)
+
           console.error('Stripe transfer failed:', transferError)
-          throw traced.external('ERR_ORDER_004', 'Failed to process vendor payout', { orderItemId })
+          throw traced.external('ERR_ORDER_004', 'Failed to process vendor payout. Order status has been reverted — please try again.', { orderItemId })
         }
       } else if (isDev) {
         // Dev mode without Stripe
@@ -233,7 +244,7 @@ export async function POST(
         orderNumber: fulfillOrderData.order_number,
         vendorName: fulfillVendorName,
         itemTitle: fulfillListing?.title,
-      })
+      }, { vertical: fulfillOrderData.vertical_id })
 
       return NextResponse.json({
         success: true,

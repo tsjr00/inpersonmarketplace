@@ -45,6 +45,7 @@ export async function POST(
         external_payment_confirmed_at,
         order_number,
         buyer_user_id,
+        vertical_id,
         order_items (
           id,
           vendor_profile_id,
@@ -151,11 +152,11 @@ export async function POST(
         if (newQuantity === 0) {
           await sendNotification(vendorUserId, 'inventory_out_of_stock', {
             itemTitle: item.listings.title,
-          })
+          }, { vertical: (order as any).vertical_id })
         } else if (newQuantity <= LOW_STOCK_THRESHOLD && previousQuantity > LOW_STOCK_THRESHOLD) {
           await sendNotification(vendorUserId, 'inventory_low_stock', {
             itemTitle: item.listings.title,
-          })
+          }, { vertical: (order as any).vertical_id })
         }
       }
     }
@@ -165,7 +166,7 @@ export async function POST(
     await sendNotification(order.buyer_user_id, 'order_confirmed', {
       orderNumber: order.order_number,
       vendorName: extVendorName,
-    })
+    }, { vertical: (order as any).vertical_id })
 
     // Clear buyer's cart (they've completed checkout)
     crumb.logic('Clearing buyer cart')

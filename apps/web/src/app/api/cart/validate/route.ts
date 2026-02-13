@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { processListingMarkets, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 
 interface CartItem {
   listingId: string
@@ -89,22 +90,40 @@ export async function GET(request: NextRequest) {
       itemsForCutoffCheck.push({ id: listing.id, title: listing.title, marketType: market.market_type })
     }
 
-    // Batch cutoff checks in parallel for all items
+    // C5 FIX: Use JS availability calculation instead of missing RPC
     if (itemsForCutoffCheck.length > 0) {
-      const cutoffResults = await Promise.all(
-        itemsForCutoffCheck.map(async (item) => {
-          const { data: isAccepting } = await supabase
-            .rpc('is_listing_accepting_orders', { p_listing_id: item.id })
-          return { ...item, isAccepting }
-        })
-      )
+      // Fetch market data with schedules for all listings that need cutoff checks
+      const listingIds = itemsForCutoffCheck.map(i => i.id)
+      const { data: listingMarkets } = await supabase
+        .from('listing_markets')
+        .select(`
+          listing_id,
+          market_id,
+          markets (
+            id, name, market_type, address, city, state,
+            cutoff_hours, timezone, active,
+            market_schedules (id, day_of_week, start_time, end_time, active)
+          )
+        `)
+        .in('listing_id', listingIds)
 
-      for (const result of cutoffResults) {
-        if (result.isAccepting === false) {
-          const prepMessage = result.marketType === 'private_pickup'
+      // Group by listing_id and check availability
+      for (const item of itemsForCutoffCheck) {
+        const itemMarkets = (listingMarkets || [])
+          .filter(lm => lm.listing_id === item.id)
+          .map(lm => ({
+            market_id: lm.market_id,
+            markets: lm.markets as unknown as MarketWithSchedules
+          }))
+
+        const processed = processListingMarkets(itemMarkets)
+        const anyAccepting = processed.some(m => m.is_accepting)
+
+        if (!anyAccepting && processed.length > 0) {
+          const prepMessage = item.marketType === 'private_pickup'
             ? 'Vendor needs time to prepare for pickup'
             : 'Vendors are preparing for market day'
-          cutoffWarnings.push(`Orders for "${result.title}" are closed - ${prepMessage}`)
+          cutoffWarnings.push(`Orders for "${item.title}" are closed - ${prepMessage}`)
         }
       }
     }
@@ -205,10 +224,26 @@ export async function POST(request: NextRequest) {
         const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
         const isVendorApproved = vendorProfile?.status === 'approved'
 
-        // Check cutoff status
-        const { data: isAccepting } = await supabase
-          .rpc('is_listing_accepting_orders', { p_listing_id: listing.id })
-        const cutoffPassed = isAccepting === false
+        // C5 FIX: Check cutoff using JS calculation instead of missing RPC
+        const { data: itemListingMarkets } = await supabase
+          .from('listing_markets')
+          .select(`
+            market_id,
+            markets (
+              id, name, market_type, address, city, state,
+              cutoff_hours, timezone, active,
+              market_schedules (id, day_of_week, start_time, end_time, active)
+            )
+          `)
+          .eq('listing_id', listing.id)
+
+        const processedMarkets = processListingMarkets(
+          (itemListingMarkets || []).map(lm => ({
+            market_id: lm.market_id,
+            markets: lm.markets as unknown as MarketWithSchedules
+          }))
+        )
+        const cutoffPassed = processedMarkets.length > 0 && !processedMarkets.some(m => m.is_accepting)
 
         // Check availability
         const availableQty = listing.quantity === null ? 999 : listing.quantity

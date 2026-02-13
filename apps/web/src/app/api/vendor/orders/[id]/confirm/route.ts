@@ -52,7 +52,7 @@ export async function POST(
     .from('order_items')
     .select(`
       id,
-      order:orders!inner(id, order_number, buyer_user_id),
+      order:orders!inner(id, order_number, buyer_user_id, vertical_id),
       listing:listings(title, vendor_profiles(profile_data))
     `)
     .eq('id', orderItemId)
@@ -86,7 +86,7 @@ export async function POST(
     orderNumber: orderData.order_number,
     vendorName,
     itemTitle: listing?.title,
-  })
+  }, { vertical: orderData.vertical_id })
 
   return NextResponse.json({ success: true })
 }

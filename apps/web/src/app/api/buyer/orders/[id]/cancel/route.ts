@@ -58,6 +58,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         total_cents,
         created_at,
         order_number,
+        vertical_id,
         order_items (
           id,
           status,
@@ -128,7 +129,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Calculate what buyer originally paid for this item
     // subtotal_cents is the base price, buyer paid base + buyer fee portion
-    const buyerFeeOnItem = Math.round(orderItem.subtotal_cents * (STRIPE_CONFIG.buyerFeePercent / 100)) + STRIPE_CONFIG.buyerFlatFeeCents
+    // C3 FIX: Flat fee is once per ORDER, prorate across items (was previously charged per item)
+    const totalItemsInOrder = order.order_items?.length || 1
+    const flatFeePerItem = Math.round(STRIPE_CONFIG.buyerFlatFeeCents / totalItemsInOrder)
+    const buyerFeeOnItem = Math.round(orderItem.subtotal_cents * (STRIPE_CONFIG.buyerFeePercent / 100)) + flatFeePerItem
     const buyerPaidForItem = orderItem.subtotal_cents + buyerFeeOnItem
 
     let refundAmountCents: number
@@ -216,7 +220,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         orderNumber: order.order_number || undefined,
         reason: reason || undefined,
         itemTitle: listing?.title,
-      })
+      }, { vertical: order.vertical_id })
     }
 
     // Execute Stripe refund if payment exists

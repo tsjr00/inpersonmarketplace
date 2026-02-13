@@ -66,7 +66,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         vendor_profile_id,
         order_id,
         listing_id,
-        order:orders!inner(id, order_number, buyer_user_id),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -168,11 +168,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const rate = Math.round((cancelled_count / confirmed_count) * 100)
         if (rate >= 10) {
           // Send warning notification to vendor (email + in-app)
+          const rejectVerticalId = ((orderItem as any).order as any)?.vertical_id
           await sendNotification(user.id, 'vendor_cancellation_warning', {
             cancellationRate: rate,
             cancelledCount: cancelled_count,
             confirmedCount: confirmed_count,
-          })
+          }, { vertical: rejectVerticalId })
           // Update warning timestamp
           await supabase
             .from('vendor_profiles')
@@ -191,7 +192,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       vendorName: rejectVendorName,
       itemTitle: rejectListing?.title,
       reason,
-    })
+    }, { vertical: rejectOrderData.vertical_id })
 
     return NextResponse.json({
       success: true,
