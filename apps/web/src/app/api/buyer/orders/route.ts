@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const marketId = searchParams.get('market')
+    const vertical = searchParams.get('vertical')
 
     crumb.logic('Fetching orders', { userId: user.id, status, marketId })
 
@@ -89,13 +90,19 @@ export async function GET(request: NextRequest) {
       .eq('buyer_user_id', user.id)
       .order('created_at', { ascending: false })
 
+    // Apply vertical filter (required for multi-vertical isolation)
+    if (vertical) {
+      query = query.eq('vertical_id', vertical)
+    }
+
     // Apply status filter
     if (status) {
       query = query.eq('status', status)
     }
 
     // Market box subscriptions query (runs in parallel with orders)
-    const marketBoxQuery = supabase
+    // Use !inner on offering join so vertical_id filter excludes non-matching rows
+    let marketBoxQuery = supabase
       .from('market_box_subscriptions')
       .select(`
         id,
@@ -108,13 +115,14 @@ export async function GET(request: NextRequest) {
         created_at,
         completed_at,
         cancelled_at,
-        offering:market_box_offerings (
+        offering:market_box_offerings!inner (
           id,
           name,
           image_urls,
           pickup_day_of_week,
           pickup_start_time,
           pickup_end_time,
+          vertical_id,
           vendor:vendor_profiles (
             id,
             profile_data
@@ -135,6 +143,11 @@ export async function GET(request: NextRequest) {
       `)
       .eq('buyer_user_id', user.id)
       .order('created_at', { ascending: false })
+
+    // Apply vertical filter to market box subscriptions via offering
+    if (vertical) {
+      marketBoxQuery = marketBoxQuery.eq('offering.vertical_id', vertical)
+    }
 
     // Run both queries in parallel (no added latency)
     const [ordersResult, marketBoxResult] = await Promise.all([query, marketBoxQuery])

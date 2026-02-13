@@ -61,7 +61,7 @@ export default function VendorMarketBoxesPage() {
 
   const fetchOfferings = async () => {
     try {
-      const res = await fetch('/api/vendor/market-boxes')
+      const res = await fetch(`/api/vendor/market-boxes?vertical=${vertical}`)
       const data = await res.json()
 
       if (!res.ok) {

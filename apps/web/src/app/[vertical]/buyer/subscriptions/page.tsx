@@ -67,7 +67,7 @@ export default function BuyerSubscriptionsPage() {
 
   const fetchSubscriptions = async () => {
     try {
-      const res = await fetch('/api/buyer/market-boxes')
+      const res = await fetch(`/api/buyer/market-boxes?vertical=${vertical}`)
       const data = await res.json()
 
       if (!res.ok) {

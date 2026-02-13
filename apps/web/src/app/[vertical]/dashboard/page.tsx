@@ -61,11 +61,12 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const hasSeenTutorial = !!(userProfile?.tutorial_completed_at || userProfile?.tutorial_skipped_at)
   const showTutorial = !hasSeenTutorial
 
-  // Get recent orders count (as buyer)
+  // Get recent orders count (as buyer) — scoped to this vertical
   const { count: orderCount } = await supabase
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('buyer_user_id', user.id)
+    .eq('vertical_id', vertical)
 
   // Get orders with items ready for pickup (up to 3)
   const { data: readyOrders } = await supabase
@@ -97,6 +98,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       )
     `)
     .eq('buyer_user_id', user.id)
+    .eq('vertical_id', vertical)
     .eq('order_items.status', 'ready')
     .is('order_items.cancelled_at', null)
     .order('created_at', { ascending: false })
@@ -115,6 +117,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
       )
     `)
     .eq('buyer_user_id', user.id)
+    .eq('vertical_id', vertical)
     .eq('order_items.status', 'fulfilled')
     .is('order_items.buyer_confirmed_at', null)
     .is('order_items.cancelled_at', null)

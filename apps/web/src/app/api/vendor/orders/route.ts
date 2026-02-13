@@ -15,21 +15,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendorProfile } = await supabase
+    // Get query parameters
+    const { searchParams } = new URL(request.url)
+    const vertical = searchParams.get('vertical')
+    const status = searchParams.get('status')
+    const marketId = searchParams.get('market_id')
+
+    // Get vendor profile — scoped to vertical if provided
+    let vpQuery = supabase
       .from('vendor_profiles')
       .select('id')
       .eq('user_id', user.id)
-      .single()
+    if (vertical) {
+      vpQuery = vpQuery.eq('vertical_id', vertical)
+    }
+    const { data: vendorProfile } = await vpQuery.single()
 
     if (!vendorProfile) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     }
-
-    // Get query parameters
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status')
-    const marketId = searchParams.get('market_id')
     const pickupDate = searchParams.get('pickup_date') // Filter by specific pickup date (YYYY-MM-DD)
     const dateRange = searchParams.get('date_range') // 'today', 'week', 'month', '30days', 'all'
 
