@@ -8,10 +8,6 @@
     {
       "path": "/api/cron/vendor-activity-scan",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/retry-failed-payouts",
-      "schedule": "0 */4 * * *"
     }
   ]
 }
