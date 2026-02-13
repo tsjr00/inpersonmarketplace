@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { processListingMarkets, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -13,6 +14,10 @@ interface RouteContext {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/listings/[id]/markets', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`listing-markets:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: listingId } = await context.params
     const supabase = await createClient()
 

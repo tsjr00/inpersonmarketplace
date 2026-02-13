@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/analytics/trends', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-analytics-trends:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     // Check auth
@@ -34,58 +39,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized to view this vendor analytics' }, { status: 403 })
     }
 
-    // Get transactions with listing data
-    const { data: transactions, error } = await supabase
-      .from('transactions')
-      .select(`
-        id,
-        status,
-        created_at,
-        listing:listings(price_cents)
-      `)
-      .eq('vendor_profile_id', vendorId)
-      .gte('created_at', `${startDate}T00:00:00`)
-      .lte('created_at', `${endDate}T23:59:59`)
-      .order('created_at', { ascending: true })
+    // Get aggregated trends from SQL function (GROUP BY instead of fetch-all)
+    const { data: rpcData, error } = await supabase.rpc('get_vendor_revenue_trends', {
+      p_vendor_id: vendorId,
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_period: period,
+    })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Group by date period
+    // Build lookup map from SQL results
     const dateStats: Record<string, { date: string; revenue: number; orders: number }> = {}
-
-    for (const tx of transactions || []) {
-      const txDate = new Date(tx.created_at)
-      let dateKey: string
-
-      if (period === 'week') {
-        // Get the Monday of the week
-        const day = txDate.getDay()
-        const diff = txDate.getDate() - day + (day === 0 ? -6 : 1)
-        const weekStart = new Date(txDate)
-        weekStart.setDate(diff)
-        dateKey = weekStart.toISOString().split('T')[0]
-      } else if (period === 'month') {
-        dateKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}-01`
-      } else {
-        // day
-        dateKey = txDate.toISOString().split('T')[0]
-      }
-
-      if (!dateStats[dateKey]) {
-        dateStats[dateKey] = { date: dateKey, revenue: 0, orders: 0 }
-      }
-
-      dateStats[dateKey].orders++
-
-      // Only count revenue for fulfilled transactions
-      if (tx.status === 'fulfilled') {
-        // Supabase returns relations as arrays, get first element
-        const listingData = tx.listing as unknown
-        const listing = Array.isArray(listingData) ? listingData[0] : listingData
-        dateStats[dateKey].revenue += (listing as { price_cents?: number })?.price_cents || 0
-      }
+    for (const row of rpcData || []) {
+      const dateKey = row.period_date
+      dateStats[dateKey] = { date: dateKey, revenue: Number(row.revenue), orders: Number(row.orders) }
     }
 
     // Fill in missing dates

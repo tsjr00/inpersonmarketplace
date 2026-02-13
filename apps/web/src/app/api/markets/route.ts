@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getMarketVendorCounts } from '@/lib/db/markets'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // GET /api/markets - List all markets
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/markets', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`markets-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
 
@@ -71,6 +76,10 @@ export async function GET(request: NextRequest) {
 // POST /api/markets - Create new market (admin only)
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/markets', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`markets-post:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     // Verify user is authenticated

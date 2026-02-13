@@ -2,6 +2,9 @@ import { stripe } from './config'
 import Stripe from 'stripe'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/notifications'
+import { TracedError } from '@/lib/errors/traced-error'
+import { logError } from '@/lib/errors/logger'
+import { crumb } from '@/lib/errors/breadcrumbs'
 
 /**
  * Verify webhook signature
@@ -61,7 +64,7 @@ export async function handleWebhookEvent(event: Stripe.Event) {
       break
 
     default:
-      console.log(`Unhandled event type: ${event.type}`)
+      crumb.stripe(`Unhandled event type: ${event.type}`)
   }
 }
 
@@ -151,9 +154,9 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
               })
           }
         }
-        console.log(`[webhook] Created ${marketBoxItems.length} market box subscription(s) for order ${orderId}`)
+        crumb.stripe(`Created ${marketBoxItems.length} market box subscription(s) for order ${orderId}`)
       } catch {
-        console.error('[webhook] Failed to parse market box items metadata')
+        await logError(new TracedError('ERR_WEBHOOK_007', 'Failed to parse market box items metadata', { route: '/webhooks/stripe', method: 'POST' }))
       }
     }
   }
@@ -171,11 +174,11 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
   const subscriptionId = session.subscription as string
 
   if (!userId || !subscriptionType || !subscriptionId) {
-    console.error('[webhook] Missing metadata in subscription checkout:', { userId, subscriptionType, subscriptionId })
+    await logError(new TracedError('ERR_WEBHOOK_001', 'Missing metadata in subscription checkout', { route: '/webhooks/stripe', method: 'POST' }))
     return
   }
 
-  console.log(`[webhook] Activating ${subscriptionType} premium for user ${userId}, subscription ${subscriptionId}`)
+  crumb.stripe(`Activating ${subscriptionType} premium for user ${userId}, subscription ${subscriptionId}`)
 
   // Retrieve subscription details from Stripe
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
@@ -197,9 +200,9 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
       .eq('user_id', userId)
 
     if (error) {
-      console.error('[webhook] Error updating vendor tier:', error)
+      await logError(new TracedError('ERR_WEBHOOK_002', 'Failed to update vendor tier', { route: '/webhooks/stripe', method: 'POST', userId }))
     } else {
-      console.log(`[webhook] Vendor ${userId} upgraded to premium`)
+      crumb.stripe(`Vendor ${userId} upgraded to premium`)
     }
   } else if (subscriptionType === 'buyer') {
     // Update user profile to premium buyer
@@ -216,9 +219,9 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
       .eq('user_id', userId)
 
     if (error) {
-      console.error('[webhook] Error updating buyer tier:', error)
+      await logError(new TracedError('ERR_WEBHOOK_003', 'Failed to update buyer tier', { route: '/webhooks/stripe', method: 'POST', userId }))
     } else {
-      console.log(`[webhook] Buyer ${userId} upgraded to premium`)
+      crumb.stripe(`Buyer ${userId} upgraded to premium`)
     }
   }
 }
@@ -237,11 +240,11 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
   const paymentIntentId = session.payment_intent as string
 
   if (!offeringId || !userId || !startDate) {
-    console.error('[webhook] Missing metadata in market box checkout:', session.metadata)
+    await logError(new TracedError('ERR_WEBHOOK_004', 'Missing metadata in market box checkout', { route: '/webhooks/stripe', method: 'POST' }))
     return
   }
 
-  console.log(`[webhook] Creating market box subscription for user ${userId}, offering ${offeringId}`)
+  crumb.stripe(`Creating market box subscription for user ${userId}, offering ${offeringId}`)
 
   // Check if subscription already exists (idempotency)
   const { data: existing } = await supabase
@@ -253,7 +256,7 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     .single()
 
   if (existing) {
-    console.log('[webhook] Market box subscription already exists:', existing.id)
+    crumb.stripe(`Market box subscription already exists: ${existing.id}`)
     return
   }
 
@@ -274,11 +277,11 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     .single()
 
   if (subError) {
-    console.error('[webhook] Error creating market box subscription:', subError)
+    await logError(new TracedError('ERR_WEBHOOK_005', 'Failed to create market box subscription', { route: '/webhooks/stripe', method: 'POST', userId }))
     return
   }
 
-  console.log(`[webhook] Market box subscription created: ${subscription.id}`)
+  crumb.stripe(`Market box subscription created: ${subscription.id}`)
 
   // Pickups are auto-created by the database trigger
   // Verify pickups were created
@@ -289,9 +292,9 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     .order('week_number')
 
   if (pickupsError) {
-    console.error('[webhook] Error fetching pickups:', pickupsError)
+    await logError(new TracedError('ERR_WEBHOOK_006', 'Failed to fetch pickups after subscription creation', { route: '/webhooks/stripe', method: 'POST' }))
   } else {
-    console.log(`[webhook] ${pickups?.length || 0} pickups created for subscription ${subscription.id}`)
+    crumb.stripe(`${pickups?.length || 0} pickups created for subscription ${subscription.id}`)
   }
 }
 
@@ -307,14 +310,14 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
 
   if (!userId || !subscriptionType) {
-    console.log('[webhook] Subscription updated without user metadata:', subscription.id)
+    crumb.stripe(`Subscription updated without user metadata: ${subscription.id}`)
     return
   }
 
   const status = subscription.status
   const currentPeriodEnd = new Date(subData.current_period_end * 1000).toISOString()
 
-  console.log(`[webhook] Subscription ${subscription.id} updated: status=${status}`)
+  crumb.stripe(`Subscription ${subscription.id} updated: status=${status}`)
 
   if (subscriptionType === 'vendor') {
     const updateData: Record<string, unknown> = {
@@ -363,11 +366,11 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
 
   if (!userId || !subscriptionType) {
-    console.log('[webhook] Subscription deleted without user metadata:', subscription.id)
+    crumb.stripe(`Subscription deleted without user metadata: ${subscription.id}`)
     return
   }
 
-  console.log(`[webhook] Subscription ${subscription.id} deleted for ${subscriptionType} ${userId}`)
+  crumb.stripe(`Subscription ${subscription.id} deleted for ${subscriptionType} ${userId}`)
 
   // Downgrade to standard tier
   if (subscriptionType === 'vendor') {
@@ -416,7 +419,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
   const currentPeriodEnd = new Date(subData.current_period_end * 1000).toISOString()
 
-  console.log(`[webhook] Invoice paid for ${subscriptionType} ${userId}, extends to ${currentPeriodEnd}`)
+  crumb.stripe(`Invoice paid for ${subscriptionType} ${userId}, extends to ${currentPeriodEnd}`)
 
   // Update tier expiration
   if (subscriptionType === 'vendor') {
@@ -459,7 +462,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 
   if (!userId || !subscriptionType) return
 
-  console.log(`[webhook] Invoice payment failed for ${subscriptionType} ${userId}`)
+  crumb.stripe(`Invoice payment failed for ${subscriptionType} ${userId}`)
 
   // Update status to past_due (Stripe will retry)
   if (subscriptionType === 'vendor') {

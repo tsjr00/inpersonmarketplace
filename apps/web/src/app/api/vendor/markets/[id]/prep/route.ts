@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -8,6 +9,10 @@ interface RouteContext {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/markets/[id]/prep', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-prep:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const supabaseService = createServiceClient() // Bypass RLS for order data
     const { id: marketId } = await context.params
@@ -131,7 +136,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // Fetch buyer info separately
     const buyerUserIds = [...new Set(Object.values(ordersData).map((o: any) => o.buyer_user_id).filter(Boolean))]
-    let buyerMap: Record<string, { display_name: string; phone: string | null }> = {}
+    const buyerMap: Record<string, { display_name: string; phone: string | null }> = {}
 
     if (buyerUserIds.length > 0) {
       const { data: buyers } = await supabaseService

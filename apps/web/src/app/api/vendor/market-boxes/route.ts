@@ -8,6 +8,7 @@ import {
 } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
@@ -17,6 +18,10 @@ import { getSubscriberDefault } from '@/lib/vendor-limits'
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/market-boxes', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-boxes-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -146,6 +151,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/market-boxes', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-boxes-post:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()

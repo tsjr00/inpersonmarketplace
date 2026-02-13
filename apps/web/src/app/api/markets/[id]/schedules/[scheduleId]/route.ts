@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // PATCH /api/markets/[id]/schedules/[scheduleId] - Update schedule (admin only)
 export async function PATCH(
@@ -8,6 +9,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; scheduleId: string }> }
 ) {
   return withErrorTracing('/api/markets/[id]/schedules/[scheduleId]', 'PATCH', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`market-schedule-patch:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const { id: marketId, scheduleId } = await params
 
@@ -93,6 +98,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; scheduleId: string }> }
 ) {
   return withErrorTracing('/api/markets/[id]/schedules/[scheduleId]', 'DELETE', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`market-schedule-delete:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const { id: marketId, scheduleId } = await params
 

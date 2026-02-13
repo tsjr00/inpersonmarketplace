@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // Cache results in memory to avoid repeated API calls
 // Key: "lat,lng" rounded to 2 decimal places, Value: { areaName, timestamp }
@@ -13,6 +14,10 @@ function getCacheKey(lat: number, lng: number): string {
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/location/reverse-geocode', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-location-reverse-geocode:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const { searchParams } = new URL(request.url)
       const latStr = searchParams.get('lat')

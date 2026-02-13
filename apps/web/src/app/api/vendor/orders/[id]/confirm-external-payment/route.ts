@@ -4,6 +4,7 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { sendNotification } from '@/lib/notifications'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * POST /api/vendor/orders/[id]/confirm-external-payment
@@ -16,6 +17,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withErrorTracing('/api/vendor/orders/[id]/confirm-external-payment', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-confirm-external-payment:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: orderId } = await params
     const supabase = await createClient()
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { canActivateMarketBox, formatLimitError } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -13,6 +14,10 @@ interface RouteContext {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/market-boxes/[id]', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-boxes-get:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: offeringId } = await context.params
     const supabase = await createClient()
 
@@ -121,6 +126,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/market-boxes/[id]', 'PATCH', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-boxes-patch:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: offeringId } = await context.params
     const supabase = await createClient()
 
@@ -250,6 +259,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  */
 export async function DELETE(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/market-boxes/[id]', 'DELETE', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-boxes-delete:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: offeringId } = await context.params
     const supabase = await createClient()
 

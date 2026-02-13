@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface VendorPaymentMethods {
   vendor_profile_id: string
@@ -21,6 +22,10 @@ interface AvailablePaymentMethod {
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/checkout/payment-methods', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`checkout-payment-methods:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const { vendorProfileIds } = await request.json() as { vendorProfileIds: string[] }
 
