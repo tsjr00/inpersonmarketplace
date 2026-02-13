@@ -6,6 +6,7 @@ import { withErrorTracing } from '@/lib/errors'
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/orders/unrated', 'GET', async () => {
     const supabase = await createClient()
+    const vertical = request.nextUrl.searchParams.get('vertical')
 
     // Verify authentication
     const { data: { user } } = await supabase.auth.getUser()
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get completed/fulfilled orders that don't have ratings
-    const { data: orders, error } = await supabase
+    let query = supabase
       .from('orders')
       .select(`
         id,
@@ -38,6 +39,12 @@ export async function GET(request: NextRequest) {
       .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(10)
+
+    if (vertical) {
+      query = query.eq('vertical_id', vertical)
+    }
+
+    const { data: orders, error } = await query
 
     if (error) {
       console.error('Error fetching orders:', error)

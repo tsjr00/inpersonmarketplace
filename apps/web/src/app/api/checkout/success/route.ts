@@ -120,7 +120,8 @@ export async function GET(request: NextRequest) {
           .in('id', listingIds)
 
         if (listings && listings.length > 0) {
-          // Send stock notifications for low/out-of-stock items
+          // Send stock notifications for low/out-of-stock items (parallel)
+          const stockNotifications: Promise<unknown>[] = []
           for (const listing of listings) {
             if (listing.quantity === null) continue // Unlimited inventory
             const vendorProfile = listing.vendor_profiles as unknown as { user_id: string } | null
@@ -128,16 +129,17 @@ export async function GET(request: NextRequest) {
             if (!vendorUserId) continue
 
             if (listing.quantity === 0) {
-              await sendNotification(vendorUserId, 'inventory_out_of_stock', {
+              stockNotifications.push(sendNotification(vendorUserId, 'inventory_out_of_stock', {
                 listingTitle: listing.title,
-              })
+              }))
             } else if (listing.quantity <= LOW_STOCK_THRESHOLD) {
-              await sendNotification(vendorUserId, 'inventory_low_stock', {
+              stockNotifications.push(sendNotification(vendorUserId, 'inventory_low_stock', {
                 listingTitle: listing.title,
                 quantity: listing.quantity,
-              })
+              }))
             }
           }
+          await Promise.all(stockNotifications)
 
           // Log public activity events for social proof toasts
           // Fetch market city for purchase events
@@ -154,31 +156,34 @@ export async function GET(request: NextRequest) {
             }
           }
 
+          // Log activity events in parallel
+          const activityPromises: Promise<unknown>[] = []
           for (const listing of listings) {
             const vp = listing.vendor_profiles as unknown as { user_id: string; profile_data: Record<string, unknown>; vertical_id: string } | null
             const vpData = vp?.profile_data
             const vName = (vpData?.business_name as string) || (vpData?.farm_name as string) || undefined
             const verticalId = vp?.vertical_id || 'farmers-market'
 
-            await logPublicActivityEvent({
+            activityPromises.push(logPublicActivityEvent({
               vertical_id: verticalId,
               event_type: 'purchase',
               city: marketCityByListing.get(listing.id) || undefined,
               item_name: listing.title || undefined,
               vendor_display_name: vName,
               item_category: listing.category || undefined,
-            })
+            }))
 
             // If item sold out from this purchase
             if (listing.quantity === 0) {
-              await logPublicActivityEvent({
+              activityPromises.push(logPublicActivityEvent({
                 vertical_id: verticalId,
                 event_type: 'sold_out',
                 item_name: listing.title || undefined,
                 vendor_display_name: vName,
-              })
+              }))
             }
           }
+          await Promise.all(activityPromises)
         }
       }
       // Process market box subscriptions if this order includes them
@@ -342,13 +347,15 @@ export async function GET(request: NextRequest) {
         }
       }
       crumb.logic(`Sending notifications to ${vendorNotifications.size} vendor(s)`)
-      for (const [vendorUserId, info] of vendorNotifications) {
-        await sendNotification(vendorUserId, 'new_paid_order', {
-          orderNumber,
-          itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
-          marketName: info.marketName,
-        })
-      }
+      await Promise.all(
+        Array.from(vendorNotifications).map(([vendorUserId, info]) =>
+          sendNotification(vendorUserId, 'new_paid_order', {
+            orderNumber,
+            itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
+            marketName: info.marketName,
+          })
+        )
+      )
     }
 
     return NextResponse.json({
