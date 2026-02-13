@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
+import VendorVerificationPanel from '@/components/admin/VendorVerificationPanel'
 import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -26,9 +27,30 @@ interface Vendor {
   markets: Array<{ market_id: string; markets: { name: string } | null }>
 }
 
+interface Verification {
+  status: string
+  documents: Array<{ url: string; filename: string; type: string; uploaded_at: string }>
+  notes: string | null
+  reviewed_at: string | null
+  requested_categories: string[]
+  category_verifications: Record<string, {
+    status: string
+    doc_type?: string
+    documents?: Array<{ url: string; filename: string; doc_type: string }>
+    notes?: string
+    reviewed_at?: string
+  }>
+  coi_status: string
+  coi_documents: Array<{ url: string; filename: string; uploaded_at: string }>
+  coi_verified_at: string | null
+  prohibited_items_acknowledged_at: string | null
+  onboarding_completed_at: string | null
+}
+
 interface VendorManagementClientProps {
   vertical: string
   vendors: Vendor[]
+  verifications: Record<string, Verification>
   totalCount: number
   currentPage: number
   pageSize: number
@@ -43,6 +65,7 @@ interface VendorManagementClientProps {
 export default function VendorManagementClient({
   vertical,
   vendors: initialVendors,
+  verifications,
   totalCount,
   currentPage,
   pageSize,
@@ -61,6 +84,7 @@ export default function VendorManagementClient({
   const [tier, setTier] = useState(initialFilters.tier)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [expandedVendor, setExpandedVendor] = useState<string | null>(null)
 
   // Debounce search input (300ms)
   const debouncedSearch = useDebounce(searchInput, 300)
@@ -343,172 +367,23 @@ export default function VendorManagementClient({
               {vendors.map((vendor) => {
                 const isStale = vendor.days_pending >= 2 &&
                   (vendor.status === 'submitted' || vendor.status === 'draft')
+                const isExpanded = expandedVendor === vendor.id
+                const verification = verifications[vendor.id] || null
 
                 return (
-                  <tr
+                  <VendorRow
                     key={vendor.id}
-                    style={{
-                      borderBottom: '1px solid #eee',
-                      backgroundColor: isStale ? '#fef3c7' : 'transparent'
-                    }}
-                  >
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight: 600, color: colors.textPrimary }}>
-                        {vendor.profile_data?.business_name || 'Unnamed'}
-                      </div>
-                      {vendor.profile_data?.legal_name && (
-                        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                          {vendor.profile_data.legal_name}
-                        </div>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ color: colors.textPrimary }}>{vendor.user_email}</div>
-                      {vendor.profile_data?.phone && (
-                        <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                          {vendor.profile_data.phone}
-                        </div>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      {Array.isArray(vendor.profile_data?.vendor_type)
-                        ? vendor.profile_data.vendor_type.join(', ')
-                        : vendor.profile_data?.vendor_type || '—'
-                      }
-                    </td>
-                    <td style={tdStyle}>
-                      {vendor.markets && vendor.markets.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {vendor.markets.slice(0, 2).map((m, idx) => (
-                            <span key={idx} style={{
-                              fontSize: typography.sizes.xs,
-                              color: colors.textPrimary,
-                              backgroundColor: '#f0fdf4',
-                              padding: '2px 8px',
-                              borderRadius: radius.sm
-                            }}>
-                              {m.markets?.name || 'Unknown'}
-                            </span>
-                          ))}
-                          {vendor.markets.length > 2 && (
-                            <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                              +{vendor.markets.length - 2} more
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>No markets</span>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                        borderRadius: radius.full,
-                        fontSize: typography.sizes.xs,
-                        fontWeight: typography.weights.semibold,
-                        backgroundColor:
-                          vendor.tier === 'premium' ? '#dbeafe' :
-                          vendor.tier === 'featured' ? '#fef3c7' : '#f3f4f6',
-                        color:
-                          vendor.tier === 'premium' ? '#1e40af' :
-                          vendor.tier === 'featured' ? '#92400e' : '#6b7280'
-                      }}>
-                        {vendor.tier || 'standard'}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                        borderRadius: radius.full,
-                        fontSize: typography.sizes.xs,
-                        fontWeight: typography.weights.medium,
-                        backgroundColor:
-                          vendor.status === 'approved' ? '#dcfce7' :
-                          vendor.status === 'rejected' ? '#fee2e2' : '#fef3c7',
-                        color:
-                          vendor.status === 'approved' ? '#166534' :
-                          vendor.status === 'rejected' ? '#991b1b' : '#92400e'
-                      }}>
-                        {(vendor.status === 'submitted' || vendor.status === 'draft') ? 'pending' : vendor.status}
-                      </span>
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                        <Link
-                          href={`/admin/vendors/${vendor.id}`}
-                          style={{
-                            padding: `${spacing['3xs']} ${spacing.xs}`,
-                            fontSize: typography.sizes.sm,
-                            fontWeight: typography.weights.medium,
-                            backgroundColor: colors.primary,
-                            color: 'white',
-                            textDecoration: 'none',
-                            borderRadius: radius.sm
-                          }}
-                        >
-                          Manage
-                        </Link>
-
-                        {(vendor.status === 'submitted' || vendor.status === 'draft') && (
-                          <>
-                            <button
-                              onClick={() => handleApprove(vendor.id)}
-                              disabled={actionLoading === vendor.id}
-                              style={{
-                                padding: `${spacing['3xs']} ${spacing.xs}`,
-                                fontSize: typography.sizes.sm,
-                                fontWeight: typography.weights.semibold,
-                                backgroundColor: actionLoading === vendor.id ? '#ccc' : '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: radius.sm,
-                                cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
-                              }}
-                            >
-                              {actionLoading === vendor.id ? '...' : 'Approve'}
-                            </button>
-                            <button
-                              onClick={() => handleReject(vendor.id)}
-                              disabled={actionLoading === vendor.id}
-                              style={{
-                                padding: `${spacing['3xs']} ${spacing.xs}`,
-                                fontSize: typography.sizes.sm,
-                                fontWeight: typography.weights.semibold,
-                                backgroundColor: actionLoading === vendor.id ? '#ccc' : '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: radius.sm,
-                                cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
-                              }}
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-
-                        {vendor.status === 'rejected' && (
-                          <button
-                            onClick={() => handleApprove(vendor.id)}
-                            disabled={actionLoading === vendor.id}
-                            style={{
-                              padding: `${spacing['3xs']} ${spacing.xs}`,
-                              fontSize: typography.sizes.sm,
-                              fontWeight: typography.weights.semibold,
-                              backgroundColor: actionLoading === vendor.id ? '#ccc' : '#3b82f6',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: radius.sm,
-                              cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
-                            }}
-                          >
-                            Re-approve
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                    vendor={vendor}
+                    vertical={vertical}
+                    isStale={isStale}
+                    isExpanded={isExpanded}
+                    verification={verification}
+                    actionLoading={actionLoading}
+                    onToggleExpand={() => setExpandedVendor(isExpanded ? null : vendor.id)}
+                    onApprove={() => handleApprove(vendor.id)}
+                    onReject={() => handleReject(vendor.id)}
+                    onRefresh={() => router.refresh()}
+                  />
                 )
               })}
             </tbody>
@@ -526,6 +401,232 @@ export default function VendorManagementClient({
         onPageSizeChange={handlePageSizeChange}
       />
     </div>
+  )
+}
+
+/** Individual vendor row with expandable onboarding panel */
+function VendorRow({
+  vendor,
+  vertical,
+  isStale,
+  isExpanded,
+  verification,
+  actionLoading,
+  onToggleExpand,
+  onApprove,
+  onReject,
+  onRefresh,
+}: {
+  vendor: Vendor
+  vertical: string
+  isStale: boolean
+  isExpanded: boolean
+  verification: Verification | null
+  actionLoading: string | null
+  onToggleExpand: () => void
+  onApprove: () => void
+  onReject: () => void
+  onRefresh: () => void
+}) {
+  return (
+    <>
+      <tr style={{
+        borderBottom: isExpanded ? 'none' : '1px solid #eee',
+        backgroundColor: isStale ? '#fef3c7' : 'transparent'
+      }}>
+        <td style={tdStyle}>
+          <div style={{ fontWeight: 600, color: colors.textPrimary }}>
+            {vendor.profile_data?.business_name || 'Unnamed'}
+          </div>
+          {vendor.profile_data?.legal_name && (
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+              {vendor.profile_data.legal_name}
+            </div>
+          )}
+        </td>
+        <td style={tdStyle}>
+          <div style={{ color: colors.textPrimary }}>{vendor.user_email}</div>
+          {vendor.profile_data?.phone && (
+            <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+              {vendor.profile_data.phone}
+            </div>
+          )}
+        </td>
+        <td style={tdStyle}>
+          {Array.isArray(vendor.profile_data?.vendor_type)
+            ? vendor.profile_data.vendor_type.join(', ')
+            : vendor.profile_data?.vendor_type || '\u2014'
+          }
+        </td>
+        <td style={tdStyle}>
+          {vendor.markets && vendor.markets.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {vendor.markets.slice(0, 2).map((m, idx) => (
+                <span key={idx} style={{
+                  fontSize: typography.sizes.xs,
+                  color: colors.textPrimary,
+                  backgroundColor: '#f0fdf4',
+                  padding: '2px 8px',
+                  borderRadius: radius.sm
+                }}>
+                  {m.markets?.name || 'Unknown'}
+                </span>
+              ))}
+              {vendor.markets.length > 2 && (
+                <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                  +{vendor.markets.length - 2} more
+                </span>
+              )}
+            </div>
+          ) : (
+            <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>No markets</span>
+          )}
+        </td>
+        <td style={tdStyle}>
+          <span style={{
+            display: 'inline-block',
+            padding: `${spacing['3xs']} ${spacing['2xs']}`,
+            borderRadius: radius.full,
+            fontSize: typography.sizes.xs,
+            fontWeight: typography.weights.semibold,
+            backgroundColor:
+              vendor.tier === 'premium' ? '#dbeafe' :
+              vendor.tier === 'featured' ? '#fef3c7' : '#f3f4f6',
+            color:
+              vendor.tier === 'premium' ? '#1e40af' :
+              vendor.tier === 'featured' ? '#92400e' : '#6b7280'
+          }}>
+            {vendor.tier || 'standard'}
+          </span>
+        </td>
+        <td style={tdStyle}>
+          <span style={{
+            display: 'inline-block',
+            padding: `${spacing['3xs']} ${spacing['2xs']}`,
+            borderRadius: radius.full,
+            fontSize: typography.sizes.xs,
+            fontWeight: typography.weights.medium,
+            backgroundColor:
+              vendor.status === 'approved' ? '#dcfce7' :
+              vendor.status === 'rejected' ? '#fee2e2' : '#fef3c7',
+            color:
+              vendor.status === 'approved' ? '#166534' :
+              vendor.status === 'rejected' ? '#991b1b' : '#92400e'
+          }}>
+            {(vendor.status === 'submitted' || vendor.status === 'draft') ? 'pending' : vendor.status}
+          </span>
+        </td>
+        <td style={{ ...tdStyle, textAlign: 'right' }}>
+          <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <Link
+              href={`/${vertical}/vendor/${vendor.id}/profile`}
+              style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.medium,
+                backgroundColor: colors.primary,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: radius.sm
+              }}
+            >
+              View
+            </Link>
+
+            <button
+              onClick={onToggleExpand}
+              style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.medium,
+                backgroundColor: isExpanded ? colors.textMuted : '#6366f1',
+                color: 'white',
+                border: 'none',
+                borderRadius: radius.sm,
+                cursor: 'pointer'
+              }}
+            >
+              {isExpanded ? 'Close' : 'Onboarding'}
+            </button>
+
+            {(vendor.status === 'submitted' || vendor.status === 'draft') && (
+              <>
+                <button
+                  onClick={onApprove}
+                  disabled={actionLoading === vendor.id}
+                  style={{
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    backgroundColor: actionLoading === vendor.id ? '#ccc' : '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: radius.sm,
+                    cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {actionLoading === vendor.id ? '...' : 'Approve'}
+                </button>
+                <button
+                  onClick={onReject}
+                  disabled={actionLoading === vendor.id}
+                  style={{
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    backgroundColor: actionLoading === vendor.id ? '#ccc' : '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: radius.sm,
+                    cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Reject
+                </button>
+              </>
+            )}
+
+            {vendor.status === 'rejected' && (
+              <button
+                onClick={onApprove}
+                disabled={actionLoading === vendor.id}
+                style={{
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold,
+                  backgroundColor: actionLoading === vendor.id ? '#ccc' : '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: radius.sm,
+                  cursor: actionLoading === vendor.id ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Re-approve
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+
+      {/* Expandable onboarding panel */}
+      {isExpanded && (
+        <tr>
+          <td colSpan={7} style={{
+            padding: `0 ${spacing.sm} ${spacing.sm}`,
+            borderBottom: '1px solid #eee',
+            backgroundColor: colors.surfaceMuted,
+          }}>
+            <div style={{ padding: spacing.sm }}>
+              <VendorVerificationPanel
+                vendorId={vendor.id}
+                verification={verification}
+                onRefresh={onRefresh}
+              />
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 
