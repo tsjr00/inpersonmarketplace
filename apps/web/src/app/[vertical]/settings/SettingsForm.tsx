@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface SettingsFormProps {
   initialDisplayName: string
@@ -18,6 +20,8 @@ export default function SettingsForm({
   userEmail,
   primaryColor
 }: SettingsFormProps) {
+  const params = useParams()
+  const vertical = params.vertical as string
   const [displayName, setDisplayName] = useState(initialDisplayName)
   const [phone, setPhone] = useState(initialPhone)
   const [smsConsent, setSmsConsent] = useState(initialSmsConsent)
@@ -239,7 +243,7 @@ export default function SettingsForm({
               }}
             />
             <span style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, lineHeight: '1.5' }}>
-              I agree to receive automated SMS/text messages from farmersmarketing.app for order
+              I agree to receive automated SMS/text messages from {term(vertical, 'display_name')} for order
               status alerts, pickup notifications, and cancellation notices. Message frequency varies
               (typically 1-5 per week during active orders). Message and data rates may apply.
               Reply STOP to opt out, HELP for help. See our{' '}

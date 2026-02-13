@@ -26,8 +26,8 @@ export const defaultBranding: Record<string, VerticalBranding> = {
     domain: 'streeteats.app',
     brand_name: 'Street Eats',
     tagline: 'Skip the Line. Eat Local.',
-    logo_path: '/branding/food-trucks-logo.svg',
-    favicon: '/branding/food-trucks-favicon.ico',
+    logo_path: '/logos/street-eats-logo.svg',
+    favicon: '/logos/street-eats-logo.svg',
     colors: {
       primary: '#e85d04',
       secondary: '#dc2f02',

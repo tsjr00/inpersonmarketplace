@@ -60,8 +60,8 @@ export default function AboutPage() {
         backgroundColor: colors.surfaceElevated
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <Link href="/farmers_market" style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, textDecoration: 'none' }}>
-            farmersmarketing.app
+          <Link href="/" style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, textDecoration: 'none' }}>
+            815 Enterprises
           </Link>
         </div>
       </header>
@@ -78,11 +78,11 @@ export default function AboutPage() {
               Our Mission
             </h2>
             <p style={{ marginBottom: spacing.md }}>
-              We believe in the power of local communities and the importance of connecting neighbors
-              with the producers and artisans who create amazing products right in their own backyard.
+              We believe in the power of local communities and the importance of connecting people
+              with the vendors and businesses that serve them right in their own neighborhoods.
             </p>
             <p style={{ marginBottom: spacing.md }}>
-              farmersmarketing.app was created to make it easier for shoppers to discover and pre-order
+              Our marketplace platforms were created to make it easier for customers to discover and pre-order
               from their favorite local vendors, while helping vendors manage their business more efficiently
               and reach more customers.
             </p>
@@ -94,14 +94,14 @@ export default function AboutPage() {
               What We Do
             </h2>
             <p style={{ marginBottom: spacing.md }}>
-              Our platform connects local producers, farmers, bakers, and artisans with shoppers at
-              farmers markets and similar community venues. We make it easy to:
+              Our platforms connect local vendors and businesses with customers at markets,
+              events, and community venues. We make it easy to:
             </p>
             <ul style={{ marginBottom: spacing.md, paddingLeft: spacing.lg }}>
-              <li style={{ marginBottom: spacing.xs }}>Discover local markets and vendors in your area</li>
-              <li style={{ marginBottom: spacing.xs }}>Pre-order products online with guaranteed availability</li>
-              <li style={{ marginBottom: spacing.xs }}>Pick up fresh, local products at the market</li>
-              <li style={{ marginBottom: spacing.xs }}>Support small businesses and local producers directly</li>
+              <li style={{ marginBottom: spacing.xs }}>Discover local vendors and markets in your area</li>
+              <li style={{ marginBottom: spacing.xs }}>Pre-order online with guaranteed availability</li>
+              <li style={{ marginBottom: spacing.xs }}>Pick up your order at the market or event</li>
+              <li style={{ marginBottom: spacing.xs }}>Support small businesses and local vendors directly</li>
             </ul>
           </section>
 
@@ -120,10 +120,11 @@ export default function AboutPage() {
               <li style={{ marginBottom: spacing.xs }}>Get discovered by new shoppers in your area</li>
             </ul>
             <p style={{ marginBottom: spacing.md }}>
-              Interested in becoming a vendor?{' '}
-              <Link href="/farmers_market/vendor-signup" style={{ color: colors.primary }}>
-                Apply to join our platform
+              Interested in becoming a vendor? Visit our{' '}
+              <Link href="/" style={{ color: colors.primary }}>
+                homepage
               </Link>
+              {' '}and choose a marketplace to get started.
             </p>
           </section>
 

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { colors, spacing, typography } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface FooterProps {
   vertical: string
@@ -69,7 +70,7 @@ export function Footer({ vertical }: FooterProps) {
                 lineHeight: typography.leading.relaxed,
               }}
             >
-              Connecting neighbors with local producers and artisans.
+              Connecting neighbors with local {term(vertical, 'vendor_people')}.
             </p>
           </div>
 
@@ -126,7 +127,7 @@ export function Footer({ vertical }: FooterProps) {
               color: colors.accentMuted,
             }}
           >
-            &copy; {currentYear} farmersmarketing.app. All rights reserved.
+            &copy; {currentYear} {term(vertical, 'display_name')}. All rights reserved.
           </p>
         </div>
       </div>

@@ -59,8 +59,8 @@ export default function TermsPage() {
         backgroundColor: colors.surfaceElevated
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <Link href="/farmers_market" style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, textDecoration: 'none' }}>
-            farmersmarketing.app
+          <Link href="/" style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, textDecoration: 'none' }}>
+            815 Enterprises
           </Link>
         </div>
       </header>
@@ -78,8 +78,8 @@ export default function TermsPage() {
           {/* Introduction */}
           <section style={sectionStyle}>
             <p style={pStyle}>
-              Welcome to farmersmarketing.app. These Terms of Service (&quot;Terms&quot;) govern your use of our platform,
-              which connects local producers and artisans with shoppers at farmers markets and similar venues.
+              Welcome to our marketplace platform operated by 815 Enterprises. These Terms of Service (&quot;Terms&quot;) govern your use of our platform,
+              which connects local vendors and businesses with customers at markets, events, and community venues.
               By accessing or using our services, you agree to be bound by these Terms.
             </p>
             <p style={pStyle}>
@@ -111,7 +111,7 @@ export default function TermsPage() {
             </p>
             <ul style={listStyle}>
               <li><strong>Shopper accounts:</strong> For individuals who wish to browse products and place orders from vendors.</li>
-              <li><strong>Vendor accounts:</strong> For producers, farmers, bakers, artisans, and other sellers who wish to list and sell products through our platform.</li>
+              <li><strong>Vendor accounts:</strong> For vendors, producers, and other sellers who wish to list and sell products or services through our platform.</li>
             </ul>
           </section>
 
@@ -311,7 +311,7 @@ export default function TermsPage() {
 
             <h3 style={h3Style}>8.1 Consent to Receive Messages</h3>
             <p style={pStyle}>
-              By creating an account on farmersmarketing.app and providing your mobile phone number, you may
+              By creating an account on our platform and providing your mobile phone number, you may
               opt in to receive SMS/text message notifications related to your account and orders. SMS notifications
               are used for time-sensitive, transactional messages including but not limited to:
             </p>
@@ -321,7 +321,7 @@ export default function TermsPage() {
               <li>Urgent order status changes</li>
             </ul>
             <p style={pStyle}>
-              By opting in, you consent to receive recurring automated text messages from farmersmarketing.app
+              By opting in, you consent to receive recurring automated text messages from our platform
               at the mobile number you provide. Consent is not a condition of purchase. Message frequency varies
               based on your order activity (typically 1-5 messages per week during active order periods).
             </p>
@@ -417,7 +417,7 @@ export default function TermsPage() {
             </p>
             <ul style={listStyle}>
               <li>We will <strong>never sell, rent, or share your mobile phone number</strong> with third parties or affiliates for promotional or marketing purposes</li>
-              <li>Your phone number is used solely for transactional notifications related to your account and orders on farmersmarketing.app</li>
+              <li>Your phone number is used solely for transactional notifications related to your account and orders on our platform</li>
               <li>Third-party SMS service providers who deliver messages on our behalf are contractually prohibited from using your phone number for any purpose other than delivering our messages</li>
             </ul>
 
