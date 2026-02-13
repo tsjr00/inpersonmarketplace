@@ -149,12 +149,12 @@ async function handleListingAdd(
     })
   }
 
-  // Get or create cart
+  // Get or create cart (vertical_id is TEXT slug, not UUID)
   crumb.supabase('rpc', 'carts', { rpc: 'get_or_create_cart' })
   const { data: cartId, error: cartError } = await supabase
     .rpc('get_or_create_cart', {
       p_user_id: user.id,
-      p_vertical_id: verticalData.id
+      p_vertical_id: vertical
     })
 
   if (cartError) {
@@ -359,12 +359,12 @@ async function handleMarketBoxAdd(
     subscriptionStartDate = nextStart.toISOString().split('T')[0]
   }
 
-  // Get or create cart
+  // Get or create cart (vertical_id is TEXT slug, not UUID)
   crumb.supabase('rpc', 'carts', { rpc: 'get_or_create_cart' })
   const { data: cartId, error: cartError } = await supabase
     .rpc('get_or_create_cart', {
       p_user_id: user.id,
-      p_vertical_id: verticalData.id
+      p_vertical_id: vertical
     })
 
   if (cartError) {
