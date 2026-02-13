@@ -4,6 +4,7 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { createMarketBoxCheckoutSession } from '@/lib/stripe/payments'
 import { calculateBuyerPrice } from '@/lib/pricing'
 import { getAppUrl } from '@/lib/environment'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
@@ -13,6 +14,10 @@ import { getSubscriberDefault } from '@/lib/vendor-limits'
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/market-boxes', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-market-boxes-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     crumb.auth('Checking user authentication')
@@ -170,6 +175,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/market-boxes', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-market-boxes-post:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     crumb.auth('Checking user authentication')

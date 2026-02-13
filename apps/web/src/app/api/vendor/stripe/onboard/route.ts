@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createConnectAccount, createAccountLink } from '@/lib/stripe/connect'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/stripe/onboard', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-stripe-onboard:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     // Get authenticated user

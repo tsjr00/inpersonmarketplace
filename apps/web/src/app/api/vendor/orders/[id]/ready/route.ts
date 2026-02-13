@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withErrorTracing('/api/vendor/orders/[id]/ready', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-order-ready:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const { id: orderItemId } = await params
 

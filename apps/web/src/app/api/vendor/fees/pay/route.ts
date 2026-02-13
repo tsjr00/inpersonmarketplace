@@ -4,6 +4,7 @@ import { getVendorFeeBalance } from '@/lib/payments/vendor-fees'
 import { stripe } from '@/lib/stripe/config'
 import { getAppUrl } from '@/lib/environment'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * POST /api/vendor/fees/pay
@@ -12,6 +13,10 @@ import { withErrorTracing } from '@/lib/errors'
  */
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/fees/pay', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-fees-pay:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const supabase = await createClient()
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 const LOCATION_COOKIE_NAME = 'user_location'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days
@@ -9,6 +10,10 @@ const VALID_RADIUS_OPTIONS = [10, 25, 50, 100]
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/location', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-location-post:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const supabase = await createClient()
       const body = await request.json()
@@ -111,6 +116,10 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/location', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-location-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const supabase = await createClient()
 
@@ -187,6 +196,10 @@ export async function GET(request: NextRequest) {
 // PATCH - Update partial location data (e.g., radius only)
 export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/buyer/location', 'PATCH', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-location-patch:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const body = await request.json()
       const { radius: newRadius } = body

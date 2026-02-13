@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe/config'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/subscriptions/verify', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`subscriptions-verify:${clientIp}`, rateLimits.auth)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * POST /api/errors/report
@@ -10,6 +11,10 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
  */
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/errors/report', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`errors-report:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     // Get user if authenticated (optional - users can report errors even if logged out)

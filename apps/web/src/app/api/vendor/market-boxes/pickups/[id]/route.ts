@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -13,6 +14,10 @@ interface RouteContext {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/market-boxes/pickups/[id]', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-box-pickups-get:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: pickupId } = await context.params
     const supabase = await createClient()
 
@@ -84,6 +89,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/market-boxes/pickups/[id]', 'PATCH', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-box-pickups-patch:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: pickupId } = await context.params
     const supabase = await createClient()
 

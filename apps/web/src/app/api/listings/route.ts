@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { verifyAdminForApi } from '@/lib/auth/admin'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/listings', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`listings:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const searchParams = request.nextUrl.searchParams
     const vertical = searchParams.get('vertical')
     const adminRequested = searchParams.get('admin') === 'true'

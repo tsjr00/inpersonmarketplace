@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTierLimits } from '@/lib/vendor-limits'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // Static ZIP code lookup for common areas (fast response, no API call)
 const ZIP_LOOKUP: Record<string, { lat: number; lng: number }> = {
@@ -82,6 +83,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const { id: marketId } = await params
 
   return withErrorTracing(`/api/vendor/markets/${marketId}`, 'PUT', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-put:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     crumb.auth('Checking user authentication')
@@ -278,6 +283,10 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   const { id: marketId } = await params
 
   return withErrorTracing(`/api/vendor/markets/${marketId}`, 'DELETE', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-market-delete:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     crumb.auth('Checking user authentication')

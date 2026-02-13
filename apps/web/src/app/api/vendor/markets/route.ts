@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getTierLimits, isPremiumTier } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // Static ZIP code lookup for common areas (fast response, no API call)
 const ZIP_LOOKUP: Record<string, { lat: number; lng: number }> = {
@@ -84,6 +85,10 @@ async function geocodeZipCode(zip: string): Promise<{ latitude: number; longitud
 
 // GET - Get vendor's markets
 export async function GET(request: Request) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`vendor-markets-get:${clientIp}`, rateLimits.api)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   try {
     const supabase = await createClient()
 
@@ -227,6 +232,10 @@ export async function GET(request: Request) {
 
 // POST - Create new private pickup market
 export async function POST(request: Request) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`vendor-markets-post:${clientIp}`, rateLimits.api)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   try {
     const supabase = await createClient()
 

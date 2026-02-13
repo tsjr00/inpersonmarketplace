@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // ZIP code to coordinates lookup using Census Geocoding API (free, no API key needed)
 // Falls back to a static lookup table for common ZIP codes
@@ -30,6 +31,10 @@ const ZIP_LOOKUP: Record<string, { lat: number; lng: number; city: string; state
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/location/geocode', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-location-geocode:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const body = await request.json()
       const { zipCode } = body

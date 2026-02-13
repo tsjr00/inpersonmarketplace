@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // PATCH /api/markets/[id]/vendors/[vendorId] - Update vendor (approve, assign booth)
 export async function PATCH(
@@ -8,6 +9,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; vendorId: string }> }
 ) {
   return withErrorTracing('/api/markets/[id]/vendors/[vendorId]', 'PATCH', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`market-vendor-patch:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const { id: marketId, vendorId } = await params
 
@@ -105,6 +110,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; vendorId: string }> }
 ) {
   return withErrorTracing('/api/markets/[id]/vendors/[vendorId]', 'DELETE', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`market-vendor-delete:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const { id: marketId, vendorId } = await params
 

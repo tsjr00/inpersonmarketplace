@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // POST - Submit vendor feedback
 export async function POST(request: Request) {
   return withErrorTracing('/api/vendor/feedback', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-feedback-post:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const supabase = await createClient()
 
@@ -96,6 +101,10 @@ export async function POST(request: Request) {
 // GET - Get vendor's own feedback history
 export async function GET(request: Request) {
   return withErrorTracing('/api/vendor/feedback', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-feedback-get:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const supabase = await createClient()
 

@@ -5,6 +5,7 @@ import { STRIPE_CONFIG } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -21,6 +22,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderItemId } = await context.params
 
   return withErrorTracing('/api/buyer/orders/[id]/cancel', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-order-cancel:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     // Verify authentication

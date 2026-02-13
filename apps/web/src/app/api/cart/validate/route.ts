@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface CartItem {
   listingId: string
@@ -8,8 +9,12 @@ interface CartItem {
 }
 
 // GET: Validate market compatibility
-export async function GET() {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cart/validate', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`cart-validate-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     // Verify authentication
@@ -141,6 +146,10 @@ export async function GET() {
 // POST: Validate item availability
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/cart/validate', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`cart-validate-post:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const { items } = await request.json() as { items: CartItem[] }
 

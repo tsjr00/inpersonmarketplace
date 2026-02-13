@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface MarketAvailability {
   market_id: string
@@ -18,6 +19,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withErrorTracing('/api/listings/[id]/availability', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`listing-availability:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: listingId } = await params
     const supabase = await createClient()
 

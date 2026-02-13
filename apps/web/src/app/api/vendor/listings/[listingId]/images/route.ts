@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 const MAX_IMAGES_PER_LISTING = 5
 
@@ -13,6 +14,10 @@ export async function GET(
   { params }: { params: Promise<{ listingId: string }> }
 ) {
   return withErrorTracing('/api/vendor/listings/[listingId]/images', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-listing-images-get:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const { listingId } = await params
       const supabase = await createClient()
@@ -45,6 +50,10 @@ export async function POST(
   { params }: { params: Promise<{ listingId: string }> }
 ) {
   return withErrorTracing('/api/vendor/listings/[listingId]/images', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-listing-images-post:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const { listingId } = await params
       const supabase = await createClient()
@@ -176,6 +185,10 @@ export async function DELETE(
   { params }: { params: Promise<{ listingId: string }> }
 ) {
   return withErrorTracing('/api/vendor/listings/[listingId]/images', 'DELETE', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-listing-images-delete:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const { listingId } = await params
       const supabase = await createClient()
@@ -275,6 +288,10 @@ export async function PATCH(
   { params }: { params: Promise<{ listingId: string }> }
 ) {
   return withErrorTracing('/api/vendor/listings/[listingId]/images', 'PATCH', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-listing-images-patch:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const { listingId } = await params
       const supabase = await createClient()

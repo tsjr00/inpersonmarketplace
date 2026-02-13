@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getVendorFeeBalance, getVendorFeeLedger, BALANCE_INVOICE_THRESHOLD_CENTS, AGE_INVOICE_THRESHOLD_DAYS } from '@/lib/payments/vendor-fees'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * GET /api/vendor/fees
@@ -10,6 +11,10 @@ import { withErrorTracing } from '@/lib/errors'
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/fees', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-fees:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const supabase = await createClient()
 

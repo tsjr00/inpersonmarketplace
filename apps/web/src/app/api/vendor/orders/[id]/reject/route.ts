@@ -4,6 +4,7 @@ import { createRefund } from '@/lib/stripe/payments'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -13,6 +14,10 @@ interface RouteContext {
 // Vendor can reject at any time before fulfillment (pending, paid, confirmed, ready)
 export async function POST(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/orders/[id]/reject', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-order-reject:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: orderItemId } = await context.params
     const supabase = await createClient()
 
