@@ -50,7 +50,7 @@ export default function VendorOrdersPage() {
   // Memoized fetch function to prevent unnecessary re-renders
   const fetchOrdersCallback = useCallback(async () => {
     try {
-      const response = await fetch('/api/vendor/orders')
+      const response = await fetch(`/api/vendor/orders?vertical=${vertical}`)
       const data = await response.json()
 
       if (!response.ok) {

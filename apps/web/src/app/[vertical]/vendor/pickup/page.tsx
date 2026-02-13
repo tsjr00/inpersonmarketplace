@@ -137,7 +137,7 @@ export default function VendorPickupPage() {
   const fetchNeedsFulfillmentCallback = useCallback(async () => {
     try {
       // Fetch orders where buyer acknowledged but vendor hasn't fulfilled yet
-      const res = await fetch('/api/vendor/orders?unconfirmed_handoffs=true')
+      const res = await fetch(`/api/vendor/orders?vertical=${vertical}&unconfirmed_handoffs=true`)
       if (res.ok) {
         const data = await res.json()
         const now = new Date()
@@ -290,12 +290,13 @@ export default function VendorPickupPage() {
     try {
       // Fetch regular orders that are ready for this market
       const params = new URLSearchParams()
+      params.set('vertical', vertical)
       params.set('market_id', selectedMarket)
       params.set('status', 'ready') // Focus on ready-for-pickup items
 
       const [ordersRes, mbRes] = await Promise.all([
         fetch(`/api/vendor/orders?${params.toString()}`),
-        fetch(`/api/vendor/market-boxes/pickups?market_id=${selectedMarket}&status=scheduled,ready`),
+        fetch(`/api/vendor/market-boxes/pickups?vertical=${vertical}&market_id=${selectedMarket}&status=scheduled,ready`),
       ])
 
       if (ordersRes.ok) {

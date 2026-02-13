@@ -179,6 +179,7 @@ export default function NewMarketBoxPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          vertical,
           name: formData.name,
           description: formData.description || null,
           price_4week_cents: price4WeekCents,

@@ -15,7 +15,7 @@ import { getSubscriberDefault } from '@/lib/vendor-limits'
  * GET /api/vendor/market-boxes
  * List vendor's market box offerings with subscriber counts
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/market-boxes', 'GET', async () => {
     const supabase = await createClient()
 
@@ -24,12 +24,17 @@ export async function GET() {
       throw new TracedError('ERR_AUTH_001', 'Unauthorized')
     }
 
-    // Get vendor profile
-    const { data: vendor } = await supabase
+    // Get vendor profile — scoped to vertical if provided
+    const { searchParams } = new URL(request.url)
+    const vertical = searchParams.get('vertical')
+    let vpQuery = supabase
       .from('vendor_profiles')
       .select('id, tier')
       .eq('user_id', user.id)
-      .single()
+    if (vertical) {
+      vpQuery = vpQuery.eq('vertical_id', vertical)
+    }
+    const { data: vendor } = await vpQuery.single()
 
     if (!vendor) {
       throw new TracedError('ERR_AUTH_003', 'Vendor not found', { userId: user.id })
@@ -148,12 +153,17 @@ export async function POST(request: NextRequest) {
       throw new TracedError('ERR_AUTH_001', 'Unauthorized')
     }
 
-    // Get vendor profile with tier
-    const { data: vendor } = await supabase
+    // Parse body once — reused below for offering fields
+    const body = await request.json()
+    const vertical = body.vertical
+    let vpPostQuery = supabase
       .from('vendor_profiles')
       .select('id, tier, vertical_id')
       .eq('user_id', user.id)
-      .single()
+    if (vertical) {
+      vpPostQuery = vpPostQuery.eq('vertical_id', vertical)
+    }
+    const { data: vendor } = await vpPostQuery.single()
 
     if (!vendor) {
       throw new TracedError('ERR_AUTH_003', 'Vendor not found', { userId: user.id })
@@ -179,7 +189,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const body = await request.json()
     const {
       name,
       description,

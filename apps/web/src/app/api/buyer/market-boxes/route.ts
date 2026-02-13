@@ -11,7 +11,7 @@ import { getSubscriberDefault } from '@/lib/vendor-limits'
  * GET /api/buyer/market-boxes
  * List buyer's market box subscriptions
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/market-boxes', 'GET', async () => {
     const supabase = await createClient()
 
@@ -21,8 +21,11 @@ export async function GET() {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
+    const { searchParams } = new URL(request.url)
+    const vertical = searchParams.get('vertical')
+
     crumb.supabase('select', 'market_box_subscriptions')
-    const { data: subscriptions, error } = await supabase
+    let subQuery = supabase
       .from('market_box_subscriptions')
       .select(`
         id,
@@ -36,7 +39,7 @@ export async function GET() {
         created_at,
         completed_at,
         cancelled_at,
-        offering:market_box_offerings (
+        offering:market_box_offerings!inner (
           id,
           name,
           description,
@@ -47,6 +50,7 @@ export async function GET() {
           pickup_day_of_week,
           pickup_start_time,
           pickup_end_time,
+          vertical_id,
           vendor:vendor_profiles (
             id,
             profile_data
@@ -76,6 +80,13 @@ export async function GET() {
       `)
       .eq('buyer_user_id', user.id)
       .order('created_at', { ascending: false })
+
+    // Filter subscriptions by vertical via offering
+    if (vertical) {
+      subQuery = subQuery.eq('offering.vertical_id', vertical)
+    }
+
+    const { data: subscriptions, error } = await subQuery
 
     if (error) {
       throw traced.fromSupabase(error, { table: 'market_box_subscriptions', operation: 'select' })

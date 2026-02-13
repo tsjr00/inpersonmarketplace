@@ -120,6 +120,7 @@ export default function BuyerOrdersPage() {
     try {
       setError(null)
       const queryParams = new URLSearchParams()
+      queryParams.set('vertical', vertical)
       if (statusFilter) queryParams.set('status', statusFilter)
       if (marketFilter) queryParams.set('market', marketFilter)
       const response = await fetch(`/api/buyer/orders?${queryParams.toString()}`)

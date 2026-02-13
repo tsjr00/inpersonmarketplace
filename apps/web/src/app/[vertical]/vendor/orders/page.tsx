@@ -84,6 +84,7 @@ export default function VendorOrdersPage() {
   const fetchOrders = async () => {
     try {
       const params = new URLSearchParams()
+      params.set('vertical', vertical)
       if (statusFilter) params.set('status', statusFilter)
       if (marketFilter) params.set('market_id', marketFilter)
       if (pickupDateFilter) params.set('pickup_date', pickupDateFilter)
