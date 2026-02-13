@@ -117,7 +117,8 @@ export async function GET(request: NextRequest) {
             rating_count
           `)
           .in('id', vendorIds)
-          .eq('status', 'approved'),
+          .eq('status', 'approved')
+          .is('deleted_at', null),
 
         // Get listings for categories and counts
         supabase
@@ -365,7 +366,8 @@ async function fallbackNearbyQuery(
       .from('vendor_profiles')
       .select('id, profile_data, description, profile_image_url, tier, created_at, average_rating, rating_count')
       .in('id', vendorIds)
-      .eq('status', 'approved'),
+      .eq('status', 'approved')
+      .is('deleted_at', null),
     supabase
       .from('listings')
       .select('vendor_profile_id, category')

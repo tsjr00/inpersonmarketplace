@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 interface ReportRequest {
   reportId: string
@@ -67,11 +68,12 @@ export async function POST(request: NextRequest) {
     // Check if user is admin
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('roles')
+      .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
-    if (!profile?.roles?.includes('admin')) {
+    if (!hasAdminRole(profile || {})) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -519,7 +521,7 @@ async function generateOrderStatus(supabase: ReturnType<typeof createServiceClie
 }
 
 async function generateCancellations(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
-  let query = supabase
+  const query = supabase
     .from('order_items')
     .select(`
       id,

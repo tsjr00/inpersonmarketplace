@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 
 /*
@@ -77,7 +77,7 @@ interface CartItemResult {
 }
 
 // GET - Get user's cart with items
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cart', 'GET', async () => {
     const supabase = await createClient()
 

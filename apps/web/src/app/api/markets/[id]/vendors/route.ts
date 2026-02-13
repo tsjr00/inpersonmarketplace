@@ -108,6 +108,7 @@ export async function POST(
       .from('user_profiles')
       .select('id')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
     if (!userProfile) {
@@ -130,6 +131,7 @@ export async function POST(
       .from('vendor_profiles')
       .select('id, user_id, vertical_id')
       .eq('id', vendor_profile_id)
+      .is('deleted_at', null)
       .single()
 
     if (vendorError || !vendorProfile) {

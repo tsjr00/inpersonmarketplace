@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isPremiumTier, getTierLimits } from '@/lib/vendor-limits'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // GET - Get market stats for vendor (used in listing form)
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/market-stats', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vendor-market-stats:${clientIp}`, rateLimits.api)
@@ -33,6 +33,7 @@ export async function GET(request: Request) {
         .select('id, tier, home_market_id')
         .eq('user_id', user.id)
         .eq('vertical_id', vertical)
+        .is('deleted_at', null)
         .single()
 
       if (vpError || !vendorProfile) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 /**
  * GET /api/admin/errors
@@ -51,11 +52,12 @@ export async function GET(request: NextRequest) {
     crumb.supabase('select', 'user_profiles')
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('roles')
+      .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
-    const isPlatformAdmin = profile?.roles?.includes('admin')
+    const isPlatformAdmin = hasAdminRole(profile || {})
 
     // If not platform admin, verify they're a vertical admin for the requested vertical
     if (!isPlatformAdmin) {

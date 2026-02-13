@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 /**
  * GET /api/admin/vendor-activity/flags/[id]
@@ -33,9 +34,10 @@ export async function GET(
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
-    const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+    const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
@@ -102,9 +104,10 @@ export async function PATCH(
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
-    const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+    const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }

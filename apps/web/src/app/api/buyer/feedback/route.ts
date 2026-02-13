@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // POST - Submit feedback
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/feedback', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`buyer-feedback-post:${clientIp}`, rateLimits.submit)
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
 }
 
 // GET - Get user's own feedback history
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/feedback', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`buyer-feedback-get:${clientIp}`, rateLimits.submit)

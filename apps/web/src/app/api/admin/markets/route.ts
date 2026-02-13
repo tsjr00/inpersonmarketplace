@@ -1,12 +1,12 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { hasAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 
 // GET - Get all markets (admin view)
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/markets', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -33,6 +33,7 @@ export async function GET(request: Request) {
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
     let isAdmin = hasAdminRole(userProfile || {})
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
       .filter(m => m.submitted_by_vendor_id)
       .map(m => m.submitted_by_vendor_id)
 
-    let vendorMap: Record<string, string> = {}
+    const vendorMap: Record<string, string> = {}
     if (vendorIds.length > 0) {
       const { data: vendors } = await serviceClient
         .from('vendor_profiles')
@@ -125,7 +126,7 @@ export async function GET(request: Request) {
 }
 
 // POST - Create traditional market (admin only)
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return withErrorTracing('/api/admin/markets', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -145,6 +146,7 @@ export async function POST(request: Request) {
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
     if (!hasAdminRole(userProfile || {})) {

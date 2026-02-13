@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
@@ -14,7 +14,7 @@ import { getSubscriberDefault } from '@/lib/vendor-limits'
  */
 
 // POST - Add item to cart (listing or market box)
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return withErrorTracing('/api/cart/items', 'POST', async () => {
     const supabase = await createClient()
 

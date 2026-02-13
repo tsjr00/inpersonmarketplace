@@ -1,14 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 interface RouteParams {
   params: Promise<{ verticalId: string }>
 }
 
 // GET - List all admins for a vertical
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/admin/verticals/[verticalId]/admins', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -30,12 +31,10 @@ export async function GET(request: Request, { params }: RouteParams) {
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
-      const isPlatformAdmin = callerProfile?.role === 'admin' ||
-                              callerProfile?.role === 'platform_admin' ||
-                              callerProfile?.roles?.includes('admin') ||
-                              callerProfile?.roles?.includes('platform_admin')
+      const isPlatformAdmin = hasAdminRole(callerProfile || {})
 
       // Check if vertical admin for this vertical
       const { data: callerVerticalAdmin } = await supabase
@@ -73,7 +72,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
       // Get user details for each admin
       const userIds = verticalAdmins?.map(va => va.user_id) || []
-      let userDetails: Record<string, { email: string; display_name: string | null }> = {}
+      const userDetails: Record<string, { email: string; display_name: string | null }> = {}
 
       if (userIds.length > 0) {
         const { data: users } = await serviceClient
@@ -108,7 +107,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 }
 
 // POST - Add a vertical admin
-export async function POST(request: Request, { params }: RouteParams) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/admin/verticals/[verticalId]/admins', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -130,12 +129,10 @@ export async function POST(request: Request, { params }: RouteParams) {
         .from('user_profiles')
         .select('role, roles, is_chief_platform_admin')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
-      const isPlatformAdmin = callerProfile?.role === 'admin' ||
-                              callerProfile?.role === 'platform_admin' ||
-                              callerProfile?.roles?.includes('admin') ||
-                              callerProfile?.roles?.includes('platform_admin')
+      const isPlatformAdmin = hasAdminRole(callerProfile || {})
 
       const { data: callerVerticalAdmin } = await supabase
         .from('vertical_admins')

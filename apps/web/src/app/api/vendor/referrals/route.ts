@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       .from('vendor_profiles')
       .select('id, referral_code')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
     if (!vendorProfile) {

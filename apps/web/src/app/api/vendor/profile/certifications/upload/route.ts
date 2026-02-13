@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -13,7 +13,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
  * Accepts FormData with 'document' file field.
  * Returns the public URL for storage in the certifications JSONB.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile/certifications/upload', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vendor-cert-upload:${clientIp}`, rateLimits.submit)

@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 // GET - Get all order issues (admin only)
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/order-issues', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -25,9 +26,10 @@ export async function GET(request: Request) {
         .from('user_profiles')
         .select('role, roles')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
-      if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
+      if (profileError || !userProfile || !hasAdminRole(userProfile || {})) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
       }
 
@@ -96,7 +98,7 @@ export async function GET(request: Request) {
 
       // Get order data for each issue
       const orderIds = [...new Set(filteredIssues.map((i: any) => i.order_id).filter(Boolean))]
-      let ordersMap: Record<string, any> = {}
+      const ordersMap: Record<string, any> = {}
 
       if (orderIds.length > 0) {
         const { data: orders } = await serviceClient
@@ -113,13 +115,14 @@ export async function GET(request: Request) {
 
       // Get buyer info
       const buyerIds = [...new Set(Object.values(ordersMap).map((o: any) => o.buyer_user_id).filter(Boolean))]
-      let buyersMap: Record<string, any> = {}
+      const buyersMap: Record<string, any> = {}
 
       if (buyerIds.length > 0) {
         const { data: buyers } = await serviceClient
           .from('user_profiles')
           .select('user_id, email, display_name')
           .in('user_id', buyerIds)
+          .is('deleted_at', null)
 
         if (buyers) {
           buyers.forEach((b: any) => {
@@ -130,7 +133,7 @@ export async function GET(request: Request) {
 
       // Get vendor info
       const vendorProfileIds = [...new Set(filteredIssues.map((i: any) => i.vendor_profile_id).filter(Boolean))]
-      let vendorsMap: Record<string, any> = {}
+      const vendorsMap: Record<string, any> = {}
 
       if (vendorProfileIds.length > 0) {
         const { data: vendors } = await serviceClient
@@ -197,7 +200,7 @@ export async function GET(request: Request) {
 }
 
 // PATCH - Update order issue status/notes (admin only)
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/admin/order-issues', 'PATCH', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
@@ -218,9 +221,10 @@ export async function PATCH(request: Request) {
         .from('user_profiles')
         .select('role, roles')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .single()
 
-      if (profileError || !userProfile || (userProfile.role !== 'admin' && !userProfile.roles?.includes('admin'))) {
+      if (profileError || !userProfile || !hasAdminRole(userProfile || {})) {
         return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
       }
 

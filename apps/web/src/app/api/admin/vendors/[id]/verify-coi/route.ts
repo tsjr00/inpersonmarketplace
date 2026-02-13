@@ -34,6 +34,7 @@ export async function POST(
       .from('user_profiles')
       .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
     let isAdmin = hasAdminRole(userProfile || {})

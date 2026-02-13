@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/verticals', 'GET', async () => {
@@ -23,11 +24,12 @@ export async function GET(request: NextRequest) {
     // Check if user is admin
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('roles')
+      .select('role, roles')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .single()
 
-    if (!profile?.roles?.includes('admin') && !profile?.roles?.includes('platform_admin')) {
+    if (!hasAdminRole(profile || {})) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
