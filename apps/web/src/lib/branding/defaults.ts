@@ -36,9 +36,9 @@ export const defaultBranding: Record<string, VerticalBranding> = {
       text: '#2d2d2d'
     },
     meta: {
-      title: 'Fresh Market - Local Farmers & Producers',
-      description: 'Buy fresh produce directly from local farmers',
-      keywords: 'farmers market, fresh produce, local food, organic'
+      title: 'Fresh Market | Local Farmers Markets & Farm Fresh Food',
+      description: 'Discover fresh, local food from farmers markets near you. Browse products from verified vendors, pre-order online, and pick up at your neighborhood market. Support local farmers and artisans.',
+      keywords: 'farmers market, local food, fresh produce, farm fresh, local vendors, organic food, farmers market near me, local farmers, artisan food, farm to table, buy local, fresh vegetables, local meat, local bakery'
     }
   }
 }

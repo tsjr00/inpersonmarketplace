@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface VerticalAdmin {
   id: string
@@ -117,7 +118,7 @@ export default function VerticalAdminManagementPage() {
     )
   }
 
-  const verticalDisplayName = vertical === 'farmers_market' ? 'Farmers Market' : vertical
+  const verticalDisplayName = term(vertical, 'display_name')
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 20px' }}>

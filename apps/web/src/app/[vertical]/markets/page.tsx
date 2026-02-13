@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import MarketFilters from './MarketFilters'
 import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 import { getMarketVendorCounts, mergeVendorCounts } from '@/lib/db/markets'
 
 const LOCATION_COOKIE_NAME = 'user_location'
@@ -202,7 +203,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
           fontSize: typography.sizes['2xl'],
           fontWeight: typography.weights.bold
         }}>
-          Farmers Markets
+          {term(vertical, 'traditional_markets')}
         </h1>
         <p style={{
           color: colors.textSecondary,

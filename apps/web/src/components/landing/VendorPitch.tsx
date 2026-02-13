@@ -3,6 +3,7 @@
 import { Check } from 'lucide-react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { getContent } from '@/lib/vertical'
 
 interface VendorPitchProps {
   vertical: string
@@ -14,29 +15,13 @@ interface VendorPitchProps {
  * Uses inverse text colors, lighter accent for icons
  */
 export function VendorPitch({ vertical }: VendorPitchProps) {
-  const isFarmersMarket = vertical === 'farmers_market'
+  const { vendor_pitch } = getContent(vertical)
 
   // Benefits organized by theme pairs (displayed in 2-column grid):
   // Row 1: Market Preparation
   // Row 2: Operations & Payments
   // Row 3: Customer Growth
-  const benefits = isFarmersMarket
-    ? [
-        'Pre-sell products before market day',
-        'Know what to bring, reduce waste',
-        'Manage orders and inventory easily',
-        'Credit card fees already built in',
-        'Build a loyal VIP customer base',
-        'Get discovered by local shoppers',
-      ]
-    : [
-        'Reach more local customers online',
-        'Accept secure online payments',
-        'Manage inventory and orders easily',
-        'Build customer relationships',
-        'Track sales and analytics',
-        'Grow your business with less hassle',
-      ]
+  const benefits = vendor_pitch.benefits
 
   return (
     <section
@@ -57,7 +42,7 @@ export function VendorPitch({ vertical }: VendorPitchProps) {
               marginBottom: spacing.sm,
             }}
           >
-            Grow Your Business
+            {vendor_pitch.headline}
           </h2>
           <p
             style={{
@@ -68,10 +53,7 @@ export function VendorPitch({ vertical }: VendorPitchProps) {
               marginRight: 'auto',
             }}
           >
-            {isFarmersMarket
-              ? 'Join local farmers, bakers, and artisans already selling through our platform.'
-              : 'Join our marketplace and connect with buyers in your area.'
-            }
+            {vendor_pitch.subtitle}
           </p>
         </div>
 
@@ -145,7 +127,7 @@ export function VendorPitch({ vertical }: VendorPitchProps) {
               e.currentTarget.style.transform = 'translateY(0)'
             }}
           >
-            Become a Vendor
+            {vendor_pitch.cta}
           </Link>
 
           <p
@@ -159,9 +141,7 @@ export function VendorPitch({ vertical }: VendorPitchProps) {
               lineHeight: typography.leading.relaxed,
             }}
           >
-            Everything you need in one place — manage listings, track orders, and grow your
-            customer base. Designed to support vendors of all sizes, from weekend market stands
-            to full-time operations.
+            {vendor_pitch.description}
           </p>
         </div>
       </div>

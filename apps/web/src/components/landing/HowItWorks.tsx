@@ -3,42 +3,35 @@
 import { Search, ShoppingCart, Package, Users } from 'lucide-react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getContent } from '@/lib/vertical'
 
 interface HowItWorksProps {
   vertical: string
 }
 
 export function HowItWorks({ vertical }: HowItWorksProps) {
-  const isFarmersMarket = vertical === 'farmers_market'
+  const { how_it_works } = getContent(vertical)
 
   const steps = [
     {
       icon: Search,
-      title: 'Discover',
-      description: isFarmersMarket
-        ? 'Find farmers markets and vendors near you. Browse fresh produce, baked goods, and artisan products.'
-        : 'Browse verified vendors and discover quality products from local sellers.'
+      title: how_it_works.step1_title,
+      description: how_it_works.step1_text,
     },
     {
       icon: ShoppingCart,
-      title: 'Shop & Order',
-      description: isFarmersMarket
-        ? 'Choose your market. Add items to your cart. Complete your order with secure checkout (from one or more vendors).'
-        : 'Add items to your cart from multiple vendors. Complete your order with secure checkout.'
+      title: how_it_works.step2_title,
+      description: how_it_works.step2_text,
     },
     {
       icon: Package,
-      title: 'Pick Up Fresh',
-      description: isFarmersMarket
-        ? 'Visit the market. Collect your pre-ordered items — your selections are set aside and waiting.'
-        : 'Collect your items at the designated pickup point. Quick, easy, and convenient.'
+      title: how_it_works.step3_title,
+      description: how_it_works.step3_text,
     },
     {
       icon: Users,
-      title: 'Enjoy the Market',
-      description: isFarmersMarket
-        ? 'Take your time browsing other vendors, meet friends, and enjoy being part of your local community.'
-        : 'Connect with local sellers and discover more products in your area.'
+      title: how_it_works.step4_title,
+      description: how_it_works.step4_text,
     }
   ]
 

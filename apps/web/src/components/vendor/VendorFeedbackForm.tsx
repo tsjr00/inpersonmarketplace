@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 type FeedbackCategory = 'suggest_market' | 'technical_problem' | 'feature_request' | 'payment_issue' | 'order_management' | 'listing_help' | 'general_feedback'
 
@@ -11,50 +12,52 @@ interface VendorFeedbackFormProps {
   onSuccess?: () => void
 }
 
-const CATEGORIES: { value: FeedbackCategory; label: string; description: string; icon: string }[] = [
-  {
-    value: 'suggest_market',
-    label: 'Suggest a Market',
-    description: 'Tell us about a farmers market where you sell that isn\'t on our platform yet',
-    icon: '🏪'
-  },
-  {
-    value: 'technical_problem',
-    label: 'Report a Technical Problem',
-    description: 'Something not working right? Let us know so we can fix it',
-    icon: '🔧'
-  },
-  {
-    value: 'listing_help',
-    label: 'Listing Help',
-    description: 'Need help with creating, editing, or managing your product listings',
-    icon: '📦'
-  },
-  {
-    value: 'order_management',
-    label: 'Order Management Issue',
-    description: 'Problems with viewing, confirming, or fulfilling customer orders',
-    icon: '📋'
-  },
-  {
-    value: 'payment_issue',
-    label: 'Payment or Stripe Issue',
-    description: 'Questions or problems with payments, payouts, or Stripe setup',
-    icon: '💳'
-  },
-  {
-    value: 'feature_request',
-    label: 'Request a Feature',
-    description: 'Have an idea that would help you sell more or manage your business better?',
-    icon: '💡'
-  },
-  {
-    value: 'general_feedback',
-    label: 'General Feedback',
-    description: 'Anything else you\'d like to share with us',
-    icon: '💬'
-  }
-]
+function getCategories(vertical: string): { value: FeedbackCategory; label: string; description: string; icon: string }[] {
+  return [
+    {
+      value: 'suggest_market',
+      label: `Suggest a ${term(vertical, 'market')}`,
+      description: `Tell us about a ${term(vertical, 'traditional_market').toLowerCase()} where you sell that isn't on our platform yet`,
+      icon: '🏪'
+    },
+    {
+      value: 'technical_problem',
+      label: 'Report a Technical Problem',
+      description: 'Something not working right? Let us know so we can fix it',
+      icon: '🔧'
+    },
+    {
+      value: 'listing_help',
+      label: `${term(vertical, 'listing')} Help`,
+      description: `Need help with creating, editing, or managing your ${term(vertical, 'listings').toLowerCase()}`,
+      icon: '📦'
+    },
+    {
+      value: 'order_management',
+      label: 'Order Management Issue',
+      description: 'Problems with viewing, confirming, or fulfilling customer orders',
+      icon: '📋'
+    },
+    {
+      value: 'payment_issue',
+      label: 'Payment or Stripe Issue',
+      description: 'Questions or problems with payments, payouts, or Stripe setup',
+      icon: '💳'
+    },
+    {
+      value: 'feature_request',
+      label: 'Request a Feature',
+      description: 'Have an idea that would help you sell more or manage your business better?',
+      icon: '💡'
+    },
+    {
+      value: 'general_feedback',
+      label: 'General Feedback',
+      description: 'Anything else you\'d like to share with us',
+      icon: '💬'
+    }
+  ]
+}
 
 export default function VendorFeedbackForm({ vertical, onClose, onSuccess }: VendorFeedbackFormProps) {
   const [category, setCategory] = useState<FeedbackCategory | ''>('')
@@ -258,7 +261,7 @@ export default function VendorFeedbackForm({ vertical, onClose, onSuccess }: Ven
               What can we help with? *
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-              {CATEGORIES.map(cat => (
+              {getCategories(vertical).map(cat => (
                 <label
                   key={cat.value}
                   style={{
@@ -305,7 +308,7 @@ export default function VendorFeedbackForm({ vertical, onClose, onSuccess }: Ven
               marginBottom: spacing.lg
             }}>
               <h4 style={{ margin: `0 0 ${spacing.md} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: '#166534' }}>
-                Market Details
+                {term(vertical, 'market')} Details
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                 <div>
@@ -316,7 +319,7 @@ export default function VendorFeedbackForm({ vertical, onClose, onSuccess }: Ven
                     type="text"
                     value={marketName}
                     onChange={(e) => setMarketName(e.target.value)}
-                    placeholder="e.g., Downtown Saturday Farmers Market"
+                    placeholder={`e.g., Downtown Saturday ${term(vertical, 'traditional_market')}`}
                     required
                     style={{
                       width: '100%',

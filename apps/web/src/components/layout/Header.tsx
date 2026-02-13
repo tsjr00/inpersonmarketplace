@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CartButton } from '@/components/cart/CartButton'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface HeaderProps {
   vertical: string
@@ -159,7 +160,7 @@ export function Header({
                 fontSize: typography.sizes.sm
               }}
             >
-              Products
+              {term(vertical, 'products')}
             </Link>
 
             <Link
@@ -171,7 +172,7 @@ export function Header({
                 fontSize: typography.sizes.sm
               }}
             >
-              Markets
+              {term(vertical, 'markets')}
             </Link>
 
             <Link
@@ -183,7 +184,7 @@ export function Header({
                 fontSize: typography.sizes.sm
               }}
             >
-              Vendors
+              {term(vertical, 'vendors')}
             </Link>
 
             {user && (
@@ -322,7 +323,7 @@ export function Header({
                           lineHeight: '20px'
                         }}
                       >
-                        Become a Vendor
+                        {term(vertical, 'vendor_signup_cta')}
                       </Link>
                     )}
 
@@ -341,7 +342,7 @@ export function Header({
                           lineHeight: '20px'
                         }}
                       >
-                        Vendor Dashboard
+                        {term(vertical, 'vendor_dashboard_nav')}
                         {isPendingVendor && (
                           <span style={{
                             marginLeft: spacing['2xs'],
@@ -498,7 +499,7 @@ export function Header({
                 fontWeight: typography.weights.medium
               }}
             >
-              Products
+              {term(vertical, 'products')}
             </Link>
 
             <Link
@@ -513,7 +514,7 @@ export function Header({
                 fontWeight: typography.weights.medium
               }}
             >
-              Markets
+              {term(vertical, 'markets')}
             </Link>
 
             <Link
@@ -528,7 +529,7 @@ export function Header({
                 fontWeight: typography.weights.medium
               }}
             >
-              Vendors
+              {term(vertical, 'vendors')}
             </Link>
 
             {user ? (
@@ -575,7 +576,7 @@ export function Header({
                       fontWeight: typography.weights.medium
                     }}
                   >
-                    Become a Vendor
+                    {term(vertical, 'vendor_signup_cta')}
                   </Link>
                 )}
 
@@ -591,7 +592,7 @@ export function Header({
                       fontSize: typography.sizes.base
                     }}
                   >
-                    Vendor Dashboard
+                    {term(vertical, 'vendor_dashboard_nav')}
                     {isPendingVendor && (
                       <span style={{
                         marginLeft: spacing['2xs'],

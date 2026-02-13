@@ -7,6 +7,7 @@ import DeleteListingButton from './DeleteListingButton'
 import ListingShareButton from './ListingShareButton'
 import { formatPrice, getListingLimit, LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 
 interface ListingsPageProps {
@@ -341,7 +342,7 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
             fontSize: typography.sizes['2xl'],
             fontWeight: typography.weights.bold
           }}>
-            My Listings
+            {term(vertical, 'my_listings_nav')}
           </h1>
 
           {/* Market Filter Indicator */}
@@ -396,7 +397,7 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                   flex: 1
                 }}
               >
-                + New Listing
+                + {term(vertical, 'listing')}
               </Link>
             ) : (
               <span
@@ -415,7 +416,7 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                 }}
                 title={`Limit of ${limit} listings reached`}
               >
-                + New Listing
+                + {term(vertical, 'listing')}
               </span>
             )}
             <Link

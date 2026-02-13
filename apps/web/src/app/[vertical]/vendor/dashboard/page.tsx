@@ -12,6 +12,7 @@ import OnboardingChecklist from '@/components/vendor/OnboardingChecklist'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 import UpcomingPickupItem from './UpcomingPickupItem'
 
 interface VendorDashboardPageProps {
@@ -289,7 +290,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             fontSize: typography.sizes['2xl'],
             fontWeight: typography.weights.bold
           }}>
-            Vendor Dashboard
+            {term(vertical, 'vendor_dashboard_nav')}
           </h1>
         </div>
 
@@ -588,7 +589,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                   ? <span style={{ color: '#dc2626', fontWeight: typography.weights.medium }}>{outOfStockCount} out of stock{lowStockCount > 0 ? ` · ${lowStockCount} low` : ''}</span>
                   : lowStockCount > 0
                     ? <span style={{ color: '#d97706', fontWeight: typography.weights.medium }}>{lowStockCount} low on stock</span>
-                    : 'Create and manage your product listings'}
+                    : `Create and manage your ${term(vertical, 'listings').toLowerCase()}`}
               </p>
             </div>
           </Link>
