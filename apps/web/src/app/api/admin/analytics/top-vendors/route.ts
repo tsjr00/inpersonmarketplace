@@ -29,84 +29,42 @@ export async function GET(request: NextRequest) {
     // Use service client for full access
     const serviceClient = createServiceClient()
 
-    // Build transactions query - get fulfilled transactions
-    let txQuery = serviceClient
-      .from('transactions')
-      .select(`
-        id,
-        vendor_profile_id,
-        listing:listings(price_cents, vertical_id)
-      `)
-      .eq('status', 'fulfilled')
-      .gte('created_at', `${startDate}T00:00:00`)
-      .lte('created_at', `${endDate}T23:59:59`)
-
-    if (verticalId) {
-      txQuery = txQuery.eq('listing.vertical_id', verticalId)
-    }
-
-    const { data: transactions, error: txError } = await txQuery
+    // Get aggregated top vendors from SQL function (GROUP BY instead of fetch-all)
+    const { data: rpcData, error: txError } = await serviceClient.rpc('get_top_vendors', {
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_vertical_id: verticalId || null,
+      p_limit: limit,
+    })
 
     if (txError) {
       return NextResponse.json({ error: txError.message }, { status: 500 })
     }
 
-    // Aggregate by vendor
-    const vendorStats: Record<string, {
-      vendor_id: string
-      total_sales: number
-      revenue: number
-    }> = {}
-
-    for (const tx of transactions || []) {
-      const vendorId = tx.vendor_profile_id
-      if (!vendorId) continue
-
-      const listingData = tx.listing as unknown
-      const listing = Array.isArray(listingData) ? listingData[0] : listingData
-      const priceCents = (listing as { price_cents?: number })?.price_cents || 0
-
-      if (!vendorStats[vendorId]) {
-        vendorStats[vendorId] = {
-          vendor_id: vendorId,
-          total_sales: 0,
-          revenue: 0
-        }
-      }
-
-      vendorStats[vendorId].total_sales++
-      vendorStats[vendorId].revenue += priceCents
-    }
-
-    // Get vendor details for top vendors
-    const topVendorIds = Object.values(vendorStats)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, limit)
-      .map(v => v.vendor_id)
-
-    if (topVendorIds.length === 0) {
+    if (!rpcData || rpcData.length === 0) {
       return NextResponse.json([])
     }
 
-    // Fetch vendor profile data
+    // Fetch vendor profile details for the top vendor IDs
+    const topVendorIds = rpcData.map((r: { vendor_profile_id: string }) => r.vendor_profile_id)
+
     const { data: vendorProfiles } = await serviceClient
       .from('vendor_profiles')
       .select('id, vertical_id, tier, profile_data')
       .in('id', topVendorIds)
 
-    // Build result with vendor details
-    const topVendors = topVendorIds.map(vendorId => {
-      const stats = vendorStats[vendorId]
-      const profile = vendorProfiles?.find(p => p.id === vendorId)
+    // Build result with vendor details, preserving SQL sort order
+    const topVendors = rpcData.map((row: { vendor_profile_id: string; total_sales: number; revenue: number }) => {
+      const profile = vendorProfiles?.find(p => p.id === row.vendor_profile_id)
       const profileData = profile?.profile_data as { business_name?: string; farm_name?: string } | null
 
       return {
-        vendor_id: vendorId,
+        vendor_id: row.vendor_profile_id,
         name: profileData?.business_name || profileData?.farm_name || 'Unknown Vendor',
         vertical_id: profile?.vertical_id || null,
         tier: profile?.tier || 'standard',
-        total_sales: stats.total_sales,
-        revenue: stats.revenue
+        total_sales: Number(row.total_sales),
+        revenue: Number(row.revenue)
       }
     })
 

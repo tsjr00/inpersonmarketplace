@@ -28,22 +28,7 @@ export async function GET(request: NextRequest) {
     // Use service client for full access
     const serviceClient = createServiceClient()
 
-    // Build queries - all independent, run in parallel
-    const txQuery = serviceClient
-      .from('transactions')
-      .select(`
-        id,
-        status,
-        created_at,
-        listing:listings(price_cents, vertical_id)
-      `)
-      .gte('created_at', `${startDate}T00:00:00`)
-      .lte('created_at', `${endDate}T23:59:59`)
-
-    // Apply vertical filter to transactions if specified
-    const txQueryFinal = verticalId ? txQuery.eq('listing.vertical_id', verticalId) : txQuery
-
-    // Run all queries in parallel
+    // Run all queries in parallel — transaction metrics use SQL aggregation
     const [
       txResult,
       usersResult,
@@ -51,8 +36,12 @@ export async function GET(request: NextRequest) {
       listingsResult,
       newUsersResult
     ] = await Promise.all([
-      // Query 1: Transactions
-      txQueryFinal,
+      // Query 1: Transaction metrics via SQL function (GROUP BY instead of fetch-all)
+      serviceClient.rpc('get_analytics_overview', {
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_vertical_id: verticalId || null,
+      }),
       // Query 2: Total user count
       serviceClient
         .from('user_profiles')
@@ -85,7 +74,7 @@ export async function GET(request: NextRequest) {
         .lte('created_at', `${endDate}T23:59:59`)
     ])
 
-    const { data: transactions, error: txError } = txResult
+    const { data: txMetrics, error: txError } = txResult
     const { count: totalUsers } = usersResult
     const { count: totalVendors } = vendorsResult
     const { data: listingsData, count: totalListings } = listingsResult
@@ -95,39 +84,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: txError.message }, { status: 500 })
     }
 
-    // Calculate transaction metrics
-    let totalRevenue = 0
-    let completedOrders = 0
-    let pendingOrders = 0
-    let cancelledOrders = 0
-
-    for (const tx of transactions || []) {
-      const listingData = tx.listing as unknown
-      const listing = Array.isArray(listingData) ? listingData[0] : listingData
-      const priceCents = (listing as { price_cents?: number })?.price_cents || 0
-
-      if (tx.status === 'fulfilled') {
-        completedOrders++
-        totalRevenue += priceCents
-      } else if (tx.status === 'accepted' || tx.status === 'initiated') {
-        pendingOrders++
-      } else if (tx.status === 'canceled' || tx.status === 'declined') {
-        cancelledOrders++
-      }
-    }
-
-    const totalOrders = (transactions || []).length
-    const averageOrderValue = completedOrders > 0 ? Math.round(totalRevenue / completedOrders) : 0
+    // SQL function returns a single row with aggregated metrics
+    const metrics = Array.isArray(txMetrics) ? txMetrics[0] : txMetrics
     const publishedListings = listingsData?.filter(l => l.status === 'published').length || 0
 
     return NextResponse.json({
-      // Transaction metrics
-      totalRevenue,
-      totalOrders,
-      averageOrderValue,
-      completedOrders,
-      pendingOrders,
-      cancelledOrders,
+      // Transaction metrics (from SQL aggregation)
+      totalRevenue: Number(metrics?.total_revenue ?? 0),
+      totalOrders: Number(metrics?.total_orders ?? 0),
+      averageOrderValue: Number(metrics?.average_order_value ?? 0),
+      completedOrders: Number(metrics?.completed_orders ?? 0),
+      pendingOrders: Number(metrics?.pending_orders ?? 0),
+      cancelledOrders: Number(metrics?.cancelled_orders ?? 0),
       // Platform metrics
       totalUsers: totalUsers || 0,
       totalVendors: totalVendors || 0,
