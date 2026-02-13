@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
             id,
             order_number,
             buyer_user_id,
+            vertical_id,
             stripe_checkout_session_id,
             buyer:user_profiles!orders_buyer_user_id_fkey (
               display_name,
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
                   vendorName: (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor',
                   amountCents: item.subtotal_cents
                 },
-                { userEmail: order.buyer?.email }
+                { userEmail: order.buyer?.email, vertical: order.vertical_id }
               )
             }
 
@@ -342,7 +343,8 @@ export async function GET(request: NextRequest) {
           order:orders (
             id,
             order_number,
-            buyer_user_id
+            buyer_user_id,
+            vertical_id
           ),
           vendor:vendor_profiles (
             id,
@@ -370,7 +372,7 @@ export async function GET(request: NextRequest) {
                 orderNumber: order.order_number || item.order_id.slice(0, 8),
                 itemTitle: listing?.title || 'Item',
                 vendorName: (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor',
-              })
+              }, { vertical: order.vertical_id })
             }
 
             // Mark as fulfilled — vendor did their part, buyer didn't show

@@ -22,6 +22,7 @@ import {
   NOTIFICATION_REGISTRY,
   URGENCY_CHANNELS,
 } from './types'
+import { defaultBranding } from '@/lib/branding/defaults'
 
 // ── External Clients (lazy init) ────────────────────────────────────
 
@@ -147,7 +148,8 @@ async function sendInApp(
 async function sendEmail(
   userEmail: string,
   subject: string,
-  body: string
+  body: string,
+  vertical?: string
 ): Promise<ChannelResult> {
   const resend = getResendClient()
   if (!resend) {
@@ -160,13 +162,16 @@ async function sendEmail(
   }
 
   const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
+  // C7 FIX: Use vertical-aware brand name instead of hardcoded "Farmers Marketing"
+  const brandName = (vertical && defaultBranding[vertical]?.brand_name) || 'Farmers Marketing'
+  const brandDomain = (vertical && defaultBranding[vertical]?.domain) || 'farmersmarketing.app'
 
   try {
     const { data, error } = await resend.emails.send({
-      from: `Farmers Marketing <${fromAddress}>`,
+      from: `${brandName} <${fromAddress}>`,
       to: userEmail,
       subject,
-      html: formatEmailHtml(subject, body),
+      html: formatEmailHtml(subject, body, brandName, brandDomain),
       text: body,
     })
 
@@ -185,7 +190,12 @@ async function sendEmail(
 }
 
 /** Wrap plain-text email body in a clean HTML template */
-function formatEmailHtml(subject: string, body: string): string {
+function formatEmailHtml(
+  subject: string,
+  body: string,
+  brandName: string = 'Farmers Marketing',
+  brandDomain: string = 'farmersmarketing.app'
+): string {
   const htmlBody = body
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -201,12 +211,12 @@ function formatEmailHtml(subject: string, body: string): string {
   <div style="max-width:560px;margin:0 auto;padding:32px 16px">
     <div style="background:#fff;border-radius:8px;padding:32px;border:1px solid #e5e7eb">
       <div style="margin-bottom:24px">
-        <strong style="color:#166534;font-size:18px">Farmers Marketing</strong>
+        <strong style="color:#166534;font-size:18px">${brandName}</strong>
       </div>
       <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6">${htmlBody}</p>
     </div>
     <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:16px">
-      Farmers Marketing &middot; <a href="https://farmersmarketing.app" style="color:#9ca3af">farmersmarketing.app</a>
+      ${brandName} &middot; <a href="https://${brandDomain}" style="color:#9ca3af">${brandDomain}</a>
     </p>
   </div>
 </body>
@@ -429,7 +439,7 @@ export async function sendNotification(
       }
       case 'email': {
         if (userEmail) {
-          results.push(await sendEmail(userEmail, title, message))
+          results.push(await sendEmail(userEmail, title, message, options?.vertical))
         } else {
           results.push({
             channel: 'email',

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id, status, vendor_payout_cents, order_id,
         buyer_confirmed_at, vendor_confirmed_at, vendor_profile_id,
-        order:orders!inner(id, order_number, buyer_user_id),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       orderNumber: handoffOrderData.order_number,
       vendorName: handoffVendorName,
       itemTitle: handoffListing?.title,
-    })
+    }, { vertical: handoffOrderData.vertical_id })
 
     return NextResponse.json({
       success: true,

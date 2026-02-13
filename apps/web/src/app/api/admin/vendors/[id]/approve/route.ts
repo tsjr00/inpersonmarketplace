@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { hasAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications'
 
 export async function POST(
   request: NextRequest,
@@ -85,27 +86,11 @@ export async function POST(
     const businessName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Your business'
     const vendorEmail = profileData?.email as string
 
-    // Try to create in-app notification (table may not exist yet)
-    try {
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: data.user_id,
-          type: 'vendor_approved',
-          title: 'Your Vendor Account is Approved!',
-          message: `Congratulations! ${businessName} has been approved. You can now publish your listings.`,
-          data: {
-            vendor_profile_id: vendorId,
-            approved_at: new Date().toISOString()
-          }
-        })
-    } catch (notifError) {
-      // Notifications table may not exist - log but don't fail
-      console.log('[NOTIFICATION] Could not create notification:', notifError)
-    }
-
-    // Log for email integration (future)
-    console.log(`[VENDOR APPROVED] ${vendorEmail || data.user_id} - ${businessName}`)
+    // C9 FIX: Use sendNotification() for multi-channel delivery (email + push + in-app)
+    await sendNotification(data.user_id, 'vendor_approved', {
+      vendorName: businessName,
+      vendorId: vendorId,
+    }, { vertical: data.vertical_id, userEmail: vendorEmail || undefined })
 
     return NextResponse.json({
       success: true,

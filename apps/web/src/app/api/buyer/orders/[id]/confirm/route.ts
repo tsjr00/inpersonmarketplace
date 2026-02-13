@@ -50,7 +50,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         order_id,
         order:orders!inner (
           id,
-          buyer_user_id
+          buyer_user_id,
+          vertical_id
         )
       `)
       .eq('id', orderItemId)
@@ -112,52 +113,64 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
         .eq('id', orderItemId)
 
-      // Trigger Stripe transfer to vendor (only if Stripe is fully ready)
-      crumb.logic('Processing vendor payout')
-      const isDev = process.env.NODE_ENV !== 'production'
+      // C1 FIX: Check if vendor was already paid (prevents double payout on race condition)
+      crumb.supabase('select', 'vendor_payouts')
+      const { data: existingPayout } = await supabase
+        .from('vendor_payouts')
+        .select('id, status')
+        .eq('order_item_id', orderItem.id)
+        .maybeSingle()
 
-      if (stripeReady) {
-        try {
-          const transfer = await transferToVendor({
-            amount: orderItem.vendor_payout_cents,
-            destination: vendorProfile.stripe_account_id,
-            orderId: orderItem.order_id,
-            orderItemId: orderItem.id,
-          })
+      if (existingPayout) {
+        crumb.logic('Vendor payout already exists, skipping transfer', { payoutId: existingPayout.id, status: existingPayout.status })
+      } else {
+        // Trigger Stripe transfer to vendor (only if Stripe is fully ready)
+        crumb.logic('Processing vendor payout')
+        const isDev = process.env.NODE_ENV !== 'production'
 
+        if (stripeReady) {
+          try {
+            const transfer = await transferToVendor({
+              amount: orderItem.vendor_payout_cents,
+              destination: vendorProfile.stripe_account_id,
+              orderId: orderItem.order_id,
+              orderItemId: orderItem.id,
+            })
+
+            crumb.supabase('insert', 'vendor_payouts')
+            await supabase.from('vendor_payouts').insert({
+              order_item_id: orderItem.id,
+              vendor_profile_id: vendorProfile.id,
+              amount_cents: orderItem.vendor_payout_cents,
+              stripe_transfer_id: transfer.id,
+              status: 'processing',
+            })
+          } catch (transferError) {
+            console.error('Stripe transfer failed:', transferError)
+            // Don't throw - buyer did their part, payment issue is admin concern
+          }
+        } else if (isDev) {
+          console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)
           crumb.supabase('insert', 'vendor_payouts')
           await supabase.from('vendor_payouts').insert({
             order_item_id: orderItem.id,
             vendor_profile_id: vendorProfile.id,
             amount_cents: orderItem.vendor_payout_cents,
-            stripe_transfer_id: transfer.id,
-            status: 'processing',
+            stripe_transfer_id: `dev_skip_${orderItemId}`,
+            status: 'skipped_dev',
           })
-        } catch (transferError) {
-          console.error('Stripe transfer failed:', transferError)
-          // Don't throw - buyer did their part, payment issue is admin concern
+        } else if (isProd && !stripeReady) {
+          // Vendor's Stripe not ready - record pending payout for admin follow-up
+          console.warn(`[WARN] Vendor Stripe not ready for payout on order item ${orderItemId}`)
+          crumb.supabase('insert', 'vendor_payouts')
+          await supabase.from('vendor_payouts').insert({
+            order_item_id: orderItem.id,
+            vendor_profile_id: vendorProfile.id,
+            amount_cents: orderItem.vendor_payout_cents,
+            stripe_transfer_id: `pending_stripe_${orderItemId}`,
+            status: 'pending_stripe_setup',
+          })
         }
-      } else if (isDev) {
-        console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)
-        crumb.supabase('insert', 'vendor_payouts')
-        await supabase.from('vendor_payouts').insert({
-          order_item_id: orderItem.id,
-          vendor_profile_id: vendorProfile.id,
-          amount_cents: orderItem.vendor_payout_cents,
-          stripe_transfer_id: `dev_skip_${orderItemId}`,
-          status: 'skipped_dev',
-        })
-      } else if (isProd && !stripeReady) {
-        // Vendor's Stripe not ready - record pending payout for admin follow-up
-        console.warn(`[WARN] Vendor Stripe not ready for payout on order item ${orderItemId}`)
-        crumb.supabase('insert', 'vendor_payouts')
-        await supabase.from('vendor_payouts').insert({
-          order_item_id: orderItem.id,
-          vendor_profile_id: vendorProfile.id,
-          amount_cents: orderItem.vendor_payout_cents,
-          stripe_transfer_id: `pending_stripe_${orderItemId}`,
-          status: 'pending_stripe_setup',
-        })
       }
 
       // Atomically mark order completed if all items are fully confirmed
@@ -199,7 +212,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (vendorProfile?.user_id) {
         await sendNotification(vendorProfile.user_id, 'pickup_confirmation_needed', {
           orderItemId,
-        })
+        }, { vertical: (order as { vertical_id?: string }).vertical_id })
       }
 
       return NextResponse.json({

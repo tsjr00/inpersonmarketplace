@@ -49,7 +49,7 @@ export async function POST(
       .from('order_items')
       .select(`
         id,
-        order:orders!inner(id, order_number, buyer_user_id),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id),
         listing:listings(title, vendor_profiles(profile_data)),
         market:markets!market_id(name)
       `)
@@ -80,7 +80,7 @@ export async function POST(
       vendorName,
       itemTitle: listing?.title,
       marketName: ((orderItem as any).market as any)?.name,
-    })
+    }, { vertical: orderData.vertical_id })
 
     return NextResponse.json({ success: true })
   })

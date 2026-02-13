@@ -48,7 +48,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         order:orders!inner (
           id,
           order_number,
-          buyer_user_id
+          buyer_user_id,
+          vertical_id
         )
       `)
       .eq('id', orderItemId)
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await sendNotification(vendorProfile.user_id, 'pickup_issue_reported', {
         orderNumber: (order as { order_number?: string }).order_number || orderItemId.slice(0, 8),
         reason: description,
-      })
+      }, { vertical: (order as { vertical_id?: string }).vertical_id })
     }
 
     return NextResponse.json({

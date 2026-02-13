@@ -128,6 +128,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           offering:market_box_offerings (
             id,
             name,
+            vertical_id,
             vendor_profile_id,
             vendor_profiles(profile_data)
           )
@@ -267,6 +268,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const sub = pickup.subscription as any
     const buyerUserId = sub?.buyer_user_id
     const offeringName = sub?.offering?.name
+    const mbVerticalId = sub?.offering?.vertical_id
     const mbVendorName = sub?.offering?.vendor_profiles?.profile_data?.business_name || 'Vendor'
     const completed = updated?.status === 'picked_up'
 
@@ -276,19 +278,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           orderNumber: `MB-${pickupId.slice(0, 6).toUpperCase()}`,
           vendorName: mbVendorName,
           itemTitle: offeringName,
-        })
+        }, { vertical: mbVerticalId })
       } else if (action === 'picked_up' && completed) {
         await sendNotification(buyerUserId, 'order_fulfilled', {
           orderNumber: `MB-${pickupId.slice(0, 6).toUpperCase()}`,
           vendorName: mbVendorName,
           itemTitle: offeringName,
-        })
+        }, { vertical: mbVerticalId })
       } else if (action === 'missed') {
         await sendNotification(buyerUserId, 'pickup_missed', {
           orderNumber: `MB-${pickupId.slice(0, 6).toUpperCase()}`,
           vendorName: mbVendorName,
           itemTitle: offeringName,
-        })
+        }, { vertical: mbVerticalId })
       }
     }
 
