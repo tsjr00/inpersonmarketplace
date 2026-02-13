@@ -437,7 +437,7 @@ export default function VendorManagementClient({
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                         <Link
-                          href={`/${vertical}/vendor/${vendor.id}/profile`}
+                          href={`/admin/vendors/${vendor.id}`}
                           style={{
                             padding: `${spacing['3xs']} ${spacing.xs}`,
                             fontSize: typography.sizes.sm,
@@ -448,7 +448,7 @@ export default function VendorManagementClient({
                             borderRadius: radius.sm
                           }}
                         >
-                          View
+                          Manage
                         </Link>
 
                         {(vendor.status === 'submitted' || vendor.status === 'draft') && (
