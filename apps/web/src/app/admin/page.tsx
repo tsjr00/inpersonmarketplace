@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 export default async function AdminDashboardPage() {
   await requireAdmin()
@@ -97,7 +98,7 @@ export default async function AdminDashboardPage() {
             fontWeight: typography.weights.medium
           }}
         >
-          ← Back to Farmers Market Admin
+          ← Back to {term('farmers_market', 'display_name')} Admin
         </Link>
       </div>
 

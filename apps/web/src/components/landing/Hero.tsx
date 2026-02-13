@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
+import { term, getContent } from '@/lib/vertical'
 import { LocationEntry } from './LocationEntry'
 
 interface HeroProps {
@@ -11,7 +12,7 @@ interface HeroProps {
 }
 
 export function Hero({ vertical, initialCity }: HeroProps) {
-  const isFarmersMarket = vertical === 'farmers_market'
+  const { hero } = getContent(vertical)
   const [userZipCode, setUserZipCode] = useState<string | null>(null)
 
   // Build URLs with location if available
@@ -66,19 +67,11 @@ export function Hero({ vertical, initialCity }: HeroProps) {
               letterSpacing: '-0.02em',
             }}
           >
-            {isFarmersMarket ? (
-              <>
-                Fresh, Local Food &
-                <br />
-                <span style={{ color: colors.primaryDark }}>Locally Made Products</span>
-              </>
-            ) : (
-              <>
-                Your Local Marketplace
-                <br />
-                <span style={{ color: colors.primaryDark }}>Shop With Confidence</span>
-              </>
-            )}
+            <>
+              {hero.headline_line1}
+              <br />
+              <span style={{ color: colors.primaryDark }}>{hero.headline_line2}</span>
+            </>
           </h1>
 
           {/* Subheadline */}
@@ -93,10 +86,7 @@ export function Hero({ vertical, initialCity }: HeroProps) {
               marginRight: 'auto',
             }}
           >
-            {isFarmersMarket
-              ? 'Browse products from local farmers and artisans. Pre-order online and pick up at your neighborhood market.'
-              : 'Discover quality products from verified local vendors. Shop securely and pick up at convenient locations near you.'
-            }
+            {hero.subtitle}
           </p>
 
           {/* CTAs — 3 outlined buttons, same style */}
@@ -105,9 +95,9 @@ export function Hero({ vertical, initialCity }: HeroProps) {
             style={{ gap: spacing.xs, marginBottom: spacing.xl }}
           >
             {[
-              { label: 'Browse Products', href: browseUrl },
-              { label: isFarmersMarket ? 'Find Markets' : 'Find Locations', href: marketsUrl },
-              { label: 'Find Vendors', href: vendorsUrl },
+              { label: term(vertical, 'browse_products_cta'), href: browseUrl },
+              { label: term(vertical, 'find_markets_cta'), href: marketsUrl },
+              { label: term(vertical, 'find_vendors_cta'), href: vendorsUrl },
             ].map((cta) => (
               <Link
                 key={cta.label}
@@ -144,27 +134,19 @@ export function Hero({ vertical, initialCity }: HeroProps) {
               fontSize: typography.sizes.sm,
             }}
           >
-            <div className="flex items-center gap-2">
-              <span
-                className="rounded-full"
-                style={{ width: 8, height: 8, backgroundColor: colors.primary }}
-              />
-              Local Vendors
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="rounded-full"
-                style={{ width: 8, height: 8, backgroundColor: colors.primary }}
-              />
-              Local Pickup
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className="rounded-full"
-                style={{ width: 8, height: 8, backgroundColor: colors.primary }}
-              />
-              Secure Payments
-            </div>
+            {[
+              term(vertical, 'trust_vendors'),
+              term(vertical, 'trust_pickup'),
+              term(vertical, 'trust_payments'),
+            ].map((label) => (
+              <div key={label} className="flex items-center gap-2">
+                <span
+                  className="rounded-full"
+                  style={{ width: 8, height: 8, backgroundColor: colors.primary }}
+                />
+                {label}
+              </div>
+            ))}
           </div>
         </div>
       </div>

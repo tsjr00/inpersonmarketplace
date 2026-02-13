@@ -9,6 +9,7 @@ import {
   Clock
 } from 'lucide-react'
 import { colors, spacing, typography, shadows, radius } from '@/lib/design-tokens'
+import { getContent } from '@/lib/vertical'
 
 interface FeaturesProps {
   vertical: string
@@ -20,49 +21,19 @@ interface FeaturesProps {
  * Card pattern with hover effects
  */
 export function Features({ vertical }: FeaturesProps) {
-  const isFarmersMarket = vertical === 'farmers_market'
+  const { features: f, platform } = getContent(vertical)
 
   // Cards organized by theme pairs:
   // Row 1: Trust & Community (Verified Vendors + Local Focus)
   // Row 2: Pre-order Benefits (No Sold-Out Items + Your Time, Your Way)
   // Row 3: Technology & Access (Mobile Friendly + Order Updates)
   const features = [
-    {
-      icon: Shield,
-      title: 'Verified Vendors',
-      description: 'Every vendor is verified before joining. Shop with confidence knowing you\'re buying from legitimate local sellers.'
-    },
-    {
-      icon: MapPin,
-      title: 'Local Focus',
-      description: isFarmersMarket
-        ? 'Search from 10 to 100 miles to find what\'s nearest to you. Built to serve both urban neighborhoods and rural communities — always focused on your most local vendors first.'
-        : 'Discover sellers near you. All transactions happen locally for easy pickup.'
-    },
-    {
-      icon: CheckCircle,
-      title: 'No Sold-Out Items',
-      description: isFarmersMarket
-        ? 'Pre-order your favorites with confirmed availability from the vendor. Sleep in on market day and still get everything you want.'
-        : 'Reserve products ahead of time. Confirmed availability means no disappointment.'
-    },
-    {
-      icon: Clock,
-      title: 'Your Time, Your Way',
-      description: isFarmersMarket
-        ? 'Pre-order and pick up on your schedule. Enjoy the market experience without the early morning rush.'
-        : 'Order ahead and pick up when it\'s convenient for you. No more rushing.'
-    },
-    {
-      icon: Smartphone,
-      title: 'Mobile Friendly',
-      description: 'Shop from any device, whether you\'re on the go or browsing from home. No laptop needed — everything works beautifully from your phone.'
-    },
-    {
-      icon: Bell,
-      title: 'Order Updates',
-      description: 'Stay informed with in-app, SMS, and email notifications. Opt into what you prefer and never miss an update.'
-    }
+    { icon: Shield, ...f.verified },
+    { icon: MapPin, ...f.local },
+    { icon: CheckCircle, ...f.no_soldout },
+    { icon: Clock, ...f.schedule },
+    { icon: Smartphone, ...f.mobile },
+    { icon: Bell, ...f.updates },
   ]
 
   return (
@@ -84,7 +55,7 @@ export function Features({ vertical }: FeaturesProps) {
               marginBottom: spacing.xs,
             }}
           >
-            Why Choose Our Platform
+            {platform.why_choose_headline}
           </h2>
           <p
             style={{
@@ -95,7 +66,7 @@ export function Features({ vertical }: FeaturesProps) {
               marginRight: 'auto',
             }}
           >
-            Built for shoppers and vendors who value quality, convenience, and community
+            {platform.why_choose_subtitle}
           </p>
         </div>
 

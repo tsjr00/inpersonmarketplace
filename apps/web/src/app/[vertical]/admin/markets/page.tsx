@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 type Schedule = {
   id: string
@@ -520,7 +521,7 @@ export default function AdminMarketsPage() {
                     boxSizing: 'border-box',
                     fontSize: typography.sizes.sm
                   }}
-                  placeholder="e.g., Downtown Farmers Market"
+                  placeholder={`e.g., Downtown ${term(vertical, 'traditional_market')}`}
                 />
               </div>
 

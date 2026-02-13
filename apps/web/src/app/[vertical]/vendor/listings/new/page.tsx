@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import ListingForm from '../ListingForm'
 import Link from 'next/link'
 import { getListingLimit } from '@/lib/constants'
+import { term } from '@/lib/vertical'
 
 interface NewListingPageProps {
   params: Promise<{ vertical: string }>
@@ -101,7 +102,7 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
               fontWeight: 600
             }}
           >
-            ← Back to My Listings
+            ← Back to {term(vertical, 'my_listings_nav')}
           </Link>
         </div>
       </div>
@@ -122,7 +123,7 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
         borderBottom: `2px solid ${branding.colors.primary}`
       }}>
         <h1 style={{ color: branding.colors.primary, marginBottom: 0, marginTop: 0 }}>
-          Create New Listing
+          {term(vertical, 'create_listing_cta')}
         </h1>
       </div>
 

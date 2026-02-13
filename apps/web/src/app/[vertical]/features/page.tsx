@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { Footer } from '@/components/landing'
+import { term, getContent } from '@/lib/vertical'
 
 interface FeaturesPageProps {
   params: Promise<{ vertical: string }>
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: FeaturesPageProps): Promise<M
 export default async function FeaturesPage({ params }: FeaturesPageProps) {
   const { vertical } = await params
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
-  const isFarmersMarket = vertical === 'farmers_market'
+  const content = getContent(vertical)
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
@@ -98,9 +99,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
           marginRight: 'auto',
           lineHeight: 1.6
         }}>
-          {isFarmersMarket
-            ? 'Pre-order from your favorite farmers market vendors, skip the lines, and pick up on your schedule.'
-            : 'Connect with local vendors, order ahead, and pick up when it works for you.'}
+          {content.features_page.hero_subtitle}
         </p>
       </section>
 
@@ -205,16 +204,12 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             {[
               {
                 title: 'Never Miss Your Favorites',
-                desc: isFarmersMarket
-                  ? 'Pre-order the best produce, baked goods, and artisan products before they sell out. Your items are reserved and waiting for you.'
-                  : 'Reserve products ahead of time. No more arriving to find your favorites are gone.',
+                desc: content.features_page.shopper_preorder_desc,
                 icon: '✓'
               },
               {
                 title: 'Skip the Lines',
-                desc: isFarmersMarket
-                  ? 'Walk past the crowds and head straight to pickup. Spend your market time enjoying the atmosphere, not waiting.'
-                  : 'Quick pickup means more time for what matters. In and out in minutes.',
+                desc: content.features_page.shopper_skip_lines_desc,
                 icon: '⚡'
               },
               {
@@ -374,9 +369,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
               },
               {
                 title: 'Multiple Pickup Options',
-                desc: isFarmersMarket
-                  ? 'Offer pickup at farmers markets or set up private pickup locations. Flexibility for you and your customers.'
-                  : 'Set your own pickup locations and times. Customers choose what works for them.',
+                desc: content.features_page.vendor_pickup_desc,
                 icon: '📍'
               },
               {
@@ -433,7 +426,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 fontSize: typography.sizes.lg
               }}
             >
-              Become a Vendor
+              {term(vertical, 'vendor_signup_cta')}
             </Link>
           </div>
         </div>
@@ -467,7 +460,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 marginBottom: spacing.sm
               }}>1</div>
               <p style={{ fontSize: typography.sizes.lg, margin: 0 }}>
-                {isFarmersMarket ? 'Browse local farmers markets' : 'Find vendors near you'}
+                {content.features_page.get_started_step1}
               </p>
             </div>
             <div>

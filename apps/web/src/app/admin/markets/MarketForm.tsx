@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { term } from '@/lib/vertical'
 
 interface Market {
   id: string
@@ -171,7 +172,7 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
             onChange={handleChange}
             required
             style={inputStyle}
-            placeholder="e.g., Downtown Farmers Market"
+            placeholder={`e.g., Downtown ${term(formData.vertical_id, 'traditional_market')}`}
           />
         </div>
 
@@ -201,8 +202,8 @@ export default function MarketForm({ market, verticals, mode }: MarketFormProps)
               required
               style={inputStyle}
             >
-              <option value="traditional">Traditional (Farmers Market)</option>
-              <option value="private_pickup">Private Pickup</option>
+              <option value="traditional">Traditional ({term(formData.vertical_id, 'traditional_market')})</option>
+              <option value="private_pickup">{term(formData.vertical_id, 'private_pickup')}</option>
             </select>
           </div>
         </div>

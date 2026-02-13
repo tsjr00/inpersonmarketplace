@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import ErrorDisplay from '@/components/shared/ErrorDisplay'
+import { term } from '@/lib/vertical'
 
 type Schedule = {
   id?: string
@@ -752,7 +753,7 @@ export default function VendorMarketsPage() {
           }}>
             <div>
               <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
-                Suggest a Farmers Market
+                {term(vertical, 'suggest_market_cta')}
               </h2>
               <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
                 Know of a farmers market that isn&apos;t listed? Submit it for review and help grow our community.

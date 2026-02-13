@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { VerticalBranding } from '@/lib/branding'
+import { term } from '@/lib/vertical'
 import { CATEGORIES } from '@/lib/constants'
 import Link from 'next/link'
 import MarketSelector from '@/components/vendor/MarketSelector'
@@ -495,7 +496,7 @@ export default function ListingForm({
               borderRadius: 6
             }}>
               <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: '#374151' }}>
-                Product Images
+                {term(vertical, 'product')} Images
               </label>
               <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
                 Save this listing first, then you can add photos by editing it.
@@ -664,7 +665,7 @@ export default function ListingForm({
             Available at <span style={{ color: '#c00' }}>*</span>
           </label>
           <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 12 }}>
-            Select the markets/locations where this product will be available
+            Select the {term(vertical, 'markets').toLowerCase()} where this {term(vertical, 'listing').toLowerCase()} will be available
           </p>
           <MarketSelector
             vertical={vertical}

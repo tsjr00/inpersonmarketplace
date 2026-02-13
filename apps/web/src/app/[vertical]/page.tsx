@@ -23,19 +23,9 @@ export async function generateMetadata({ params }: VerticalHomePageProps): Promi
   const { vertical } = await params
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
 
-  const isFarmersMarket = vertical === 'farmers_market'
-
-  const title = isFarmersMarket
-    ? 'Fresh Market | Local Farmers Markets & Farm Fresh Food'
-    : `${branding.brand_name} | ${branding.tagline}`
-
-  const description = isFarmersMarket
-    ? 'Discover fresh, local food from farmers markets near you. Browse products from verified vendors, pre-order online, and pick up at your neighborhood market. Support local farmers and artisans.'
-    : branding.meta.description
-
-  const keywords = isFarmersMarket
-    ? 'farmers market, local food, fresh produce, farm fresh, local vendors, organic food, farmers market near me, local farmers, artisan food, farm to table, buy local, fresh vegetables, local meat, local bakery'
-    : branding.meta.keywords
+  const title = branding.meta.title
+  const description = branding.meta.description
+  const keywords = branding.meta.keywords
 
   return {
     title,
