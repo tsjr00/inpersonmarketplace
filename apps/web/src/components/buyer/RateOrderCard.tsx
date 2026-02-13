@@ -36,7 +36,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
 
   const fetchUnratedOrders = async () => {
     try {
-      const res = await fetch('/api/buyer/orders/unrated')
+      const res = await fetch(`/api/buyer/orders/unrated?vertical=${vertical}`)
       if (res.ok) {
         const data = await res.json()
         setOrders(data.orders || [])
