@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
-import { createRefund } from '@/lib/stripe/payments'
+import { createRefund, transferToVendor } from '@/lib/stripe/payments'
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
@@ -20,14 +20,15 @@ function safeCompare(a: string, b: string): boolean {
 }
 
 /**
- * Cron endpoint to:
- * 1. Expire order items that haven't been confirmed in time (existing)
- * 2. Cancel expired pending Stripe orders (10min payment window)
- * 3. Cancel external payment orders past their pickup time
+ * Daily order & payment cleanup cron.
  *
- * Called by Vercel Cron (configured in vercel.json)
+ * Phase 1: Expire order items vendors didn't confirm in time
+ * Phase 2: Cancel Stripe orders where buyer never completed payment (10min window)
+ * Phase 3: Cancel external payment orders past their pickup date
+ * Phase 4: Notify buyers about missed pickups
+ * Phase 5: Retry failed vendor payouts (Stripe transfers)
  *
- * Security: Vercel cron requests include CRON_SECRET header
+ * Called by Vercel Cron daily at 6am UTC (configured in vercel.json)
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cron/expire-orders', 'GET', async () => {
@@ -392,11 +393,124 @@ export async function GET(request: NextRequest) {
       console.error('Phase 4 error:', phase4Error instanceof Error ? phase4Error.message : 'Unknown error')
     }
 
+    // ============================================================
+    // PHASE 5: Retry failed vendor payouts (Stripe transfers)
+    // Picks up vendor_payouts with status='failed', retries transfer
+    // After 7 days of failure, marks as cancelled + alerts admin
+    // ============================================================
+    let payoutsRetried = 0
+    let payoutsSucceeded = 0
+    let payoutsCancelled = 0
+    try {
+      const MAX_RETRY_AGE_DAYS = 7
+      const MAX_PAYOUTS_PER_RUN = 10
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - MAX_RETRY_AGE_DAYS)
+
+      // Get failed payouts within retry window
+      const { data: failedPayouts, error: payoutFetchError } = await supabase
+        .from('vendor_payouts')
+        .select(`
+          id,
+          order_item_id,
+          vendor_profile_id,
+          amount_cents,
+          created_at,
+          vendor_profiles!inner (
+            stripe_account_id,
+            stripe_payouts_enabled,
+            user_id
+          ),
+          order_items!inner (
+            order_id
+          )
+        `)
+        .eq('status', 'failed')
+        .gte('created_at', cutoffDate.toISOString())
+        .order('created_at', { ascending: true })
+        .limit(MAX_PAYOUTS_PER_RUN)
+
+      if (payoutFetchError) {
+        console.error('[Phase 5] Query error:', payoutFetchError)
+      } else if (failedPayouts && failedPayouts.length > 0) {
+        for (const payout of failedPayouts) {
+          const vendorProfile = payout.vendor_profiles as unknown as {
+            stripe_account_id: string | null
+            stripe_payouts_enabled: boolean
+            user_id: string
+          }
+          const orderItem = payout.order_items as unknown as { order_id: string }
+
+          // Skip if vendor still doesn't have Stripe ready
+          if (!vendorProfile?.stripe_account_id || !vendorProfile.stripe_payouts_enabled) {
+            continue
+          }
+
+          payoutsRetried++
+
+          try {
+            const transfer = await transferToVendor({
+              amount: payout.amount_cents,
+              destination: vendorProfile.stripe_account_id,
+              orderId: orderItem.order_id,
+              orderItemId: payout.order_item_id,
+            })
+
+            await supabase
+              .from('vendor_payouts')
+              .update({
+                status: 'processing',
+                stripe_transfer_id: transfer.id,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', payout.id)
+
+            payoutsSucceeded++
+            totalProcessed++
+          } catch {
+            // Update timestamp so we can track retry attempts
+            await supabase
+              .from('vendor_payouts')
+              .update({ updated_at: new Date().toISOString() })
+              .eq('id', payout.id)
+
+            totalErrors++
+          }
+        }
+      }
+
+      // Mark expired payouts (older than retry window) as cancelled
+      const { data: expiredPayouts } = await supabase
+        .from('vendor_payouts')
+        .select('id, amount_cents')
+        .eq('status', 'failed')
+        .lt('created_at', cutoffDate.toISOString())
+
+      if (expiredPayouts && expiredPayouts.length > 0) {
+        const expiredIds = expiredPayouts.map(p => p.id)
+        await supabase
+          .from('vendor_payouts')
+          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .in('id', expiredIds)
+
+        payoutsCancelled = expiredPayouts.length
+
+        const totalCents = expiredPayouts.reduce((sum, p) => sum + p.amount_cents, 0)
+        console.warn(
+          `[Phase 5] ALERT: ${payoutsCancelled} payouts cancelled after ${MAX_RETRY_AGE_DAYS} days. ` +
+          `Total: $${(totalCents / 100).toFixed(2)}. Manual resolution required.`
+        )
+      }
+    } catch (phase5Error) {
+      console.error('Phase 5 error:', phase5Error instanceof Error ? phase5Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Processed ${totalProcessed} expired/stale items`,
+      message: `Processed ${totalProcessed} items`,
       processed: totalProcessed,
       errors: totalErrors,
+      payouts: { retried: payoutsRetried, succeeded: payoutsSucceeded, cancelled: payoutsCancelled },
     })
   })
 }
