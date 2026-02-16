@@ -23,8 +23,8 @@ export const defaultBranding: Record<string, VerticalBranding> = {
     }
   },
   food_trucks: {
-    domain: 'streeteats.app',
-    brand_name: 'Street Eats',
+    domain: 'foodtruckn.app',
+    brand_name: "Food Truck'n",
     tagline: 'Skip the Line. Eat Local.',
     logo_path: '/logos/street-eats-logo.svg',
     favicon: '/logos/street-eats-logo.svg',
@@ -36,7 +36,7 @@ export const defaultBranding: Record<string, VerticalBranding> = {
       text: '#2d2d2d'
     },
     meta: {
-      title: 'Street Eats | Local Food Trucks Near You',
+      title: "Food Truck'n | Local Food Trucks Near You",
       description: 'Find food trucks near you. Pre-order your favorites online, skip the line, and pick up hot and ready. Support local food truck operators and chefs.',
       keywords: 'food trucks, food truck near me, street food, order ahead, food truck park, local food trucks, pre-order food, food truck menu'
     }

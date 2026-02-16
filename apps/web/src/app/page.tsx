@@ -48,10 +48,8 @@ async function MultiVerticalHome() {
         <div style={{ fontSize: 24, fontWeight: 'bold' }}>
           Marketplace Platform
         </div>
-        {user ? (
+        {user && (
           <Link href="/admin" style={{ color: '#0070f3' }}>Admin</Link>
-        ) : (
-          <span style={{ color: '#666' }}>Development Mode</span>
         )}
       </nav>
 
@@ -320,9 +318,9 @@ function UmbrellaHome() {
               </span>
             </a>
 
-            {/* Street Eats Card */}
+            {/* Food Truck'n Card */}
             <a
-              href="https://streeteats.app"
+              href="https://foodtruckn.app"
               style={{
                 display: 'block',
                 padding: 30,
@@ -338,7 +336,7 @@ function UmbrellaHome() {
                 fontSize: 24,
                 marginBottom: 10
               }}>
-                Street Eats
+                Food Truck&apos;n
               </h3>
               <p style={{ color: '#555', lineHeight: 1.6 }}>
                 Find food trucks near you. Pre-order your favorites,
@@ -350,7 +348,7 @@ function UmbrellaHome() {
                 color: '#e85d04',
                 fontWeight: 600
               }}>
-                Visit streeteats.app →
+                Visit foodtruckn.app →
               </span>
             </a>
           </div>

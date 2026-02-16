@@ -53,19 +53,33 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
     brandName: '815 Enterprises',
     logoPath: null
   },
+  'foodtruckn.app': {
+    domain: 'foodtruckn.app',
+    verticalId: 'food_trucks',
+    isAdmin: false,
+    brandName: "Food Truck'n",
+    logoPath: '/logos/street-eats-logo.svg'
+  },
+  'www.foodtruckn.app': {
+    domain: 'foodtruckn.app',
+    verticalId: 'food_trucks',
+    isAdmin: false,
+    brandName: "Food Truck'n",
+    logoPath: '/logos/street-eats-logo.svg'
+  },
   // Development/Staging
   'localhost:3002': {
     domain: 'localhost:3002',
     verticalId: null,  // Show all on localhost
     isAdmin: false,
-    brandName: 'FastWrks Dev',
+    brandName: 'Marketplace Dev',
     logoPath: null
   },
   'inpersonmarketplace.vercel.app': {
     domain: 'inpersonmarketplace.vercel.app',
     verticalId: null,  // Show all on staging
     isAdmin: false,
-    brandName: 'FastWrks Staging',
+    brandName: 'Marketplace Staging',
     logoPath: null
   }
 }
