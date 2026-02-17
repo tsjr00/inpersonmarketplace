@@ -26,7 +26,7 @@ interface PickupLocationsCardProps {
 
 export default function PickupLocationsCard({
   marketPickupDates,
-  primaryColor = '#16a34a'
+  primaryColor = colors.primary
 }: PickupLocationsCardProps) {
   if (!marketPickupDates || marketPickupDates.length === 0) {
     return null

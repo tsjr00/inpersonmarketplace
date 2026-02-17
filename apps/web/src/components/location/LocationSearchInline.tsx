@@ -166,19 +166,19 @@ export default function LocationSearchInline({
         alignItems: 'center',
         gap: spacing.sm,
         padding: `${spacing.xs} ${spacing.sm}`,
-        backgroundColor: '#f0fdf4',
-        border: '1px solid #86efac',
+        backgroundColor: colors.primaryLight,
+        border: `1px solid ${colors.primary}`,
         borderRadius: radius.md,
         fontSize: typography.sizes.sm,
         flexWrap: 'wrap'
       }}>
-        <span style={{ color: '#166534' }}>📍 {labelPrefix} {locationDisplay}</span>
+        <span style={{ color: colors.primaryDark }}>📍 {labelPrefix} {locationDisplay}</span>
         <button
           onClick={onClear}
           style={{
             background: 'none',
             border: 'none',
-            color: '#16a34a',
+            color: colors.primary,
             cursor: 'pointer',
             fontSize: typography.sizes.sm,
             textDecoration: 'underline',

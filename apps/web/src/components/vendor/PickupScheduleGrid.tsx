@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { colors } from '@/lib/design-tokens'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 
 interface PickupLocation {
@@ -180,14 +181,14 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                       <td key={day} style={{
                         textAlign: 'center',
                         padding: '8px 4px',
-                        color: times.length > 0 ? '#065f46' : '#d1d5db',
+                        color: times.length > 0 ? colors.primaryDark : '#d1d5db',
                         verticalAlign: 'top',
                         fontSize: 12
                       }}>
                         {times.length > 0 ? (
                           times.map((time, i) => (
                             <div key={i} style={{
-                              backgroundColor: '#d1fae5',
+                              backgroundColor: colors.primaryLight,
                               borderRadius: 4,
                               padding: '2px 4px',
                               marginBottom: i < times.length - 1 ? 2 : 0,
@@ -253,11 +254,11 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                     if (times.length === 0) return null
                     return (
                       <div key={day} style={{
-                        backgroundColor: '#d1fae5',
+                        backgroundColor: colors.primaryLight,
                         borderRadius: 6,
                         padding: '4px 8px',
                         fontSize: 12,
-                        color: '#065f46',
+                        color: colors.primaryDark,
                         fontWeight: 500
                       }}>
                         <span style={{ fontWeight: 600 }}>{DAYS_FULL[day]}</span>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { colors } from '@/lib/design-tokens'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -171,7 +172,7 @@ export default function MarketScheduleSelector({
           fontSize: 13,
           color: '#991b1b'
         }}>
-          You haven't selected any days. Your listings won't appear for this market until you select at least one day.
+          You haven&apos;t selected any days. Your listings won&apos;t appear for this market until you select at least one day.
         </div>
       )}
 
@@ -208,8 +209,8 @@ export default function MarketScheduleSelector({
                 alignItems: 'center',
                 gap: 12,
                 padding: '12px 16px',
-                backgroundColor: schedule.is_attending ? '#f0fdf4' : '#f9fafb',
-                border: `2px solid ${schedule.is_attending ? '#22c55e' : '#e5e7eb'}`,
+                backgroundColor: schedule.is_attending ? colors.primaryLight : '#f9fafb',
+                border: `2px solid ${schedule.is_attending ? colors.primary : '#e5e7eb'}`,
                 borderRadius: 8,
                 cursor: saving === schedule.id ? 'wait' : 'pointer',
                 opacity: saving === schedule.id ? 0.7 : 1,
@@ -224,7 +225,7 @@ export default function MarketScheduleSelector({
                 style={{
                   width: 20,
                   height: 20,
-                  accentColor: '#22c55e',
+                  accentColor: colors.primary,
                   cursor: saving === schedule.id ? 'wait' : 'pointer'
                 }}
               />
@@ -232,13 +233,13 @@ export default function MarketScheduleSelector({
                 <div style={{
                   fontWeight: 600,
                   fontSize: 15,
-                  color: schedule.is_attending ? '#166534' : '#374151'
+                  color: schedule.is_attending ? colors.primaryDark : '#374151'
                 }}>
                   {DAYS[schedule.day_of_week]}
                 </div>
                 <div style={{
                   fontSize: 13,
-                  color: schedule.is_attending ? '#15803d' : '#6b7280'
+                  color: schedule.is_attending ? colors.primaryDark : '#6b7280'
                 }}>
                   {formatTime12h(schedule.start_time)} - {formatTime12h(schedule.end_time)}
                 </div>
@@ -246,7 +247,7 @@ export default function MarketScheduleSelector({
               {schedule.is_attending && (
                 <span style={{
                   padding: '4px 10px',
-                  backgroundColor: '#22c55e',
+                  backgroundColor: colors.primary,
                   color: 'white',
                   borderRadius: 4,
                   fontSize: 12,
@@ -279,7 +280,7 @@ export default function MarketScheduleSelector({
         color: '#1e40af'
       }}>
         <strong>How this works:</strong> When buyers order from you at this market,
-        their pickup date will be calculated based on the days you've selected.
+        their pickup date will be calculated based on the days you&apos;ve selected.
         Orders will be assigned to your next available market day.
       </div>
     </div>

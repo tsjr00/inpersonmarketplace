@@ -238,8 +238,8 @@ export default function CertificationsForm({
           padding: spacing.sm,
           marginBottom: spacing.md,
           borderRadius: radius.sm,
-          backgroundColor: message.type === 'success' ? '#dcfce7' : '#fef2f2',
-          color: message.type === 'success' ? '#166534' : '#991b1b',
+          backgroundColor: message.type === 'success' ? colors.primaryLight : '#fef2f2',
+          color: message.type === 'success' ? colors.primaryDark : '#991b1b',
           fontSize: typography.sizes.sm
         }}>
           {message.text}
@@ -337,8 +337,8 @@ export default function CertificationsForm({
                           alignItems: 'center',
                           gap: spacing['3xs'],
                           padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: '#dcfce7',
-                          color: '#166534',
+                          backgroundColor: colors.primaryLight,
+                          color: colors.primaryDark,
                           borderRadius: radius.sm,
                           fontSize: typography.sizes.xs,
                           fontWeight: typography.weights.medium,

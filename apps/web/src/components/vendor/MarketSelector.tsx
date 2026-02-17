@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { colors } from '@/lib/design-tokens'
 
 type Market = {
   id: string
@@ -177,14 +178,14 @@ export default function MarketSelector({
       {/* Account Listing Count */}
       <div style={{
         padding: 12,
-        backgroundColor: isAtLimit ? '#fef2f2' : '#f0fdf4',
-        border: `1px solid ${isAtLimit ? '#fecaca' : '#bbf7d0'}`,
+        backgroundColor: isAtLimit ? '#fef2f2' : colors.primaryLight,
+        border: `1px solid ${isAtLimit ? '#fecaca' : colors.primary}`,
         borderRadius: 8,
         fontSize: 14
       }}>
         <div style={{
           fontWeight: 600,
-          color: isAtLimit ? '#dc2626' : '#16a34a',
+          color: isAtLimit ? '#dc2626' : colors.primary,
           marginBottom: 4
         }}>
           {effectiveCount} of {listingLimit} listings used
@@ -243,7 +244,7 @@ export default function MarketSelector({
                       {market.isHomeMarket && (
                         <span style={{
                           fontSize: 12,
-                          color: '#16a34a',
+                          color: colors.primary,
                           fontWeight: 600,
                           display: 'flex',
                           alignItems: 'center',

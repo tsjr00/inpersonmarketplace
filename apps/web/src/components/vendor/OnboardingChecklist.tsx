@@ -88,15 +88,15 @@ export default function OnboardingChecklist({ vendorStatus }: Props) {
     return (
       <div style={{
         padding: spacing.sm,
-        backgroundColor: '#f0fdf4',
-        border: '1px solid #bbf7d0',
+        backgroundColor: colors.primaryLight,
+        border: `1px solid ${colors.primary}`,
         borderRadius: radius.md,
         display: 'flex',
         alignItems: 'center',
         gap: spacing.xs,
       }}>
         <span style={{ fontSize: typography.sizes.lg }}>&#10003;</span>
-        <span style={{ fontSize: typography.sizes.sm, color: '#166534', fontWeight: typography.weights.medium }}>
+        <span style={{ fontSize: typography.sizes.sm, color: colors.primaryDark, fontWeight: typography.weights.medium }}>
           Onboarding complete — your listings can go live!
         </span>
       </div>
@@ -282,7 +282,7 @@ export default function OnboardingChecklist({ vendorStatus }: Props) {
               fontWeight: typography.weights.bold,
               flexShrink: 0,
               ...(gate.complete
-                ? { backgroundColor: '#dcfce7', color: '#166534' }
+                ? { backgroundColor: colors.primaryLight, color: colors.primaryDark }
                 : gate.status === 'rejected'
                   ? { backgroundColor: '#fee2e2', color: '#991b1b' }
                   : gate.status === 'pending' || gate.status === 'in_review'
@@ -347,10 +347,10 @@ export default function OnboardingChecklist({ vendorStatus }: Props) {
         <div style={{ padding: spacing.sm, textAlign: 'center' }}>
           <div style={{
             padding: spacing.xs,
-            backgroundColor: '#f0fdf4',
+            backgroundColor: colors.primaryLight,
             borderRadius: radius.sm,
             fontSize: typography.sizes.sm,
-            color: '#166534',
+            color: colors.primaryDark,
           }}>
             All required documents uploaded! Your application is ready for admin review.
           </div>
@@ -405,10 +405,10 @@ function Gate1Content({
       {docs && (
         <div style={{
           padding: spacing.xs,
-          backgroundColor: '#f0fdf4',
+          backgroundColor: colors.primaryLight,
           borderRadius: radius.sm,
           fontSize: typography.sizes.xs,
-          color: '#166534',
+          color: colors.primaryDark,
         }}>
           Business documents uploaded
         </div>

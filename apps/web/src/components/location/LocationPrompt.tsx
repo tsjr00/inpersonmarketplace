@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { colors } from '@/lib/design-tokens'
 
 interface LocationPromptProps {
   onLocationSet?: (lat: number, lng: number, source: 'gps' | 'manual') => void
@@ -134,8 +135,8 @@ export default function LocationPrompt({
   if (mode === 'success') {
     return (
       <div style={{
-        backgroundColor: '#f0fdf4',
-        border: '1px solid #86efac',
+        backgroundColor: colors.primaryLight,
+        border: `1px solid ${colors.primary}`,
         borderRadius: 8,
         padding: compact ? 12 : 16,
         display: 'flex',
@@ -144,8 +145,8 @@ export default function LocationPrompt({
         gap: 12
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ color: '#16a34a' }}>📍</span>
-          <span style={{ color: '#166534', fontWeight: 500 }}>
+          <span style={{ color: colors.primary }}>📍</span>
+          <span style={{ color: colors.primaryDark, fontWeight: 500 }}>
             Showing markets near {locationText}
           </span>
         </div>
@@ -154,7 +155,7 @@ export default function LocationPrompt({
           style={{
             background: 'none',
             border: 'none',
-            color: '#16a34a',
+            color: colors.primary,
             cursor: 'pointer',
             fontSize: 14,
             textDecoration: 'underline'

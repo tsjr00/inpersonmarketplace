@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { colors } from '@/lib/design-tokens'
 import { VendorTierType } from '@/lib/constants'
 
 interface Props {
@@ -246,8 +247,8 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
         <p style={{
           marginTop: 12,
           padding: 12,
-          backgroundColor: message.includes('success') ? '#d1fae5' : '#fee2e2',
-          color: message.includes('success') ? '#065f46' : '#991b1b',
+          backgroundColor: message.includes('success') ? colors.primaryLight : '#fee2e2',
+          color: message.includes('success') ? colors.primaryDark : '#991b1b',
           borderRadius: 6,
           fontSize: 14
         }}>

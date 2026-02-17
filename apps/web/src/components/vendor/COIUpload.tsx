@@ -50,7 +50,7 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
   const statusColors: Record<string, { bg: string; text: string; label: string }> = {
     not_submitted: { bg: '#f3f4f6', text: '#6b7280', label: 'Not submitted' },
     pending: { bg: '#fef3c7', text: '#92400e', label: 'Pending review' },
-    approved: { bg: '#dcfce7', text: '#166534', label: 'Approved' },
+    approved: { bg: colors.primaryLight, text: colors.primaryDark, label: 'Approved' },
     rejected: { bg: '#fee2e2', text: '#991b1b', label: 'Rejected' },
   }
 
@@ -112,8 +112,8 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
                   alignItems: 'center',
                   gap: spacing['3xs'],
                   padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: '#dcfce7',
-                  color: '#166534',
+                  backgroundColor: colors.primaryLight,
+                  color: colors.primaryDark,
                   borderRadius: radius.sm,
                   fontSize: typography.sizes.xs,
                   fontWeight: typography.weights.medium,
@@ -131,7 +131,7 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
         <div style={{
           marginTop: spacing.xs,
           fontSize: typography.sizes.xs,
-          color: '#166534',
+          color: colors.primaryDark,
         }}>
           Verified on {new Date(coiVerifiedAt).toLocaleDateString()}
         </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { colors } from '@/lib/design-tokens'
 import { resizeImage, isValidImageType } from '@/lib/utils/image-resize'
 
 interface MarketBoxImageUploadProps {
@@ -134,7 +135,7 @@ export function MarketBoxImageUpload({
                 width: 40,
                 height: 40,
                 border: '3px solid #e5e7eb',
-                borderTopColor: '#22c55e',
+                borderTopColor: colors.primary,
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite'
               }} />
@@ -188,8 +189,8 @@ export function MarketBoxImageUpload({
           }}
           onMouseEnter={(e) => {
             if (!disabled) {
-              e.currentTarget.style.borderColor = '#22c55e'
-              e.currentTarget.style.backgroundColor = '#f0fdf4'
+              e.currentTarget.style.borderColor = colors.primary
+              e.currentTarget.style.backgroundColor = colors.primaryLight
             }
           }}
           onMouseLeave={(e) => {

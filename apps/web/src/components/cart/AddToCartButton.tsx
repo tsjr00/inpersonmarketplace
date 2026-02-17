@@ -13,6 +13,7 @@ import {
   getPickupDateColor
 } from '@/types/pickup'
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { colors } from '@/lib/design-tokens'
 
 /*
  * PICKUP SCHEDULING CONTEXT
@@ -257,7 +258,7 @@ export function AddToCartButton({
                                 ? `2px solid ${primaryColor}`
                                 : '1px solid #e5e7eb',
                               borderRadius: 6,
-                              backgroundColor: isSelected ? '#f0fdf4' : 'white',
+                              backgroundColor: isSelected ? colors.primaryLight : 'white',
                               cursor: 'pointer',
                               textAlign: 'left',
                               display: 'flex',
@@ -350,7 +351,7 @@ export function AddToCartButton({
                     {/* Line 3: Pickup date and time */}
                     <div style={{
                       fontSize: 12,
-                      color: '#059669',
+                      color: colors.primaryDark,
                       marginTop: 4,
                       display: 'flex',
                       alignItems: 'center',
@@ -510,16 +511,16 @@ export function AddToCartButton({
         <div style={{
           marginTop: 12,
           padding: 10,
-          backgroundColor: '#dcfce7',
-          border: '1px solid #bbf7d0',
+          backgroundColor: colors.primaryLight,
+          border: `1px solid ${colors.primary}`,
           borderRadius: 6,
           fontSize: 13
         }}>
-          <p style={{ margin: 0, color: '#166534', fontWeight: 600 }}>
+          <p style={{ margin: 0, color: colors.primaryDark, fontWeight: 600 }}>
             In your cart:
           </p>
           {inCartItems.map(item => (
-            <p key={item.id} style={{ margin: '4px 0 0 0', color: '#166534' }}>
+            <p key={item.id} style={{ margin: '4px 0 0 0', color: colors.primaryDark }}>
               • {item.quantity}x{item.pickup_date ? ` for ${formatPickupDate(item.pickup_date)}` : ''} at {item.market_name || 'selected location'}
             </p>
           ))}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { colors } from '@/lib/design-tokens'
 
 interface ErrorDisplayProps {
   error: string | {
@@ -102,9 +103,9 @@ export default function ErrorDisplay({ error, onDismiss }: ErrorDisplayProps) {
                 marginTop: 8,
                 marginLeft: 8,
                 padding: '4px 10px',
-                backgroundColor: copied ? '#dcfce7' : '#fef3c7',
-                color: copied ? '#166534' : '#92400e',
-                border: `1px solid ${copied ? '#86efac' : '#fcd34d'}`,
+                backgroundColor: copied ? colors.primaryLight : '#fef3c7',
+                color: copied ? colors.primaryDark : '#92400e',
+                border: `1px solid ${copied ? colors.primary : '#fcd34d'}`,
                 borderRadius: 4,
                 fontSize: 12,
                 cursor: 'pointer',

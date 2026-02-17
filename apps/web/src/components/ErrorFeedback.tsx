@@ -78,18 +78,18 @@ export function ErrorFeedback({
     return (
       <div style={{
         padding: spacing.md,
-        backgroundColor: '#dcfce7',
-        border: '1px solid #86efac',
+        backgroundColor: colors.primaryLight,
+        border: `1px solid ${colors.primary}`,
         borderRadius: radius.md,
         marginTop: spacing.sm,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
           <span style={{ fontSize: typography.sizes.lg }}>✓</span>
           <div>
-            <p style={{ margin: 0, fontWeight: typography.weights.medium, color: '#166534' }}>
+            <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.primaryDark }}>
               Report submitted
             </p>
-            <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.sm, color: '#166534' }}>
+            <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.primaryDark }}>
               Thank you! Our team will investigate this issue.
             </p>
           </div>
@@ -101,9 +101,9 @@ export function ErrorFeedback({
               marginTop: spacing.sm,
               padding: `${spacing['2xs']} ${spacing.sm}`,
               backgroundColor: 'transparent',
-              border: `1px solid #166534`,
+              border: `1px solid ${colors.primaryDark}`,
               borderRadius: radius.sm,
-              color: '#166534',
+              color: colors.primaryDark,
               cursor: 'pointer',
               fontSize: typography.sizes.sm,
             }}
