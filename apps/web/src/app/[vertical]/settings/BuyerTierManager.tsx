@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { isBuyerPremiumEnabled } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
+import { colors } from '@/lib/design-tokens'
 
 interface BuyerTierManagerProps {
   vertical: string
@@ -131,9 +132,9 @@ export default function BuyerTierManager({
     <>
       <div style={{
         padding: 20,
-        backgroundColor: '#f0fdf4',
+        backgroundColor: colors.primaryLight,
         borderRadius: 8,
-        border: '1px solid #86efac'
+        border: `1px solid ${colors.primary}`
       }}>
         <div style={{
           display: 'flex',
@@ -146,13 +147,13 @@ export default function BuyerTierManager({
             margin: 0,
             fontSize: 16,
             fontWeight: 600,
-            color: '#166534'
+            color: colors.primaryDark
           }}>
             Premium Member
           </h3>
         </div>
 
-        <p style={{ margin: '0 0 8px 0', fontSize: 14, color: '#166534' }}>
+        <p style={{ margin: '0 0 8px 0', fontSize: 14, color: colors.primaryDark }}>
           You&apos;re enjoying all premium benefits:
         </p>
 
@@ -160,7 +161,7 @@ export default function BuyerTierManager({
           margin: '0 0 16px 0',
           paddingLeft: 20,
           fontSize: 13,
-          color: '#166534',
+          color: colors.primaryDark,
           lineHeight: 1.6
         }}>
           <li><strong>Market Box Subscriptions</strong> - exclusive access to vendor bundles</li>
@@ -174,7 +175,7 @@ export default function BuyerTierManager({
           <p style={{
             margin: '0 0 16px 0',
             fontSize: 13,
-            color: '#166534'
+            color: colors.primaryDark
           }}>
             Your membership renews on{' '}
             <strong>{new Date(tierExpiresAt).toLocaleDateString()}</strong>
@@ -186,8 +187,8 @@ export default function BuyerTierManager({
           style={{
             padding: '8px 16px',
             backgroundColor: 'transparent',
-            color: '#166534',
-            border: '1px solid #166534',
+            color: colors.primaryDark,
+            border: `1px solid ${colors.primaryDark}`,
             borderRadius: 6,
             fontSize: 13,
             cursor: 'pointer'

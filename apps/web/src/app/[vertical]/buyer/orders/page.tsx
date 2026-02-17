@@ -400,7 +400,7 @@ export default function BuyerOrdersPage() {
                   backgroundColor: colors.surfaceElevated,
                   borderRadius: radius.md,
                   border: needsAttention
-                    ? `2px solid ${isHandedOff ? '#b45309' : '#166534'}`
+                    ? `2px solid ${isHandedOff ? '#b45309' : colors.primaryDark}`
                     : `1px solid ${colors.border}`,
                   overflow: 'hidden',
                   cursor: 'pointer',
@@ -419,7 +419,7 @@ export default function BuyerOrdersPage() {
                   padding: `${spacing.sm} ${spacing.md}`,
                   borderBottom: (isCompletedOrder || isCancelledOrder) ? 'none' : `1px solid ${colors.borderMuted}`,
                   backgroundColor: needsAttention
-                    ? (isHandedOff ? '#fef3c7' : '#dcfce7')
+                    ? (isHandedOff ? '#fef3c7' : colors.primaryLight)
                     : colors.surfaceMuted,
                 }}>
                   {/* Top row: Price, Status, Date */}
@@ -568,14 +568,14 @@ export default function BuyerOrdersPage() {
                 {order.status === 'ready' && (
                   <div style={{
                     padding: `${spacing.sm} ${spacing.md}`,
-                    borderTop: `1px solid #86efac`,
-                    backgroundColor: '#dcfce7',
+                    borderTop: `1px solid ${colors.primary}`,
+                    backgroundColor: colors.primaryLight,
                   }}>
                     <p style={{
                       margin: 0,
                       fontSize: typography.sizes.base,
                       fontWeight: typography.weights.semibold,
-                      color: '#166534',
+                      color: colors.primaryDark,
                       display: 'flex',
                       alignItems: 'center',
                       gap: spacing['2xs'],
@@ -653,7 +653,7 @@ export default function BuyerOrdersPage() {
                   backgroundColor: colors.surfaceElevated,
                   borderRadius: radius.md,
                   border: isReady
-                    ? `2px solid #166534`
+                    ? `2px solid ${colors.primaryDark}`
                     : `1px solid ${colors.border}`,
                   overflow: 'hidden',
                   cursor: 'pointer',
@@ -670,7 +670,7 @@ export default function BuyerOrdersPage() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  backgroundColor: isReady ? '#dcfce7' : colors.surfaceMuted,
+                  backgroundColor: isReady ? colors.primaryLight : colors.surfaceMuted,
                   gap: spacing.xs,
                   flexWrap: 'wrap'
                 }}>
@@ -791,7 +791,7 @@ export default function BuyerOrdersPage() {
                         <p style={{
                           margin: `${spacing.xs} 0 0`,
                           fontSize: typography.sizes.sm,
-                          color: mb.next_pickup.status === 'ready' ? '#166534' : '#1e40af',
+                          color: mb.next_pickup.status === 'ready' ? colors.primaryDark : '#1e40af',
                           fontWeight: typography.weights.medium,
                         }}>
                           {mb.next_pickup.status === 'ready' ? 'Ready for pickup' : 'Next pickup'}:{' '}
@@ -808,14 +808,14 @@ export default function BuyerOrdersPage() {
                 {isReady && (
                   <div style={{
                     padding: `${spacing.sm} ${spacing.md}`,
-                    borderTop: '1px solid #86efac',
-                    backgroundColor: '#dcfce7',
+                    borderTop: `1px solid ${colors.primary}`,
+                    backgroundColor: colors.primaryLight,
                   }}>
                     <p style={{
                       margin: 0,
                       fontSize: typography.sizes.base,
                       fontWeight: typography.weights.semibold,
-                      color: '#166534',
+                      color: colors.primaryDark,
                       display: 'flex',
                       alignItems: 'center',
                       gap: spacing['2xs'],
@@ -839,8 +839,8 @@ export default function BuyerOrdersPage() {
                   <SectionHeader
                     title="Ready for Pickup"
                     count={readyOrders.length}
-                    color="#166534"
-                    bgColor="#dcfce7"
+                    color={colors.primaryDark}
+                    bgColor={colors.primaryLight}
                   />
                   {readyOrders.map(renderItem)}
                 </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { colors } from '@/lib/design-tokens'
 
 export default function SubscriptionSuccessPage() {
   const params = useParams()
@@ -103,7 +104,7 @@ export default function SubscriptionSuccessPage() {
         <div style={{
           width: 80,
           height: 80,
-          backgroundColor: '#dcfce7',
+          backgroundColor: colors.primaryLight,
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
@@ -139,7 +140,7 @@ export default function SubscriptionSuccessPage() {
 
         {/* Premium Benefits */}
         <div style={{
-          backgroundColor: '#f0fdf4',
+          backgroundColor: colors.primaryLight,
           borderRadius: 12,
           padding: 24,
           marginBottom: 32,
@@ -148,7 +149,7 @@ export default function SubscriptionSuccessPage() {
           <h3 style={{
             fontSize: 14,
             fontWeight: 600,
-            color: '#166534',
+            color: colors.primaryDark,
             margin: '0 0 16px 0',
             textTransform: 'uppercase',
             letterSpacing: 0.5
@@ -160,7 +161,7 @@ export default function SubscriptionSuccessPage() {
               margin: 0,
               paddingLeft: 20,
               fontSize: 14,
-              color: '#166534',
+              color: colors.primaryDark,
               lineHeight: 1.8
             }}>
               <li><strong>10 product listings</strong> (was 5)</li>
@@ -177,7 +178,7 @@ export default function SubscriptionSuccessPage() {
               margin: 0,
               paddingLeft: 20,
               fontSize: 14,
-              color: '#166534',
+              color: colors.primaryDark,
               lineHeight: 1.8
             }}>
               <li><strong>Market Box Subscriptions</strong> - exclusive access to vendor bundles</li>

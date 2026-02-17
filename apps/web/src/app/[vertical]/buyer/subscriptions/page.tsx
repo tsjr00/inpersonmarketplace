@@ -7,6 +7,7 @@ import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
+import { colors } from '@/lib/design-tokens'
 
 interface Pickup {
   id: string
@@ -361,7 +362,7 @@ export default function BuyerSubscriptionsPage() {
                       <div style={{ fontSize: 12, color: '#6b7280' }}>
                         {subscription.weeks_completed} of {subscription.total_weeks || subscription.term_weeks || 4} weeks
                         {subscription.extended_weeks > 0 && (
-                          <span style={{ display: 'block', fontSize: 11, color: '#059669' }}>
+                          <span style={{ display: 'block', fontSize: 11, color: colors.primary }}>
                             (+{subscription.extended_weeks} extended)
                           </span>
                         )}
@@ -385,10 +386,10 @@ export default function BuyerSubscriptionsPage() {
 
                       // Extension weeks get green background override
                       const pillBg = pickup.is_extension && pickup.status !== 'picked_up'
-                        ? '#dcfce7'
+                        ? colors.primaryLight
                         : pickupColor.bg
                       const pillBorder = pickup.is_extension
-                        ? '1px solid #bbf7d0'
+                        ? `1px solid ${colors.primary}`
                         : pickup.status === 'skipped'
                           ? '1px solid #fecaca'
                           : '1px solid transparent'
@@ -405,10 +406,10 @@ export default function BuyerSubscriptionsPage() {
                             minWidth: 80
                           }}
                         >
-                          <div style={{ fontSize: 11, color: pickup.is_extension ? '#166534' : pickupColor.text, fontWeight: 600 }}>
+                          <div style={{ fontSize: 11, color: pickup.is_extension ? colors.primaryDark : pickupColor.text, fontWeight: 600 }}>
                             Week {pickup.week_number}
                             {pickup.is_extension && (
-                              <span style={{ fontSize: 9, display: 'block', color: '#166534' }}>Extension</span>
+                              <span style={{ fontSize: 9, display: 'block', color: colors.primaryDark }}>Extension</span>
                             )}
                           </div>
                           <div style={{ fontSize: 12, color: pickupColor.text }}>

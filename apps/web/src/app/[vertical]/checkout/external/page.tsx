@@ -175,14 +175,14 @@ export default function ExternalCheckoutPage() {
         {/* Payment Instructions */}
         {isCash ? (
           <div style={{
-            backgroundColor: '#dcfce7',
+            backgroundColor: colors.primaryLight,
             borderRadius: radius.lg,
             padding: spacing.md,
             marginBottom: spacing.md,
-            border: '1px solid #16a34a'
+            border: `1px solid ${colors.primary}`
           }}>
             <h3 style={{
-              color: '#166534',
+              color: colors.primaryDark,
               fontSize: typography.sizes.base,
               fontWeight: typography.weights.semibold,
               margin: `0 0 ${spacing.xs} 0`
@@ -190,7 +190,7 @@ export default function ExternalCheckoutPage() {
               Pay Cash at Pickup
             </h3>
             <p style={{
-              color: '#166534',
+              color: colors.primaryDark,
               fontSize: typography.sizes.sm,
               margin: 0
             }}>

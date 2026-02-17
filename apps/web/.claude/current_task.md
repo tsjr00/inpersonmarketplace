@@ -1,73 +1,102 @@
-# Current Task: Per-Vertical Buyer Premium — COMPLETE
+# Current Task: Visual/CSS Brand Alignment — PHASE 2 COMPLETE
 
-Started: 2026-02-17
-Status: READY TO COMMIT
+Started: 2026-02-17 (Session 30)
+Status: PHASE 2 COMPLETE — ready to commit
 
-## What Was Done
+## Goal
+Replace hardcoded green (FM-brand) colors with CSS var tokens (`colors.primary`, `colors.primaryDark`, `colors.primaryLight` from design-tokens.ts) across the entire app. Food truck vertical should use red (#E53935) / charcoal (#4A4A4A) from brand kit, not green.
 
-### Per-Vertical Buyer Premium Configuration
-Made buyer premium features (2-hour early access, upgrade UI, premium badges) configurable per-vertical. Food trucks have premium DISABLED. Farmers market keeps premium as-is.
+## Results
+- **Before**: 296 hardcoded green instances across 65 files
+- **After**: 76 remaining across 34 files — ALL semantic (status badges, order states, approval indicators)
+- **220 brand-green instances replaced** with CSS var tokens across **48 source files**
+- TypeScript compiles clean (`npx tsc --noEmit` passes)
 
-### Implementation (4 steps)
+## Commits This Session (Session 30)
+1. `e8b352d` — Per-vertical buyer premium configuration (15 files)
+2. `0afe93e` — Move migration 026 to applied
+3. `ccb8a54` — Update schema snapshot for migration 026
+4. `cc280c4` — Strengthen schema snapshot update rules
+5. `fe84eb9` — Fix food truck visual issues: brand colors, terminology, form styling (11 files)
+6. **PENDING COMMIT** — Replace hardcoded brand-green colors with CSS var tokens (~48 files)
 
-**Step 1: Feature Config System (4 files)**
-- Added `VerticalFeatureConfig` interface to `types.ts`
-- Added `features` block to farmers-market.ts (enabled) and food-trucks.ts (disabled)
-- Added `isBuyerPremiumEnabled()` helper to `terminology.ts`
-- Exported from `index.ts`
+## Files Fixed in Phase 2 (this pending commit)
 
-**Step 2: DB Migration 026 (1 file)**
-- `set_listing_premium_window()` now checks vertical config before setting premium window
-- `set_market_box_premium_window()` same + fixed capacity-increase regression
-- Added `buyer_premium_enabled` config to `verticals` table
-- Cleanup of any existing food truck premium windows
+### Buyer-facing pages (11 files)
+- `buyer/orders/page.tsx` — Ready order cards, banners, market box cards
+- `buyer/orders/[id]/page.tsx` — Pickup hero gradient, acknowledge receipt section
+- `buyer/subscriptions/page.tsx` — Extension pills
+- `buyer/subscriptions/[id]/page.tsx` — Success confirmation, extension rows, pickup badges
+- `buyer/upgrade/page.tsx` — Premium benefits, badges, gradient sections
+- `browse/page.tsx` — Spots remaining badges
+- `market-box/[id]/MarketBoxDetailClient.tsx` — Spots, savings badges, how-it-works box
+- `checkout/external/page.tsx` — Cash payment section
+- `subscription/success/page.tsx` — Success icon, premium benefits
+- `vendor-signup/page.tsx` — Referral banner
+- `settings/BuyerTierManager.tsx` — Premium member section
 
-**Step 3: UI Guards (8 files)**
-- `browse/page.tsx` — Skip premium filtering + hide premium banners
-- `listing/[listingId]/page.tsx` — Skip isPremiumRestricted
-- `dashboard/page.tsx` — Hide premium badge + upgrade promo card
-- `vendor/[vendorId]/profile/page.tsx` — Hide premium window overlays
-- `buyer/upgrade/page.tsx` — Redirect to browse when disabled
-- `settings/BuyerTierManager.tsx` — Hide entire section when disabled
-- `vendor/market-boxes/page.tsx` — Conditional "premium buyers" copy
-- `vendor/market-boxes/new/page.tsx` — Conditional "premium buyers" copy
+### Vendor-facing pages (10 files)
+- `vendor/markets/page.tsx` — Radio sections, confirmation, CTA buttons
+- `vendor/market-boxes/page.tsx` — Subscriber count, activate toggle
+- `vendor/pickup/page.tsx` — Stats bar, fulfill button, extension badge
+- `vendor/listings/page.tsx` — Open status badge
+- `vendor/edit/EditProfileForm.tsx` — Success message
+- `vendor/referrals/page.tsx` — Referral link card gradient
+- `vendor/[vendorId]/profile/page.tsx` — Category pills
+- `vendor/dashboard/upgrade/page.tsx` — Premium benefits, badges
+- `vendor/dashboard/PaymentMethodsCard.tsx` — Stripe status, payment checkmarks
+- `vendor/reviews/page.tsx` — New reviews count stat
 
-**Step 4: 3 Bug Fixes**
-- Bug 1: Hardcoded prices ($9.99/$81.50) → `SUBSCRIPTION_PRICES` (upgrade page, BuyerTierManager, dashboard)
-- Bug 2: Settings page read `buyer_tier_expires_at` but webhook writes `tier_expires_at` — fixed
-- Bug 3: Market box trigger capacity-increase regression — fixed in migration 026
+### Shared components (17 files)
+- `vendor/OnboardingChecklist.tsx` — Completion banner, gate circles, ready messages
+- `vendor/MarketScheduleSelector.tsx` — Selected state, checkbox, attending badge
+- `vendor/MarketSelector.tsx` — Listing count card, home market label
+- `vendor/VendorFeedbackForm.tsx` — Market suggestion section
+- `vendor/CertificationsForm.tsx` — Success message, document attached
+- `vendor/COIUpload.tsx` — Approved badge, document link, verified date
+- `vendor/CategoryDocumentUpload.tsx` — Approved badge, document link
+- `vendor/ListingCutoffStatus.tsx` — Accepting orders indicator
+- `vendor/PickupScheduleGrid.tsx` — Time slot backgrounds/text
+- `vendor/MarketBoxImageUpload.tsx` — Upload spinner, hover states
+- `vendor/ProfileEditForm.tsx` — Success message
+- `cart/AddToCartButton.tsx` — Selected date, in-cart notice
+- `listings/PickupLocationsCard.tsx` — Default primary color prop
+- `location/LocationSearchInline.tsx` — Green bar, location text, change button
+- `location/LocationPrompt.tsx` — Success state, pin icon, change button
+- `shared/ErrorDisplay.tsx` — Copied button
+- `ErrorFeedback.tsx` — Report submitted section
+- `vendor/dashboard/ReferralCard.tsx` — Description text (missed in Phase 1)
 
-### Verification
-- `npx tsc --noEmit` passes clean
+### Admin pages (12 files)
+- `admin/VendorVerificationPanel.tsx` — Completion banner, document links, approve buttons
+- `about/page.tsx` — Contact form success
+- `[vertical]/admin/page.tsx` — Stats cards
+- `[vertical]/admin/knowledge/KnowledgeEditor.tsx` — Save/create/publish buttons
+- `[vertical]/admin/vendors/VendorManagementClient.tsx` — Market pills, approve button
+- `[vertical]/admin/markets/page.tsx` — Approve/re-approve/unsuspend buttons
+- `[vertical]/admin/feedback/page.tsx` — Market suggestion detail card
+- `[vertical]/admin/errors/page.tsx` — Resolution summary, mark resolved button
+- `admin/errors/page.tsx` — Resolution summary, mark resolved button
+- `[vertical]/admin/vendor-activity/VendorActivityClient.tsx` — Resolution notes, referral stats
+- `admin/layout.tsx` — Vertical admin nav link
+- `admin/mfa/setup/page.tsx` — MFA enabled heading
 
-### Files Modified (15 total)
-1. `src/lib/vertical/types.ts`
-2. `src/lib/vertical/configs/farmers-market.ts`
-3. `src/lib/vertical/configs/food-trucks.ts`
-4. `src/lib/vertical/terminology.ts`
-5. `src/lib/vertical/index.ts`
-6. `src/app/[vertical]/browse/page.tsx`
-7. `src/app/[vertical]/listing/[listingId]/page.tsx`
-8. `src/app/[vertical]/dashboard/page.tsx`
-9. `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx`
-10. `src/app/[vertical]/buyer/upgrade/page.tsx`
-11. `src/app/[vertical]/settings/BuyerTierManager.tsx`
-12. `src/app/[vertical]/settings/page.tsx`
-13. `src/app/[vertical]/vendor/market-boxes/page.tsx`
-14. `src/app/[vertical]/vendor/market-boxes/new/page.tsx`
-15. `supabase/migrations/20260217_026_vertical_premium_triggers.sql` (NEW)
+## Semantic Greens Correctly Preserved (76 instances, 34 files)
+These stay hardcoded green regardless of vertical:
+- Order status badges (ready, confirmed, fulfilled, completed)
+- Subscription status (active, picked_up)
+- Approval badges (approved vendors, published listings)
+- Referral status (earned)
+- Date status indicators (open/closed market dates)
+- USDA Organic certification badge
+- Email template brand color (CSS vars don't work in email HTML)
 
-### Migration 026 — NOT YET APPLIED
-Needs to be applied to Dev, Staging, and Prod after commit.
+## Remaining Open Items
+- **Email template** (`notifications/service.ts` line 214): `#166534` for brand name in HTML email. CSS vars don't work in email — needs brand color passed from vertical config.
+- **Food truck icon**: User wants proper food truck SVG (not 🚚 delivery truck emoji)
+- **ShopperFeedbackForm "Market Policies"**: FM-specific language needs vertical-aware rewording
 
-## Previous Session 29 Commits
-1. `ec51736` — Quantity/measurement fields
-2. `1b0f39c` — Per-vertical color system + Food Truck'n landing page
-3. `8146784` — Vertical-specific colors via CSS Custom Properties
-4. `177ab7f` — Mobile photo upload fix + tappable map addresses
-5. `cbe6668` — Parameterize food truck terminology (28 files)
-6. `a5c7b83` — Landing page design updates
-7. `588d710` — Rename fireworks → fire_works (43 files)
-8. `435251b` — Fix fireworks rename migration
-9. `7163d7d` — Schema snapshot refresh process
-10. `70f0cad` — Regenerate SCHEMA_SNAPSHOT.md
+## Git State
+- main is 6 commits ahead of origin/main (5 committed + 1 pending)
+- Staging NOT yet pushed with commits fe84eb9+
+- User hasn't confirmed staging for production push yet

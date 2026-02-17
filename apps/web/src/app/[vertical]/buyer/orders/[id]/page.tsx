@@ -434,7 +434,7 @@ export default function BuyerOrderDetailPage() {
           <>
             {/* Green Hero Section - designed for showing to vendor */}
             <div style={{
-              background: 'linear-gradient(135deg, #166534 0%, #15803d 50%, #16a34a 100%)',
+              background: `linear-gradient(135deg, ${colors.primaryDark} 0%, ${colors.primary} 100%)`,
               color: 'white',
               padding: `${spacing.lg} ${spacing.md} ${spacing.md}`,
               textAlign: 'center',
@@ -515,7 +515,7 @@ export default function BuyerOrderDetailPage() {
 
             {/* Big Acknowledge Receipt Button - immediately below hero */}
             {itemsNeedingConfirm.length > 0 && !showProblemSection && (
-              <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: '#f0fdf4', borderBottom: '2px solid #16a34a' }}>
+              <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: colors.primaryLight, borderBottom: `2px solid ${colors.primary}` }}>
                 <button
                   onClick={() => {
                     // Confirm all ready items at once
@@ -529,13 +529,13 @@ export default function BuyerOrderDetailPage() {
                     padding: `${spacing.sm} ${spacing.md}`,
                     fontSize: typography.sizes.lg,
                     fontWeight: typography.weights.bold,
-                    backgroundColor: confirmingItemId ? '#9ca3af' : '#16a34a',
+                    backgroundColor: confirmingItemId ? '#9ca3af' : colors.primary,
                     color: 'white',
                     border: 'none',
                     borderRadius: radius.md,
                     cursor: confirmingItemId ? 'not-allowed' : 'pointer',
                     minHeight: 56,
-                    boxShadow: '0 4px 14px rgba(22, 163, 74, 0.4)',
+                    boxShadow: shadows.primary,
                   }}
                 >
                   {confirmingItemId ? 'Confirming...' : `Acknowledge Receipt (${itemsNeedingConfirm.length} item${itemsNeedingConfirm.length !== 1 ? 's' : ''})`}
@@ -543,7 +543,7 @@ export default function BuyerOrderDetailPage() {
                 <p style={{
                   margin: `${spacing.xs} 0 0 0`,
                   fontSize: typography.sizes.sm,
-                  color: '#166534',
+                  color: colors.primaryDark,
                   textAlign: 'center'
                 }}>
                   Only confirm after you have all items in hand.

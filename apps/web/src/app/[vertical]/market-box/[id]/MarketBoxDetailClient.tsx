@@ -11,6 +11,7 @@ import ShareButton from '@/components/marketing/ShareButton'
 import { useCart } from '@/lib/hooks/useCart'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
+import { colors } from '@/lib/design-tokens'
 
 interface AvailableTerm {
   weeks: number
@@ -275,8 +276,8 @@ export default function MarketBoxDetailClient() {
               ) : availability.spots_remaining !== null && (
                 <span style={{
                   padding: '4px 12px',
-                  backgroundColor: '#dcfce7',
-                  color: '#166534',
+                  backgroundColor: colors.primaryLight,
+                  color: colors.primaryDark,
                   borderRadius: 16,
                   fontSize: 12,
                   fontWeight: 600
@@ -332,8 +333,8 @@ export default function MarketBoxDetailClient() {
                           top: -6,
                           right: 8,
                           padding: '1px 6px',
-                          backgroundColor: '#dcfce7',
-                          color: '#166534',
+                          backgroundColor: colors.primaryLight,
+                          color: colors.primaryDark,
                           borderRadius: 10,
                           fontSize: 10,
                           fontWeight: 600
@@ -415,10 +416,10 @@ export default function MarketBoxDetailClient() {
             <div style={{
               marginTop: 16,
               padding: 12,
-              backgroundColor: '#f0fdf4',
+              backgroundColor: colors.primaryLight,
               borderRadius: 6,
               fontSize: 13,
-              color: '#166534',
+              color: colors.primaryDark,
               lineHeight: 1.5
             }}>
               If unforeseen circumstances such as weather or other agricultural realities require your vendor to skip a week, your subscription will automatically be extended by one week at no additional cost.

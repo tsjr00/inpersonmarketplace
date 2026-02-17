@@ -547,7 +547,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           <div style={{
             marginBottom: spacing.md,
             padding: spacing.md,
-            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+            background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primaryLight} 100%)`,
             borderRadius: radius.lg,
             border: `2px solid ${colors.primary}`,
             display: 'flex',
@@ -568,10 +568,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               🎉
             </div>
             <div>
-              <p style={{ margin: 0, fontWeight: typography.weights.bold, color: '#166534', fontSize: typography.sizes.base }}>
+              <p style={{ margin: 0, fontWeight: typography.weights.bold, color: colors.primaryDark, fontSize: typography.sizes.base }}>
                 You were invited by {referrerName}!
               </p>
-              <p style={{ margin: 0, color: '#166534', fontSize: typography.sizes.sm, marginTop: spacing['3xs'] }}>
+              <p style={{ margin: 0, color: colors.primaryDark, fontSize: typography.sizes.sm, marginTop: spacing['3xs'] }}>
                 Complete your signup and make your first sale to earn them a referral bonus.
               </p>
             </div>

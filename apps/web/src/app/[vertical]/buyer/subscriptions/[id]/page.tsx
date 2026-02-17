@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { colors } from '@/lib/design-tokens'
 
 interface Pickup {
   id: string
@@ -377,12 +378,12 @@ export default function BuyerSubscriptionDetailPage() {
           <div style={{
             padding: '12px 16px',
             marginBottom: 16,
-            backgroundColor: confirmMessage.includes('both parties') ? '#dcfce7' : confirmMessage.includes('Waiting') ? '#fef3c7' : '#fee2e2',
-            border: `1px solid ${confirmMessage.includes('both parties') ? '#86efac' : confirmMessage.includes('Waiting') ? '#fcd34d' : '#fecaca'}`,
+            backgroundColor: confirmMessage.includes('both parties') ? colors.primaryLight : confirmMessage.includes('Waiting') ? '#fef3c7' : '#fee2e2',
+            border: `1px solid ${confirmMessage.includes('both parties') ? colors.primary : confirmMessage.includes('Waiting') ? '#fcd34d' : '#fecaca'}`,
             borderRadius: 8,
             fontSize: 14,
             fontWeight: 500,
-            color: confirmMessage.includes('both parties') ? '#166534' : confirmMessage.includes('Waiting') ? '#92400e' : '#991b1b',
+            color: confirmMessage.includes('both parties') ? colors.primaryDark : confirmMessage.includes('Waiting') ? '#92400e' : '#991b1b',
           }}>
             {confirmMessage}
           </div>
@@ -403,7 +404,7 @@ export default function BuyerSubscriptionDetailPage() {
               const isPast = pickup.scheduled_date < today
               // Extension weeks get green tint, skipped weeks get red tint
               const rowBg = pickup.is_extension
-                ? '#f0fdf4'
+                ? colors.primaryLight
                 : pickup.status === 'skipped'
                   ? '#fef2f2'
                   : pickupStatus.bg
@@ -414,7 +415,7 @@ export default function BuyerSubscriptionDetailPage() {
                   style={{
                     padding: 16,
                     backgroundColor: rowBg,
-                    border: isToday ? `2px solid ${branding.colors.primary}` : pickup.is_extension ? '1px solid #bbf7d0' : pickup.status === 'skipped' ? '1px solid #fecaca' : '1px solid transparent',
+                    border: isToday ? `2px solid ${branding.colors.primary}` : pickup.is_extension ? `1px solid ${colors.primary}` : pickup.status === 'skipped' ? '1px solid #fecaca' : '1px solid transparent',
                     borderRadius: 8,
                     opacity: pickup.status === 'missed' ? 0.7 : 1
                   }}
@@ -428,8 +429,8 @@ export default function BuyerSubscriptionDetailPage() {
                         {pickup.is_extension && (
                           <span style={{
                             padding: '2px 6px',
-                            backgroundColor: '#dcfce7',
-                            color: '#166534',
+                            backgroundColor: colors.primaryLight,
+                            color: colors.primaryDark,
                             borderRadius: 4,
                             fontSize: 11,
                             fontWeight: 600
@@ -476,7 +477,7 @@ export default function BuyerSubscriptionDetailPage() {
                         {pickupStatus.label}
                       </span>
                       {pickup.picked_up_at && (
-                        <div style={{ fontSize: 12, color: '#166534' }}>
+                        <div style={{ fontSize: 12, color: colors.primaryDark }}>
                           Picked up {formatDateTime(pickup.picked_up_at)}
                         </div>
                       )}
@@ -492,7 +493,7 @@ export default function BuyerSubscriptionDetailPage() {
                           disabled={confirmingPickup === pickup.id || waitingForVendor === pickup.id}
                           style={{
                             padding: '8px 16px',
-                            backgroundColor: waitingForVendor === pickup.id ? '#9ca3af' : '#166534',
+                            backgroundColor: waitingForVendor === pickup.id ? '#9ca3af' : colors.primaryDark,
                             color: 'white',
                             border: 'none',
                             borderRadius: 6,

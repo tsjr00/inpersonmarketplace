@@ -141,15 +141,15 @@ export default function AboutPage() {
             {submitted ? (
               <div style={{
                 padding: spacing.lg,
-                backgroundColor: '#f0fdf4',
-                border: '1px solid #86efac',
+                backgroundColor: colors.primaryLight,
+                border: `1px solid ${colors.primary}`,
                 borderRadius: radius.lg,
                 textAlign: 'center'
               }}>
-                <p style={{ color: '#166534', fontSize: typography.sizes.lg, fontWeight: typography.weights.medium, marginBottom: spacing.xs }}>
+                <p style={{ color: colors.primaryDark, fontSize: typography.sizes.lg, fontWeight: typography.weights.medium, marginBottom: spacing.xs }}>
                   Thank you for your message!
                 </p>
-                <p style={{ color: '#15803d', fontSize: typography.sizes.base }}>
+                <p style={{ color: colors.primaryDark, fontSize: typography.sizes.base }}>
                   We&apos;ll review your inquiry and get back to you soon.
                 </p>
               </div>
