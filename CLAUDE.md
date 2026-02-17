@@ -326,10 +326,17 @@ Include:
 After a migration is confirmed applied to BOTH Dev AND Staging:
 
 1. **User confirms:** "Migration [filename] applied to dev and staging"
-2. **Claude updates `SCHEMA_SNAPSHOT.md`:** Ask user to run `supabase/REFRESH_SCHEMA.sql` and regenerate the structured tables. If user defers, note staleness in `current_task.md`.
+2. **Claude updates `SCHEMA_SNAPSHOT.md`** — ALL of these, EVERY TIME, NO EXCEPTIONS:
+   - **A. Changelog entry** (date, migration file, what changed) — even for "logic-only" changes like trigger rewrites
+   - **B. Function/trigger descriptions** updated if any function or trigger behavior changed
+   - **C. Structured tables** regenerated if columns/tables/FKs/indexes were added/altered (ask user to run `REFRESH_SCHEMA.sql`)
+   - If user defers refresh, note staleness in `current_task.md`
+   - **WHY:** Schema snapshot is not just for columns — it documents trigger behavior, function signatures, config data, and RLS policies. ANY migration that changes database behavior must be reflected here.
 3. **Claude moves the file:** `supabase/migrations/[file].sql` → `supabase/migrations/applied/[file].sql`
 4. **Claude updates:** `MIGRATION_LOG.md` with ✅ status for both environments
 5. **Claude commits:** With message describing what was applied
+
+**CRITICAL:** Steps 2-4 are a single atomic operation. Do NOT move the file or update the log without ALSO updating the schema snapshot. This has been missed multiple times when steps were done separately.
 
 ### Folder Structure
 ```
@@ -418,6 +425,12 @@ Before merging ANY feature:
 - [ ] Use `(SELECT auth.uid())` not `auth.uid()`
 - [ ] Test policies don't cause recursion
 
+### Schema Snapshot Review (if ANY migration was created or applied)
+- [ ] Changelog entry added to `supabase/SCHEMA_SNAPSHOT.md`
+- [ ] Function descriptions updated (if trigger/function logic changed)
+- [ ] Structured tables regenerated or staleness noted in `current_task.md`
+- **This applies to ALL migration types** — not just column/table additions. Trigger logic changes, config data updates, function modifications, RLS policy changes, and index additions ALL require schema snapshot updates.
+
 ---
 
 ## Image Optimization Rules
@@ -485,11 +498,20 @@ This file contains the actual database schema including:
    - Read `supabase/SCHEMA_SNAPSHOT.md` first
    - If the file seems outdated or you need to verify, ask user to query the database
 
-2. **After EVERY confirmed successful migration:**
+2. **After EVERY confirmed successful migration — ALL types, not just column additions:**
    - **A. Add changelog entry** to `SCHEMA_SNAPSHOT.md` (date, migration file, what changed)
-   - **B. Regenerate structured tables:** Ask user to run `supabase/REFRESH_SCHEMA.sql` in the SQL Editor, paste results back, then rebuild the structured tables in `SCHEMA_SNAPSHOT.md`
-   - A changelog entry alone is NOT sufficient — the structured column/FK/index tables are what Claude reads when making decisions. Stale tables cause wrong assumptions and bugs.
+   - **B. Update function/trigger descriptions** if any function or trigger logic was modified (e.g., new conditions, vertical checks, bug fixes)
+   - **C. Regenerate structured tables** (if columns/tables/FKs/indexes changed): Ask user to run `supabase/REFRESH_SCHEMA.sql` in the SQL Editor, paste results back, then rebuild the structured tables in `SCHEMA_SNAPSHOT.md`
+   - A changelog entry alone is NOT sufficient — the structured column/FK/index/function tables are what Claude reads when making decisions. Stale tables cause wrong assumptions and bugs.
    - If user defers the refresh, note in `current_task.md`: "Schema snapshot structured tables are STALE — last verified [date]"
+   - **Migrations that REQUIRE schema snapshot updates** (this list is exhaustive — if a migration does ANY of these, update the snapshot):
+     - Adding/altering/dropping columns or tables
+     - Adding/altering/dropping indexes
+     - Creating/modifying trigger functions (even "logic-only" changes)
+     - Creating/modifying RLS policies
+     - Updating config/JSONB data in tables (e.g., `verticals.config`)
+     - Adding/modifying RPC functions
+     - Any DDL statement whatsoever
 
 3. **When in doubt, query the database:**
    Ask the user to run `supabase/REFRESH_SCHEMA.sql` (comprehensive) or these individual queries:
