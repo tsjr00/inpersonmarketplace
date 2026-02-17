@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { spacing, typography, radius, getVerticalColors } from '@/lib/design-tokens'
+import { term, getContent } from '@/lib/vertical'
 
 interface FinalCTAProps {
   vertical: string
@@ -13,7 +14,8 @@ interface FinalCTAProps {
  * Matches hero for visual bookending
  */
 export function FinalCTA({ vertical }: FinalCTAProps) {
-  const isFarmersMarket = vertical === 'farmers_market'
+  const colors = getVerticalColors(vertical)
+  const { final_cta } = getContent(vertical)
 
   return (
     <section
@@ -44,10 +46,7 @@ export function FinalCTA({ vertical }: FinalCTAProps) {
             marginBottom: spacing.lg,
           }}
         >
-          {isFarmersMarket
-            ? 'Join our growing community connecting local producers, artisans, and the neighbors who support them.'
-            : 'Connect with local buyers and sellers in your area today.'
-          }
+          {final_cta.subtitle}
         </p>
 
         <div
@@ -55,9 +54,9 @@ export function FinalCTA({ vertical }: FinalCTAProps) {
           style={{ gap: spacing.xs }}
         >
           {[
-            { label: 'Browse Products', href: `/${vertical}/browse` },
-            { label: isFarmersMarket ? 'Find Markets' : 'Find Locations', href: `/${vertical}/markets` },
-            { label: 'Find Vendors', href: `/${vertical}/vendors` },
+            { label: term(vertical, 'browse_products_cta'), href: `/${vertical}/browse` },
+            { label: term(vertical, 'find_markets_cta'), href: `/${vertical}/markets` },
+            { label: term(vertical, 'find_vendors_cta'), href: `/${vertical}/vendors` },
           ].map((cta) => (
             <Link
               key={cta.label}

@@ -1,8 +1,10 @@
 import { Package, Users, Store } from 'lucide-react'
-import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { spacing, typography, containers, getVerticalColors } from '@/lib/design-tokens'
+import { getContent } from '@/lib/vertical'
 import { TrustStatsTagline } from './TrustStatsTagline'
 
 interface TrustStatsProps {
+  vertical: string
   stats: {
     listingCount: number
     vendorCount: number
@@ -10,11 +12,14 @@ interface TrustStatsProps {
   }
 }
 
-export function TrustStats({ stats }: TrustStatsProps) {
+export function TrustStats({ vertical, stats }: TrustStatsProps) {
+  const colors = getVerticalColors(vertical)
+  const { trust_stats } = getContent(vertical)
+
   const statItems = [
-    { icon: Package, value: stats.listingCount, label: 'Products' },
-    { icon: Users, value: stats.vendorCount, label: 'Vendors' },
-    { icon: Store, value: stats.marketCount, label: 'Markets' },
+    { icon: Package, value: stats.listingCount, label: trust_stats.products_label },
+    { icon: Users, value: stats.vendorCount, label: trust_stats.vendors_label },
+    { icon: Store, value: stats.marketCount, label: trust_stats.markets_label },
   ]
 
   return (
@@ -79,7 +84,7 @@ export function TrustStats({ stats }: TrustStatsProps) {
           })}
         </div>
 
-        <TrustStatsTagline defaultText="Supporting local producers and artisans in your community" />
+        <TrustStatsTagline vertical={vertical} />
       </div>
     </section>
   )

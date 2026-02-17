@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
+import { spacing, typography, radius, containers, getVerticalColors } from '@/lib/design-tokens'
 import { term, getContent } from '@/lib/vertical'
 import { LocationEntry } from './LocationEntry'
 
@@ -12,6 +12,7 @@ interface HeroProps {
 }
 
 export function Hero({ vertical, initialCity }: HeroProps) {
+  const colors = getVerticalColors(vertical)
   const { hero } = getContent(vertical)
   const [userZipCode, setUserZipCode] = useState<string | null>(null)
 

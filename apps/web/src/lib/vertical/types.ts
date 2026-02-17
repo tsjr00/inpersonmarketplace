@@ -67,6 +67,28 @@ export interface VerticalContent {
     vendor_pickup_desc: string
     get_started_step1: string
   }
+  featured_section: {
+    headline: string
+    paragraph1: string
+    paragraph2: string
+    link_text: string
+  }
+  trust_stats: {
+    products_label: string
+    vendors_label: string
+    markets_label: string
+    tagline: string
+    tagline_location: string
+  }
+  get_the_app: {
+    headline: string
+    subtitle: string
+    features: string[]
+    phone_products: Array<{ name: string; price: string; color: string }>
+  }
+  final_cta: {
+    subtitle: string
+  }
 }
 
 export interface VerticalTerminologyConfig {

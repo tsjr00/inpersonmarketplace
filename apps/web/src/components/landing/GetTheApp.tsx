@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Smartphone, Download, Plus } from 'lucide-react'
-import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
+import { getContent } from '@/lib/vertical'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -19,7 +20,10 @@ interface GetTheAppProps {
  * Encourages users to install as PWA (Progressive Web App)
  * Shows "Add to Home Screen" prompt
  */
-export function GetTheApp({ vertical: _vertical, variant = 'full' }: GetTheAppProps) {
+export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
+  const colors = getVerticalColors(vertical)
+  const shadows = getVerticalShadows(vertical)
+  const { get_the_app } = getContent(vertical)
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showInstallTip, setShowInstallTip] = useState(false)
 
@@ -82,7 +86,7 @@ export function GetTheApp({ vertical: _vertical, variant = 'full' }: GetTheAppPr
                 fontWeight: typography.weights.semibold,
                 color: colors.textPrimary
               }}>
-                Fresh & Local, Wherever You Go
+                {get_the_app.headline}
               </p>
               <p style={{
                 margin: 0,
@@ -194,7 +198,7 @@ export function GetTheApp({ vertical: _vertical, variant = 'full' }: GetTheAppPr
               marginBottom: spacing.sm,
               lineHeight: 1.2
             }}>
-              Fresh & Local, Wherever You Go
+              {get_the_app.headline}
             </h2>
 
             <p style={{
@@ -203,8 +207,7 @@ export function GetTheApp({ vertical: _vertical, variant = 'full' }: GetTheAppPr
               marginBottom: spacing.lg,
               lineHeight: 1.6
             }}>
-              Browse vendors, place orders, and manage pickups right from your phone.
-              Get notifications when your order is ready — all without leaving home.
+              {get_the_app.subtitle}
             </p>
 
             <ul style={{
@@ -215,12 +218,7 @@ export function GetTheApp({ vertical: _vertical, variant = 'full' }: GetTheAppPr
               flexDirection: 'column',
               gap: spacing.sm
             }}>
-              {[
-                'Quick ordering from anywhere',
-                'Real-time order notifications',
-                'Easy vendor discovery',
-                'Browse on the go from your phone'
-              ].map((feature, i) => (
+              {get_the_app.features.map((feature, i) => (
                 <li key={i} style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -335,12 +333,7 @@ export function GetTheApp({ vertical: _vertical, variant = 'full' }: GetTheAppPr
                   gap: 8,
                   padding: '0 12px',
                 }}>
-                  {[
-                    { name: 'Fresh Tomatoes', price: '$4.50', color: '#e74c3c' },
-                    { name: 'Local Honey', price: '$12.00', color: '#f39c12' },
-                    { name: 'Sourdough Bread', price: '$7.00', color: '#d4a574' },
-                    { name: 'Mixed Berries', price: '$6.00', color: '#8e44ad' },
-                  ].map((product, i) => (
+                  {get_the_app.phone_products.map((product, i) => (
                     <div key={i} style={{
                       backgroundColor: colors.surfaceElevated,
                       borderRadius: radius.sm,

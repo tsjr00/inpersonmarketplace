@@ -99,6 +99,64 @@ export const shadows = {
   primaryHover: '0 6px 16px rgba(139, 195, 74, 0.4)',
 }
 
+// Vertical-specific color palettes
+const verticalColorPalettes: Record<string, typeof colors> = {
+  food_trucks: {
+    // Primary Colors (Red — from Food Truck'n logo)
+    primary: '#E53935',           // True red from logo truck + border
+    primaryDark: '#C62828',       // Darker red — hover states, emphasis
+    primaryLight: '#FFEBEE',      // Very light pink — subtle backgrounds
+
+    // Accent Colors
+    accent: '#FF8F00',            // Warm amber — food warmth highlights
+    accentMuted: '#B0BEC5',       // Cool gray — secondary accents, icons
+
+    // Surface Colors
+    surfaceBase: '#FAFAFA',       // Clean near-white
+    surfaceElevated: '#FFFFFF',   // Pure white — cards
+    surfaceSubtle: '#FFF3E0',     // Light amber — warm subtle sections
+    surfaceMuted: '#F5F5F5',      // Light gray — alternate sections
+
+    // Text Colors (Charcoal — from logo circle background)
+    textPrimary: '#4A4A4A',       // Charcoal from logo — headings
+    textSecondary: '#666666',     // Medium gray — body text
+    textMuted: '#999999',         // Light gray — captions, hints
+    textInverse: '#FFFFFF',
+    textInverseMuted: 'rgba(255, 255, 255, 0.85)',
+
+    // Border Colors
+    border: '#E0E0E0',
+    borderMuted: '#EEEEEE',
+  },
+}
+
+/**
+ * Get vertical-specific color palette.
+ * Returns the food_trucks red/charcoal palette or default green palette.
+ */
+export function getVerticalColors(vertical: string): typeof colors {
+  return verticalColorPalettes[vertical] || colors
+}
+
+// Vertical-specific shadow palettes (primary shadow color matches brand)
+const verticalShadowPalettes: Record<string, typeof shadows> = {
+  food_trucks: {
+    sm: '0 1px 2px rgba(0, 0, 0, 0.05)',
+    md: '0 4px 6px rgba(0, 0, 0, 0.07)',
+    lg: '0 10px 15px rgba(0, 0, 0, 0.1)',
+    xl: '0 20px 25px rgba(0, 0, 0, 0.1)',
+    primary: '0 4px 12px rgba(229, 57, 53, 0.3)',
+    primaryHover: '0 6px 16px rgba(229, 57, 53, 0.4)',
+  },
+}
+
+/**
+ * Get vertical-specific shadow palette.
+ */
+export function getVerticalShadows(vertical: string): typeof shadows {
+  return verticalShadowPalettes[vertical] || shadows
+}
+
 // Shorthand for common patterns
 export const tokens = {
   colors,

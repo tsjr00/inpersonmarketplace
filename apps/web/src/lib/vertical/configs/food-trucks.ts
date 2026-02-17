@@ -114,5 +114,37 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
       vendor_pickup_desc: 'Set your own pickup locations and times. Customers choose what works for them.',
       get_started_step1: 'Find food trucks near you',
     },
+    featured_section: {
+      headline: 'Find Food Trucks in Your Area',
+      paragraph1: "Food trucks bring neighborhoods together. Whether it\u2019s a food truck park buzzing on a Friday night or your favorite taco truck on the lunch corner, these mobile kitchens bring the best street food right to you.",
+      paragraph2: "Every order supports an independent operator building something with their own hands. We\u2019re here to make finding and ordering from your favorite trucks effortless.",
+      link_text: 'Find food trucks near you',
+    },
+    trust_stats: {
+      products_label: 'Menu Items',
+      vendors_label: 'Food Trucks',
+      markets_label: 'Locations',
+      tagline: 'Connecting you with local food trucks in your community',
+      tagline_location: 'Connecting you with local food trucks in the {area} area',
+    },
+    get_the_app: {
+      headline: 'Order Ahead, Wherever You Go',
+      subtitle: 'Browse menus, pre-order your favorites, and skip the line at pickup. Get notified when your food is ready.',
+      features: [
+        'Pre-order and skip the line',
+        'Real-time order notifications',
+        'Find trucks near you',
+        'Browse menus on the go',
+      ],
+      phone_products: [
+        { name: 'Street Tacos', price: '$8.50', color: '#e74c3c' },
+        { name: 'Loaded Fries', price: '$6.00', color: '#f39c12' },
+        { name: 'BBQ Pulled Pork', price: '$12.00', color: '#8B4513' },
+        { name: 'Craft Lemonade', price: '$4.00', color: '#2ecc71' },
+      ],
+    },
+    final_cta: {
+      subtitle: 'Join food truck operators and hungry locals already using our platform to skip lines and discover new favorites.',
+    },
   },
 }

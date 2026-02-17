@@ -114,5 +114,37 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
       vendor_pickup_desc: 'Offer pickup at farmers markets or set up private pickup locations. Flexibility for you and your customers.',
       get_started_step1: 'Browse local farmers markets',
     },
+    featured_section: {
+      headline: 'Discover Markets in Your Community',
+      paragraph1: "Farmers markets are more than shopping \u2014 they\u2019re the heartbeat of local communities. For many family farms and small businesses, a weekly market stand is essential revenue that keeps their operations alive.",
+      paragraph2: "Every dollar spent locally circulates back into your neighborhood, supporting the growers, makers, and families who make your community vibrant. We\u2019re here to make that connection easier.",
+      link_text: 'Find markets near you',
+    },
+    trust_stats: {
+      products_label: 'Products',
+      vendors_label: 'Vendors',
+      markets_label: 'Markets',
+      tagline: 'Supporting local producers and artisans in your community',
+      tagline_location: 'Supporting local producers and artisans in the {area} area',
+    },
+    get_the_app: {
+      headline: 'Fresh & Local, Wherever You Go',
+      subtitle: 'Browse vendors, place orders, and manage pickups right from your phone. Get notifications when your order is ready \u2014 all without leaving home.',
+      features: [
+        'Quick ordering from anywhere',
+        'Real-time order notifications',
+        'Easy vendor discovery',
+        'Browse on the go from your phone',
+      ],
+      phone_products: [
+        { name: 'Fresh Tomatoes', price: '$4.50', color: '#e74c3c' },
+        { name: 'Local Honey', price: '$12.00', color: '#f39c12' },
+        { name: 'Sourdough Bread', price: '$7.00', color: '#d4a574' },
+        { name: 'Mixed Berries', price: '$6.00', color: '#8e44ad' },
+      ],
+    },
+    final_cta: {
+      subtitle: 'Join our growing community connecting local producers, artisans, and the neighbors who support them.',
+    },
   },
 }

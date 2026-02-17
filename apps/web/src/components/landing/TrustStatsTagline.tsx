@@ -1,18 +1,20 @@
 'use client'
 
 import { useLocationAreaName } from '@/hooks/useLocationAreaName'
-import { colors, typography } from '@/lib/design-tokens'
+import { typography, getVerticalColors } from '@/lib/design-tokens'
+import { getContent } from '@/lib/vertical'
 
 interface TrustStatsTaglineProps {
-  defaultText: string
+  vertical: string
 }
 
 /**
  * Client component for TrustStats tagline that shows personalized location.
- * Used as Option B fallback - if Hero doesn't show location (slow load),
- * this component will show it when the user scrolls to the TrustStats section.
+ * Uses vertical content system for tagline text.
  */
-export function TrustStatsTagline({ defaultText }: TrustStatsTaglineProps) {
+export function TrustStatsTagline({ vertical }: TrustStatsTaglineProps) {
+  const colors = getVerticalColors(vertical)
+  const { trust_stats } = getContent(vertical)
   const { areaName } = useLocationAreaName({ timeout: 5000 })
 
   return (
@@ -26,8 +28,8 @@ export function TrustStatsTagline({ defaultText }: TrustStatsTaglineProps) {
       }}
     >
       {areaName
-        ? `Supporting local producers and artisans in the ${areaName} area`
-        : defaultText
+        ? trust_stats.tagline_location.replace('{area}', areaName)
+        : trust_stats.tagline
       }
     </p>
   )

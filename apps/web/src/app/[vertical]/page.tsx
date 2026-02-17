@@ -170,7 +170,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
         <Hero vertical={vertical} />
 
         {/* Trust Statistics */}
-        <TrustStats stats={stats} />
+        <TrustStats vertical={vertical} stats={stats} />
 
         {/* How It Works */}
         <HowItWorks vertical={vertical} />

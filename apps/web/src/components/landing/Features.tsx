@@ -8,7 +8,7 @@ import {
   CheckCircle,
   Clock
 } from 'lucide-react'
-import { colors, spacing, typography, shadows, radius } from '@/lib/design-tokens'
+import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
 import { getContent } from '@/lib/vertical'
 
 interface FeaturesProps {
@@ -21,6 +21,8 @@ interface FeaturesProps {
  * Card pattern with hover effects
  */
 export function Features({ vertical }: FeaturesProps) {
+  const colors = getVerticalColors(vertical)
+  const shadows = getVerticalShadows(vertical)
   const { features: f, platform } = getContent(vertical)
 
   // Cards organized by theme pairs:

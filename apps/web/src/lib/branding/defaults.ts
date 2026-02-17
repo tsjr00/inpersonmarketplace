@@ -26,14 +26,14 @@ export const defaultBranding: Record<string, VerticalBranding> = {
     domain: 'foodtruckn.app',
     brand_name: "Food Truck'n",
     tagline: 'Skip the Line. Eat Local.',
-    logo_path: '/logos/street-eats-logo.svg',
-    favicon: '/logos/street-eats-logo.svg',
+    logo_path: '/logos/food-truckn-logo.png',
+    favicon: '/logos/food-truckn-logo.png',
     colors: {
-      primary: '#e85d04',
-      secondary: '#dc2f02',
-      accent: '#f48c06',
-      background: '#fff8f0',
-      text: '#2d2d2d'
+      primary: '#E53935',
+      secondary: '#C62828',
+      accent: '#FF8F00',
+      background: '#FAFAFA',
+      text: '#4A4A4A'
     },
     meta: {
       title: "Food Truck'n | Local Food Trucks Near You",

@@ -2,7 +2,7 @@
 
 import { Check } from 'lucide-react'
 import Link from 'next/link'
-import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
 import { getContent } from '@/lib/vertical'
 
 interface VendorPitchProps {
@@ -15,6 +15,8 @@ interface VendorPitchProps {
  * Uses inverse text colors, lighter accent for icons
  */
 export function VendorPitch({ vertical }: VendorPitchProps) {
+  const colors = getVerticalColors(vertical)
+  const shadows = getVerticalShadows(vertical)
   const { vendor_pitch } = getContent(vertical)
 
   // Benefits organized by theme pairs (displayed in 2-column grid):

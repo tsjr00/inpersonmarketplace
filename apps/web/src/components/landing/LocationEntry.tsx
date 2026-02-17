@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { MapPin, Search } from 'lucide-react'
-import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
 
 interface LocationEntryProps {
   vertical: string
@@ -19,7 +19,9 @@ interface StoredLocation {
   timestamp: number
 }
 
-export function LocationEntry({ vertical: _vertical, initialCity, onLocationSet }: LocationEntryProps) {
+export function LocationEntry({ vertical, initialCity, onLocationSet }: LocationEntryProps) {
+  const colors = getVerticalColors(vertical)
+  const shadows = getVerticalShadows(vertical)
   const [savedLocation, setSavedLocation] = useState<StoredLocation | null>(() => {
     if (typeof window === 'undefined') return null
     const stored = localStorage.getItem(STORAGE_KEY)

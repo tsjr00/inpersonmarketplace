@@ -1,13 +1,17 @@
 'use client'
 
 import Link from 'next/link'
-import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { spacing, typography, containers, getVerticalColors } from '@/lib/design-tokens'
+import { getContent } from '@/lib/vertical'
 
 interface FeaturedMarketsProps {
   vertical: string
 }
 
 export function FeaturedMarkets({ vertical }: FeaturedMarketsProps) {
+  const colors = getVerticalColors(vertical)
+  const { featured_section } = getContent(vertical)
+
   return (
     <section
       className="flex justify-center"
@@ -32,7 +36,7 @@ export function FeaturedMarkets({ vertical }: FeaturedMarketsProps) {
             marginBottom: spacing.sm,
           }}
         >
-          Discover Markets in Your Community
+          {featured_section.headline}
         </h2>
 
         <div
@@ -50,9 +54,7 @@ export function FeaturedMarkets({ vertical }: FeaturedMarketsProps) {
               marginBottom: spacing.sm,
             }}
           >
-            Farmers markets are more than shopping — they&apos;re the heartbeat of local
-            communities. For many family farms and small businesses, a weekly market stand
-            is essential revenue that keeps their operations alive.
+            {featured_section.paragraph1}
           </p>
 
           <p
@@ -63,9 +65,7 @@ export function FeaturedMarkets({ vertical }: FeaturedMarketsProps) {
               marginBottom: spacing.md,
             }}
           >
-            Every dollar spent locally circulates back into your neighborhood, supporting
-            the growers, makers, and families who make your community vibrant. We&apos;re here
-            to make that connection easier.
+            {featured_section.paragraph2}
           </p>
 
           <Link
@@ -79,7 +79,7 @@ export function FeaturedMarkets({ vertical }: FeaturedMarketsProps) {
               paddingBottom: 2,
             }}
           >
-            Find markets near you
+            {featured_section.link_text}
           </Link>
         </div>
       </div>

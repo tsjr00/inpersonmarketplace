@@ -2,7 +2,7 @@
 
 import { Search, ShoppingCart, Package, Users } from 'lucide-react'
 import Link from 'next/link'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { spacing, typography, radius, containers, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
 import { getContent } from '@/lib/vertical'
 
 interface HowItWorksProps {
@@ -10,6 +10,8 @@ interface HowItWorksProps {
 }
 
 export function HowItWorks({ vertical }: HowItWorksProps) {
+  const colors = getVerticalColors(vertical)
+  const shadows = getVerticalShadows(vertical)
   const { how_it_works } = getContent(vertical)
 
   const steps = [

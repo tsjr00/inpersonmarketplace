@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { colors, spacing, typography } from '@/lib/design-tokens'
+import { spacing, typography, getVerticalColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 
 interface FooterProps {
@@ -14,6 +14,7 @@ interface FooterProps {
  * Uses inverse text, primary color for brand accent
  */
 export function Footer({ vertical }: FooterProps) {
+  const colors = getVerticalColors(vertical)
   const currentYear = new Date().getFullYear()
 
   const footerSections = [
