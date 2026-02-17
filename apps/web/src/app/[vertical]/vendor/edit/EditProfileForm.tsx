@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { VerticalBranding } from '@/lib/branding'
+import { colors } from '@/lib/design-tokens'
 
 interface VendorProfile {
   id: string
@@ -105,10 +106,10 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
         <div style={{
           padding: 10,
           marginBottom: 20,
-          backgroundColor: '#d1fae5',
-          border: '1px solid #86efac',
+          backgroundColor: colors.primaryLight,
+          border: `1px solid ${colors.primary}`,
           borderRadius: 4,
-          color: '#065f46'
+          color: colors.primaryDark
         }}>
           Business information saved successfully!
         </div>

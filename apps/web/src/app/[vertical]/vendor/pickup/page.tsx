@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { colors } from '@/lib/design-tokens'
 
 // Buffer time around market hours for polling (30 minutes before/after)
 const MARKET_BUFFER_MINUTES = 30
@@ -682,14 +683,14 @@ export default function VendorPickupPage() {
       {selectedMarket && (
         <div style={{
           padding: '12px 16px',
-          backgroundColor: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? '#dcfce7' : '#f3f4f6',
+          backgroundColor: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? colors.primaryLight : '#f3f4f6',
           borderBottom: '1px solid #e5e7eb'
         }}>
           <p style={{
             margin: 0,
             fontSize: 14,
             fontWeight: 600,
-            color: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? '#166534' : '#6b7280'
+            color: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? colors.primaryDark : '#6b7280'
           }}>
             {(() => {
               const parts: string[] = []
@@ -847,7 +848,7 @@ export default function VendorPickupPage() {
                           disabled={processingItem === item.id}
                           style={{
                             padding: '12px 20px',
-                            backgroundColor: processingItem === item.id ? '#9ca3af' : '#059669',
+                            backgroundColor: processingItem === item.id ? '#9ca3af' : colors.primary,
                             color: 'white',
                             border: 'none',
                             borderRadius: 8,
@@ -986,8 +987,8 @@ export default function VendorPickupPage() {
                               <span style={{
                                 marginLeft: 8,
                                 padding: '1px 6px',
-                                backgroundColor: '#dcfce7',
-                                color: '#166534',
+                                backgroundColor: colors.primaryLight,
+                                color: colors.primaryDark,
                                 borderRadius: 4,
                                 fontSize: 11,
                                 fontWeight: 600

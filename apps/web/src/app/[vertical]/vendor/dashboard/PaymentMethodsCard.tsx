@@ -380,7 +380,7 @@ export default function PaymentMethodsCard({
           {/* Stripe Section - Primary */}
           <div style={{
             padding: spacing.xs,
-            backgroundColor: stripeConnected ? '#dcfce7' : '#fef3c7',
+            backgroundColor: stripeConnected ? colors.primaryLight : '#fef3c7',
             borderRadius: radius.sm,
             display: 'flex',
             justifyContent: 'space-between',
@@ -420,25 +420,25 @@ export default function PaymentMethodsCard({
           <div style={{ fontSize: typography.sizes.sm }}>
             {venmoUsername && (
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <span style={{ color: '#16a34a' }}>✓</span>
+                <span style={{ color: colors.primary }}>✓</span>
                 <span>Venmo (@{venmoUsername})</span>
               </div>
             )}
             {cashappCashtag && (
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <span style={{ color: '#16a34a' }}>✓</span>
+                <span style={{ color: colors.primary }}>✓</span>
                 <span>Cash App (${cashappCashtag})</span>
               </div>
             )}
             {paypalUsername && (
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <span style={{ color: '#16a34a' }}>✓</span>
+                <span style={{ color: colors.primary }}>✓</span>
                 <span>PayPal ({paypalUsername})</span>
               </div>
             )}
             {acceptsCash && (
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                <span style={{ color: '#16a34a' }}>✓</span>
+                <span style={{ color: colors.primary }}>✓</span>
                 <span>Cash at Pickup</span>
               </div>
             )}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import { colors } from '@/lib/design-tokens'
 
 export default function VendorUpgradePage() {
   const params = useParams()
@@ -108,7 +109,7 @@ export default function VendorUpgradePage() {
           <div style={{
             width: 80,
             height: 80,
-            backgroundColor: '#dcfce7',
+            backgroundColor: colors.primaryLight,
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
@@ -235,16 +236,16 @@ export default function VendorUpgradePage() {
           {/* Featured Benefit - Market Box */}
           <div style={{
             padding: 20,
-            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+            background: colors.primaryLight,
             borderRadius: 12,
-            border: '2px solid #22c55e',
+            border: `2px solid ${colors.primary}`,
             marginBottom: 24
           }}>
             <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
               <div style={{
                 width: 56,
                 height: 56,
-                backgroundColor: '#22c55e',
+                backgroundColor: colors.primary,
                 borderRadius: 12,
                 display: 'flex',
                 alignItems: 'center',
@@ -257,12 +258,12 @@ export default function VendorUpgradePage() {
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#166534' }}>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.primaryDark }}>
                     Market Box Subscriptions
                   </h3>
                   <span style={{
                     padding: '2px 8px',
-                    backgroundColor: '#22c55e',
+                    backgroundColor: colors.primary,
                     color: 'white',
                     borderRadius: 4,
                     fontSize: 11,
@@ -271,7 +272,7 @@ export default function VendorUpgradePage() {
                     REVENUE BOOSTER
                   </span>
                 </div>
-                <p style={{ margin: 0, fontSize: 14, color: '#166534', lineHeight: 1.5 }}>
+                <p style={{ margin: 0, fontSize: 14, color: colors.primaryDark, lineHeight: 1.5 }}>
                   Create 6 Market Box offerings with 4 active simultaneously. <strong>Unlimited subscribers</strong> (Standard: 2 max). Guaranteed recurring revenue with 4-week prepaid subscriptions.
                 </p>
               </div>
@@ -492,7 +493,7 @@ export default function VendorUpgradePage() {
               position: 'absolute',
               top: -10,
               right: 16,
-              backgroundColor: '#059669',
+              backgroundColor: colors.primary,
               color: 'white',
               padding: '4px 12px',
               borderRadius: 4,

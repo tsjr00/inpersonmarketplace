@@ -236,7 +236,7 @@ export default function VendorReferralsPage({ params }: { params: Promise<{ vert
         {/* Referral Link Card */}
         <div style={{
           padding: spacing.md,
-          background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+          background: colors.primaryLight,
           borderRadius: radius.md,
           border: `2px solid ${colors.primary}`,
           marginBottom: spacing.lg,
@@ -245,11 +245,11 @@ export default function VendorReferralsPage({ params }: { params: Promise<{ vert
             margin: `0 0 ${spacing.sm}`,
             fontSize: typography.sizes.lg,
             fontWeight: typography.weights.semibold,
-            color: '#166534',
+            color: colors.primaryDark,
           }}>
             Your Referral Link
           </h2>
-          <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.sm, color: '#166534' }}>
+          <p style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.sm, color: colors.primaryDark }}>
             Share this link with vendors you know. When they sign up and make their first sale, you earn $10 credit.
           </p>
           <div style={{ display: 'flex', gap: spacing.xs }}>

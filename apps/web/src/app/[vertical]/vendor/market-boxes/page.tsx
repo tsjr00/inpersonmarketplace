@@ -7,6 +7,7 @@ import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
+import { colors } from '@/lib/design-tokens'
 
 interface MarketBoxOffering {
   id: string
@@ -339,8 +340,8 @@ export default function VendorMarketBoxesPage() {
                     <div style={{ marginTop: 12, fontSize: 13 }}>
                       <span style={{
                         padding: '4px 8px',
-                        backgroundColor: offering.active_subscribers > 0 ? '#dcfce7' : '#f3f4f6',
-                        color: offering.active_subscribers > 0 ? '#166534' : '#6b7280',
+                        backgroundColor: offering.active_subscribers > 0 ? colors.primaryLight : '#f3f4f6',
+                        color: offering.active_subscribers > 0 ? colors.primaryDark : '#6b7280',
                         borderRadius: 4
                       }}>
                         {offering.active_subscribers} active subscriber{offering.active_subscribers !== 1 ? 's' : ''}
@@ -378,8 +379,8 @@ export default function VendorMarketBoxesPage() {
                       onClick={() => handleToggleActive(offering.id, offering.active)}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: offering.active ? '#fee2e2' : '#dcfce7',
-                        color: offering.active ? '#991b1b' : '#166534',
+                        backgroundColor: offering.active ? '#fee2e2' : colors.primaryLight,
+                        color: offering.active ? '#991b1b' : colors.primaryDark,
                         border: 'none',
                         borderRadius: 6,
                         fontSize: 13,

@@ -107,7 +107,7 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
           }}>
             Invite a Vendor, Earn $10
           </h3>
-          <span style={{ fontSize: typography.sizes.xs, color: '#166534' }}>
+          <span style={{ fontSize: typography.sizes.xs, color: colors.primaryDark }}>
             — Share your link. Earn $10 when they make their first sale.
           </span>
         </div>

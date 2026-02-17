@@ -10,6 +10,7 @@ import ShareButton from '@/components/marketing/ShareButton'
 import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import { colors } from '@/lib/design-tokens'
 import type { Metadata } from 'next'
 
 interface VendorProfilePageProps {
@@ -854,8 +855,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     key={category}
                     style={{
                       padding: '6px 14px',
-                      backgroundColor: '#d1fae5',
-                      color: '#065f46',
+                      backgroundColor: colors.primaryLight,
+                      color: colors.primaryDark,
                       borderRadius: 16,
                       fontSize: 13,
                       fontWeight: 600
@@ -1181,8 +1182,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                           top: 8,
                           left: 8,
                           padding: '4px 10px',
-                          backgroundColor: '#d1fae5',
-                          color: '#065f46',
+                          backgroundColor: colors.primaryLight,
+                          color: colors.primaryDark,
                           borderRadius: 12,
                           fontSize: 11,
                           fontWeight: 600,

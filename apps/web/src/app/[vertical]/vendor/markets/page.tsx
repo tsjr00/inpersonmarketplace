@@ -6,6 +6,7 @@ import Link from 'next/link'
 import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import ErrorDisplay from '@/components/shared/ErrorDisplay'
 import { term } from '@/lib/vertical'
+import { colors } from '@/lib/design-tokens'
 
 type Schedule = {
   id?: string
@@ -706,7 +707,7 @@ export default function VendorMarketsPage() {
                       onClick={() => setSelectedMarketForSchedule(market)}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: '#059669',
+                        backgroundColor: colors.primary,
                         color: 'white',
                         border: 'none',
                         borderRadius: 6,
@@ -841,8 +842,8 @@ export default function VendorMarketsPage() {
                 {/* Do you sell at this market? */}
                 <div style={{
                   padding: 16,
-                  backgroundColor: suggestionFormData.vendor_sells_at_market ? '#f0fdf4' : '#fef3c7',
-                  border: `1px solid ${suggestionFormData.vendor_sells_at_market ? '#86efac' : '#fcd34d'}`,
+                  backgroundColor: suggestionFormData.vendor_sells_at_market ? colors.primaryLight : '#fef3c7',
+                  border: `1px solid ${suggestionFormData.vendor_sells_at_market ? colors.primary : '#fcd34d'}`,
                   borderRadius: 8
                 }}>
                   <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#374151' }}>
@@ -854,8 +855,8 @@ export default function VendorMarketsPage() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '10px 12px',
-                      backgroundColor: suggestionFormData.vendor_sells_at_market ? '#dcfce7' : 'white',
-                      border: `2px solid ${suggestionFormData.vendor_sells_at_market ? '#16a34a' : '#e5e7eb'}`,
+                      backgroundColor: suggestionFormData.vendor_sells_at_market ? colors.primaryLight : 'white',
+                      border: `2px solid ${suggestionFormData.vendor_sells_at_market ? colors.primary : '#e5e7eb'}`,
                       borderRadius: 6,
                       cursor: 'pointer'
                     }}>
@@ -867,7 +868,7 @@ export default function VendorMarketsPage() {
                         style={{ width: 18, height: 18, cursor: 'pointer' }}
                       />
                       <div>
-                        <div style={{ fontWeight: 500, color: '#166534' }}>Yes, I sell at this market</div>
+                        <div style={{ fontWeight: 500, color: colors.primaryDark }}>Yes, I sell at this market</div>
                         <div style={{ fontSize: 12, color: '#6b7280' }}>I&apos;ll be associated with this market when approved</div>
                       </div>
                     </label>
@@ -1301,10 +1302,10 @@ export default function VendorMarketsPage() {
                       <div style={{
                         marginTop: 12,
                         padding: '10px 12px',
-                        backgroundColor: '#dcfce7',
+                        backgroundColor: colors.primaryLight,
                         borderRadius: 6,
                         fontSize: 13,
-                        color: '#166534'
+                        color: colors.primaryDark
                       }}>
                         This market has been approved and is now available in the Traditional Markets list above.
                       </div>
@@ -1350,7 +1351,7 @@ export default function VendorMarketsPage() {
                 onClick={() => setShowForm(true)}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: '#059669',
+                  backgroundColor: colors.primary,
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
@@ -1820,7 +1821,7 @@ export default function VendorMarketsPage() {
                   disabled={submitting}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: submitting ? '#9ca3af' : '#059669',
+                    backgroundColor: submitting ? '#9ca3af' : colors.primary,
                     color: 'white',
                     border: 'none',
                     borderRadius: 6,

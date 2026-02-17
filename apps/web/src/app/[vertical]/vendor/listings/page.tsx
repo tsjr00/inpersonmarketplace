@@ -219,11 +219,11 @@ function ListingCutoffStatusBadge({
       alignItems: 'center',
       gap: spacing['3xs'],
       padding: `${spacing['3xs']} ${spacing['2xs']}`,
-      backgroundColor: '#f0fdf4',
-      border: '1px solid #bbf7d0',
+      backgroundColor: colors.primaryLight,
+      border: `1px solid ${colors.primary}`,
       borderRadius: radius.sm,
       fontSize: typography.sizes.xs,
-      color: '#166534',
+      color: colors.primaryDark,
       marginBottom: spacing['2xs']
     }}>
       <span>✓</span>

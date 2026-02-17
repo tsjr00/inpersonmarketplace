@@ -203,7 +203,7 @@ export default function VendorReviewsPage() {
                     <div style={{
                       fontSize: typography.sizes['2xl'],
                       fontWeight: typography.weights.bold,
-                      color: '#16a34a'
+                      color: colors.primary
                     }}>
                       {summary.newReviewsCount}
                     </div>
@@ -276,7 +276,7 @@ export default function VendorReviewsPage() {
                     lineHeight: 1.6,
                     whiteSpace: 'pre-wrap'
                   }}>
-                    "{review.comment}"
+                    &ldquo;{review.comment}&rdquo;
                   </p>
                 ) : (
                   <p style={{
