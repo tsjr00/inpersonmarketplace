@@ -55,6 +55,12 @@
 | 20260209_004_drop_remaining_old_policies.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Dropped old duplicate policies on 6 tables |
 | 20260209_006_vendor_cancellation_tracking.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | Vendor cancellation tracking: 3 columns + 2 RPC functions |
 | 20260209_007_vendor_documents_storage.sql | ✅ | 2026-02-09 | ✅ | 2026-02-09 | vendor-documents storage bucket (10MB, PDF/JPG/PNG) + RLS policies |
+| 20260213_021_grandfather_vendor_verifications.sql | ✅ | 2026-02-13 | ✅ | 2026-02-13 | Grandfather verification records for existing FM vendors; fix sync_verification_status() search_path |
+| 20260213_022_add_vendor_stripe_subscription_id.sql | ✅ | 2026-02-13 | ✅ | 2026-02-13 | Add missing stripe_subscription_id to vendor_profiles; fix test vendor tier |
+| 20260217_024_add_quantity_measurement.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Add quantity_amount (NUMERIC) + quantity_unit (TEXT) to listings and market_box_offerings; CHECK constraint on publish. Also applied to Prod. |
+| FOOD_TRUCK_FAQ_SEED.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | 15 FAQ articles for food_trucks vertical in knowledge_articles. Also applied to Prod. |
+| 20260217_025_rename_fireworks_vertical.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Rename vertical_id 'fireworks' → 'fire_works' in verticals + all child tables. Applied to all 3 envs. |
+| 20260217_026_vertical_premium_triggers.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Per-vertical buyer premium: vertical-aware triggers, market box regression fix, verticals config. Applied to all 3 envs. |
 
 ---
 
