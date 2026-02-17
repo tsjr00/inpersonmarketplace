@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { isBuyerPremiumEnabled } from '@/lib/vertical'
 import { MarketBoxImageUpload } from '@/components/vendor/MarketBoxImageUpload'
 
 interface MarketSchedule {
@@ -252,7 +253,7 @@ export default function NewMarketBoxPage() {
             Create Market Box
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Set up a weekly subscription bundle for premium buyers (1 or 2 month terms)
+            Set up a weekly subscription bundle for {isBuyerPremiumEnabled(vertical) ? 'premium buyers' : 'your customers'} (1 or 2 month terms)
           </p>
         </div>
 

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
-import { term } from '@/lib/vertical'
+import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 
 interface MarketBoxOffering {
   id: string
@@ -142,7 +142,7 @@ export default function VendorMarketBoxesPage() {
             {term(vertical, 'market_boxes')}
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Offer 4-week <strong>prepaid</strong> subscription bundles to premium buyers
+            Offer 4-week <strong>prepaid</strong> subscription bundles to {isBuyerPremiumEnabled(vertical) ? 'premium buyers' : 'your customers'}
           </p>
         </div>
 
@@ -240,7 +240,7 @@ export default function VendorMarketBoxesPage() {
             <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
             <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>{`No ${term(vertical, 'market_boxes')} Yet`}</h3>
             <p style={{ color: '#6b7280', margin: '0 0 24px 0' }}>
-              {`Create your first ${term(vertical, 'market_box').toLowerCase()} to offer recurring purchases to premium buyers.`}
+              {`Create your first ${term(vertical, 'market_box').toLowerCase()} to offer recurring purchases to ${isBuyerPremiumEnabled(vertical) ? 'premium buyers' : 'your customers'}.`}
             </p>
             {limits?.can_create_more && (
               <Link

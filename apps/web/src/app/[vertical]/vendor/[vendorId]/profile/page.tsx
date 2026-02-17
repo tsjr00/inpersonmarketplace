@@ -9,6 +9,7 @@ import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
 import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
+import { isBuyerPremiumEnabled } from '@/lib/vertical'
 import type { Metadata } from 'next'
 
 interface VendorProfilePageProps {
@@ -181,6 +182,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
   // Current time for premium window comparison
   const now = new Date().toISOString()
+  const premiumEnabled = isBuyerPremiumEnabled(vertical)
 
   // Get all unique categories from vendor's listings
   const listingCategories = [...new Set(
@@ -963,7 +965,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const boxMarket = Array.isArray(rawMarket) ? rawMarket[0] : rawMarket
                 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
                 const boxPremiumWindowEndsAt = box.premium_window_ends_at as string | null
-                const boxInPremiumWindow = boxPremiumWindowEndsAt && boxPremiumWindowEndsAt > now
+                const boxInPremiumWindow = premiumEnabled && boxPremiumWindowEndsAt && boxPremiumWindowEndsAt > now
                 const showBoxPremiumRestriction = boxInPremiumWindow && !isPremiumBuyer
 
                 const formatTime = (time: string) => {
@@ -1132,7 +1134,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const listingMarkets = listing.listing_markets as { market_id: string; markets: { id: string; name: string; market_type: string } | null }[] | null
                 const primaryImage = listingImages?.find(img => img.is_primary) || listingImages?.[0]
                 const premiumWindowEndsAt = listing.premium_window_ends_at as string | null
-                const isInPremiumWindow = premiumWindowEndsAt && premiumWindowEndsAt > now
+                const isInPremiumWindow = premiumEnabled && premiumWindowEndsAt && premiumWindowEndsAt > now
                 const showPremiumRestriction = isInPremiumWindow && !isPremiumBuyer
 
                 return (

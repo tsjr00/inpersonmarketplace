@@ -5,7 +5,7 @@ import Image from 'next/image'
 import SearchFilter from './SearchFilter'
 import BrowseToggle from './BrowseToggle'
 import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
-import { term } from '@/lib/vertical'
+import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import TierBadge from '@/components/shared/TierBadge'
 import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -286,11 +286,13 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     })
 
     // Filter out offerings in premium window for standard buyers
+    // Skip premium filtering entirely for verticals with premium disabled
     const now = new Date().toISOString()
     let offeringsWithSubs = allOfferingsWithSubs
     let marketBoxPremiumWindowCount = 0
+    const premiumEnabled = isBuyerPremiumEnabled(vertical)
 
-    if (!isPremiumBuyer) {
+    if (premiumEnabled && !isPremiumBuyer) {
       marketBoxPremiumWindowCount = allOfferingsWithSubs.filter(
         offering => offering.premium_window_ends_at && offering.premium_window_ends_at > now
       ).length
@@ -350,7 +352,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           </div>
 
           {/* Premium Window Info Box - show for standard buyers when items are in window */}
-          {!isPremiumBuyer && marketBoxPremiumWindowCount > 0 && (
+          {premiumEnabled && !isPremiumBuyer && marketBoxPremiumWindowCount > 0 && (
             <div style={{
               padding: spacing.sm,
               marginBottom: spacing.md,
@@ -501,11 +503,13 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   const allListings = rawListings as unknown as Listing[] | null
 
   // Filter out listings in premium window for standard buyers
+  // Skip premium filtering entirely for verticals with premium disabled
   const now = new Date().toISOString()
   let listings: Listing[] | null = allListings
   let premiumWindowCount = 0
+  const premiumEnabled = isBuyerPremiumEnabled(vertical)
 
-  if (allListings && !isPremiumBuyer) {
+  if (premiumEnabled && allListings && !isPremiumBuyer) {
     // Count listings in premium window
     premiumWindowCount = allListings.filter(
       listing => listing.premium_window_ends_at && listing.premium_window_ends_at > now
@@ -625,7 +629,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         </div>
 
         {/* Premium Window Info Box - show for standard buyers when items are in window */}
-        {!isPremiumBuyer && premiumWindowCount > 0 && (
+        {premiumEnabled && !isPremiumBuyer && premiumWindowCount > 0 && (
           <div style={{
             padding: spacing.sm,
             marginBottom: spacing.md,

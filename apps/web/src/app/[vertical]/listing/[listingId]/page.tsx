@@ -9,6 +9,7 @@ import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
 import { listingJsonLd } from '@/lib/marketing/json-ld'
 import { formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
+import { isBuyerPremiumEnabled } from '@/lib/vertical'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { groupPickupDatesByMarket, type AvailablePickupDate } from '@/types/pickup'
 import type { Metadata } from 'next'
@@ -185,10 +186,11 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   // Check if user is premium buyer (for premium window logic)
   const isPremiumBuyer = userProfileResult.data?.buyer_tier === 'premium'
 
-  // Check if listing is in premium window
+  // Check if listing is in premium window (only for verticals with premium enabled)
   const premiumWindowEndsAt = listing.premium_window_ends_at as string | null
   const now = new Date().toISOString()
-  const isInPremiumWindow = !!(premiumWindowEndsAt && premiumWindowEndsAt > now)
+  const premiumEnabled = isBuyerPremiumEnabled(vertical)
+  const isInPremiumWindow = premiumEnabled && !!(premiumWindowEndsAt && premiumWindowEndsAt > now)
   const isPremiumRestricted = isInPremiumWindow && !isPremiumBuyer
 
   const primaryImage = listingImages.find(img => img.is_primary) || listingImages[0]

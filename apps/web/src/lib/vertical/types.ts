@@ -97,9 +97,16 @@ export interface VerticalContent {
   }
 }
 
+export interface VerticalFeatureConfig {
+  buyer_premium_enabled: boolean
+  premium_window_minutes: number
+  show_upgrade_ui: boolean
+}
+
 export interface VerticalTerminologyConfig {
   vertical_id: string
   terminology: VerticalTerminology
   content: VerticalContent
   radiusOptions?: number[]
+  features: VerticalFeatureConfig
 }

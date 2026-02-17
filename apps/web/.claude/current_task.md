@@ -1,54 +1,73 @@
-# Current Task: Food Truck Terminology, Icons, Categories, Radius
+# Current Task: Per-Vertical Buyer Premium — COMPLETE
 
 Started: 2026-02-17
-Status: COMPLETE — All 4 phases done, TypeScript clean
+Status: READY TO COMMIT
 
 ## What Was Done
 
-Full parameterization of the food truck vertical: replaced all hardcoded farmers-market language, agriculture emojis, fixed radius options, and categories with vertical-aware `term()` calls.
+### Per-Vertical Buyer Premium Configuration
+Made buyer premium features (2-hour early access, upgrade UI, premium badges) configurable per-vertical. Food trucks have premium DISABLED. Farmers market keeps premium as-is.
 
-### Phase 1: Config + Types + Categories (6 files)
-- `types.ts` — Added 9 new TerminologyKey entries + `radiusOptions` to config interface
-- `food-trucks.ts` — Added all new term values, changed "Regular Stop" → "Service Location", added `radiusOptions: [2, 5, 10, 25]`
-- `farmers-market.ts` — Added matching FM defaults for all new keys
-- `constants.ts` — Added `FOOD_TRUCK_CATEGORIES` (11 cuisine types)
-- `terminology.ts` — Added `getRadiusOptions()` helper
-- `index.ts` — Exported `getRadiusOptions`
+### Implementation (4 steps)
 
-### Phase 2: Parameterize Hardcoded Text (~15 files)
-- `vendors/page.tsx` — h1 + subtitle use `term()`
-- `VendorsWithLocation.tsx` — ~8 vendor instances, empty state emoji, loading text
-- `BrowseToggle.tsx` — tab labels parameterized
-- `browse/page.tsx` — subtitle, Market Box references, descriptions
-- `dashboard/page.tsx` — Browse Products, vendor section, Market Box references
-- `how-it-works/page.tsx` — vendor, booth, market day references
-- `vendor/market-boxes/page.tsx` — Market Box headings and buttons
-- `buyer/subscriptions/page.tsx` — Market Box references
-- `MarketBoxDetailClient.tsx` — Market box, vendor emoji
-- `features/page.tsx` — For Vendors section emoji
-- `MarketsWithLocation.tsx` — empty state emoji and text
-- `LocationEntry.tsx` — "local vendors near you"
-- `RateOrderCard.tsx` — "local vendors"
-- `ListingForm.tsx` — FOOD_TRUCK_CATEGORIES branch
+**Step 1: Feature Config System (4 files)**
+- Added `VerticalFeatureConfig` interface to `types.ts`
+- Added `features` block to farmers-market.ts (enabled) and food-trucks.ts (disabled)
+- Added `isBuyerPremiumEnabled()` helper to `terminology.ts`
+- Exported from `index.ts`
 
-### Phase 3: Emoji Updates (5 files)
-- `AdminNav.tsx` — 🧺→`term('market_icon_emoji')`, 🧑‍🌾→`term('vendor_icon_emoji')`
-- `TutorialModal.tsx` — 🧺→`term('market_icon_emoji')` on Find Markets slide
-- `vendor/dashboard/page.tsx` — 🧺→`term('market_icon_emoji')`, "Market Boxes"→`term('market_boxes')`
-- `markets/[id]/page.tsx` — 🧺→`term('market_icon_emoji')` in header
-- `admin/page.tsx` — 🧺→`term('market_icon_emoji')`, 🧑‍🌾→`term('vendor_icon_emoji')`, "farmers markets"→`term('traditional_markets')`, "Market Boxes"→`term('market_boxes')`
+**Step 2: DB Migration 026 (1 file)**
+- `set_listing_premium_window()` now checks vertical config before setting premium window
+- `set_market_box_premium_window()` same + fixed capacity-increase regression
+- Added `buyer_premium_enabled` config to `verticals` table
+- Cleanup of any existing food truck premium windows
 
-### Phase 4: Per-Vertical Radius Options (6 files)
-- `LocationSearchInline.tsx` — Added `radiusOptions` prop (default: [10, 25, 50, 100])
-- `VendorsWithLocation.tsx` — Accepts + passes `radiusOptions`
-- `MarketsWithLocation.tsx` — Accepts + passes `radiusOptions`
-- `vendors/page.tsx` — Passes `getRadiusOptions(vertical)`, widened VALID_RADIUS_OPTIONS to [2,5,10,25,50,100]
-- `markets/page.tsx` — Passes `getRadiusOptions(vertical)`, widened VALID_RADIUS_OPTIONS
-- `buyer/location/route.ts` — Widened VALID_RADIUS_OPTIONS to superset [2,5,10,25,50,100]
+**Step 3: UI Guards (8 files)**
+- `browse/page.tsx` — Skip premium filtering + hide premium banners
+- `listing/[listingId]/page.tsx` — Skip isPremiumRestricted
+- `dashboard/page.tsx` — Hide premium badge + upgrade promo card
+- `vendor/[vendorId]/profile/page.tsx` — Hide premium window overlays
+- `buyer/upgrade/page.tsx` — Redirect to browse when disabled
+- `settings/BuyerTierManager.tsx` — Hide entire section when disabled
+- `vendor/market-boxes/page.tsx` — Conditional "premium buyers" copy
+- `vendor/market-boxes/new/page.tsx` — Conditional "premium buyers" copy
 
-## TypeScript: CLEAN (0 errors)
+**Step 4: 3 Bug Fixes**
+- Bug 1: Hardcoded prices ($9.99/$81.50) → `SUBSCRIPTION_PRICES` (upgrade page, BuyerTierManager, dashboard)
+- Bug 2: Settings page read `buyer_tier_expires_at` but webhook writes `tier_expires_at` — fixed
+- Bug 3: Market box trigger capacity-increase regression — fixed in migration 026
 
-## Git State
-- Branch: main
-- NOT committed yet — all changes are local
-- main is 4 commits ahead of origin/main (prior sessions)
+### Verification
+- `npx tsc --noEmit` passes clean
+
+### Files Modified (15 total)
+1. `src/lib/vertical/types.ts`
+2. `src/lib/vertical/configs/farmers-market.ts`
+3. `src/lib/vertical/configs/food-trucks.ts`
+4. `src/lib/vertical/terminology.ts`
+5. `src/lib/vertical/index.ts`
+6. `src/app/[vertical]/browse/page.tsx`
+7. `src/app/[vertical]/listing/[listingId]/page.tsx`
+8. `src/app/[vertical]/dashboard/page.tsx`
+9. `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx`
+10. `src/app/[vertical]/buyer/upgrade/page.tsx`
+11. `src/app/[vertical]/settings/BuyerTierManager.tsx`
+12. `src/app/[vertical]/settings/page.tsx`
+13. `src/app/[vertical]/vendor/market-boxes/page.tsx`
+14. `src/app/[vertical]/vendor/market-boxes/new/page.tsx`
+15. `supabase/migrations/20260217_026_vertical_premium_triggers.sql` (NEW)
+
+### Migration 026 — NOT YET APPLIED
+Needs to be applied to Dev, Staging, and Prod after commit.
+
+## Previous Session 29 Commits
+1. `ec51736` — Quantity/measurement fields
+2. `1b0f39c` — Per-vertical color system + Food Truck'n landing page
+3. `8146784` — Vertical-specific colors via CSS Custom Properties
+4. `177ab7f` — Mobile photo upload fix + tappable map addresses
+5. `cbe6668` — Parameterize food truck terminology (28 files)
+6. `a5c7b83` — Landing page design updates
+7. `588d710` — Rename fireworks → fire_works (43 files)
+8. `435251b` — Fix fireworks rename migration
+9. `7163d7d` — Schema snapshot refresh process
+10. `70f0cad` — Regenerate SCHEMA_SNAPSHOT.md

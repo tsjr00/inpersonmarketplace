@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 
 interface BuyerTierManagerProps {
   vertical: string
@@ -26,6 +28,14 @@ export default function BuyerTierManager({
 
   const isPremium = currentTier === 'premium'
   const hasActiveSubscription = !!stripeSubscriptionId
+
+  // Don't render anything if buyer premium is disabled for this vertical
+  if (!isBuyerPremiumEnabled(vertical)) {
+    return null
+  }
+
+  const monthlyPrice = (SUBSCRIPTION_PRICES.buyer.monthly.amountCents / 100).toFixed(2)
+  const annualPrice = (SUBSCRIPTION_PRICES.buyer.annual.amountCents / 100).toFixed(2)
 
   const handleDowngrade = async () => {
     setIsProcessing(true)
@@ -80,7 +90,7 @@ export default function BuyerTierManager({
 
         <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#1e3a8a' }}>
           Get early access to new listings, priority support, and more for just{' '}
-          <strong>$9.99/month</strong> or <strong>$81.50/year</strong>.
+          <strong>${monthlyPrice}/month</strong> or <strong>${annualPrice}/year</strong>.
         </p>
 
         <ul style={{

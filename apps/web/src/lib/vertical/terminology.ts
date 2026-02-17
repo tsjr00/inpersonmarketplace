@@ -56,3 +56,13 @@ export function getRadiusOptions(verticalId: string): number[] {
   const config = verticalConfigs[verticalId] ?? verticalConfigs[DEFAULT_VERTICAL]
   return config.radiusOptions ?? DEFAULT_RADIUS_OPTIONS
 }
+
+/**
+ * Check if buyer premium features are enabled for a vertical.
+ * Food trucks: disabled (no early-access window, no upgrade UI).
+ * Farmers market: enabled (2-hour premium window, upgrade prompts).
+ */
+export function isBuyerPremiumEnabled(verticalId: string): boolean {
+  const config = verticalConfigs[verticalId] ?? verticalConfigs[DEFAULT_VERTICAL]
+  return config.features?.buyer_premium_enabled ?? true
+}

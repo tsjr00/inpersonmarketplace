@@ -1,18 +1,33 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 
 export default function BuyerUpgradePage() {
   const params = useParams()
+  const router = useRouter()
   const vertical = params.vertical as string
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('monthly')
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [alreadyPremium, setAlreadyPremium] = useState(false)
+
+  const monthlyPrice = (SUBSCRIPTION_PRICES.buyer.monthly.amountCents / 100).toFixed(2)
+  const annualPrice = (SUBSCRIPTION_PRICES.buyer.annual.amountCents / 100).toFixed(2)
+  const monthlyEquivalent = (SUBSCRIPTION_PRICES.buyer.annual.amountCents / 12 / 100).toFixed(2)
+  const annualSavings = ((SUBSCRIPTION_PRICES.buyer.monthly.amountCents * 12 - SUBSCRIPTION_PRICES.buyer.annual.amountCents) / 100).toFixed(2)
+
+  // Redirect if premium is disabled for this vertical
+  useEffect(() => {
+    if (!isBuyerPremiumEnabled(vertical)) {
+      router.replace(`/${vertical}/browse`)
+    }
+  }, [vertical, router])
 
   // Check if already premium on mount
   useEffect(() => {
@@ -429,7 +444,7 @@ export default function BuyerUpgradePage() {
               )}
             </div>
             <div style={{ marginBottom: 12 }}>
-              <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>$9.99</span>
+              <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${monthlyPrice}</span>
               <span style={{ color: '#666', fontSize: 16 }}>/month</span>
             </div>
             <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
@@ -486,11 +501,11 @@ export default function BuyerUpgradePage() {
               )}
             </div>
             <div style={{ marginBottom: 12 }}>
-              <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>$81.50</span>
+              <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${annualPrice}</span>
               <span style={{ color: '#666', fontSize: 16 }}>/year</span>
             </div>
             <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-              Just $6.79/month when billed annually. Save $38.38!
+              Just ${monthlyEquivalent}/month when billed annually. Save ${annualSavings}!
             </p>
           </div>
         </div>
@@ -519,7 +534,7 @@ export default function BuyerUpgradePage() {
               minHeight: 56
             }}
           >
-            {isProcessing ? 'Processing...' : `Become a Premium Member - ${selectedPlan === 'monthly' ? '$9.99/mo' : '$81.50/yr'}`}
+            {isProcessing ? 'Processing...' : `Become a Premium Member - ${selectedPlan === 'monthly' ? `$${monthlyPrice}/mo` : `$${annualPrice}/yr`}`}
           </button>
           <p style={{
             marginTop: 16,

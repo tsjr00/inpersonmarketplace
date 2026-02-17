@@ -3,6 +3,12 @@ import type { VerticalTerminologyConfig } from '../types'
 export const farmersMarketConfig: VerticalTerminologyConfig = {
   vertical_id: 'farmers_market',
 
+  features: {
+    buyer_premium_enabled: true,
+    premium_window_minutes: 120,
+    show_upgrade_ui: true,
+  },
+
   terminology: {
     // Vertical identity
     display_name: 'Farmers Market',

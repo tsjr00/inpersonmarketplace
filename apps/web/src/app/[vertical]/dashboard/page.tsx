@@ -13,7 +13,8 @@ import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
 import ReferralCard from '@/app/[vertical]/vendor/dashboard/ReferralCard'
 import RateOrderCard from '@/components/buyer/RateOrderCard'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
-import { term } from '@/lib/vertical'
+import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
+import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -226,7 +227,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           fontSize: typography.sizes.sm,
         }}>
           Welcome back, {user.user_metadata?.full_name || user.email?.split('@')[0]}
-          {isPremiumBuyer && (
+          {isBuyerPremiumEnabled(vertical) && isPremiumBuyer && (
             <span style={{ marginLeft: spacing.xs, color: colors.accent }}>
               • Premium
             </span>
@@ -545,8 +546,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           <FeedbackCard vertical={vertical} />
         </div>
 
-        {/* Upgrade to Premium Card - only show for free tier */}
-        {!isPremiumBuyer && (
+        {/* Upgrade to Premium Card - only show for free tier on verticals with premium enabled */}
+        {isBuyerPremiumEnabled(vertical) && !isPremiumBuyer && (
           <div style={{
             marginTop: spacing.md,
             padding: spacing.md,
@@ -584,7 +585,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   color: colors.textSecondary,
                   fontSize: typography.sizes.base
                 }}>
-                  Become a Premium Shopper for just <strong>$9.99/month</strong> or <strong>$81.50/year</strong>{' '}
+                  Become a Premium Shopper for just <strong>${(SUBSCRIPTION_PRICES.buyer.monthly.amountCents / 100).toFixed(2)}/month</strong> or <strong>${(SUBSCRIPTION_PRICES.buyer.annual.amountCents / 100).toFixed(2)}/year</strong>{' '}
                   <span style={{
                     backgroundColor: colors.primary,
                     color: colors.textInverse,

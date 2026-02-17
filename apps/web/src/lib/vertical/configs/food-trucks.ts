@@ -3,6 +3,12 @@ import type { VerticalTerminologyConfig } from '../types'
 export const foodTrucksConfig: VerticalTerminologyConfig = {
   vertical_id: 'food_trucks',
 
+  features: {
+    buyer_premium_enabled: false,
+    premium_window_minutes: 0,
+    show_upgrade_ui: false,
+  },
+
   terminology: {
     // Vertical identity
     display_name: 'Food Trucks',

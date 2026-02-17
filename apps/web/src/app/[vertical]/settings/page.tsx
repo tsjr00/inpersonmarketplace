@@ -130,7 +130,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         <BuyerTierManager
           vertical={vertical}
           currentTier={userProfile?.buyer_tier || 'free'}
-          tierExpiresAt={userProfile?.buyer_tier_expires_at}
+          tierExpiresAt={userProfile?.tier_expires_at}
           stripeSubscriptionId={userProfile?.stripe_subscription_id}
           primaryColor={branding.colors.primary}
         />
