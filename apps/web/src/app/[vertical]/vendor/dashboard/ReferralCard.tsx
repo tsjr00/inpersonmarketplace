@@ -83,7 +83,7 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
   return (
     <div style={{
       padding: spacing.sm,
-      background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+      background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.surfaceMuted} 100%)`,
       border: `2px solid ${colors.primary}`,
       borderRadius: radius.md,
       boxShadow: shadows.sm,
@@ -103,7 +103,7 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
             margin: 0,
             fontSize: typography.sizes.sm,
             fontWeight: typography.weights.semibold,
-            color: '#166534',
+            color: colors.primaryDark,
           }}>
             Invite a Vendor, Earn $10
           </h3>
@@ -116,7 +116,7 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
             href={`/${vertical}/vendor/referrals`}
             style={{
               fontSize: typography.sizes.xs,
-              color: '#166534',
+              color: colors.primaryDark,
               textDecoration: 'underline',
             }}
           >
@@ -172,7 +172,7 @@ export default function ReferralCard({ vertical }: ReferralCardProps) {
           display: 'flex',
           gap: spacing.sm,
           fontSize: typography.sizes.xs,
-          color: '#166534',
+          color: colors.primaryDark,
         }}>
           {data.summary.pendingCount > 0 && (
             <span>⏳ {data.summary.pendingCount} pending</span>

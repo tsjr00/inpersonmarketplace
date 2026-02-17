@@ -341,15 +341,15 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           {/* Upcoming Pickups - shows orders by date */}
           <div style={{
             padding: spacing.sm,
-            backgroundColor: upcomingPickups.length > 0 ? '#f0fdf4' : colors.surfaceElevated,
+            backgroundColor: upcomingPickups.length > 0 ? colors.primaryLight : colors.surfaceElevated,
             color: colors.textPrimary,
-            border: upcomingPickups.length > 0 ? `2px solid #16a34a` : `1px solid ${colors.border}`,
+            border: upcomingPickups.length > 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
             borderRadius: radius.md,
             boxShadow: shadows.sm
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
               <h3 style={{
-                color: upcomingPickups.length > 0 ? '#166534' : colors.primary,
+                color: upcomingPickups.length > 0 ? colors.primaryDark : colors.primary,
                 margin: 0,
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold

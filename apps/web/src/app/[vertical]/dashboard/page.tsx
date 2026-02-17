@@ -213,7 +213,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           gap: spacing.xs
         }}>
           <Image
-            src="/logos/logo-icon-color.png"
+            src={branding.logo_path}
             alt=""
             width={0}
             height={0}
@@ -244,8 +244,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             alignItems: 'flex-start',
             gap: spacing.sm,
             padding: spacing.md,
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
+            backgroundColor: colors.surfaceElevated,
+            border: `2px solid ${colors.primary}`,
             borderRadius: radius.md,
             marginBottom: spacing.lg,
             textDecoration: 'none',
@@ -258,16 +258,16 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               margin: 0,
               fontWeight: typography.weights.semibold,
               fontSize: typography.sizes.base,
-              color: '#1e40af'
+              color: colors.primaryDark
             }}>
               Never miss a pickup — turn on text alerts
             </p>
             <p style={{
               margin: `${spacing['3xs']} 0 0`,
               fontSize: typography.sizes.sm,
-              color: '#3b82f6'
+              color: colors.textSecondary
             }}>
-              Get a text the moment your order is ready so you can head to the market with confidence. Quick setup in Settings.
+              Get a text the moment your order is ready so you can pick it up hot and fresh. Quick setup in Settings.
             </p>
           </div>
         </Link>
@@ -291,8 +291,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         {ordersReadyForPickup.length > 0 && (
           <div style={{
             padding: spacing.md,
-            backgroundColor: '#dcfce7',
-            border: '2px solid #16a34a',
+            backgroundColor: colors.primaryLight,
+            border: `2px solid ${colors.primary}`,
             borderRadius: radius.lg,
             marginBottom: spacing.md
           }}>
@@ -308,13 +308,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 margin: 0,
                 fontSize: typography.sizes.lg,
                 fontWeight: typography.weights.bold,
-                color: '#166534',
+                color: colors.primaryDark,
                 whiteSpace: 'nowrap'
               }}>
                 Ready for Pickup!
               </h3>
               <span style={{
-                backgroundColor: '#16a34a',
+                backgroundColor: colors.primary,
                 color: 'white',
                 padding: `${spacing['3xs']} ${spacing['2xs']}`,
                 borderRadius: radius.full,
@@ -339,7 +339,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     backgroundColor: 'white',
                     borderRadius: radius.md,
                     textDecoration: 'none',
-                    border: '1px solid #bbf7d0'
+                    border: `1px solid ${colors.border}`
                   }}
                 >
                   {/* Order number */}
@@ -353,7 +353,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   </div>
                   {/* Item readiness count */}
                   <div style={{
-                    color: '#166534',
+                    color: colors.primaryDark,
                     fontSize: typography.sizes.sm,
                     fontWeight: typography.weights.semibold,
                     marginBottom: spacing.xs,
@@ -399,7 +399,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                           marginTop: spacing['3xs']
                         }}>
                           <span style={{ fontSize: typography.sizes.xs }}>
-                            {pickup.market?.market_type === 'private_pickup' ? '🏠' : '🧺'}
+                            {pickup.market?.market_type === 'private_pickup' ? '🏠' : term(vertical, 'market_icon_emoji')}
                           </span>
                           <span style={{
                             fontWeight: typography.weights.medium,
@@ -440,7 +440,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               style={{
                 display: 'inline-block',
                 marginTop: spacing.sm,
-                color: '#166534',
+                color: colors.primaryDark,
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,
                 textDecoration: 'none'
@@ -476,7 +476,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               {term(vertical, 'browse_products_cta')}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {`Discover fresh ${term(vertical, 'products').toLowerCase()} from local ${term(vertical, 'vendors').toLowerCase()}`}
+              {`Explore ${term(vertical, 'products').toLowerCase()} from local ${term(vertical, 'vendors').toLowerCase()}`}
             </p>
           </Link>
 
@@ -492,7 +492,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               border: confirmationNeededCount > 0
                 ? '3px solid #ea580c'
                 : ordersReadyForPickup.length > 0
-                  ? `2px solid #16a34a`
+                  ? `2px solid ${colors.primary}`
                   : `1px solid ${colors.border}`,
               borderRadius: radius.md,
               textDecoration: 'none',
@@ -530,7 +530,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               {ordersReadyForPickup.length > 0 && (
                 <span style={{
                   marginLeft: spacing.xs,
-                  color: '#16a34a',
+                  color: colors.primary,
                   fontWeight: typography.weights.semibold
                 }}>
                   • {ordersReadyForPickup.length} ready
@@ -674,7 +674,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             <div style={{
               padding: spacing.lg,
               backgroundColor: colors.surfaceElevated,
-              border: `2px dashed ${colors.accent}`,
+              border: `2px dashed ${colors.primary}`,
               borderRadius: radius.lg,
             }}>
               <div style={{
@@ -688,7 +688,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     margin: `0 0 ${spacing.xs}`,
                     fontSize: typography.sizes.xl,
                     fontWeight: typography.weights.bold,
-                    color: colors.accent
+                    color: colors.primary
                   }}>
                     Turn Your Passion Into Profit
                   </h3>
@@ -707,27 +707,27 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     marginBottom: spacing.md
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-                      <span style={{ color: colors.accent }}>✓</span>
+                      <span style={{ color: colors.primary }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                         {`Sell your ${term(vertical, 'product_examples')}`}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-                      <span style={{ color: colors.accent }}>✓</span>
+                      <span style={{ color: colors.primary }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                         Set your own prices and availability
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-                      <span style={{ color: colors.accent }}>✓</span>
+                      <span style={{ color: colors.primary }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                         Get paid directly - no complicated setup
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-                      <span style={{ color: colors.accent }}>✓</span>
+                      <span style={{ color: colors.primary }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        Start selling in minutes
+                        Reach new customers who order ahead
                       </span>
                     </div>
                   </div>
@@ -737,7 +737,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     style={{
                       display: 'inline-block',
                       padding: `${spacing.sm} ${spacing.lg}`,
-                      backgroundColor: colors.accent,
+                      backgroundColor: colors.primary,
                       color: colors.textInverse,
                       textDecoration: 'none',
                       borderRadius: radius.md,

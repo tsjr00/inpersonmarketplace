@@ -128,6 +128,7 @@ export default function SettingsForm({
             border: `1px solid ${colors.border}`,
             borderRadius: radius.sm,
             fontSize: typography.sizes.sm,
+            color: colors.textPrimary,
             boxSizing: 'border-box'
           }}
         />
@@ -188,6 +189,7 @@ export default function SettingsForm({
               border: `1px solid ${colors.border}`,
               borderRadius: radius.sm,
               fontSize: typography.sizes.sm,
+              color: colors.textPrimary,
               boxSizing: 'border-box'
             }}
           />
@@ -280,8 +282,8 @@ export default function SettingsForm({
         <div style={{
           padding: `${spacing.xs} ${spacing.sm}`,
           borderRadius: radius.sm,
-          backgroundColor: message.type === 'success' ? '#d1fae5' : '#fee2e2',
-          color: message.type === 'success' ? '#065f46' : '#991b1b',
+          backgroundColor: message.type === 'success' ? colors.primaryLight : '#fee2e2',
+          color: message.type === 'success' ? colors.primaryDark : '#991b1b',
           fontSize: typography.sizes.sm
         }}>
           {message.text}

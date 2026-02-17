@@ -54,7 +54,7 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     browse_products_cta: 'Browse Menus',
     find_markets_cta: 'Find Truck Parks',
     find_vendors_cta: 'Find Food Trucks',
-    vendor_signup_cta: 'List Your Food Truck',
+    vendor_signup_cta: 'Apply to List Your Food Truck',
     my_listings_nav: 'My Menu',
     create_listing_cta: 'Add Menu Item',
     vendor_dashboard_nav: 'Truck Dashboard',

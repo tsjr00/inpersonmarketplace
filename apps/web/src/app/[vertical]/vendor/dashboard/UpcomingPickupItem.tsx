@@ -25,9 +25,9 @@ export default function UpcomingPickupItem({ vertical, pickup_date, market_id, m
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: `${spacing['2xs']} ${spacing.xs}`,
-        backgroundColor: isToday ? '#dcfce7' : 'white',
+        backgroundColor: isToday ? colors.primaryLight : 'white',
         borderRadius: radius.sm,
-        border: isToday ? '1px solid #16a34a' : `1px solid ${colors.borderMuted}`,
+        border: isToday ? `1px solid ${colors.primary}` : `1px solid ${colors.borderMuted}`,
         textDecoration: 'none'
       }}
     >
@@ -35,7 +35,7 @@ export default function UpcomingPickupItem({ vertical, pickup_date, market_id, m
         <span style={{
           fontSize: typography.sizes.sm,
           fontWeight: isToday ? typography.weights.bold : typography.weights.medium,
-          color: isToday ? '#166534' : colors.textPrimary
+          color: isToday ? colors.primaryDark : colors.textPrimary
         }}>
           {dateLabel}
         </span>
@@ -50,8 +50,8 @@ export default function UpcomingPickupItem({ vertical, pickup_date, market_id, m
       <span style={{
         fontSize: typography.sizes.sm,
         fontWeight: typography.weights.semibold,
-        color: isToday ? '#166534' : colors.primary,
-        backgroundColor: isToday ? '#bbf7d0' : colors.primaryLight,
+        color: isToday ? colors.primaryDark : colors.primary,
+        backgroundColor: isToday ? colors.primaryLight : colors.primaryLight,
         padding: `2px ${spacing.xs}`,
         borderRadius: radius.full
       }}>

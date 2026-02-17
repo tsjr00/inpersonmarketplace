@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 import ShopperFeedbackForm from './ShopperFeedbackForm'
 
 interface FeedbackCardProps {
@@ -40,7 +41,7 @@ export default function FeedbackCard({ vertical }: FeedbackCardProps) {
           <span>💬</span> Share Feedback
         </h3>
         <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-          Suggest a market, report an issue, or tell us how to improve
+          {`Suggest a ${term(vertical, 'market').toLowerCase()}, report an issue, or tell us how to improve`}
         </p>
       </button>
 

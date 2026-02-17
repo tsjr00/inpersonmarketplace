@@ -284,12 +284,12 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
           {category === 'suggest_market' && (
             <div style={{
               padding: spacing.md,
-              backgroundColor: '#f0fdf4',
-              border: '1px solid #86efac',
+              backgroundColor: colors.primaryLight,
+              border: `1px solid ${colors.primary}`,
               borderRadius: radius.md,
               marginBottom: spacing.lg
             }}>
-              <h4 style={{ margin: `0 0 ${spacing.md} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: '#166534' }}>
+              <h4 style={{ margin: `0 0 ${spacing.md} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.primaryDark }}>
                 Market Details
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>

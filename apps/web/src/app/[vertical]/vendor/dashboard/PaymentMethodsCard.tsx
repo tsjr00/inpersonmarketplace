@@ -171,8 +171,8 @@ export default function PaymentMethodsCard({
       {success && (
         <div style={{
           padding: spacing['2xs'],
-          backgroundColor: '#dcfce7',
-          color: '#166534',
+          backgroundColor: colors.primaryLight,
+          color: colors.primaryDark,
           borderRadius: radius.sm,
           fontSize: typography.sizes.xs,
           marginBottom: spacing.xs
@@ -200,7 +200,7 @@ export default function PaymentMethodsCard({
           {stripeConnected ? (
             <div style={{
               padding: spacing['2xs'],
-              backgroundColor: '#dcfce7',
+              backgroundColor: colors.primaryLight,
               borderRadius: radius.sm,
               fontSize: typography.sizes.xs
             }}>

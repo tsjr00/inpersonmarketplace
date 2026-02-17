@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
+import { colors } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface NotificationPreferencesProps {
   primaryColor: string
@@ -24,6 +27,8 @@ const DEFAULT_PREFS: Preferences = {
 }
 
 export default function NotificationPreferences({ primaryColor, smsEnabled = false }: NotificationPreferencesProps) {
+  const params = useParams()
+  const vertical = params.vertical as string
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
   const [loading, setLoading] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
@@ -225,7 +230,7 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
             <div>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Marketing & Promotions</p>
               <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                Receive deals and market updates
+                {`Receive deals and ${term(vertical, 'market').toLowerCase()} updates`}
               </p>
             </div>
             <ToggleSwitch
@@ -268,8 +273,8 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
             <span style={{
               marginLeft: 8,
               padding: '2px 8px',
-              backgroundColor: '#fef3c7',
-              color: '#92400e',
+              backgroundColor: colors.primaryLight,
+              color: colors.primaryDark,
               borderRadius: 4,
               fontSize: 11,
               fontWeight: 500
@@ -333,8 +338,8 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
         <div style={{
           padding: '12px 16px',
           borderRadius: 6,
-          backgroundColor: message.type === 'success' ? '#d1fae5' : '#fee2e2',
-          color: message.type === 'success' ? '#065f46' : '#991b1b',
+          backgroundColor: message.type === 'success' ? colors.primaryLight : '#fee2e2',
+          color: message.type === 'success' ? colors.primaryDark : '#991b1b',
           fontSize: 14
         }}>
           {message.text}
