@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { VerticalBranding } from '@/lib/branding'
+import { term } from '@/lib/vertical'
 
 interface BrowseToggleProps {
   vertical: string
@@ -62,7 +63,7 @@ export default function BrowseToggle({
             minWidth: 160
           }}
         >
-          Products & Bundles
+          {term(vertical, 'products')} & Bundles
         </button>
         <button
           onClick={() => handleToggle('market-boxes')}
@@ -79,7 +80,7 @@ export default function BrowseToggle({
             minWidth: 160
           }}
         >
-          Market Boxes
+          {term(vertical, 'market_boxes')}
         </button>
       </div>
     </div>

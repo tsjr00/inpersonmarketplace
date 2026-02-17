@@ -30,7 +30,7 @@ function getBuyerSlides(vertical: string): TutorialSlide[] {
       description: `To find ${term(vertical, 'product_examples')} and more — click "${term(vertical, 'browse_products_cta')}" in the top navigation. Use filters to narrow by category, ${term(vertical, 'vendor').toLowerCase()}, or ${term(vertical, 'market').toLowerCase()}.`
     },
     {
-      icon: '🧺',
+      icon: term(vertical, 'market_icon_emoji'),
       title: `Find ${term(vertical, 'markets')} Near You`,
       description: `Click "${term(vertical, 'markets')}" in the navigation to discover ${term(vertical, 'traditional_markets').toLowerCase()} in your area. Each page shows which ${term(vertical, 'vendors').toLowerCase()} will be there and what ${term(vertical, 'products').toLowerCase()} are available for pre-order.`
     },

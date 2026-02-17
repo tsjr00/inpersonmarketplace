@@ -6,6 +6,7 @@ import LocationSearchInline from '@/components/location/LocationSearchInline'
 import VendorAvatar from '@/components/shared/VendorAvatar'
 import TierBadge from '@/components/shared/TierBadge'
 import { VendorTierType } from '@/lib/constants'
+import { term } from '@/lib/vertical'
 import { colors, spacing, typography, radius as radiusToken } from '@/lib/design-tokens'
 
 interface VendorMarket {
@@ -87,6 +88,8 @@ interface VendorsWithLocationProps {
     locationText: string
     radius?: number
   } | null
+  /** Custom radius options per vertical */
+  radiusOptions?: number[]
 }
 
 export default function VendorsWithLocation({
@@ -96,7 +99,8 @@ export default function VendorsWithLocation({
   currentCategory,
   currentSearch,
   currentSort,
-  initialLocation
+  initialLocation,
+  radiusOptions
 }: VendorsWithLocationProps) {
   // Initialize state from server-provided location (if available)
   const [hasLocation, setHasLocation] = useState<boolean | null>(initialLocation ? true : null)
@@ -278,9 +282,10 @@ export default function VendorsWithLocation({
           hasLocation={hasLocation || false}
           locationText={locationText}
           onClear={handleClearLocation}
-          labelPrefix="Vendors nearby"
+          labelPrefix={`${term(vertical, 'vendors')} nearby`}
           radius={radius}
           onRadiusChange={handleRadiusChange}
+          radiusOptions={radiusOptions}
         />
       </div>
 
@@ -301,7 +306,7 @@ export default function VendorsWithLocation({
             fontSize: typography.sizes.base,
             fontWeight: typography.weights.medium
           }}>
-            Enter your ZIP code above to find vendors nearby
+            {`Enter your ZIP code above to find ${term(vertical, 'vendors').toLowerCase()} nearby`}
           </p>
         </div>
       )}
@@ -313,7 +318,7 @@ export default function VendorsWithLocation({
           padding: spacing.md,
           color: colors.textMuted
         }}>
-          Loading nearby vendors...
+          {`Loading nearby ${term(vertical, 'vendors').toLowerCase()}...`}
         </div>
       )}
 
@@ -339,19 +344,19 @@ export default function VendorsWithLocation({
               borderRadius: '50%',
               animation: 'spin 0.8s linear infinite'
             }} />
-            <span>Finding vendors near you...</span>
+            <span>{`Finding ${term(vertical, 'vendors').toLowerCase()} near you...`}</span>
           </>
         ) : hasLocationResults && hasLocation ? (
           // Show "Showing X of Y" when we have location results
           <span>
             {totalVendors > vendors.length
-              ? `Showing ${vendors.length} of ${totalVendors} vendors within ${radius} miles (closest first)`
-              : `${vendors.length} vendor${vendors.length !== 1 ? 's' : ''} found within ${radius} miles`
+              ? `Showing ${vendors.length} of ${totalVendors} ${term(vertical, 'vendors').toLowerCase()} within ${radius} miles (closest first)`
+              : `${vendors.length} ${vendors.length !== 1 ? term(vertical, 'vendors').toLowerCase() : term(vertical, 'vendor').toLowerCase()} found within ${radius} miles`
             }
           </span>
         ) : (
           <span>
-            {vendors.length} vendor{vendors.length !== 1 ? 's' : ''} found
+            {vendors.length} {vendors.length !== 1 ? term(vertical, 'vendors').toLowerCase() : term(vertical, 'vendor').toLowerCase()} found
             {!hasLocationResults && vendors.length > 0 && !hasLocation && ' (enter ZIP for local results)'}
           </span>
         )}
@@ -547,7 +552,7 @@ export default function VendorsWithLocation({
                   fontSize: typography.sizes.xs,
                   color: colors.textMuted
                 }}>
-                  {vendor.listingCount} listing{vendor.listingCount !== 1 ? 's' : ''}
+                  {vendor.listingCount} {vendor.listingCount !== 1 ? term(vertical, 'listings').toLowerCase() : term(vertical, 'listing').toLowerCase()}
                 </span>
                 {vendor.tier !== 'standard' && (
                   <TierBadge tier={vendor.tier} size="sm" />
@@ -564,13 +569,13 @@ export default function VendorsWithLocation({
           border: `1px dashed ${colors.border}`,
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: 48, marginBottom: spacing.sm, opacity: 0.5 }}>🧑‍🌾</div>
+          <div style={{ fontSize: 48, marginBottom: spacing.sm, opacity: 0.5 }}>{term(vertical, 'no_results_vendor_emoji')}</div>
           <h3 style={{
             margin: `0 0 ${spacing['2xs']} 0`,
             color: colors.textSecondary,
             fontSize: typography.sizes.lg
           }}>
-            No vendors found
+            {`No ${term(vertical, 'vendors').toLowerCase()} found`}
           </h3>
           <p style={{
             margin: 0,
@@ -578,10 +583,10 @@ export default function VendorsWithLocation({
             fontSize: typography.sizes.base
           }}>
             {currentSearch || currentMarket || currentCategory
-              ? 'Try adjusting your filters to see more vendors'
+              ? `Try adjusting your filters to see more ${term(vertical, 'vendors').toLowerCase()}`
               : hasLocation
-                ? `No vendors found within ${radius} miles. Try increasing your search radius.`
-                : 'Check back soon for local vendors in your area'}
+                ? `No ${term(vertical, 'vendors').toLowerCase()} found within ${radius} miles. Try increasing your search radius.`
+                : `Check back soon for local ${term(vertical, 'vendors').toLowerCase()} in your area`}
           </p>
         </div>
       ) : null}
@@ -624,7 +629,7 @@ export default function VendorsWithLocation({
                 Loading...
               </>
             ) : (
-              `Load ${Math.min(PAGE_SIZE, totalVendors - vendors.length)} More Vendors`
+              `Load ${Math.min(PAGE_SIZE, totalVendors - vendors.length)} More ${term(vertical, 'vendors')}`
             )}
           </button>
         </div>

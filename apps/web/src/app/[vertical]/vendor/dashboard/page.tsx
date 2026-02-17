@@ -610,14 +610,14 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               minHeight: 120,
               boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🧺</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>{term(vertical, 'market_icon_emoji')}</div>
               <h3 style={{
                 color: colors.primary,
                 margin: `0 0 ${spacing['2xs']} 0`,
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold
               }}>
-                Market Boxes
+                {term(vertical, 'market_boxes')}
               </h3>
               <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
                 Offer four or eight week pre-paid subscription bundles

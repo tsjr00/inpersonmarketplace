@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { term } from '@/lib/vertical'
 
 interface AdminNavProps {
   type: 'vertical' | 'platform'
@@ -21,8 +22,8 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
   const verticalLinks = vertical ? [
     { label: 'Dashboard', href: `/${vertical}/admin`, icon: '📊' },
     { label: 'Analytics', href: `/${vertical}/admin/analytics`, icon: '📈' },
-    { label: 'Markets', href: `/${vertical}/admin/markets`, icon: '🧺' },
-    { label: 'Vendors', href: `/${vertical}/admin/vendors`, icon: '🧑‍🌾' },
+    { label: 'Markets', href: `/${vertical}/admin/markets`, icon: term(vertical, 'market_icon_emoji') },
+    { label: 'Vendors', href: `/${vertical}/admin/vendors`, icon: term(vertical, 'vendor_icon_emoji') },
     { label: 'Activity', href: `/${vertical}/admin/vendor-activity`, icon: '🔍' },
     { label: 'Listings', href: `/${vertical}/admin/listings`, icon: '📦' },
     { label: 'Users', href: `/${vertical}/admin/users`, icon: '👥' },

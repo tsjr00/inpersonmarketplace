@@ -13,6 +13,7 @@ import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
 import ReferralCard from '@/app/[vertical]/vendor/dashboard/ReferralCard'
 import RateOrderCard from '@/components/buyer/RateOrderCard'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
+import { term } from '@/lib/vertical'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -471,10 +472,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             }}
           >
             <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              Browse Products
+              {term(vertical, 'browse_products_cta')}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              Discover fresh products from local vendors
+              {`Discover fresh ${term(vertical, 'products').toLowerCase()} from local ${term(vertical, 'vendors').toLowerCase()}`}
             </p>
           </Link>
 
@@ -603,7 +604,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                     <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
-                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Access to Market Box subscriptions</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{`Access to ${term(vertical, 'market_box')} subscriptions`}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                     <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
@@ -665,7 +666,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               alignItems: 'center',
               gap: spacing['2xs']
             }}>
-              <span>🏪</span> Vendor
+              <span>{term(vertical, 'vendor_section_emoji')}</span> {term(vertical, 'vendor')}
             </h2>
 
             {/* Vendor Signup Card - Encouraging */}
@@ -695,7 +696,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     fontSize: typography.sizes.base,
                     color: colors.textSecondary
                   }}>
-                    Join local vendors already selling on our platform. Easy setup, flexible schedule, direct connection to customers.
+                    {`Join local ${term(vertical, 'vendors').toLowerCase()} already selling on our platform.`} Easy setup, flexible schedule, direct connection to customers.
                   </p>
 
                   <div style={{
@@ -707,7 +708,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                       <span style={{ color: colors.accent }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        Sell your homemade baked goods, garden produce, or handcrafted items
+                        {`Sell your ${term(vertical, 'product_examples')}`}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
@@ -743,7 +744,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       fontSize: typography.sizes.base
                     }}
                   >
-                    Become a Vendor →
+                    {term(vertical, 'vendor_signup_cta')} →
                   </Link>
                 </div>
               </div>
@@ -771,7 +772,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               alignItems: 'center',
               gap: spacing['2xs']
             }}>
-              <span>🏪</span> Vendor
+              <span>{term(vertical, 'vendor_section_emoji')}</span> {term(vertical, 'vendor')}
             </h2>
 
           {isApprovedVendor ? (
@@ -794,7 +795,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 }}
               >
                 <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                  Vendor Dashboard
+                  {term(vertical, 'vendor_dashboard_nav')}
                 </h3>
                 <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
                   Manage listings, orders, and payments
@@ -869,7 +870,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   }}>
                     <li><strong>15 listings</strong> (vs 5)</li>
                     <li><strong>4 markets + 5 private locations</strong></li>
-                    <li><strong>4 active Market Boxes</strong> with up to 20 subscribers each</li>
+                    <li><strong>{`4 active ${term(vertical, 'market_boxes')}`}</strong> with up to 20 subscribers each</li>
                     <li><strong>Priority placement</strong> in search & featured sections</li>
                     <li><strong>Premium badge</strong> & advanced analytics</li>
                   </ul>

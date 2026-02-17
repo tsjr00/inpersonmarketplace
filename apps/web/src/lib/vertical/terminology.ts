@@ -44,3 +44,15 @@ export function getVerticalTerminologyConfig(verticalId: string): VerticalTermin
 export function hasTerminologyConfig(verticalId: string): boolean {
   return verticalId in verticalConfigs
 }
+
+/**
+ * Get radius options for a vertical.
+ * Food trucks default to smaller radiuses (2/5/10/25mi).
+ * Farmers markets default to larger radiuses (10/25/50/100mi).
+ */
+const DEFAULT_RADIUS_OPTIONS = [10, 25, 50, 100]
+
+export function getRadiusOptions(verticalId: string): number[] {
+  const config = verticalConfigs[verticalId] ?? verticalConfigs[DEFAULT_VERTICAL]
+  return config.radiusOptions ?? DEFAULT_RADIUS_OPTIONS
+}

@@ -20,8 +20,8 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     markets: 'Locations',
     traditional_market: 'Food Truck Park',
     traditional_markets: 'Food Truck Parks',
-    private_pickup: 'Regular Stop',
-    private_pickups: 'Regular Stops',
+    private_pickup: 'Service Location',
+    private_pickups: 'Service Locations',
     market_box: 'Meal Plan',
     market_boxes: 'Meal Plans',
     market_day: 'Service time',
@@ -30,6 +30,19 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     // Descriptive phrases
     product_examples: 'tacos, BBQ, and street food',
     vendor_location: 'kitchen or commissary',
+
+    // Page-level text
+    vendors_page_title: 'Local Food Trucks',
+    vendors_page_subtitle: 'Discover food truck operators, chefs, and culinary artisans in your area.',
+    browse_page_subtitle: 'Discover menu items and meal plans from local food trucks near you.',
+    subscription_description: 'Meal Plans are recurring weekly meal bundles from your favorite food trucks. Subscribe to lock in your picks each week.',
+
+    // Emojis
+    no_results_vendor_emoji: '👨‍🍳',
+    no_results_market_emoji: '🚚',
+    vendor_section_emoji: '🚚',
+    market_icon_emoji: '📍',
+    vendor_icon_emoji: '👨‍🍳',
 
     // CTAs & nav labels
     browse_products_cta: 'Browse Menus',
@@ -147,4 +160,6 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
       subtitle: 'Join food truck operators and hungry locals already using our platform to skip lines and discover new favorites.',
     },
   },
+
+  radiusOptions: [2, 5, 10, 25],
 }

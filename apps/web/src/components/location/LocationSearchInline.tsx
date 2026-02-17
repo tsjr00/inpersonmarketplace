@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
-const RADIUS_OPTIONS = [10, 25, 50, 100] as const
-type RadiusOption = typeof RADIUS_OPTIONS[number]
+const DEFAULT_RADIUS_OPTIONS = [10, 25, 50, 100]
 
 interface LocationSearchInlineProps {
   onLocationSet?: (lat: number, lng: number, source: 'gps' | 'manual', locationText?: string) => void
@@ -17,6 +16,8 @@ interface LocationSearchInlineProps {
   radius?: number
   /** Called when user changes radius */
   onRadiusChange?: (radius: number) => void
+  /** Custom radius options per vertical (e.g., [2, 5, 10, 25] for food trucks) */
+  radiusOptions?: number[]
 }
 
 export default function LocationSearchInline({
@@ -26,7 +27,8 @@ export default function LocationSearchInline({
   onClear,
   labelPrefix = 'Nearby',
   radius: currentRadius = 25,
-  onRadiusChange
+  onRadiusChange,
+  radiusOptions = DEFAULT_RADIUS_OPTIONS
 }: LocationSearchInlineProps) {
   const [mode, setMode] = useState<'input' | 'loading'>('input')
   const [zipCode, setZipCode] = useState('')
@@ -128,7 +130,7 @@ export default function LocationSearchInline({
           Radius:
         </span>
       )}
-      {RADIUS_OPTIONS.map((r) => (
+      {radiusOptions.map((r) => (
         <button
           key={r}
           type="button"

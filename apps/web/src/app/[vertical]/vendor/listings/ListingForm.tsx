@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { VerticalBranding } from '@/lib/branding'
 import { term } from '@/lib/vertical'
-import { CATEGORIES } from '@/lib/constants'
+import { CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
 import Link from 'next/link'
 import MarketSelector from '@/components/vendor/MarketSelector'
 import { ListingImageUpload, ListingImage } from '@/components/vendor/ListingImageUpload'
@@ -364,6 +364,8 @@ export default function ListingForm({
     } else if (vertical === 'farmers_market') {
       // Use centralized CATEGORIES constant
       return [...CATEGORIES]
+    } else if (vertical === 'food_trucks') {
+      return [...FOOD_TRUCK_CATEGORIES]
     }
     return ['General', 'Other']
   }

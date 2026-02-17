@@ -31,6 +31,19 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
     product_examples: 'fresh produce, baked goods, and artisan products',
     vendor_location: 'farm or shop',
 
+    // Page-level text
+    vendors_page_title: 'Local Vendors',
+    vendors_page_subtitle: 'Discover farmers, bakers, and artisans selling at markets near you.',
+    browse_page_subtitle: 'Discover products and market boxes from local vendors near you.',
+    subscription_description: 'Market Boxes are 4-week subscription bundles curated by local vendors. Subscribe to get fresh selections delivered to your market pickup each week.',
+
+    // Emojis
+    no_results_vendor_emoji: '🧑‍🌾',
+    no_results_market_emoji: '🧺',
+    vendor_section_emoji: '🏪',
+    market_icon_emoji: '🧺',
+    vendor_icon_emoji: '🧑‍🌾',
+
     // CTAs & nav labels
     browse_products_cta: 'Browse Products',
     find_markets_cta: 'Find Markets',

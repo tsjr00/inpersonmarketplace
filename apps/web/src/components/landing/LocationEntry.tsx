@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { MapPin, Search } from 'lucide-react'
 import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface LocationEntryProps {
   vertical: string
@@ -151,7 +152,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
         }}
       >
         <MapPin style={{ width: 16, height: 16, color: colors.primary }} />
-        Enter your zip code to find local vendors near you
+        {`Enter your zip code to find local ${term(vertical, 'vendors').toLowerCase()} near you`}
       </p>
 
       {/* Zip code form */}

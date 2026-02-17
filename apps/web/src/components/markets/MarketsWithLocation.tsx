@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import LocationSearchInline from '@/components/location/LocationSearchInline'
 import MarketCard from '@/components/markets/MarketCard'
 import { colors, spacing, typography, radius as radiusToken, shadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 const DEFAULT_RADIUS = 25
 const PAGE_SIZE = 35
@@ -41,6 +42,8 @@ interface MarketsWithLocationProps {
     locationText: string
     radius?: number
   } | null
+  /** Custom radius options per vertical */
+  radiusOptions?: number[]
 }
 
 export default function MarketsWithLocation({
@@ -49,7 +52,8 @@ export default function MarketsWithLocation({
   cities,
   currentCity,
   currentSearch,
-  initialLocation
+  initialLocation,
+  radiusOptions
 }: MarketsWithLocationProps) {
   // Initialize state from server-provided location (if available)
   const [hasLocation, setHasLocation] = useState<boolean | null>(initialLocation ? true : null)
@@ -241,6 +245,7 @@ export default function MarketsWithLocation({
           labelPrefix="Markets nearby"
           radius={radius}
           onRadiusChange={handleRadiusChange}
+          radiusOptions={radiusOptions}
         />
       </div>
 
@@ -339,14 +344,14 @@ export default function MarketsWithLocation({
           boxShadow: shadows.sm,
           border: `1px solid ${colors.border}`
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: spacing.sm }}>🧺</div>
+          <div style={{ fontSize: '3rem', marginBottom: spacing.sm }}>{term(vertical, 'no_results_market_emoji')}</div>
           <p style={{ color: colors.textSecondary, fontSize: typography.sizes.lg, margin: 0, fontWeight: typography.weights.medium }}>
             {hasLocation
-              ? `No farmers markets found within ${radius} miles. Try increasing your search radius.`
-              : 'No farmers markets found matching your filters'}
+              ? `No ${term(vertical, 'traditional_markets').toLowerCase()} found within ${radius} miles. Try increasing your search radius.`
+              : `No ${term(vertical, 'traditional_markets').toLowerCase()} found matching your filters`}
           </p>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, marginTop: spacing.sm, maxWidth: 400, marginLeft: 'auto', marginRight: 'auto' }}>
-            Don't worry! Many vendors offer private pickup locations where you can meet them directly to pick up your order.
+            {`Don't worry! Many ${term(vertical, 'vendors').toLowerCase()} offer private pickup locations where you can meet them directly to pick up your order.`}
           </p>
           <a
             href={`/${vertical}/browse`}
@@ -369,7 +374,7 @@ export default function MarketsWithLocation({
             Browse Available Products →
           </a>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, marginTop: spacing.md }}>
-            Look for listings with "Private Pickup" to connect directly with vendors
+            {`Look for listings with "Private Pickup" to connect directly with ${term(vertical, 'vendors').toLowerCase()}`}
           </p>
         </div>
       ) : null}

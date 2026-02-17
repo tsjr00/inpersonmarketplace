@@ -5,6 +5,7 @@ import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
 import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface AdminDashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -92,9 +93,10 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     .eq('vertical_id', vertical)
     .eq('status', 'submitted')
 
+  const now = new Date()
   const staleCount = pendingVendorsList?.filter(v => {
     const daysPending = Math.floor(
-      (Date.now() - new Date(v.created_at).getTime()) / (1000 * 60 * 60 * 24)
+      (now.getTime() - new Date(v.created_at).getTime()) / (1000 * 60 * 60 * 24)
     )
     return daysPending >= 2
   }).length || 0
@@ -207,13 +209,13 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm }}>
-              <span style={{ fontSize: typography.sizes['2xl'] }}>🧺</span>
+              <span style={{ fontSize: typography.sizes['2xl'] }}>{term(vertical, 'market_icon_emoji')}</span>
               <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.primary }}>
                 Manage Markets
               </h3>
             </div>
             <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: `0 0 ${spacing.sm} 0` }}>
-              Create and manage farmers markets and pickup locations
+              Create and manage {term(vertical, 'traditional_markets').toLowerCase()} and pickup locations
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing.xs }}>
               <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: colors.surfaceSubtle, borderRadius: radius.sm }}>
@@ -252,7 +254,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm }}>
-              <span style={{ fontSize: typography.sizes['2xl'] }}>🧑‍🌾</span>
+              <span style={{ fontSize: typography.sizes['2xl'] }}>{term(vertical, 'vendor_icon_emoji')}</span>
               <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.primary }}>
                 Manage Vendors
               </h3>
@@ -367,7 +369,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.primaryDark }}>
                   {activeMarketBoxes || 0}
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: colors.primaryDark }}>Market Boxes</div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.primaryDark }}>{term(vertical, 'market_boxes')}</div>
               </div>
             </div>
           </Link>

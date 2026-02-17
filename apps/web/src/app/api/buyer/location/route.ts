@@ -6,7 +6,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 const LOCATION_COOKIE_NAME = 'user_location'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 days
 const DEFAULT_RADIUS = 25
-const VALID_RADIUS_OPTIONS = [10, 25, 50, 100]
+const VALID_RADIUS_OPTIONS = [2, 5, 10, 25, 50, 100]
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/location', 'POST', async () => {
@@ -206,7 +206,7 @@ export async function PATCH(request: NextRequest) {
 
       // Validate radius
       if (typeof newRadius !== 'number' || !VALID_RADIUS_OPTIONS.includes(newRadius)) {
-        return NextResponse.json({ error: 'Invalid radius. Must be one of: 10, 25, 50, 100' }, { status: 400 })
+        return NextResponse.json({ error: 'Invalid radius. Must be one of: 2, 5, 10, 25, 50, 100' }, { status: 400 })
       }
 
       // Get existing location data from cookie

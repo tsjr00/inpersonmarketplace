@@ -5,10 +5,11 @@ import VendorFilters from './VendorFilters'
 import VendorsWithLocation from './VendorsWithLocation'
 import { VendorTierType } from '@/lib/constants'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { term, getRadiusOptions } from '@/lib/vertical'
 
 const LOCATION_COOKIE_NAME = 'user_location'
 const DEFAULT_RADIUS = 25
-const VALID_RADIUS_OPTIONS = [10, 25, 50, 100]
+const VALID_RADIUS_OPTIONS = [2, 5, 10, 25, 50, 100]
 
 // Helper to get location from cookie or user profile
 async function getServerLocation(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -275,14 +276,14 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
           fontSize: typography.sizes['2xl'],
           fontWeight: typography.weights.bold
         }}>
-          Local Vendors
+          {term(vertical, 'vendors_page_title')}
         </h1>
         <p style={{
           color: colors.textSecondary,
           margin: 0,
           fontSize: typography.sizes.base
         }}>
-          Discover and connect with local farmers, artisans, and producers
+          {term(vertical, 'vendors_page_subtitle')}
         </p>
       </div>
 
@@ -305,6 +306,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         currentSearch={search}
         currentSort={sort}
         initialLocation={savedLocation}
+        radiusOptions={getRadiusOptions(vertical)}
       />
     </div>
   )

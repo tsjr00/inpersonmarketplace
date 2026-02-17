@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 export default function HowItWorksPage() {
   const params = useParams()
@@ -68,16 +69,16 @@ export default function HowItWorksPage() {
           <SectionHeader title="For Buyers" subtitle="Ordering & Pickup Process" accent={colors.primary} />
 
           <StepList steps={[
-            'Browse products from local vendors',
+            `Browse ${term(vertical, 'products').toLowerCase()} from local ${term(vertical, 'vendors').toLowerCase()}`,
             'Add items to your cart',
             'Complete checkout with secure payment',
             'Vendor confirms your order and prepares items',
             'You receive notification when items are ready for pickup',
             'Visit the market on pickup day',
-            'Find the vendor\'s booth and present your order details',
-            'Vendor verifies you and your order number',
+            `Find the ${term(vertical, 'vendor').toLowerCase()} and present your order details`,
+            `${term(vertical, 'vendor')} verifies you and your order number`,
             'Vendor hands you your items',
-            'Both you and vendor confirm the handoff',
+            `Both you and ${term(vertical, 'vendor').toLowerCase()} confirm the handoff`,
           ]} />
 
           <InfoCard title="The Pickup Confirmation Step" variant="green">
@@ -108,10 +109,10 @@ export default function HowItWorksPage() {
           <StepList steps={[
             'Receive order notification',
             'Confirm you can fulfill the order',
-            'Prepare items before market day',
+            `Prepare items before ${term(vertical, 'market_day').toLowerCase()}`,
             'Mark items as "Ready for Pickup" when prepared',
             'Buyer receives notification that items are ready',
-            'Buyer arrives at your booth on market day',
+            `Buyer arrives at your location on ${term(vertical, 'market_day').toLowerCase()}`,
             'Verify the buyer and the order number',
             'Hand over all items',
             'When buyer acknowledges receipt, tap "Yes, I Handed It Off" within 30 seconds',
@@ -129,7 +130,7 @@ export default function HowItWorksPage() {
 
           <InfoCard title="Best Practices" variant="blue">
             <ul style={{ paddingLeft: '1.2rem', margin: `${spacing.xs} 0` }}>
-              <li>Stay at your booth during market hours</li>
+              <li>{`Stay at your location during ${term(vertical, 'market_hours').toLowerCase()}`}</li>
               <li>Have your phone charged and app open</li>
               <li>Confirm handoffs immediately &mdash; don&apos;t wait</li>
               <li>Verify the buyer and the order number before handing over items</li>
@@ -248,7 +249,7 @@ export default function HowItWorksPage() {
               fontSize: typography.sizes.lg,
             }}
           >
-            Browse Products
+            {term(vertical, 'browse_products_cta')}
           </Link>
         </div>
       </div>

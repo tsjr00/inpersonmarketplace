@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
+import { term } from '@/lib/vertical'
 
 interface MarketBoxOffering {
   id: string
@@ -138,7 +139,7 @@ export default function VendorMarketBoxesPage() {
             ← Back to Dashboard
           </Link>
           <h1 style={{ color: branding.colors.primary, margin: '16px 0 8px 0', fontSize: 28 }}>
-            Market Boxes
+            {term(vertical, 'market_boxes')}
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
             Offer 4-week <strong>prepaid</strong> subscription bundles to premium buyers
@@ -207,7 +208,7 @@ export default function VendorMarketBoxesPage() {
                 fontSize: 14
               }}
             >
-              + Create Market Box
+              {`+ Create ${term(vertical, 'market_box')}`}
             </Link>
           </div>
         )}
@@ -222,7 +223,7 @@ export default function VendorMarketBoxesPage() {
             color: '#92400e',
             fontSize: 13
           }}>
-            You&apos;ve reached your limit of {limits?.max_offerings} market box offering{(limits?.max_offerings || 0) > 1 ? 's' : ''}.
+            You&apos;ve reached your limit of {limits?.max_offerings} {term(vertical, 'market_box').toLowerCase()} offering{(limits?.max_offerings || 0) > 1 ? 's' : ''}.
             {limits?.tier !== 'premium' && ' Upgrade to Premium for more.'}
           </div>
         )}
@@ -237,9 +238,9 @@ export default function VendorMarketBoxesPage() {
             textAlign: 'center'
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
-            <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>No Market Boxes Yet</h3>
+            <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>{`No ${term(vertical, 'market_boxes')} Yet`}</h3>
             <p style={{ color: '#6b7280', margin: '0 0 24px 0' }}>
-              Create your first 4-week subscription box to offer recurring purchases to premium buyers.
+              {`Create your first ${term(vertical, 'market_box').toLowerCase()} to offer recurring purchases to premium buyers.`}
             </p>
             {limits?.can_create_more && (
               <Link
@@ -254,7 +255,7 @@ export default function VendorMarketBoxesPage() {
                   fontWeight: 600
                 }}
               >
-                Create Your First Market Box
+                {`Create Your First ${term(vertical, 'market_box')}`}
               </Link>
             )}
           </div>
@@ -368,7 +369,7 @@ export default function VendorMarketBoxesPage() {
                     {offering.active && baseUrl && (
                       <ShareButton
                         url={`${baseUrl}/${vertical}/market-box/${offering.id}`}
-                        title={`${offering.name} - Market Box Subscription`}
+                        title={`${offering.name} - ${term(vertical, 'market_box')} Subscription`}
                         text={`Subscribe to ${offering.name} for weekly pickups!`}
                         variant="compact"
                       />

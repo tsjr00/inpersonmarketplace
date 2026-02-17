@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 import Toast, { type ToastType } from '@/components/shared/Toast'
 
 interface UnratedOrder {
@@ -198,7 +199,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                     color: colors.textSecondary,
                     lineHeight: 1.5
                   }}>
-                    Would you mind leaving us a quick Google review? It helps local vendors get discovered.
+                    {`Would you mind leaving us a quick Google review? It helps local ${term(vertical, 'vendors').toLowerCase()} get discovered.`}
                   </p>
                 </div>
                 <div style={{

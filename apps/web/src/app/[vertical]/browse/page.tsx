@@ -4,7 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import SearchFilter from './SearchFilter'
 import BrowseToggle from './BrowseToggle'
-import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES } from '@/lib/constants'
+import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
+import { term } from '@/lib/vertical'
 import TierBadge from '@/components/shared/TierBadge'
 import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -320,7 +321,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               Browse
             </h1>
             <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
-              Discover products and subscriptions from verified vendors
+              {term(vertical, 'browse_page_subtitle')}
             </p>
           </div>
 
@@ -335,16 +336,16 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             border: `1px solid ${colors.primary}`,
             borderRadius: radius.md
           }}>
-            <h4 style={{ margin: `0 0 ${spacing['2xs']} 0`, color: colors.primaryDark, fontSize: typography.sizes.sm }}>What are Market Boxes?</h4>
+            <h4 style={{ margin: `0 0 ${spacing['2xs']} 0`, color: colors.primaryDark, fontSize: typography.sizes.sm }}>{`What are ${term(vertical, 'market_boxes')}?`}</h4>
             <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.primaryDark }}>
-              Market Boxes are 4-week subscription bundles. Pay once, pick up weekly at the same location.
+              {term(vertical, 'subscription_description')}
             </p>
           </div>
 
           {/* Results Count */}
           <div style={{ marginBottom: spacing.sm }}>
             <p style={{ color: colors.textSecondary, margin: 0 }}>
-              {offeringsWithSubs.length} market box{offeringsWithSubs.length !== 1 ? 'es' : ''} available
+              {offeringsWithSubs.length} {term(vertical, offeringsWithSubs.length !== 1 ? 'market_boxes' : 'market_box').toLowerCase()} available
             </p>
           </div>
 
@@ -369,7 +370,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                 flex: 1,
                 minWidth: 200
               }}>
-                {marketBoxPremiumWindowCount} market box{marketBoxPremiumWindowCount !== 1 ? 'es are' : ' is'} in the premium early-bird window.
+                {marketBoxPremiumWindowCount} {term(vertical, marketBoxPremiumWindowCount !== 1 ? 'market_boxes' : 'market_box').toLowerCase()} {marketBoxPremiumWindowCount !== 1 ? 'are' : 'is'} in the premium early-bird window.
                 More will be visible soon.
               </p>
               <Link
@@ -407,9 +408,9 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               borderRadius: radius.md,
               textAlign: 'center'
             }}>
-              <h3 style={{ marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>No Market Boxes Available</h3>
+              <h3 style={{ marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>{`No ${term(vertical, 'market_boxes')} Available`}</h3>
               <p style={{ color: colors.textMuted, marginBottom: spacing.sm }}>
-                Check back later for 4-week subscription offerings from local vendors.
+                {`Check back later for subscription offerings from local ${term(vertical, 'vendors').toLowerCase()}.`}
               </p>
             </div>
           )}
@@ -521,6 +522,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   if (vertical === 'farmers_market') {
     // Use centralized CATEGORIES constant
     uniqueCategories = CATEGORIES
+  } else if (vertical === 'food_trucks') {
+    uniqueCategories = FOOD_TRUCK_CATEGORIES
   } else {
     // Fall back to database config for other verticals
     const { data: verticalData } = await supabase
@@ -595,7 +598,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             )}
           </div>
           <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
-            Discover products and subscriptions from verified vendors
+            {term(vertical, 'browse_page_subtitle')}
           </p>
         </div>
 
@@ -961,7 +964,7 @@ function ListingCard({
           {listing.listing_markets.length === 1
             ? (() => {
                 const market = listing.listing_markets[0].markets
-                const prefix = market?.market_type === 'private_pickup' ? 'Private Pickup: ' : 'Market: '
+                const prefix = market?.market_type === 'private_pickup' ? term(vertical, 'private_pickup') + ': ' : term(vertical, 'traditional_market') + ': '
                 return prefix + (market?.name || 'Location')
               })()
             : `${listing.listing_markets.length} pickup locations`

@@ -4,12 +4,12 @@ import { defaultBranding } from '@/lib/branding'
 import MarketFilters from './MarketFilters'
 import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
-import { term } from '@/lib/vertical'
+import { term, getRadiusOptions } from '@/lib/vertical'
 import { getMarketVendorCounts, mergeVendorCounts } from '@/lib/db/markets'
 
 const LOCATION_COOKIE_NAME = 'user_location'
 const DEFAULT_RADIUS = 25
-const VALID_RADIUS_OPTIONS = [10, 25, 50, 100]
+const VALID_RADIUS_OPTIONS = [2, 5, 10, 25, 50, 100]
 
 // Helper to get location from cookie or user profile
 async function getServerLocation(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -231,6 +231,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
         currentCity={city}
         currentSearch={search}
         initialLocation={savedLocation}
+        radiusOptions={getRadiusOptions(vertical)}
       />
     </div>
   )

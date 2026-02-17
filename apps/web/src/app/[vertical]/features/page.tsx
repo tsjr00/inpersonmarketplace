@@ -313,14 +313,14 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             gap: spacing.sm,
             marginBottom: spacing.lg
           }}>
-            <span style={{ fontSize: '2rem' }}>🏪</span>
+            <span style={{ fontSize: '2rem' }}>{term(vertical, 'vendor_section_emoji')}</span>
             <h2 style={{
               fontSize: typography.sizes['2xl'],
               fontWeight: typography.weights.bold,
               color: colors.textPrimary,
               margin: 0
             }}>
-              For Vendors
+              For {term(vertical, 'vendors')}
             </h2>
           </div>
 

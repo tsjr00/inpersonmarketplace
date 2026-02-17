@@ -41,6 +41,23 @@ export const CATEGORIES = [
 
 export type Category = typeof CATEGORIES[number]
 
+// Approved cuisine categories for food trucks
+export const FOOD_TRUCK_CATEGORIES = [
+  'American',
+  'Mexican / Latin',
+  'BBQ & Smoked',
+  'Asian',
+  'Italian',
+  'Mediterranean',
+  'Seafood',
+  'Desserts & Sweets',
+  'Beverages',
+  'Fusion',
+  'Other'
+] as const
+
+export type FoodTruckCategory = typeof FOOD_TRUCK_CATEGORIES[number]
+
 /**
  * Format quantity/measurement for display
  * Examples: "1 lb", "3-pack", "feeds 4", "12 count"

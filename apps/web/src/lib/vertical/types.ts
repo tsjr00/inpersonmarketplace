@@ -15,6 +15,12 @@ export type TerminologyKey =
   | 'vendor_dashboard_nav' | 'suggest_market_cta'
   // Descriptive phrases
   | 'product_examples' | 'vendor_location'
+  // Page-level text
+  | 'vendors_page_title' | 'vendors_page_subtitle'
+  | 'browse_page_subtitle' | 'subscription_description'
+  // Emojis
+  | 'no_results_vendor_emoji' | 'no_results_market_emoji'
+  | 'vendor_section_emoji' | 'market_icon_emoji' | 'vendor_icon_emoji'
   // Trust indicators
   | 'trust_vendors' | 'trust_pickup' | 'trust_payments'
 
@@ -95,4 +101,5 @@ export interface VerticalTerminologyConfig {
   vertical_id: string
   terminology: VerticalTerminology
   content: VerticalContent
+  radiusOptions?: number[]
 }

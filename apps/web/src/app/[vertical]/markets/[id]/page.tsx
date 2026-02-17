@@ -8,6 +8,7 @@ import ApplyToMarketButton from './ApplyToMarketButton'
 import MarketVendorsList from './MarketVendorsList'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { term } from '@/lib/vertical'
 
 interface MarketDetailPageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -191,7 +192,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             marginBottom: spacing.xs,
             flexWrap: 'wrap'
           }}>
-            <span style={{ fontSize: 28, flexShrink: 0 }}>🧺</span>
+            <span style={{ fontSize: 28, flexShrink: 0 }}>{term(vertical, 'market_icon_emoji')}</span>
             <h1 style={{
               color: branding.colors.primary,
               margin: 0,

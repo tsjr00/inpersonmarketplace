@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { term } from '@/lib/vertical'
 
 interface Pickup {
   id: string
@@ -174,7 +175,7 @@ export default function BuyerSubscriptionsPage() {
             My Subscriptions
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Manage your Market Box subscriptions and view upcoming pickups
+            {`Manage your ${term(vertical, 'market_box')} subscriptions and view upcoming pickups`}
           </p>
         </div>
 
@@ -282,7 +283,7 @@ export default function BuyerSubscriptionsPage() {
               fontSize: 14
             }}
           >
-            Browse Market Boxes
+            {`Browse ${term(vertical, 'market_boxes')}`}
           </Link>
         </div>
 
@@ -298,7 +299,7 @@ export default function BuyerSubscriptionsPage() {
             <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
             <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>No Subscriptions Yet</h3>
             <p style={{ color: '#6b7280', margin: '0 0 24px 0' }}>
-              Subscribe to a Market Box for weekly pickups of fresh products.
+              {`Subscribe to a ${term(vertical, 'market_box').toLowerCase()} for weekly pickups.`}
             </p>
             <Link
               href={`/${vertical}/browse?view=market-boxes`}
@@ -312,7 +313,7 @@ export default function BuyerSubscriptionsPage() {
                 fontWeight: 600
               }}
             >
-              Browse Market Boxes
+              {`Browse ${term(vertical, 'market_boxes')}`}
             </Link>
           </div>
         ) : (

@@ -10,6 +10,7 @@ import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
 import { useCart } from '@/lib/hooks/useCart'
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { term } from '@/lib/vertical'
 
 interface AvailableTerm {
   weeks: number
@@ -174,12 +175,12 @@ export default function MarketBoxDetailClient() {
               color: '#991b1b',
               textAlign: 'center'
             }}>
-              Market box not found
+              {`${term(vertical, 'market_box')} not found`}
             </div>
           )}
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <Link href={`/${vertical}/browse?view=market-boxes`} style={{ color: branding.colors.primary }}>
-              Back to Market Boxes
+              {`Back to ${term(vertical, 'market_boxes')}`}
             </Link>
           </div>
         </div>
@@ -201,7 +202,7 @@ export default function MarketBoxDetailClient() {
             href={`/${vertical}/browse?view=market-boxes`}
             style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
           >
-            ← Back to Market Boxes
+            {`← Back to ${term(vertical, 'market_boxes')}`}
           </Link>
           <ShareButton
             url={`${window.location.origin}/${vertical}/market-box/${offeringId}`}
@@ -307,14 +308,14 @@ export default function MarketBoxDetailClient() {
                   Choose your subscription length:
                 </div>
                 <div className="term-grid" style={{ display: 'grid', gap: 10 }}>
-                  {available_terms.map(term => (
+                  {available_terms.map(termOption => (
                     <button
-                      key={term.weeks}
-                      onClick={() => setSelectedTermWeeks(term.weeks)}
+                      key={termOption.weeks}
+                      onClick={() => setSelectedTermWeeks(termOption.weeks)}
                       style={{
                         padding: '10px 14px',
-                        backgroundColor: selectedTermWeeks === term.weeks ? '#eff6ff' : 'white',
-                        border: `2px solid ${selectedTermWeeks === term.weeks ? branding.colors.primary : '#e5e7eb'}`,
+                        backgroundColor: selectedTermWeeks === termOption.weeks ? '#eff6ff' : 'white',
+                        border: `2px solid ${selectedTermWeeks === termOption.weeks ? branding.colors.primary : '#e5e7eb'}`,
                         borderRadius: 8,
                         cursor: 'pointer',
                         textAlign: 'left',
@@ -325,7 +326,7 @@ export default function MarketBoxDetailClient() {
                         gap: 8
                       }}
                     >
-                      {term.savings_cents > 0 && (
+                      {termOption.savings_cents > 0 && (
                         <span style={{
                           position: 'absolute',
                           top: -6,
@@ -337,18 +338,18 @@ export default function MarketBoxDetailClient() {
                           fontSize: 10,
                           fontWeight: 600
                         }}>
-                          Save {formatPrice(term.savings_cents)}
+                          Save {formatPrice(termOption.savings_cents)}
                         </span>
                       )}
                       <span style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
-                        {term.label}
+                        {termOption.label}
                       </span>
                       <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                         <span style={{ fontWeight: 700, color: branding.colors.primary, fontSize: 18 }}>
-                          {formatPrice(term.price_cents)}
+                          {formatPrice(termOption.price_cents)}
                         </span>
                         <span style={{ fontSize: 11, color: '#6b7280' }}>
-                          ({formatPrice(term.price_per_week_cents)}/wk)
+                          ({formatPrice(termOption.price_per_week_cents)}/wk)
                         </span>
                       </span>
                     </button>
@@ -408,7 +409,7 @@ export default function MarketBoxDetailClient() {
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
-                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Market box pickup times may differ from the vendor&apos;s regular retail hours</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>{`${term(vertical, 'market_box')} pickup times may differ from the ${term(vertical, 'vendor').toLowerCase()}'s regular retail hours`}</span>
               </div>
             </div>
             <div style={{
@@ -518,7 +519,7 @@ export default function MarketBoxDetailClient() {
                     fontSize: 20,
                     color: '#9ca3af'
                   }}>
-                    🧑‍🌾
+                    {term(vertical, 'vendor_icon_emoji')}
                   </div>
                 )}
                 <div style={{ flex: 1 }}>
