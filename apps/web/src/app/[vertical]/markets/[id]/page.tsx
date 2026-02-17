@@ -7,6 +7,7 @@ import ScheduleDisplay from '@/components/markets/ScheduleDisplay'
 import ApplyToMarketButton from './ApplyToMarketButton'
 import MarketVendorsList from './MarketVendorsList'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getMapsUrl } from '@/lib/utils/maps-link'
 
 interface MarketDetailPageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -253,7 +254,14 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <div style={{ fontSize: typography.sizes.base, color: colors.textPrimary }}>{fullAddress}</div>
+                <a
+                  href={getMapsUrl(market.address, market.city, market.state, market.zip)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: typography.sizes.base, color: colors.textPrimary, textDecoration: 'none' }}
+                >
+                  {fullAddress}
+                </a>
               </div>
             </div>
           )}

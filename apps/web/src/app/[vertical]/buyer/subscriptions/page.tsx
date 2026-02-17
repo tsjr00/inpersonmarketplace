@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import { getMapsUrl } from '@/lib/utils/maps-link'
 
 interface Pickup {
   id: string
@@ -244,15 +245,23 @@ export default function BuyerSubscriptionsPage() {
               </div>
               {/* Line 2: Location with address */}
               {locationStr && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: 14,
-                  color: '#3b82f6'
-                }}>
-                  <span>📍 {locationStr}</span>
-                </div>
+                <a
+                  href={getMapsUrl(market?.name, market?.address, market?.city, market?.state)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: 14,
+                    color: '#3b82f6',
+                    textDecoration: 'none'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                >
+                  📍 {locationStr}
+                </a>
               )}
             </div>
           )

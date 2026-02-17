@@ -12,6 +12,7 @@ import {
   formatCutoffRemaining,
   getPickupDateColor
 } from '@/types/pickup'
+import { getMapsUrl } from '@/lib/utils/maps-link'
 
 /*
  * PICKUP SCHEDULING CONTEXT
@@ -210,14 +211,23 @@ export function AddToCartButton({
 
                     {/* Address */}
                     {market.city && (
-                      <div style={{
-                        fontSize: 11,
-                        color: '#6b7280',
-                        marginBottom: 6,
-                        marginLeft: 22
-                      }}>
+                      <a
+                        href={getMapsUrl(market.address, market.city, market.state)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'block',
+                          fontSize: 11,
+                          color: '#6b7280',
+                          marginBottom: 6,
+                          marginLeft: 22,
+                          textDecoration: 'none'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                      >
                         {market.address ? `${market.address}, ` : ''}{market.city}, {market.state}
-                      </div>
+                      </a>
                     )}
 
                     {/* Dates for this market */}
@@ -326,9 +336,16 @@ export function AddToCartButton({
                     </div>
                     {/* Line 2: Address */}
                     {acceptingDates[0].city && (
-                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                      <a
+                        href={getMapsUrl(acceptingDates[0].address, acceptingDates[0].city, acceptingDates[0].state)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'block', fontSize: 11, color: '#6b7280', marginTop: 2, textDecoration: 'none' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                      >
                         {acceptingDates[0].address ? `${acceptingDates[0].address}, ` : ''}{acceptingDates[0].city}, {acceptingDates[0].state}
-                      </div>
+                      </a>
                     )}
                     {/* Line 3: Pickup date and time */}
                     <div style={{

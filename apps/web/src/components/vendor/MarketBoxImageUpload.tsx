@@ -208,7 +208,6 @@ export function MarketBoxImageUpload({
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelect}
         style={{ display: 'none' }}
         disabled={disabled || uploading}

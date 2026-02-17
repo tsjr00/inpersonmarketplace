@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import ScheduleDisplay from './ScheduleDisplay'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { getMapsUrl } from '@/lib/utils/maps-link'
 
 interface Schedule {
   id: string
@@ -112,11 +113,23 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            <span style={{
-              fontSize: typography.sizes.sm,
-              color: colors.textMuted,
-              flex: 1
-            }}>
+            <span
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                window.open(getMapsUrl(market.address, market.city, market.state), '_blank', 'noopener,noreferrer')
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+              role="link"
+              tabIndex={0}
+              style={{
+                fontSize: typography.sizes.sm,
+                color: colors.textMuted,
+                flex: 1,
+                cursor: 'pointer'
+              }}
+            >
               {displayAddress}
             </span>
             {market.distance_miles !== undefined && (

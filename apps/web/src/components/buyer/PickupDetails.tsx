@@ -1,5 +1,7 @@
 'use client'
 
+import { getMapsUrl } from '@/lib/utils/maps-link'
+
 interface Market {
   id: string
   name: string
@@ -90,9 +92,16 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
       {/* Address */}
       {displayAddress && (
         <div style={{ marginBottom: 12 }}>
-          <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+          <a
+            href={getMapsUrl(displayAddress, displayCity, displayState, market.zip)}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'block', margin: 0, fontSize: 14, color: '#6b7280', textDecoration: 'none' }}
+            onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+            onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+          >
             {displayAddress}, {displayCity}, {displayState} {market.zip}
-          </p>
+          </a>
         </div>
       )}
 

@@ -9,6 +9,7 @@ import { formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
 import { useCart } from '@/lib/hooks/useCart'
+import { getMapsUrl } from '@/lib/utils/maps-link'
 
 interface AvailableTerm {
   weeks: number
@@ -463,9 +464,16 @@ export default function MarketBoxDetailClient() {
                       <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
                         {market.name}
                       </div>
-                      <div style={{ fontSize: 12, color: '#6b7280' }}>
+                      <a
+                        href={getMapsUrl(market.address, market.city, market.state)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'block', fontSize: 12, color: '#6b7280', textDecoration: 'none' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                      >
                         {market.address}, {market.city}, {market.state}
-                      </div>
+                      </a>
                     </div>
                   </div>
                 )}

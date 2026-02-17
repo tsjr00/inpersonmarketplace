@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { getMapsUrl } from '@/lib/utils/maps-link'
 
 interface PickupLocation {
   id: string
@@ -161,9 +162,16 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                   }}>
                     <div style={{ fontWeight: 600 }}>{location.name}</div>
                     {(location.city || location.address) && (
-                      <div style={{ fontSize: 11, color: '#92400e', marginTop: 2 }}>
+                      <a
+                        href={getMapsUrl(location.address, location.city, location.state)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'block', fontSize: 11, color: '#92400e', marginTop: 2, textDecoration: 'none' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                      >
                         {[location.city, location.state].filter(Boolean).join(', ')}
-                      </div>
+                      </a>
                     )}
                   </td>
                   {orderedDays.map(day => {
@@ -227,9 +235,16 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                 {location.name}
               </div>
               {(location.city || location.address) && (
-                <div style={{ fontSize: 12, color: '#92400e', marginBottom: 8 }}>
+                <a
+                  href={getMapsUrl(location.address, location.city, location.state)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'block', fontSize: 12, color: '#92400e', marginBottom: 8, textDecoration: 'none' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                >
                   {[location.address, location.city, location.state].filter(Boolean).join(', ')}
-                </div>
+                </a>
               )}
               {hasAnySchedule ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

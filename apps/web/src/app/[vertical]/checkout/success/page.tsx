@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { formatQuantityDisplay } from '@/lib/constants'
 import { useCart } from '@/lib/hooks/useCart'
+import { getMapsUrl } from '@/lib/utils/maps-link'
 
 // Format pickup date for display
 function formatPickupDate(dateStr: string | null | undefined): string | null {
@@ -463,14 +464,23 @@ export default function CheckoutSuccessPage() {
                           </p>
                         )}
                         {(item.market_address || item.market_city) && (
-                          <p style={{
-                            margin: `${spacing['3xs']} 0 0`,
-                            fontSize: typography.sizes.xs,
-                            color: locations.length > 1 ? '#856404' : colors.textMuted,
-                          }}>
+                          <a
+                            href={getMapsUrl(item.market_address, item.market_city, item.market_state)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'block',
+                              margin: `${spacing['3xs']} 0 0`,
+                              fontSize: typography.sizes.xs,
+                              color: locations.length > 1 ? '#856404' : colors.textMuted,
+                              textDecoration: 'none',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                          >
                             {item.market_address}{item.market_address && item.market_city ? ', ' : ''}
                             {item.market_city && <>{item.market_city}, {item.market_state}</>}
-                          </p>
+                          </a>
                         )}
                       </div>
                     </div>

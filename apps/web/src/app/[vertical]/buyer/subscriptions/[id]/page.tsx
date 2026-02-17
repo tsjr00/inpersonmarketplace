@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import { getMapsUrl } from '@/lib/utils/maps-link'
 
 interface Pickup {
   id: string
@@ -353,11 +354,18 @@ export default function BuyerSubscriptionDetailPage() {
             <div style={{ fontSize: 16, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
               {subscription.offering.market.name}
             </div>
-            <div style={{ fontSize: 14, color: '#6b7280' }}>
+            <a
+              href={getMapsUrl(subscription.offering.market.address, subscription.offering.market.city, subscription.offering.market.state)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'block', fontSize: 14, color: '#6b7280', textDecoration: 'none' }}
+              onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+              onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+            >
               {subscription.offering.market.address}
               <br />
               {subscription.offering.market.city}, {subscription.offering.market.state}
-            </div>
+            </a>
             <div style={{ marginTop: 12, fontSize: 14, color: '#6b7280' }}>
               Every {DAYS[subscription.offering.pickup_day_of_week]}, {formatTime(subscription.offering.pickup_start_time)} - {formatTime(subscription.offering.pickup_end_time)}
             </div>
