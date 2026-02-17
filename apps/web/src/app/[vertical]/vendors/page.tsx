@@ -89,7 +89,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
   const { vertical } = await params
   const { market, category, search, sort = 'rating' } = await searchParams
   const supabase = await createClient()
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // PARALLEL PHASE 1: Run location check and vendor query simultaneously
   // These are independent and can run in parallel to reduce waterfall

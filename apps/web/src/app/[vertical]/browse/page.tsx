@@ -193,7 +193,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   const supabase = await createClient()
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Check if user is premium buyer
   const { data: { user } } = await supabase.auth.getUser()

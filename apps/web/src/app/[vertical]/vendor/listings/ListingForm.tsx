@@ -359,7 +359,7 @@ export default function ListingForm({
 
   // Get category options based on vertical
   const getCategoryOptions = () => {
-    if (vertical === 'fireworks') {
+    if (vertical === 'fire_works') {
       return ['Aerial', 'Ground', 'Sparklers', 'Fountains', 'Novelty', 'Assortments', 'Other']
     } else if (vertical === 'farmers_market') {
       // Use centralized CATEGORIES constant

@@ -85,7 +85,7 @@ export default function EditMarketBoxPage() {
   const router = useRouter()
   const vertical = params.vertical as string
   const offeringId = params.id as string
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   const [markets, setMarkets] = useState<Market[]>([])
   const [offering, setOffering] = useState<MarketBoxOffering | null>(null)

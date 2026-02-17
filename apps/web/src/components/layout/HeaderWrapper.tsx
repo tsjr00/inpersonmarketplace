@@ -11,7 +11,7 @@ export async function HeaderWrapper({ vertical, isLandingPage }: HeaderWrapperPr
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   let userProfile = null
   let vendorProfile = null

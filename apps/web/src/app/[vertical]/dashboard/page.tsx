@@ -30,7 +30,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   }
 
   // Get branding from defaults
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Get vendor profile for THIS vertical (if exists)
   const { data: vendorProfile } = await supabase

@@ -76,8 +76,8 @@ export default async function PendingVendorsPage() {
                     <td style={{ padding: 15 }}>
                       <span style={{
                         padding: '4px 8px',
-                        backgroundColor: verticalId === 'fireworks' ? '#ff450020' : '#2d501620',
-                        color: verticalId === 'fireworks' ? '#ff4500' : '#2d5016',
+                        backgroundColor: verticalId === 'fire_works' ? '#ff450020' : '#2d501620',
+                        color: verticalId === 'fire_works' ? '#ff4500' : '#2d5016',
                         borderRadius: 4,
                         fontSize: 12,
                         fontWeight: 600

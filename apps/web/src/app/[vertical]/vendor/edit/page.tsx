@@ -23,7 +23,7 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
   }
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Get vendor profile
   const { data: vendorProfile, error: vendorError } = await supabase

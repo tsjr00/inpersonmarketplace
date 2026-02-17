@@ -84,7 +84,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   const { vertical } = await params
   const { city, search, zip, state } = await searchParams
   const supabase = await createClient()
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Build query for traditional markets only (exclude private pickup)
   // Only show approved markets (vendor submissions need admin approval)

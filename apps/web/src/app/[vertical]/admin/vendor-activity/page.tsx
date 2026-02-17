@@ -41,7 +41,7 @@ export default async function VendorActivityPage({ params, searchParams }: Vendo
     redirect(`/${vertical}/dashboard`)
   }
 
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   return (
     <div style={{

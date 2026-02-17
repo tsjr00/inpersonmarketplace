@@ -244,7 +244,7 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
   }
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Get vendor profile for this vertical
   const { data: vendorProfile } = await supabase

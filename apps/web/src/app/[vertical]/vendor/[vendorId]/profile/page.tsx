@@ -19,7 +19,7 @@ interface VendorProfilePageProps {
 export async function generateMetadata({ params }: VendorProfilePageProps): Promise<Metadata> {
   const { vertical, vendorId } = await params
   const supabase = await createClient()
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Fetch vendor profile
   const { data: vendor } = await supabase
@@ -67,7 +67,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   const supabase = await createClient()
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Check if user is premium buyer (for premium window logic) and if admin
   const { data: { user } } = await supabase.auth.getUser()

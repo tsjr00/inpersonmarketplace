@@ -177,7 +177,7 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
     }
   }
 
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   const totalCount = count || 0
   const totalPages = Math.ceil(totalCount / pageSize)

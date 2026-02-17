@@ -11,7 +11,7 @@ interface FeaturesPageProps {
 
 export async function generateMetadata({ params }: FeaturesPageProps): Promise<Metadata> {
   const { vertical } = await params
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   return {
     title: `Features & Benefits | ${branding.brand_name}`,
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: FeaturesPageProps): Promise<M
 
 export default async function FeaturesPage({ params }: FeaturesPageProps) {
   const { vertical } = await params
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
   const content = getContent(vertical)
   // Actual hex values needed for hex+alpha concatenation (CSS var() can't be concatenated)
   const hexColors = getVerticalColors(vertical)

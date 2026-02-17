@@ -58,7 +58,7 @@ function getVerticalConfigFallback(verticalId: string): VerticalConfig | null {
 
   return {
     vertical_id: verticalId,
-    name_public: { fireworks: 'Fireworks Marketplace', farmers_market: 'Farmers Market', food_trucks: 'Food Trucks' }[verticalId] || verticalId,
+    name_public: { fire_works: 'Fireworks Marketplace', farmers_market: 'Farmers Market', food_trucks: 'Food Trucks' }[verticalId] || verticalId,
     branding
   }
 }
@@ -111,12 +111,12 @@ function getBrandingByDomainFallback(domain: string): {
   branding: VerticalBranding
 } | null {
   const domainMap: Record<string, string> = {
-    'fireworksstand.com': 'fireworks',
-    'www.fireworksstand.com': 'fireworks',
+    'fireworksstand.com': 'fire_works',
+    'www.fireworksstand.com': 'fire_works',
     'farmersmarket.app': 'farmers_market',
     'www.farmersmarket.app': 'farmers_market',
-    'localhost:3002': 'fireworks', // Default for dev
-    'inpersonmarketplace.vercel.app': 'fireworks', // Default for staging
+    'localhost:3002': 'farmers_market', // Default for dev
+    'inpersonmarketplace.vercel.app': 'farmers_market', // Default for staging
   }
 
   const verticalId = domainMap[domain]
@@ -174,9 +174,9 @@ export async function getAllVerticals(): Promise<VerticalConfig[]> {
 function getAllVerticalsFallback(): VerticalConfig[] {
   return [
     {
-      vertical_id: 'fireworks',
+      vertical_id: 'fire_works',
       name_public: 'Fireworks Marketplace',
-      branding: defaultBranding.fireworks
+      branding: defaultBranding.fire_works
     },
     {
       vertical_id: 'farmers_market',

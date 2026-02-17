@@ -38,7 +38,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
   const isPlatformAdmin = hasPlatformAdminRole(userProfile || {})
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // ============ Fetch all dashboard data ============
 

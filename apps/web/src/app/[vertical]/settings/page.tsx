@@ -24,7 +24,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
   }
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Get user profile
   const { data: userProfile } = await supabase

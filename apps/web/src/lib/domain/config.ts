@@ -11,14 +11,14 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
   // Production domains
   'fastwrks.com': {
     domain: 'fastwrks.com',
-    verticalId: 'fireworks',
+    verticalId: 'fire_works',
     isAdmin: false,
     brandName: 'FastWrks',
     logoPath: '/logos/fastwrks-logo.png'
   },
   'www.fastwrks.com': {
     domain: 'fastwrks.com',
-    verticalId: 'fireworks',
+    verticalId: 'fire_works',
     isAdmin: false,
     brandName: 'FastWrks',
     logoPath: '/logos/fastwrks-logo.png'

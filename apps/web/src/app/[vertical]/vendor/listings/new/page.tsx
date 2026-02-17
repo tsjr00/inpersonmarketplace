@@ -21,7 +21,7 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
   }
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Get vendor profile with status and tier
   const { data: vendorProfile } = await supabase

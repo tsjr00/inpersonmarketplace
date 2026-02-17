@@ -24,7 +24,7 @@ export default function LoginPage({ params }: LoginPageProps) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [configLoading, setConfigLoading] = useState(true)
-  const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks)
+  const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const router = useRouter()
   const supabase = createClient()
 

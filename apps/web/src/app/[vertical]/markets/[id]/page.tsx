@@ -25,7 +25,7 @@ interface VendorWithListings {
 export default async function MarketDetailPage({ params }: MarketDetailPageProps) {
   const { vertical, id } = await params
   const supabase = await createClient()
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Get market with schedules
   const { data: market, error } = await supabase

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
       // Create account link
       const baseUrl = request.nextUrl.origin
-      const vertical = vendorProfile.vertical_id || 'fireworks'
+      const vertical = vendorProfile.vertical_id || 'farmers_market'
       const refreshUrl = `${baseUrl}/${vertical}/vendor/dashboard/stripe/refresh`
       const returnUrl = `${baseUrl}/${vertical}/vendor/dashboard/stripe/complete`
 

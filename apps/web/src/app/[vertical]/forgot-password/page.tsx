@@ -17,7 +17,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [configLoading, setConfigLoading] = useState(true)
-  const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks)
+  const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const supabase = createClient()
 
   useEffect(() => {

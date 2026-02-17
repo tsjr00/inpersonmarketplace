@@ -46,7 +46,7 @@ export default function VendorMarketBoxesPage() {
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   const [offerings, setOfferings] = useState<MarketBoxOffering[]>([])
   const [limits, setLimits] = useState<Limits | null>(null)

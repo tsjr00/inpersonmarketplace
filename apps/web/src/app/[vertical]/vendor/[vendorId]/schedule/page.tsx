@@ -14,7 +14,7 @@ interface SchedulePageProps {
 export async function generateMetadata({ params }: SchedulePageProps): Promise<Metadata> {
   const { vertical, vendorId } = await params
   const supabase = await createClient()
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Fetch vendor profile
   const { data: vendor } = await supabase
@@ -61,7 +61,7 @@ export default async function VendorSchedulePage({ params }: SchedulePageProps) 
   const supabase = await createClient()
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Get vendor profile
   const { data: vendor, error } = await supabase

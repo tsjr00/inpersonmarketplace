@@ -21,7 +21,7 @@ interface VerticalHomePageProps {
 // Generate dynamic metadata for SEO
 export async function generateMetadata({ params }: VerticalHomePageProps): Promise<Metadata> {
   const { vertical } = await params
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   const title = branding.meta.title
   const description = branding.meta.description
@@ -104,7 +104,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
   }
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Fetch stats only - FeaturedMarkets is now text-only per Tracy's decision
   const stats = await getVerticalStats(supabase, vertical)

@@ -33,7 +33,7 @@ interface ListingDetailPageProps {
 export async function generateMetadata({ params }: ListingDetailPageProps): Promise<Metadata> {
   const { vertical, listingId } = await params
   const supabase = await createClient()
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Fetch listing with vendor info and images
   const { data: listing } = await supabase
@@ -100,7 +100,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const supabase = await createClient()
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Phase 1: Run independent queries in parallel
   const [listingResult, availableDatesResult, userResult] = await Promise.all([

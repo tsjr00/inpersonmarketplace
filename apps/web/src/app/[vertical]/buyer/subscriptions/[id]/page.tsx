@@ -63,7 +63,7 @@ export default function BuyerSubscriptionDetailPage() {
   const params = useParams()
   const vertical = params.vertical as string
   const subscriptionId = params.id as string
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)

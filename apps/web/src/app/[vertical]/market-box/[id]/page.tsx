@@ -13,7 +13,7 @@ interface MarketBoxPageProps {
 export async function generateMetadata({ params }: MarketBoxPageProps): Promise<Metadata> {
   const { vertical, id: offeringId } = await params
   const supabase = await createClient()
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Fetch market box offering with vendor info
   const { data: offering } = await supabase

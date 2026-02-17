@@ -66,7 +66,7 @@ export default function VendorAnalyticsPage() {
   const [chartMetric, setChartMetric] = useState<'revenue' | 'orders'>('revenue')
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Fetch vendor profile
   useEffect(() => {

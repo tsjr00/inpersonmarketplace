@@ -18,7 +18,7 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
   }
 
   // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Get vendor profile with status
   const { data: vendorProfile } = await supabase

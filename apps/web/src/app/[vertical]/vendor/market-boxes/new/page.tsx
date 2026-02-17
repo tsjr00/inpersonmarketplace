@@ -66,7 +66,7 @@ export default function NewMarketBoxPage() {
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
-  const branding = defaultBranding[vertical] || defaultBranding.fireworks
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   const [markets, setMarkets] = useState<Market[]>([])
   const [loading, setLoading] = useState(true)

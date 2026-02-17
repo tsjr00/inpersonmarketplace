@@ -32,7 +32,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.fireworks);
+  const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market);
 
   // Referral tracking
   const [referralCode, setReferralCode] = useState<string | null>(null);

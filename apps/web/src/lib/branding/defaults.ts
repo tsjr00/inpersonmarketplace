@@ -3,7 +3,7 @@ import { VerticalBranding } from './types'
 // Fallback branding for each vertical (used if database unavailable)
 // Safe to import in client components
 export const defaultBranding: Record<string, VerticalBranding> = {
-  fireworks: {
+  fire_works: {
     domain: 'fireworksstand.com',
     brand_name: 'Fireworks Stand',
     tagline: 'Your Premier Fireworks Marketplace',
