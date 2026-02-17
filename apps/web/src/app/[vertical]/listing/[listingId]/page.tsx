@@ -8,7 +8,7 @@ import PickupLocationsCard from '@/components/listings/PickupLocationsCard'
 import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
 import { listingJsonLd } from '@/lib/marketing/json-ld'
-import { formatDisplayPrice } from '@/lib/constants'
+import { formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { groupPickupDatesByMarket, type AvailablePickupDate } from '@/types/pickup'
 import type { Metadata } from 'next'
@@ -268,6 +268,11 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               color: colors.primary
             }}>
               {formatDisplayPrice(listing.price_cents || 0)}
+              {formatQuantityDisplay(listing.quantity_amount, listing.quantity_unit) && (
+                <span style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.normal, color: colors.textMuted }}>
+                  {' / '}{formatQuantityDisplay(listing.quantity_amount, listing.quantity_unit)}
+                </span>
+              )}
             </div>
             <div style={{
               fontSize: typography.sizes.base,

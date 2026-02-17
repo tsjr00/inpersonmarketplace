@@ -52,6 +52,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         pickup_day_of_week,
         pickup_start_time,
         pickup_end_time,
+        quantity_amount,
+        quantity_unit,
         max_subscribers,
         active,
         created_at,
@@ -181,6 +183,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       pickup_end_time,
       max_subscribers,
       active,
+      quantity_amount,
+      quantity_unit,
     } = body
 
     // Don't allow changing pickup location/time if there are active subscribers
@@ -235,6 +239,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (pickup_day_of_week !== undefined) updates.pickup_day_of_week = pickup_day_of_week
     if (pickup_start_time !== undefined) updates.pickup_start_time = pickup_start_time
     if (pickup_end_time !== undefined) updates.pickup_end_time = pickup_end_time
+    if (quantity_amount !== undefined) updates.quantity_amount = quantity_amount
+    if (quantity_unit !== undefined) updates.quantity_unit = quantity_unit
     if (max_subscribers !== undefined) updates.max_subscribers = max_subscribers
     if (active !== undefined) updates.active = active
 

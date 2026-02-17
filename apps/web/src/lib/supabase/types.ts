@@ -150,6 +150,8 @@ export interface Listing {
   longitude: number | null
   available_from: string | null
   available_to: string | null
+  quantity_amount: number | null
+  quantity_unit: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null

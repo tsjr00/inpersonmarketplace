@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import SearchFilter from './SearchFilter'
 import BrowseToggle from './BrowseToggle'
-import { formatDisplayPrice, CATEGORIES } from '@/lib/constants'
+import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES } from '@/lib/constants'
 import TierBadge from '@/components/shared/TierBadge'
 import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -49,6 +49,8 @@ interface Listing {
   description: string | null
   price_cents: number
   quantity: number
+  quantity_amount: number | null
+  quantity_unit: string | null
   category: string | null
   created_at: string
   vendor_profile_id: string
@@ -126,6 +128,8 @@ interface MarketBoxOffering {
   description: string | null
   image_urls: string[] | null
   price_cents: number
+  quantity_amount: number | null
+  quantity_unit: string | null
   pickup_day_of_week: number
   pickup_start_time: string
   pickup_end_time: string
@@ -215,6 +219,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         description,
         image_urls,
         price_cents,
+        quantity_amount,
+        quantity_unit,
         pickup_day_of_week,
         pickup_start_time,
         pickup_end_time,
@@ -430,6 +436,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       description,
       price_cents,
       quantity,
+      quantity_amount,
+      quantity_unit,
       category,
       created_at,
       vendor_profile_id,
@@ -930,6 +938,11 @@ function ListingCard({
           color: colors.primary
         }}>
           {formatDisplayPrice(listing.price_cents)}
+          {formatQuantityDisplay(listing.quantity_amount, listing.quantity_unit) && (
+            <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.normal, color: colors.textMuted }}>
+              {' / '}{formatQuantityDisplay(listing.quantity_amount, listing.quantity_unit)}
+            </span>
+          )}
         </span>
         {/* Cutoff/Closed Status Badge - pre-calculated server-side */}
         <CutoffBadge
@@ -1127,6 +1140,11 @@ function MarketBoxCard({
         marginBottom: spacing['3xs']
       }}>
         {formatDisplayPrice(offering.price_cents)}
+        {formatQuantityDisplay(offering.quantity_amount, offering.quantity_unit) && (
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.normal, color: colors.textMuted }}>
+            {' / '}{formatQuantityDisplay(offering.quantity_amount, offering.quantity_unit)}
+          </span>
+        )}
       </div>
       <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['2xs'] }}>
         for 4 weeks ({formatDisplayPrice(offering.price_cents / 4)}/week)

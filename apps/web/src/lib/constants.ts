@@ -41,6 +41,19 @@ export const CATEGORIES = [
 
 export type Category = typeof CATEGORIES[number]
 
+/**
+ * Format quantity/measurement for display
+ * Examples: "1 lb", "3-pack", "feeds 4", "12 count"
+ */
+export function formatQuantityDisplay(amount: number | null, unit: string | null): string | null {
+  if (amount == null || !unit) return null
+  // "feeds" reads more naturally as "feeds 4" than "4 feeds"
+  if (unit === 'feeds') return `feeds ${amount}`
+  // Format number: drop trailing .0 for whole numbers
+  const formatted = Number.isInteger(amount) ? amount.toString() : amount.toFixed(1)
+  return `${formatted} ${unit}`
+}
+
 // Premium tier badge configuration
 export const TIER_BADGES = {
   premium: {

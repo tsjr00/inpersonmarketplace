@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
         pickup_day_of_week,
         pickup_start_time,
         pickup_end_time,
+        quantity_amount,
+        quantity_unit,
         max_subscribers,
         active,
         created_at,
@@ -210,6 +212,8 @@ export async function POST(request: NextRequest) {
       pickup_start_time,
       pickup_end_time,
       max_subscribers,
+      quantity_amount,
+      quantity_unit,
     } = body
 
     // Support both old (price_cents) and new (price_4week_cents) field names
@@ -314,6 +318,8 @@ export async function POST(request: NextRequest) {
         pickup_day_of_week: typeof pickup_day_of_week === 'string' ? parseInt(pickup_day_of_week) : pickup_day_of_week,
         pickup_start_time,
         pickup_end_time,
+        quantity_amount: quantity_amount ?? null,
+        quantity_unit: quantity_unit || null,
         max_subscribers: max_subscribers || null,
         active: true,
       })

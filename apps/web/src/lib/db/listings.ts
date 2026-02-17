@@ -13,6 +13,8 @@ export interface CreateListingData {
   longitude?: number
   available_from?: string
   available_to?: string
+  quantity_amount?: number
+  quantity_unit?: string
   status?: ListingStatus
 }
 

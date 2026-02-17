@@ -8,7 +8,7 @@ import OrderTimeline from '@/components/buyer/OrderTimeline'
 import PickupDetails from '@/components/buyer/PickupDetails'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import PostPurchaseSharePrompt from '@/components/marketing/PostPurchaseSharePrompt'
-import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES, formatQuantityDisplay } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface Market {
@@ -34,6 +34,8 @@ interface OrderItem {
   listing_title: string
   listing_description: string
   listing_image: string | null
+  quantity_amount: number | null
+  quantity_unit: string | null
   quantity: number
   unit_price_cents: number
   subtotal_cents: number
@@ -812,6 +814,11 @@ export default function BuyerOrderDetailPage() {
                   }}>
                     <h4 style={{ margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
                       {item.listing_title}
+                      {formatQuantityDisplay(item.quantity_amount, item.quantity_unit) && (
+                        <span style={{ fontWeight: typography.weights.normal, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                          {' '}({formatQuantityDisplay(item.quantity_amount, item.quantity_unit)})
+                        </span>
+                      )}
                     </h4>
                     <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                       by {item.vendor_name}

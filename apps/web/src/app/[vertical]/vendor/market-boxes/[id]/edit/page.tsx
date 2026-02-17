@@ -41,7 +41,26 @@ interface MarketBoxOffering {
   active: boolean
   active_subscribers: number
   image_urls: string[] | null
+  quantity_amount: number | null
+  quantity_unit: string | null
 }
+
+const QUANTITY_UNITS: { value: string; label: string; verticals: string[] }[] = [
+  { value: 'lb', label: 'lb', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'oz', label: 'oz', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'count', label: 'count', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'dozen', label: 'dozen', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'pack', label: 'pack', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'pint', label: 'pint', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'quart', label: 'quart', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'bag', label: 'bag', verticals: ['farmers_market'] },
+  { value: 'bunch', label: 'bunch', verticals: ['farmers_market'] },
+  { value: 'bouquet', label: 'bouquet', verticals: ['farmers_market'] },
+  { value: 'box', label: 'box', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'serving', label: 'serving', verticals: ['food_trucks'] },
+  { value: 'feeds', label: 'feeds', verticals: ['food_trucks'] },
+  { value: 'other', label: 'other', verticals: ['farmers_market', 'food_trucks'] },
+]
 
 const DAYS = [
   { value: 0, label: 'Sunday' },
@@ -85,6 +104,8 @@ export default function EditMarketBoxPage() {
     pickup_day_of_week: '',
     pickup_start_time: '08:00',
     pickup_end_time: '12:00',
+    quantity_amount: '',
+    quantity_unit: '',
   })
 
   // Get selected market and determine if it's traditional
@@ -166,6 +187,8 @@ export default function EditMarketBoxPage() {
       pickup_day_of_week: String(o.pickup_day_of_week),
       pickup_start_time: o.pickup_start_time.slice(0, 5),
       pickup_end_time: o.pickup_end_time.slice(0, 5),
+      quantity_amount: o.quantity_amount != null ? String(o.quantity_amount) : '',
+      quantity_unit: o.quantity_unit || '',
     })
   }, [offeringId])
 
@@ -208,6 +231,8 @@ export default function EditMarketBoxPage() {
           pickup_start_time: formData.pickup_start_time,
           pickup_end_time: formData.pickup_end_time,
           image_urls: imageUrl ? [imageUrl] : [],
+          quantity_amount: formData.quantity_amount ? parseFloat(formData.quantity_amount) : null,
+          quantity_unit: formData.quantity_unit || null,
         }),
       })
 
@@ -357,6 +382,60 @@ export default function EditMarketBoxPage() {
               onImageChange={setImageUrl}
               disabled={submitting}
             />
+
+            {/* Size / Amount */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
+                Size / Amount
+              </label>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={formData.quantity_amount}
+                  onChange={(e) => setFormData({ ...formData, quantity_amount: e.target.value })}
+                  placeholder="e.g. 1"
+                  style={{
+                    width: 100,
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <select
+                  value={formData.quantity_unit}
+                  onChange={(e) => setFormData({ ...formData, quantity_unit: e.target.value })}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value="">Select unit...</option>
+                  {QUANTITY_UNITS
+                    .filter(u => u.verticals.includes(vertical))
+                    .map(u => (
+                      <option key={u.value} value={u.value}>{u.label}</option>
+                    ))
+                  }
+                </select>
+              </div>
+              {formData.quantity_amount && formData.quantity_unit && (
+                <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                  Buyers will see: <strong>
+                    {formData.quantity_unit === 'feeds'
+                      ? `feeds ${formData.quantity_amount}`
+                      : `${formData.quantity_amount} ${formData.quantity_unit}`}
+                  </strong>
+                </p>
+              )}
+            </div>
 
             {/* 4-Week Price */}
             <div style={{ marginBottom: 20 }}>

@@ -261,6 +261,8 @@ export async function GET(request: NextRequest) {
           markets!market_id(id, name, market_type, address, city, state),
           listing:listings(
             title,
+            quantity_amount,
+            quantity_unit,
             vendor_profiles(profile_data, user_id)
           )
         )

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import { formatQuantityDisplay } from '@/lib/constants'
 
 interface MarketBoxOffering {
   id: string
@@ -12,6 +13,8 @@ interface MarketBoxOffering {
   description: string | null
   image_urls: string[]
   price_cents: number
+  quantity_amount: number | null
+  quantity_unit: string | null
   pickup_day_of_week: number
   pickup_start_time: string
   pickup_end_time: string
@@ -399,6 +402,12 @@ export default function VendorMarketBoxDetailPage() {
                   <span style={{ color: '#6b7280', minWidth: 120 }}>Price:</span>
                   <span style={{ color: '#374151', fontWeight: 500 }}>{formatPrice(offering.price_cents)} for 4 weeks</span>
                 </div>
+                {formatQuantityDisplay(offering.quantity_amount, offering.quantity_unit) && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span style={{ color: '#6b7280', minWidth: 120 }}>Size / Amount:</span>
+                    <span style={{ color: '#374151', fontWeight: 500 }}>{formatQuantityDisplay(offering.quantity_amount, offering.quantity_unit)}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <span style={{ color: '#6b7280', minWidth: 120 }}>Pickup Day:</span>
                   <span style={{ color: '#374151' }}>{DAYS[offering.pickup_day_of_week]}s</span>

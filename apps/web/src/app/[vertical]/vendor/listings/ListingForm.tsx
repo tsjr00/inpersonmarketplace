@@ -25,6 +25,24 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   'Home & Functional': 'Handcrafted cutting boards, utensils, textiles, baskets, small furniture, and similar functional household items.'
 }
 
+// Quantity unit options per vertical
+const QUANTITY_UNITS: { value: string; label: string; verticals: string[] }[] = [
+  { value: 'lb', label: 'lb', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'oz', label: 'oz', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'count', label: 'count', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'dozen', label: 'dozen', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'pack', label: 'pack', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'pint', label: 'pint', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'quart', label: 'quart', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'bag', label: 'bag', verticals: ['farmers_market'] },
+  { value: 'bunch', label: 'bunch', verticals: ['farmers_market'] },
+  { value: 'bouquet', label: 'bouquet', verticals: ['farmers_market'] },
+  { value: 'box', label: 'box', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'serving', label: 'serving', verticals: ['food_trucks'] },
+  { value: 'feeds', label: 'feeds', verticals: ['food_trucks'] },
+  { value: 'other', label: 'other', verticals: ['farmers_market', 'food_trucks'] },
+]
+
 interface ListingFormProps {
   vertical: string
   vendorProfileId: string
@@ -83,6 +101,8 @@ export default function ListingForm({
     description: (listing?.description as string) || '',
     price: listing?.price_cents ? ((listing.price_cents as number) / 100).toFixed(2) : '',
     quantity: listing?.quantity?.toString() || '',
+    quantity_amount: listing?.quantity_amount?.toString() || '',
+    quantity_unit: (listing?.quantity_unit as string) || '',
     category: (listing?.category as string) || '',
     // Force draft for pending/incomplete onboarding vendors
     status: isPendingVendor ? 'draft' : ((listing?.status as string) || 'draft')
@@ -138,7 +158,7 @@ export default function ListingForm({
 
     const timer = setTimeout(() => {
       const draft = {
-        formData: { title: formData.title, description: formData.description, price: formData.price, quantity: formData.quantity, category: formData.category },
+        formData: { title: formData.title, description: formData.description, price: formData.price, quantity: formData.quantity, quantity_amount: formData.quantity_amount, quantity_unit: formData.quantity_unit, category: formData.category },
         containsAllergens,
         ingredients
       }
@@ -175,7 +195,7 @@ export default function ListingForm({
     if (storageKey) {
       sessionStorage.removeItem(storageKey)
       setHasDraft(false)
-      setFormData({ title: '', description: '', price: '', quantity: '', category: '', status: 'draft' })
+      setFormData({ title: '', description: '', price: '', quantity: '', quantity_amount: '', quantity_unit: '', category: '', status: 'draft' })
       setContainsAllergens(false)
       setIngredients('')
     }
@@ -214,6 +234,14 @@ export default function ListingForm({
       ? Math.round(parseFloat(formData.price) * 100)
       : 0
 
+    // Validate quantity/measurement for publishing
+    const wantsPublish = formData.status === 'published'
+    if (wantsPublish && (!formData.quantity_amount || !formData.quantity_unit)) {
+      setError('Size/amount and unit are required to publish a listing. Save as draft if not ready.')
+      setLoading(false)
+      return
+    }
+
     // Prepare data - force draft status for pending vendors or vendors who can't publish
     // Gate check: if vendor can't publish, force draft
     const canPublishListing = !isPendingVendor && canPublish !== false
@@ -224,6 +252,8 @@ export default function ListingForm({
       description: formData.description.trim(),
       price_cents: priceCents,
       quantity: formData.quantity ? parseInt(formData.quantity) : null,
+      quantity_amount: formData.quantity_amount ? parseFloat(formData.quantity_amount) : null,
+      quantity_unit: formData.quantity_unit || null,
       category: formData.category.trim() || null,
       status: canPublishListing ? formData.status : 'draft',
       listing_data: {
@@ -615,6 +645,72 @@ export default function ListingForm({
               }}
             />
           </div>
+        </div>
+
+        {/* Size / Amount — required for publishing */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+            Size / Amount {formData.status === 'published' && <span style={{ color: '#c00' }}>*</span>}
+          </label>
+          <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 8 }}>
+            What does the buyer receive? (e.g., &quot;1 lb&quot;, &quot;3-pack&quot;, &quot;feeds 4&quot;)
+          </p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <input
+                type="number"
+                name="quantity_amount"
+                value={formData.quantity_amount}
+                onChange={handleChange}
+                disabled={loading}
+                min="0"
+                step="0.1"
+                placeholder="Amount"
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  fontSize: 16,
+                  border: `1px solid ${branding.colors.primary}`,
+                  borderRadius: 4,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <select
+                name="quantity_unit"
+                value={formData.quantity_unit}
+                onChange={handleChange}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  fontSize: 16,
+                  border: `1px solid ${branding.colors.primary}`,
+                  borderRadius: 4,
+                  backgroundColor: 'white',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="">Select unit</option>
+                {QUANTITY_UNITS
+                  .filter(u => u.verticals.includes(vertical) || u.verticals.includes('farmers_market'))
+                  .map(u => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))
+                }
+              </select>
+            </div>
+          </div>
+          {formData.quantity_amount && formData.quantity_unit && (
+            <p style={{ fontSize: 13, color: '#059669', marginTop: 6 }}>
+              Buyers will see: <strong>
+                {formData.quantity_unit === 'feeds'
+                  ? `feeds ${formData.quantity_amount}`
+                  : `${formData.quantity_amount} ${formData.quantity_unit}`}
+              </strong>
+            </p>
+          )}
         </div>
 
         {/* Category */}

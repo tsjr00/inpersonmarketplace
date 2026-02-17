@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { formatQuantityDisplay } from '@/lib/constants'
 import { useCart } from '@/lib/hooks/useCart'
 
 // Format pickup date for display
@@ -38,6 +39,8 @@ function formatPickupTime(startTime: string | null | undefined, endTime: string 
 interface OrderItem {
   id: string
   title: string
+  quantity_amount?: number | null
+  quantity_unit?: string | null
   quantity: number
   subtotal_cents: number
   vendor_name: string
@@ -277,7 +280,14 @@ export default function CheckoutSuccessPage() {
                       }}
                     >
                       <div>
-                        <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>{item.title}</p>
+                        <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary }}>
+                          {item.title}
+                          {formatQuantityDisplay(item.quantity_amount ?? null, item.quantity_unit ?? null) && (
+                            <span style={{ fontWeight: typography.weights.normal, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                              {' '}({formatQuantityDisplay(item.quantity_amount ?? null, item.quantity_unit ?? null)})
+                            </span>
+                          )}
+                        </p>
                         <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
                           {item.vendor_name} &bull; Qty: {item.quantity}
                         </p>
@@ -571,6 +581,8 @@ function transformOrder(raw: Record<string, unknown>, rawMarketBoxSubs?: Array<R
     return {
       id: item.id as string,
       title: (listing?.title as string) || 'Unknown Item',
+      quantity_amount: (listing?.quantity_amount as number) ?? null,
+      quantity_unit: (listing?.quantity_unit as string) ?? null,
       quantity: item.quantity as number,
       subtotal_cents: item.subtotal_cents as number,
       vendor_name: vendorName,

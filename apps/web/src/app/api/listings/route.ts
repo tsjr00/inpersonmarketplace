@@ -44,6 +44,8 @@ export async function GET(request: NextRequest) {
           description,
           status,
           price_cents,
+          quantity_amount,
+          quantity_unit,
           category,
           created_at,
           updated_at,

@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { defaultBranding } from '@/lib/branding'
-import { formatDisplayPrice } from '@/lib/constants'
+import { formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
 import { useCart } from '@/lib/hooks/useCart'
@@ -28,6 +28,8 @@ interface MarketBoxData {
     price_cents: number
     price_4week_cents?: number
     price_8week_cents?: number | null
+    quantity_amount?: number | null
+    quantity_unit?: string | null
     pickup_day_of_week: number
     pickup_start_time: string
     pickup_end_time: string
@@ -356,6 +358,11 @@ export default function MarketBoxDetailClient() {
               <>
                 <div style={{ fontSize: 32, fontWeight: 700, color: branding.colors.primary }}>
                   {formatPrice(selectedTerm?.price_cents || offering.price_cents)}
+                  {formatQuantityDisplay(offering.quantity_amount ?? null, offering.quantity_unit ?? null) && (
+                    <span style={{ fontSize: 16, fontWeight: 400, color: '#6b7280' }}>
+                      {' / '}{formatQuantityDisplay(offering.quantity_amount ?? null, offering.quantity_unit ?? null)}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: 14, color: '#6b7280' }}>
                   for 4 weeks ({formatPrice((selectedTerm?.price_cents || offering.price_cents) / 4)}/week)

@@ -54,6 +54,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
             title,
             description,
             image_urls,
+            quantity_amount,
+            quantity_unit,
             vendor_profiles (
               id,
               profile_data
@@ -117,6 +119,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           listing_title: listing?.title || 'Unknown',
           listing_description: listing?.description || '',
           listing_image: listing?.image_urls?.[0] || null,
+          quantity_amount: listing?.quantity_amount ?? null,
+          quantity_unit: listing?.quantity_unit ?? null,
           quantity: item.quantity,
           unit_price_cents: item.unit_price_cents,
           subtotal_cents: item.subtotal_cents,
