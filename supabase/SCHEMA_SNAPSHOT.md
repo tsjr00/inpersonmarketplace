@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-17 | 20260217_026_vertical_premium_triggers | Per-vertical buyer premium: `set_listing_premium_window()` and `set_market_box_premium_window()` now check `verticals.config->>'buyer_premium_enabled'` — skip premium window for verticals with it set to `'false'`. Fixed market box trigger capacity-increase regression (removed `NEW.max_subscribers > OLD.max_subscribers` condition). Added `buyer_premium_enabled` to `verticals.config` JSONB: `true` for farmers_market, `false` for food_trucks and fire_works. Cleaned up any existing food truck/fire_works premium windows. Applied to Dev, Staging, & Prod. |
 | 2026-02-17 | 20260217_025_rename_fireworks_vertical | Renamed `vertical_id` from `'fireworks'` to `'fire_works'` in `verticals` table and all child tables: `vendor_profiles`, `listings`, `orders`, `market_box_offerings`, `knowledge_articles`, `admin_activity_log`, `error_reports`, `transactions`, `shopper_feedback`, `vendor_feedback`, `vertical_admins`. Also updated `user_profiles.verticals` TEXT[] array. Applied to Dev, Staging, & Prod. |
 | 2026-02-17 | 20260217_024_add_quantity_measurement | Added `quantity_amount` (NUMERIC) and `quantity_unit` (TEXT) to `listings` and `market_box_offerings`. CHECK constraint enforces both fields present when `status = 'published'`. Applied to Dev, Staging, & Prod. |
 | 2026-02-13 | 20260213_021-023 | Grandfather vendor verifications, add stripe_subscription_id, fix get_or_create_cart vertical type. Applied to Dev, Staging, & Prod. |
@@ -1936,8 +1937,8 @@
 | refresh_all_vendor_locations | - | void | DEFINER |
 | refresh_vendor_location | p_vendor_id uuid | void | DEFINER |
 | scan_vendor_activity | p_vertical_id text DEFAULT NULL::text | TABLE(scan_id uuid, vendors_scanned integer, new_flags in... | DEFINER |
-| set_listing_premium_window | - | trigger | DEFINER |
-| set_market_box_premium_window | - | trigger | DEFINER |
+| set_listing_premium_window | - | trigger | DEFINER | Checks `verticals.config->>'buyer_premium_enabled'`; skips premium window if false |
+| set_market_box_premium_window | - | trigger | DEFINER | Checks `verticals.config->>'buyer_premium_enabled'`; skips premium window if false |
 | set_order_item_expiration | - | trigger | DEFINER |
 | soft_delete | - | trigger | INVOKER |
 | subscribe_to_market_box_if_capacity | p_offering_id uuid, p_buyer_user_id uuid, p_order_id uuid, p_total_paid_cents... | json | DEFINER |
