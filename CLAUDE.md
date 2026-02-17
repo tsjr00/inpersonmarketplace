@@ -141,11 +141,21 @@ Claude has NO warning before context compression and NO memory after it happens.
 - [ ] Update `supabase/SCHEMA_SNAPSHOT.md` if discrepancies found
 
 ### Step 3: Update Schema Snapshot After Database Changes
-**MANDATORY:** After ANY successful migration or schema change:
-- Update `supabase/SCHEMA_SNAPSHOT.md` immediately
-- Include: column names, types, nullability
-- Add changelog entry with date and migration name
-- This prevents future sessions from using stale schema information
+**MANDATORY:** After ANY successful migration or schema change, do BOTH of these:
+
+**A. Add changelog entry** (always — takes 30 seconds):
+- Add a row to the Change Log table in `supabase/SCHEMA_SNAPSHOT.md`
+- Include: date, migration file, what changed
+
+**B. Regenerate structured tables** (required when migrations add/alter columns, tables, FKs, functions, or indexes):
+- Ask user to run `supabase/REFRESH_SCHEMA.sql` in the Supabase SQL Editor
+- User pastes results back
+- Claude rebuilds the structured tables in `SCHEMA_SNAPSHOT.md`
+- **DO NOT skip this step** — a changelog entry alone is NOT sufficient. The structured column/FK/index tables are what Claude actually reads when making decisions. Stale tables cause wrong assumptions and bugs.
+
+**If user declines or defers the refresh:**
+- Note in `current_task.md`: "Schema snapshot structured tables are STALE — last verified [date]"
+- This ensures the next session knows to request a refresh
 
 ### Why This Matters:
 - Schema snapshot is the LOCAL SOURCE OF TRUTH for database structure
@@ -153,6 +163,7 @@ Claude has NO warning before context compression and NO memory after it happens.
 - Migration files may not reflect actual database state
 - Interrupted sessions can leave documentation incomplete
 - Future Claude sessions will make wrong decisions with stale data
+- **Changelog entries without table regeneration caused 20+ gaps in Sessions 24-29**
 
 ---
 
@@ -261,6 +272,42 @@ Don't create incremental policy fixes. If policies need fixing:
 2. Create ONE comprehensive migration that drops all and recreates correctly
 3. Test thoroughly before committing
 
+## Git & Deployment Workflow - STAGING FIRST
+
+**CRITICAL: Never push directly to `origin/main` (production) without staging verification.**
+
+### The Workflow
+
+1. **Develop & commit** on `main` locally
+2. **Merge main → `staging`**, push staging to origin
+   ```bash
+   git checkout staging && git merge main --no-edit && git push origin staging && git checkout main
+   ```
+3. **Wait for Vercel preview deployment** to complete
+4. **User tests on staging URL** (`inpersonmarketplace-git-staging-...vercel.app`)
+5. **Only after user confirms staging looks good:** push `main` to origin
+   ```bash
+   git push origin main
+   ```
+
+### Rules
+
+- **NEVER `git push origin main`** without user confirming staging is verified
+- After each commit, proactively ask: "Want me to push to staging for testing?"
+- If multiple commits are batched, merge all to staging at once
+- Staging deploys to Vercel Preview → Supabase Staging
+- Production deploys to Vercel Production → Supabase Prod
+
+### Environments
+
+| Environment | Branch | URL | Supabase |
+|-------------|--------|-----|----------|
+| Dev | `main` (local) | localhost:3002 | Dev project |
+| Staging | `staging` | Vercel Preview | Staging project |
+| Production | `main` (origin) | farmersmarketing.app | Prod project |
+
+---
+
 ## Migration File Naming
 Format: `YYYYMMDD_NNN_description.sql`
 - Use sequential numbers (001, 002, etc.) within each day
@@ -279,9 +326,10 @@ Include:
 After a migration is confirmed applied to BOTH Dev AND Staging:
 
 1. **User confirms:** "Migration [filename] applied to dev and staging"
-2. **Claude moves the file:** `supabase/migrations/[file].sql` → `supabase/migrations/applied/[file].sql`
-3. **Claude updates:** `MIGRATION_LOG.md` with ✅ status for both environments
-4. **Claude commits:** With message describing what was applied
+2. **Claude updates `SCHEMA_SNAPSHOT.md`:** Ask user to run `supabase/REFRESH_SCHEMA.sql` and regenerate the structured tables. If user defers, note staleness in `current_task.md`.
+3. **Claude moves the file:** `supabase/migrations/[file].sql` → `supabase/migrations/applied/[file].sql`
+4. **Claude updates:** `MIGRATION_LOG.md` with ✅ status for both environments
+5. **Claude commits:** With message describing what was applied
 
 ### Folder Structure
 ```
@@ -438,12 +486,13 @@ This file contains the actual database schema including:
    - If the file seems outdated or you need to verify, ask user to query the database
 
 2. **After EVERY confirmed successful migration:**
-   - Ask user to run schema queries (see below)
-   - Update `supabase/SCHEMA_SNAPSHOT.md` with changes
-   - Add timestamp and brief description of what changed
+   - **A. Add changelog entry** to `SCHEMA_SNAPSHOT.md` (date, migration file, what changed)
+   - **B. Regenerate structured tables:** Ask user to run `supabase/REFRESH_SCHEMA.sql` in the SQL Editor, paste results back, then rebuild the structured tables in `SCHEMA_SNAPSHOT.md`
+   - A changelog entry alone is NOT sufficient — the structured column/FK/index tables are what Claude reads when making decisions. Stale tables cause wrong assumptions and bugs.
+   - If user defers the refresh, note in `current_task.md`: "Schema snapshot structured tables are STALE — last verified [date]"
 
 3. **When in doubt, query the database:**
-   Ask the user to run these queries and share results:
+   Ask the user to run `supabase/REFRESH_SCHEMA.sql` (comprehensive) or these individual queries:
    ```sql
    -- Tables
    SELECT table_name FROM information_schema.tables
