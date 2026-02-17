@@ -465,7 +465,7 @@ function VendorRow({
                 <span key={idx} style={{
                   fontSize: typography.sizes.xs,
                   color: colors.textPrimary,
-                  backgroundColor: '#f0fdf4',
+                  backgroundColor: colors.primaryLight,
                   padding: '2px 8px',
                   borderRadius: radius.sm
                 }}>
@@ -558,7 +558,7 @@ function VendorRow({
                     padding: `${spacing['3xs']} ${spacing.xs}`,
                     fontSize: typography.sizes.sm,
                     fontWeight: typography.weights.semibold,
-                    backgroundColor: actionLoading === vendor.id ? '#ccc' : '#10b981',
+                    backgroundColor: actionLoading === vendor.id ? '#ccc' : colors.primary,
                     color: 'white',
                     border: 'none',
                     borderRadius: radius.sm,

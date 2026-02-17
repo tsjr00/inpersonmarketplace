@@ -1197,7 +1197,7 @@ export default function AdminMarketsPage() {
                                   onClick={() => handleApprove(market.id)}
                                   style={{
                                     padding: `${spacing['3xs']} ${spacing.xs}`,
-                                    backgroundColor: '#10b981',
+                                    backgroundColor: colors.primary,
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: radius.sm,
@@ -1231,7 +1231,7 @@ export default function AdminMarketsPage() {
                                 onClick={() => handleApprove(market.id)}
                                 style={{
                                   padding: `${spacing['3xs']} ${spacing.xs}`,
-                                  backgroundColor: '#10b981',
+                                  backgroundColor: colors.primary,
                                   color: 'white',
                                   border: 'none',
                                   borderRadius: radius.sm,
@@ -1266,7 +1266,7 @@ export default function AdminMarketsPage() {
                                 onClick={() => handleSuspend(market)}
                                 style={{
                                   padding: `${spacing['3xs']} ${spacing.xs}`,
-                                  backgroundColor: market.status === 'suspended' ? '#10b981' : '#f59e0b',
+                                  backgroundColor: market.status === 'suspended' ? colors.primary : '#f59e0b',
                                   color: 'white',
                                   border: 'none',
                                   borderRadius: radius.sm,

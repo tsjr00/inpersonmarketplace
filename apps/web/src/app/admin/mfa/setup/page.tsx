@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { colors } from '@/lib/design-tokens'
 
 export default function MFASetupPage() {
   const [qrCode, setQrCode] = useState<string | null>(null)
@@ -134,7 +135,7 @@ export default function MFASetupPage() {
           textAlign: 'center'
         }}>
           <div style={{ fontSize: 48, marginBottom: 20 }}>✓</div>
-          <h1 style={{ color: '#22c55e', marginBottom: 10 }}>MFA Enabled!</h1>
+          <h1 style={{ color: colors.primary, marginBottom: 10 }}>MFA Enabled!</h1>
           <p style={{ color: '#666' }}>Redirecting to admin panel...</p>
         </div>
       </div>

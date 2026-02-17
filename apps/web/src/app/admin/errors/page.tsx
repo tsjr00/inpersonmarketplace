@@ -584,7 +584,7 @@ export default function PlatformAdminErrorsPage() {
             {resolutionSummary && (
               <div style={{
                 padding: spacing.xs,
-                backgroundColor: resolutionSummary.verifiedCount > 0 ? '#dcfce7' : '#fef3c7',
+                backgroundColor: resolutionSummary.verifiedCount > 0 ? colors.primaryLight : '#fef3c7',
                 borderRadius: radius.sm,
                 marginBottom: spacing.sm,
                 fontSize: typography.sizes.xs,
@@ -647,8 +647,8 @@ export default function PlatformAdminErrorsPage() {
                     disabled={actionLoading}
                     style={{
                       padding: spacing.xs,
-                      backgroundColor: '#dcfce7',
-                      color: '#166534',
+                      backgroundColor: colors.primaryLight,
+                      color: colors.primaryDark,
                       border: 'none',
                       borderRadius: radius.sm,
                       cursor: 'pointer',

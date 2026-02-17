@@ -534,10 +534,10 @@ export default function VendorActivityClient({
                     <div style={{
                       marginTop: spacing.xs,
                       padding: spacing.xs,
-                      backgroundColor: '#dcfce7',
+                      backgroundColor: colors.primaryLight,
                       borderRadius: radius.sm,
                       fontSize: typography.sizes.xs,
-                      color: '#166534',
+                      color: colors.primaryDark,
                     }}>
                       <strong>Notes:</strong> {flag.resolutionNotes}
                     </div>
@@ -670,22 +670,22 @@ export default function VendorActivityClient({
                 </div>
                 <div style={{
                   padding: spacing.md,
-                  backgroundColor: '#dcfce7',
+                  backgroundColor: colors.primaryLight,
                   borderRadius: radius.md,
-                  border: `1px solid #86efac`,
+                  border: `1px solid ${colors.primary}`,
                 }}>
-                  <p style={{ margin: 0, fontSize: typography.sizes.xs, color: '#166534', textTransform: 'uppercase' }}>
+                  <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.primaryDark, textTransform: 'uppercase' }}>
                     Earned
                   </p>
                   <p style={{
                     margin: `${spacing.xs} 0 0`,
                     fontSize: typography.sizes['2xl'],
                     fontWeight: typography.weights.bold,
-                    color: '#166534',
+                    color: colors.primaryDark,
                   }}>
                     {referralStats?.earnedCount || 0}
                   </p>
-                  <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.xs, color: '#166534' }}>
+                  <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.primaryDark }}>
                     {formatCurrency(referralStats?.totalEarnedCents || 0)}
                   </p>
                 </div>
@@ -833,7 +833,7 @@ export default function VendorActivityClient({
                               margin: 0,
                               fontSize: typography.sizes.sm,
                               fontWeight: typography.weights.semibold,
-                              color: '#166534',
+                              color: colors.primaryDark,
                             }}>
                               {referrer.earnedReferrals} ({formatCurrency(referrer.totalEarnedCents)})
                             </p>
@@ -918,7 +918,7 @@ export default function VendorActivityClient({
                           <span style={{ flex: 1, color: colors.textSecondary }}>
                             <strong>{ref.referrerName}</strong> referred <strong>{ref.referredName}</strong>
                           </span>
-                          <span style={{ color: '#166534', fontWeight: typography.weights.medium }}>
+                          <span style={{ color: colors.primaryDark, fontWeight: typography.weights.medium }}>
                             {formatCurrency(ref.creditAmountCents)}
                           </span>
                           <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>

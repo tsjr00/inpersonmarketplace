@@ -1,6 +1,6 @@
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
-import { spacing, typography, radius } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
 export default async function AdminLayout({
   children,
@@ -101,11 +101,11 @@ export default async function AdminLayout({
               href="/farmers_market/admin"
               style={{
                 padding: `${spacing.xs} ${spacing.sm}`,
-                color: '#22c55e',
+                color: colors.primary,
                 textDecoration: 'none',
                 borderRadius: radius.sm,
                 display: 'block',
-                backgroundColor: 'rgba(34, 197, 94, 0.1)'
+                backgroundColor: colors.primaryLight
               }}
             >
               Vertical Admin

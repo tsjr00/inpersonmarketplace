@@ -461,7 +461,7 @@ export default function VerticalAdminErrorsPage() {
           {resolutionSummary && (
             <div style={{
               padding: spacing.sm,
-              backgroundColor: resolutionSummary.verifiedCount > 0 ? '#dcfce7' : '#fef3c7',
+              backgroundColor: resolutionSummary.verifiedCount > 0 ? colors.primaryLight : '#fef3c7',
               borderRadius: radius.sm,
               marginBottom: spacing.md,
             }}>
@@ -588,8 +588,8 @@ export default function VerticalAdminErrorsPage() {
                   disabled={actionLoading}
                   style={{
                     padding: spacing.xs,
-                    backgroundColor: '#dcfce7',
-                    color: '#166534',
+                    backgroundColor: colors.primaryLight,
+                    color: colors.primaryDark,
                     border: 'none',
                     borderRadius: radius.sm,
                     cursor: 'pointer',

@@ -104,11 +104,11 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
       {verification.onboarding_completed_at && (
         <div style={{
           padding: spacing.xs,
-          backgroundColor: '#f0fdf4',
-          border: '1px solid #bbf7d0',
+          backgroundColor: colors.primaryLight,
+          border: `1px solid ${colors.primary}`,
           borderRadius: radius.md,
           fontSize: typography.sizes.sm,
-          color: '#166534',
+          color: colors.primaryDark,
           fontWeight: typography.weights.medium,
         }}>
           Onboarding completed on {new Date(verification.onboarding_completed_at).toLocaleDateString()}
@@ -144,8 +144,8 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                   marginRight: spacing['2xs'],
                   marginBottom: spacing['3xs'],
                   padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: '#dcfce7',
-                  color: '#166534',
+                  backgroundColor: colors.primaryLight,
+                  color: colors.primaryDark,
                   borderRadius: radius.sm,
                   fontSize: typography.sizes.xs,
                   textDecoration: 'none',
@@ -164,7 +164,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
         {/* Prohibited items acknowledgment */}
         <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs }}>
           Prohibited items: {verification.prohibited_items_acknowledged_at
-            ? <span style={{ color: '#166534' }}>Acknowledged {new Date(verification.prohibited_items_acknowledged_at).toLocaleDateString()}</span>
+            ? <span style={{ color: colors.primaryDark }}>Acknowledged {new Date(verification.prohibited_items_acknowledged_at).toLocaleDateString()}</span>
             : <span style={{ color: '#991b1b' }}>Not acknowledged</span>
           }
         </div>
@@ -191,7 +191,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
               disabled={!!actionLoading}
               style={{
                 padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: '#166534',
+                backgroundColor: colors.primaryDark,
                 color: 'white',
                 border: 'none',
                 borderRadius: radius.sm,
@@ -263,8 +263,8 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                             display: 'inline-block',
                             marginRight: spacing['2xs'],
                             padding: `2px ${spacing.xs}`,
-                            backgroundColor: '#dcfce7',
-                            color: '#166534',
+                            backgroundColor: colors.primaryLight,
+                            color: colors.primaryDark,
                             borderRadius: radius.sm,
                             fontSize: typography.sizes.xs,
                             textDecoration: 'none',
@@ -296,7 +296,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                         disabled={!!actionLoading}
                         style={{
                           padding: `2px ${spacing.xs}`,
-                          backgroundColor: '#166534',
+                          backgroundColor: colors.primaryDark,
                           color: 'white',
                           border: 'none',
                           borderRadius: radius.sm,
@@ -356,8 +356,8 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                   display: 'inline-block',
                   marginRight: spacing['2xs'],
                   padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: '#dcfce7',
-                  color: '#166534',
+                  backgroundColor: colors.primaryLight,
+                  color: colors.primaryDark,
                   borderRadius: radius.sm,
                   fontSize: typography.sizes.xs,
                   textDecoration: 'none',
@@ -380,7 +380,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
               disabled={!!actionLoading}
               style={{
                 padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: '#166534',
+                backgroundColor: colors.primaryDark,
                 color: 'white',
                 border: 'none',
                 borderRadius: radius.sm,

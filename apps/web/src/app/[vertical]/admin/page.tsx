@@ -359,11 +359,11 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
               Browse and moderate vendor product listings
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: spacing.xs }}>
-              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#d1fae5', borderRadius: radius.sm }}>
-                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#065f46' }}>
+              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: colors.primaryLight, borderRadius: radius.sm }}>
+                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.primaryDark }}>
                   {publishedListings || 0}
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: '#065f46' }}>Products/Bundles</div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.primaryDark }}>Products/Bundles</div>
               </div>
               <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: colors.primaryLight, borderRadius: radius.sm }}>
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.primaryDark }}>
@@ -493,11 +493,11 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             ) : (
               <div style={{
                 padding: spacing.sm,
-                backgroundColor: '#d1fae5',
+                backgroundColor: colors.primaryLight,
                 borderRadius: radius.sm,
                 textAlign: 'center'
               }}>
-                <span style={{ color: '#065f46', fontSize: typography.sizes.sm }}>
+                <span style={{ color: colors.primaryDark, fontSize: typography.sizes.sm }}>
                   ✓ All vendors active
                 </span>
               </div>

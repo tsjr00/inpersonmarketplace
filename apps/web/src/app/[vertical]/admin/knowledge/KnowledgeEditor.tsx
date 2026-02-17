@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { colors } from '@/lib/design-tokens'
 
 interface Article {
   id: string
@@ -278,7 +279,7 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
                 disabled={saving || !title.trim() || !body.trim() || !category.trim()}
                 style={{
                   padding: '10px 24px',
-                  backgroundColor: '#16a34a',
+                  backgroundColor: colors.primary,
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
@@ -316,7 +317,7 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
           onClick={startNew}
           style={{
             padding: '10px 24px',
-            backgroundColor: '#16a34a',
+            backgroundColor: colors.primary,
             color: 'white',
             border: 'none',
             borderRadius: 6,
@@ -405,8 +406,8 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
                       onClick={() => handleTogglePublish(article)}
                       style={{
                         padding: '6px 12px',
-                        backgroundColor: article.is_published ? '#fef3c7' : '#dcfce7',
-                        color: article.is_published ? '#92400e' : '#166534',
+                        backgroundColor: article.is_published ? '#fef3c7' : colors.primaryLight,
+                        color: article.is_published ? '#92400e' : colors.primaryDark,
                         border: 'none',
                         borderRadius: 4,
                         fontSize: 12,

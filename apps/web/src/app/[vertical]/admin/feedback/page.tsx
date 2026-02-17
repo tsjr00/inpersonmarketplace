@@ -807,12 +807,12 @@ export default function AdminFeedbackPage() {
               {selectedFeedback.category === 'suggest_market' && selectedFeedback.market_name && (
                 <div style={{
                   padding: spacing.md,
-                  backgroundColor: '#f0fdf4',
-                  border: '1px solid #86efac',
+                  backgroundColor: colors.primaryLight,
+                  border: `1px solid ${colors.primary}`,
                   borderRadius: radius.md,
                   marginBottom: spacing.md
                 }}>
-                  <div style={{ fontSize: typography.sizes.xs, color: '#166534', textTransform: 'uppercase', marginBottom: spacing.xs, fontWeight: typography.weights.semibold }}>
+                  <div style={{ fontSize: typography.sizes.xs, color: colors.primaryDark, textTransform: 'uppercase', marginBottom: spacing.xs, fontWeight: typography.weights.semibold }}>
                     Suggested Market
                   </div>
                   <div style={{ fontWeight: typography.weights.semibold, marginBottom: spacing['3xs'] }}>
