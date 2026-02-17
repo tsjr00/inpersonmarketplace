@@ -7,31 +7,31 @@
  */
 
 export const colors = {
-  // Primary Colors (Green - Brand/Action)
-  primary: '#8BC34A',           // Lime/new growth - primary CTAs
-  primaryDark: '#689F38',       // Grass green - hover states, emphasis
-  primaryLight: '#F1F8E9',      // Very pale lime - subtle backgrounds
+  // Primary Colors (Green - Brand/Action) — CSS var references with FM defaults
+  primary: 'var(--color-primary, #8BC34A)',
+  primaryDark: 'var(--color-primary-dark, #689F38)',
+  primaryLight: 'var(--color-primary-light, #F1F8E9)',
 
   // Accent Colors (Golden - Highlights)
-  accent: '#FBC02D',            // Sunflower/wheat - highlights, badges
-  accentMuted: '#BCAAA4',       // Desert sand - secondary accents
+  accent: 'var(--color-accent, #FBC02D)',
+  accentMuted: 'var(--color-accent-muted, #BCAAA4)',
 
   // Surface Colors (Backgrounds)
-  surfaceBase: '#FFFEF7',       // Warm cream - page background
-  surfaceElevated: '#FFFFFF',   // Pure white - cards, elevated content
-  surfaceSubtle: '#FFFDE7',     // Sunshine - subtle section backgrounds
-  surfaceMuted: '#F5F5F0',      // Light warm gray - alternate sections
+  surfaceBase: 'var(--color-surface-base, #FFFEF7)',
+  surfaceElevated: 'var(--color-surface-elevated, #FFFFFF)',
+  surfaceSubtle: 'var(--color-surface-subtle, #FFFDE7)',
+  surfaceMuted: 'var(--color-surface-muted, #F5F5F0)',
 
   // Text Colors (Dark to Light hierarchy)
-  textPrimary: '#33691E',       // Deep olive-brown - headings
-  textSecondary: '#558B2F',     // Olive brown - body text
-  textMuted: '#7C8B6F',         // Muted olive - captions, hints
-  textInverse: '#FFFFFF',       // White - text on dark backgrounds
-  textInverseMuted: 'rgba(255, 255, 255, 0.85)',
+  textPrimary: 'var(--color-text-primary, #33691E)',
+  textSecondary: 'var(--color-text-secondary, #558B2F)',
+  textMuted: 'var(--color-text-muted, #7C8B6F)',
+  textInverse: 'var(--color-text-inverse, #FFFFFF)',
+  textInverseMuted: 'var(--color-text-inverse-muted, rgba(255, 255, 255, 0.85))',
 
   // Border Colors
-  border: '#E8E5E0',
-  borderMuted: '#F0EDE8',
+  border: 'var(--color-border, #E8E5E0)',
+  borderMuted: 'var(--color-border-muted, #F0EDE8)',
 }
 
 export const spacing = {
@@ -91,16 +91,37 @@ export const radius = {
 }
 
 export const shadows = {
-  sm: '0 1px 2px rgba(0, 0, 0, 0.05)',
-  md: '0 4px 6px rgba(0, 0, 0, 0.07)',
-  lg: '0 10px 15px rgba(0, 0, 0, 0.1)',
-  xl: '0 20px 25px rgba(0, 0, 0, 0.1)',
-  primary: '0 4px 12px rgba(139, 195, 74, 0.3)',
-  primaryHover: '0 6px 16px rgba(139, 195, 74, 0.4)',
+  sm: 'var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05))',
+  md: 'var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.07))',
+  lg: 'var(--shadow-lg, 0 10px 15px rgba(0, 0, 0, 0.1))',
+  xl: 'var(--shadow-xl, 0 20px 25px rgba(0, 0, 0, 0.1))',
+  primary: 'var(--shadow-primary, 0 4px 12px rgba(139, 195, 74, 0.3))',
+  primaryHover: 'var(--shadow-primary-hover, 0 6px 16px rgba(139, 195, 74, 0.4))',
 }
 
-// Vertical-specific color palettes
+// Actual hex color palettes per vertical (used by getVerticalColors/getVerticalCSSVars)
+// NOTE: colors export above uses CSS var() references for automatic theming.
+// These palettes contain real hex values for cases that need actual colors
+// (landing pages, hex+alpha concatenation, etc.)
 const verticalColorPalettes: Record<string, typeof colors> = {
+  farmers_market: {
+    primary: '#8BC34A',
+    primaryDark: '#689F38',
+    primaryLight: '#F1F8E9',
+    accent: '#FBC02D',
+    accentMuted: '#BCAAA4',
+    surfaceBase: '#FFFEF7',
+    surfaceElevated: '#FFFFFF',
+    surfaceSubtle: '#FFFDE7',
+    surfaceMuted: '#F5F5F0',
+    textPrimary: '#33691E',
+    textSecondary: '#558B2F',
+    textMuted: '#7C8B6F',
+    textInverse: '#FFFFFF',
+    textInverseMuted: 'rgba(255, 255, 255, 0.85)',
+    border: '#E8E5E0',
+    borderMuted: '#F0EDE8',
+  },
   food_trucks: {
     // Primary Colors (Red — from Food Truck'n logo)
     primary: '#E53935',           // True red from logo truck + border
@@ -117,10 +138,10 @@ const verticalColorPalettes: Record<string, typeof colors> = {
     surfaceSubtle: '#FFF3E0',     // Light amber — warm subtle sections
     surfaceMuted: '#F5F5F5',      // Light gray — alternate sections
 
-    // Text Colors (Charcoal — from logo circle background)
-    textPrimary: '#4A4A4A',       // Charcoal from logo — headings
-    textSecondary: '#666666',     // Medium gray — body text
-    textMuted: '#999999',         // Light gray — captions, hints
+    // Text Colors (Near-black — per "black for text" requirement)
+    textPrimary: '#212121',       // Near-black — headings
+    textSecondary: '#4A4A4A',     // Charcoal from logo — body text
+    textMuted: '#9E9E9E',         // Medium gray — captions, hints
     textInverse: '#FFFFFF',
     textInverseMuted: 'rgba(255, 255, 255, 0.85)',
 
@@ -135,7 +156,7 @@ const verticalColorPalettes: Record<string, typeof colors> = {
  * Returns the food_trucks red/charcoal palette or default green palette.
  */
 export function getVerticalColors(vertical: string): typeof colors {
-  return verticalColorPalettes[vertical] || colors
+  return verticalColorPalettes[vertical] || verticalColorPalettes.farmers_market
 }
 
 // Vertical-specific shadow palettes (primary shadow color matches brand)
@@ -153,8 +174,52 @@ const verticalShadowPalettes: Record<string, typeof shadows> = {
 /**
  * Get vertical-specific shadow palette.
  */
+// Default FM shadow palette with actual values (not CSS var references)
+const defaultShadows: typeof shadows = {
+  sm: '0 1px 2px rgba(0, 0, 0, 0.05)',
+  md: '0 4px 6px rgba(0, 0, 0, 0.07)',
+  lg: '0 10px 15px rgba(0, 0, 0, 0.1)',
+  xl: '0 20px 25px rgba(0, 0, 0, 0.1)',
+  primary: '0 4px 12px rgba(139, 195, 74, 0.3)',
+  primaryHover: '0 6px 16px rgba(139, 195, 74, 0.4)',
+}
+
 export function getVerticalShadows(vertical: string): typeof shadows {
-  return verticalShadowPalettes[vertical] || shadows
+  return verticalShadowPalettes[vertical] || defaultShadows
+}
+
+/**
+ * Build CSS custom property overrides for a vertical.
+ * Inject the returned object as inline style on a wrapper element.
+ * Non-FM verticals override the CSS vars; FM uses the defaults (no-op).
+ */
+export function getVerticalCSSVars(vertical: string): Record<string, string> {
+  if (vertical === 'farmers_market' || !verticalColorPalettes[vertical]) return {} // FM uses defaults from globals.css
+  const palette = verticalColorPalettes[vertical]
+
+  const shadowPalette = verticalShadowPalettes[vertical]
+  return {
+    '--color-primary': palette.primary,
+    '--color-primary-dark': palette.primaryDark,
+    '--color-primary-light': palette.primaryLight,
+    '--color-accent': palette.accent,
+    '--color-accent-muted': palette.accentMuted,
+    '--color-surface-base': palette.surfaceBase,
+    '--color-surface-elevated': palette.surfaceElevated,
+    '--color-surface-subtle': palette.surfaceSubtle,
+    '--color-surface-muted': palette.surfaceMuted,
+    '--color-text-primary': palette.textPrimary,
+    '--color-text-secondary': palette.textSecondary,
+    '--color-text-muted': palette.textMuted,
+    '--color-text-inverse': palette.textInverse,
+    '--color-text-inverse-muted': palette.textInverseMuted,
+    '--color-border': palette.border,
+    '--color-border-muted': palette.borderMuted,
+    ...(shadowPalette ? {
+      '--shadow-primary': shadowPalette.primary,
+      '--shadow-primary-hover': shadowPalette.primaryHover,
+    } : {}),
+  }
 }
 
 // Shorthand for common patterns

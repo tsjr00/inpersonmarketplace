@@ -1,5 +1,6 @@
 import { HeaderWrapper } from '@/components/layout/HeaderWrapper'
 import { CartProviderWrapper } from '@/components/cart/CartProviderWrapper'
+import { getVerticalCSSVars } from '@/lib/design-tokens'
 
 // Force dynamic rendering to ensure header always reflects current user
 // This prevents caching issues when users switch accounts or duplicate tabs
@@ -15,10 +16,11 @@ export default async function VerticalLayout({
   params
 }: VerticalLayoutProps) {
   const { vertical } = await params
+  const cssVars = getVerticalCSSVars(vertical)
 
   return (
     <CartProviderWrapper vertical={vertical}>
-      <div style={{ minHeight: '100vh' }}>
+      <div style={{ minHeight: '100vh', ...cssVars } as React.CSSProperties}>
         <HeaderWrapper vertical={vertical} />
         <main>{children}</main>
       </div>

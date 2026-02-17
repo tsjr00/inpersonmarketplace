@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
-import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, shadows, getVerticalColors } from '@/lib/design-tokens'
 import { Footer } from '@/components/landing'
 import { term, getContent } from '@/lib/vertical'
 
@@ -23,6 +23,8 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
   const { vertical } = await params
   const branding = defaultBranding[vertical] || defaultBranding.fireworks
   const content = getContent(vertical)
+  // Actual hex values needed for hex+alpha concatenation (CSS var() can't be concatenated)
+  const hexColors = getVerticalColors(vertical)
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
@@ -78,7 +80,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
       <section style={{
         padding: `${spacing['3xl']} ${spacing.xl}`,
         textAlign: 'center',
-        background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.accent}08 100%)`
+        background: `linear-gradient(135deg, ${hexColors.primary}08 0%, ${hexColors.accent}08 100%)`
       }}>
         <h1 style={{
           fontSize: typography.sizes['4xl'],
@@ -252,9 +254,9 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: colors.primary + '15',
+                    backgroundColor: hexColors.primary + '15',
                     borderRadius: radius.full,
-                    color: colors.primary
+                    color: hexColors.primary
                   }}>
                     {item.icon}
                   </span>
