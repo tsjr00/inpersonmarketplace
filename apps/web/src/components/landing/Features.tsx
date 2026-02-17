@@ -41,7 +41,7 @@ export function Features({ vertical }: FeaturesProps) {
   return (
     <section
       className="landing-section"
-      style={{ backgroundColor: colors.surfaceSubtle }}
+      style={{ backgroundColor: vertical === 'food_trucks' ? colors.surfaceElevated : colors.surfaceSubtle }}
     >
       <div className="landing-container">
         {/* Section Header */}
@@ -85,7 +85,7 @@ export function Features({ vertical }: FeaturesProps) {
                 className="landing-card"
                 style={{
                   padding: spacing.md,
-                  backgroundColor: colors.surfaceElevated,
+                  backgroundColor: vertical === 'food_trucks' ? colors.surfaceMuted : colors.surfaceElevated,
                   borderRadius: radius.lg,
                   boxShadow: shadows.sm,
                 }}
@@ -94,7 +94,7 @@ export function Features({ vertical }: FeaturesProps) {
                   style={{
                     width: 40,
                     height: 40,
-                    color: colors.accentMuted,
+                    color: vertical === 'food_trucks' ? colors.primaryDark : colors.accentMuted,
                     marginBottom: spacing.sm,
                   }}
                 />

@@ -33,7 +33,9 @@ export function Hero({ vertical, initialCity }: HeroProps) {
     <section
       className="relative min-h-[650px] flex items-center justify-center"
       style={{
-        background: `linear-gradient(180deg, ${colors.surfaceSubtle} 0%, ${colors.surfaceBase} 100%)`,
+        background: vertical === 'food_trucks'
+          ? `linear-gradient(180deg, ${colors.surfaceElevated} 0%, ${colors.surfaceMuted} 100%)`
+          : `linear-gradient(180deg, ${colors.surfaceSubtle} 0%, ${colors.surfaceBase} 100%)`,
         paddingTop: 'clamp(100px, 15vh, 140px)',
         paddingBottom: spacing['2xl'],
       }}

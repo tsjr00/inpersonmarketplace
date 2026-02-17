@@ -62,8 +62,8 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
 
   content: {
     hero: {
-      headline_line1: 'Skip the Line.',
-      headline_line2: 'Eat Local.',
+      headline_line1: 'Explore local food.',
+      headline_line2: 'Skip the line. Enjoy',
       subtitle: 'Find food trucks near you. Pre-order your favorites online and skip the line at pickup.',
     },
     how_it_works: {
@@ -97,7 +97,7 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
       },
       local: {
         title: 'Local Focus',
-        description: 'Search from 10 to 100 miles to find what\'s nearest to you. Always focused on your most local trucks first.',
+        description: 'Search from 2 to 25 miles to find what\'s nearest to you. Always focused on your most local trucks first.',
       },
       no_soldout: {
         title: 'Skip the Line',
@@ -109,7 +109,7 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
       },
       mobile: {
         title: 'Mobile Friendly',
-        description: 'Order from your phone in seconds. Add to your home screen for instant access — no app store needed.',
+        description: 'Order from your phone in seconds. Add to your home screen for instant access.',
       },
       updates: {
         title: 'Order Updates',

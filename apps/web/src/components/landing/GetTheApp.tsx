@@ -172,25 +172,6 @@ export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
         }}>
           {/* Left side - Text content */}
           <div>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: spacing.xs,
-              padding: `${spacing.xs} ${spacing.sm}`,
-              backgroundColor: colors.primary + '15',
-              borderRadius: radius.full,
-              marginBottom: spacing.md
-            }}>
-              <Smartphone style={{ width: 16, height: 16, color: colors.primary }} />
-              <span style={{
-                fontSize: typography.sizes.sm,
-                fontWeight: typography.weights.medium,
-                color: colors.primary
-              }}>
-                Mobile App
-              </span>
-            </div>
-
             <h2 style={{
               fontSize: typography.sizes['3xl'],
               fontWeight: typography.weights.bold,

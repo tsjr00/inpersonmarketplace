@@ -128,8 +128,8 @@ export function Header({
                 alt={branding.brand_name}
                 width={0}
                 height={0}
-                sizes={isOnLandingPage ? '280px' : '200px'}
-                style={{ width: 'auto', height: isOnLandingPage ? 72 : 44 }}
+                sizes={isOnLandingPage ? '320px' : '200px'}
+                style={{ width: 'auto', height: isOnLandingPage ? 86 : 53 }}
                 priority
               />
             ) : (
