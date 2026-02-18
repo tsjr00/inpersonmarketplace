@@ -696,7 +696,7 @@ export default function ListingForm({
               >
                 <option value="">Select unit</option>
                 {QUANTITY_UNITS
-                  .filter(u => u.verticals.includes(vertical) || u.verticals.includes('farmers_market'))
+                  .filter(u => u.verticals.includes(vertical))
                   .map(u => (
                     <option key={u.value} value={u.value}>{u.label}</option>
                   ))

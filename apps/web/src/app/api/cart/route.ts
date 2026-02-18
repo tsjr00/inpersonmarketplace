@@ -374,6 +374,7 @@ export async function GET(request: NextRequest) {
         pickupEndTime: null,
         schedule_id: item.schedule_id,
         pickup_date: item.pickup_date,
+        preferred_pickup_time: item.preferred_pickup_time || null,
         pickup_display: pickupDisplay,
         schedule_issue: scheduleIssue
       }

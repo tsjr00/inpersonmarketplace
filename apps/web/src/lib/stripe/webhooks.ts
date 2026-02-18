@@ -445,7 +445,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   crumb.stripe(`Invoice paid for ${subscriptionType} ${userId}, extends to ${currentPeriodEnd}`)
 
   // Update tier expiration
-  if (subscriptionType === 'vendor') {
+  if (subscriptionType === 'vendor' || subscriptionType === 'food_truck_vendor') {
     await supabase
       .from('vendor_profiles')
       .update({

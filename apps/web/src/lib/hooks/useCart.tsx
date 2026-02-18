@@ -31,6 +31,7 @@ export interface CartItem {
   // Pickup scheduling fields (listings)
   schedule_id?: string | null
   pickup_date?: string | null  // YYYY-MM-DD format
+  preferred_pickup_time?: string | null  // HH:MM format for FT time slots
   pickup_display?: {
     date_formatted: string
     time_formatted: string | null
