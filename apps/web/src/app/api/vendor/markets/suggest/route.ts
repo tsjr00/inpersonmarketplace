@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
       if (existingMarket) {
         return NextResponse.json({
-          error: `A market named "${existingMarket.name}" already exists. If you want to sell at this market, look for it in the Traditional Markets section above.`
+          error: `A location named "${existingMarket.name}" already exists. If you want to sell at this location, look for it in the markets section above.`
         }, { status: 400 })
       }
 
@@ -85,26 +85,31 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the market suggestion with pending approval status
+      // Food trucks default to 0 cutoff (prepare on the spot)
+      const insertData: Record<string, unknown> = {
+        vertical_id: vertical,
+        name: name.trim(),
+        market_type: 'traditional',
+        address: address.trim(),
+        city: city.trim(),
+        state: state.trim().toUpperCase(),
+        zip: zip.trim(),
+        description: description?.trim() || null,
+        website: website?.trim() || null,
+        season_start: season_start || null,
+        season_end: season_end || null,
+        status: 'active',
+        approval_status: 'pending',
+        submitted_by_vendor_id: vendorProfile.id,
+        submitted_at: new Date().toISOString(),
+        vendor_sells_at_market: vendor_sells_at_market === true,
+      }
+      if (vertical === 'food_trucks') {
+        insertData.cutoff_hours = 0
+      }
       const { data: market, error: createError } = await supabase
         .from('markets')
-        .insert({
-          vertical_id: vertical,
-          name: name.trim(),
-          market_type: 'traditional',
-          address: address.trim(),
-          city: city.trim(),
-          state: state.trim().toUpperCase(),
-          zip: zip.trim(),
-          description: description?.trim() || null,
-          website: website?.trim() || null,
-          season_start: season_start || null,
-          season_end: season_end || null,
-          status: 'active',
-          approval_status: 'pending',
-          submitted_by_vendor_id: vendorProfile.id,
-          submitted_at: new Date().toISOString(),
-          vendor_sells_at_market: vendor_sells_at_market === true
-        })
+        .insert(insertData)
         .select()
         .single()
 

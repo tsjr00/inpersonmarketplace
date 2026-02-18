@@ -32,6 +32,7 @@ type Market = {
   season_start?: string
   season_end?: string
   expires_at?: string | null
+  cutoff_hours?: number | null
   isHomeMarket?: boolean
   canUse?: boolean
   homeMarketRestricted?: boolean
@@ -453,42 +454,32 @@ export default function VendorMarketsPage() {
     setSuggestionFormData({ ...suggestionFormData, schedules: newSchedules })
   }
 
-  // Helper to calculate cutoff time for traditional markets (18 hours before)
-  const getTraditionalCutoffTime = (dayOfWeek: number, startTime: string): string => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    const [hours, minutes] = startTime.split(':').map(Number)
+  const isFoodTruck = vertical === 'food_trucks'
 
-    // Calculate cutoff: 18 hours before market
-    let cutoffHours = hours - 18
-    let cutoffDay = dayOfWeek
-
-    if (cutoffHours < 0) {
-      cutoffHours += 24
-      cutoffDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    }
-
-    const cutoffDayName = days[cutoffDay]
-    const cutoffTime = `${cutoffHours % 12 || 12}:${minutes.toString().padStart(2, '0')} ${cutoffHours >= 12 ? 'PM' : 'AM'}`
-    return `${cutoffDayName} at ${cutoffTime}`
+  // Default cutoff hours by vertical and market type
+  const getDefaultCutoffHours = (marketType: string): number => {
+    if (isFoodTruck) return 0 // Food trucks prepare on the spot
+    return marketType === 'private_pickup' ? 10 : 18
   }
 
-  // Helper to calculate cutoff time from a pickup window
-  // Private pickup has 10-hour cutoff before pickup start time
-  const getCutoffTime = (dayOfWeek: number, startTime: string): string => {
+  // Helper to calculate cutoff time display
+  // Returns null for 0 cutoff (food trucks — orders accepted until pickup)
+  const getCutoffDisplay = (dayOfWeek: number, startTime: string, cutoffHrs: number): string | null => {
+    if (cutoffHrs === 0) return null // No cutoff to display
+
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     const [hours, minutes] = startTime.split(':').map(Number)
 
-    // Calculate cutoff: 10 hours before pickup
-    let cutoffHours = hours - 10
+    let cutoffHour = hours - cutoffHrs
     let cutoffDay = dayOfWeek
 
-    if (cutoffHours < 0) {
-      cutoffHours += 24
-      cutoffDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    while (cutoffHour < 0) {
+      cutoffHour += 24
+      cutoffDay = cutoffDay === 0 ? 6 : cutoffDay - 1
     }
 
     const cutoffDayName = days[cutoffDay]
-    const cutoffTime = `${cutoffHours % 12 || 12}:${minutes.toString().padStart(2, '0')} ${cutoffHours >= 12 ? 'PM' : 'AM'}`
+    const cutoffTime = `${cutoffHour % 12 || 12}:${minutes.toString().padStart(2, '0')} ${cutoffHour >= 12 ? 'PM' : 'AM'}`
     return `${cutoffDayName} at ${cutoffTime}`
   }
 
@@ -559,7 +550,7 @@ export default function VendorMarketsPage() {
           flexWrap: 'wrap',
           gap: 12
         }}>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 'bold' }}>My Markets</h1>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 'bold' }}>My {term(vertical, 'markets')}</h1>
           <Link
             href={`/${vertical}/vendor/dashboard`}
             style={{
@@ -593,11 +584,13 @@ export default function VendorMarketsPage() {
         }}>
           <div style={{ marginBottom: 16 }}>
             <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
-              Traditional Markets
+              {term(vertical, 'traditional_markets')}
             </h2>
             <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-              Traditional schedule farmers markets.
-              {limits && ` You can join ${limits.traditionalMarkets} market${limits.traditionalMarkets > 1 ? 's' : ''} (${limits.currentFixedMarketCount} of ${limits.traditionalMarkets} used).`}
+              {isFoodTruck
+                ? 'Food truck parks and event locations where you can set up.'
+                : 'Traditional schedule farmers markets.'}
+              {limits && ` You can join ${limits.traditionalMarkets} ${limits.traditionalMarkets > 1 ? term(vertical, 'traditional_markets').toLowerCase() : term(vertical, 'traditional_market').toLowerCase()} (${limits.currentFixedMarketCount} of ${limits.traditionalMarkets} used).`}
               {limits && !limits.canAddFixed && (
                 <span style={{ color: '#dc2626', marginLeft: 8 }}>
                   Limit reached. <a href={`/${vertical}/settings`} style={{ color: '#2563eb' }}>Upgrade</a> for more markets.
@@ -608,7 +601,7 @@ export default function VendorMarketsPage() {
 
           {fixedMarkets.length === 0 ? (
             <p style={{ color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>
-              No traditional markets available yet. Check back soon!
+              No {term(vertical, 'traditional_markets').toLowerCase()} available yet. Check back soon!
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -652,20 +645,36 @@ export default function VendorMarketsPage() {
                           {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
                         </p>
                       )}
-                      {/* Cutoff time for traditional markets (18 hours before) */}
-                      {market.day_of_week !== null && market.day_of_week !== undefined && market.start_time && (
-                        <div style={{
-                          padding: '6px 10px',
-                          backgroundColor: '#fef3c7',
-                          borderRadius: 4,
-                          fontSize: 12,
-                          color: '#92400e',
-                          marginBottom: 12,
-                          display: 'inline-block'
-                        }}>
-                          <strong>Order cutoff:</strong> {getTraditionalCutoffTime(market.day_of_week, market.start_time)}
-                        </div>
-                      )}
+                      {/* Cutoff time for traditional markets */}
+                      {market.day_of_week !== null && market.day_of_week !== undefined && market.start_time && (() => {
+                        const cutoffHrs = market.cutoff_hours ?? getDefaultCutoffHours('traditional')
+                        const display = getCutoffDisplay(market.day_of_week!, market.start_time!, cutoffHrs)
+                        return display ? (
+                          <div style={{
+                            padding: '6px 10px',
+                            backgroundColor: '#fef3c7',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            color: '#92400e',
+                            marginBottom: 12,
+                            display: 'inline-block'
+                          }}>
+                            <strong>Order cutoff:</strong> {display}
+                          </div>
+                        ) : (
+                          <div style={{
+                            padding: '6px 10px',
+                            backgroundColor: '#dcfce7',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            color: '#166534',
+                            marginBottom: 12,
+                            display: 'inline-block'
+                          }}>
+                            Orders accepted until pickup time
+                          </div>
+                        )
+                      })()}
                     </div>
                     {/* Set as Home Market button - only for standard vendors, not on current home market */}
                     {!isPremium && !market.isHomeMarket && (
@@ -757,7 +766,9 @@ export default function VendorMarketsPage() {
                 {term(vertical, 'suggest_market_cta')}
               </h2>
               <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-                Know of a farmers market that isn&apos;t listed? Submit it for review and help grow our community.
+                {isFoodTruck
+                  ? "Know of a food truck park or event location that isn't listed? Submit it for review and help grow our community."
+                  : "Know of a farmers market that isn't listed? Submit it for review and help grow our community."}
               </p>
             </div>
             {!showSuggestionForm && (
@@ -793,9 +804,9 @@ export default function VendorMarketsPage() {
                   How Market Suggestions Work
                 </h4>
                 <p style={{ margin: 0, fontSize: 13, color: '#6b21a8', lineHeight: 1.5 }}>
-                  When you suggest a farmers market, our team will review it to verify the information.
-                  Once approved, the market will appear in the public markets list and all vendors can join it.
-                  This helps ensure we only list real, verified markets.
+                  {isFoodTruck
+                    ? 'When you suggest a location, our team will review it to verify the information. Once approved, the location will appear in the public list and all truck operators can join it. This helps ensure we only list real, verified locations.'
+                    : 'When you suggest a farmers market, our team will review it to verify the information. Once approved, the market will appear in the public markets list and all vendors can join it. This helps ensure we only list real, verified markets.'}
                 </p>
               </div>
             </div>
@@ -827,7 +838,7 @@ export default function VendorMarketsPage() {
                     required
                     value={suggestionFormData.name}
                     onChange={(e) => setSuggestionFormData({ ...suggestionFormData, name: e.target.value })}
-                    placeholder="e.g., Downtown Saturday Market"
+                    placeholder={isFoodTruck ? 'e.g., Downtown Food Truck Park' : 'e.g., Downtown Saturday Market'}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -1307,7 +1318,7 @@ export default function VendorMarketsPage() {
                         fontSize: 13,
                         color: colors.primaryDark
                       }}>
-                        This market has been approved and is now available in the Traditional Markets list above.
+                        This {term(vertical, 'traditional_market').toLowerCase()} has been approved and is now available in the {term(vertical, 'traditional_markets')} list above.
                       </div>
                     )}
                   </div>
@@ -1334,10 +1345,12 @@ export default function VendorMarketsPage() {
           }}>
             <div>
               <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
-                Private Pickup Locations
+                {term(vertical, 'private_pickups')}
               </h2>
               <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-                Your own pickup locations with flexible scheduling.
+                {isFoodTruck
+                  ? 'Your own service locations with flexible scheduling.'
+                  : 'Your own pickup locations with flexible scheduling.'}
                 {limits && ` (${limits.currentPrivatePickupCount} of ${limits.privatePickupLocations} used)`}
                 {limits && !limits.canAddPrivatePickup && (
                   <span style={{ color: '#dc2626', marginLeft: 8 }}>
@@ -1381,26 +1394,28 @@ export default function VendorMarketsPage() {
             )}
           </div>
 
-          {/* Auto-Cutoff Notice */}
-          <div style={{
-            padding: 16,
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            marginBottom: 20
-          }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <span style={{ fontSize: 20 }}>⚠️</span>
-              <div>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#991b1b' }}>
-                  Notice: Automatic Order Cutoff
-                </h4>
-                <p style={{ margin: 0, fontSize: 13, color: '#7f1d1d', lineHeight: 1.5 }}>
-                  All pre-order sales automatically close <strong>10 hours before your pickup time</strong>. This gives you time to prepare orders and know exactly what to bring. When you set your pickup day and time below, your cutoff time will be calculated automatically.
-                </p>
+          {/* Auto-Cutoff Notice — only show if this vertical has a cutoff */}
+          {getDefaultCutoffHours('private_pickup') > 0 && (
+            <div style={{
+              padding: 16,
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: 8,
+              marginBottom: 20
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <span style={{ fontSize: 20 }}>⚠️</span>
+                <div>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#991b1b' }}>
+                    Notice: Automatic Order Cutoff
+                  </h4>
+                  <p style={{ margin: 0, fontSize: 13, color: '#7f1d1d', lineHeight: 1.5 }}>
+                    All pre-order sales automatically close <strong>{getDefaultCutoffHours('private_pickup')} hours before your pickup time</strong>. This gives you time to prepare orders and know exactly what to bring. When you set your pickup day and time below, your cutoff time will be calculated automatically.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Form */}
           {showForm && (
@@ -1428,7 +1443,7 @@ export default function VendorMarketsPage() {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., My Farm Stand"
+                    placeholder={isFoodTruck ? 'e.g., Downtown Lunch Spot' : 'e.g., My Farm Stand'}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -1797,19 +1812,23 @@ export default function VendorMarketsPage() {
                           </button>
                         )}
                       </div>
-                      {/* Show calculated cutoff time */}
-                      {window.day_of_week !== '' && window.start_time && (
-                        <div style={{
-                          marginTop: 8,
-                          padding: '6px 10px',
-                          backgroundColor: '#fef3c7',
-                          borderRadius: 4,
-                          fontSize: 12,
-                          color: '#92400e'
-                        }}>
-                          <strong>Cutoff:</strong> {getCutoffTime(parseInt(window.day_of_week), window.start_time)}
-                        </div>
-                      )}
+                      {/* Show calculated cutoff time (hidden for 0-cutoff verticals like food trucks) */}
+                      {window.day_of_week !== '' && window.start_time && (() => {
+                        const cutoffHrs = getDefaultCutoffHours('private_pickup')
+                        const display = getCutoffDisplay(parseInt(window.day_of_week), window.start_time, cutoffHrs)
+                        return display ? (
+                          <div style={{
+                            marginTop: 8,
+                            padding: '6px 10px',
+                            backgroundColor: '#fef3c7',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            color: '#92400e'
+                          }}>
+                            <strong>Cutoff:</strong> {display}
+                          </div>
+                        ) : null
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -1919,15 +1938,21 @@ export default function VendorMarketsPage() {
                                 <strong>{DAYS[schedule.day_of_week]}</strong>{' '}
                                 {formatTime12h(schedule.start_time)} - {formatTime12h(schedule.end_time)}
                               </div>
-                              <div style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#fef3c7',
-                                borderRadius: 4,
-                                fontSize: 12,
-                                color: '#92400e'
-                              }}>
-                                Cutoff: {getCutoffTime(schedule.day_of_week, schedule.start_time)}
-                              </div>
+                              {(() => {
+                                const cutoffHrs = market.cutoff_hours ?? getDefaultCutoffHours('private_pickup')
+                                const display = getCutoffDisplay(schedule.day_of_week, schedule.start_time, cutoffHrs)
+                                return display ? (
+                                  <div style={{
+                                    padding: '4px 8px',
+                                    backgroundColor: '#fef3c7',
+                                    borderRadius: 4,
+                                    fontSize: 12,
+                                    color: '#92400e'
+                                  }}>
+                                    Cutoff: {display}
+                                  </div>
+                                ) : null
+                              })()}
                             </div>
                           ))}
                         </div>

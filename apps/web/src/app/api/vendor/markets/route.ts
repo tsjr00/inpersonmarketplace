@@ -337,27 +337,33 @@ export async function POST(request: NextRequest) {
 
     // Create private pickup market
     // Note: submitted_by_vendor_id is required by RLS policy for INSERT
+    // Food trucks default to 0 cutoff (prepare on the spot), FM uses DB default (18)
+    const cutoffHours = vertical === 'food_trucks' ? 0 : undefined
+    const insertData: Record<string, unknown> = {
+      vertical_id: vertical,
+      vendor_profile_id: vendorProfile.id,
+      submitted_by_vendor_id: vendorProfile.id, // Required by RLS policy
+      name,
+      market_type: 'private_pickup',
+      address,
+      city,
+      state,
+      zip,
+      latitude: parsedLat,
+      longitude: parsedLng,
+      season_start: season_start || null,
+      season_end: season_end || null,
+      expires_at: expires_at || null,
+      status: 'active',
+      approval_status: 'approved', // Private pickup markets are auto-approved
+      active: true,
+    }
+    if (cutoffHours !== undefined) {
+      insertData.cutoff_hours = cutoffHours
+    }
     const { data: market, error: createError } = await supabase
       .from('markets')
-      .insert({
-        vertical_id: vertical,
-        vendor_profile_id: vendorProfile.id,
-        submitted_by_vendor_id: vendorProfile.id, // Required by RLS policy
-        name,
-        market_type: 'private_pickup',
-        address,
-        city,
-        state,
-        zip,
-        latitude: parsedLat,
-        longitude: parsedLng,
-        season_start: season_start || null,
-        season_end: season_end || null,
-        expires_at: expires_at || null,
-        status: 'active',
-        approval_status: 'approved', // Private pickup markets are auto-approved
-        active: true
-      })
+      .insert(insertData)
       .select()
       .single()
 
