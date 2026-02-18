@@ -67,6 +67,7 @@
 | 20260218_032_ft_vendor_attendance_hours.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | Add vendor_start_time/end_time to vms, backfill FT attendance, rewrite SQL function with attendance filter. Prod needed unique constraint added first. Applied to all 3 envs. |
 | 20260218_031_fix_ft_cutoff_hours_override.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | Fix COALESCE bug: FT always gets cutoff=0 regardless of DB value. Applied to all 3 envs. |
 | 20260218_030_ft_same_day_ordering.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | FT-aware get_available_pickup_dates(): today-only, accept until end_time, cutoff=0. Applied to all 3 envs. |
+| 20260218_033_add_free_ft_tier.sql | ❌ | - | ❌ | - | Expand tier CHECK to include 'free'; auto-set trigger for new FT vendors |
 
 ---
 
