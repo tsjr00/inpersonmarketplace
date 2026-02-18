@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import LocationSearchInline from '@/components/location/LocationSearchInline'
 import VendorAvatar from '@/components/shared/VendorAvatar'
@@ -8,6 +8,7 @@ import TierBadge from '@/components/shared/TierBadge'
 import { VendorTierType } from '@/lib/constants'
 import { term } from '@/lib/vertical'
 import { colors, spacing, typography, radius as radiusToken } from '@/lib/design-tokens'
+import { createClient } from '@/lib/supabase/client'
 
 interface VendorMarket {
   id: string
@@ -121,6 +122,10 @@ export default function VendorsWithLocation({
   const [totalVendors, setTotalVendors] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [currentOffset, setCurrentOffset] = useState(0)
+  // Favorites state
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set())
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // Check for saved location on mount - ONLY if no initialLocation provided
   useEffect(() => {
@@ -145,6 +150,68 @@ export default function VendorsWithLocation({
       setHasMore(false)
     }
   }, [currentMarket, currentCategory, currentSearch, currentSort, radius, locationChecked])
+
+  // Fetch favorites on mount
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      setIsAuthenticated(true)
+      fetch(`/api/vendor/favorites?vertical=${vertical}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.favorites) setFavoriteIds(new Set(data.favorites))
+        })
+        .catch(() => {})
+    })
+  }, [vertical])
+
+  // Optimistic toggle favorite
+  const toggleFavorite = useCallback(async (vendorProfileId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const wasFavorited = favoriteIds.has(vendorProfileId)
+
+    // Optimistic update
+    setFavoriteIds(prev => {
+      const next = new Set(prev)
+      if (wasFavorited) {
+        next.delete(vendorProfileId)
+      } else {
+        next.add(vendorProfileId)
+      }
+      return next
+    })
+
+    // Auto-disable favorites filter if removing the last favorite
+    if (wasFavorited && favoriteIds.size === 1) {
+      setShowFavoritesOnly(false)
+    }
+
+    try {
+      if (wasFavorited) {
+        await fetch(`/api/vendor/favorites?vendor_profile_id=${vendorProfileId}`, { method: 'DELETE' })
+      } else {
+        await fetch('/api/vendor/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vendor_profile_id: vendorProfileId })
+        })
+      }
+    } catch {
+      // Revert on error
+      setFavoriteIds(prev => {
+        const next = new Set(prev)
+        if (wasFavorited) {
+          next.add(vendorProfileId)
+        } else {
+          next.delete(vendorProfileId)
+        }
+        return next
+      })
+    }
+  }, [favoriteIds])
 
   const checkSavedLocation = async () => {
     try {
@@ -322,7 +389,40 @@ export default function VendorsWithLocation({
         </div>
       )}
 
-      {/* Results count with loading/refining indicator */}
+      {/* Results count with loading/refining indicator + favorites filter */}
+      <div style={{
+        marginBottom: spacing.md,
+        color: colors.textMuted,
+        fontSize: typography.sizes.sm,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
+        flexWrap: 'wrap'
+      }}>
+        {/* Favorites filter toggle */}
+        {isAuthenticated && favoriteIds.size > 0 && (
+          <button
+            onClick={() => setShowFavoritesOnly(prev => !prev)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: spacing['3xs'],
+              padding: `${spacing['3xs']} ${spacing.xs}`,
+              border: `1px solid ${showFavoritesOnly ? '#ef4444' : colors.border}`,
+              borderRadius: radiusToken.full,
+              backgroundColor: showFavoritesOnly ? '#fef2f2' : colors.surfaceElevated,
+              color: showFavoritesOnly ? '#dc2626' : colors.textSecondary,
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.medium,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <span style={{ fontSize: 14 }}>{showFavoritesOnly ? '❤️' : '🤍'}</span>
+            Favorites ({favoriteIds.size})
+          </button>
+        )}
+      </div>
       <div style={{
         marginBottom: spacing.md,
         color: colors.textMuted,
@@ -363,7 +463,11 @@ export default function VendorsWithLocation({
       </div>
 
       {/* Vendor Grid - show even while loading if we have vendors */}
-      {vendors.length > 0 ? (
+      {(() => {
+        const displayVendors = showFavoritesOnly
+          ? vendors.filter(v => favoriteIds.has(v.id))
+          : vendors
+        return displayVendors.length > 0 ? (
         <div
           className="vendors-grid"
           style={{
@@ -371,7 +475,7 @@ export default function VendorsWithLocation({
             gap: spacing.md
           }}
         >
-          {vendors.map(vendor => (
+          {displayVendors.map(vendor => (
             <Link
               key={vendor.id}
               href={`/${vertical}/vendor/${vendor.id}/profile`}
@@ -449,6 +553,26 @@ export default function VendorsWithLocation({
                     )}
                   </div>
                 </div>
+                {/* Favorite heart button */}
+                {isAuthenticated && (
+                  <button
+                    onClick={(e) => toggleFavorite(vendor.id, e)}
+                    aria-label={favoriteIds.has(vendor.id) ? 'Remove from favorites' : 'Add to favorites'}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: spacing['3xs'],
+                      fontSize: 20,
+                      lineHeight: 1,
+                      flexShrink: 0,
+                      transition: 'transform 0.15s',
+                    }}
+                    className="favorite-btn"
+                  >
+                    {favoriteIds.has(vendor.id) ? '❤️' : '🤍'}
+                  </button>
+                )}
               </div>
 
               {/* Description */}
@@ -575,24 +699,29 @@ export default function VendorsWithLocation({
             color: colors.textSecondary,
             fontSize: typography.sizes.lg
           }}>
-            {`No ${term(vertical, 'vendors').toLowerCase()} found`}
+            {showFavoritesOnly
+              ? 'No favorites match current filters'
+              : `No ${term(vertical, 'vendors').toLowerCase()} found`}
           </h3>
           <p style={{
             margin: 0,
             color: colors.textMuted,
             fontSize: typography.sizes.base
           }}>
-            {currentSearch || currentMarket || currentCategory
-              ? `Try adjusting your filters to see more ${term(vertical, 'vendors').toLowerCase()}`
-              : hasLocation
-                ? `No ${term(vertical, 'vendors').toLowerCase()} found within ${radius} miles. Try increasing your search radius.`
-                : `Check back soon for local ${term(vertical, 'vendors').toLowerCase()} in your area`}
+            {showFavoritesOnly
+              ? `Try disabling the favorites filter to see all ${term(vertical, 'vendors').toLowerCase()}`
+              : currentSearch || currentMarket || currentCategory
+                ? `Try adjusting your filters to see more ${term(vertical, 'vendors').toLowerCase()}`
+                : hasLocation
+                  ? `No ${term(vertical, 'vendors').toLowerCase()} found within ${radius} miles. Try increasing your search radius.`
+                  : `Check back soon for local ${term(vertical, 'vendors').toLowerCase()} in your area`}
           </p>
         </div>
-      ) : null}
+      ) : null
+      })()}
 
       {/* Load More button */}
-      {hasMore && !loading && (
+      {hasMore && !loading && !showFavoritesOnly && (
         <div style={{
           display: 'flex',
           justifyContent: 'center',
@@ -643,6 +772,9 @@ export default function VendorsWithLocation({
         .vendor-card:hover {
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
           transform: translateY(-2px);
+        }
+        .favorite-btn:hover {
+          transform: scale(1.2);
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
