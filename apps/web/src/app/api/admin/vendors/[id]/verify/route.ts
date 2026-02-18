@@ -33,7 +33,7 @@ export async function POST(
     // Verify admin role
     const { data: userProfile } = await supabase
       .from('user_profiles')
-      .select('role, roles')
+      .select('id, role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .single()
@@ -73,7 +73,7 @@ export async function POST(
       .update({
         status: newStatus,
         notes: notes || null,
-        reviewed_by: user.id,
+        reviewed_by: userProfile!.id,
         reviewed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

@@ -32,7 +32,7 @@ export async function POST(
     // Verify admin role
     const { data: userProfile } = await supabase
       .from('user_profiles')
-      .select('role, roles')
+      .select('id, role, roles')
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .single()
@@ -72,7 +72,7 @@ export async function POST(
 
     if (action === 'approve') {
       updates.coi_verified_at = new Date().toISOString()
-      updates.coi_verified_by = user.id
+      updates.coi_verified_by = userProfile!.id
     }
 
     crumb.supabase('update', 'vendor_verifications')
