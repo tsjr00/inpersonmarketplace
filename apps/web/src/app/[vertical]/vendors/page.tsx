@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import VendorFilters from './VendorFilters'
 import VendorsWithLocation from './VendorsWithLocation'
 import { VendorTierType } from '@/lib/constants'
+import { getTierSortPriority } from '@/lib/vendor-limits'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 import { term, getRadiusOptions } from '@/lib/vertical'
 
@@ -222,10 +223,9 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
 
   // Apply sorting - premium vendors always shown first
   filteredVendors.sort((a, b) => {
-    // Premium/featured vendors first (featured > premium > standard)
-    const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
-    const aTier = tierOrder[a.tier] ?? 2
-    const bTier = tierOrder[b.tier] ?? 2
+    // Higher-tier vendors first (works for both FM and FT tiers)
+    const aTier = getTierSortPriority(a.tier, vertical)
+    const bTier = getTierSortPriority(b.tier, vertical)
     if (aTier !== bTier) return aTier - bTier
 
     // Then apply secondary sort

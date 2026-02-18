@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { getTierSortPriority } from '@/lib/vendor-limits'
 
 const DEFAULT_RADIUS_MILES = 25
 const DEFAULT_PAGE_SIZE = 35
@@ -228,10 +229,9 @@ export async function GET(request: NextRequest) {
 
       // STEP 5: Sort vendors (always by distance first for location-based queries, then by selected sort within tier)
       filteredVendors.sort((a, b) => {
-        // Premium/featured vendors first
-        const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
-        const aTier = tierOrder[a.tier] ?? 2
-        const bTier = tierOrder[b.tier] ?? 2
+        // Higher-tier vendors first (works for both FM and FT tiers)
+        const aTier = getTierSortPriority(a.tier, vertical || '')
+        const bTier = getTierSortPriority(b.tier, vertical || '')
         if (aTier !== bTier) return aTier - bTier
 
         // Within same tier, sort by distance (closest first for location-based search)
@@ -447,9 +447,9 @@ async function fallbackNearbyQuery(
 
   // Sort (always by distance first, then secondary sort)
   filteredVendors.sort((a, b) => {
-    const tierOrder: Record<string, number> = { featured: 0, premium: 1, standard: 2 }
-    const aTier = tierOrder[a.tier] ?? 2
-    const bTier = tierOrder[b.tier] ?? 2
+    // Higher-tier vendors first (works for both FM and FT tiers)
+    const aTier = getTierSortPriority(a.tier, vertical || '')
+    const bTier = getTierSortPriority(b.tier, vertical || '')
     if (aTier !== bTier) return aTier - bTier
 
     // Distance first (closest first)
