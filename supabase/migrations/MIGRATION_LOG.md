@@ -61,6 +61,7 @@
 | FOOD_TRUCK_FAQ_SEED.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | 15 FAQ articles for food_trucks vertical in knowledge_articles. Also applied to Prod. |
 | 20260217_025_rename_fireworks_vertical.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Rename vertical_id 'fireworks' → 'fire_works' in verticals + all child tables. Applied to all 3 envs. |
 | 20260217_026_vertical_premium_triggers.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Per-vertical buyer premium: vertical-aware triggers, market box regression fix, verticals config. Applied to all 3 envs. |
+| 20260217_027_expand_vendor_tier_check_constraint.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Expand tier CHECK to include basic/pro/boss (FT tiers); migrate existing FT vendors to basic. |
 
 ---
 
