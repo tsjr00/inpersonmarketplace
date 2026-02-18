@@ -5,6 +5,9 @@ import { crumb } from '@/lib/errors/breadcrumbs'
 import {
   getCategoryRequirement,
   requiresDocuments,
+  FOOD_TRUCK_PERMIT_REQUIREMENTS,
+  FOOD_TRUCK_DOC_TYPE_LABELS,
+  type FoodTruckDocType,
 } from '@/lib/onboarding/category-requirements'
 import type { Category } from '@/lib/constants'
 
@@ -13,6 +16,7 @@ interface CategoryStatus {
   status: 'not_required' | 'not_submitted' | 'pending' | 'approved' | 'rejected'
   label: string
   documents: unknown[]
+  required?: boolean
 }
 
 export async function GET() {
@@ -27,7 +31,7 @@ export async function GET() {
     crumb.logic('Fetching vendor profile')
     const { data: vendor } = await supabase
       .from('vendor_profiles')
-      .select('id, status, user_id')
+      .select('id, status, user_id, vertical_id')
       .eq('user_id', user.id)
       .single()
 
@@ -46,6 +50,8 @@ export async function GET() {
       return NextResponse.json({ error: 'No verification record found' }, { status: 404 })
     }
 
+    const isFoodTruck = vendor.vertical_id === 'food_trucks'
+
     // Gate 1: Vendor Approved (business docs reviewed by admin)
     const businessDocs = Array.isArray(verification.documents) ? verification.documents : []
     const gate1 = {
@@ -55,8 +61,7 @@ export async function GET() {
       reviewedAt: verification.reviewed_at as string | null,
     }
 
-    // Gate 2: Category Authorized (per-category doc verification)
-    const requestedCategories = (verification.requested_categories || []) as string[]
+    // Gate 2: Category/Permit Authorization
     const categoryVerifications = (verification.category_verifications || {}) as Record<string, {
       status: string
       doc_type?: string
@@ -66,36 +71,68 @@ export async function GET() {
     }>
 
     const categoryStatuses: Record<string, CategoryStatus> = {}
-    for (const cat of requestedCategories) {
-      const requirement = getCategoryRequirement(cat as Category)
-      const catVerification = categoryVerifications[cat]
+    let gate2RequestedItems: string[]
 
-      if (!requiresDocuments(cat as Category)) {
-        categoryStatuses[cat] = {
-          requirementLevel: requirement.level,
-          status: 'not_required',
-          label: requirement.label,
-          documents: [],
+    if (isFoodTruck) {
+      // Food trucks: flat list of required permits (not per-cuisine)
+      gate2RequestedItems = FOOD_TRUCK_PERMIT_REQUIREMENTS.map((p) => p.docType)
+
+      for (const permit of FOOD_TRUCK_PERMIT_REQUIREMENTS) {
+        const permitVerification = categoryVerifications[permit.docType]
+
+        if (permitVerification) {
+          categoryStatuses[permit.docType] = {
+            requirementLevel: 'permit',
+            status: permitVerification.status as CategoryStatus['status'],
+            label: FOOD_TRUCK_DOC_TYPE_LABELS[permit.docType as FoodTruckDocType],
+            documents: permitVerification.documents || [],
+            required: permit.required,
+          }
+        } else {
+          categoryStatuses[permit.docType] = {
+            requirementLevel: 'permit',
+            status: 'not_submitted',
+            label: FOOD_TRUCK_DOC_TYPE_LABELS[permit.docType as FoodTruckDocType],
+            documents: [],
+            required: permit.required,
+          }
         }
-      } else if (catVerification) {
-        categoryStatuses[cat] = {
-          requirementLevel: requirement.level,
-          status: catVerification.status as CategoryStatus['status'],
-          label: requirement.label,
-          documents: catVerification.documents || [],
-        }
-      } else {
-        categoryStatuses[cat] = {
-          requirementLevel: requirement.level,
-          status: 'not_submitted',
-          label: requirement.label,
-          documents: [],
+      }
+    } else {
+      // Farmers market: per-product-category requirements
+      gate2RequestedItems = (verification.requested_categories || []) as string[]
+
+      for (const cat of gate2RequestedItems) {
+        const requirement = getCategoryRequirement(cat as Category)
+        const catVerification = categoryVerifications[cat]
+
+        if (!requiresDocuments(cat as Category)) {
+          categoryStatuses[cat] = {
+            requirementLevel: requirement.level,
+            status: 'not_required',
+            label: requirement.label,
+            documents: [],
+          }
+        } else if (catVerification) {
+          categoryStatuses[cat] = {
+            requirementLevel: requirement.level,
+            status: catVerification.status as CategoryStatus['status'],
+            label: requirement.label,
+            documents: catVerification.documents || [],
+          }
+        } else {
+          categoryStatuses[cat] = {
+            requirementLevel: requirement.level,
+            status: 'not_submitted',
+            label: requirement.label,
+            documents: [],
+          }
         }
       }
     }
 
     const gate2 = {
-      requestedCategories,
+      requestedCategories: gate2RequestedItems,
       categoryStatuses,
     }
 
@@ -111,29 +148,48 @@ export async function GET() {
     const prohibitedItemsAcknowledged = !!verification.prohibited_items_acknowledged_at
 
     // Compute: can submit for approval?
-    // All required docs uploaded + prohibited items acknowledged
-    const allCategoryDocsSubmitted = requestedCategories.every((cat) => {
-      if (!requiresDocuments(cat as Category)) return true
-      const cv = categoryVerifications[cat]
-      return cv && cv.documents && (cv.documents as unknown[]).length > 0
-    })
+    let allDocsSubmitted: boolean
+    if (isFoodTruck) {
+      // All required permits must have at least one doc uploaded
+      allDocsSubmitted = FOOD_TRUCK_PERMIT_REQUIREMENTS
+        .filter((p) => p.required)
+        .every((p) => {
+          const cv = categoryVerifications[p.docType]
+          return cv && cv.documents && (cv.documents as unknown[]).length > 0
+        })
+    } else {
+      allDocsSubmitted = gate2RequestedItems.every((cat) => {
+        if (!requiresDocuments(cat as Category)) return true
+        const cv = categoryVerifications[cat]
+        return cv && cv.documents && (cv.documents as unknown[]).length > 0
+      })
+    }
 
     const canSubmitForApproval =
       businessDocs.length > 0 &&
       prohibitedItemsAcknowledged &&
-      allCategoryDocsSubmitted
+      allDocsSubmitted
 
     // Compute: can publish listings?
-    // All 3 gates passed
-    const allCategoriesAuthorized = requestedCategories.every((cat) => {
-      if (!requiresDocuments(cat as Category)) return true
-      const cv = categoryVerifications[cat]
-      return cv && cv.status === 'approved'
-    })
+    let allAuthorized: boolean
+    if (isFoodTruck) {
+      allAuthorized = FOOD_TRUCK_PERMIT_REQUIREMENTS
+        .filter((p) => p.required)
+        .every((p) => {
+          const cv = categoryVerifications[p.docType]
+          return cv && cv.status === 'approved'
+        })
+    } else {
+      allAuthorized = gate2RequestedItems.every((cat) => {
+        if (!requiresDocuments(cat as Category)) return true
+        const cv = categoryVerifications[cat]
+        return cv && cv.status === 'approved'
+      })
+    }
 
     const canPublishListings =
       verification.status === 'approved' &&
-      allCategoriesAuthorized &&
+      allAuthorized &&
       verification.coi_status === 'approved'
 
     // Overall progress (0-100)
@@ -148,12 +204,21 @@ export async function GET() {
     steps++
     if (prohibitedItemsAcknowledged) completed++
 
-    // Step 3: Category docs (one step per category that requires docs)
-    const catsNeedingDocs = requestedCategories.filter((cat) => requiresDocuments(cat as Category))
-    steps += catsNeedingDocs.length
-    for (const cat of catsNeedingDocs) {
-      const cv = categoryVerifications[cat]
-      if (cv && cv.status === 'approved') completed++
+    // Step 3: Permit/category docs
+    if (isFoodTruck) {
+      const requiredPermits = FOOD_TRUCK_PERMIT_REQUIREMENTS.filter((p) => p.required)
+      steps += requiredPermits.length
+      for (const p of requiredPermits) {
+        const cv = categoryVerifications[p.docType]
+        if (cv && cv.status === 'approved') completed++
+      }
+    } else {
+      const catsNeedingDocs = gate2RequestedItems.filter((cat) => requiresDocuments(cat as Category))
+      steps += catsNeedingDocs.length
+      for (const cat of catsNeedingDocs) {
+        const cv = categoryVerifications[cat]
+        if (cv && cv.status === 'approved') completed++
+      }
     }
 
     // Step 4: Vendor approved

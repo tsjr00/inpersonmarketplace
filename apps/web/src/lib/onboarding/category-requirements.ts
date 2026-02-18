@@ -1,8 +1,11 @@
 /**
- * TX DSHS Category Requirements for Vendor Onboarding
+ * Vendor Onboarding Requirements
  *
- * Maps product categories to their regulatory document requirements
+ * Farmers Market: Maps product categories to regulatory document requirements
  * based on Texas Department of State Health Services rules.
+ *
+ * Food Trucks: Universal permit requirements — all food trucks need the same
+ * permits regardless of cuisine type (TX DSHS + local health dept).
  */
 
 import type { Category } from '@/lib/constants'
@@ -130,3 +133,80 @@ export const PROHIBITED_ITEMS = [
   { item: 'Resale or wholesale items', description: 'Items not produced by the vendor' },
   { item: 'Counterfeit or trademarked goods', description: 'Unauthorized use of trademarks or counterfeit products' },
 ] as const
+
+// ============================================================
+// Food Truck Permit Requirements (Texas)
+// ============================================================
+
+export type FoodTruckDocType =
+  | 'mfu_permit'
+  | 'cfm_certificate'
+  | 'food_handler_card'
+  | 'fire_safety_certificate'
+  | 'commissary_agreement'
+
+export interface FoodTruckPermitRequirement {
+  docType: FoodTruckDocType
+  label: string
+  description: string
+  required: boolean
+}
+
+export const FOOD_TRUCK_PERMIT_REQUIREMENTS: FoodTruckPermitRequirement[] = [
+  {
+    docType: 'mfu_permit',
+    label: 'Mobile Food Unit (MFU) Permit',
+    description: 'TX DSHS or local health department mobile food vendor permit. Required for all mobile food operations.',
+    required: true,
+  },
+  {
+    docType: 'cfm_certificate',
+    label: 'Certified Food Manager (CFM)',
+    description: 'At least one Certified Food Manager must be on duty at all times. Valid for 5 years.',
+    required: true,
+  },
+  {
+    docType: 'food_handler_card',
+    label: "Food Handler's Card",
+    description: 'Required for every food service employee within 30 days of hire. Valid for 2 years.',
+    required: true,
+  },
+  {
+    docType: 'fire_safety_certificate',
+    label: 'Fire Safety Certificate',
+    description: 'Local Fire Marshal inspection certificate (NFPA 96 compliance). Renewed annually.',
+    required: true,
+  },
+  {
+    docType: 'commissary_agreement',
+    label: 'Commissary Agreement',
+    description: 'Agreement with a licensed commercial kitchen for food prep and storage. Required in most Texas cities.',
+    required: false,
+  },
+]
+
+export const FOOD_TRUCK_DOC_TYPES: FoodTruckDocType[] =
+  FOOD_TRUCK_PERMIT_REQUIREMENTS.map((p) => p.docType)
+
+export const FOOD_TRUCK_DOC_TYPE_LABELS: Record<FoodTruckDocType, string> = {
+  mfu_permit: 'Mobile Food Unit Permit',
+  cfm_certificate: 'Certified Food Manager Certificate',
+  food_handler_card: "Food Handler's Card",
+  fire_safety_certificate: 'Fire Safety Certificate',
+  commissary_agreement: 'Commissary Agreement',
+}
+
+export const FOOD_TRUCK_PROHIBITED_ITEMS = [
+  { item: 'Controlled substances', description: 'Including THC/CBD products regardless of legal status' },
+  { item: 'Firearms & ammunition', description: 'Including weapon accessories' },
+  { item: 'Explosives & fireworks', description: 'All explosive materials' },
+  { item: 'Tobacco & nicotine products', description: 'All tobacco and nicotine products' },
+  { item: 'Alcohol', description: 'All alcoholic beverages (unless properly licensed)' },
+  { item: 'Food from non-inspected sources', description: 'All food must be prepared in your truck or approved commissary kitchen' },
+  { item: 'Recalled or adulterated products', description: 'Products subject to recall, adulterated, or misbranded' },
+  { item: 'Counterfeit or trademarked goods', description: 'Unauthorized use of trademarks or counterfeit products' },
+] as const
+
+export function getVerticalProhibitedItems(vertical: string) {
+  return vertical === 'food_trucks' ? FOOD_TRUCK_PROHIBITED_ITEMS : PROHIBITED_ITEMS
+}

@@ -621,6 +621,7 @@ function VendorRow({
                 vendorId={vendor.id}
                 verification={verification}
                 onRefresh={onRefresh}
+                vertical={vertical}
               />
             </div>
           </td>

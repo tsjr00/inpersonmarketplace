@@ -2,14 +2,17 @@
 
 import { useEffect } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import { PROHIBITED_ITEMS } from '@/lib/onboarding/category-requirements'
+import { getVerticalProhibitedItems } from '@/lib/onboarding/category-requirements'
 
 interface Props {
+  vertical: string
   onAcknowledge: () => void
   onClose: () => void
 }
 
-export default function ProhibitedItemsModal({ onAcknowledge, onClose }: Props) {
+export default function ProhibitedItemsModal({ vertical, onAcknowledge, onClose }: Props) {
+  const prohibitedItems = getVerticalProhibitedItems(vertical)
+
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -64,7 +67,7 @@ export default function ProhibitedItemsModal({ onAcknowledge, onClose }: Props) 
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-          {PROHIBITED_ITEMS.map((item, i) => (
+          {prohibitedItems.map((item, i) => (
             <div key={i} style={{
               padding: spacing.xs,
               backgroundColor: '#fef2f2',

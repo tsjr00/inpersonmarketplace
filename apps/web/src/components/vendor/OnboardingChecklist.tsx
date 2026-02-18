@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import CategoryDocumentUpload from './CategoryDocumentUpload'
+import FoodTruckPermitUpload from './FoodTruckPermitUpload'
 import COIUpload from './COIUpload'
 import ProhibitedItemsModal from './ProhibitedItemsModal'
 import type { Category } from '@/lib/constants'
@@ -21,6 +22,7 @@ interface OnboardingStatus {
       status: string
       label: string
       documents: unknown[]
+      required?: boolean
     }>
   }
   gate3: {
@@ -39,13 +41,15 @@ interface Props {
   vendorStatus: string
 }
 
-export default function OnboardingChecklist({ vendorStatus }: Props) {
+export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedGate, setExpandedGate] = useState<number | null>(null)
   const [showProhibitedItems, setShowProhibitedItems] = useState(false)
   const [uploadingBusinessDoc, setUploadingBusinessDoc] = useState(false)
   const [businessDocError, setBusinessDocError] = useState<string | null>(null)
+
+  const isFoodTruck = vertical === 'food_trucks'
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -113,8 +117,10 @@ export default function OnboardingChecklist({ vendorStatus }: Props) {
     },
     {
       number: 2,
-      title: 'Category Authorization',
-      description: 'Submit required permits for your product categories',
+      title: isFoodTruck ? 'Required Permits' : 'Category Authorization',
+      description: isFoodTruck
+        ? 'Upload your food truck permits and certifications'
+        : 'Submit required permits for your product categories',
       status: getCategoryGateStatus(status),
       complete: getCategoryGateComplete(status),
     },
@@ -332,7 +338,12 @@ export default function OnboardingChecklist({ vendorStatus }: Props) {
                 />
               )}
               {gate.number === 2 && (
-                <Gate2Content status={status} onUploaded={fetchStatus} />
+                isFoodTruck
+                  ? <FoodTruckPermitUpload
+                      categoryStatuses={status.gate2.categoryStatuses}
+                      onUploaded={fetchStatus}
+                    />
+                  : <Gate2Content status={status} onUploaded={fetchStatus} />
               )}
               {gate.number === 3 && (
                 <Gate3Content status={status} onUploaded={fetchStatus} />
@@ -360,6 +371,7 @@ export default function OnboardingChecklist({ vendorStatus }: Props) {
       {/* Prohibited items modal */}
       {showProhibitedItems && (
         <ProhibitedItemsModal
+          vertical={vertical}
           onAcknowledge={handleAcknowledgeProhibited}
           onClose={() => setShowProhibitedItems(false)}
         />

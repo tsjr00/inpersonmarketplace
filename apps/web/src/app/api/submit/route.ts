@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from "@/lib/rate-limit";
 import { withErrorTracing } from '@/lib/errors';
+import { FOOD_TRUCK_PERMIT_REQUIREMENTS } from '@/lib/onboarding/category-requirements';
 
 // Use service role for server-side operations (no RLS restrictions)
 const supabaseAdmin = createClient(
@@ -142,6 +143,18 @@ export async function POST(request: NextRequest) {
             await supabaseAdmin
               .from('vendor_verifications')
               .update({ requested_categories: categories })
+              .eq('vendor_profile_id', vendor.id)
+          }
+
+          // Food trucks: initialize permit requirements in category_verifications
+          if (vertical === 'food_trucks') {
+            const permitInit: Record<string, { status: string }> = {}
+            for (const permit of FOOD_TRUCK_PERMIT_REQUIREMENTS) {
+              permitInit[permit.docType] = { status: 'not_submitted' }
+            }
+            await supabaseAdmin
+              .from('vendor_verifications')
+              .update({ category_verifications: permitInit })
               .eq('vendor_profile_id', vendor.id)
           }
         }

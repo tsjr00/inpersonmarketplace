@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/li
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications/service'
 import { CATEGORIES } from '@/lib/constants'
+import { FOOD_TRUCK_DOC_TYPES, type FoodTruckDocType } from '@/lib/onboarding/category-requirements'
 
 /**
  * POST /api/admin/vendors/[id]/verify-category
@@ -61,8 +62,10 @@ export async function POST(
 
     const { category, action, notes } = await request.json()
 
-    if (!category || !CATEGORIES.includes(category)) {
-      throw traced.validation('ERR_VALIDATION_001', 'Invalid category')
+    const isValidFMCategory = CATEGORIES.includes(category)
+    const isValidFTPermit = FOOD_TRUCK_DOC_TYPES.includes(category as FoodTruckDocType)
+    if (!category || (!isValidFMCategory && !isValidFTPermit)) {
+      throw traced.validation('ERR_VALIDATION_001', 'Invalid category or permit type')
     }
     if (!action || !['approve', 'reject'].includes(action)) {
       throw traced.validation('ERR_VALIDATION_001', 'action must be "approve" or "reject"')

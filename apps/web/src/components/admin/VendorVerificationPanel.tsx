@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
-import { DOC_TYPE_LABELS, type DocType } from '@/lib/onboarding/category-requirements'
+import {
+  DOC_TYPE_LABELS,
+  FOOD_TRUCK_DOC_TYPE_LABELS,
+  FOOD_TRUCK_DOC_TYPES,
+  type DocType,
+  type FoodTruckDocType,
+} from '@/lib/onboarding/category-requirements'
 
 interface Verification {
   status: string
@@ -28,12 +34,29 @@ interface Props {
   vendorId: string
   verification: Verification | null
   onRefresh: () => void
+  vertical?: string
 }
 
-export default function VendorVerificationPanel({ vendorId, verification, onRefresh }: Props) {
+function getDocLabel(docType: string, isFoodTruck: boolean): string {
+  if (isFoodTruck && FOOD_TRUCK_DOC_TYPES.includes(docType as FoodTruckDocType)) {
+    return FOOD_TRUCK_DOC_TYPE_LABELS[docType as FoodTruckDocType]
+  }
+  return DOC_TYPE_LABELS[docType as DocType] || docType
+}
+
+function getCategoryLabel(key: string, isFoodTruck: boolean): string {
+  if (isFoodTruck && FOOD_TRUCK_DOC_TYPES.includes(key as FoodTruckDocType)) {
+    return FOOD_TRUCK_DOC_TYPE_LABELS[key as FoodTruckDocType]
+  }
+  return key
+}
+
+export default function VendorVerificationPanel({ vendorId, verification, onRefresh, vertical }: Props) {
   const [notes, setNotes] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({})
+
+  const isFoodTruck = vertical === 'food_trucks'
 
   useEffect(() => {
     setNotes('')
@@ -97,6 +120,12 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
       </span>
     )
   }
+
+  // For food trucks, Gate 2 items are permit doc types from category_verifications
+  // For FM, Gate 2 items are from requested_categories
+  const gate2Items = isFoodTruck
+    ? FOOD_TRUCK_DOC_TYPES.filter((dt) => verification.category_verifications[dt])
+    : verification.requested_categories
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
@@ -220,8 +249,8 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
         )}
       </div>
 
-      {/* Gate 2: Category Authorization */}
-      {verification.requested_categories.length > 0 && (
+      {/* Gate 2: Category Authorization / Required Permits */}
+      {gate2Items.length > 0 && (
         <div style={{
           padding: spacing.sm,
           backgroundColor: colors.surfaceElevated,
@@ -229,11 +258,11 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
           borderRadius: radius.md,
         }}>
           <h4 style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-            Gate 2: Category Authorization
+            Gate 2: {isFoodTruck ? 'Required Permits' : 'Category Authorization'}
           </h4>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-            {verification.requested_categories.map((cat) => {
+            {gate2Items.map((cat) => {
               const catVer = verification.category_verifications[cat]
               const catStatus = catVer?.status || 'not_submitted'
               const docs = catVer?.documents || []
@@ -246,7 +275,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.medium, color: colors.textPrimary }}>
-                      {cat}
+                      {getCategoryLabel(cat, isFoodTruck)}
                     </span>
                     {statusBadge(catStatus)}
                   </div>
@@ -270,7 +299,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
                             textDecoration: 'none',
                           }}
                         >
-                          {doc.filename} ({DOC_TYPE_LABELS[doc.doc_type as DocType] || doc.doc_type})
+                          {doc.filename} ({getDocLabel(doc.doc_type, isFoodTruck)})
                         </a>
                       ))}
                     </div>

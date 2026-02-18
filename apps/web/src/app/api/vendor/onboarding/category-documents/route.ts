@@ -3,7 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { CATEGORIES, type Category } from '@/lib/constants'
-import { requiresDocuments, getCategoryRequirement, type DocType } from '@/lib/onboarding/category-requirements'
+import {
+  requiresDocuments,
+  getCategoryRequirement,
+  FOOD_TRUCK_DOC_TYPES,
+  type DocType,
+  type FoodTruckDocType,
+} from '@/lib/onboarding/category-requirements'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
@@ -11,8 +17,9 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
 /**
  * POST /api/vendor/onboarding/category-documents
  *
- * Upload documents for per-category authorization (Gate 2).
- * Accepts FormData with 'document' file, 'category' string, 'doc_type' string.
+ * Upload documents for Gate 2 authorization.
+ * FM vendors: per-category permits (FormData: document, category, doc_type)
+ * FT vendors: universal permits (FormData: document, category=permitDocType, doc_type=permitDocType)
  */
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/onboarding/category-documents', 'POST', async () => {
@@ -31,7 +38,7 @@ export async function POST(request: NextRequest) {
     crumb.supabase('select', 'vendor_profiles')
     const { data: vendor } = await supabase
       .from('vendor_profiles')
-      .select('id')
+      .select('id, vertical_id')
       .eq('user_id', user.id)
       .single()
 
@@ -44,23 +51,35 @@ export async function POST(request: NextRequest) {
     const category = formData.get('category') as string
     const docType = formData.get('doc_type') as string
 
-    // Validate inputs
     if (!file) {
       throw traced.validation('ERR_VALIDATION_001', 'No file provided')
     }
-    if (!category || !CATEGORIES.includes(category as Category)) {
-      throw traced.validation('ERR_VALIDATION_001', 'Invalid category')
-    }
-    if (!requiresDocuments(category as Category)) {
-      throw traced.validation('ERR_VALIDATION_001', `Category "${category}" does not require documents`)
-    }
 
-    const requirement = getCategoryRequirement(category as Category)
-    if (!docType || !requirement.acceptedDocTypes.includes(docType as DocType)) {
-      throw traced.validation(
-        'ERR_VALIDATION_001',
-        `Invalid document type for ${category}. Accepted: ${requirement.acceptedDocTypes.join(', ')}`
-      )
+    const isFoodTruck = vendor.vertical_id === 'food_trucks'
+
+    // Validate category/permit type based on vertical
+    if (isFoodTruck) {
+      if (!category || !FOOD_TRUCK_DOC_TYPES.includes(category as FoodTruckDocType)) {
+        throw traced.validation('ERR_VALIDATION_001', 'Invalid permit type')
+      }
+      // For food trucks, doc_type = category (the permit IS the doc type)
+      if (!docType || docType !== category) {
+        throw traced.validation('ERR_VALIDATION_001', 'Document type must match permit type')
+      }
+    } else {
+      if (!category || !CATEGORIES.includes(category as Category)) {
+        throw traced.validation('ERR_VALIDATION_001', 'Invalid category')
+      }
+      if (!requiresDocuments(category as Category)) {
+        throw traced.validation('ERR_VALIDATION_001', `Category "${category}" does not require documents`)
+      }
+      const requirement = getCategoryRequirement(category as Category)
+      if (!docType || !requirement.acceptedDocTypes.includes(docType as DocType)) {
+        throw traced.validation(
+          'ERR_VALIDATION_001',
+          `Invalid document type for ${category}. Accepted: ${requirement.acceptedDocTypes.join(', ')}`
+        )
+      }
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -74,12 +93,14 @@ export async function POST(request: NextRequest) {
     const fileExt = file.type === 'application/pdf' ? 'pdf'
       : file.type === 'image/png' ? 'png' : 'jpg'
     const fileName = `${Date.now()}.${fileExt}`
-    const filePath = `category-docs/${vendor.id}/${category.replace(/\s+/g, '-').toLowerCase()}/${fileName}`
+    const storagePath = isFoodTruck
+      ? `permit-docs/${vendor.id}/${category}/${fileName}`
+      : `category-docs/${vendor.id}/${category.replace(/\s+/g, '-').toLowerCase()}/${fileName}`
 
-    crumb.logic('Uploading category document')
+    crumb.logic('Uploading document')
     const { error: uploadError } = await supabase.storage
       .from('vendor-documents')
-      .upload(filePath, file, { contentType: file.type, upsert: false })
+      .upload(storagePath, file, { contentType: file.type, upsert: false })
 
     if (uploadError) {
       throw traced.fromSupabase(uploadError, { table: 'storage', operation: 'insert' })
@@ -87,11 +108,11 @@ export async function POST(request: NextRequest) {
 
     const { data: { publicUrl } } = supabase.storage
       .from('vendor-documents')
-      .getPublicUrl(filePath)
+      .getPublicUrl(storagePath)
 
     const newDoc = {
       url: publicUrl,
-      path: filePath,
+      path: storagePath,
       filename: file.name,
       type: file.type,
       doc_type: docType,
