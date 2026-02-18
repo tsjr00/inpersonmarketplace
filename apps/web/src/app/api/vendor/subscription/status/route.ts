@@ -32,8 +32,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
+    // FT vendors default to 'free', FM vendors default to 'standard'
+    const defaultTier = vendorProfile.vertical_id === 'food_trucks' ? 'free' : 'standard'
+
     return NextResponse.json({
-      tier: vendorProfile.tier || 'standard',
+      tier: vendorProfile.tier || defaultTier,
       subscriptionStatus: vendorProfile.subscription_status,
       subscriptionCycle: vendorProfile.subscription_cycle,
       expiresAt: vendorProfile.tier_expires_at,

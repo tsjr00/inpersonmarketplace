@@ -56,6 +56,12 @@ export async function POST(request: NextRequest) {
 
       // FT vendors must specify a tier
       if (isFtVendor) {
+        if (requestedTier === 'free') {
+          return NextResponse.json(
+            { error: 'Free tier does not require checkout. Use the downgrade endpoint.' },
+            { status: 400 }
+          )
+        }
         if (!requestedTier || !isFoodTruckTier(requestedTier)) {
           return NextResponse.json(
             { error: 'Food truck vendors must specify a tier: basic, pro, or boss.' },

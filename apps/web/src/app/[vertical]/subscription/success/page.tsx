@@ -80,19 +80,24 @@ export default function SubscriptionSuccessPage() {
     : `/${vertical}/browse`
 
   // FT tier-specific title
-  const title = isFtVendor && tier
-    ? `Welcome to ${getFtTierLabel(tier)}!`
-    : 'Welcome to Premium!'
+  const isFreeDowngrade = isFtVendor && tier === 'free'
+  const title = isFreeDowngrade
+    ? 'You\'re on the Free Plan'
+    : isFtVendor && tier
+      ? `Welcome to ${getFtTierLabel(tier)}!`
+      : 'Welcome to Premium!'
 
-  const subtitle = isFtVendor && tier
-    ? `Your ${getFtTierLabel(tier)} plan is now active. You can start using all your ${getFtTierLabel(tier)} features right away.`
-    : isVendor
-      ? 'Your premium subscription is now active. You can now access all premium vendor features.'
-      : 'Your premium subscription is now active. You can now access Market Box subscriptions and other premium features.'
+  const subtitle = isFreeDowngrade
+    ? 'Your plan has been changed to Free. You can upgrade anytime to unlock more features.'
+    : isFtVendor && tier
+      ? `Your ${getFtTierLabel(tier)} plan is now active. You can start using all your ${getFtTierLabel(tier)} features right away.`
+      : isVendor
+        ? 'Your premium subscription is now active. You can now access all premium vendor features.'
+        : 'Your premium subscription is now active. You can now access Market Box subscriptions and other premium features.'
 
   // FT tier-specific benefits
-  const ftTierKey = (tier || 'basic') as FoodTruckTier
-  const ftLimits = isFtVendor ? FT_TIER_LIMITS[ftTierKey] || FT_TIER_LIMITS.basic : null
+  const ftTierKey = (tier || 'free') as FoodTruckTier
+  const ftLimits = isFtVendor ? FT_TIER_LIMITS[ftTierKey] || FT_TIER_LIMITS.free : null
 
   return (
     <div style={{
@@ -161,7 +166,7 @@ export default function SubscriptionSuccessPage() {
             textTransform: 'uppercase',
             letterSpacing: 0.5
           }}>
-            {isFtVendor ? `Your ${getFtTierLabel(tier || 'basic')} Benefits` : 'Your Premium Benefits'}
+            {isFtVendor ? `Your ${getFtTierLabel(tier || 'free')} Benefits` : 'Your Premium Benefits'}
           </h3>
 
           {isFtVendor && ftLimits ? (
