@@ -26,7 +26,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
  */
 
 export type VendorTier = 'standard' | 'premium' | 'featured'
-export type FoodTruckTier = 'basic' | 'pro' | 'boss'
+export type FoodTruckTier = 'free' | 'basic' | 'pro' | 'boss'
 
 // ── Farmers Market Tiers ─────────────────────────────────────────────
 export const TIER_LIMITS = {
@@ -72,6 +72,20 @@ export interface FtTierExtras {
 }
 
 export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = {
+  free: {
+    productListings: 4,
+    totalMarketBoxes: 0,
+    activeMarketBoxes: 0,
+    traditionalMarkets: 1,
+    privatePickupLocations: 1,
+    pickupWindowsPerLocation: 2,
+    maxSubscribersPerOffering: 0,
+    defaultSubscribersPerOffering: 0,
+    analyticsDays: 0,
+    analyticsExport: false,
+    priorityPlacement: 0,
+    notificationChannels: ['in_app'],
+  },
   basic: {
     productListings: 8,
     totalMarketBoxes: 2,
@@ -98,7 +112,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     analyticsDays: 90,
     analyticsExport: false,
     priorityPlacement: 1,
-    notificationChannels: ['in_app', 'email'],
+    notificationChannels: ['in_app', 'push', 'email'],
   },
   boss: {
     productListings: 45,
@@ -112,27 +126,27 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     analyticsDays: 90,
     analyticsExport: true,
     priorityPlacement: 2,
-    notificationChannels: ['in_app', 'email', 'sms'],
+    notificationChannels: ['in_app', 'push', 'email', 'sms'],
   },
 } as const
 
 // ── Tier Helpers ─────────────────────────────────────────────────────
 
-/** Check if tier is a food truck tier (basic/pro/boss) */
+/** Check if tier is a food truck tier (free/basic/pro/boss) */
 export function isFoodTruckTier(tier: string): tier is FoodTruckTier {
-  return ['basic', 'pro', 'boss'].includes(tier?.toLowerCase())
+  return ['free', 'basic', 'pro', 'boss'].includes(tier?.toLowerCase())
 }
 
 /** Get display label for a food truck tier */
 export function getFtTierLabel(tier: string): string {
-  const labels: Record<string, string> = { basic: 'Basic', pro: 'Pro', boss: 'Boss' }
-  return labels[tier?.toLowerCase()] || 'Basic'
+  const labels: Record<string, string> = { free: 'Free', basic: 'Basic', pro: 'Pro', boss: 'Boss' }
+  return labels[tier?.toLowerCase()] || 'Free'
 }
 
 /** Get the FT-specific extras for a tier (analytics, priority, notifications) */
 export function getFtTierExtras(tier: string): FtTierExtras {
   const normalized = tier?.toLowerCase() as FoodTruckTier
-  return FT_TIER_LIMITS[normalized] || FT_TIER_LIMITS.basic
+  return FT_TIER_LIMITS[normalized] || FT_TIER_LIMITS.free
 }
 
 /**
@@ -145,7 +159,8 @@ export function getTierSortPriority(tier: string | undefined, vertical: string):
     if (t === 'boss') return 0
     if (t === 'pro') return 1
     if (t === 'basic') return 2
-    return 3 // unknown/standard
+    if (t === 'free') return 3
+    return 4 // unknown/standard
   }
   // Farmers market / other
   if (t === 'premium' || t === 'featured') return 0
@@ -167,7 +182,7 @@ export function getTierLimits(tier: string, vertical?: string) {
   // Food truck tiers
   if (vertical === 'food_trucks') {
     if (isFoodTruckTier(normalized)) return FT_TIER_LIMITS[normalized as FoodTruckTier]
-    return FT_TIER_LIMITS.basic // FT vendor with 'standard' or unknown tier → basic limits
+    return FT_TIER_LIMITS.free // FT vendor with 'standard' or unknown tier → free limits
   }
   // Farmers market / other verticals
   const fmTier = normalized as VendorTier
