@@ -7,6 +7,7 @@ import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
+import { isPremiumTier } from '@/lib/vendor-limits'
 import { colors } from '@/lib/design-tokens'
 
 interface MarketBoxOffering {
@@ -158,14 +159,14 @@ export default function VendorMarketBoxesPage() {
           <div style={{
             padding: 16,
             marginBottom: 24,
-            backgroundColor: limits.tier === 'premium' ? '#fef3c7' : '#f3f4f6',
-            border: `1px solid ${limits.tier === 'premium' ? '#fcd34d' : '#e5e7eb'}`,
+            backgroundColor: isPremiumTier(limits.tier, vertical) ? '#fef3c7' : '#f3f4f6',
+            border: `1px solid ${isPremiumTier(limits.tier, vertical) ? '#fcd34d' : '#e5e7eb'}`,
             borderRadius: 8
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <strong style={{ fontSize: 14, color: limits.tier === 'premium' ? '#92400e' : '#374151' }}>
-                  {limits.tier === 'premium' ? 'Premium Vendor' : 'Standard Vendor'}
+                <strong style={{ fontSize: 14, color: isPremiumTier(limits.tier, vertical) ? '#92400e' : '#374151' }}>
+                  {isPremiumTier(limits.tier, vertical) ? 'Premium Vendor' : 'Standard Vendor'}
                 </strong>
                 <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#666' }}>
                   {limits.current_offerings} of {limits.max_offerings} offering{limits.max_offerings > 1 ? 's' : ''} used
@@ -173,7 +174,7 @@ export default function VendorMarketBoxesPage() {
                   {!limits.subscriber_limit && ' • Unlimited subscribers'}
                 </p>
               </div>
-              {limits.tier !== 'premium' && (
+              {!isPremiumTier(limits.tier, vertical) && (
                 <Link
                   href={`/${vertical}/vendor/dashboard/upgrade`}
                   style={{
@@ -225,7 +226,7 @@ export default function VendorMarketBoxesPage() {
             fontSize: 13
           }}>
             You&apos;ve reached your limit of {limits?.max_offerings} {term(vertical, 'market_box').toLowerCase()} offering{(limits?.max_offerings || 0) > 1 ? 's' : ''}.
-            {limits?.tier !== 'premium' && ' Upgrade to Premium for more.'}
+            {limits && !isPremiumTier(limits.tier, vertical) && (vertical === 'food_trucks' ? ' Upgrade your plan for more.' : ' Upgrade to Premium for more.')}
           </div>
         )}
 
@@ -238,7 +239,7 @@ export default function VendorMarketBoxesPage() {
             borderRadius: 8,
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>{vertical === 'food_trucks' ? '🍽️' : '📦'}</div>
             <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>{`No ${term(vertical, 'market_boxes')} Yet`}</h3>
             <p style={{ color: '#6b7280', margin: '0 0 24px 0' }}>
               {`Create your first ${term(vertical, 'market_box').toLowerCase()} to offer recurring purchases to ${isBuyerPremiumEnabled(vertical) ? 'premium buyers' : 'your customers'}.`}
