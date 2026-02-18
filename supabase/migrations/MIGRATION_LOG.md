@@ -68,7 +68,7 @@
 | 20260218_031_fix_ft_cutoff_hours_override.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | Fix COALESCE bug: FT always gets cutoff=0 regardless of DB value. Applied to all 3 envs. |
 | 20260218_030_ft_same_day_ordering.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | FT-aware get_available_pickup_dates(): today-only, accept until end_time, cutoff=0. Applied to all 3 envs. |
 | 20260218_033_add_free_ft_tier.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | Expand tier CHECK to include 'free'; auto-set trigger for new FT vendors. Applied to all 3 envs. |
-| 20260218_034_vendor_favorites.sql | ❌ | - | ❌ | - | New vendor_favorites table with RLS for shopper favorites. Pending application. |
+| 20260218_034_vendor_favorites.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | New vendor_favorites table with RLS for shopper favorites. Applied to all 3 envs. |
 
 ---
 
