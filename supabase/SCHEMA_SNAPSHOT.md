@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-18 | 20260218_035_market_box_type | Added `box_type` (TEXT, nullable) to `market_box_offerings`. Food truck "Chef Box" category (weekly_dinner, family_kit, mystery_box, meal_prep, office_lunch). FM offerings leave null. FT form requires it client-side + API validates for FT vendors. |
 | 2026-02-18 | 20260218_034_vendor_favorites | New `vendor_favorites` table: `id` (UUID PK), `user_id` (UUID FK→auth.users ON DELETE CASCADE), `vendor_profile_id` (UUID FK→vendor_profiles ON DELETE CASCADE), `created_at` (TIMESTAMPTZ). UNIQUE(user_id, vendor_profile_id). Indexes: `idx_vendor_favorites_user`, `idx_vendor_favorites_vendor`. RLS: users SELECT/INSERT/DELETE own rows. No vertical_id needed — vendor_profile_id scopes to vertical via vendor_profiles.vertical_id. Applied to Dev, Staging, & Prod. |
 | 2026-02-18 | 20260218_033_add_free_ft_tier | Expanded `vendor_profiles` tier CHECK constraint to include `'free'`. Added `set_ft_default_tier()` trigger function (BEFORE INSERT on vendor_profiles): auto-sets `tier='free'` for new food_trucks vendors whose tier is NULL or 'standard'. Existing FT vendors (already 'basic' from migration 027) unaffected. |
 | 2026-02-18 | 20260218_032_ft_vendor_attendance_hours | Added `vendor_start_time` (TIME, nullable) and `vendor_end_time` (TIME, nullable) to `vendor_market_schedules`. Backfilled attendance records for existing FT vendor-listing-market combos. Rewrote `get_available_pickup_dates()`: JOINs `listings` for vendor_profile_id, LEFT JOINs `vendor_market_schedules` for attendance + vendor times. FT traditional markets require attendance record. Uses COALESCE(vms.vendor_start_time, ms.start_time) for vendor-specific hours. FM fully backwards-compatible. Applied to Dev, Staging, & Prod. Prod required manual addition of `vendor_market_schedules_vendor_profile_id_schedule_id_key` UNIQUE constraint first (was missing on Prod only). |
@@ -388,6 +389,7 @@
 | premium_window_ends_at | timestamptz | YES | - |
 | quantity_amount | numeric | YES | - |
 | quantity_unit | text | YES | - |
+| box_type | text | YES | - |
 
 ### market_box_pickups
 | Column | Type | Nullable | Default |
