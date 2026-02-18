@@ -195,6 +195,78 @@ export default function VendorAnalyticsPage() {
   const maxDays = isFtVendor && vendorTier ? getFtTierExtras(vendorTier).analyticsDays : undefined
   const canExport = isFtVendor ? vendorTier === 'boss' : true
   const tierLabel = isFtVendor && vendorTier ? getFtTierLabel(vendorTier) : null
+  const analyticsBlocked = isFtVendor && maxDays === 0
+
+  if (analyticsBlocked) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: colors.surfaceBase,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{ textAlign: 'center', maxWidth: 480, padding: spacing.md }}>
+          <div style={{
+            width: 80,
+            height: 80,
+            backgroundColor: '#FFF3E0',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            fontSize: 36,
+          }}>
+            📊
+          </div>
+          <h1 style={{
+            fontSize: typography.sizes['2xl'],
+            fontWeight: typography.weights.bold,
+            color: colors.textPrimary,
+            margin: '0 0 12px 0',
+          }}>
+            Analytics Not Available
+          </h1>
+          <p style={{
+            fontSize: typography.sizes.base,
+            color: colors.textMuted,
+            margin: '0 0 32px 0',
+            lineHeight: 1.6,
+          }}>
+            Upgrade to a paid plan to unlock analytics and track your sales, customers, and product performance.
+          </p>
+          <Link
+            href={`/${vertical}/vendor/dashboard/upgrade`}
+            style={{
+              display: 'inline-block',
+              padding: `${spacing.xs} ${spacing.md}`,
+              backgroundColor: '#E53935',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: radius.md,
+              fontWeight: typography.weights.semibold,
+              fontSize: typography.sizes.base,
+            }}
+          >
+            View Plans
+          </Link>
+          <div style={{ marginTop: spacing.sm }}>
+            <Link
+              href={`/${vertical}/vendor/dashboard`}
+              style={{
+                color: colors.textMuted,
+                textDecoration: 'none',
+                fontSize: typography.sizes.sm,
+              }}
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (error) {
     return (

@@ -28,9 +28,9 @@ export default function DateRangePicker({
     const now = new Date()
     const daysDiff = Math.round((now.getTime() - value.start.getTime()) / (1000 * 60 * 60 * 24))
 
-    if (daysDiff === 7) return 'last7'
-    if (daysDiff === 30) return 'last30'
-    if (daysDiff === 90) return 'last90'
+    if (daysDiff >= 6 && daysDiff <= 8) return 'last7'
+    if (daysDiff >= 29 && daysDiff <= 31) return 'last30'
+    if (daysDiff >= 89 && daysDiff <= 91) return 'last90'
     return 'custom'
   }
 

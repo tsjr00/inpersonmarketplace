@@ -42,7 +42,10 @@ export async function GET(request: NextRequest) {
 
     // FT tier-based analytics day clamping
     if (vendorProfile.vertical_id === 'food_trucks') {
-      const extras = getFtTierExtras(vendorProfile.tier || 'basic')
+      const extras = getFtTierExtras(vendorProfile.tier || 'free')
+      if (extras.analyticsDays === 0) {
+        return NextResponse.json([])
+      }
       const earliest = new Date(Date.now() - extras.analyticsDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       if (startDate < earliest) startDate = earliest
     }

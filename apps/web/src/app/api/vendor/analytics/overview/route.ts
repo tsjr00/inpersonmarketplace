@@ -42,8 +42,11 @@ export async function GET(request: NextRequest) {
     // FT tier-based analytics day clamping
     let maxDays: number | undefined
     if (vendorProfile.vertical_id === 'food_trucks') {
-      const extras = getFtTierExtras(vendorProfile.tier || 'basic')
+      const extras = getFtTierExtras(vendorProfile.tier || 'free')
       maxDays = extras.analyticsDays
+      if (maxDays === 0) {
+        return NextResponse.json({ totalRevenue: 0, totalOrders: 0, averageOrderValue: 0, completedOrders: 0, pendingOrders: 0, cancelledOrders: 0, maxDays: 0 })
+      }
       const earliest = new Date(Date.now() - maxDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       if (startDate < earliest) startDate = earliest
     }
