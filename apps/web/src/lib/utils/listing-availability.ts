@@ -160,9 +160,10 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   let cutoffAt: Date | null = null
   let isAccepting = false
   const isFoodTruck = market.vertical_id === 'food_trucks'
-  const cutoffHours = market.cutoff_hours ?? (
-    isFoodTruck ? 0
-    : market.market_type === 'traditional' ? 18 : 10
+  // FT: always 0 (no advance cutoff — accept orders until truck closes)
+  // FM: use DB value, fallback to 18 (traditional) or 10 (private_pickup)
+  const cutoffHours = isFoodTruck ? 0 : (
+    market.cutoff_hours ?? (market.market_type === 'traditional' ? 18 : 10)
   )
 
   for (const schedule of activeSchedules) {
