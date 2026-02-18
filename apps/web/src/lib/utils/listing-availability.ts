@@ -76,7 +76,8 @@ function getLocalTimeInfo(timezone: string): { dayOfWeek: number; hours: number;
 function getNextMarketDatetime(
   scheduleDay: number,
   startTime: string,
-  timezone: string
+  timezone: string,
+  endTime?: string  // If provided, today's occurrence is active until end_time (for food trucks)
 ): Date {
   const now = new Date()
   const local = getLocalTimeInfo(timezone)
@@ -86,11 +87,20 @@ function getNextMarketDatetime(
   let daysUntil = scheduleDay - local.dayOfWeek
   if (daysUntil < 0) daysUntil += 7
   if (daysUntil === 0) {
-    // Same day - check if market time has passed in local time
     const localTimeMinutes = local.hours * 60 + local.minutes
-    const scheduleTimeMinutes = scheduleHours * 60 + scheduleMinutes
-    if (localTimeMinutes >= scheduleTimeMinutes) {
-      daysUntil = 7 // Next week
+    if (endTime) {
+      // Food truck: today's occurrence is still active until end_time
+      const [endH, endM] = endTime.split(':').map(Number)
+      const endTimeMinutes = endH * 60 + endM
+      if (localTimeMinutes >= endTimeMinutes) {
+        daysUntil = 7 // Market has closed for today
+      }
+    } else {
+      // FM: today's occurrence is past once start_time has passed
+      const scheduleTimeMinutes = scheduleHours * 60 + scheduleMinutes
+      if (localTimeMinutes >= scheduleTimeMinutes) {
+        daysUntil = 7 // Next week
+      }
     }
   }
 
@@ -157,11 +167,23 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
 
   for (const schedule of activeSchedules) {
     // Calculate next occurrence of this schedule (in UTC)
+    // For FT: pass end_time so today's occurrence stays active until truck closes
     const nextOccurrence = getNextMarketDatetime(
       schedule.day_of_week,
       schedule.start_time,
-      timezone
+      timezone,
+      isFoodTruck ? schedule.end_time : undefined
     )
+
+    // Food trucks: same-day only — skip schedules that aren't today
+    if (isFoodTruck) {
+      const localDateFmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+      })
+      const todayStr = localDateFmt.format(new Date())
+      const nextStr = localDateFmt.format(nextOccurrence)
+      if (todayStr !== nextStr) continue
+    }
 
     // For food trucks: also calculate end time for acceptance window
     const [endHours, endMinutes] = schedule.end_time.split(':').map(Number)
