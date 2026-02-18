@@ -38,8 +38,8 @@ export default function PickupLocationsCard({
 
   // Get style for a date based on its status
   const getDateStyles = (date: PickupDateOption) => {
-    // Use market's actual cutoff_hours policy (default 18 for traditional, 10 for private)
-    const cutoffThreshold = date.cutoff_hours || 18
+    // Use market's actual cutoff_hours policy (FT=0, private=10, traditional=18)
+    const cutoffThreshold = date.cutoff_hours ?? 18
     const isClosingSoon = date.is_accepting &&
       date.hours_until_cutoff !== null &&
       date.hours_until_cutoff < cutoffThreshold &&

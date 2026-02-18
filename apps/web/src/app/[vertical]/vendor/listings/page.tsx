@@ -32,6 +32,7 @@ interface ListingMarket {
     address: string
     city: string
     state: string
+    vertical_id: string | null
     cutoff_hours: number | null
     timezone: string | null
     active: boolean
@@ -283,6 +284,7 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
           address,
           city,
           state,
+          vertical_id,
           cutoff_hours,
           timezone,
           active,

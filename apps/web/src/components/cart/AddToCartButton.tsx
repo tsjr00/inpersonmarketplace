@@ -73,6 +73,8 @@ export function AddToCartButton({
     setSelectedTimeSlot(null)
   }, [selectedPickup])
 
+  const isFoodTruck = vertical === 'food_trucks'
+
   // Group dates by market for display
   const marketGroups = groupPickupDatesByMarket(availablePickupDates)
 
@@ -110,7 +112,7 @@ export function AddToCartButton({
     }
 
     if (!selectedPickup) {
-      showToast('Please select a pickup date', 'warning')
+      showToast(isFoodTruck ? 'Please select a pickup location' : 'Please select a pickup date', 'warning')
       return
     }
 
@@ -187,7 +189,7 @@ export function AddToCartButton({
     <div>
       <ToastContainer />
 
-      {/* Pickup Date Selection - Show when accepting dates exist */}
+      {/* Pickup Selection - Show when accepting dates exist */}
       {hasAcceptingDates && (
         <div style={{ marginBottom: 12 }}>
           <label style={{
@@ -200,11 +202,71 @@ export function AddToCartButton({
             marginBottom: 6
           }}>
             <span style={{ color: primaryColor }}>✓</span>
-            Select a Pickup Date below:
+            {isFoodTruck ? 'Select a Pickup Location:' : 'Select a Pickup Date below:'}
           </label>
           <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
 
-          {hasMultipleOptions ? (
+          {/* FOOD TRUCK: Location-first same-day flow */}
+          {isFoodTruck ? (
+            <div style={{ border: `1px solid ${primaryColor}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {marketGroups.map(market => {
+                const acceptingMarketDates = market.dates.filter(d => d.is_accepting)
+                if (acceptingMarketDates.length === 0) return null
+                // For FT same-day: use the first (and typically only) accepting date for today
+                const todayDate = acceptingMarketDates[0]
+                const isSelected = selectedPickup?.marketId === market.market_id
+
+                return (
+                  <button
+                    key={market.market_id}
+                    type="button"
+                    onClick={() => handleSelectDate(todayDate, market.market_id, market.market_name)}
+                    style={{
+                      padding: '10px 12px',
+                      border: isSelected
+                        ? `2px solid ${primaryColor}`
+                        : '1px solid #e5e7eb',
+                      borderRadius: 6,
+                      backgroundColor: isSelected ? colors.primaryLight : 'white',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: primaryColor,
+                        flexShrink: 0,
+                        marginTop: 5
+                      }} />
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#374151', fontSize: 13 }}>
+                          {market.market_name}
+                        </div>
+                        {market.city && (
+                          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                            {market.address ? `${market.address}, ` : ''}{market.city}, {market.state}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>
+                          {formatPickupTime(todayDate.start_time)} - {formatPickupTime(todayDate.end_time)}
+                        </div>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <span style={{ color: primaryColor, fontSize: 16 }}>✓</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          ) : hasMultipleOptions ? (
+            /* FARMERS MARKET: Date selection flow (unchanged) */
             <div style={{ border: `1px solid ${primaryColor}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {marketGroups.map(market => {
                 // Only show markets with at least one accepting date
@@ -268,9 +330,10 @@ export function AddToCartButton({
                       {acceptingMarketDates.map((date, dateIndex) => {
                         const isSelected = isDateSelected(date)
                         const dateColor = getPickupDateColor(dateIndex)
-                        // Use market's actual cutoff_hours policy (default 18 for traditional, 10 for private)
-                        const cutoffThreshold = date.cutoff_hours || 18
-                        const isClosingSoon = date.hours_until_cutoff !== null &&
+                        // Use market's actual cutoff_hours policy (FT=0, private=10, traditional=18)
+                        const cutoffThreshold = date.cutoff_hours ?? 18
+                        const isClosingSoon = cutoffThreshold > 0 &&
+                          date.hours_until_cutoff !== null &&
                           date.hours_until_cutoff < cutoffThreshold &&
                           date.hours_until_cutoff > 0
 
@@ -392,6 +455,9 @@ export function AddToCartButton({
                         {formatPickupDate(acceptingDates[0].pickup_date)}
                       </span>
                       <span>at {formatPickupTime(acceptingDates[0].start_time)}</span>
+                      {isFoodTruck && (
+                        <span>- {formatPickupTime(acceptingDates[0].end_time)}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -565,7 +631,7 @@ export function AddToCartButton({
         ) : availableToAdd <= 0 ? (
           'Max in Cart'
         ) : needsSelection ? (
-          'Select Pickup Date'
+          isFoodTruck ? 'Select Pickup Location' : 'Select Pickup Date'
         ) : needsTimeSlot ? (
           'Select Pickup Time'
         ) : (

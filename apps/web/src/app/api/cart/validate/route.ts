@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
           market_id,
           markets (
             id, name, market_type, address, city, state,
-            cutoff_hours, timezone, active,
+            vertical_id, cutoff_hours, timezone, active,
             market_schedules (id, day_of_week, start_time, end_time, active)
           )
         `)
@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
             market_id,
             markets (
               id, name, market_type, address, city, state,
-              cutoff_hours, timezone, active,
+              vertical_id, cutoff_hours, timezone, active,
               market_schedules (id, day_of_week, start_time, end_time, active)
             )
           `)

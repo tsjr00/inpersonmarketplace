@@ -91,8 +91,8 @@ export async function GET(
         const hoursLeft = (nextCutoff - Date.now()) / (1000 * 60 * 60)
         hoursUntilCutoff = Math.round(hoursLeft * 10) / 10
 
-        // Use market's actual cutoff_hours policy (default 18 for traditional, 10 for private)
-        const cutoffThreshold = nextCutoffMarket.cutoff_hours ||
+        // Use market's actual cutoff_hours policy (FT=0, private=10, traditional=18)
+        const cutoffThreshold = nextCutoffMarket.cutoff_hours ??
           (nextCutoffMarket.market_type === 'private_pickup' ? 10 : 18)
 
         // Flag if closing within the market's cutoff threshold

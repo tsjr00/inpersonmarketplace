@@ -18,6 +18,7 @@ export interface MarketWithSchedules {
   address: string
   city: string
   state: string
+  vertical_id?: string | null
   cutoff_hours: number | null
   timezone: string | null
   active: boolean
@@ -148,7 +149,11 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   let nextPickupAt: Date | null = null
   let cutoffAt: Date | null = null
   let isAccepting = false
-  const cutoffHours = market.cutoff_hours ?? (market.market_type === 'traditional' ? 18 : 10)
+  const isFoodTruck = market.vertical_id === 'food_trucks'
+  const cutoffHours = market.cutoff_hours ?? (
+    isFoodTruck ? 0
+    : market.market_type === 'traditional' ? 18 : 10
+  )
 
   for (const schedule of activeSchedules) {
     // Calculate next occurrence of this schedule (in UTC)
@@ -158,11 +163,24 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
       timezone
     )
 
-    // Calculate cutoff time (subtract cutoff hours from market time)
-    const cutoffTime = new Date(nextOccurrence.getTime() - cutoffHours * 60 * 60 * 1000)
+    // For food trucks: also calculate end time for acceptance window
+    const [endHours, endMinutes] = schedule.end_time.split(':').map(Number)
+    const endOccurrence = new Date(nextOccurrence.getTime() +
+      ((endHours * 60 + endMinutes) - (parseInt(schedule.start_time.split(':')[0]) * 60 + parseInt(schedule.start_time.split(':')[1]))) * 60 * 1000)
 
-    // Check if we're before the cutoff
-    if (now < cutoffTime) {
+    let cutoffTime: Date
+    if (cutoffHours === 0) {
+      // FT / zero-cutoff: accepting until market ends
+      cutoffTime = endOccurrence
+    } else {
+      // FM / others: advance cutoff before market starts
+      cutoffTime = new Date(nextOccurrence.getTime() - cutoffHours * 60 * 60 * 1000)
+    }
+
+    // For FT: also check market hasn't ended (use end time, not start)
+    const stillAvailable = isFoodTruck ? now < endOccurrence : now < cutoffTime
+
+    if (stillAvailable && now < cutoffTime) {
       isAccepting = true
       if (!nextPickupAt || nextOccurrence < nextPickupAt) {
         nextPickupAt = nextOccurrence

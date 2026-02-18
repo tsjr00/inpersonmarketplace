@@ -33,6 +33,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           address,
           city,
           state,
+          vertical_id,
           cutoff_hours,
           active,
           market_schedules (
