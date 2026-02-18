@@ -10,15 +10,17 @@ import { FT_TIER_LIMITS, getFtTierLabel, type FoodTruckTier } from '@/lib/vendor
 // ── Food Truck 3-Tier Upgrade Page ──────────────────────────────────────
 
 const FT_TIERS: { key: FoodTruckTier; price: number; popular?: boolean }[] = [
+  { key: 'free', price: 0 },
   { key: 'basic', price: 10 },
   { key: 'pro', price: 30, popular: true },
   { key: 'boss', price: 50 },
 ]
 
-function FtFeatureRow({ label, basic, pro, boss }: { label: string; basic: string; pro: string; boss: string }) {
+function FtFeatureRow({ label, free, basic, pro, boss }: { label: string; free: string; basic: string; pro: string; boss: string }) {
   return (
     <>
       <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563', fontSize: 13 }}>{label}</div>
+      <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#9ca3af', textAlign: 'center', fontSize: 13 }}>{free}</div>
       <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center', fontSize: 13 }}>{basic}</div>
       <div style={{ padding: '8px 16px', backgroundColor: '#fef2f2', color: '#991b1b', textAlign: 'center', fontSize: 13, fontWeight: 600 }}>{pro}</div>
       <div style={{ padding: '8px 16px', backgroundColor: '#fef2f2', color: '#991b1b', textAlign: 'center', fontSize: 13, fontWeight: 700 }}>{boss}</div>
@@ -39,12 +41,12 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
         const res = await fetch(`/api/vendor/subscription/status?vertical=${vertical}`)
         if (res.ok) {
           const data = await res.json()
-          setCurrentTier(data.tier || 'basic')
+          setCurrentTier(data.tier || 'free')
         } else {
-          setCurrentTier('basic')
+          setCurrentTier('free')
         }
       } catch {
-        setCurrentTier('basic')
+        setCurrentTier('free')
       } finally {
         setLoading(false)
       }
@@ -56,8 +58,8 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
     if (tier === currentTier) return
 
     // Check if downgrade
-    const tierOrder: Record<string, number> = { basic: 0, pro: 1, boss: 2 }
-    const isDowngrade = (tierOrder[tier] || 0) < (tierOrder[currentTier || 'basic'] || 0)
+    const tierOrder: Record<string, number> = { free: 0, basic: 1, pro: 2, boss: 3 }
+    const isDowngrade = (tierOrder[tier] || 0) < (tierOrder[currentTier || 'free'] || 0)
 
     if (isDowngrade && showDowngradeConfirm !== tier) {
       setShowDowngradeConfirm(tier)
@@ -69,6 +71,31 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
     setShowDowngradeConfirm(null)
 
     try {
+      // Free tier: cancel subscription and set tier directly (no Stripe checkout)
+      if (tier === 'free') {
+        const res = await fetch('/api/vendor/subscription/downgrade-free', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vertical }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          setError({
+            message: data.error || 'Failed to downgrade',
+            code: data.code,
+            traceId: data.traceId,
+          })
+          setIsProcessing(null)
+          return
+        }
+
+        setCurrentTier('free')
+        setIsProcessing(null)
+        return
+      }
+
       const res = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,6 +139,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
     )
   }
 
+  const f = FT_TIER_LIMITS.free
   const b = FT_TIER_LIMITS.basic
   const p = FT_TIER_LIMITS.pro
   const bo = FT_TIER_LIMITS.boss
@@ -154,9 +182,9 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
           {FT_TIERS.map(({ key, price, popular }) => {
             const limits = FT_TIER_LIMITS[key]
             const isCurrent = currentTier === key
-            const tierOrder: Record<string, number> = { basic: 0, pro: 1, boss: 2 }
-            const isUpgrade = (tierOrder[key] || 0) > (tierOrder[currentTier || 'basic'] || 0)
-            const isDowngrade = (tierOrder[key] || 0) < (tierOrder[currentTier || 'basic'] || 0)
+            const tierOrder: Record<string, number> = { free: 0, basic: 1, pro: 2, boss: 3 }
+            const isUpgrade = (tierOrder[key] || 0) > (tierOrder[currentTier || 'free'] || 0)
+            const isDowngrade = (tierOrder[key] || 0) < (tierOrder[currentTier || 'free'] || 0)
             const processing = isProcessing === key
 
             return (
@@ -218,20 +246,34 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
 
                 {/* Price */}
                 <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  <span style={{ fontSize: 40, fontWeight: 'bold', color: '#333' }}>${price}</span>
-                  <span style={{ color: '#666', fontSize: 16 }}>/mo</span>
+                  {price === 0 ? (
+                    <span style={{ fontSize: 32, fontWeight: 'bold', color: '#333' }}>Free forever</span>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 40, fontWeight: 'bold', color: '#333' }}>${price}</span>
+                      <span style={{ color: '#666', fontSize: 16 }}>/mo</span>
+                    </>
+                  )}
                 </div>
 
                 {/* Feature list */}
                 <ul style={{ margin: '0 0 24px', paddingLeft: 20, fontSize: 14, color: '#4b5563', lineHeight: 2, flex: 1 }}>
                   <li><strong>{limits.productListings}</strong> menu items</li>
-                  <li><strong>{limits.privatePickupLocations}</strong> service locations</li>
-                  <li><strong>{limits.totalMarketBoxes}</strong> Chef Box offerings</li>
-                  <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' + export' : ''}</li>
+                  <li><strong>{limits.privatePickupLocations}</strong> service location{limits.privatePickupLocations !== 1 ? 's' : ''}</li>
+                  {limits.totalMarketBoxes > 0 ? (
+                    <li><strong>{limits.totalMarketBoxes}</strong> Chef Box offerings</li>
+                  ) : (
+                    <li style={{ color: '#9ca3af' }}>No Chef Boxes</li>
+                  )}
+                  {limits.analyticsDays > 0 ? (
+                    <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' + export' : ''}</li>
+                  ) : (
+                    <li style={{ color: '#9ca3af' }}>No analytics</li>
+                  )}
                   {limits.priorityPlacement > 0 && (
                     <li><strong>{limits.priorityPlacement === 2 ? '1st' : '2nd'} priority</strong> placement</li>
                   )}
-                  <li>Notifications: {limits.notificationChannels.map(c => c === 'in_app' ? 'In-App' : c === 'email' ? 'Email' : 'SMS').join(', ')}</li>
+                  <li>Notifications: {limits.notificationChannels.map(c => c === 'in_app' ? 'In-App' : c === 'push' ? 'Push' : c === 'email' ? 'Email' : 'SMS').join(', ')}</li>
                 </ul>
 
                 {/* Action button */}
@@ -291,7 +333,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                     </button>
                     {showDowngradeConfirm === key && (
                       <p style={{ margin: '8px 0 0', fontSize: 12, color: '#dc2626', textAlign: 'center' }}>
-                        You will lose access to {getFtTierLabel(currentTier || 'basic')} features. Click again to confirm.
+                        You will lose access to {getFtTierLabel(currentTier || 'free')} features. Click again to confirm.
                       </p>
                     )}
                   </>
@@ -315,7 +357,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
 
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'auto 1fr 1fr 1fr',
+            gridTemplateColumns: 'auto 1fr 1fr 1fr 1fr',
             gap: 1,
             backgroundColor: '#e5e7eb',
             borderRadius: 8,
@@ -323,17 +365,19 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
           }}>
             {/* Header */}
             <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#374151', fontSize: 13 }}>Feature</div>
+            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#9ca3af', textAlign: 'center', fontSize: 13 }}>Free</div>
             <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#374151', textAlign: 'center', fontSize: 13 }}>Basic</div>
             <div style={{ padding: '10px 16px', backgroundColor: '#fef2f2', fontWeight: 600, color: '#991b1b', textAlign: 'center', fontSize: 13 }}>Pro</div>
             <div style={{ padding: '10px 16px', backgroundColor: '#fef2f2', fontWeight: 600, color: '#991b1b', textAlign: 'center', fontSize: 13 }}>Boss</div>
 
-            <FtFeatureRow label="Menu Items" basic={String(b.productListings)} pro={String(p.productListings)} boss={String(bo.productListings)} />
-            <FtFeatureRow label="Service Locations" basic={String(b.privatePickupLocations)} pro={String(p.privatePickupLocations)} boss={String(bo.privatePickupLocations)} />
-            <FtFeatureRow label="Chef Boxes" basic={String(b.totalMarketBoxes)} pro={String(p.totalMarketBoxes)} boss={String(bo.totalMarketBoxes)} />
-            <FtFeatureRow label="Subscribers/Box" basic={String(b.maxSubscribersPerOffering)} pro={String(p.maxSubscribersPerOffering)} boss={String(bo.maxSubscribersPerOffering)} />
-            <FtFeatureRow label="Analytics" basic="30-day" pro="90-day" boss="90-day + Export" />
-            <FtFeatureRow label="Priority Placement" basic="—" pro="2nd" boss="1st" />
-            <FtFeatureRow label="Notifications" basic="In-App" pro="In-App, Email" boss="In-App, Email, SMS" />
+            <FtFeatureRow label="Menu Items" free={String(f.productListings)} basic={String(b.productListings)} pro={String(p.productListings)} boss={String(bo.productListings)} />
+            <FtFeatureRow label="Service Locations" free={String(f.privatePickupLocations)} basic={String(b.privatePickupLocations)} pro={String(p.privatePickupLocations)} boss={String(bo.privatePickupLocations)} />
+            <FtFeatureRow label="Chef Boxes" free="—" basic={String(b.totalMarketBoxes)} pro={String(p.totalMarketBoxes)} boss={String(bo.totalMarketBoxes)} />
+            <FtFeatureRow label="Subscribers/Box" free="—" basic={String(b.maxSubscribersPerOffering)} pro={String(p.maxSubscribersPerOffering)} boss={String(bo.maxSubscribersPerOffering)} />
+            <FtFeatureRow label="Analytics" free="—" basic="30-day" pro="90-day" boss="90-day + Export" />
+            <FtFeatureRow label="Prep Sheet" free="—" basic="Yes" pro="Yes" boss="Yes" />
+            <FtFeatureRow label="Priority Placement" free="—" basic="—" pro="2nd" boss="1st" />
+            <FtFeatureRow label="Notifications" free="In-App" basic="In-App" pro="App, Push, Email" boss="All (incl SMS)" />
           </div>
         </div>
 
