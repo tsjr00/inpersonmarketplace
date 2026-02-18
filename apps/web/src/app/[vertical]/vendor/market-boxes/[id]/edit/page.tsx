@@ -44,7 +44,16 @@ interface MarketBoxOffering {
   image_urls: string[] | null
   quantity_amount: number | null
   quantity_unit: string | null
+  box_type: string | null
 }
+
+const CHEF_BOX_TYPES = [
+  { value: 'weekly_dinner', label: 'Weekly Dinner' },
+  { value: 'family_kit', label: 'Family Kit' },
+  { value: 'mystery_box', label: 'Mystery Box' },
+  { value: 'meal_prep', label: 'Meal Prep' },
+  { value: 'office_lunch', label: 'Office Lunch' },
+]
 
 const QUANTITY_UNITS: { value: string; label: string; verticals: string[] }[] = [
   { value: 'lb', label: 'lb', verticals: ['farmers_market', 'food_trucks'] },
@@ -98,6 +107,7 @@ export default function EditMarketBoxPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    box_type: '',
     price_4week_dollars: '',
     offer_8week: false,
     price_8week_dollars: '',
@@ -181,6 +191,7 @@ export default function EditMarketBoxPage() {
     setFormData({
       name: o.name,
       description: o.description || '',
+      box_type: o.box_type || '',
       price_4week_dollars: (price4Week / 100).toFixed(2),
       offer_8week: !!o.price_8week_cents,
       price_8week_dollars: o.price_8week_cents ? (o.price_8week_cents / 100).toFixed(2) : '',
@@ -225,6 +236,7 @@ export default function EditMarketBoxPage() {
         body: JSON.stringify({
           name: formData.name,
           description: formData.description || null,
+          box_type: formData.box_type || null,
           price_4week_cents: price4WeekCents,
           price_8week_cents: price8WeekCents,
           pickup_market_id: formData.pickup_market_id,
@@ -333,6 +345,34 @@ export default function EditMarketBoxPage() {
             border: '1px solid #e5e7eb',
             borderRadius: 8
           }}>
+            {/* Box Type - FT only */}
+            {vertical === 'food_trucks' && (
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
+                  Plan Type *
+                </label>
+                <select
+                  value={formData.box_type}
+                  onChange={(e) => setFormData({ ...formData, box_type: e.target.value })}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: 14,
+                    boxSizing: 'border-box',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value="">Select a type...</option>
+                  {CHEF_BOX_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Name */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>

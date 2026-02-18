@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
         pickup_end_time,
         quantity_amount,
         quantity_unit,
+        box_type,
         max_subscribers,
         active,
         created_at,
@@ -204,6 +205,7 @@ export async function POST(request: NextRequest) {
       name,
       description,
       image_urls,
+      box_type,
       price_cents,  // Legacy field - still accepted for backward compatibility
       price_4week_cents,
       price_8week_cents,
@@ -218,6 +220,13 @@ export async function POST(request: NextRequest) {
 
     // Support both old (price_cents) and new (price_4week_cents) field names
     const finalPrice4Week = price_4week_cents ?? price_cents
+
+    // Validate box_type for food truck vendors
+    if (vendor.vertical_id === 'food_trucks' && !box_type) {
+      throw new TracedError('ERR_MBOX_008', 'Plan type is required for food truck meal plans', {
+        vendorId: vendor.id,
+      })
+    }
 
     // Validate required fields
     if (!name || !finalPrice4Week || !pickup_market_id || pickup_day_of_week === undefined || !pickup_start_time || !pickup_end_time) {
@@ -310,6 +319,7 @@ export async function POST(request: NextRequest) {
         vertical_id: vendor.vertical_id,
         name,
         description: description || null,
+        box_type: box_type || null,
         image_urls: image_urls || [],
         price_cents: finalPrice4Week,  // Legacy field for backward compatibility
         price_4week_cents: finalPrice4Week,

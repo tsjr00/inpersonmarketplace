@@ -54,6 +54,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         pickup_end_time,
         quantity_amount,
         quantity_unit,
+        box_type,
         max_subscribers,
         active,
         created_at,
@@ -174,6 +175,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       name,
       description,
       image_urls,
+      box_type,
       price_cents,  // Legacy field
       price_4week_cents,
       price_8week_cents,
@@ -222,6 +224,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (name !== undefined) updates.name = name
     if (description !== undefined) updates.description = description
     if (image_urls !== undefined) updates.image_urls = image_urls
+    if (box_type !== undefined) updates.box_type = box_type
 
     // Handle pricing updates - support both old and new field names
     if (price_4week_cents !== undefined) {
