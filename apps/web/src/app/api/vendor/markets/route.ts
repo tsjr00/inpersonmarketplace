@@ -152,12 +152,24 @@ export async function GET(request: NextRequest) {
     const tierLimits = getTierLimits(tier)
     const isVendorPremium = isPremiumTier(tier)
 
+    // Query vendor attendance records to show schedule status
+    const { data: attendanceData } = await supabase
+      .from('vendor_market_schedules')
+      .select('market_id')
+      .eq('vendor_profile_id', vendorProfile.id)
+      .eq('is_active', true)
+
+    const marketsWithAttendance = new Set(
+      (attendanceData || []).map(a => a.market_id as string)
+    )
+
     const fixedMarkets = (allMarkets || []).filter(m => m.market_type === 'traditional').map(m => ({
       ...m,
       isHomeMarket: m.id === vendorProfile.home_market_id,
       // For standard vendors with a home market, restrict to only that market
       canUse: isVendorPremium || !vendorProfile.home_market_id || m.id === vendorProfile.home_market_id,
-      homeMarketRestricted: !isVendorPremium && vendorProfile.home_market_id && m.id !== vendorProfile.home_market_id
+      homeMarketRestricted: !isVendorPremium && vendorProfile.home_market_id && m.id !== vendorProfile.home_market_id,
+      hasAttendance: marketsWithAttendance.has(m.id)
     }))
 
     // Count current fixed markets for this vendor

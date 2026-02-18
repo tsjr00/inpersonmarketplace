@@ -36,6 +36,7 @@ type Market = {
   isHomeMarket?: boolean
   canUse?: boolean
   homeMarketRestricted?: boolean
+  hasAttendance?: boolean
   schedules?: Schedule[]
 }
 
@@ -696,6 +697,27 @@ export default function VendorMarketsPage() {
                       </button>
                     )}
                   </div>
+                  {/* Attendance prompt for markets without schedule set */}
+                  {!market.hasAttendance && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: 10,
+                      backgroundColor: '#fefce8',
+                      border: '1px solid #fde68a',
+                      borderRadius: 6,
+                      fontSize: 13,
+                      color: '#92400e',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8
+                    }}>
+                      <span style={{ fontSize: 16 }}>!</span>
+                      <span>
+                        Set your schedule to start accepting orders at this {vertical === 'food_trucks' ? 'park' : 'market'}.
+                      </span>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                     <button
                       onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
@@ -716,7 +738,7 @@ export default function VendorMarketsPage() {
                       onClick={() => setSelectedMarketForSchedule(market)}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: colors.primary,
+                        backgroundColor: !market.hasAttendance ? '#f59e0b' : colors.primary,
                         color: 'white',
                         border: 'none',
                         borderRadius: 6,
@@ -725,7 +747,7 @@ export default function VendorMarketsPage() {
                         cursor: 'pointer'
                       }}
                     >
-                      Manage Schedule
+                      {!market.hasAttendance ? 'Set Schedule' : 'Manage Schedule'}
                     </button>
                   </div>
 
