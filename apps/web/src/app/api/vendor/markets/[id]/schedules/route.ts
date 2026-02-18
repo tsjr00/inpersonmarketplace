@@ -53,10 +53,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Failed to fetch schedules' }, { status: 500 })
       }
 
-      // Get vendor's schedule attendance
+      // Get vendor's schedule attendance (including vendor-specific times)
       const { data: vendorSchedules, error: vsError } = await supabase
         .from('vendor_market_schedules')
-        .select('schedule_id, is_active')
+        .select('schedule_id, is_active, vendor_start_time, vendor_end_time')
         .eq('vendor_profile_id', vendorProfile.id)
         .eq('market_id', marketId)
 
@@ -65,16 +65,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Failed to fetch vendor schedules' }, { status: 500 })
       }
 
-      // Create a map of schedule attendance
+      // Create a map of schedule attendance + vendor times
       const attendanceMap = new Map(
-        vendorSchedules?.map(vs => [vs.schedule_id, vs.is_active]) || []
+        vendorSchedules?.map(vs => [vs.schedule_id, {
+          is_active: vs.is_active,
+          vendor_start_time: vs.vendor_start_time,
+          vendor_end_time: vs.vendor_end_time
+        }]) || []
       )
 
-      // Combine schedules with attendance status
-      const schedulesWithAttendance = schedules?.map(schedule => ({
-        ...schedule,
-        is_attending: attendanceMap.get(schedule.id) ?? false
-      })) || []
+      // Combine schedules with attendance status and vendor times
+      const schedulesWithAttendance = schedules?.map(schedule => {
+        const attendance = attendanceMap.get(schedule.id)
+        return {
+          ...schedule,
+          is_attending: attendance?.is_active ?? false,
+          vendor_start_time: attendance?.vendor_start_time ?? null,
+          vendor_end_time: attendance?.vendor_end_time ?? null,
+          market_start_time: schedule.start_time,
+          market_end_time: schedule.end_time
+        }
+      }) || []
 
       return NextResponse.json({
         schedules: schedulesWithAttendance,
@@ -275,7 +286,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       const body = await request.json()
-      const { scheduleId, isActive } = body
+      const { scheduleId, isActive, startTime, endTime } = body
 
       if (!scheduleId || typeof isActive !== 'boolean') {
         return NextResponse.json({ error: 'scheduleId and isActive are required' }, { status: 400 })
@@ -314,13 +325,26 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // Verify schedule exists and belongs to this market
       const { data: schedule, error: scheduleError } = await supabase
         .from('market_schedules')
-        .select('id, market_id')
+        .select('id, market_id, start_time, end_time')
         .eq('id', scheduleId)
         .eq('market_id', marketId)
         .single()
 
       if (scheduleError || !schedule) {
         return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
+      }
+
+      // Validate vendor-specific times if provided
+      if (startTime || endTime) {
+        if (startTime && endTime && startTime >= endTime) {
+          return NextResponse.json({ error: 'Start time must be before end time' }, { status: 400 })
+        }
+        if (startTime && schedule.start_time && startTime < schedule.start_time) {
+          return NextResponse.json({ error: 'Vendor start time cannot be before market opens' }, { status: 400 })
+        }
+        if (endTime && schedule.end_time && endTime > schedule.end_time) {
+          return NextResponse.json({ error: 'Vendor end time cannot be after market closes' }, { status: 400 })
+        }
       }
 
       // Phase 6: Check for pending orders if trying to deactivate a schedule
@@ -347,16 +371,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
       }
 
-      // Upsert the vendor schedule entry
+      // Build upsert data — include vendor times if provided, preserve existing if toggling off
+      const upsertData: Record<string, unknown> = {
+        vendor_profile_id: vendorProfile.id,
+        market_id: marketId,
+        schedule_id: scheduleId,
+        is_active: isActive,
+        updated_at: new Date().toISOString()
+      }
+      // Only update vendor times when explicitly provided (don't clear on toggle-off)
+      if (startTime !== undefined) {
+        upsertData.vendor_start_time = startTime || null
+      }
+      if (endTime !== undefined) {
+        upsertData.vendor_end_time = endTime || null
+      }
+
       const { error: upsertError } = await supabase
         .from('vendor_market_schedules')
-        .upsert({
-          vendor_profile_id: vendorProfile.id,
-          market_id: marketId,
-          schedule_id: scheduleId,
-          is_active: isActive,
-          updated_at: new Date().toISOString()
-        }, {
+        .upsert(upsertData, {
           onConflict: 'vendor_profile_id,schedule_id'
         })
 
