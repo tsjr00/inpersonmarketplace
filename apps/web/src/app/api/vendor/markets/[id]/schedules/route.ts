@@ -335,14 +335,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
 
       // Validate vendor-specific times if provided
+      // Normalize to HH:MM:SS for comparison (input sends HH:MM, DB returns HH:MM:SS)
+      const pad = (t: string) => t && t.length === 5 ? t + ':00' : t
       if (startTime || endTime) {
-        if (startTime && endTime && startTime >= endTime) {
+        const st = pad(startTime)
+        const et = pad(endTime)
+        const mst = pad(schedule.start_time)
+        const met = pad(schedule.end_time)
+        if (st && et && st >= et) {
           return NextResponse.json({ error: 'Start time must be before end time' }, { status: 400 })
         }
-        if (startTime && schedule.start_time && startTime < schedule.start_time) {
+        if (st && mst && st < mst) {
           return NextResponse.json({ error: 'Vendor start time cannot be before market opens' }, { status: 400 })
         }
-        if (endTime && schedule.end_time && endTime > schedule.end_time) {
+        if (et && met && et > met) {
           return NextResponse.json({ error: 'Vendor end time cannot be after market closes' }, { status: 400 })
         }
       }

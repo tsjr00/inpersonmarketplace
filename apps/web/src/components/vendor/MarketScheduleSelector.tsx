@@ -49,6 +49,7 @@ export default function MarketScheduleSelector({
   const [hasAnyActive, setHasAnyActive] = useState(true)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null) // schedule ID being saved
+  const [saved, setSaved] = useState<string | null>(null) // schedule ID just saved
   const [error, setError] = useState<string | null>(null)
   const [errorType, setErrorType] = useState<'warning' | 'blocking'>('warning')
 
@@ -138,24 +139,9 @@ export default function MarketScheduleSelector({
     }
   }
 
-  const handleVendorTimeChange = async (scheduleId: string, field: 'startTime' | 'endTime', value: string) => {
-    const schedule = schedules.find(s => s.id === scheduleId)
-    if (!schedule) return
-
-    // Update local state immediately for responsiveness
-    setSchedules(prev =>
-      prev.map(s => {
-        if (s.id !== scheduleId) return s
-        return {
-          ...s,
-          vendor_start_time: field === 'startTime' ? (value || null) : s.vendor_start_time,
-          vendor_end_time: field === 'endTime' ? (value || null) : s.vendor_end_time
-        }
-      })
-    )
-
-    // Debounce: save after a brief pause (user may be changing both fields)
+  const saveVendorTime = async (scheduleId: string, field: 'startTime' | 'endTime', value: string) => {
     setSaving(scheduleId)
+    setSaved(null)
     setError(null)
 
     try {
@@ -173,6 +159,9 @@ export default function MarketScheduleSelector({
       if (!res.ok) {
         setErrorType('warning')
         setError(data.error || 'Failed to update time')
+      } else {
+        setSaved(scheduleId)
+        setTimeout(() => setSaved(prev => prev === scheduleId ? null : prev), 2000)
       }
     } catch (err) {
       console.error('Error updating vendor time:', err)
@@ -180,6 +169,25 @@ export default function MarketScheduleSelector({
     } finally {
       setSaving(null)
     }
+  }
+
+  const handleVendorTimeChange = (scheduleId: string, field: 'startTime' | 'endTime', value: string) => {
+    // Update local state immediately for responsiveness
+    setSchedules(prev =>
+      prev.map(s => {
+        if (s.id !== scheduleId) return s
+        return {
+          ...s,
+          vendor_start_time: field === 'startTime' ? (value || null) : s.vendor_start_time,
+          vendor_end_time: field === 'endTime' ? (value || null) : s.vendor_end_time
+        }
+      })
+    )
+  }
+
+  const handleVendorTimeBlur = (scheduleId: string, field: 'startTime' | 'endTime', value: string) => {
+    // Save on blur — this is the reliable save trigger across all browsers
+    saveVendorTime(scheduleId, field, value)
   }
 
   if (loading) {
@@ -371,6 +379,7 @@ export default function MarketScheduleSelector({
                       min={toTimeInput(schedule.market_start_time || schedule.start_time)}
                       max={toTimeInput(schedule.market_end_time || schedule.end_time)}
                       onChange={(e) => handleVendorTimeChange(schedule.id, 'startTime', e.target.value)}
+                      onBlur={(e) => handleVendorTimeBlur(schedule.id, 'startTime', e.target.value)}
                       disabled={saving === schedule.id}
                       style={{
                         padding: '4px 8px',
@@ -386,6 +395,7 @@ export default function MarketScheduleSelector({
                       min={toTimeInput(schedule.market_start_time || schedule.start_time)}
                       max={toTimeInput(schedule.market_end_time || schedule.end_time)}
                       onChange={(e) => handleVendorTimeChange(schedule.id, 'endTime', e.target.value)}
+                      onBlur={(e) => handleVendorTimeBlur(schedule.id, 'endTime', e.target.value)}
                       disabled={saving === schedule.id}
                       style={{
                         padding: '4px 8px',
@@ -394,6 +404,12 @@ export default function MarketScheduleSelector({
                         fontSize: 13
                       }}
                     />
+                    {saving === schedule.id && (
+                      <span style={{ fontSize: 12, color: '#6b7280' }}>Saving...</span>
+                    )}
+                    {saved === schedule.id && !saving && (
+                      <span style={{ fontSize: 12, color: colors.primary, fontWeight: 600 }}>Saved</span>
+                    )}
                   </div>
                 </div>
               )}
