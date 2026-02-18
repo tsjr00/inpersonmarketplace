@@ -132,15 +132,38 @@ export async function POST(request: NextRequest) {
         active: true
       }))
 
-      const { error: scheduleError } = await supabase
+      const { data: createdSchedules, error: scheduleError } = await supabase
         .from('market_schedules')
         .insert(scheduleInserts)
+        .select('id')
 
       if (scheduleError) {
         console.error('[/api/vendor/markets/suggest] Error creating schedules:', scheduleError)
         // Market was created but schedules failed - clean up
         await supabase.from('markets').delete().eq('id', market.id)
         return NextResponse.json({ error: 'Failed to create market schedule' }, { status: 500 })
+      }
+
+      // Auto-create vendor attendance records when vendor sells at this market
+      if (vendor_sells_at_market && createdSchedules && createdSchedules.length > 0) {
+        const attendanceEntries = createdSchedules.map(ms => ({
+          vendor_profile_id: vendorProfile.id,
+          market_id: market.id,
+          schedule_id: ms.id,
+          is_active: true
+        }))
+
+        const { error: attendanceError } = await supabase
+          .from('vendor_market_schedules')
+          .upsert(attendanceEntries, {
+            onConflict: 'vendor_profile_id,schedule_id',
+            ignoreDuplicates: true
+          })
+
+        if (attendanceError) {
+          // Non-blocking: market + schedules were created successfully
+          console.warn('[/api/vendor/markets/suggest] Failed to auto-create attendance:', attendanceError)
+        }
       }
 
       return NextResponse.json({

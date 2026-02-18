@@ -322,6 +322,37 @@ export default function ListingForm({
         console.error('Error creating listing markets:', insertError)
         // Continue anyway - listing was saved, markets can be added later
       }
+
+      // Auto-create vendor attendance records for traditional markets
+      // This ensures the SQL function can find this vendor's attendance
+      const traditionalIds = selectedMarketIds.filter(id => {
+        const m = marketData.find(md => md.id === id)
+        return m && m.market_type === 'traditional'
+      })
+      if (traditionalIds.length > 0) {
+        for (const mktId of traditionalIds) {
+          const { data: schedules } = await supabase
+            .from('market_schedules')
+            .select('id')
+            .eq('market_id', mktId)
+            .eq('active', true)
+
+          if (schedules && schedules.length > 0) {
+            const entries = schedules.map(ms => ({
+              vendor_profile_id: vendorProfileId,
+              market_id: mktId,
+              schedule_id: ms.id,
+              is_active: true
+            }))
+            await supabase
+              .from('vendor_market_schedules')
+              .upsert(entries, {
+                onConflict: 'vendor_profile_id,schedule_id',
+                ignoreDuplicates: true
+              })
+          }
+        }
+      }
     }
 
     // Auto-set home market for standard vendors if needed (FEATURE 2.1)
