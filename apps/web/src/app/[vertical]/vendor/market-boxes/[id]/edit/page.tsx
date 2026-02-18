@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { term } from '@/lib/vertical'
 import { MarketBoxImageUpload } from '@/components/vendor/MarketBoxImageUpload'
 
 interface MarketSchedule {
@@ -293,7 +294,7 @@ export default function EditMarketBoxPage() {
             ← Back to {offering.name}
           </Link>
           <h1 style={{ color: branding.colors.primary, margin: '16px 0 8px 0', fontSize: 28 }}>
-            Edit Market Box
+            {`Edit ${term(vertical, 'market_box')}`}
           </h1>
         </div>
 
@@ -335,13 +336,13 @@ export default function EditMarketBoxPage() {
             {/* Name */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
-                Box Name *
+                {`${term(vertical, 'market_box')} Name *`}
               </label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Weekly Veggie Box, Farm Fresh Bundle"
+                placeholder={vertical === 'food_trucks' ? 'e.g., Weekly Dinner Box, Family Meal Kit' : 'e.g., Weekly Veggie Box, Farm Fresh Bundle'}
                 required
                 style={{
                   width: '100%',

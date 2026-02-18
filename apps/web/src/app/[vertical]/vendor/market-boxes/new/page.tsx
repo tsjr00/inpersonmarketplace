@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
-import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { MarketBoxImageUpload } from '@/components/vendor/MarketBoxImageUpload'
 
 interface MarketSchedule {
@@ -247,10 +247,10 @@ export default function NewMarketBoxPage() {
             href={`/${vertical}/vendor/market-boxes`}
             style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
           >
-            ← Back to Market Boxes
+            {`← Back to ${term(vertical, 'market_boxes')}`}
           </Link>
           <h1 style={{ color: branding.colors.primary, margin: '16px 0 8px 0', fontSize: 28 }}>
-            Create Market Box
+            {`Create ${term(vertical, 'market_box')}`}
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
             Set up a weekly subscription bundle for {isBuyerPremiumEnabled(vertical) ? 'premium buyers' : 'your customers'} (1 or 2 month terms)
@@ -307,13 +307,13 @@ export default function NewMarketBoxPage() {
               {/* Name */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
-                  Box Name *
+                  {`${term(vertical, 'market_box')} Name *`}
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Weekly Veggie Box, Farm Fresh Bundle"
+                  placeholder={vertical === 'food_trucks' ? 'e.g., Weekly Dinner Box, Family Meal Kit' : 'e.g., Weekly Veggie Box, Farm Fresh Bundle'}
                   required
                   style={{
                     width: '100%',
@@ -655,10 +655,10 @@ export default function NewMarketBoxPage() {
                 borderRadius: 8,
                 marginBottom: 24
               }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#1e40af', fontSize: 14 }}>How Market Boxes Work</h4>
+                <h4 style={{ margin: '0 0 8px 0', color: '#1e40af', fontSize: 14 }}>{`How ${term(vertical, 'market_boxes')} Work`}</h4>
                 <ul style={{ margin: 0, paddingLeft: 20, color: '#1e40af', fontSize: 13 }}>
                   <li>Offer 1-month (4 weeks) or 2-month (8 weeks) subscriptions</li>
-                  <li>Premium buyers pay the full price upfront</li>
+                  <li>{isBuyerPremiumEnabled(vertical) ? 'Premium buyers pay' : 'Customers pay'} the full price upfront</li>
                   <li>They pick up one box each week</li>
                   <li>Same day, time, and location every week</li>
                   <li>If you need to skip a week (weather, etc.), their subscription extends automatically</li>
@@ -681,7 +681,7 @@ export default function NewMarketBoxPage() {
                   cursor: submitting ? 'not-allowed' : 'pointer'
                 }}
               >
-                {submitting ? 'Creating...' : 'Create Market Box'}
+                {submitting ? 'Creating...' : `Create ${term(vertical, 'market_box')}`}
               </button>
             </div>
           </form>

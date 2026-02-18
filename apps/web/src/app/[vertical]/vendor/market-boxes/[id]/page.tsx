@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { formatQuantityDisplay } from '@/lib/constants'
+import { term } from '@/lib/vertical'
 
 interface MarketBoxOffering {
   id: string
@@ -303,7 +304,7 @@ export default function VendorMarketBoxDetailPage() {
           )}
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <Link href={`/${vertical}/vendor/market-boxes`} style={{ color: branding.colors.primary }}>
-              Back to Market Boxes
+              {`Back to ${term(vertical, 'market_boxes')}`}
             </Link>
           </div>
         </div>
@@ -357,7 +358,7 @@ export default function VendorMarketBoxDetailPage() {
                 fontSize: 14
               }}
             >
-              Edit/Reconfigure Market Box
+              {`Edit/Reconfigure ${term(vertical, 'market_box')}`}
             </Link>
           </div>
         </div>

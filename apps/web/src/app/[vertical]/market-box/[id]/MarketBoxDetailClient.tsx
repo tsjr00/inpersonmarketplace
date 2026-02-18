@@ -207,8 +207,8 @@ export default function MarketBoxDetailClient() {
           </Link>
           <ShareButton
             url={`${window.location.origin}/${vertical}/market-box/${offeringId}`}
-            title={data?.offering.name || 'Market Box'}
-            text={`${data?.offering.name || 'Market Box'} from ${data?.vendor.name || 'vendor'}`}
+            title={data?.offering.name || term(vertical, 'market_box')}
+            text={`${data?.offering.name || term(vertical, 'market_box')} from ${data?.vendor.name || 'vendor'}`}
             variant="compact"
           />
         </div>
