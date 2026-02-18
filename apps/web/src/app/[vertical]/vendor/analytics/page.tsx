@@ -4,12 +4,13 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { defaultBranding } from '@/lib/branding'
+// branding import removed — not currently used on analytics page
 import MetricCard from '@/components/analytics/MetricCard'
 import SalesChart from '@/components/analytics/SalesChart'
 import TopProductsTable from '@/components/analytics/TopProductsTable'
 import DateRangePicker from '@/components/analytics/DateRangePicker'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getFtTierExtras, getFtTierLabel } from '@/lib/vendor-limits'
 
 interface OverviewData {
   totalRevenue: number
@@ -47,6 +48,7 @@ export default function VendorAnalyticsPage() {
   const vertical = params?.vertical as string
 
   const [vendorId, setVendorId] = useState<string | null>(null)
+  const [vendorTier, setVendorTier] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,9 +66,6 @@ export default function VendorAnalyticsPage() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [customers, setCustomers] = useState<CustomerData | null>(null)
   const [chartMetric, setChartMetric] = useState<'revenue' | 'orders'>('revenue')
-
-  // Get branding
-  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   // Fetch vendor profile
   useEffect(() => {
@@ -93,6 +92,7 @@ export default function VendorAnalyticsPage() {
       }
 
       setVendorId(vendorProfile.id)
+      setVendorTier(vendorProfile.tier || null)
     }
 
     fetchVendor()
@@ -190,6 +190,12 @@ export default function VendorAnalyticsPage() {
     }
   }, [vendorId, fetchAnalytics])
 
+  // FT tier-based analytics limits
+  const isFtVendor = vertical === 'food_trucks'
+  const maxDays = isFtVendor && vendorTier ? getFtTierExtras(vendorTier).analyticsDays : undefined
+  const canExport = isFtVendor ? vendorTier === 'boss' : true
+  const tierLabel = isFtVendor && vendorTier ? getFtTierLabel(vendorTier) : null
+
   if (error) {
     return (
       <div style={{
@@ -259,23 +265,49 @@ export default function VendorAnalyticsPage() {
                 Analytics Dashboard
               </h1>
             </div>
-            <Link
-              href={`/${vertical}/vendor/dashboard`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: `${spacing['2xs']} ${spacing.sm}`,
-                backgroundColor: colors.primaryDark,
-                color: colors.textInverse,
-                textDecoration: 'none',
-                borderRadius: radius.sm,
-                fontWeight: typography.weights.semibold,
-                minHeight: 44
-              }}
-            >
-              Back to Dashboard
-            </Link>
+            <div style={{ display: 'flex', gap: spacing.xs, alignItems: 'center' }}>
+              {canExport && (
+                <button
+                  onClick={() => {
+                    // MVP: gate only — CSV generation is a follow-up
+                    alert('Export feature coming soon!')
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: `${spacing['2xs']} ${spacing.sm}`,
+                    backgroundColor: colors.surfaceMuted,
+                    color: colors.textPrimary,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm,
+                    fontWeight: typography.weights.semibold,
+                    minHeight: 44,
+                    cursor: 'pointer',
+                    fontSize: typography.sizes.sm
+                  }}
+                >
+                  Export CSV
+                </button>
+              )}
+              <Link
+                href={`/${vertical}/vendor/dashboard`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: `${spacing['2xs']} ${spacing.sm}`,
+                  backgroundColor: colors.primaryDark,
+                  color: colors.textInverse,
+                  textDecoration: 'none',
+                  borderRadius: radius.sm,
+                  fontWeight: typography.weights.semibold,
+                  minHeight: 44
+                }}
+              >
+                Back to Dashboard
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -291,7 +323,36 @@ export default function VendorAnalyticsPage() {
           <DateRangePicker
             value={dateRange}
             onChange={setDateRange}
+            maxDays={maxDays}
           />
+          {isFtVendor && maxDays && maxDays < 90 && (
+            <div style={{
+              marginTop: spacing.xs,
+              padding: `${spacing['2xs']} ${spacing.sm}`,
+              backgroundColor: '#FFF3E0',
+              borderRadius: radius.sm,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: spacing.xs
+            }}>
+              <span style={{ fontSize: typography.sizes.sm, color: '#E65100' }}>
+                {tierLabel} plan: {maxDays}-day analytics limit
+              </span>
+              <Link
+                href={`/${vertical}/vendor/dashboard/upgrade`}
+                style={{
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold,
+                  color: '#E53935',
+                  textDecoration: 'none'
+                }}
+              >
+                Upgrade for 90-day analytics →
+              </Link>
+            </div>
+          )}
         </div>
 
         {loading && !overview ? (

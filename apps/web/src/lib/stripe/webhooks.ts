@@ -169,7 +169,7 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
   const supabase = createServiceClient()
 
   const userId = session.metadata?.user_id
-  const subscriptionType = session.metadata?.type as 'vendor' | 'buyer' | undefined
+  const subscriptionType = session.metadata?.type as 'vendor' | 'buyer' | 'food_truck_vendor' | undefined
   const cycle = session.metadata?.cycle as 'monthly' | 'annual' | undefined
   const subscriptionId = session.subscription as string
 
@@ -185,12 +185,16 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000).toISOString()
 
-  if (subscriptionType === 'vendor') {
-    // Update vendor profile to premium
-    const { error } = await supabase
+  if (subscriptionType === 'vendor' || subscriptionType === 'food_truck_vendor') {
+    // Determine tier from metadata — FT uses basic/pro/boss, FM defaults to premium
+    const targetTier = session.metadata?.tier || 'premium'
+    const vertical = session.metadata?.vertical || ''
+
+    // Update vendor profile
+    let vpQuery = supabase
       .from('vendor_profiles')
       .update({
-        tier: 'premium',
+        tier: targetTier,
         stripe_subscription_id: subscriptionId,
         subscription_status: 'active',
         subscription_cycle: cycle,
@@ -198,11 +202,15 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
         tier_expires_at: currentPeriodEnd,
       })
       .eq('user_id', userId)
+    if (vertical) {
+      vpQuery = vpQuery.eq('vertical_id', vertical)
+    }
+    const { error } = await vpQuery
 
     if (error) {
       await logError(new TracedError('ERR_WEBHOOK_002', 'Failed to update vendor tier', { route: '/webhooks/stripe', method: 'POST', userId }))
     } else {
-      crumb.stripe(`Vendor ${userId} upgraded to premium`)
+      crumb.stripe(`Vendor ${userId} upgraded to ${targetTier}`)
     }
   } else if (subscriptionType === 'buyer') {
     // Update user profile to premium buyer
@@ -307,7 +315,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const subData = subscription as any
 
   const userId = subData.metadata?.user_id
-  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
+  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | 'food_truck_vendor' | undefined
 
   if (!userId || !subscriptionType) {
     crumb.stripe(`Subscription updated without user metadata: ${subscription.id}`)
@@ -319,7 +327,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
   crumb.stripe(`Subscription ${subscription.id} updated: status=${status}`)
 
-  if (subscriptionType === 'vendor') {
+  if (subscriptionType === 'vendor' || subscriptionType === 'food_truck_vendor') {
+    const targetTier = subData.metadata?.tier || 'premium'
+    const vertical = subData.metadata?.vertical || ''
+
     const updateData: Record<string, unknown> = {
       subscription_status: status,
       tier_expires_at: currentPeriodEnd,
@@ -327,16 +338,20 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
     // If subscription is no longer active, handle tier appropriately
     if (status === 'canceled' || status === 'unpaid') {
-      // Keep premium until period ends (already set in tier_expires_at)
+      // Keep tier until period ends (already set in tier_expires_at)
       // A separate job should downgrade when tier_expires_at passes
     } else if (status === 'active') {
-      updateData.tier = 'premium'
+      updateData.tier = targetTier
     }
 
-    await supabase
+    let vpQuery = supabase
       .from('vendor_profiles')
       .update(updateData)
       .eq('user_id', userId)
+    if (vertical) {
+      vpQuery = vpQuery.eq('vertical_id', vertical)
+    }
+    await vpQuery
   } else if (subscriptionType === 'buyer') {
     const updateData: Record<string, unknown> = {
       subscription_status: status,
@@ -363,7 +378,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const subData = subscription as any
 
   const userId = subData.metadata?.user_id
-  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
+  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | 'food_truck_vendor' | undefined
 
   if (!userId || !subscriptionType) {
     crumb.stripe(`Subscription deleted without user metadata: ${subscription.id}`)
@@ -372,17 +387,25 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
   crumb.stripe(`Subscription ${subscription.id} deleted for ${subscriptionType} ${userId}`)
 
-  // Downgrade to standard tier
-  if (subscriptionType === 'vendor') {
-    await supabase
+  // Downgrade tier on subscription deletion
+  if (subscriptionType === 'vendor' || subscriptionType === 'food_truck_vendor') {
+    // FT vendors downgrade to 'basic' (platform requires payment), FM to 'standard' (free)
+    const downgradeTier = subscriptionType === 'food_truck_vendor' ? 'basic' : 'standard'
+    const vertical = subData.metadata?.vertical || ''
+
+    let vpQuery = supabase
       .from('vendor_profiles')
       .update({
-        tier: 'standard',
+        tier: downgradeTier,
         stripe_subscription_id: null,
         subscription_status: 'canceled',
         tier_expires_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
+    if (vertical) {
+      vpQuery = vpQuery.eq('vertical_id', vertical)
+    }
+    await vpQuery
   } else if (subscriptionType === 'buyer') {
     await supabase
       .from('user_profiles')
@@ -413,7 +436,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const subData = subscription as any
   const userId = subData.metadata?.user_id
-  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
+  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | 'food_truck_vendor' | undefined
 
   if (!userId || !subscriptionType) return
 
@@ -458,7 +481,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const subData = subscription as any
   const userId = subData.metadata?.user_id
-  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | undefined
+  const subscriptionType = subData.metadata?.type as 'vendor' | 'buyer' | 'food_truck_vendor' | undefined
 
   if (!userId || !subscriptionType) return
 
@@ -533,7 +556,7 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
     .eq('id', orderItemId)
     .single()
 
-  const vendorProfile = (orderItem as any)?.vendor_profiles as { user_id: string } | null
+  const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string } | null })?.vendor_profiles
   if (vendorProfile?.user_id) {
     await sendNotification(vendorProfile.user_id, 'payout_processed', {
       amountCents: transfer.amount,

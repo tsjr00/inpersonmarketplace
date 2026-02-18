@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { stripe, SUBSCRIPTION_PRICES, areSubscriptionPricesConfigured } from '@/lib/stripe/config'
+import { stripe, SUBSCRIPTION_PRICES, areSubscriptionPricesConfigured, getFtPriceConfig, areFtPricesConfigured } from '@/lib/stripe/config'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { isFoodTruckTier } from '@/lib/vendor-limits'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/subscriptions/checkout', 'POST', async () => {
@@ -22,14 +23,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if subscription prices are configured
-    if (!areSubscriptionPricesConfigured()) {
-      return NextResponse.json(
-        { error: 'Subscription prices are not configured. Please contact support.' },
-        { status: 500 }
-      )
-    }
-
     const supabase = await createClient()
 
     // Check authentication
@@ -43,10 +36,11 @@ export async function POST(request: NextRequest) {
 
     try {
       const body = await request.json()
-      const { type, cycle, vertical } = body as {
+      const { type, cycle, vertical, tier: requestedTier } = body as {
         type: 'vendor' | 'buyer'
         cycle: 'monthly' | 'annual'
         vertical?: string
+        tier?: string // FT tier: 'basic' | 'pro' | 'boss'
       }
 
       // Validate input
@@ -57,33 +51,75 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      if (!cycle || !['monthly', 'annual'].includes(cycle)) {
-        return NextResponse.json(
-          { error: 'Invalid billing cycle. Must be "monthly" or "annual".' },
-          { status: 400 }
-        )
+      // Determine if this is a food truck vendor subscription
+      const isFtVendor = type === 'vendor' && vertical === 'food_trucks'
+
+      // FT vendors must specify a tier
+      if (isFtVendor) {
+        if (!requestedTier || !isFoodTruckTier(requestedTier)) {
+          return NextResponse.json(
+            { error: 'Food truck vendors must specify a tier: basic, pro, or boss.' },
+            { status: 400 }
+          )
+        }
+        if (!areFtPricesConfigured()) {
+          return NextResponse.json(
+            { error: 'Food truck subscription prices are not configured. Please contact support.' },
+            { status: 500 }
+          )
+        }
+      } else {
+        // FM/buyer path: validate cycle
+        if (!cycle || !['monthly', 'annual'].includes(cycle)) {
+          return NextResponse.json(
+            { error: 'Invalid billing cycle. Must be "monthly" or "annual".' },
+            { status: 400 }
+          )
+        }
+        if (!areSubscriptionPricesConfigured()) {
+          return NextResponse.json(
+            { error: 'Subscription prices are not configured. Please contact support.' },
+            { status: 500 }
+          )
+        }
       }
 
-      // Get the appropriate price ID
-      const priceConfig = SUBSCRIPTION_PRICES[type][cycle]
-      if (!priceConfig.priceId) {
-        return NextResponse.json(
-          { error: `${type} ${cycle} subscription is not available.` },
-          { status: 400 }
-        )
+      // Get the appropriate price config
+      let priceId: string
+      if (isFtVendor && requestedTier) {
+        const ftPrice = getFtPriceConfig(requestedTier)
+        if (!ftPrice || !ftPrice.priceId) {
+          return NextResponse.json(
+            { error: `${requestedTier} subscription is not available.` },
+            { status: 400 }
+          )
+        }
+        priceId = ftPrice.priceId
+      } else {
+        const priceConfig = SUBSCRIPTION_PRICES[type][cycle]
+        if (!priceConfig.priceId) {
+          return NextResponse.json(
+            { error: `${type} ${cycle} subscription is not available.` },
+            { status: 400 }
+          )
+        }
+        priceId = priceConfig.priceId
       }
 
       // Get or create Stripe Customer
       let stripeCustomerId: string | null = null
-      let userEmail = user.email
+      const userEmail = user.email
 
       if (type === 'vendor') {
-        // Get vendor profile
-        const { data: vendorProfile, error: vendorError } = await supabase
+        // Get vendor profile — filter by vertical if provided
+        let vpQuery = supabase
           .from('vendor_profiles')
-          .select('id, stripe_customer_id, tier, profile_data')
+          .select('id, stripe_customer_id, tier, stripe_subscription_id, profile_data, vertical_id')
           .eq('user_id', user.id)
-          .single()
+        if (vertical) {
+          vpQuery = vpQuery.eq('vertical_id', vertical)
+        }
+        const { data: vendorProfile, error: vendorError } = await vpQuery.single()
 
         if (vendorError || !vendorProfile) {
           return NextResponse.json(
@@ -92,12 +128,31 @@ export async function POST(request: NextRequest) {
           )
         }
 
-        // Check if already premium
-        if (vendorProfile.tier === 'premium') {
-          return NextResponse.json(
-            { error: 'You already have a premium subscription.' },
-            { status: 400 }
-          )
+        if (isFtVendor) {
+          // FT: check if already at requested tier
+          if (vendorProfile.tier === requestedTier) {
+            return NextResponse.json(
+              { error: `You are already on the ${requestedTier} plan.` },
+              { status: 400 }
+            )
+          }
+          // If upgrading/changing tier and has existing subscription, cancel it first
+          if (vendorProfile.stripe_subscription_id) {
+            try {
+              await stripe.subscriptions.cancel(vendorProfile.stripe_subscription_id)
+            } catch (cancelErr) {
+              console.warn('[subscription-checkout] Failed to cancel existing subscription:', cancelErr)
+              // Continue — may already be canceled
+            }
+          }
+        } else {
+          // FM: check if already premium
+          if (vendorProfile.tier === 'premium') {
+            return NextResponse.json(
+              { error: 'You already have a premium subscription.' },
+              { status: 400 }
+            )
+          }
         }
 
         stripeCustomerId = vendorProfile.stripe_customer_id
@@ -115,6 +170,7 @@ export async function POST(request: NextRequest) {
               user_id: user.id,
               vendor_profile_id: vendorProfile.id,
               type: 'vendor',
+              vertical: vertical || '',
             },
           })
           stripeCustomerId = customer.id
@@ -126,7 +182,7 @@ export async function POST(request: NextRequest) {
             .eq('id', vendorProfile.id)
         }
       } else {
-        // Buyer subscription
+        // Buyer subscription (unchanged)
         const { data: userProfile, error: userError } = await supabase
           .from('user_profiles')
           .select('user_id, stripe_customer_id, buyer_tier, display_name')
@@ -178,6 +234,15 @@ export async function POST(request: NextRequest) {
         ? `${baseUrl}${verticalPrefix}/vendor/dashboard/upgrade`
         : `${baseUrl}${verticalPrefix}/buyer/upgrade`
 
+      // Build metadata — include tier and vertical for webhook processing
+      const sessionMetadata: Record<string, string> = {
+        user_id: user.id,
+        type: isFtVendor ? 'food_truck_vendor' : type,
+        cycle: isFtVendor ? 'monthly' : cycle,
+      }
+      if (requestedTier) sessionMetadata.tier = requestedTier
+      if (vertical) sessionMetadata.vertical = vertical
+
       // Create Stripe Checkout Session for subscription
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
@@ -185,24 +250,16 @@ export async function POST(request: NextRequest) {
         payment_method_types: ['card'],
         line_items: [
           {
-            price: priceConfig.priceId,
+            price: priceId,
             quantity: 1,
           },
         ],
         success_url: successUrl,
         cancel_url: cancelUrl,
         subscription_data: {
-          metadata: {
-            user_id: user.id,
-            type: type,
-            cycle: cycle,
-          },
+          metadata: sessionMetadata,
         },
-        metadata: {
-          user_id: user.id,
-          type: type,
-          cycle: cycle,
-        },
+        metadata: sessionMetadata,
         allow_promotion_codes: true,
       })
 

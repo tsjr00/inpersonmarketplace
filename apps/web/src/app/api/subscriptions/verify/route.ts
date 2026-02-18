@@ -28,13 +28,17 @@ export async function GET(request: NextRequest) {
       }
 
       // Get metadata
-      const type = session.metadata?.type as 'vendor' | 'buyer' | undefined
+      const type = session.metadata?.type as 'vendor' | 'buyer' | 'food_truck_vendor' | undefined
       const cycle = session.metadata?.cycle
+      const tier = session.metadata?.tier || null
+      const vertical = session.metadata?.vertical || null
 
       return NextResponse.json({
         success: true,
         type: type || null,
         cycle: cycle || null,
+        tier,
+        vertical,
         subscriptionId: session.subscription,
         customerId: session.customer,
       })

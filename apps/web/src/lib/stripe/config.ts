@@ -43,9 +43,24 @@ export const SUBSCRIPTION_PRICES = {
       amountCents: 8150, // $81.50/year (saves 32%)
     },
   },
+  // Food truck vendor tiers (monthly only for launch)
+  food_truck_vendor: {
+    basic_monthly: {
+      priceId: process.env.STRIPE_FT_BASIC_MONTHLY_PRICE_ID || '',
+      amountCents: 1000, // $10/month
+    },
+    pro_monthly: {
+      priceId: process.env.STRIPE_FT_PRO_MONTHLY_PRICE_ID || '',
+      amountCents: 3000, // $30/month
+    },
+    boss_monthly: {
+      priceId: process.env.STRIPE_FT_BOSS_MONTHLY_PRICE_ID || '',
+      amountCents: 5000, // $50/month
+    },
+  },
 }
 
-// Helper to check if subscription prices are configured
+// Helper to check if subscription prices are configured (FM vendor + buyer)
 export function areSubscriptionPricesConfigured(): boolean {
   return !!(
     SUBSCRIPTION_PRICES.vendor.monthly.priceId &&
@@ -53,4 +68,19 @@ export function areSubscriptionPricesConfigured(): boolean {
     SUBSCRIPTION_PRICES.buyer.monthly.priceId &&
     SUBSCRIPTION_PRICES.buyer.annual.priceId
   )
+}
+
+// Helper to check if FT subscription prices are configured
+export function areFtPricesConfigured(): boolean {
+  return !!(
+    SUBSCRIPTION_PRICES.food_truck_vendor.basic_monthly.priceId &&
+    SUBSCRIPTION_PRICES.food_truck_vendor.pro_monthly.priceId &&
+    SUBSCRIPTION_PRICES.food_truck_vendor.boss_monthly.priceId
+  )
+}
+
+// Get FT price config by tier name
+export function getFtPriceConfig(tier: string): { priceId: string; amountCents: number } | null {
+  const key = `${tier}_monthly` as keyof typeof SUBSCRIPTION_PRICES.food_truck_vendor
+  return SUBSCRIPTION_PRICES.food_truck_vendor[key] || null
 }

@@ -381,7 +381,7 @@ export async function sendNotification(
   const actionUrl = config.actionUrl({ ...templateData, vertical: options?.vertical })
 
   // Determine channels based on urgency
-  const channels = URGENCY_CHANNELS[config.urgency]
+  let channels = URGENCY_CHANNELS[config.urgency]
 
   // Fetch user preferences and email (for email channel)
   let preferences = DEFAULT_PREFERENCES
@@ -404,6 +404,28 @@ export async function sendNotification(
     }
     if (!userPhone && profile?.phone) {
       userPhone = profile.phone
+    }
+
+    // FT tier-based channel gating: restrict channels based on vendor's tier
+    if (options?.vertical === 'food_trucks' && profile?.user_id) {
+      const { data: vendor } = await supabase
+        .from('vendor_profiles')
+        .select('tier')
+        .eq('user_id', profile.user_id)
+        .eq('vertical_id', 'food_trucks')
+        .single()
+
+      if (vendor?.tier) {
+        const { getFtTierExtras } = await import('@/lib/vendor-limits')
+        const extras = getFtTierExtras(vendor.tier)
+        // Map channel names: 'push' and 'in_app' are always allowed if in tier list
+        // 'sms' requires 'sms' in tier, 'email' requires 'email' in tier
+        const allowed = extras.notificationChannels
+        channels = channels.filter(ch => {
+          if (ch === 'in_app' || ch === 'push') return allowed.includes('in_app')
+          return allowed.includes(ch)
+        })
+      }
     }
   } catch (prefError) {
     console.warn('[notifications] Failed to fetch user preferences, using defaults:', prefError)

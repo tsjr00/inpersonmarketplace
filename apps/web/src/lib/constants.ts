@@ -93,6 +93,28 @@ export const TIER_BADGES = {
     color: '#6b7280',
     bgColor: '#f3f4f6',
     borderColor: '#d1d5db'
+  },
+  // Food truck tiers
+  basic: {
+    label: 'Basic',
+    icon: '',
+    color: '#6b7280',
+    bgColor: '#f3f4f6',
+    borderColor: '#d1d5db'
+  },
+  pro: {
+    label: 'Pro',
+    icon: '🔥',
+    color: '#E53935',
+    bgColor: '#FFEBEE',
+    borderColor: '#EF9A9A'
+  },
+  boss: {
+    label: 'Boss',
+    icon: '👑',
+    color: '#b71c1c',
+    bgColor: '#FFCDD2',
+    borderColor: '#E57373'
   }
 } as const
 

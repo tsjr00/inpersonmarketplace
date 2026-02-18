@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 
 interface DateRange {
   start: Date
@@ -10,13 +10,15 @@ interface DateRange {
 interface DateRangePickerProps {
   value: DateRange
   onChange: (range: DateRange) => void
+  maxDays?: number
 }
 
 type PresetOption = 'last7' | 'last30' | 'last90' | 'custom'
 
 export default function DateRangePicker({
   value,
-  onChange
+  onChange,
+  maxDays
 }: DateRangePickerProps) {
   const [showCustom, setShowCustom] = useState(false)
   const [customStart, setCustomStart] = useState(value.start.toISOString().split('T')[0])
@@ -76,6 +78,14 @@ export default function DateRangePicker({
 
   const activePreset = getActivePreset()
 
+  // Compute the earliest allowed date based on maxDays
+  const minDate = useMemo(() => {
+    if (!maxDays) return undefined
+    const d = new Date()
+    d.setDate(d.getDate() - maxDays)
+    return d.toISOString().split('T')[0]
+  }, [maxDays])
+
   const buttonStyle = (isActive: boolean) => ({
     padding: '8px 16px',
     borderRadius: 6,
@@ -96,24 +106,30 @@ export default function DateRangePicker({
         gap: 8,
         flexWrap: 'wrap'
       }}>
-        <button
-          onClick={() => handlePresetClick('last7')}
-          style={buttonStyle(activePreset === 'last7')}
-        >
-          Last 7 days
-        </button>
-        <button
-          onClick={() => handlePresetClick('last30')}
-          style={buttonStyle(activePreset === 'last30')}
-        >
-          Last 30 days
-        </button>
-        <button
-          onClick={() => handlePresetClick('last90')}
-          style={buttonStyle(activePreset === 'last90')}
-        >
-          Last 90 days
-        </button>
+        {(!maxDays || maxDays >= 7) && (
+          <button
+            onClick={() => handlePresetClick('last7')}
+            style={buttonStyle(activePreset === 'last7')}
+          >
+            Last 7 days
+          </button>
+        )}
+        {(!maxDays || maxDays >= 30) && (
+          <button
+            onClick={() => handlePresetClick('last30')}
+            style={buttonStyle(activePreset === 'last30')}
+          >
+            Last 30 days
+          </button>
+        )}
+        {(!maxDays || maxDays >= 90) && (
+          <button
+            onClick={() => handlePresetClick('last90')}
+            style={buttonStyle(activePreset === 'last90')}
+          >
+            Last 90 days
+          </button>
+        )}
         <button
           onClick={() => handlePresetClick('custom')}
           style={buttonStyle(activePreset === 'custom' || showCustom)}
@@ -141,6 +157,7 @@ export default function DateRangePicker({
             <input
               type="date"
               value={customStart}
+              min={minDate}
               onChange={(e) => setCustomStart(e.target.value)}
               style={{
                 padding: '8px 12px',

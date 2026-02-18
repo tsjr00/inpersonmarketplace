@@ -6,9 +6,11 @@ import SearchFilter from './SearchFilter'
 import BrowseToggle from './BrowseToggle'
 import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
+import { getTierSortPriority } from '@/lib/vendor-limits'
 import TierBadge from '@/components/shared/TierBadge'
+import type { VendorTierType } from '@/lib/constants'
 import CutoffBadge from '@/components/listings/CutoffBadge'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
 
@@ -64,7 +66,8 @@ interface Listing {
     id: string
     profile_data: Record<string, unknown>
     status: string
-    tier?: 'standard' | 'premium' | 'featured'
+    tier?: string
+    tier_started_at?: string
   }
   listing_markets?: ListingMarket[]
   listing_images?: {
@@ -150,12 +153,36 @@ interface MarketBoxOffering {
   vendor_profiles: {
     id: string
     profile_data: Record<string, unknown>
-    tier?: 'standard' | 'premium' | 'featured'
+    tier?: string
   }
 }
 
-// Group listings by category, then by vendor
-function groupListingsByCategory(listings: Listing[]): Record<string, Listing[]> {
+// Sort listings by tier priority, then subscription duration, then newest
+function sortListingsByPriority(listings: Listing[], vertical: string): Listing[] {
+  return [...listings].sort((a, b) => {
+    // 1. Tier priority (boss=0, pro=1, basic=2, standard=3 for FT; premium=0, standard=1 for FM)
+    const priorityA = getTierSortPriority(a.vendor_profiles?.tier, vertical)
+    const priorityB = getTierSortPriority(b.vendor_profiles?.tier, vertical)
+    if (priorityA !== priorityB) return priorityA - priorityB
+
+    // 2. Within same tier: longest subscription first (earlier tier_started_at = higher priority)
+    const startA = a.vendor_profiles?.tier_started_at
+    const startB = b.vendor_profiles?.tier_started_at
+    if (startA && startB) {
+      const diff = new Date(startA).getTime() - new Date(startB).getTime()
+      if (diff !== 0) return diff
+    }
+    // If only one has tier_started_at, that one comes first
+    if (startA && !startB) return -1
+    if (!startA && startB) return 1
+
+    // 3. Fallback: newest listings first
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+}
+
+// Group listings by category, then sort within each category
+function groupListingsByCategory(listings: Listing[], vertical: string): Record<string, Listing[]> {
   const grouped: Record<string, Listing[]> = {}
 
   listings.forEach(listing => {
@@ -167,21 +194,9 @@ function groupListingsByCategory(listings: Listing[]): Record<string, Listing[]>
     grouped[category].push(listing)
   })
 
-  // Sort listings within each category by vendor name, then by newest
+  // Sort listings within each category by tier priority
   Object.keys(grouped).forEach(category => {
-    grouped[category].sort((a, b) => {
-      const vendorA = (a.vendor_profiles?.profile_data?.business_name as string) ||
-                      (a.vendor_profiles?.profile_data?.farm_name as string) || 'Unknown'
-      const vendorB = (b.vendor_profiles?.profile_data?.business_name as string) ||
-                      (b.vendor_profiles?.profile_data?.farm_name as string) || 'Unknown'
-
-      // First sort by vendor name
-      const vendorCompare = vendorA.localeCompare(vendorB)
-      if (vendorCompare !== 0) return vendorCompare
-
-      // Then by newest first within same vendor
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    })
+    grouped[category] = sortListingsByPriority(grouped[category], vertical)
   })
 
   return grouped
@@ -450,7 +465,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         id,
         profile_data,
         status,
-        tier
+        tier,
+        tier_started_at
       ),
       listing_markets (
         market_id,
@@ -545,7 +561,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Group listings by category when no search/filter is applied
   const isFiltered = !!(search || category)
-  const groupedListings = !isFiltered && listings ? groupListingsByCategory(listings) : {}
+  const groupedListings = !isFiltered && listings ? groupListingsByCategory(listings, vertical) : {}
   const sortedCategories = Object.keys(groupedListings).sort()
 
   return (
@@ -725,13 +741,13 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               </div>
             )}
 
-            {/* When searching/filtering: Show flat grid */}
+            {/* When searching/filtering: Show flat grid sorted by tier priority */}
             {isFiltered && (
               <div className="listings-grid" style={{
                 display: 'grid',
                 gap: spacing.sm
               }}>
-                {listings.map((listing) => (
+                {sortListingsByPriority(listings, vertical).map((listing) => (
                   <ListingCard
                     key={listing.id}
                     listing={listing}
@@ -795,11 +811,10 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 function ListingCard({
   listing,
   vertical,
-  branding
 }: {
   listing: Listing
   vertical: string
-  branding: { colors: { primary: string; secondary: string } }
+  branding?: { colors: { primary: string; secondary: string } }
 }) {
   const vendorData = listing.vendor_profiles?.profile_data
   const vendorName = (vendorData?.business_name as string) ||
@@ -987,8 +1002,8 @@ function ListingCard({
         gap: spacing['3xs']
       }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
-        {listing.vendor_profiles.tier && listing.vendor_profiles.tier !== 'standard' && (
-          <TierBadge tier={listing.vendor_profiles.tier} size="sm" />
+        {listing.vendor_profiles.tier && listing.vendor_profiles.tier !== 'standard' && listing.vendor_profiles.tier !== 'basic' && (
+          <TierBadge tier={listing.vendor_profiles.tier as VendorTierType} size="sm" />
         )}
       </div>
     </Link>
@@ -1001,23 +1016,15 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 function MarketBoxCard({
   offering,
   vertical,
-  branding
 }: {
   offering: MarketBoxOffering
   vertical: string
-  branding: { colors: { primary: string; secondary: string } }
+  branding?: { colors: { primary: string; secondary: string } }
 }) {
   const vendorData = offering.vendor_profiles?.profile_data
   const vendorName = (vendorData?.business_name as string) ||
                      (vendorData?.farm_name as string) || 'Vendor'
   const boxDesc = offering.description || 'A 4-week subscription box'
-
-  const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(cents / 100)
-  }
 
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':')
@@ -1180,8 +1187,8 @@ function MarketBoxCard({
         gap: spacing['3xs']
       }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
-        {offering.vendor_profiles.tier && offering.vendor_profiles.tier !== 'standard' && (
-          <TierBadge tier={offering.vendor_profiles.tier} size="sm" />
+        {offering.vendor_profiles.tier && offering.vendor_profiles.tier !== 'standard' && offering.vendor_profiles.tier !== 'basic' && (
+          <TierBadge tier={offering.vendor_profiles.tier as VendorTierType} size="sm" />
         )}
       </div>
     </Link>
