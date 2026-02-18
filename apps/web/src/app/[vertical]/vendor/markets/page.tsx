@@ -735,6 +735,7 @@ export default function VendorMarketsPage() {
                       <MarketScheduleSelector
                         marketId={market.id}
                         marketName={market.name}
+                        vertical={vertical}
                         onClose={() => setSelectedMarketForSchedule(null)}
                       />
                     </div>

@@ -11,11 +11,16 @@ interface Schedule {
   start_time: string
   end_time: string
   is_attending: boolean
+  vendor_start_time: string | null
+  vendor_end_time: string | null
+  market_start_time: string
+  market_end_time: string
 }
 
 interface MarketScheduleSelectorProps {
   marketId: string
   marketName: string
+  vertical?: string
   onClose?: () => void
 }
 
@@ -28,9 +33,16 @@ function formatTime12h(time24: string): string {
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`
 }
 
+// Format HH:MM:SS to HH:MM for input[type=time]
+function toTimeInput(time: string | null): string {
+  if (!time) return ''
+  return time.substring(0, 5)
+}
+
 export default function MarketScheduleSelector({
   marketId,
   marketName,
+  vertical,
   onClose
 }: MarketScheduleSelectorProps) {
   const [schedules, setSchedules] = useState<Schedule[]>([])
@@ -39,6 +51,8 @@ export default function MarketScheduleSelector({
   const [saving, setSaving] = useState<string | null>(null) // schedule ID being saved
   const [error, setError] = useState<string | null>(null)
   const [errorType, setErrorType] = useState<'warning' | 'blocking'>('warning')
+
+  const isFT = vertical === 'food_trucks'
 
   useEffect(() => {
     fetchSchedules()
@@ -67,14 +81,23 @@ export default function MarketScheduleSelector({
     setSaving(scheduleId)
     setError(null)
 
+    // When toggling ON for FT, pre-fill vendor times with market times
+    const schedule = schedules.find(s => s.id === scheduleId)
+    const patchBody: Record<string, unknown> = {
+      scheduleId,
+      isActive: !currentlyAttending
+    }
+    if (isFT && !currentlyAttending && schedule) {
+      // Pre-fill vendor times with market hours when first toggling on
+      patchBody.startTime = schedule.market_start_time
+      patchBody.endTime = schedule.market_end_time
+    }
+
     try {
       const res = await fetch(`/api/vendor/markets/${marketId}/schedules`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scheduleId,
-          isActive: !currentlyAttending
-        })
+        body: JSON.stringify(patchBody)
       })
 
       const data = await res.json()
@@ -82,9 +105,16 @@ export default function MarketScheduleSelector({
       if (res.ok) {
         // Update local state
         setSchedules(prev =>
-          prev.map(s =>
-            s.id === scheduleId ? { ...s, is_attending: !currentlyAttending } : s
-          )
+          prev.map(s => {
+            if (s.id !== scheduleId) return s
+            const updated = { ...s, is_attending: !currentlyAttending }
+            // Set vendor times when toggling ON for FT
+            if (isFT && !currentlyAttending) {
+              updated.vendor_start_time = s.market_start_time
+              updated.vendor_end_time = s.market_end_time
+            }
+            return updated
+          })
         )
         setHasAnyActive(data.hasAnyActive)
         setErrorType('warning')
@@ -93,7 +123,6 @@ export default function MarketScheduleSelector({
           setError(data.warning)
         }
       } else {
-        // Check if this is a blocking error (has pending orders)
         if (data.code === 'ERR_SCHEDULE_HAS_ORDERS') {
           setErrorType('blocking')
         } else {
@@ -104,6 +133,50 @@ export default function MarketScheduleSelector({
     } catch (err) {
       console.error('Error toggling schedule:', err)
       setError('Failed to update schedule')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const handleVendorTimeChange = async (scheduleId: string, field: 'startTime' | 'endTime', value: string) => {
+    const schedule = schedules.find(s => s.id === scheduleId)
+    if (!schedule) return
+
+    // Update local state immediately for responsiveness
+    setSchedules(prev =>
+      prev.map(s => {
+        if (s.id !== scheduleId) return s
+        return {
+          ...s,
+          vendor_start_time: field === 'startTime' ? (value || null) : s.vendor_start_time,
+          vendor_end_time: field === 'endTime' ? (value || null) : s.vendor_end_time
+        }
+      })
+    )
+
+    // Debounce: save after a brief pause (user may be changing both fields)
+    setSaving(scheduleId)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/vendor/markets/${marketId}/schedules`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scheduleId,
+          isActive: true,
+          [field]: value || null
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorType('warning')
+        setError(data.error || 'Failed to update time')
+      }
+    } catch (err) {
+      console.error('Error updating vendor time:', err)
+      setError('Failed to update time')
     } finally {
       setSaving(null)
     }
@@ -140,7 +213,9 @@ export default function MarketScheduleSelector({
             {marketName}
           </h3>
           <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-            Select the days you attend this market
+            {isFT
+              ? "Select the days you're at this park"
+              : 'Select the days you attend this market'}
           </p>
         </div>
         {onClose && (
@@ -172,7 +247,9 @@ export default function MarketScheduleSelector({
           fontSize: 13,
           color: '#991b1b'
         }}>
-          You haven&apos;t selected any days. Your listings won&apos;t appear for this market until you select at least one day.
+          {isFT
+            ? "You haven't selected any days. Your menu won't appear for this park until you select at least one day."
+            : "You haven't selected any days. Your listings won't appear for this market until you select at least one day."}
         </div>
       )}
 
@@ -197,74 +274,130 @@ export default function MarketScheduleSelector({
       {/* Schedule checkboxes */}
       {schedules.length === 0 ? (
         <p style={{ margin: 0, color: '#6b7280', fontStyle: 'italic' }}>
-          No schedules found for this market.
+          No schedules found for this {isFT ? 'park' : 'market'}.
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {schedules.map(schedule => (
-            <label
-              key={schedule.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '12px 16px',
-                backgroundColor: schedule.is_attending ? colors.primaryLight : '#f9fafb',
-                border: `2px solid ${schedule.is_attending ? colors.primary : '#e5e7eb'}`,
-                borderRadius: 8,
-                cursor: saving === schedule.id ? 'wait' : 'pointer',
-                opacity: saving === schedule.id ? 0.7 : 1,
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={schedule.is_attending}
-                disabled={saving === schedule.id}
-                onChange={() => handleToggleSchedule(schedule.id, schedule.is_attending)}
+            <div key={schedule.id}>
+              <label
                 style={{
-                  width: 20,
-                  height: 20,
-                  accentColor: colors.primary,
-                  cursor: saving === schedule.id ? 'wait' : 'pointer'
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 16px',
+                  backgroundColor: schedule.is_attending ? colors.primaryLight : '#f9fafb',
+                  border: `2px solid ${schedule.is_attending ? colors.primary : '#e5e7eb'}`,
+                  borderRadius: isFT && schedule.is_attending ? '8px 8px 0 0' : 8,
+                  cursor: saving === schedule.id ? 'wait' : 'pointer',
+                  opacity: saving === schedule.id ? 0.7 : 1,
+                  transition: 'all 0.2s ease'
                 }}
-              />
-              <div style={{ flex: 1 }}>
-                <div style={{
-                  fontWeight: 600,
-                  fontSize: 15,
-                  color: schedule.is_attending ? colors.primaryDark : '#374151'
-                }}>
-                  {DAYS[schedule.day_of_week]}
+              >
+                <input
+                  type="checkbox"
+                  checked={schedule.is_attending}
+                  disabled={saving === schedule.id}
+                  onChange={() => handleToggleSchedule(schedule.id, schedule.is_attending)}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    accentColor: colors.primary,
+                    cursor: saving === schedule.id ? 'wait' : 'pointer'
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontWeight: 600,
+                    fontSize: 15,
+                    color: schedule.is_attending ? colors.primaryDark : '#374151'
+                  }}>
+                    {DAYS[schedule.day_of_week]}
+                  </div>
+                  <div style={{
+                    fontSize: 13,
+                    color: schedule.is_attending ? colors.primaryDark : '#6b7280'
+                  }}>
+                    {isFT && schedule.is_attending && schedule.vendor_start_time
+                      ? `${formatTime12h(schedule.vendor_start_time)} - ${formatTime12h(schedule.vendor_end_time || schedule.market_end_time)}`
+                      : `${formatTime12h(schedule.market_start_time || schedule.start_time)} - ${formatTime12h(schedule.market_end_time || schedule.end_time)}`
+                    }
+                  </div>
                 </div>
+                {schedule.is_attending && (
+                  <span style={{
+                    padding: '4px 10px',
+                    backgroundColor: colors.primary,
+                    color: 'white',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}>
+                    {isFT ? 'At this park' : 'Attending'}
+                  </span>
+                )}
+                {saving === schedule.id && (
+                  <span style={{
+                    fontSize: 12,
+                    color: '#6b7280'
+                  }}>
+                    Saving...
+                  </span>
+                )}
+              </label>
+
+              {/* FT: Vendor-specific time pickers (shown when attending) */}
+              {isFT && schedule.is_attending && (
                 <div style={{
-                  fontSize: 13,
-                  color: schedule.is_attending ? colors.primaryDark : '#6b7280'
+                  padding: '12px 16px',
+                  backgroundColor: '#f0fdf4',
+                  border: `2px solid ${colors.primary}`,
+                  borderTop: 'none',
+                  borderRadius: '0 0 8px 8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
                 }}>
-                  {formatTime12h(schedule.start_time)} - {formatTime12h(schedule.end_time)}
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>
+                    Park hours: {formatTime12h(schedule.market_start_time || schedule.start_time)} - {formatTime12h(schedule.market_end_time || schedule.end_time)}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <label style={{ fontSize: 13, color: '#374151', fontWeight: 500, minWidth: 70 }}>
+                      Your hours:
+                    </label>
+                    <input
+                      type="time"
+                      value={toTimeInput(schedule.vendor_start_time)}
+                      min={toTimeInput(schedule.market_start_time || schedule.start_time)}
+                      max={toTimeInput(schedule.market_end_time || schedule.end_time)}
+                      onChange={(e) => handleVendorTimeChange(schedule.id, 'startTime', e.target.value)}
+                      disabled={saving === schedule.id}
+                      style={{
+                        padding: '4px 8px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 4,
+                        fontSize: 13
+                      }}
+                    />
+                    <span style={{ fontSize: 13, color: '#6b7280' }}>to</span>
+                    <input
+                      type="time"
+                      value={toTimeInput(schedule.vendor_end_time)}
+                      min={toTimeInput(schedule.market_start_time || schedule.start_time)}
+                      max={toTimeInput(schedule.market_end_time || schedule.end_time)}
+                      onChange={(e) => handleVendorTimeChange(schedule.id, 'endTime', e.target.value)}
+                      disabled={saving === schedule.id}
+                      style={{
+                        padding: '4px 8px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: 4,
+                        fontSize: 13
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-              {schedule.is_attending && (
-                <span style={{
-                  padding: '4px 10px',
-                  backgroundColor: colors.primary,
-                  color: 'white',
-                  borderRadius: 4,
-                  fontSize: 12,
-                  fontWeight: 600
-                }}>
-                  Attending
-                </span>
               )}
-              {saving === schedule.id && (
-                <span style={{
-                  fontSize: 12,
-                  color: '#6b7280'
-                }}>
-                  Saving...
-                </span>
-              )}
-            </label>
+            </div>
           ))}
         </div>
       )}
@@ -279,9 +412,10 @@ export default function MarketScheduleSelector({
         fontSize: 13,
         color: '#1e40af'
       }}>
-        <strong>How this works:</strong> When buyers order from you at this market,
-        their pickup date will be calculated based on the days you&apos;ve selected.
-        Orders will be assigned to your next available market day.
+        <strong>How this works:</strong>{' '}
+        {isFT
+          ? "When customers order from you at this park, they'll pick a time slot within the hours you set. Only days you've selected will show as available."
+          : "When buyers order from you at this market, their pickup date will be calculated based on the days you've selected. Orders will be assigned to your next available market day."}
       </div>
     </div>
   )
