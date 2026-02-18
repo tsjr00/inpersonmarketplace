@@ -58,12 +58,18 @@ export async function POST(request: NextRequest) {
 
   return withErrorTracing('/api/checkout/session', 'POST', async () => {
     const supabase = await createClient()
-    const { items, marketBoxItems, vertical } = await request.json() as {
+    const { items, marketBoxItems, vertical, tipAmountCents = 0, tipPercentage = 0 } = await request.json() as {
       items: CartItem[]
       marketBoxItems?: MarketBoxCheckoutItem[]
       vertical?: string
+      tipAmountCents?: number
+      tipPercentage?: number
     }
     const hasMarketBoxes = marketBoxItems && marketBoxItems.length > 0
+
+    // Validate tip
+    const validTipAmount = Math.max(0, Math.round(tipAmountCents as number))
+    const validTipPercentage = Math.max(0, Math.round(tipPercentage as number))
 
     crumb.auth('Checking user authentication')
     const {
@@ -507,10 +513,10 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Use order-level totals from unified pricing
+    // Use order-level totals from unified pricing (tip is additive on top)
     const subtotalCents = orderPricing.subtotalCents
     const platformFeeCents = orderPricing.platformFeeCents
-    const totalCents = orderPricing.buyerTotalCents
+    const totalCents = orderPricing.buyerTotalCents + validTipAmount
 
     // Build pickup snapshots for each order item
     crumb.logic('Building pickup snapshots for order items')
@@ -605,6 +611,16 @@ export async function POST(request: NextRequest) {
       quantity: 1,
     })
 
+    // Add tip as Stripe line item (food trucks)
+    if (validTipAmount > 0) {
+      checkoutItems.push({
+        name: 'Tip',
+        description: validTipPercentage > 0 ? `${validTipPercentage}% tip` : 'Tip',
+        amount: validTipAmount,
+        quantity: 1,
+      })
+    }
+
     // Create Stripe session FIRST — if this fails, nothing touches our DB
     const session = await createCheckoutSession({
       orderId,
@@ -645,6 +661,8 @@ export async function POST(request: NextRequest) {
         subtotal_cents: subtotalCents,
         platform_fee_cents: platformFeeCents,
         total_cents: totalCents,
+        tip_percentage: validTipPercentage,
+        tip_amount: validTipAmount,
         stripe_checkout_session_id: session.id,
       })
 

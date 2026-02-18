@@ -77,6 +77,8 @@ interface OrderDetail {
   order_number: string
   status: string
   total_cents: number
+  tip_percentage: number
+  tip_amount: number
   created_at: string
   updated_at: string
   items: OrderItem[]
@@ -974,6 +976,21 @@ export default function BuyerOrderDetailPage() {
                   {formatPrice(FEES.buyerFlatFeeCents)}
                 </span>
               </div>
+              {/* Tip (if any) */}
+              {order.tip_amount > 0 && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                    Tip ({order.tip_percentage}%)
+                  </span>
+                  <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                    {formatPrice(order.tip_amount)}
+                  </span>
+                </div>
+              )}
               {/* Total */}
               <div style={{
                 display: 'flex',

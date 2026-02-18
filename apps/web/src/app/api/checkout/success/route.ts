@@ -249,6 +249,8 @@ export async function GET(request: NextRequest) {
         order_number,
         status,
         total_cents,
+        tip_percentage,
+        tip_amount,
         created_at,
         order_items(
           id,

@@ -26,6 +26,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         order_number,
         status,
         total_cents,
+        tip_percentage,
+        tip_amount,
         created_at,
         updated_at,
         order_items (
@@ -93,6 +95,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       order_number: order.order_number,
       status: order.status,
       total_cents: order.total_cents,
+      tip_percentage: (order as Record<string, unknown>).tip_percentage || 0,
+      tip_amount: (order as Record<string, unknown>).tip_amount || 0,
       created_at: order.created_at,
       updated_at: order.updated_at,
       items: (order.order_items || []).map((item: any) => {

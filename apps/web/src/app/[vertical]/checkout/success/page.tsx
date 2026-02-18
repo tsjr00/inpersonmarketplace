@@ -77,6 +77,8 @@ interface OrderDetails {
   order_number: string
   status: string
   total_cents: number
+  tip_percentage: number
+  tip_amount: number
   created_at: string
   items: OrderItem[]
   marketBoxSubscriptions: MarketBoxSubscription[]
@@ -264,6 +266,11 @@ export default function CheckoutSuccessPage() {
                 <p style={{ fontWeight: typography.weights.semibold, margin: 0, fontSize: typography.sizes.lg, color: colors.primary }}>
                   ${(order.total_cents / 100).toFixed(2)}
                 </p>
+                {order.tip_amount > 0 && (
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `${spacing['3xs']} 0 0 0` }}>
+                    Includes ${(order.tip_amount / 100).toFixed(2)} tip ({order.tip_percentage}%)
+                  </p>
+                )}
               </div>
             </div>
 
@@ -638,6 +645,8 @@ function transformOrder(raw: Record<string, unknown>, rawMarketBoxSubs?: Array<R
     order_number: raw.order_number as string,
     status: raw.status as string,
     total_cents: raw.total_cents as number,
+    tip_percentage: (raw.tip_percentage as number) || 0,
+    tip_amount: (raw.tip_amount as number) || 0,
     created_at: raw.created_at as string,
     items,
     marketBoxSubscriptions,
