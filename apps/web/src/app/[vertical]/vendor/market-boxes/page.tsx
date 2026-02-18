@@ -10,12 +10,21 @@ import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { isPremiumTier } from '@/lib/vendor-limits'
 import { colors } from '@/lib/design-tokens'
 
+const BOX_TYPE_LABELS: Record<string, string> = {
+  weekly_dinner: 'Weekly Dinner',
+  family_kit: 'Family Kit',
+  mystery_box: 'Mystery Box',
+  meal_prep: 'Meal Prep',
+  office_lunch: 'Office Lunch',
+}
+
 interface MarketBoxOffering {
   id: string
   name: string
   description: string | null
   image_urls: string[]
   price_cents: number
+  box_type: string | null
   pickup_day_of_week: number
   pickup_start_time: string
   pickup_end_time: string
@@ -290,8 +299,20 @@ export default function VendorMarketBoxesPage() {
                     />
                   )}
                   <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                       <h3 style={{ margin: 0, fontSize: 18, color: '#374151' }}>{offering.name}</h3>
+                      {offering.box_type && BOX_TYPE_LABELS[offering.box_type] && (
+                        <span style={{
+                          padding: '2px 8px',
+                          backgroundColor: '#fef3c7',
+                          color: '#92400e',
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 600
+                        }}>
+                          {BOX_TYPE_LABELS[offering.box_type]}
+                        </span>
+                      )}
                       {!offering.active && (
                         <span style={{
                           padding: '2px 8px',

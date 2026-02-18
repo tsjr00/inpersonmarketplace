@@ -34,6 +34,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         pickup_end_time,
         quantity_amount,
         quantity_unit,
+        box_type,
         max_subscribers,
         active,
         created_at,

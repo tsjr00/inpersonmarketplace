@@ -135,6 +135,7 @@ interface MarketBoxOffering {
   price_cents: number
   quantity_amount: number | null
   quantity_unit: string | null
+  box_type: string | null
   pickup_day_of_week: number
   pickup_start_time: string
   pickup_end_time: string
@@ -238,6 +239,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         price_cents,
         quantity_amount,
         quantity_unit,
+        box_type,
         pickup_day_of_week,
         pickup_start_time,
         pickup_end_time,
@@ -1012,6 +1014,15 @@ function ListingCard({
   )
 }
 
+// Box type label helper
+const BOX_TYPE_LABELS: Record<string, string> = {
+  weekly_dinner: 'Weekly Dinner',
+  family_kit: 'Family Kit',
+  mystery_box: 'Mystery Box',
+  meal_prep: 'Meal Prep',
+  office_lunch: 'Office Lunch',
+}
+
 // Market Box Card Component
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -1120,6 +1131,22 @@ function MarketBoxCard({
           </div>
         )}
       </div>
+
+      {/* Box Type Badge */}
+      {offering.box_type && BOX_TYPE_LABELS[offering.box_type] && (
+        <span style={{
+          display: 'inline-block',
+          padding: `${spacing['3xs']} ${spacing.xs}`,
+          backgroundColor: '#fef3c7',
+          color: '#92400e',
+          borderRadius: radius.lg,
+          fontSize: typography.sizes.xs,
+          fontWeight: typography.weights.semibold,
+          marginBottom: spacing['3xs']
+        }}>
+          {BOX_TYPE_LABELS[offering.box_type]}
+        </span>
+      )}
 
       {/* Title */}
       <h3 style={{

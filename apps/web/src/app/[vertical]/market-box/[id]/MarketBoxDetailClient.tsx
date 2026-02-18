@@ -22,6 +22,14 @@ interface AvailableTerm {
   savings_percent: number
 }
 
+const BOX_TYPE_LABELS: Record<string, string> = {
+  weekly_dinner: 'Weekly Dinner',
+  family_kit: 'Family Kit',
+  mystery_box: 'Mystery Box',
+  meal_prep: 'Meal Prep',
+  office_lunch: 'Office Lunch',
+}
+
 interface MarketBoxData {
   offering: {
     id: string
@@ -33,6 +41,7 @@ interface MarketBoxData {
     price_8week_cents?: number | null
     quantity_amount?: number | null
     quantity_unit?: string | null
+    box_type?: string | null
     pickup_day_of_week: number
     pickup_start_time: string
     pickup_end_time: string
@@ -251,7 +260,19 @@ export default function MarketBoxDetailClient() {
 
           {/* Title & Price */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+              {offering.box_type && BOX_TYPE_LABELS[offering.box_type] && (
+                <span style={{
+                  padding: '4px 12px',
+                  backgroundColor: '#fef3c7',
+                  color: '#92400e',
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  {BOX_TYPE_LABELS[offering.box_type]}
+                </span>
+              )}
               <span style={{
                 padding: '4px 12px',
                 backgroundColor: '#dbeafe',
