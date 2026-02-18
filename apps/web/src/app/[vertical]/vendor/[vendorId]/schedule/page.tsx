@@ -192,6 +192,8 @@ export default async function VendorSchedulePage({ params }: SchedulePageProps) 
           market_id,
           schedule_id,
           is_active,
+          vendor_start_time,
+          vendor_end_time,
           market_schedules (
             day_of_week,
             start_time,
@@ -217,8 +219,8 @@ export default async function VendorSchedulePage({ params }: SchedulePageProps) 
               if (!location.schedules) location.schedules = []
               location.schedules.push({
                 day_of_week: scheduleInfo.day_of_week,
-                start_time: scheduleInfo.start_time,
-                end_time: scheduleInfo.end_time
+                start_time: (vs.vendor_start_time as string) ?? scheduleInfo.start_time,
+                end_time: (vs.vendor_end_time as string) ?? scheduleInfo.end_time
               })
             }
           }
