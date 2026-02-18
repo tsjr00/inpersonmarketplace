@@ -64,7 +64,8 @@
 | 20260217_027_expand_vendor_tier_check_constraint.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Expand tier CHECK to include basic/pro/boss (FT tiers); migrate existing FT vendors to basic. |
 | 20260217_028_add_preferred_pickup_time.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Add preferred_pickup_time TIME to cart_items + order_items. Applied to all 3 envs. |
 | 20260217_029_add_tip_columns.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Add tip_percentage (smallint) + tip_amount (integer) to orders. Applied to all 3 envs. |
-| 20260218_032_ft_vendor_attendance_hours.sql | ❌ | - | ❌ | - | Add vendor_start_time/end_time to vms, backfill FT attendance, rewrite SQL function with attendance filter |
+| 20260218_032_ft_vendor_attendance_hours.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | Add vendor_start_time/end_time to vms, backfill FT attendance, rewrite SQL function with attendance filter. Prod needed unique constraint added first. Applied to all 3 envs. |
+| 20260218_031_fix_ft_cutoff_hours_override.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | Fix COALESCE bug: FT always gets cutoff=0 regardless of DB value. Applied to all 3 envs. |
 | 20260218_030_ft_same_day_ordering.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | FT-aware get_available_pickup_dates(): today-only, accept until end_time, cutoff=0. Applied to all 3 envs. |
 
 ---
