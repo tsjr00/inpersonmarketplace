@@ -422,7 +422,8 @@ export async function sendNotification(
         // 'sms' requires 'sms' in tier, 'email' requires 'email' in tier
         const allowed = extras.notificationChannels
         channels = channels.filter(ch => {
-          if (ch === 'in_app' || ch === 'push') return allowed.includes('in_app')
+          if (ch === 'in_app') return allowed.includes('in_app')
+          if (ch === 'push') return allowed.includes('push')
           return allowed.includes(ch)
         })
       }
