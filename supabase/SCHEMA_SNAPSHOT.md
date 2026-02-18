@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-18 | 20260218_032_ft_vendor_attendance_hours | Added `vendor_start_time` (TIME, nullable) and `vendor_end_time` (TIME, nullable) to `vendor_market_schedules`. Backfilled attendance records for existing FT vendor-listing-market combos. Rewrote `get_available_pickup_dates()`: JOINs `listings` for vendor_profile_id, LEFT JOINs `vendor_market_schedules` for attendance + vendor times. FT traditional markets require attendance record. Uses COALESCE(vms.vendor_start_time, ms.start_time) for vendor-specific hours. FM fully backwards-compatible. Pending application. |
 | 2026-02-18 | 20260218_030_ft_same_day_ordering | Recreated `get_available_pickup_dates()` with vertical awareness: FT defaults cutoff_hours=0, FT today-only (not 7 days), FT accepts until market end_time (not start-cutoff). Restored `cutoff_hours` to RETURNS TABLE (was dropped in migration 010). Updated existing FT markets with NULL cutoff_hours to 0. Applied to Dev, Staging, & Prod. |
 | 2026-02-17 | 20260217_029_add_tip_columns | Added `tip_percentage` (SMALLINT DEFAULT 0) and `tip_amount` (INTEGER DEFAULT 0) to `orders` table. For food truck percentage-based tipping. Applied to Dev, Staging, & Prod. |
 | 2026-02-17 | 20260217_028_add_preferred_pickup_time | Added `preferred_pickup_time` (TIME) to `cart_items` and `order_items`. For food truck 30-min pickup time slot selection. Applied to Dev, Staging, & Prod. |
@@ -923,6 +924,8 @@
 | is_active | bool | YES | true |
 | created_at | timestamptz | YES | now() |
 | updated_at | timestamptz | YES | now() |
+| vendor_start_time | time | YES | - |
+| vendor_end_time | time | YES | - |
 
 ### vendor_payouts
 | Column | Type | Nullable | Default |
@@ -1888,7 +1891,7 @@
 | geomfromewkb | bytea | geometry | INVOKER |
 | geomfromewkt | text | geometry | INVOKER |
 | get_analytics_overview | p_start_date date, p_end_date date, p_vertical_id text DEFAULT NULL::text | TABLE(total_revenue bigint, completed_orders bigint, pend... | DEFINER |
-| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week int, pickup_date date, start_time time, end_time time, cutoff_at timestamptz, is_accepting bool, hours_until_cutoff numeric, cutoff_hours int) | DEFINER | FT: today only, accepts until end_time, cutoff=0. FM: 7 days, advance cutoff. |
+| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week int, pickup_date date, start_time time, end_time time, cutoff_at timestamptz, is_accepting bool, hours_until_cutoff numeric, cutoff_hours int) | DEFINER | JOINs listings for vendor_profile_id, LEFT JOINs vendor_market_schedules for attendance + vendor times. FT traditional: requires attendance record, uses vendor times when set. FM: no attendance filter (backwards-compatible). FT: today only, cutoff=0. FM: 7 days, advance cutoff. |
 | get_buyer_order_ids | - | SETOF uuid | DEFINER |
 | get_cart_summary | p_cart_id uuid | TABLE(total_items bigint, total_cents bigint, vendor_coun... | DEFINER |
 | get_listing_fields | v_id text | jsonb | DEFINER |
