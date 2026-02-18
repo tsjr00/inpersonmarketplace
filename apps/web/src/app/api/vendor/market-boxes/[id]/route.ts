@@ -143,7 +143,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Get vendor profile with tier for limit checks
     const { data: vendor } = await supabase
       .from('vendor_profiles')
-      .select('id, tier')
+      .select('id, tier, vertical_id')
       .eq('user_id', user.id)
       .single()
 
@@ -203,7 +203,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const activationCheck = await canActivateMarketBox(
         supabase,
         vendor.id,
-        vendor.tier || 'standard'
+        vendor.tier || 'standard',
+        undefined,
+        vendor.vertical_id || undefined
       )
       if (!activationCheck.allowed) {
         return NextResponse.json({

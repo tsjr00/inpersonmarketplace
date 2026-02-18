@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Get tier limits using centralized utility
-    const tierLimits = getTierLimits(tier)
+    const tierLimits = getTierLimits(tier, vertical || undefined)
     const totalCount = offeringsWithCounts.length
     const activeCount = offeringsWithCounts.filter(o => o.active).length
 
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     const tier = vendor.tier || 'standard'
 
     // Check total market box limit (can create any new box)
-    const createCheck = await canCreateMarketBox(supabase, vendor.id, tier)
+    const createCheck = await canCreateMarketBox(supabase, vendor.id, tier, vertical || undefined)
     if (!createCheck.allowed) {
       throw new TracedError('ERR_MBOX_003', formatLimitError(createCheck), {
         vendorId: vendor.id,
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check active market box limit (new boxes are created as active)
-    const activateCheck = await canActivateMarketBox(supabase, vendor.id, tier)
+    const activateCheck = await canActivateMarketBox(supabase, vendor.id, tier, undefined, vertical || undefined)
     if (!activateCheck.allowed) {
       throw new TracedError('ERR_MBOX_003', formatLimitError(activateCheck), {
         vendorId: vendor.id,

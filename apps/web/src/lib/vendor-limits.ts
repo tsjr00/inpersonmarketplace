@@ -386,9 +386,10 @@ export async function canAddPrivatePickup(
 export async function canCreateMarketBox(
   supabase: SupabaseClient,
   vendorProfileId: string,
-  tier: string
+  tier: string,
+  vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier)
+  const limits = getTierLimits(tier, vertical)
   const usage = await getMarketBoxUsage(supabase, vendorProfileId)
 
   const allowed = usage.total < limits.totalMarketBoxes
@@ -409,9 +410,10 @@ export async function canActivateMarketBox(
   supabase: SupabaseClient,
   vendorProfileId: string,
   tier: string,
-  _excludeBoxId?: string
+  _excludeBoxId?: string,
+  vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier)
+  const limits = getTierLimits(tier, vertical)
   const usage = await getMarketBoxUsage(supabase, vendorProfileId)
 
   // If we're checking for reactivation, the box being reactivated is currently inactive
