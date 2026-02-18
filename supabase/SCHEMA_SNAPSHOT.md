@@ -12,6 +12,10 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-18 | 20260218_030_ft_same_day_ordering | Recreated `get_available_pickup_dates()` with vertical awareness: FT defaults cutoff_hours=0, FT today-only (not 7 days), FT accepts until market end_time (not start-cutoff). Restored `cutoff_hours` to RETURNS TABLE (was dropped in migration 010). Updated existing FT markets with NULL cutoff_hours to 0. Applied to Dev, Staging, & Prod. |
+| 2026-02-17 | 20260217_029_add_tip_columns | Added `tip_percentage` (SMALLINT DEFAULT 0) and `tip_amount` (INTEGER DEFAULT 0) to `orders` table. For food truck percentage-based tipping. Applied to Dev, Staging, & Prod. |
+| 2026-02-17 | 20260217_028_add_preferred_pickup_time | Added `preferred_pickup_time` (TIME) to `cart_items` and `order_items`. For food truck 30-min pickup time slot selection. Applied to Dev, Staging, & Prod. |
+| 2026-02-17 | 20260217_027_expand_vendor_tier_check_constraint | Expanded vendor_profiles tier CHECK to include basic/pro/boss (food truck tiers). Migrated existing food truck vendors to basic. Applied to Dev, Staging, & Prod. |
 | 2026-02-17 | 20260217_026_vertical_premium_triggers | Per-vertical buyer premium: `set_listing_premium_window()` and `set_market_box_premium_window()` now check `verticals.config->>'buyer_premium_enabled'` — skip premium window for verticals with it set to `'false'`. Fixed market box trigger capacity-increase regression (removed `NEW.max_subscribers > OLD.max_subscribers` condition). Added `buyer_premium_enabled` to `verticals.config` JSONB: `true` for farmers_market, `false` for food_trucks and fire_works. Cleaned up any existing food truck/fire_works premium windows. Applied to Dev, Staging, & Prod. |
 | 2026-02-17 | 20260217_025_rename_fireworks_vertical | Renamed `vertical_id` from `'fireworks'` to `'fire_works'` in `verticals` table and all child tables: `vendor_profiles`, `listings`, `orders`, `market_box_offerings`, `knowledge_articles`, `admin_activity_log`, `error_reports`, `transactions`, `shopper_feedback`, `vendor_feedback`, `vertical_admins`. Also updated `user_profiles.verticals` TEXT[] array. Applied to Dev, Staging, & Prod. |
 | 2026-02-17 | 20260217_024_add_quantity_measurement | Added `quantity_amount` (NUMERIC) and `quantity_unit` (TEXT) to `listings` and `market_box_offerings`. CHECK constraint enforces both fields present when `status = 'published'`. Applied to Dev, Staging, & Prod. |
@@ -184,6 +188,7 @@
 | offering_id | uuid | YES | - |
 | term_weeks | int4 | YES | - |
 | start_date | date | YES | - |
+| preferred_pickup_time | time | YES | - |
 
 ### carts
 | Column | Type | Nullable | Default |
@@ -541,6 +546,7 @@
 | issue_admin_notes | text | YES | - |
 | schedule_id | uuid | YES | - |
 | pickup_snapshot | jsonb | YES | - |
+| preferred_pickup_time | time | YES | - |
 
 ### order_ratings
 | Column | Type | Nullable | Default |
@@ -573,6 +579,8 @@
 | external_payment_confirmed_by | uuid | YES | - |
 | parent_order_id | uuid | YES | - |
 | order_suffix | varchar | YES | - |
+| tip_percentage | int2 | YES | 0 |
+| tip_amount | int4 | YES | 0 |
 
 ### organizations
 | Column | Type | Nullable | Default |
@@ -1880,7 +1888,7 @@
 | geomfromewkb | bytea | geometry | INVOKER |
 | geomfromewkt | text | geometry | INVOKER |
 | get_analytics_overview | p_start_date date, p_end_date date, p_vertical_id text DEFAULT NULL::text | TABLE(total_revenue bigint, completed_orders bigint, pend... | DEFINER |
-| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text,... | DEFINER |
+| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week int, pickup_date date, start_time time, end_time time, cutoff_at timestamptz, is_accepting bool, hours_until_cutoff numeric, cutoff_hours int) | DEFINER | FT: today only, accepts until end_time, cutoff=0. FM: 7 days, advance cutoff. |
 | get_buyer_order_ids | - | SETOF uuid | DEFINER |
 | get_cart_summary | p_cart_id uuid | TABLE(total_items bigint, total_cents bigint, vendor_coun... | DEFINER |
 | get_listing_fields | v_id text | jsonb | DEFINER |

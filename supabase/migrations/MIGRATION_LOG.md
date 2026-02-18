@@ -63,6 +63,8 @@
 | 20260217_026_vertical_premium_triggers.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Per-vertical buyer premium: vertical-aware triggers, market box regression fix, verticals config. Applied to all 3 envs. |
 | 20260217_027_expand_vendor_tier_check_constraint.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Expand tier CHECK to include basic/pro/boss (FT tiers); migrate existing FT vendors to basic. |
 | 20260217_028_add_preferred_pickup_time.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Add preferred_pickup_time TIME to cart_items + order_items. Applied to all 3 envs. |
+| 20260217_029_add_tip_columns.sql | ✅ | 2026-02-17 | ✅ | 2026-02-17 | Add tip_percentage (smallint) + tip_amount (integer) to orders. Applied to all 3 envs. |
+| 20260218_030_ft_same_day_ordering.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | FT-aware get_available_pickup_dates(): today-only, accept until end_time, cutoff=0. Applied to all 3 envs. |
 
 ---
 

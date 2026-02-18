@@ -1,102 +1,65 @@
-# Current Task: Visual/CSS Brand Alignment — PHASE 2 COMPLETE
+# Current Task: Session 31 — FT Same-Day Ordering + Codebase Audit
 
-Started: 2026-02-17 (Session 30)
-Status: PHASE 2 COMPLETE — ready to commit
+Started: 2026-02-18
 
-## Goal
-Replace hardcoded green (FM-brand) colors with CSS var tokens (`colors.primary`, `colors.primaryDark`, `colors.primaryLight` from design-tokens.ts) across the entire app. Food truck vertical should use red (#E53935) / charcoal (#4A4A4A) from brand kit, not green.
+## Session Summary
 
-## Results
-- **Before**: 296 hardcoded green instances across 65 files
-- **After**: 76 remaining across 34 files — ALL semantic (status badges, order states, approval indicators)
-- **220 brand-green instances replaced** with CSS var tokens across **48 source files**
-- TypeScript compiles clean (`npx tsc --noEmit` passes)
+### Commits Made This Session (all pushed to staging, NOT production)
+1. `a3f986c` — Fix 3 bugs: quantity units filter, cart pickup time, FT subscription renewal
+2. `6cbec96` — Add food truck same-day ordering flow with location+time picker
 
-## Commits This Session (Session 30)
-1. `e8b352d` — Per-vertical buyer premium configuration (15 files)
-2. `0afe93e` — Move migration 026 to applied
-3. `ccb8a54` — Update schema snapshot for migration 026
-4. `cc280c4` — Strengthen schema snapshot update rules
-5. `fe84eb9` — Fix food truck visual issues: brand colors, terminology, form styling (11 files)
-6. **PENDING COMMIT** — Replace hardcoded brand-green colors with CSS var tokens (~48 files)
+### Migration 030 Status
+- File: `20260218_030_ft_same_day_ordering.sql`
+- **Applied to ALL 3 environments** (user confirmed)
+- **Schema snapshot updated** (changelog + function description)
+- **Migration log updated**
+- **FILE NOT YET MOVED to applied/** — user rejected the mv command, needs to be done
+- Run: `mv supabase/migrations/20260218_030_ft_same_day_ordering.sql supabase/migrations/applied/`
 
-## Files Fixed in Phase 2 (this pending commit)
+### What Migration 030 Does
+- `get_available_pickup_dates()` recreated with vertical awareness
+- FT: today only (not 7 days), accepts until market end_time, cutoff_hours=0
+- FM: unchanged (7 days, advance cutoff 18/10 hours)
+- `cutoff_hours` restored to RETURNS TABLE (was dropped in migration 010)
+- Existing FT markets with NULL cutoff_hours updated to 0
 
-### Buyer-facing pages (11 files)
-- `buyer/orders/page.tsx` — Ready order cards, banners, market box cards
-- `buyer/orders/[id]/page.tsx` — Pickup hero gradient, acknowledge receipt section
-- `buyer/subscriptions/page.tsx` — Extension pills
-- `buyer/subscriptions/[id]/page.tsx` — Success confirmation, extension rows, pickup badges
-- `buyer/upgrade/page.tsx` — Premium benefits, badges, gradient sections
-- `browse/page.tsx` — Spots remaining badges
-- `market-box/[id]/MarketBoxDetailClient.tsx` — Spots, savings badges, how-it-works box
-- `checkout/external/page.tsx` — Cash payment section
-- `subscription/success/page.tsx` — Success icon, premium benefits
-- `vendor-signup/page.tsx` — Referral banner
-- `settings/BuyerTierManager.tsx` — Premium member section
+### Uncommitted Changes
+- `supabase/SCHEMA_SNAPSHOT.md` — changelog + function description for migration 030
+- `supabase/migrations/MIGRATION_LOG.md` — added migration 030 entry
+- `apps/web/.claude/current_task.md` — this file
+- Various doc file deletions/modifications from previous sessions (not ours)
+- The migration file itself needs moving to applied/
 
-### Vendor-facing pages (10 files)
-- `vendor/markets/page.tsx` — Radio sections, confirmation, CTA buttons
-- `vendor/market-boxes/page.tsx` — Subscriber count, activate toggle
-- `vendor/pickup/page.tsx` — Stats bar, fulfill button, extension badge
-- `vendor/listings/page.tsx` — Open status badge
-- `vendor/edit/EditProfileForm.tsx` — Success message
-- `vendor/referrals/page.tsx` — Referral link card gradient
-- `vendor/[vendorId]/profile/page.tsx` — Category pills
-- `vendor/dashboard/upgrade/page.tsx` — Premium benefits, badges
-- `vendor/dashboard/PaymentMethodsCard.tsx` — Stripe status, payment checkmarks
-- `vendor/reviews/page.tsx` — New reviews count stat
+### NEEDS COMMIT + PUSH
+After moving migration to applied:
+```
+git add supabase/SCHEMA_SNAPSHOT.md supabase/migrations/MIGRATION_LOG.md apps/web/.claude/current_task.md
+# Also stage the migration move (delete from migrations/, add to applied/)
+git commit -m "Move migration 030 to applied, update schema snapshot and migration log"
+```
 
-### Shared components (17 files)
-- `vendor/OnboardingChecklist.tsx` — Completion banner, gate circles, ready messages
-- `vendor/MarketScheduleSelector.tsx` — Selected state, checkbox, attending badge
-- `vendor/MarketSelector.tsx` — Listing count card, home market label
-- `vendor/VendorFeedbackForm.tsx` — Market suggestion section
-- `vendor/CertificationsForm.tsx` — Success message, document attached
-- `vendor/COIUpload.tsx` — Approved badge, document link, verified date
-- `vendor/CategoryDocumentUpload.tsx` — Approved badge, document link
-- `vendor/ListingCutoffStatus.tsx` — Accepting orders indicator
-- `vendor/PickupScheduleGrid.tsx` — Time slot backgrounds/text
-- `vendor/MarketBoxImageUpload.tsx` — Upload spinner, hover states
-- `vendor/ProfileEditForm.tsx` — Success message
-- `cart/AddToCartButton.tsx` — Selected date, in-cart notice
-- `listings/PickupLocationsCard.tsx` — Default primary color prop
-- `location/LocationSearchInline.tsx` — Green bar, location text, change button
-- `location/LocationPrompt.tsx` — Success state, pin icon, change button
-- `shared/ErrorDisplay.tsx` — Copied button
-- `ErrorFeedback.tsx` — Report submitted section
-- `vendor/dashboard/ReferralCard.tsx` — Description text (missed in Phase 1)
+### What's NOT Done Yet
+- User has NOT tested the staging deployment yet
+- Production push pending (main is 6 commits ahead of origin/main)
+- Audit findings written to `.claude/session31_audit.md` — see that file for full list
 
-### Admin pages (12 files)
-- `admin/VendorVerificationPanel.tsx` — Completion banner, document links, approve buttons
-- `about/page.tsx` — Contact form success
-- `[vertical]/admin/page.tsx` — Stats cards
-- `[vertical]/admin/knowledge/KnowledgeEditor.tsx` — Save/create/publish buttons
-- `[vertical]/admin/vendors/VendorManagementClient.tsx` — Market pills, approve button
-- `[vertical]/admin/markets/page.tsx` — Approve/re-approve/unsuspend buttons
-- `[vertical]/admin/feedback/page.tsx` — Market suggestion detail card
-- `[vertical]/admin/errors/page.tsx` — Resolution summary, mark resolved button
-- `admin/errors/page.tsx` — Resolution summary, mark resolved button
-- `[vertical]/admin/vendor-activity/VendorActivityClient.tsx` — Resolution notes, referral stats
-- `admin/layout.tsx` — Vertical admin nav link
-- `admin/mfa/setup/page.tsx` — MFA enabled heading
+## Testing Instructions for User (for the 2 commits)
 
-## Semantic Greens Correctly Preserved (76 instances, 34 files)
-These stay hardcoded green regardless of vertical:
-- Order status badges (ready, confirmed, fulfilled, completed)
-- Subscription status (active, picked_up)
-- Approval badges (approved vendors, published listings)
-- Referral status (earned)
-- Date status indicators (open/closed market dates)
-- USDA Organic certification badge
-- Email template brand color (CSS vars don't work in email HTML)
+### Commit 1 (a3f986c) — 3 Bug Fixes
+1. **Quantity units**: FT vendor → Create listing → unit dropdown should show FT units only (no bag/bunch/bouquet)
+2. **Cart pickup time**: Add FT item to cart → pickup time visible in cart
+3. **FT renewal webhook**: Can't test manually — fires on Stripe subscription renewal
 
-## Remaining Open Items
-- **Email template** (`notifications/service.ts` line 214): `#166534` for brand name in HTML email. CSS vars don't work in email — needs brand color passed from vertical config.
-- **Food truck icon**: User wants proper food truck SVG (not 🚚 delivery truck emoji)
-- **ShopperFeedbackForm "Market Policies"**: FM-specific language needs vertical-aware rewording
+### Commit 2 (6cbec96) — FT Same-Day Ordering
+1. **FT location picker**: FT listing detail → "Select a Pickup Location:" with location cards + hours
+2. **Time slots**: Click location → 30-min time slots appear below
+3. **FT market visible while operating**: Listing available while truck is open (not just before start)
+4. **FM unchanged**: FM listing detail → still shows "Select a Pickup Date below:" with dates
 
-## Git State
-- main is 6 commits ahead of origin/main (5 committed + 1 pending)
-- Staging NOT yet pushed with commits fe84eb9+
-- User hasn't confirmed staging for production push yet
+## Key Context for Next Session
+- `isFoodTruck` variable added to AddToCartButton.tsx
+- FT flow: location cards → time slots (no date picker)
+- FM flow: completely unchanged
+- `vertical_id` added to MarketWithSchedules interface and all Supabase market queries
+- cutoff defaults changed from `|| 18` to `?? 18` (so 0 is respected, not treated as falsy)
+- CutoffStatusBanner: added `cutoffThreshold === 0` early returns (FT has no advance cutoff concept)
