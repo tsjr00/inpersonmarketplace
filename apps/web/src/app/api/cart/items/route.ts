@@ -41,16 +41,17 @@ async function handleListingAdd(
   user: { id: string },
   body: Record<string, unknown>
 ) {
-  const { vertical, listingId, quantity = 1, marketId, scheduleId, pickupDate } = body as {
+  const { vertical, listingId, quantity = 1, marketId, scheduleId, pickupDate, preferredPickupTime } = body as {
     vertical: string
     listingId: string
     quantity?: number
     marketId?: string
     scheduleId?: string
     pickupDate?: string
+    preferredPickupTime?: string
   }
 
-  crumb.logic('Validating listing request', { vertical, listingId, quantity, marketId, scheduleId, pickupDate })
+  crumb.logic('Validating listing request', { vertical, listingId, quantity, marketId, scheduleId, pickupDate, preferredPickupTime })
 
   if (!vertical || !listingId) {
     throw traced.validation('ERR_CART_005', 'Missing required fields: vertical and listingId are required')
@@ -149,6 +150,18 @@ async function handleListingAdd(
     })
   }
 
+  // Validate preferred_pickup_time for food trucks
+  if (vertical === 'food_trucks') {
+    if (!preferredPickupTime) {
+      throw traced.validation('ERR_CART_009', 'Please select a pickup time slot')
+    }
+    // Validate format: "HH:MM" and on 30-min boundary
+    const timeParts = (preferredPickupTime as string).split(':').map(Number)
+    if (timeParts.length < 2 || isNaN(timeParts[0]) || isNaN(timeParts[1]) || (timeParts[1] % 30 !== 0)) {
+      throw traced.validation('ERR_CART_009', 'Invalid pickup time slot')
+    }
+  }
+
   // Get or create cart (vertical_id is TEXT slug, not UUID)
   crumb.supabase('rpc', 'carts', { rpc: 'get_or_create_cart' })
   const { data: cartId, error: cartError } = await supabase
@@ -225,6 +238,7 @@ async function handleListingAdd(
         market_id: marketId,
         schedule_id: scheduleId,
         pickup_date: pickupDate,
+        preferred_pickup_time: preferredPickupTime || null,
         item_type: 'listing'
       })
 

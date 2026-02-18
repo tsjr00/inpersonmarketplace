@@ -43,6 +43,7 @@ interface CartItemFromDB {
   market_id: string | null
   schedule_id: string | null
   pickup_date: string | null
+  preferred_pickup_time: string | null
   markets: { id: string; name: string; market_type: string; city: string; state: string } | null
 }
 
@@ -277,6 +278,7 @@ export async function POST(request: NextRequest) {
             market_id,
             schedule_id,
             pickup_date,
+            preferred_pickup_time,
             markets!market_id (
               id,
               name,
@@ -299,6 +301,7 @@ export async function POST(request: NextRequest) {
       marketType: string
       scheduleId: string | null
       pickupDate: string | null
+      preferredPickupTime: string | null
     }
     const cartItemPickupMap = new Map<string, PickupInfo>()
     for (const cartItem of cartItemsFromDB) {
@@ -309,7 +312,8 @@ export async function POST(request: NextRequest) {
           marketName: cartItem.markets.name,
           marketType: cartItem.markets.market_type,
           scheduleId: cartItem.schedule_id,
-          pickupDate: cartItem.pickup_date
+          pickupDate: cartItem.pickup_date,
+          preferredPickupTime: cartItem.preferred_pickup_time
         })
       }
     }
@@ -335,7 +339,8 @@ export async function POST(request: NextRequest) {
           marketName: 'Selected Location',
           marketType: 'unknown',
           scheduleId: item.scheduleId || null,
-          pickupDate: item.pickupDate || null
+          pickupDate: item.pickupDate || null,
+          preferredPickupTime: null
         })
       }
       if (item.marketId && !listingMarketMap.has(item.listingId)) {
@@ -498,6 +503,7 @@ export async function POST(request: NextRequest) {
         market_id: pickupInfo?.marketId || null,
         schedule_id: item.scheduleId || ('scheduleId' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).scheduleId : null),
         pickup_date: item.pickupDate || ('pickupDate' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).pickupDate : null),
+        preferred_pickup_time: (pickupInfo as PickupInfo)?.preferredPickupTime || null,
       }
     })
 
@@ -525,7 +531,11 @@ export async function POST(request: NextRequest) {
         return { ...item, pickup_snapshot: null }
       }
 
-      return { ...item, pickup_snapshot: snapshot }
+      // Append preferred_pickup_time to snapshot if present
+      const enrichedSnapshot = item.preferred_pickup_time && snapshot
+        ? { ...snapshot, preferred_pickup_time: item.preferred_pickup_time }
+        : snapshot
+      return { ...item, pickup_snapshot: enrichedSnapshot }
     })
 
     const orderItemsWithSnapshots = await Promise.all(pickupSnapshotPromises)

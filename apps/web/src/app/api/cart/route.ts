@@ -65,6 +65,7 @@ interface CartItemResult {
   market_id: string | null
   schedule_id: string | null
   pickup_date: string | null
+  preferred_pickup_time: string | null
   // Market box fields
   offering_id: string | null
   term_weeks: number | null
@@ -126,6 +127,7 @@ export async function GET(request: NextRequest) {
         market_id,
         schedule_id,
         pickup_date,
+        preferred_pickup_time,
         offering_id,
         term_weeks,
         start_date,
@@ -336,9 +338,14 @@ export async function GET(request: NextRequest) {
       }
 
       const schedule = item.market_schedules
+      // FT with time slot: show specific slot ("11:30 AM")
+      // FM / FT without slot: show full window ("9:00 AM - 2:00 PM")
+      const timeFormatted = item.preferred_pickup_time
+        ? formatTime12h(item.preferred_pickup_time)
+        : schedule ? `${formatTime12h(schedule.start_time)} - ${formatTime12h(schedule.end_time)}` : null
       const pickupDisplay = item.pickup_date ? {
         date_formatted: formatPickupDate(item.pickup_date),
-        time_formatted: schedule ? `${formatTime12h(schedule.start_time)} - ${formatTime12h(schedule.end_time)}` : null,
+        time_formatted: timeFormatted,
         day_name: schedule ? DAY_NAMES[schedule.day_of_week] : null
       } : null
 

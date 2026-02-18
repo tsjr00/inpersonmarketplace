@@ -82,6 +82,9 @@ export async function POST(request: NextRequest) {
         listing_id,
         quantity,
         market_id,
+        schedule_id,
+        pickup_date,
+        preferred_pickup_time,
         listings (
           id,
           title,
@@ -204,7 +207,10 @@ export async function POST(request: NextRequest) {
         subtotal_cents: itemSubtotal,
         platform_fee_cents: buyerFee, // For external, we track buyer fee here
         vendor_payout_cents: itemSubtotal, // Vendor gets full subtotal (we invoice fees later)
-        market_id: item.market_id
+        market_id: item.market_id,
+        schedule_id: item.schedule_id || null,
+        pickup_date: item.pickup_date || null,
+        preferred_pickup_time: item.preferred_pickup_time || null
       }
     })
 

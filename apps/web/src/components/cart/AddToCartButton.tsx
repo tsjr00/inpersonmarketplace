@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useCart } from '@/lib/hooks/useCart'
 import { useToast } from '@/lib/hooks/useToast'
 import {
@@ -13,6 +13,7 @@ import {
   getPickupDateColor
 } from '@/types/pickup'
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { generateTimeSlots, formatTimeSlot } from '@/lib/utils/time-slots'
 import { colors } from '@/lib/design-tokens'
 
 /*
@@ -40,6 +41,8 @@ interface PickupSelection {
   pickupDate: string
   marketId: string
   marketName: string
+  startTime?: string
+  endTime?: string
 }
 
 export function AddToCartButton({
@@ -57,6 +60,18 @@ export function AddToCartButton({
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPickup, setSelectedPickup] = useState<PickupSelection | null>(null)
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null)
+
+  // Generate 30-min time slots for food trucks when a date is selected
+  const timeSlots = useMemo(() => {
+    if (vertical !== 'food_trucks' || !selectedPickup?.startTime || !selectedPickup?.endTime) return []
+    return generateTimeSlots(selectedPickup.startTime, selectedPickup.endTime, selectedPickup.pickupDate)
+  }, [vertical, selectedPickup])
+
+  // Reset time slot when pickup selection changes
+  useEffect(() => {
+    setSelectedTimeSlot(null)
+  }, [selectedPickup])
 
   // Group dates by market for display
   const marketGroups = groupPickupDatesByMarket(availablePickupDates)
@@ -74,7 +89,9 @@ export function AddToCartButton({
         scheduleId: fullDate.schedule_id,
         pickupDate: fullDate.pickup_date,
         marketId: fullDate.market_id,
-        marketName: fullDate.market_name
+        marketName: fullDate.market_name,
+        startTime: fullDate.start_time,
+        endTime: fullDate.end_time
       })
     }
   }, [acceptingDates, selectedPickup])
@@ -97,6 +114,11 @@ export function AddToCartButton({
       return
     }
 
+    if (vertical === 'food_trucks' && !selectedTimeSlot) {
+      showToast('Please select a pickup time', 'warning')
+      return
+    }
+
     setAdding(true)
     setError(null)
 
@@ -106,10 +128,12 @@ export function AddToCartButton({
         quantity,
         selectedPickup.marketId,
         selectedPickup.scheduleId,
-        selectedPickup.pickupDate
+        selectedPickup.pickupDate,
+        vertical === 'food_trucks' ? selectedTimeSlot ?? undefined : undefined
       )
       const dateFormatted = formatPickupDate(selectedPickup.pickupDate)
-      showToast(`Added to cart! Pickup ${dateFormatted} at ${selectedPickup.marketName}`, 'success')
+      const timeStr = selectedTimeSlot ? ` at ${formatTimeSlot(selectedTimeSlot)}` : ''
+      showToast(`Added to cart! Pickup ${dateFormatted}${timeStr} at ${selectedPickup.marketName}`, 'success')
       setQuantity(1) // Reset quantity after adding
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add to cart'
@@ -133,7 +157,8 @@ export function AddToCartButton({
 
   const isSoldOut = maxQuantity !== null && maxQuantity !== undefined && maxQuantity <= 0
   const needsSelection = hasMultipleOptions && !selectedPickup
-  const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed || !hasAcceptingDates || needsSelection
+  const needsTimeSlot = vertical === 'food_trucks' && !!selectedPickup && !selectedTimeSlot
+  const isDisabled = adding || isSoldOut || availableToAdd <= 0 || ordersClosed || !hasAcceptingDates || needsSelection || needsTimeSlot
 
   // Handle date selection - works with both full AvailablePickupDate and PickupDateOption + market info
   const handleSelectDate = (
@@ -146,7 +171,9 @@ export function AddToCartButton({
       scheduleId: date.schedule_id,
       pickupDate: date.pickup_date,
       marketId,
-      marketName
+      marketName,
+      startTime: date.start_time,
+      endTime: date.end_time
     })
   }
 
@@ -398,6 +425,60 @@ export function AddToCartButton({
         </div>
       )}
 
+      {/* Time Slot Picker - Food trucks only, after date selection */}
+      {vertical === 'food_trucks' && selectedPickup && timeSlots.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#374151',
+            marginBottom: 6
+          }}>
+            <span style={{ color: primaryColor }}>✓</span>
+            Select a Pickup Time:
+          </label>
+          <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 6
+          }}>
+            {timeSlots.map(slot => {
+              const isSelected = selectedTimeSlot === slot
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  onClick={() => setSelectedTimeSlot(slot)}
+                  style={{
+                    padding: '8px 4px',
+                    border: isSelected
+                      ? `2px solid ${primaryColor}`
+                      : '1px solid #e5e7eb',
+                    borderRadius: 6,
+                    backgroundColor: isSelected ? colors.primaryLight : 'white',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: isSelected ? 600 : 400,
+                    color: '#374151',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4
+                  }}
+                >
+                  {isSelected && <span style={{ color: primaryColor, fontSize: 14 }}>✓</span>}
+                  {formatTimeSlot(slot)}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Quantity Selector */}
       {!isSoldOut && availableToAdd > 0 && hasAcceptingDates && (
         <div style={{
@@ -485,6 +566,8 @@ export function AddToCartButton({
           'Max in Cart'
         ) : needsSelection ? (
           'Select Pickup Date'
+        ) : needsTimeSlot ? (
+          'Select Pickup Time'
         ) : (
           <>
             <span style={{ fontSize: 20 }}>🛒</span>

@@ -64,7 +64,8 @@ interface CartContextType {
     quantity?: number,
     marketId?: string,
     scheduleId?: string,
-    pickupDate?: string
+    pickupDate?: string,
+    preferredPickupTime?: string
   ) => Promise<void>
   addMarketBoxToCart: (
     offeringId: string,
@@ -147,7 +148,8 @@ export function CartProvider({
     quantity: number = 1,
     marketId?: string,
     scheduleId?: string,
-    pickupDate?: string
+    pickupDate?: string,
+    preferredPickupTime?: string
   ) => {
     try {
       const res = await fetch('/api/cart/items', {
@@ -159,7 +161,8 @@ export function CartProvider({
           quantity,
           marketId,
           scheduleId,
-          pickupDate
+          pickupDate,
+          preferredPickupTime
         })
       })
 
