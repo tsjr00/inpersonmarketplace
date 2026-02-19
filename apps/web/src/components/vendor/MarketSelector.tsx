@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { colors } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 type Market = {
   id: string
@@ -347,13 +348,13 @@ export default function MarketSelector({
       {selectedMarketIds.length === 0 && (
         <div style={{
           padding: 12,
-          backgroundColor: '#fef3c7',
-          border: '1px solid #fcd34d',
+          backgroundColor: '#f5f5f5',
+          border: '1px solid #E53935',
           borderRadius: 8,
           fontSize: 14,
-          color: '#92400e'
+          color: '#4A4A4A'
         }}>
-          Please select at least one market for this listing
+          Please select at least one {term(vertical, 'market').toLowerCase()} for this listing
         </div>
       )}
 

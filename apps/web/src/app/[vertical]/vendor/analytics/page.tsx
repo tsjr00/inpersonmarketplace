@@ -396,6 +396,7 @@ export default function VendorAnalyticsPage() {
             value={dateRange}
             onChange={setDateRange}
             maxDays={maxDays}
+            customEnabled={!isFtVendor || vendorTier === 'pro' || vendorTier === 'boss'}
           />
           {isFtVendor && maxDays && maxDays < 90 && (
             <div style={{

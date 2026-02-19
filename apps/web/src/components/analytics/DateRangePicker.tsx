@@ -11,6 +11,7 @@ interface DateRangePickerProps {
   value: DateRange
   onChange: (range: DateRange) => void
   maxDays?: number
+  customEnabled?: boolean
 }
 
 type PresetOption = 'last7' | 'last30' | 'last90' | 'custom'
@@ -18,7 +19,8 @@ type PresetOption = 'last7' | 'last30' | 'last90' | 'custom'
 export default function DateRangePicker({
   value,
   onChange,
-  maxDays
+  maxDays,
+  customEnabled = true
 }: DateRangePickerProps) {
   const [showCustom, setShowCustom] = useState(false)
   const [customStart, setCustomStart] = useState(value.start.toISOString().split('T')[0])
@@ -86,14 +88,15 @@ export default function DateRangePicker({
     return d.toISOString().split('T')[0]
   }, [maxDays])
 
-  const buttonStyle = (isActive: boolean) => ({
+  const buttonStyle = (isActive: boolean, disabled?: boolean) => ({
     padding: '8px 16px',
     borderRadius: 6,
     border: 'none',
     fontSize: 14,
-    fontWeight: 500,
-    cursor: 'pointer',
-    backgroundColor: isActive ? '#2563eb' : '#f3f4f6',
+    fontWeight: 500 as const,
+    cursor: disabled ? 'not-allowed' as const : 'pointer' as const,
+    opacity: disabled ? 0.5 : 1,
+    backgroundColor: isActive ? 'var(--color-primary, #2563eb)' : '#f3f4f6',
     color: isActive ? 'white' : '#374151',
     transition: 'all 0.15s ease'
   })
@@ -109,7 +112,7 @@ export default function DateRangePicker({
         {(!maxDays || maxDays >= 7) && (
           <button
             onClick={() => handlePresetClick('last7')}
-            style={buttonStyle(activePreset === 'last7')}
+            style={buttonStyle(activePreset === 'last7' && !showCustom)}
           >
             Last 7 days
           </button>
@@ -117,7 +120,7 @@ export default function DateRangePicker({
         {(!maxDays || maxDays >= 30) && (
           <button
             onClick={() => handlePresetClick('last30')}
-            style={buttonStyle(activePreset === 'last30')}
+            style={buttonStyle(activePreset === 'last30' && !showCustom)}
           >
             Last 30 days
           </button>
@@ -125,14 +128,15 @@ export default function DateRangePicker({
         {(!maxDays || maxDays >= 90) && (
           <button
             onClick={() => handlePresetClick('last90')}
-            style={buttonStyle(activePreset === 'last90')}
+            style={buttonStyle(activePreset === 'last90' && !showCustom)}
           >
             Last 90 days
           </button>
         )}
         <button
-          onClick={() => handlePresetClick('custom')}
-          style={buttonStyle(activePreset === 'custom' || showCustom)}
+          onClick={() => customEnabled && handlePresetClick('custom')}
+          style={buttonStyle(showCustom, !customEnabled)}
+          title={!customEnabled ? 'Upgrade to Pro to use custom date ranges' : undefined}
         >
           Custom
         </button>
@@ -189,7 +193,7 @@ export default function DateRangePicker({
               padding: '8px 16px',
               borderRadius: 4,
               border: 'none',
-              backgroundColor: '#2563eb',
+              backgroundColor: 'var(--color-primary, #2563eb)',
               color: 'white',
               fontSize: 14,
               fontWeight: 500,

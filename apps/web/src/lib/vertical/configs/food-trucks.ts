@@ -57,7 +57,7 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     vendor_signup_cta: 'Apply to List Your Food Truck',
     my_listings_nav: 'My Menu',
     create_listing_cta: 'Add Menu Item',
-    vendor_dashboard_nav: 'Truck Dashboard',
+    vendor_dashboard_nav: 'Vendor Dashboard',
     suggest_market_cta: 'Suggest a Location',
 
     // Trust indicators

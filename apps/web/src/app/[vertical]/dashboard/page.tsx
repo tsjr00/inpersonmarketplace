@@ -827,73 +827,95 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               {/* Vendor Feedback Card */}
               <VendorFeedbackCard vertical={vertical} />
 
-              {/* Upgrade Prompt - Only show for standard vendors */}
-              {(!vendorProfile.tier || vendorProfile.tier === 'standard') && (
-                <div style={{
-                  padding: spacing.md,
-                  background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
-                  border: '2px solid #fcd34d',
-                  borderRadius: radius.md,
-                  boxShadow: shadows.md
-                }}>
+              {/* Upgrade Prompt - Show for non-premium vendors */}
+              {(() => {
+                const tier = vendorProfile.tier || (vertical === 'food_trucks' ? 'free' : 'standard')
+                const isFT = vertical === 'food_trucks'
+                const showUpgrade = isFT
+                  ? tier === 'free'
+                  : tier === 'standard'
+                if (!showUpgrade) return null
+                return (
                   <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing.xs,
-                    marginBottom: spacing.xs
+                    padding: spacing.md,
+                    background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
+                    border: '2px solid #fcd34d',
+                    borderRadius: radius.md,
+                    boxShadow: shadows.md
                   }}>
-                    <span style={{ fontSize: typography.sizes['2xl'] }}>🚀</span>
-                    <h3 style={{
-                      color: '#92400e',
-                      margin: 0,
-                      fontSize: typography.sizes.lg,
-                      fontWeight: typography.weights.bold
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.xs,
+                      marginBottom: spacing.xs
                     }}>
-                      Grow Your Business
-                    </h3>
+                      <span style={{ fontSize: typography.sizes['2xl'] }}>🚀</span>
+                      <h3 style={{
+                        color: '#92400e',
+                        margin: 0,
+                        fontSize: typography.sizes.lg,
+                        fontWeight: typography.weights.bold
+                      }}>
+                        Grow Your Business
+                      </h3>
+                    </div>
+
+                    <p style={{
+                      margin: `0 0 ${spacing.sm} 0`,
+                      fontSize: typography.sizes.sm,
+                      color: '#78350f',
+                      fontWeight: typography.weights.medium
+                    }}>
+                      {isFT
+                        ? <>Upgrade to Basic for just <strong>$10/month</strong></>
+                        : <>Upgrade to Premium for just <strong>$24.99/month</strong></>
+                      }
+                    </p>
+
+                    <ul style={{
+                      margin: `0 0 ${spacing.sm} 0`,
+                      paddingLeft: 20,
+                      fontSize: typography.sizes.sm,
+                      color: '#78350f',
+                      lineHeight: 1.6
+                    }}>
+                      {isFT ? (
+                        <>
+                          <li><strong>8 menu items</strong> (vs 4)</li>
+                          <li><strong>3 locations + 3 service locations</strong></li>
+                          <li><strong>{`2 active ${term(vertical, 'market_boxes')}`}</strong> with up to 10 subscribers each</li>
+                          <li><strong>30-day analytics</strong> & order insights</li>
+                        </>
+                      ) : (
+                        <>
+                          <li><strong>15 listings</strong> (vs 5)</li>
+                          <li><strong>4 markets + 5 private locations</strong></li>
+                          <li><strong>{`4 active ${term(vertical, 'market_boxes')}`}</strong> with up to 20 subscribers each</li>
+                          <li><strong>Priority placement</strong> in search & featured sections</li>
+                          <li><strong>Premium badge</strong> & advanced analytics</li>
+                        </>
+                      )}
+                    </ul>
+
+                    <Link
+                      href={`/${vertical}/vendor/dashboard/upgrade`}
+                      style={{
+                        display: 'inline-block',
+                        padding: `${spacing.xs} ${spacing.md}`,
+                        backgroundColor: '#d97706',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: radius.md,
+                        fontWeight: typography.weights.bold,
+                        fontSize: typography.sizes.base,
+                        boxShadow: shadows.sm
+                      }}
+                    >
+                      Upgrade Now
+                    </Link>
                   </div>
-
-                  <p style={{
-                    margin: `0 0 ${spacing.sm} 0`,
-                    fontSize: typography.sizes.sm,
-                    color: '#78350f',
-                    fontWeight: typography.weights.medium
-                  }}>
-                    Upgrade to Premium for just <strong>$24.99/month</strong>
-                  </p>
-
-                  <ul style={{
-                    margin: `0 0 ${spacing.sm} 0`,
-                    paddingLeft: 20,
-                    fontSize: typography.sizes.sm,
-                    color: '#78350f',
-                    lineHeight: 1.6
-                  }}>
-                    <li><strong>15 listings</strong> (vs 5)</li>
-                    <li><strong>4 markets + 5 private locations</strong></li>
-                    <li><strong>{`4 active ${term(vertical, 'market_boxes')}`}</strong> with up to 20 subscribers each</li>
-                    <li><strong>Priority placement</strong> in search & featured sections</li>
-                    <li><strong>Premium badge</strong> & advanced analytics</li>
-                  </ul>
-
-                  <Link
-                    href={`/${vertical}/vendor/dashboard/upgrade`}
-                    style={{
-                      display: 'inline-block',
-                      padding: `${spacing.xs} ${spacing.md}`,
-                      backgroundColor: '#d97706',
-                      color: 'white',
-                      textDecoration: 'none',
-                      borderRadius: radius.md,
-                      fontWeight: typography.weights.bold,
-                      fontSize: typography.sizes.base,
-                      boxShadow: shadows.sm
-                    }}
-                  >
-                    Upgrade Now
-                  </Link>
-                </div>
-              )}
+                )
+              })()}
 
               {/* Referral Card */}
               <ReferralCard vertical={vertical} />

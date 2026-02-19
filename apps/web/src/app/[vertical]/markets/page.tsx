@@ -210,12 +210,16 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
           margin: 0,
           fontSize: typography.sizes.base
         }}>
-          Discover local farmers markets and shop from vendors in your area
+          {vertical === 'food_trucks'
+            ? `Discover ${term(vertical, 'traditional_markets').toLowerCase()} and food trucks in your area`
+            : `Discover local ${term(vertical, 'traditional_markets').toLowerCase()} and shop from ${term(vertical, 'vendors').toLowerCase()} in your area`
+          }
         </p>
       </div>
 
       {/* Filters */}
       <MarketFilters
+        vertical={vertical}
         currentCity={city}
         currentSearch={search}
         currentState={state}

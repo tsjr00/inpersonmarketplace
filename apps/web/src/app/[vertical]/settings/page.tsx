@@ -184,21 +184,29 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
             <div>
               <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>Tier</p>
-              <span style={{
-                display: 'inline-block',
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                borderRadius: radius.sm,
-                fontSize: typography.sizes.sm,
-                textTransform: 'capitalize',
-                backgroundColor:
-                  vendorProfile.tier === 'premium' ? colors.surfaceSubtle :
-                  vendorProfile.tier === 'featured' ? colors.primaryLight : colors.surfaceMuted,
-                color:
-                  vendorProfile.tier === 'premium' ? colors.accent :
-                  vendorProfile.tier === 'featured' ? colors.primaryDark : colors.textSecondary
-              }}>
-                {vendorProfile.tier || 'standard'}
-              </span>
+              {(() => {
+                const t = vendorProfile.tier || (vertical === 'food_trucks' ? 'free' : 'standard')
+                const isFT = vertical === 'food_trucks'
+                const tierBg = isFT
+                  ? (t === 'boss' ? '#FFF3E0' : t === 'pro' ? '#E3F2FD' : t === 'basic' ? '#F1F8E9' : colors.surfaceMuted)
+                  : (t === 'premium' ? colors.surfaceSubtle : t === 'featured' ? colors.primaryLight : colors.surfaceMuted)
+                const tierColor = isFT
+                  ? (t === 'boss' ? '#E65100' : t === 'pro' ? '#1565C0' : t === 'basic' ? '#2E7D32' : colors.textSecondary)
+                  : (t === 'premium' ? colors.accent : t === 'featured' ? colors.primaryDark : colors.textSecondary)
+                return (
+                  <span style={{
+                    display: 'inline-block',
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.sm,
+                    textTransform: 'capitalize',
+                    backgroundColor: tierBg,
+                    color: tierColor
+                  }}>
+                    {t}
+                  </span>
+                )
+              })()}
             </div>
 
             <div>

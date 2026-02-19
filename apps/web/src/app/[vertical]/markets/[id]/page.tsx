@@ -303,9 +303,9 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 color: colors.textSecondary,
                 margin: `0 0 ${spacing['2xs']} 0`
               }}>
-                Market Hours
+                {term(vertical, 'market_hours')}
               </h3>
-              <ScheduleDisplay schedules={market.market_schedules} />
+              <ScheduleDisplay schedules={market.market_schedules} grid />
             </div>
           )}
 
@@ -403,9 +403,9 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
         {/* Legal Disclaimer */}
         <div style={{
           padding: spacing.sm,
-          backgroundColor: colors.surfaceSubtle,
+          backgroundColor: '#f5f5f5',
           borderRadius: radius.md,
-          border: `1px solid ${colors.borderMuted}`,
+          border: '1px solid #e0e0e0',
           marginBottom: spacing.md
         }}>
           <p style={{
@@ -415,7 +415,10 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             textAlign: 'center',
             lineHeight: typography.leading.relaxed
           }}>
-            This market is listed as a pickup location by the vendors shown below. This platform is not affiliated with the market management.
+            {vertical === 'food_trucks'
+              ? `This location is listed as a pickup spot by the food trucks shown below. This platform is not affiliated with the ${term(vertical, 'traditional_market').toLowerCase()} management or property owners.`
+              : 'This market is listed as a pickup location by the vendors shown below. This platform is not affiliated with the market management.'
+            }
           </p>
         </div>
 
@@ -433,7 +436,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             fontSize: typography.sizes.xl,
             fontWeight: typography.weights.semibold
           }}>
-            Vendors at {market.name}
+            {term(vertical, 'vendors')} at {market.name}
           </h2>
 
           <MarketVendorsList

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { defaultBranding, VerticalBranding } from "@/lib/branding";
 import { getMarketLimit } from "@/lib/constants";
 import { colors, spacing, typography, radius, shadows } from "@/lib/design-tokens";
+import { term } from "@/lib/vertical";
 
 type Field = {
   key: string;
@@ -396,7 +397,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         </nav>
         <main style={mainStyle}>
           <div style={cardStyle}>
-            <h1 style={headingStyle}>Market Limit Reached</h1>
+            <h1 style={headingStyle}>{term(vertical, 'market')} Limit Reached</h1>
             <div style={{
               marginTop: spacing.md,
               padding: spacing.md,
@@ -405,10 +406,14 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
               borderRadius: radius.md,
             }}>
               <p style={{ marginTop: 0, fontWeight: typography.weights.semibold, fontSize: typography.sizes.base, color: colors.textPrimary }}>
-                You&apos;re already registered at {marketLimitInfo.marketCount} market{marketLimitInfo.marketCount > 1 ? 's' : ''}.
+                You&apos;re already registered at {marketLimitInfo.marketCount} {term(vertical, 'market').toLowerCase()}{marketLimitInfo.marketCount > 1 ? 's' : ''}.
               </p>
               <p style={{ marginBottom: 0, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
-                {marketLimitInfo.tier === 'standard' ? (
+                {vertical === 'food_trucks' ? (
+                  <>
+                    Upgrade your plan to join additional {term(vertical, 'markets').toLowerCase()}.
+                  </>
+                ) : marketLimitInfo.tier === 'standard' ? (
                   <>
                     Standard vendors can participate in 1 traditional market.
                     <br /><br />
@@ -732,6 +737,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                         pattern="[0-9]{3}-?[0-9]{3}-?[0-9]{4}"
                         title="Phone number format: 555-555-5555 or 5555555555"
                         placeholder="555-555-5555"
+                        maxLength={12}
                         style={inputStyle}
                       />
                     </div>
@@ -787,7 +793,10 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                   style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
                 />
                 <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
-                  <strong style={{ color: colors.textPrimary }}>Locally Produced Products:</strong> I understand this platform is designed exclusively for locally produced products. My products are handmade, homemade, home-grown, or personally crafted by me or my business. I am not reselling mass-produced retail items that customers could purchase elsewhere. This is not a flea market or general resale platform.
+                  <strong style={{ color: colors.textPrimary }}>{vertical === 'food_trucks' ? 'Freshly Prepared Food:' : 'Locally Produced Products:'}</strong> {vertical === 'food_trucks'
+                    ? 'I understand this platform is designed for food trucks and mobile food vendors who prepare food fresh. My menu items are prepared by me or my business. I am not reselling pre-packaged retail food that customers could purchase elsewhere.'
+                    : 'I understand this platform is designed exclusively for locally produced products. My products are handmade, homemade, home-grown, or personally crafted by me or my business. I am not reselling mass-produced retail items that customers could purchase elsewhere. This is not a flea market or general resale platform.'
+                  }
                 </span>
               </label>
 

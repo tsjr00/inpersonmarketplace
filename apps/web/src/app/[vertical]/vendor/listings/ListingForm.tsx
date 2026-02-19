@@ -224,7 +224,7 @@ export default function ListingForm({
 
     // Validate market selection (required for all listings)
     if (selectedMarketIds.length === 0 && hasMarkets) {
-      setError('Please select at least one market for this listing')
+      setError(`Please select at least one ${term(vertical, 'market').toLowerCase()} for this listing`)
       setLoading(false)
       return
     }

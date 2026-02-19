@@ -3,8 +3,10 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useCallback } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface MarketFiltersProps {
+  vertical?: string
   currentCity?: string
   currentSearch?: string
   currentState?: string
@@ -13,6 +15,7 @@ interface MarketFiltersProps {
 }
 
 export default function MarketFilters({
+  vertical,
   currentCity,
   currentSearch,
   currentState,
@@ -84,7 +87,7 @@ export default function MarketFilters({
             fontWeight: typography.weights.medium,
             color: colors.textSecondary
           }}>
-            Search Markets
+            Search {vertical ? term(vertical, 'traditional_markets') : 'Markets'}
           </label>
           <div style={{ display: 'flex', gap: spacing.xs }}>
             <input

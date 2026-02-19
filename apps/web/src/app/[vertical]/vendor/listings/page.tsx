@@ -5,9 +5,10 @@ import Link from 'next/link'
 import PublishButton from './PublishButton'
 import DeleteListingButton from './DeleteListingButton'
 import ListingShareButton from './ListingShareButton'
-import { formatPrice, getListingLimit, LOW_STOCK_THRESHOLD } from '@/lib/constants'
+import { formatPrice, LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { getTierLimits } from '@/lib/vendor-limits'
 import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 
 interface ListingsPageProps {
@@ -220,11 +221,11 @@ function ListingCutoffStatusBadge({
       alignItems: 'center',
       gap: spacing['3xs'],
       padding: `${spacing['3xs']} ${spacing['2xs']}`,
-      backgroundColor: colors.primaryLight,
-      border: `1px solid ${colors.primary}`,
+      backgroundColor: '#dcfce7',
+      border: '1px solid #86efac',
       borderRadius: radius.sm,
       fontSize: typography.sizes.xs,
-      color: colors.primaryDark,
+      color: '#166534',
       marginBottom: spacing['2xs']
     }}>
       <span>✓</span>
@@ -312,8 +313,8 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
   }
 
   // Calculate listing count and limit (use all listings for limit calculation)
-  const tier = (vendorProfile as Record<string, unknown>).tier as string || 'standard'
-  const limit = getListingLimit(tier)
+  const tier = (vendorProfile as Record<string, unknown>).tier as string || (vertical === 'food_trucks' ? 'free' : 'standard')
+  const limit = getTierLimits(tier, vertical).productListings
   const listingCount = allListings?.length || 0
   const canCreateMore = listingCount < limit
 
@@ -498,12 +499,12 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                     fontSize: typography.sizes.xs,
                     fontWeight: typography.weights.semibold,
                     backgroundColor:
-                      listing.status === 'published' ? colors.primaryLight :
+                      listing.status === 'published' ? '#dcfce7' :
                       listing.status === 'draft' ? colors.surfaceMuted :
                       listing.status === 'paused' ? colors.surfaceSubtle :
                       listing.status === 'archived' ? '#f8d7da' : colors.surfaceMuted,
                     color:
-                      listing.status === 'published' ? colors.primaryDark :
+                      listing.status === 'published' ? '#166534' :
                       listing.status === 'draft' ? colors.textMuted :
                       listing.status === 'paused' ? colors.accent :
                       listing.status === 'archived' ? '#721c24' : colors.textMuted
@@ -599,8 +600,9 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                       alignItems: 'center',
                       justifyContent: 'center',
                       padding: `${spacing['2xs']} ${spacing.xs}`,
-                      backgroundColor: colors.primary,
-                      color: colors.textInverse,
+                      backgroundColor: 'transparent',
+                      color: '#4A4A4A',
+                      border: '1.5px solid #9E9E9E',
                       textDecoration: 'none',
                       borderRadius: radius.sm,
                       fontSize: typography.sizes.sm,

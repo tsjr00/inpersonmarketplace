@@ -11,6 +11,7 @@ interface Schedule {
 interface ScheduleDisplayProps {
   schedules: Schedule[]
   compact?: boolean
+  grid?: boolean
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -24,7 +25,7 @@ function formatTime(time: string): string {
   return `${hour12}:${minutes} ${ampm}`
 }
 
-export default function ScheduleDisplay({ schedules, compact = false }: ScheduleDisplayProps) {
+export default function ScheduleDisplay({ schedules, compact = false, grid = false }: ScheduleDisplayProps) {
   const activeSchedules = schedules.filter(s => s.active)
 
   if (activeSchedules.length === 0) {
@@ -37,6 +38,47 @@ export default function ScheduleDisplay({ schedules, compact = false }: Schedule
 
   // Sort by day of week
   const sortedSchedules = [...activeSchedules].sort((a, b) => a.day_of_week - b.day_of_week)
+
+  // Grid mode: days across top, times beneath
+  if (grid) {
+    const scheduleByDay = new Map<number, Schedule>()
+    sortedSchedules.forEach(s => scheduleByDay.set(s.day_of_week, s))
+
+    return (
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${sortedSchedules.length}, 1fr)`,
+        gap: 4,
+        textAlign: 'center',
+      }}>
+        {/* Day headers */}
+        {sortedSchedules.map(s => (
+          <div key={`day-${s.day_of_week}`} style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: '#212121',
+            padding: '4px 2px',
+            borderBottom: '1px solid #e0e0e0',
+          }}>
+            {DAY_NAMES_SHORT[s.day_of_week]}
+          </div>
+        ))}
+        {/* Time values */}
+        {sortedSchedules.map(s => (
+          <div key={`time-${s.day_of_week}`} style={{
+            fontSize: 11,
+            color: '#616161',
+            padding: '4px 2px',
+            lineHeight: 1.4,
+          }}>
+            {formatTime(s.start_time)}
+            <br />
+            {formatTime(s.end_time)}
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   if (compact) {
     // Group schedules with same time

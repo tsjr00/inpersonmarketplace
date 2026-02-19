@@ -634,7 +634,7 @@ export default function VendorMarketsPage() {
                             fontSize: 12,
                             fontWeight: 600
                           }}>
-                            🏠 Home Market
+                            🏠 {vertical === 'food_trucks' ? 'Home Park' : 'Home Market'}
                           </span>
                         )}
                       </div>
@@ -693,7 +693,7 @@ export default function VendorMarketsPage() {
                           cursor: changingHomeMarket ? 'not-allowed' : 'pointer'
                         }}
                       >
-                        {changingHomeMarket ? 'Changing...' : 'Set as Home Market'}
+                        {changingHomeMarket ? 'Changing...' : (vertical === 'food_trucks' ? 'Set as Home Park' : 'Set as Home Market')}
                       </button>
                     )}
                   </div>
@@ -807,7 +807,7 @@ export default function VendorMarketsPage() {
                   cursor: 'pointer'
                 }}
               >
-                Suggest a Market
+                {term(vertical, 'suggest_market_cta')}
               </button>
             )}
           </div>
@@ -848,13 +848,13 @@ export default function VendorMarketsPage() {
               }}
             >
               <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600 }}>
-                New Market Suggestion
+                New {term(vertical, 'market')} Suggestion
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                    Market Name *
+                    {term(vertical, 'market')} Name *
                   </label>
                   <input
                     type="text"
@@ -1395,7 +1395,7 @@ export default function VendorMarketsPage() {
                   cursor: 'pointer'
                 }}
               >
-                Add Pickup Location
+                Add {term(vertical, 'private_pickup')}
               </button>
             )}
             {!showForm && limits && !limits.canAddPrivatePickup && (
@@ -1412,7 +1412,7 @@ export default function VendorMarketsPage() {
                 }}
                 title="Upgrade to add more pickup locations"
               >
-                Add Pickup Location (Limit Reached)
+                Add {term(vertical, 'private_pickup')} (Limit Reached)
               </button>
             )}
           </div>

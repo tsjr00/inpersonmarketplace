@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 type FeedbackCategory = 'suggest_market' | 'technical_problem' | 'feature_request' | 'vendor_concern' | 'general_feedback'
 
@@ -11,40 +12,43 @@ interface ShopperFeedbackFormProps {
   onSuccess?: () => void
 }
 
-const CATEGORIES: { value: FeedbackCategory; label: string; description: string; icon: string }[] = [
-  {
-    value: 'suggest_market',
-    label: 'Suggest a Market',
-    description: 'Tell us about a farmers market you shop at that isn\'t on our platform yet',
-    icon: '🏪'
-  },
-  {
-    value: 'technical_problem',
-    label: 'Report a Technical Problem',
-    description: 'Something not working right? Let us know so we can fix it',
-    icon: '🔧'
-  },
-  {
-    value: 'feature_request',
-    label: 'Request a Feature',
-    description: 'Have an idea that would make shopping easier? We\'d love to hear it',
-    icon: '💡'
-  },
-  {
-    value: 'vendor_concern',
-    label: 'Report a Vendor Concern',
-    description: 'Issues with vendor communication, product quality, or other concerns',
-    icon: '⚠️'
-  },
-  {
-    value: 'general_feedback',
-    label: 'General Feedback',
-    description: 'Anything else you\'d like to share with us',
-    icon: '💬'
-  }
-]
+function getCategories(vertical: string): { value: FeedbackCategory; label: string; description: string; icon: string }[] {
+  return [
+    {
+      value: 'suggest_market',
+      label: `Suggest a ${term(vertical, 'market')}`,
+      description: `Tell us about a ${term(vertical, 'traditional_market').toLowerCase()} you visit that isn't on our platform yet`,
+      icon: vertical === 'food_trucks' ? '📍' : '🏪'
+    },
+    {
+      value: 'technical_problem',
+      label: 'Report a Technical Problem',
+      description: 'Something not working right? Let us know so we can fix it',
+      icon: '🔧'
+    },
+    {
+      value: 'feature_request',
+      label: 'Request a Feature',
+      description: 'Have an idea that would make shopping easier? We\'d love to hear it',
+      icon: '💡'
+    },
+    {
+      value: 'vendor_concern',
+      label: `Report a ${term(vertical, 'vendor')} Concern`,
+      description: `Issues with ${term(vertical, 'vendor').toLowerCase()} communication, product quality, or other concerns`,
+      icon: '⚠️'
+    },
+    {
+      value: 'general_feedback',
+      label: 'General Feedback',
+      description: 'Anything else you\'d like to share with us',
+      icon: '💬'
+    }
+  ]
+}
 
 export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: ShopperFeedbackFormProps) {
+  const categories = getCategories(vertical)
   const [category, setCategory] = useState<FeedbackCategory | ''>('')
   const [message, setMessage] = useState('')
   const [marketName, setMarketName] = useState('')
@@ -209,7 +213,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
                 <strong>Refunds:</strong> All payments are processed through Stripe. For refunds or payment disputes, please contact the vendor directly. We cannot process refunds on behalf of vendors.
               </li>
               <li style={{ marginBottom: spacing.xs }}>
-                <strong>Market Policies:</strong> We are not affiliated with farmers market management. Questions about market rules, vendor booth assignments, or local policies should be directed to the market organizers.
+                <strong>{term(vertical, 'market')} Policies:</strong> We are not affiliated with {term(vertical, 'traditional_market').toLowerCase()} management. Questions about location rules, {vertical === 'food_trucks' ? 'parking assignments' : 'vendor booth assignments'}, or local policies should be directed to the {vertical === 'food_trucks' ? 'location' : 'market'} organizers.
               </li>
               <li>
                 <strong>Response Time:</strong> We review all feedback but may not be able to respond individually. Your input helps us prioritize improvements.
@@ -243,7 +247,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               What would you like to share? *
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-              {CATEGORIES.map(cat => (
+              {categories.map(cat => (
                 <label
                   key={cat.value}
                   style={{
@@ -290,18 +294,18 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               marginBottom: spacing.lg
             }}>
               <h4 style={{ margin: `0 0 ${spacing.md} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.primaryDark }}>
-                Market Details
+                {term(vertical, 'market')} Details
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                 <div>
                   <label style={{ display: 'block', fontSize: typography.sizes.sm, fontWeight: typography.weights.medium, marginBottom: spacing['3xs'] }}>
-                    Market Name *
+                    {term(vertical, 'market')} Name *
                   </label>
                   <input
                     type="text"
                     value={marketName}
                     onChange={(e) => setMarketName(e.target.value)}
-                    placeholder="e.g., Downtown Saturday Farmers Market"
+                    placeholder={vertical === 'food_trucks' ? 'e.g., Central Park Food Truck Lot, Friday Night Trucks' : 'e.g., Downtown Saturday Farmers Market'}
                     required
                     style={{
                       width: '100%',
