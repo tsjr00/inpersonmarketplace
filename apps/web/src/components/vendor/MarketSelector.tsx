@@ -349,7 +349,7 @@ export default function MarketSelector({
         <div style={{
           padding: 12,
           backgroundColor: '#f5f5f5',
-          border: '1px solid #E53935',
+          border: '1px solid #ff3131',
           borderRadius: 8,
           fontSize: 14,
           color: '#4A4A4A'

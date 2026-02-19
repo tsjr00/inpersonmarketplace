@@ -241,7 +241,7 @@ export default function VendorAnalyticsPage() {
             style={{
               display: 'inline-block',
               padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: '#E53935',
+              backgroundColor: '#ff3131',
               color: 'white',
               textDecoration: 'none',
               borderRadius: radius.md,
@@ -418,7 +418,7 @@ export default function VendorAnalyticsPage() {
                 style={{
                   fontSize: typography.sizes.sm,
                   fontWeight: typography.weights.semibold,
-                  color: '#E53935',
+                  color: '#ff3131',
                   textDecoration: 'none'
                 }}
               >

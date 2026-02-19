@@ -42,9 +42,9 @@ function FtTierManager({ vertical, currentTier }: { vertical: string; currentTie
   const label = getFtTierLabel(tier)
 
   const tierColors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
-    basic:  { bg: '#f9fafb', border: '#e5e7eb', text: '#374151', badge: '#6b7280' },
-    pro:    { bg: '#fef2f2', border: '#E53935', text: '#991b1b', badge: '#E53935' },
-    boss:   { bg: '#fef2f2', border: '#b71c1c', text: '#7f1d1d', badge: '#b71c1c' },
+    basic:  { bg: '#f9fafb', border: '#e5e7eb', text: '#545454', badge: '#737373' },
+    pro:    { bg: '#fff5f5', border: '#ff8f8f', text: '#545454', badge: '#ff3131' },
+    boss:   { bg: '#fffbeb', border: '#ffd54f', text: '#545454', badge: '#545454' },
   }
   const c = tierColors[tier] || tierColors.basic
 
@@ -84,7 +84,7 @@ function FtTierManager({ vertical, currentTier }: { vertical: string; currentTie
             style={{
               display: 'inline-block',
               padding: '10px 20px',
-              backgroundColor: '#E53935',
+              backgroundColor: '#ff3131',
               color: 'white',
               textDecoration: 'none',
               borderRadius: 6,

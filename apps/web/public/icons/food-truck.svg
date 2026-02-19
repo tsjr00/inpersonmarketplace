@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 320" fill="currentColor">
+  <!-- Truck body -->
+  <path d="M20 40 h300 v200 h-300 z" fill="none" stroke="currentColor" stroke-width="16"/>
+  <!-- Cab -->
+  <path d="M320 100 h100 q40 0 52 40 l20 60 v40 h-172 v-140z" fill="none" stroke="currentColor" stroke-width="16"/>
+  <!-- Service window -->
+  <rect x="50" y="110" width="240" height="60" rx="4" fill="none" stroke="currentColor" stroke-width="14"/>
+  <!-- Awning top -->
+  <path d="M20 40 h300 v50 h-300 z" fill="none" stroke="currentColor" stroke-width="12"/>
+  <!-- Awning stripes -->
+  <line x1="80" y1="40" x2="50" y2="90" stroke="currentColor" stroke-width="10"/>
+  <line x1="150" y1="40" x2="120" y2="90" stroke="currentColor" stroke-width="10"/>
+  <line x1="220" y1="40" x2="190" y2="90" stroke="currentColor" stroke-width="10"/>
+  <line x1="290" y1="40" x2="260" y2="90" stroke="currentColor" stroke-width="10"/>
+  <!-- Cab windshield -->
+  <path d="M340 110 h70 q20 0 28 20 l12 36 h-110 z" fill="none" stroke="currentColor" stroke-width="10"/>
+  <!-- Wheels -->
+  <circle cx="120" cy="260" r="36" fill="none" stroke="currentColor" stroke-width="16"/>
+  <circle cx="120" cy="260" r="12" fill="currentColor"/>
+  <circle cx="400" cy="260" r="36" fill="none" stroke="currentColor" stroke-width="16"/>
+  <circle cx="400" cy="260" r="12" fill="currentColor"/>
+  <!-- Ground line / bumper -->
+  <line x1="60" y1="240" x2="180" y2="240" stroke="currentColor" stroke-width="12" opacity="0"/>
+</svg>

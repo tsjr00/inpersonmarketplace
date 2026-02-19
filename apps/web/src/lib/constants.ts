@@ -105,16 +105,16 @@ export const TIER_BADGES = {
   pro: {
     label: 'Pro',
     icon: '🔥',
-    color: '#E53935',
-    bgColor: '#FFEBEE',
-    borderColor: '#EF9A9A'
+    color: '#ff3131',
+    bgColor: '#fff5f5',
+    borderColor: '#ff8f8f'
   },
   boss: {
     label: 'Boss',
     icon: '👑',
-    color: '#b71c1c',
-    bgColor: '#FFCDD2',
-    borderColor: '#E57373'
+    color: '#545454',
+    bgColor: '#ffe38f',
+    borderColor: '#ffd54f'
   }
 } as const
 

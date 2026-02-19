@@ -123,31 +123,31 @@ const verticalColorPalettes: Record<string, typeof colors> = {
     borderMuted: '#F0EDE8',
   },
   food_trucks: {
-    // Primary Colors (Red — from Food Truck'n logo)
-    primary: '#E53935',           // True red from logo truck + border
-    primaryDark: '#C62828',       // Darker red — hover states, emphasis
-    primaryLight: '#FFEBEE',      // Very light pink — subtle backgrounds
+    // Primary Colors (Charcoal — Approach A: grey-dominant UI, red as accent only)
+    primary: '#545454',           // Dark charcoal — nav, headers, buttons (brand kit)
+    primaryDark: '#3d3d3d',       // Darker charcoal — hover states, emphasis
+    primaryLight: '#f0f0f0',      // Light grey — subtle backgrounds
 
-    // Accent Colors
-    accent: '#FF8F00',            // Warm amber — food warmth highlights
-    accentMuted: '#B0BEC5',       // Cool gray — secondary accents, icons
+    // Accent Colors (Red — brand identity, used sparingly + semantic)
+    accent: '#ff3131',            // Brand red — accent highlights, CTAs, danger/error
+    accentMuted: '#b4b4b4',      // Light grey (brand kit) — secondary accents
 
-    // Surface Colors
-    surfaceBase: '#FAFAFA',       // Clean near-white
-    surfaceElevated: '#FFFFFF',   // Pure white — cards
-    surfaceSubtle: '#FFF3E0',     // Light amber — warm subtle sections
-    surfaceMuted: '#F5F5F5',      // Light gray — alternate sections
+    // Surface Colors (White-dominant — clean and classic)
+    surfaceBase: '#ffffff',       // White — page background
+    surfaceElevated: '#ffffff',   // White — cards
+    surfaceSubtle: '#f5f5f5',     // Very light grey — alternate sections
+    surfaceMuted: '#f0f0f0',      // Light grey — muted sections
 
-    // Text Colors (Near-black — per "black for text" requirement)
-    textPrimary: '#212121',       // Near-black — headings
-    textSecondary: '#4A4A4A',     // Charcoal from logo — body text
-    textMuted: '#9E9E9E',         // Medium gray — captions, hints
+    // Text Colors (Brand kit charcoal/grey scale)
+    textPrimary: '#545454',       // Charcoal — headings (brand kit)
+    textSecondary: '#737373',     // Medium grey — body text (brand kit)
+    textMuted: '#b4b4b4',        // Light grey — captions, hints (brand kit)
     textInverse: '#FFFFFF',
     textInverseMuted: 'rgba(255, 255, 255, 0.85)',
 
     // Border Colors
-    border: '#E0E0E0',
-    borderMuted: '#EEEEEE',
+    border: '#e0e0e0',
+    borderMuted: '#eeeeee',
   },
 }
 
@@ -166,8 +166,8 @@ const verticalShadowPalettes: Record<string, typeof shadows> = {
     md: '0 4px 6px rgba(0, 0, 0, 0.07)',
     lg: '0 10px 15px rgba(0, 0, 0, 0.1)',
     xl: '0 20px 25px rgba(0, 0, 0, 0.1)',
-    primary: '0 4px 12px rgba(229, 57, 53, 0.3)',
-    primaryHover: '0 6px 16px rgba(229, 57, 53, 0.4)',
+    primary: '0 4px 12px rgba(84, 84, 84, 0.25)',
+    primaryHover: '0 6px 16px rgba(84, 84, 84, 0.35)',
   },
 }
 

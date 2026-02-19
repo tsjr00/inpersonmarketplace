@@ -188,10 +188,10 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
                 const t = vendorProfile.tier || (vertical === 'food_trucks' ? 'free' : 'standard')
                 const isFT = vertical === 'food_trucks'
                 const tierBg = isFT
-                  ? (t === 'boss' ? '#FFF3E0' : t === 'pro' ? '#E3F2FD' : t === 'basic' ? '#F1F8E9' : colors.surfaceMuted)
+                  ? (t === 'boss' ? '#fffbeb' : t === 'pro' ? '#fff5f5' : t === 'basic' ? '#f9fafb' : colors.surfaceMuted)
                   : (t === 'premium' ? colors.surfaceSubtle : t === 'featured' ? colors.primaryLight : colors.surfaceMuted)
                 const tierColor = isFT
-                  ? (t === 'boss' ? '#E65100' : t === 'pro' ? '#1565C0' : t === 'basic' ? '#2E7D32' : colors.textSecondary)
+                  ? (t === 'boss' ? '#545454' : t === 'pro' ? '#ff3131' : t === 'basic' ? '#737373' : colors.textSecondary)
                   : (t === 'premium' ? colors.accent : t === 'featured' ? colors.primaryDark : colors.textSecondary)
                 return (
                   <span style={{
