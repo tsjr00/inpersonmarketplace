@@ -2,29 +2,29 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-02-19 (Session 33)
 
 ---
 
 ## What This App Is
 
-InPersonMarketplace is a **multi-vertical marketplace platform** for in-person transactions. Think of it as infrastructure that can power different types of local marketplaces:
+InPersonMarketplace is a **multi-vertical marketplace platform** for in-person transactions. Each vertical is a separate branded marketplace sharing the same codebase:
 
-- **Farmers Markets** (primary vertical, most developed)
-- **Fireworks stands** (seasonal)
-- **Other local commerce** (future)
+| Vertical | Slug | Domain | Status |
+|----------|------|--------|--------|
+| **Food Trucks** | `food_trucks` | foodtruckn.app | **Primary focus** — shipping first |
+| **Farmers Markets** | `farmers_market` | farmersmarketing.app | Beta testing in parallel |
+| **Fireworks** | `fire_works` | fireworksstand.com | Seasonal, minimal work |
 
 ### Core Value Proposition
 
-1. **For Vendors:** Accept pre-orders online, know what to bring to market, get paid digitally
+1. **For Vendors:** Accept pre-orders online, manage inventory, get paid digitally
 2. **For Buyers:** Browse local products, pre-order for pickup, discover vendors near them
 3. **For Market Organizers:** Manage vendor applications, schedules, and market operations
 
 ### Key Differentiator
 
-This is NOT a delivery app. Everything is **in-person pickup** at:
-- Traditional farmers markets (fixed schedule, public location)
-- Private pickup locations (vendor's farm, home, etc.)
+This is NOT a delivery app. Everything is **in-person pickup** at markets/parks/locations.
 
 ---
 
@@ -38,44 +38,97 @@ This is NOT a delivery app. Everything is **in-person pickup** at:
 - **Payments:** Stripe Connect (vendors have own Stripe accounts)
 - **Storage:** Supabase Storage (images)
 - **Hosting:** Vercel
+- **Email:** Resend (`mail.farmersmarketing.app`)
+- **SMS:** Twilio (A2P 10DLC pending carrier approval)
+- **Push:** Web Push API with VAPID keys
+- **PWA:** Progressive Web App with service worker, installable from browser
 
 ### Project Structure
 ```
 inpersonmarketplace/
 ├── apps/web/                 # Next.js application
 │   ├── src/app/             # App router pages
-│   │   ├── [vertical]/      # Dynamic vertical routes (farmers_market, fireworks)
+│   │   ├── [vertical]/      # Dynamic vertical routes
 │   │   ├── admin/           # Platform admin pages
 │   │   └── api/             # API routes
 │   ├── src/components/      # React components
 │   ├── src/lib/             # Utilities, hooks, helpers
-│   └── ...
+│   │   ├── vertical/        # Terminology system + vertical configs
+│   │   ├── branding/        # Per-vertical branding (colors, logos, meta)
+│   │   ├── notifications/   # 4-channel notification system
+│   │   ├── stripe/          # Stripe Connect helpers
+│   │   ├── design-tokens.ts # CSS var-based theming per vertical
+│   │   ├── pricing.ts       # Fee calculations (single source of truth)
+│   │   ├── vendor-limits.ts # Tier limits per vertical
+│   │   └── constants.ts     # Re-exports pricing + tier badge configs
+│   └── public/              # Static assets, logos, icons
 ├── supabase/
 │   ├── migrations/          # Database migrations (SQL)
-│   └── SCHEMA_SNAPSHOT.md   # Current DB schema (SOURCE OF TRUTH)
-├── config/verticals/        # Vertical configurations (JSON)
-├── docs/                    # Documentation
-└── CLAUDE.md               # Rules for Claude (READ THIS FIRST)
+│   ├── migrations/applied/  # Confirmed applied to Dev + Staging
+│   ├── SCHEMA_SNAPSHOT.md   # Current DB schema (SOURCE OF TRUTH)
+│   ├── REFRESH_SCHEMA.sql   # SQL to regenerate schema snapshot
+│   └── MIGRATION_LOG.md     # Migration tracking log
+├── CLAUDE.md                # Rules for Claude (READ THIS FIRST)
+└── CLAUDE_CONTEXT.md        # This file
 ```
-
-### The Vertical System
-
-The app is "vertical-agnostic" - configuration files define how each marketplace works:
-
-```
-config/verticals/farmers_market.json
-config/verticals/fireworks.json
-```
-
-These control: listing fields, vendor fields, categories, colors, features, etc.
-
-Routes use `[vertical]` dynamic segment:
-- `/farmers_market/browse` → Farmers market browse page
-- `/fireworks/browse` → Fireworks browse page
 
 ---
 
-## Key Concepts You Must Understand
+## Multi-Vertical System
+
+### Terminology System (`term()`)
+
+`src/lib/vertical/index.ts` exports `term(vertical, key)` which maps generic keys to vertical-specific strings:
+
+| Key | Farmers Market | Food Trucks |
+|-----|---------------|-------------|
+| `market` | Market | Location |
+| `markets` | Markets | Locations |
+| `vendor` | Vendor | Vendor |
+| `market_box` | Market Box | Chef Box |
+| `market_boxes` | Market Boxes | Chef Boxes |
+| `market_icon_emoji` | 🛒 | 🚚 |
+
+**Gotcha:** `term()` falls back to `farmers_market` for unknown verticals. Do NOT use for branding fallbacks — use lookup objects instead.
+
+### Design Token Theming
+
+`src/lib/design-tokens.ts` provides a CSS variable-based theming system:
+
+- **`colors`** export uses `var(--color-primary, #8BC34A)` references — FM defaults as fallback
+- **`getVerticalColors(vertical)`** returns actual hex palettes (for landing pages, hex+alpha cases)
+- **`getVerticalCSSVars(vertical)`** returns CSS var overrides as inline style object
+- **`[vertical]/layout.tsx`** injects CSS vars on a wrapper div, covering the full viewport
+
+**Food Truck color hierarchy (Brand Kit v2):**
+- `#ff5757` (medium red) — headers, links, brand primary
+- `#ff3131` (bright red) — hover states, CTAs, emphasis
+- `#545454` (charcoal) — sub-headers, labels
+- `#1a1a1a` (near-black) — paragraph text
+- `#737373` (medium grey) — captions, hints, secondary buttons
+- `#ffffff` — page backgrounds (white, not cream)
+- Semantic: green (#73d8a1) success, yellow (#ffe38f) warning, red (#ff3131) danger
+
+**Button style:** Outlined (transparent bg, colored border) — red `#ff5757` for primary, grey `#737373` for secondary. NOT filled.
+
+### Branding
+
+`src/lib/branding/defaults.ts` has per-vertical branding (domain, brand_name, tagline, logo_path, colors, meta). Used by landing pages and email templates. Falls back through: DB `verticals.config.branding` → `defaultBranding[verticalId]` → hardcoded.
+
+### Vertical Configs
+
+`src/lib/vertical/configs/` has per-vertical config files (e.g., `food-trucks.ts`, `farmers-market.ts`) defining terminology mappings, content, and feature flags.
+
+### Cross-Vertical Isolation Patterns
+
+- **Server pages:** `.eq('vertical_id', vertical)` on ALL queries
+- **API routes:** Accept `vertical` query param (GET) or body field (POST)
+- **Client pages:** Pass `vertical` from `useParams()` to API calls
+- **Market box subscriptions:** Filter via `offering:market_box_offerings!inner` + `.eq('offering.vertical_id', vertical)`
+
+---
+
+## Key Concepts
 
 ### 1. Markets vs Listings vs Orders
 
@@ -85,22 +138,20 @@ Routes use `[vertical]` dynamic segment:
 
 ### 2. Market Types
 
-| Type | Description | Cutoff |
-|------|-------------|--------|
-| `traditional` | Fixed schedule public market (Saturday Farmers Market) | 18 hours before |
-| `private_pickup` | Vendor's own location (their farm) | 10 hours before |
+| Type | FM Term | FT Term | Cutoff |
+|------|---------|---------|--------|
+| `traditional` | Market | Park/Location | FM: 18hr, FT: 0hr |
+| `private_pickup` | Private Pickup | Private Pickup | 10hr |
 
-**Critical:** Both types MUST have schedules in `market_schedules` table. Without schedules, the cutoff system breaks.
+**Critical:** Both types MUST have schedules in `market_schedules` table.
 
 ### 3. Order Cutoff System
 
-Vendors need prep time before market day. The system automatically closes orders:
-- Traditional markets: 18 hours before market time
-- Private pickups: 10 hours before pickup time
+Implemented via RPC function `get_available_pickup_dates()` which JOINs listings → vendor_market_schedules. For FT, requires an attendance record. Uses vendor-specific times via COALESCE.
 
-This is implemented via:
-- RPC functions: `is_listing_accepting_orders()`, `get_listing_market_availability()`
-- Two APIs that must agree: `/api/listings/[id]/availability` and `/api/listings/[id]/markets`
+**Two availability systems must agree:**
+1. `/api/listings/[id]/availability` — RPC-based
+2. `/api/listings/[id]/markets` — JS `processListingMarkets()` from `listing-availability.ts`
 
 ### 4. User Roles
 
@@ -111,152 +162,238 @@ admin    - Platform administration
 verifier - Can verify vendor applications
 ```
 
-Users can have multiple roles (stored as array in `user_profiles.roles`).
-
 ### 5. Stripe Integration
 
-- Platform uses Stripe Connect
-- Each vendor connects their own Stripe account
-- Platform takes a fee on each transaction
-- Stripe handles payouts to vendors
+- Platform uses Stripe Connect — each vendor connects their own Stripe account
+- Revenue: 6.5% buyer fee + 6.5% vendor fee + $0.15 service fee per order
+- Fee logic lives in `src/lib/pricing.ts` — single source of truth
+- Tips (FT only): percentage-based, preset buttons + custom. Stripe processing on tip deducted from tip itself.
+- `tip_percentage` + `tip_amount` columns on orders table
+
+### 6. Vendor Tier System
+
+Defined in `src/lib/vendor-limits.ts`. **Tiers differ by vertical:**
+
+**Farmers Market:**
+| Feature | Standard (Free) | Premium |
+|---------|-----------------|---------|
+| Traditional Markets | 1 | 4 |
+| Private Pickups | 1 | 5 |
+| Product Listings | 5 | 15 |
+| Market Boxes | 2 (1 active) | 6 (4 active) |
+
+**Food Trucks:**
+| Feature | Free | Basic ($10/mo) | Pro ($30/mo) | Boss ($50/mo) |
+|---------|------|----------------|--------------|----------------|
+| Locations | 1 | 3 | 6 | 10 |
+| Menu Items | 3 | 10 | 25 | 50 |
+| Chef Boxes | 0 | 2 | 5 | 10 |
+
+Use `getTierLimits(tier, vertical)` — always pass vertical. Use `isPremiumTier(tier, vertical)` to check premium status (FT: pro/boss, FM: premium).
+
+### 7. Market Box / Chef Box Subscriptions
+
+4-week recurring subscription bundles. Buyers pay once upfront, pick up weekly.
+
+- **FM term:** Market Box. **FT term:** Chef Box (via `term()`)
+- **Key tables:** `market_box_offerings` (has `box_type` column for FT), `market_box_subscriptions`, `market_box_pickups`
+- **FT box types:** weekly_dinner, family_kit, mystery_box, meal_prep, office_lunch
+- **Pickup lifecycle:** `scheduled` → `ready` → `picked_up`
+- **Business rule:** Stripe-only (no external payments)
+
+### 8. Vendor Onboarding (3-Gate System)
+
+All three gates must pass before vendor can publish listings:
+1. **Category Verification** — Upload per-category documents, admin reviews
+2. **Certificate of Insurance (COI)** — Upload liability insurance proof, admin reviews
+3. **Prohibited Items Acknowledgment** — Accept platform policy
+
+### 9. Vendor Attendance / Schedule System (FT-specific)
+
+`vendor_market_schedules` table tracks which vendors attend which markets:
+- `vendor_start_time` / `vendor_end_time` (TIME, nullable) — vendor-specific operating hours
+- FT requires attendance record for pickup availability
+- Schedule API: GET/PATCH at `/api/vendor/schedule`
+- Auto-created when vendor suggests a market or adds a listing
+- Attendance prompt: yellow banner on vendor markets page for markets without records
+
+### 10. Notification System (4 Channels)
+
+19 notification types in `src/lib/notifications/types.ts`. Orchestrated by `service.ts`.
+
+- **In-app:** Always sent (writes to `notifications` table)
+- **Push:** Web Push API — free, real-time
+- **SMS:** Twilio — fallback when push not enabled
+- **Email:** Resend — for standard/info urgency
+
+**Key rules:**
+- `sendNotification()` never throws — safe to await without try/catch
+- MUST await (Vercel terminates after response)
+- `vertical` goes in options param (4th arg), NOT in templateData
+- When push_enabled, SMS auto-skipped
+
+### 11. Pickup Mode (Vendor Fulfillment)
+
+Mobile-optimized at `src/app/[vertical]/vendor/pickup/page.tsx`. Smart polling, mutual confirmation, shows regular orders + market box pickups.
+
+### 12. Error Tracking
+
+- `withErrorTracing(route, method, handler)` wraps all API routes
+- `crumb.*` breadcrumbs + `traced.*` structured errors
+- Rate limiting on all routes: `admin` (30/min), `submit` (10/min), `auth` (5/min), `standard` (60/min)
+- `error_resolutions` table tracks fix attempts — MUST query before fixing any error
 
 ---
 
 ## Common Pitfalls & Lessons Learned
 
-### 1. Database Schema - NEVER Trust Migration Files
+### Database
+1. **Never trust migration files** — use `supabase/SCHEMA_SNAPSHOT.md` or query actual DB
+2. **Schema snapshot is mandatory after EVERY migration type** — triggers, functions, config changes, not just columns
+3. **PostgREST schema cache** — after adding columns, run `NOTIFY pgrst, 'reload schema'`
+4. **Before changing column types** — query ALL functions, triggers, views that reference it
+5. **Before WHERE clauses in migrations** — query actual data to confirm filter matches
+6. **Supabase `.rpc()` returns PostgrestFilterBuilder** — errors in response, not thrown
 
-**Problem:** Migration files on disk may not reflect actual database state.
+### Stripe & Payments
+7. **Idempotency keys must be DETERMINISTIC** — never use `Date.now()`
+8. **Double payout prevention** — check `vendor_payouts` before initiating transfer
+9. **Flat fee proration** — $0.15 is per ORDER, prorate per item with `Math.round(fee / totalItemsInOrder)`
+10. **Stripe payouts check ordering** — business logic → Stripe check → DB write → transfer
 
-**Solution:** Always reference `supabase/SCHEMA_SNAPSHOT.md` or query the actual database.
+### Server & Timezone
+11. **Vercel runs UTC** — all server-side date comparisons need timezone awareness
+12. **Never hardcode timezone** — use client-side formatting or pass from client
+13. **HTML time input vs DB TIME** — `<input type="time">` sends "HH:MM", DB returns "HH:MM:SS". Always normalize before comparing.
 
-### 2. Column Naming Inconsistency
+### RLS & Security
+14. **Never check `is_platform_admin()` in policies on `user_profiles`** — causes recursion
+15. **Use SECURITY DEFINER functions** with `SET search_path = public`
 
-The `markets` table has a column called `market_type` (not `type`). This has caused bugs where code referenced the wrong column name.
+### Multi-Vertical
+16. **`term()` falls back to FM** — don't use for branding, use lookup objects
+17. **`verticals` table** — `id` (UUID) vs `vertical_id` (TEXT slug) — FKs use `vertical_id`
+18. **CSS var theming** — body uses FM defaults from `:root`. Layout wrapper applies per-vertical overrides. Pages inherit from wrapper.
 
-**Lesson:** Verify column names from actual schema, not assumptions.
-
-### 3. Markets Without Schedules
-
-If a market has no entries in `market_schedules`, the cutoff system fails unpredictably:
-- RPC functions return "orders open" (NULL cutoff = open)
-- JavaScript API returns "orders closed" (no schedules = closed)
-- Result: Grayed button with no explanation
-
-**Solution:** Always require schedules when creating markets.
-
-### 4. Two Availability Systems Must Agree
-
-There are two separate systems checking if orders are open:
-1. `/api/listings/[id]/availability` - Uses RPC functions
-2. `/api/listings/[id]/markets` - Uses JavaScript calculation
-
-If they disagree, UI breaks. After any changes to availability logic, verify both return consistent results.
-
-### 5. RLS Policy Recursion
-
-**Never** check `is_platform_admin()` in policies on `user_profiles` - causes infinite recursion.
-
-**Solution:** Use SECURITY DEFINER helper functions or service_role grants.
-
-### 6. Test Data Causes Real Problems
-
-Inserted test data that doesn't follow rules (markets without schedules, etc.) will cause bugs that are hard to diagnose.
-
-**Solution:** Always create test data through the actual UI flows, or ensure it follows all validation rules.
+### User Preferences
+19. **Never hardcode values without asking** — timezone, locale, fees, limits
+20. **Explain changes BEFORE making them**
+21. **Always present options** before architectural/design decisions
+22. **User doesn't like structured Q&A tool** — weave questions into narrative
 
 ---
 
-## How to Be Successful
+## Environments
 
-### Before Starting Any Work
+| Environment | Branch | URL | Supabase |
+|-------------|--------|-----|----------|
+| Dev | `main` (local) | localhost:3002 | Dev (`vawpvi...`) |
+| Staging | `staging` | Vercel Preview | Staging (`vfknvs...`) |
+| Production | `main` (origin) | farmersmarketing.app | Prod (`vfuckt...`) |
 
-1. **Read `CLAUDE.md`** - Contains mandatory rules
-2. **Read this file** - Understand the app context
-3. **Check `supabase/SCHEMA_SNAPSHOT.md`** - Know the actual database structure
-4. **Ask about recent changes** - User may have context from previous sessions
+- All 3 tiers fully separated and confirmed working (Session 27)
+- User tests on Staging, not Dev
+- Production DB is mostly empty — needs real signups or seed data
 
-### When Working on Database/Schema
-
-1. Query actual database, not migration files
-2. Check `error_resolutions` table for similar past issues
-3. After migrations succeed, update `SCHEMA_SNAPSHOT.md`
-4. Always use `SET search_path = public` in functions
-
-### When Working on Availability/Orders
-
-1. Understand both availability checking systems
-2. Test with markets that have schedules AND without
-3. Verify CutoffStatusBanner and AddToCartButton agree
-
-### When Working on New Features
-
-1. Check which vertical(s) it applies to
-2. Follow existing patterns in similar features
-3. Use the error tracing system (`withErrorTracing`)
-4. Add appropriate RLS policies
-
-### When Debugging
-
-1. Check browser Network tab for API responses
-2. Ask user to run SQL queries to verify data state
-3. Don't assume - verify with actual database
-4. Document findings in `error_resolutions` table
+### Deployment Workflow — STAGING FIRST
+1. Commit locally on `main`
+2. Merge main → `staging`, push staging
+3. Wait for Vercel preview deployment
+4. User tests on staging URL
+5. Only after user confirms → push `main` to origin
 
 ---
 
-## Key Files to Know
+## Key Files Reference
 
 | File | Purpose |
 |------|---------|
-| `CLAUDE.md` | Mandatory rules - read first every session |
-| `supabase/SCHEMA_SNAPSHOT.md` | Current database schema |
+| `CLAUDE.md` | Mandatory rules — read first every session |
+| `supabase/SCHEMA_SNAPSHOT.md` | Current database schema (source of truth) |
+| `supabase/REFRESH_SCHEMA.sql` | SQL to regenerate schema snapshot |
+| `apps/web/.claude/current_task.md` | Active session state |
+| `src/lib/design-tokens.ts` | CSS var theming + vertical color palettes |
+| `src/lib/branding/defaults.ts` | Per-vertical branding (domain, logo, colors, meta) |
+| `src/lib/vertical/index.ts` | `term()` terminology system |
+| `src/lib/pricing.ts` | Fee calculations — single source of truth |
+| `src/lib/vendor-limits.ts` | Tier limits per vertical |
+| `src/lib/constants.ts` | Re-exports pricing + tier badge configs |
+| `src/lib/notifications/service.ts` | Notification orchestrator (4 channels) |
+| `src/lib/notifications/types.ts` | 19 notification type definitions |
+| `src/lib/errors.ts` | `withErrorTracing`, `crumb.*`, `traced.*` |
+| `src/lib/rate-limit.ts` | Rate limiting with presets |
+| `src/lib/stripe/connect.ts` | Stripe Connect helpers |
+| `src/lib/utils/image-resize.ts` | Upload image compression |
 | `src/lib/supabase/server.ts` | Server-side Supabase client |
 | `src/lib/supabase/client.ts` | Client-side Supabase client |
 | `src/lib/auth/admin.ts` | Admin authentication helpers |
-| `src/components/listings/CutoffStatusBanner.tsx` | Order cutoff UI |
-| `src/components/cart/AddToCartButton.tsx` | Add to cart with market selection |
-| `src/app/api/listings/[id]/availability/route.ts` | Availability API (RPC-based) |
-| `src/app/api/listings/[id]/markets/route.ts` | Markets API (JS-based) |
+| `src/app/[vertical]/layout.tsx` | Vertical layout — injects CSS var overrides |
+| `src/app/[vertical]/vendor/pickup/page.tsx` | Pickup Mode (mobile fulfillment) |
+| `src/app/[vertical]/dashboard/page.tsx` | User dashboard |
+| `src/app/[vertical]/vendor/dashboard/page.tsx` | Vendor dashboard |
+| `src/components/landing/` | Landing page components (use `getVerticalColors()`) |
 
 ---
 
-## Current State (as of 2026-02-03)
+## Applied Migrations (All 3 Environments)
 
-### What's Working
-- Vendor registration and profiles
-- Listing creation and management
-- Market/location management (admin)
-- Order placement and checkout (Stripe)
-- Order cutoff system (with schedules)
-- Buyer browse and search
-- Admin dashboards
+Migrations 001–035 applied to Dev, Staging, and Production. All in `supabase/migrations/applied/`. Key ones:
 
-### Recent Fixes
-- Availability system: Fixed column name bug (`market_type` not `type`)
-- Schedule requirement: Admin UI now shows schedules for ALL market types
-- Safety net: `forceShowClosed` prop ensures explanation shows when orders closed
-
-### Known Issues / TODO
-- Vendors cannot edit their own private pickup locations from dashboard (access issue)
-- Some Supabase security warnings remain (PostGIS in public schema)
+| Migration | Description |
+|-----------|-------------|
+| 001 | Initial schema (user_profiles, listings, orders, markets) |
+| 007 | Deterministic Stripe idempotency keys |
+| 008 | Market box tables |
+| 012 | 3-gate vendor onboarding |
+| 014 | Vertical terminology system + food_trucks vertical |
+| 017-020 | Audit critical/high fixes (payout safety, admin auth, rate limits) |
+| 021-023 | Grandfather verifications, Stripe subscription ID, cart vertical fix |
+| 026 | Per-vertical buyer premium + market box regression fix |
+| 032 | Vendor attendance (start/end times on vendor_market_schedules) |
+| 034 | Vendor favorites table |
+| 035 | box_type column on market_box_offerings |
 
 ---
 
-## Communication Style the User Prefers
+## Session History (Sessions 21–33)
 
-- **Be direct** - Don't over-explain or add unnecessary caveats
-- **Verify before acting** - Check actual state, don't assume
-- **Admit mistakes quickly** - If something breaks, diagnose and fix
-- **Ask for clarification** - User prefers questions over wrong assumptions
-- **Keep summaries concise** - User is technical and doesn't need hand-holding
+| Session | Date | Key Work |
+|---------|------|----------|
+| 21 | 02-17 | Food truck vertical started — terminology system |
+| 22 | 02-17 | Terminology system complete, migration 014 |
+| 23 | 02-17 | Cross-vertical isolation, rate limiting, analytics SQL |
+| 24 | 02-13 | 47-item audit, C1-C9 critical fixes |
+| 25 | 02-13 | H1-H11 high-priority fixes, migrations 017-020 |
+| 26 | 02-13 | Bug fixes, environment misconfiguration discovered |
+| 27 | 02-13 | Production deployment, 3-tier env separation confirmed |
+| 28 | 02-17 | Food truck pivot planning, revenue model, tier decisions |
+| 29 | 02-17 | Quantity/measurement, landing page, schema snapshot regenerated |
+| 30 | 02-17 | Per-vertical buyer premium, brand color sweep, FT onboarding, FT tier system |
+| 31 | 02-18 | FT attendance data flow — vendor schedules, pickup date function rewrite |
+| 32 | 02-18 | Chef Boxes (market boxes for FT) — 9 commits, migration 035 |
+| 33 | 02-19 | Findings fixes (terminology across 19 files), FT brand kit v2 (red headers, white bg, outlined buttons), vendor favorites, background fix |
+
+---
+
+## Known Issues / Open Items
+
+- **A2P 10DLC**: pending carrier approval for SMS
+- **Production DB**: mostly empty — needs real signups
+- **Email template brand color**: `notifications/service.ts` has hardcoded `#166534` in HTML — needs vertical-aware color
+- **Food truck icon**: `FoodTruckIcon_BW.jpg` saved at `public/icons/`, not yet integrated into nav/branding
+- **URL rewrite**: Remove redundant `/farmers_market/` from URLs on single-vertical domains
+- **Remaining outlined buttons**: ~50 buttons still need converting to outlined style for FT
+- **`skipped_dev` / `pending_stripe_setup` payout statuses**: used in code but not in DB enum
+- **Main ahead of origin/main**: ~26 commits — production push pending user approval
 
 ---
 
 ## Final Advice
 
-1. **The database is truth** - Not migration files, not code assumptions
-2. **Both systems must agree** - Availability RPC and JavaScript API
-3. **Markets need schedules** - No schedule = broken cutoff system
-4. **Document what you learn** - Update SCHEMA_SNAPSHOT.md, error_resolutions, session summaries
-5. **Test end-to-end** - User is close to launch, everything must work together
+1. **Read `apps/web/.claude/current_task.md` first** — it has active session state
+2. **The database is truth** — not migration files, not code assumptions
+3. **Both availability systems must agree** — RPC and JavaScript API
+4. **Always pass `vertical`** — to `getTierLimits()`, `term()`, API calls, queries
+5. **Staging first** — never push origin/main without user confirming staging works
+6. **Check MEMORY.md** — auto-loaded into system prompt, has patterns and lessons
+7. **Document what you learn** — update SCHEMA_SNAPSHOT.md, error_resolutions, this file
