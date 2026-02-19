@@ -167,6 +167,34 @@ Claude has NO warning before context compression and NO memory after it happens.
 
 ---
 
+## CLAUDE_CONTEXT.md — Keep It Current
+
+**Trigger:** At the end of every session, before the final commit or push, ask: "Did anything change this session that a future session would need to know?" If yes, update `CLAUDE_CONTEXT.md`.
+
+### Update if ANY of these happened this session:
+- **New migration applied** — add to the migrations table
+- **New feature or system** — add to Key Concepts (e.g., new data flow, new subsystem)
+- **Architecture decision** — new pattern, new key file, new lib
+- **Branding/design change** — color palette, button style, theming approach
+- **Environment change** — new env var, new domain, deployment config
+- **New pitfall discovered** — something that wasted time and would waste time again
+- **Session completed** — add one-line entry to session history table (always)
+
+### What to update:
+- `Last Updated` date at the top
+- The specific section that changed (don't rewrite the whole file every time)
+- Session history table — one line per session, always
+
+### What does NOT belong in CLAUDE_CONTEXT.md:
+- Active task state → `current_task.md`
+- Detailed session play-by-play → `MEMORY.md`
+- Database column details → `SCHEMA_SNAPSHOT.md`
+
+### Why this rule exists:
+CLAUDE_CONTEXT.md went 13 sessions without an update (Sessions 20→33) because there was no concrete trigger. `MEMORY.md` stays current via auto-memory. `current_task.md` stays current via explicit CLAUDE.md mandate. CLAUDE_CONTEXT.md had only a vague instruction to "archive important learnings" — too easy to skip.
+
+---
+
 ## STOP - READ THIS NEXT
 
 **Before fixing ANY error, you MUST:**
