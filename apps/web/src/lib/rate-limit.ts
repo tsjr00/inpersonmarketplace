@@ -136,6 +136,9 @@ export const rateLimits = {
   // Admin operations
   admin: { limit: 30, windowSeconds: 60 } as RateLimitConfig,
 
+  // Destructive operations (account deletion, etc.)
+  deletion: { limit: 3, windowSeconds: 3600 } as RateLimitConfig,
+
   // Webhook endpoints (from trusted sources)
   webhook: { limit: 100, windowSeconds: 60 } as RateLimitConfig,
 }

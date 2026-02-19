@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS, FEES } from '@/lib/constants'
-import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 
 interface CheckoutItem {
@@ -47,6 +47,7 @@ interface SuggestedProduct {
   id: string
   title: string
   price_cents: number
+  image_urls?: string[] | null
   vendor_profile_id: string
   vendor_profiles?: {
     id: string
@@ -665,7 +666,7 @@ export default function CheckoutPage() {
             {validationFailed && (
               <div style={{
                 padding: spacing.sm,
-                backgroundColor: '#fef2f2',
+                backgroundColor: statusColors.dangerLight,
                 border: '2px solid #dc2626',
                 borderRadius: radius.md,
                 marginBottom: spacing.sm,
@@ -675,10 +676,10 @@ export default function CheckoutPage() {
                 gap: spacing.sm,
               }}>
                 <div>
-                  <p style={{ margin: 0, fontWeight: 600, color: '#991b1b', fontSize: typography.sizes.sm }}>
+                  <p style={{ margin: 0, fontWeight: 600, color: statusColors.dangerDark, fontSize: typography.sizes.sm }}>
                     Could not verify item availability
                   </p>
-                  <p style={{ margin: `${spacing['3xs']} 0 0`, color: '#7f1d1d', fontSize: typography.sizes.xs }}>
+                  <p style={{ margin: `${spacing['3xs']} 0 0`, color: statusColors.dangerDark, fontSize: typography.sizes.xs }}>
                     Checkout is disabled until items can be validated. Please retry.
                   </p>
                 </div>
@@ -686,7 +687,7 @@ export default function CheckoutPage() {
                   onClick={() => window.location.reload()}
                   style={{
                     padding: `${spacing.xs} ${spacing.sm}`,
-                    backgroundColor: '#dc2626',
+                    backgroundColor: statusColors.danger,
                     color: 'white',
                     border: 'none',
                     borderRadius: radius.sm,
@@ -806,8 +807,8 @@ export default function CheckoutPage() {
                       {!item.available && (
                         <div style={{
                           padding: `${spacing['2xs']} ${spacing.xs}`,
-                          backgroundColor: '#f8d7da',
-                          color: '#721c24',
+                          backgroundColor: statusColors.dangerLight,
+                          color: statusColors.dangerDark,
                           borderRadius: radius.sm,
                           fontSize: typography.sizes.xs,
                           marginBottom: spacing['2xs'],
@@ -906,7 +907,7 @@ export default function CheckoutPage() {
                         style={{
                           padding: `${spacing['3xs']} ${spacing.xs}`,
                           backgroundColor: colors.surfaceElevated,
-                          color: '#dc3545',
+                          color: statusColors.danger,
                           border: '1px solid #dc3545',
                           borderRadius: radius.sm,
                           cursor: 'pointer',
@@ -984,7 +985,7 @@ export default function CheckoutPage() {
                               backgroundColor: '#eff6ff',
                               borderRadius: radius.sm,
                               fontSize: typography.sizes.xs,
-                              color: '#1e40af',
+                              color: statusColors.infoDark,
                             }}>
                               <span>📅</span>
                               <span>
@@ -1021,7 +1022,7 @@ export default function CheckoutPage() {
                               style={{
                                 padding: `${spacing['3xs']} ${spacing.xs}`,
                                 backgroundColor: colors.surfaceElevated,
-                                color: '#dc3545',
+                                color: statusColors.danger,
                                 border: '1px solid #dc3545',
                                 borderRadius: radius.sm,
                                 cursor: 'pointer',
@@ -1076,7 +1077,7 @@ export default function CheckoutPage() {
                         boxShadow: shadows.sm,
                       }}
                     >
-                      {/* Product image placeholder */}
+                      {/* Product image */}
                       <div style={{
                         width: '100%',
                         height: 80,
@@ -1086,9 +1087,18 @@ export default function CheckoutPage() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: typography.sizes['2xl']
+                        fontSize: typography.sizes['2xl'],
+                        overflow: 'hidden',
                       }}>
-                        📦
+                        {product.image_urls?.[0] ? (
+                          <img
+                            src={product.image_urls[0]}
+                            alt={product.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          '📦'
+                        )}
                       </div>
 
                       <h4 style={{
@@ -1438,12 +1448,12 @@ export default function CheckoutPage() {
               {hasUnavailableItems && (
                 <div style={{
                   padding: spacing.xs,
-                  backgroundColor: '#f8d7da',
+                  backgroundColor: statusColors.dangerLight,
                   border: '1px solid #f5c6cb',
                   borderRadius: radius.md,
                   marginBottom: spacing.sm,
                   fontSize: typography.sizes.sm,
-                  color: '#721c24',
+                  color: statusColors.dangerDark,
                 }}>
                   Some items in your cart are no longer available. Please remove them to continue.
                 </div>
@@ -1452,12 +1462,12 @@ export default function CheckoutPage() {
               {belowMinimum && (
                 <div style={{
                   padding: spacing.sm,
-                  backgroundColor: '#fff3cd',
+                  backgroundColor: statusColors.warningLight,
                   border: '1px solid #ffc107',
                   borderRadius: radius.md,
                   marginBottom: spacing.sm,
                   fontSize: typography.sizes.sm,
-                  color: '#856404',
+                  color: statusColors.warningDark,
                 }}>
                   Minimum order is $10.00. Add ${amountNeeded} more to your cart.
                 </div>
@@ -1467,7 +1477,7 @@ export default function CheckoutPage() {
               {hasMultiplePickupLocations && !multiLocationAcknowledged && (
                 <div style={{
                   padding: spacing.sm,
-                  backgroundColor: '#fff3cd',
+                  backgroundColor: statusColors.warningLight,
                   border: '2px solid #ffc107',
                   borderRadius: radius.md,
                   marginBottom: spacing.sm,
@@ -1475,21 +1485,21 @@ export default function CheckoutPage() {
                   <p style={{
                     margin: `0 0 ${spacing.xs} 0`,
                     fontWeight: typography.weights.bold,
-                    color: '#856404',
+                    color: statusColors.warningDark,
                     fontSize: typography.sizes.sm,
                   }}>
                     📍 Multiple Pickup Locations
                   </p>
                   <p style={{
                     margin: `0 0 ${spacing.xs} 0`,
-                    color: '#856404',
+                    color: statusColors.warningDark,
                     fontSize: typography.sizes.sm,
                   }}>
                     Your order has items from different locations. You&apos;ll visit each to collect:
                   </p>
                   <div style={{ margin: `0 0 ${spacing.xs} 0`, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {[...new Map(checkoutItems.filter(i => i.market_name).map(i => [i.market_id, i])).values()].map(item => (
-                      <div key={item.market_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: typography.sizes.xs, color: '#856404' }}>
+                      <div key={item.market_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: typography.sizes.xs, color: statusColors.warningDark }}>
                         <span style={{
                           width: 8, height: 8, borderRadius: '50%',
                           backgroundColor: item.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
@@ -1506,7 +1516,7 @@ export default function CheckoutPage() {
                     gap: spacing.xs,
                     cursor: 'pointer',
                     fontSize: typography.sizes.sm,
-                    color: '#856404',
+                    color: statusColors.warningDark,
                     fontWeight: typography.weights.semibold,
                     paddingTop: spacing['2xs'],
                     borderTop: '1px solid rgba(133, 100, 4, 0.2)',

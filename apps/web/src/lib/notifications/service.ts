@@ -514,6 +514,8 @@ export async function sendNotification(
 /**
  * Send a notification to multiple users (batch).
  * Useful for admin broadcasts or market-wide announcements.
+ *
+ * Pre-fetches all user profiles in a single query to avoid N sequential DB calls.
  */
 export async function sendNotificationBatch(
   userIds: string[],
@@ -523,8 +525,35 @@ export async function sendNotificationBatch(
     vertical?: string
   }
 ): Promise<NotificationResult[]> {
+  if (userIds.length === 0) return []
+
+  // Batch-fetch user profiles to avoid N+1 queries inside sendNotification
+  const profileMap = new Map<string, { email?: string; phone?: string }>()
+  try {
+    const supabase = createServiceClient()
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('id, email, phone')
+      .in('id', userIds)
+
+    if (profiles) {
+      for (const p of profiles) {
+        profileMap.set(p.id, { email: p.email || undefined, phone: p.phone || undefined })
+      }
+    }
+  } catch {
+    // If batch fetch fails, sendNotification will fetch individually as fallback
+  }
+
   const results = await Promise.all(
-    userIds.map((userId) => sendNotification(userId, type, templateData, options))
+    userIds.map((userId) => {
+      const profile = profileMap.get(userId)
+      return sendNotification(userId, type, templateData, {
+        ...options,
+        userEmail: profile?.email,
+        userPhone: profile?.phone,
+      })
+    })
   )
   return results
 }

@@ -10,7 +10,7 @@ import { getTierSortPriority } from '@/lib/vendor-limits'
 import TierBadge from '@/components/shared/TierBadge'
 import type { VendorTierType } from '@/lib/constants'
 import CutoffBadge from '@/components/listings/CutoffBadge'
-import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
+import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
 
@@ -1138,8 +1138,8 @@ function MarketBoxCard({
         <span style={{
           display: 'inline-block',
           padding: `${spacing['3xs']} ${spacing.xs}`,
-          backgroundColor: '#fef3c7',
-          color: '#92400e',
+          backgroundColor: statusColors.warningLight,
+          color: statusColors.warningDark,
           borderRadius: radius.lg,
           fontSize: typography.sizes.xs,
           fontWeight: typography.weights.semibold,

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { colors } from '@/lib/design-tokens'
+import { colors, statusColors } from '@/lib/design-tokens'
 
 // Buffer time around market hours for polling (30 minutes before/after)
 const MARKET_BUFFER_MINUTES = 30
@@ -471,7 +471,7 @@ export default function VendorPickupPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8f9fa'
+        backgroundColor: statusColors.neutral50
       }}>
         <p>Loading...</p>
       </div>
@@ -481,13 +481,13 @@ export default function VendorPickupPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f8f9fa'
+      backgroundColor: statusColors.neutral50
     }}>
       {/* Fixed Header */}
       <div style={{
         position: 'sticky',
         top: 0,
-        backgroundColor: '#111827',
+        backgroundColor: statusColors.neutral900,
         color: 'white',
         padding: '12px 16px',
         zIndex: 40
@@ -524,7 +524,7 @@ export default function VendorPickupPage() {
             fontSize: 16,
             border: 'none',
             borderRadius: 6,
-            backgroundColor: '#374151',
+            backgroundColor: statusColors.neutral700,
             color: 'white',
             marginBottom: 12
           }}
@@ -552,7 +552,7 @@ export default function VendorPickupPage() {
               border: 'none',
               borderRadius: 8,
               backgroundColor: 'white',
-              color: '#111827',
+              color: statusColors.neutral900,
               boxSizing: 'border-box'
             }}
           />
@@ -570,7 +570,7 @@ export default function VendorPickupPage() {
                 background: 'none',
                 border: 'none',
                 fontSize: 18,
-                color: '#9ca3af',
+                color: statusColors.neutral400,
                 cursor: 'pointer',
                 padding: 4
               }}
@@ -631,7 +631,7 @@ export default function VendorPickupPage() {
       {windowExpiredError && (
         <div style={{
           padding: '16px',
-          backgroundColor: '#fef2f2',
+          backgroundColor: statusColors.dangerLight,
           borderBottom: '3px solid #dc2626',
           borderTop: '3px solid #dc2626'
         }}>
@@ -646,14 +646,14 @@ export default function VendorPickupPage() {
                 margin: 0,
                 fontSize: 16,
                 fontWeight: 700,
-                color: '#dc2626'
+                color: statusColors.danger
               }}>
                 Confirmation Window Expired
               </p>
               <p style={{
                 margin: '8px 0 0 0',
                 fontSize: 14,
-                color: '#991b1b',
+                color: statusColors.dangerDark,
                 lineHeight: 1.4
               }}>
                 The buyer&apos;s acknowledgment has timed out. Please ask the buyer to confirm receipt again on their device, then tap Fulfill within 30 seconds.
@@ -663,7 +663,7 @@ export default function VendorPickupPage() {
                 style={{
                   marginTop: 12,
                   padding: '8px 16px',
-                  backgroundColor: '#dc2626',
+                  backgroundColor: statusColors.danger,
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
@@ -683,14 +683,14 @@ export default function VendorPickupPage() {
       {selectedMarket && (
         <div style={{
           padding: '12px 16px',
-          backgroundColor: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? colors.primaryLight : '#f3f4f6',
+          backgroundColor: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? colors.primaryLight : statusColors.neutral100,
           borderBottom: '1px solid #e5e7eb'
         }}>
           <p style={{
             margin: 0,
             fontSize: 14,
             fontWeight: 600,
-            color: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? colors.primaryDark : '#6b7280'
+            color: (readyItemsCount > 0 || mbReadyCount > 0 || mbScheduledCount > 0) ? colors.primaryDark : statusColors.neutral500
           }}>
             {(() => {
               const parts: string[] = []
@@ -713,7 +713,7 @@ export default function VendorPickupPage() {
             borderRadius: 8,
             border: '1px solid #e5e7eb'
           }}>
-            <p style={{ color: '#6b7280', margin: 0 }}>
+            <p style={{ color: statusColors.neutral500, margin: 0 }}>
               Select a market to view pickup orders
             </p>
           </div>
@@ -725,7 +725,7 @@ export default function VendorPickupPage() {
             borderRadius: 8,
             border: '1px solid #e5e7eb'
           }}>
-            <p style={{ color: '#6b7280', margin: 0 }}>
+            <p style={{ color: statusColors.neutral500, margin: 0 }}>
               {searchQuery
                 ? 'No orders match your search'
                 : 'No orders or market box pickups at this market'}
@@ -749,12 +749,12 @@ export default function VendorPickupPage() {
                   alignItems: 'center',
                   gap: 12,
                   padding: 12,
-                  backgroundColor: '#f9fafb',
+                  backgroundColor: statusColors.neutral50,
                   borderBottom: '1px solid #e5e7eb'
                 }}>
                   {/* Large Order Number */}
                   <div style={{
-                    backgroundColor: '#111827',
+                    backgroundColor: statusColors.neutral900,
                     color: 'white',
                     padding: '12px 18px',
                     borderRadius: 8,
@@ -785,14 +785,14 @@ export default function VendorPickupPage() {
                       margin: 0,
                       fontSize: 16,
                       fontWeight: 600,
-                      color: '#111827'
+                      color: statusColors.neutral900
                     }}>
                       {order.customer_name}
                     </p>
                     <p style={{
                       margin: '4px 0 0 0',
                       fontSize: 13,
-                      color: '#6b7280'
+                      color: statusColors.neutral500
                     }}>
                       {order.items.length} item{order.items.length !== 1 ? 's' : ''}
                     </p>
@@ -818,14 +818,14 @@ export default function VendorPickupPage() {
                           margin: 0,
                           fontSize: 15,
                           fontWeight: 500,
-                          color: '#111827'
+                          color: statusColors.neutral900
                         }}>
                           {item.listing_title}
                         </p>
                         <p style={{
                           margin: '4px 0 0 0',
                           fontSize: 13,
-                          color: '#6b7280'
+                          color: statusColors.neutral500
                         }}>
                           Qty: {item.quantity} • {formatPrice(item.subtotal_cents)}
                         </p>
@@ -833,7 +833,7 @@ export default function VendorPickupPage() {
                           <p style={{
                             margin: '6px 0 0 0',
                             fontSize: 12,
-                            color: '#059669',
+                            color: statusColors.success,
                             fontWeight: 500
                           }}>
                             Customer acknowledged receipt
@@ -848,7 +848,7 @@ export default function VendorPickupPage() {
                           disabled={processingItem === item.id}
                           style={{
                             padding: '12px 20px',
-                            backgroundColor: processingItem === item.id ? '#9ca3af' : colors.primary,
+                            backgroundColor: processingItem === item.id ? statusColors.neutral400 : colors.primary,
                             color: 'white',
                             border: 'none',
                             borderRadius: 8,
@@ -864,8 +864,8 @@ export default function VendorPickupPage() {
                       ) : item.status === 'fulfilled' ? (
                         <span style={{
                           padding: '8px 14px',
-                          backgroundColor: '#d1fae5',
-                          color: '#065f46',
+                          backgroundColor: statusColors.successBorder,
+                          color: statusColors.successDark,
                           borderRadius: 6,
                           fontSize: 13,
                           fontWeight: 600
@@ -875,8 +875,8 @@ export default function VendorPickupPage() {
                       ) : (
                         <span style={{
                           padding: '8px 14px',
-                          backgroundColor: '#fef3c7',
-                          color: '#92400e',
+                          backgroundColor: statusColors.warningLight,
+                          color: statusColors.warningDark,
                           borderRadius: 6,
                           fontSize: 13,
                           fontWeight: 600
@@ -973,14 +973,14 @@ export default function VendorPickupPage() {
                             margin: 0,
                             fontSize: 16,
                             fontWeight: 600,
-                            color: '#111827'
+                            color: statusColors.neutral900
                           }}>
                             {buyerName}
                           </p>
                           <p style={{
                             margin: '4px 0 0 0',
                             fontSize: 13,
-                            color: '#6b7280'
+                            color: statusColors.neutral500
                           }}>
                             {offeringName}
                             {pickup.is_extension && (
@@ -1053,12 +1053,12 @@ export default function VendorPickupPage() {
                           <div style={{
                             flex: '1 1 100%',
                             padding: '8px 12px',
-                            backgroundColor: '#ecfdf5',
+                            backgroundColor: statusColors.successLight,
                             border: '1px solid #6ee7b7',
                             borderRadius: 6,
                             marginBottom: 4,
                             fontSize: 13,
-                            color: '#059669',
+                            color: statusColors.success,
                             fontWeight: 600,
                             display: 'flex',
                             alignItems: 'center',
@@ -1069,7 +1069,7 @@ export default function VendorPickupPage() {
                               width: 8,
                               height: 8,
                               borderRadius: '50%',
-                              backgroundColor: '#059669',
+                              backgroundColor: statusColors.success,
                               animation: 'pulse 1.5s infinite'
                             }} />
                             Buyer confirmed — tap Confirm Handoff!
@@ -1103,7 +1103,7 @@ export default function VendorPickupPage() {
                             disabled={processingMBPickup === pickup.id}
                             style={{
                               padding: '10px 16px',
-                              backgroundColor: (isWaitingForVendor && windowActive) ? '#059669' : '#374151',
+                              backgroundColor: (isWaitingForVendor && windowActive) ? statusColors.success : statusColors.neutral700,
                               color: 'white',
                               border: 'none',
                               borderRadius: 6,
@@ -1127,8 +1127,8 @@ export default function VendorPickupPage() {
                             disabled={processingMBPickup === pickup.id}
                             style={{
                               padding: '10px 16px',
-                              backgroundColor: '#fee2e2',
-                              color: '#991b1b',
+                              backgroundColor: statusColors.dangerLight,
+                              color: statusColors.dangerDark,
                               border: 'none',
                               borderRadius: 6,
                               fontSize: 14,
@@ -1170,10 +1170,10 @@ export default function VendorPickupPage() {
             width: '100%',
             boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
           }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: 18, color: '#111827' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: 18, color: statusColors.neutral900 }}>
               Skip Week {skipModalPickup.week_number}?
             </h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: 14, color: '#6b7280' }}>
+            <p style={{ margin: '0 0 16px 0', fontSize: 14, color: statusColors.neutral500 }}>
               The subscriber will be notified and an extension week will be added to their subscription.
             </p>
             <textarea
@@ -1200,7 +1200,7 @@ export default function VendorPickupPage() {
                 style={{
                   flex: 1,
                   padding: '12px 16px',
-                  backgroundColor: '#dc2626',
+                  backgroundColor: statusColors.danger,
                   color: 'white',
                   border: 'none',
                   borderRadius: 8,
@@ -1219,8 +1219,8 @@ export default function VendorPickupPage() {
                 }}
                 style={{
                   padding: '12px 16px',
-                  backgroundColor: '#f3f4f6',
-                  color: '#374151',
+                  backgroundColor: statusColors.neutral100,
+                  color: statusColors.neutral700,
                   border: 'none',
                   borderRadius: 8,
                   fontSize: 14,
@@ -1262,7 +1262,7 @@ export default function VendorPickupPage() {
           style={{
             width: '100%',
             padding: '14px 20px',
-            backgroundColor: '#111827',
+            backgroundColor: statusColors.neutral900,
             color: 'white',
             border: 'none',
             borderRadius: 8,

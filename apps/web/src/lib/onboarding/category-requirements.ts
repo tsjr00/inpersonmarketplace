@@ -6,6 +6,10 @@
  *
  * Food Trucks: Universal permit requirements — all food trucks need the same
  * permits regardless of cuisine type (TX DSHS + local health dept).
+ *
+ * TODO: These requirements are Texas-specific. When expanding to other states,
+ * parameterize by state/jurisdiction — each state has different cottage food laws,
+ * mobile food unit regulations, and permit requirements.
  */
 
 import type { Category } from '@/lib/constants'

@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { colors, statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 
 export const revalidate = 300 // 5 min cache — content changes infrequently
 
@@ -40,13 +41,13 @@ export default async function HelpPage({ params }: HelpPageProps) {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px' }}>
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: spacing.lg }}>
         <Link
           href={`/${vertical}/dashboard`}
           style={{
-            color: '#6b7280',
+            color: statusColors.neutral500,
             textDecoration: 'none',
-            fontSize: 14,
+            fontSize: typography.sizes.sm,
             display: 'inline-flex',
             alignItems: 'center',
             gap: 4,
@@ -54,55 +55,55 @@ export default async function HelpPage({ params }: HelpPageProps) {
         >
           ← Back to Dashboard
         </Link>
-        <h1 style={{ color: '#111827', marginBottom: 8, marginTop: 12, fontSize: 28 }}>
+        <h1 style={{ color: statusColors.neutral900, marginBottom: spacing['2xs'], marginTop: spacing.xs, fontSize: typography.sizes['2xl'] }}>
           Help & FAQ
         </h1>
-        <p style={{ color: '#6b7280', margin: 0, fontSize: 15 }}>
+        <p style={{ color: statusColors.neutral500, margin: 0, fontSize: typography.sizes.sm }}>
           Find answers to common questions about ordering, pickups, and more.
         </p>
       </div>
 
       {categoryNames.length === 0 ? (
         <div style={{
-          padding: 40,
+          padding: spacing.xl,
           textAlign: 'center',
-          backgroundColor: '#f9fafb',
-          border: '1px dashed #d1d5db',
-          borderRadius: 8,
-          color: '#6b7280',
+          backgroundColor: statusColors.neutral50,
+          border: `1px dashed ${statusColors.neutral300}`,
+          borderRadius: radius.md,
+          color: statusColors.neutral500,
         }}>
           No help articles available yet. Check back soon!
         </div>
       ) : (
         categoryNames.map(category => (
-          <div key={category} style={{ marginBottom: 32 }}>
+          <div key={category} style={{ marginBottom: spacing.lg }}>
             <h2 style={{
-              fontSize: 18,
-              fontWeight: 600,
-              color: '#1e40af',
-              marginBottom: 12,
-              paddingBottom: 8,
-              borderBottom: '2px solid #dbeafe',
+              fontSize: typography.sizes.lg,
+              fontWeight: typography.weights.semibold,
+              color: statusColors.infoDark,
+              marginBottom: spacing.xs,
+              paddingBottom: spacing['2xs'],
+              borderBottom: `2px solid ${statusColors.infoBorder}`,
             }}>
               {category}
             </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
               {grouped[category].map(article => (
                 <details
                   key={article.id}
                   style={{
                     backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 8,
+                    border: `1px solid ${statusColors.neutral200}`,
+                    borderRadius: radius.md,
                     overflow: 'hidden',
                   }}
                 >
                   <summary style={{
-                    padding: '14px 16px',
+                    padding: `${spacing.xs} ${spacing.sm}`,
                     cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: 15,
-                    color: '#374151',
+                    fontWeight: typography.weights.semibold,
+                    fontSize: typography.sizes.sm,
+                    color: statusColors.neutral700,
                     listStyle: 'none',
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -110,9 +111,9 @@ export default async function HelpPage({ params }: HelpPageProps) {
                   }}>
                     {article.title}
                     <span style={{
-                      fontSize: 12,
-                      color: '#9ca3af',
-                      marginLeft: 12,
+                      fontSize: typography.sizes.xs,
+                      color: statusColors.neutral400,
+                      marginLeft: spacing.xs,
                       flexShrink: 0,
                       transition: 'transform 0.2s',
                     }}>
@@ -120,12 +121,12 @@ export default async function HelpPage({ params }: HelpPageProps) {
                     </span>
                   </summary>
                   <div style={{
-                    padding: '0 16px 16px 16px',
-                    fontSize: 14,
-                    lineHeight: 1.6,
-                    color: '#4b5563',
+                    padding: `0 ${spacing.sm} ${spacing.sm} ${spacing.sm}`,
+                    fontSize: typography.sizes.sm,
+                    lineHeight: typography.leading.relaxed,
+                    color: statusColors.neutral600,
                     whiteSpace: 'pre-wrap',
-                    borderTop: '1px solid #f3f4f6',
+                    borderTop: `1px solid ${statusColors.neutral100}`,
                   }}>
                     {article.body}
                   </div>

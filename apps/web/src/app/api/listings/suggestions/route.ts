@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
           id,
           title,
           price_cents,
+          image_urls,
           vendor_profile_id,
           vendor_profiles (
             id,

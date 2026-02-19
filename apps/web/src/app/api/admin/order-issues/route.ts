@@ -45,6 +45,11 @@ export async function GET(request: NextRequest) {
       const status = searchParams.get('status')
 
       // Query order_items where issue_reported_at is not null
+      // Use !inner join on listings when filtering by vertical so PostgREST filters at DB level
+      const listingJoin = vertical
+        ? 'listing:listings!inner(id, title, vertical_id)'
+        : 'listing:listings(id, title, vertical_id)'
+
       let query = serviceClient
         .from('order_items')
         .select(`
@@ -63,11 +68,7 @@ export async function GET(request: NextRequest) {
           issue_resolved_by,
           created_at,
           vendor_profile_id,
-          listing:listings(
-            id,
-            title,
-            vertical_id
-          ),
+          ${listingJoin},
           market:markets(
             id,
             name
@@ -75,6 +76,11 @@ export async function GET(request: NextRequest) {
         `)
         .not('issue_reported_at', 'is', null)
         .order('issue_reported_at', { ascending: false })
+
+      // Filter by vertical at DB level (via inner join)
+      if (vertical) {
+        query = query.eq('listing.vertical_id', vertical)
+      }
 
       // Filter by issue_status if provided
       if (status && status !== 'all') {
@@ -88,13 +94,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to fetch order issues' }, { status: 500 })
       }
 
-      // Filter by vertical if provided (using listing's vertical_id)
-      let filteredIssues = issues || []
-      if (vertical) {
-        filteredIssues = filteredIssues.filter((issue: any) =>
-          issue.listing?.vertical_id === vertical
-        )
-      }
+      const filteredIssues = issues || []
 
       // Get order data for each issue
       const orderIds = [...new Set(filteredIssues.map((i: any) => i.order_id).filter(Boolean))]

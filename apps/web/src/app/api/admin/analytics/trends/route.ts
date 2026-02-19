@@ -52,7 +52,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Group by date period
+    // TODO: At scale, replace in-memory grouping with a Supabase RPC that
+    // does DATE_TRUNC + GROUP BY on the server for better performance.
     const dateStats: Record<string, { date: string; revenue: number; orders: number }> = {}
 
     for (const tx of transactions || []) {

@@ -80,6 +80,15 @@ export function areFtPricesConfigured(): boolean {
   )
 }
 
+/**
+ * Check if subscription prices are configured for a given vertical.
+ * Unified check — use this instead of calling areSubscriptionPricesConfigured/areFtPricesConfigured separately.
+ */
+export function areVerticalPricesConfigured(vertical: string): boolean {
+  if (vertical === 'food_trucks') return areFtPricesConfigured()
+  return areSubscriptionPricesConfigured()
+}
+
 // Get FT price config by tier name
 export function getFtPriceConfig(tier: string): { priceId: string; amountCents: number } | null {
   const key = `${tier}_monthly` as keyof typeof SUBSCRIPTION_PRICES.food_truck_vendor
