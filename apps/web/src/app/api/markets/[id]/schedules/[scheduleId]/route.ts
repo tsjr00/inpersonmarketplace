@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 // PATCH /api/markets/[id]/schedules/[scheduleId] - Update schedule (admin only)
 export async function PATCH(
@@ -29,7 +30,7 @@ export async function PATCH(
       .eq('user_id', user.id)
       .single()
 
-    const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+    const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
@@ -118,7 +119,7 @@ export async function DELETE(
       .eq('user_id', user.id)
       .single()
 
-    const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+    const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }

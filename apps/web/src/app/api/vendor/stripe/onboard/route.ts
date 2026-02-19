@@ -22,12 +22,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get vendor profile
-    const { data: vendorProfile, error: vendorError } = await supabase
-      .from('vendor_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
+    // H13 FIX: Add vertical filter for multi-vertical safety
+    const vertical = request.nextUrl.searchParams.get('vertical')
+    let vpQuery = supabase.from('vendor_profiles').select('*').eq('user_id', user.id)
+    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
+    const { data: vendorProfile, error: vendorError } = await vpQuery.single()
 
     if (vendorError || !vendorProfile) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })

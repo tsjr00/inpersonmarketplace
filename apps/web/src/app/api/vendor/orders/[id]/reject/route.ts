@@ -5,6 +5,7 @@ import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { FEES } from '@/lib/pricing'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -99,6 +100,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // H1 FIX: Calculate buyer's actual paid amount for this item (not just subtotal)
+    // Buyer paid: subtotal + 6.5% buyer fee + prorated flat fee
+    const { count: totalItemsInOrder } = await supabase
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('order_id', orderItem.order_id)
+
+    const buyerPercentFee = Math.round(orderItem.subtotal_cents * (FEES.buyerFeePercent / 100))
+    const proratedFlatFee = totalItemsInOrder ? Math.round(FEES.buyerFlatFeeCents / totalItemsInOrder) : 0
+    const buyerPaidForItem = orderItem.subtotal_cents + buyerPercentFee + proratedFlatFee
+
     // Update the order item as cancelled by vendor
     const { error: updateError } = await supabase
       .from('order_items')
@@ -107,7 +119,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         cancelled_at: new Date().toISOString(),
         cancelled_by: 'vendor',
         cancellation_reason: reason,
-        refund_amount_cents: orderItem.subtotal_cents // Full refund when vendor cancels
+        refund_amount_cents: buyerPaidForItem // Full refund of what buyer actually paid
       })
       .eq('id', orderItemId)
 
@@ -133,7 +145,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (payment?.stripe_payment_intent_id) {
       try {
-        const refund = await createRefund(payment.stripe_payment_intent_id, orderItem.subtotal_cents)
+        const refund = await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
         stripeRefundId = refund.id
       } catch (refundError) {
         console.error('Stripe refund failed for vendor rejection:', refundError)
@@ -198,7 +210,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       success: true,
       message: 'Item rejected successfully',
       cancelled_at: new Date().toISOString(),
-      refund_amount_cents: orderItem.subtotal_cents,
+      refund_amount_cents: buyerPaidForItem,
       reason: reason
     })
   })

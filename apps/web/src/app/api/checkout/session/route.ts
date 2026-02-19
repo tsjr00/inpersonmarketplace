@@ -485,12 +485,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Build order items with per-item fee breakdown
-    // Note: flat fee is at order level, so per-item fees are percentage-only
+    // H6 FIX: Prorate flat fee across items so it's deducted from vendor payout
+    const proratedVendorFlatFee = Math.round(FEES.vendorFlatFeeCents / items.length)
     const orderItems = items.map((item) => {
       const listing = listings.find((l) => l.id === item.listingId) as Listing
       const itemSubtotal = listing.price_cents * item.quantity
 
-      // Per-item fees (percentage only - flat fee handled at order level)
+      // Per-item fees (percentage + prorated flat fee)
       const itemPercentFee = Math.round(itemSubtotal * (FEES.buyerFeePercent + FEES.vendorFeePercent) / 100)
       const vendorPercentFee = Math.round(itemSubtotal * FEES.vendorFeePercent / 100)
 
@@ -505,7 +506,7 @@ export async function POST(request: NextRequest) {
         unit_price_cents: listing.price_cents,
         subtotal_cents: itemSubtotal,
         platform_fee_cents: itemPercentFee,
-        vendor_payout_cents: itemSubtotal - vendorPercentFee,
+        vendor_payout_cents: itemSubtotal - vendorPercentFee - proratedVendorFlatFee,
         market_id: pickupInfo?.marketId || null,
         schedule_id: item.scheduleId || ('scheduleId' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).scheduleId : null),
         pickup_date: item.pickupDate || ('pickupDate' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).pickupDate : null),

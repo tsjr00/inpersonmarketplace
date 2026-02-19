@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { generatePaymentLink, ExternalPaymentMethod } from '@/lib/payments/external-links'
@@ -182,6 +182,56 @@ export async function POST(request: NextRequest) {
       throw traced.validation('ERR_CHECKOUT_001', `Vendor does not accept ${payment_method} payments`)
     }
 
+    // H3 FIX: Validate cutoff times + inventory before creating order
+    crumb.logic('Checking cutoff times and inventory')
+    const listingIds = cartItems.map(item => {
+      const listing = item.listings as unknown as { id: string }
+      return listing.id
+    })
+
+    // Parallel: cutoff check for each listing + inventory batch query
+    const [cutoffResults, inventoryResult] = await Promise.all([
+      Promise.all(
+        listingIds.map(listingId =>
+          supabase
+            .rpc('is_listing_accepting_orders', { p_listing_id: listingId })
+            .then(result => ({ listingId, ...result }))
+        )
+      ),
+      supabase.from('listings').select('id, quantity').in('id', listingIds)
+    ])
+
+    // Check cutoff
+    for (const { listingId, data: isAccepting, error: cutoffError } of cutoffResults) {
+      if (cutoffError) {
+        crumb.logic('Cutoff check unavailable (migration may not be applied)')
+      } else if (isAccepting === false) {
+        const listing = cartItems.find(ci => {
+          const l = ci.listings as unknown as { id: string; title: string }
+          return l.id === listingId
+        })
+        const title = (listing?.listings as unknown as { title: string })?.title || 'Item'
+        throw traced.validation('ERR_CHECKOUT_001', `Orders for "${title}" are now closed. Please try again later.`, { code: 'CUTOFF_PASSED' })
+      }
+    }
+
+    // Check inventory
+    const inventoryMap = new Map<string, number | null>()
+    for (const inv of inventoryResult.data || []) {
+      inventoryMap.set(inv.id, inv.quantity)
+    }
+
+    for (const cartItem of cartItems) {
+      const listing = cartItem.listings as unknown as { id: string; title: string }
+      const currentQuantity = inventoryMap.get(listing.id)
+      if (currentQuantity !== null && currentQuantity !== undefined && currentQuantity < cartItem.quantity) {
+        if (currentQuantity === 0) {
+          throw traced.validation('ERR_CHECKOUT_001', `"${listing.title}" is now out of stock.`, { code: 'OUT_OF_STOCK' })
+        }
+        throw traced.validation('ERR_CHECKOUT_001', `Only ${currentQuantity} of "${listing.title}" available (you requested ${cartItem.quantity}).`, { code: 'INSUFFICIENT_STOCK' })
+      }
+    }
+
     // Calculate totals
     crumb.logic('Calculating order totals')
     let subtotalCents = 0
@@ -252,6 +302,21 @@ export async function POST(request: NextRequest) {
 
     if (itemsError) {
       throw traced.fromSupabase(itemsError, { table: 'order_items', operation: 'insert' })
+    }
+
+    // H2 FIX: Decrement inventory at order creation (prevents overselling)
+    // Inventory is restored if order expires/is cancelled via cron
+    crumb.logic('Decrementing inventory at checkout')
+    const serviceClient = createServiceClient()
+    for (const item of orderItems) {
+      const currentQuantity = inventoryMap.get(item.listing_id)
+      if (currentQuantity !== null && currentQuantity !== undefined) {
+        await serviceClient
+          .rpc('atomic_decrement_inventory' as string, {
+            p_listing_id: item.listing_id,
+            p_quantity: item.quantity
+          })
+      }
     }
 
     // Clear the buyer's cart now that order is created

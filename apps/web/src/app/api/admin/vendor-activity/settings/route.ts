@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       .is('deleted_at', null)
       .single()
 
-    const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+    const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }

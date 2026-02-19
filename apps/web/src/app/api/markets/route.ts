@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getMarketVendorCounts } from '@/lib/db/markets'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 // GET /api/markets - List all markets
 export async function GET(request: NextRequest) {
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
       .is('deleted_at', null)
       .single()
 
-    const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+    const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }

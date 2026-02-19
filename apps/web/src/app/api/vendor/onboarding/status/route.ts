@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { crumb } from '@/lib/errors/breadcrumbs'
 import {
@@ -19,7 +19,7 @@ interface CategoryStatus {
   required?: boolean
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/onboarding/status', 'GET', async () => {
     const supabase = await createClient()
 
@@ -28,12 +28,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // H12 FIX: Add vertical filter for multi-vertical safety
+    const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.logic('Fetching vendor profile')
-    const { data: vendor } = await supabase
+    let vpQuery = supabase
       .from('vendor_profiles')
       .select('id, status, user_id, vertical_id')
       .eq('user_id', user.id)
-      .single()
+    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
+    const { data: vendor } = await vpQuery.single()
 
     if (!vendor) {
       return NextResponse.json({ error: 'No vendor profile found' }, { status: 404 })

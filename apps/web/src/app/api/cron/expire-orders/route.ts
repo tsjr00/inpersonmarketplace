@@ -5,6 +5,7 @@ import { createRefund, transferToVendor } from '@/lib/stripe/payments'
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
+import { FEES } from '@/lib/pricing'
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -105,6 +106,16 @@ export async function GET(request: NextRequest) {
       } else if (expiredItems && expiredItems.length > 0) {
         for (const item of expiredItems) {
           try {
+            // H20 FIX: Calculate buyer's actual paid amount (not just subtotal)
+            const { count: totalItemsInOrder } = await supabase
+              .from('order_items')
+              .select('id', { count: 'exact', head: true })
+              .eq('order_id', item.order_id)
+
+            const buyerPercentFee = Math.round(item.subtotal_cents * (FEES.buyerFeePercent / 100))
+            const proratedFlatFee = totalItemsInOrder ? Math.round(FEES.buyerFlatFeeCents / totalItemsInOrder) : 0
+            const buyerPaidForItem = item.subtotal_cents + buyerPercentFee + proratedFlatFee
+
             // Mark item as cancelled due to expiration
             const { error: updateError } = await supabase
               .from('order_items')
@@ -113,7 +124,7 @@ export async function GET(request: NextRequest) {
                 cancelled_at: new Date().toISOString(),
                 cancelled_by: 'system',
                 cancellation_reason: 'Order expired - vendor did not confirm in time',
-                refund_amount_cents: item.subtotal_cents
+                refund_amount_cents: buyerPaidForItem
               })
               .eq('id', item.id)
 
@@ -155,7 +166,7 @@ export async function GET(request: NextRequest) {
 
               if (payment?.stripe_payment_intent_id) {
                 try {
-                  await createRefund(payment.stripe_payment_intent_id, item.subtotal_cents)
+                  await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
                 } catch (refundError) {
                   console.error('Stripe refund failed for expired item:', refundError)
                   // Continue processing — admin will need to handle manually
@@ -175,7 +186,7 @@ export async function GET(request: NextRequest) {
                   orderNumber: order.order_number || item.order_id.slice(0, 8),
                   itemTitle: listing?.title || 'Item',
                   vendorName: (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor',
-                  amountCents: item.subtotal_cents
+                  amountCents: buyerPaidForItem
                 },
                 { userEmail: order.buyer?.email, vertical: order.vertical_id }
               )

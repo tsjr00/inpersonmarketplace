@@ -35,12 +35,12 @@ export async function POST(request: NextRequest) {
       throw traced.auth('ERR_AUTH_001', 'Not authenticated')
     }
 
+    // H12 FIX: Add vertical filter for multi-vertical safety
+    const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.supabase('select', 'vendor_profiles')
-    const { data: vendor } = await supabase
-      .from('vendor_profiles')
-      .select('id, vertical_id')
-      .eq('user_id', user.id)
-      .single()
+    let vpQuery = supabase.from('vendor_profiles').select('id, vertical_id').eq('user_id', user.id)
+    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
+    const { data: vendor } = await vpQuery.single()
 
     if (!vendor) {
       throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')

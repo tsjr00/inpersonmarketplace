@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 // PATCH /api/markets/[id]/vendors/[vendorId] - Update vendor (approve, assign booth)
 export async function PATCH(
@@ -30,7 +31,7 @@ export async function PATCH(
       .is('deleted_at', null)
       .single()
 
-    const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+    const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
@@ -132,7 +133,7 @@ export async function DELETE(
       .is('deleted_at', null)
       .single()
 
-    const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
+    const isAdmin = hasAdminRole(userProfile || {})
 
     // Check if it's the vendor's own application
     const { data: marketVendor } = await supabase

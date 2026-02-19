@@ -64,29 +64,29 @@ After context compaction, Claude should read THIS FILE to see what's been done a
   - Fix: Same pattern — check `vendor_payouts` first.
   - Estimated: ~5 lines
 
-- [ ] **H1: Vendor Rejection Refunds Wrong Amount**
+- [x] **H1: Vendor Rejection Refunds Wrong Amount** ✅ FIXED
   - Location: `vendor/orders/[id]/reject/route.ts` line 110, 136
   - Problem: Refunds `subtotal_cents` only, not buyer's actual paid amount (`subtotal * 1.065 + prorated_flat_fee`). Buyer loses their 6.5% fee when vendor rejects.
   - Impact: Buyers are shortchanged on vendor-initiated cancellations. Trust destroyer + chargeback risk.
   - Fix: Refund `buyerPaidForItem` (subtotal + buyer percentage fee + prorated flat fee).
 
-- [ ] **H20: Phase 1 Cron Refunds Subtotal Only on Auto-Expiry**
+- [x] **H20: Phase 1 Cron Refunds Subtotal Only on Auto-Expiry** ✅ FIXED
   - Location: `cron/expire-orders/route.ts` Phase 1
   - Problem: Same as H1 — expired items refund `subtotal_cents`, not buyer's full paid amount.
   - Fix: Refund full buyer-paid amount. Same calculation as H1 fix.
 
-- [ ] **H6: Flat Fee Not Deducted from Vendor Payout Per Item**
+- [x] **H6: Flat Fee Not Deducted from Vendor Payout Per Item** ✅ FIXED
   - Location: `checkout/session/route.ts` lines 494-496
   - Problem: `vendor_payout_cents` per order item = `subtotal - 6.5%` (no flat fee). The $0.15 flat fee is accounted at order level but not distributed to items. Platform absorbs flat fee.
   - Impact: Revenue leakage — platform loses $0.15 per order.
   - Fix: Prorate flat fee across items: `Math.round(STRIPE_CONFIG.buyerFlatFeeCents / totalItemsInOrder)` deducted from each item's `vendor_payout_cents`.
 
-- [ ] **H2: External Checkout Skips Inventory Decrement**
+- [x] **H2: External Checkout Skips Inventory Decrement** ✅ FIXED
   - Location: `api/checkout/external/route.ts`
   - Problem: Creates orders/items but never calls `atomic_decrement_inventory`. Multiple buyers can order the same last unit.
   - Fix: Call `atomic_decrement_inventory` after order creation, same as Stripe checkout path.
 
-- [ ] **H3: External Checkout Skips Cutoff Validation**
+- [x] **H3: External Checkout Skips Cutoff Validation** ✅ FIXED
   - Location: `api/checkout/external/route.ts`
   - Problem: Does not call `is_listing_accepting_orders` or validate cutoff time.
   - Fix: Add cutoff validation matching Stripe checkout path.
@@ -116,13 +116,13 @@ After context compaction, Claude should read THIS FILE to see what's been done a
 - [x] **C5: Payout Enum Values Missing from DB** ✅ VERIFIED 2026-02-19
   - RESOLVED — Both `skipped_dev` and `pending_stripe_setup` are in the enum. Migration 035 worked.
 
-- [ ] **H12: Onboarding APIs Have No Vertical Filter (Multi-Vertical Bug)**
+- [x] **H12: Onboarding APIs Have No Vertical Filter (Multi-Vertical Bug)** ✅ FIXED
   - Location: 6 routes confirmed: `onboarding/status`, `documents`, `coi`, `category-documents`, `acknowledge-prohibited-items`, plus Stripe onboard
   - Problem: All query `vendor_profiles` with `.eq('user_id', user.id).single()` — no vertical_id filter. Multi-vertical vendors get wrong profile.
   - Fix: Add `.eq('vertical_id', vertical)` to all. The `vertical` should come from URL params or request body.
   - Estimated: 1 line per route, ~10 routes total. **Highest ROI single task.**
 
-- [ ] **H13: Stripe Connect Onboard API Has No Vertical Filter**
+- [x] **H13: Stripe Connect Onboard API Has No Vertical Filter** ✅ FIXED
   - Location: `/api/vendor/stripe/onboard/route.ts` lines 26-33
   - Problem: Same pattern as H12 — `.single()` without vertical filter.
   - Fix: Add `.eq('vertical_id', vertical)`.
@@ -132,12 +132,12 @@ After context compaction, Claude should read THIS FILE to see what's been done a
   - Problem: Public endpoint writing to vendor_profiles with service role. No auth, no rate limiting, no `withErrorTracing`. Also uses module-level client (C6).
   - Fix: Add auth check, `rateLimits.submit`, `withErrorTracing`. Fix module-level client.
 
-- [ ] **H17: Admin Role Check Inconsistency in 7 Routes**
+- [x] **H17: Admin Role Check Inconsistency in 7 Routes** ✅ FIXED
   - Location: See full list in findings
   - Problem: Inline `role === 'admin'` instead of `hasAdminRole()`. Misses `platform_admin` role.
   - Fix: Replace all with `hasAdminRole()` or `verifyAdminForApi()`. Batch fix.
 
-- [ ] **H4: Vendor Notifications Fire on Every Success Page Hit**
+- [x] **H4: Vendor Notifications Fire on Every Success Page Hit** ✅ FIXED
   - Location: `api/checkout/success/route.ts` lines 303-354
   - Problem: `sendNotification` calls are OUTSIDE the `if (!existingPayment)` idempotency block.
   - Fix: Move notification calls inside the idempotency guard.
@@ -166,7 +166,7 @@ After context compaction, Claude should read THIS FILE to see what's been done a
   - Problem: **CONFIRMED** — `transactions` table has ZERO writes anywhere in the codebase. All 4 analytics routes read from it, but the order flow writes to `orders` + `order_items`. Vendor analytics will always show empty data.
   - Fix: Rewrite all 4 analytics routes to query `orders` + `order_items` instead of `transactions`. The `trends` route already uses an RPC (`get_vendor_revenue_trends`) which may or may not query `transactions` internally — verify that too.
 
-- [ ] **H14: canPublish Null Race Condition**
+- [x] **H14: canPublish Null Race Condition** ✅ FIXED
   - Location: `ListingForm.tsx`
   - Problem: `canPublish` initializes to `null`. Submit handler allows publish while state is `null`.
   - Fix: Initialize `canPublish` to `false`. 1-line fix.
@@ -179,7 +179,7 @@ After context compaction, Claude should read THIS FILE to see what's been done a
   - Problem: `canCreateListing` is UI-only. Direct API calls bypass tier limits.
   - Fix: Enforce in listing save flow or add DB trigger.
 
-- [ ] **H8: `new_vendor_application` Notification Never Triggered**
+- [x] **H8: `new_vendor_application` Notification Never Triggered** ✅ FIXED
   - Problem: Notification type exists but no code sends it. Admins must poll.
   - Fix: Call `sendNotification` in `submit/route.ts` after profile creation.
 

@@ -20,11 +20,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: vendorProfile } = await supabase
-      .from('vendor_profiles')
-      .select('stripe_account_id')
-      .eq('user_id', user.id)
-      .single()
+    // H13 FIX: Add vertical filter for multi-vertical safety
+    const vertical = request.nextUrl.searchParams.get('vertical')
+    let vpQuery = supabase.from('vendor_profiles').select('id, stripe_account_id').eq('user_id', user.id)
+    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
+    const { data: vendorProfile } = await vpQuery.single()
 
     if (!vendorProfile?.stripe_account_id) {
       return NextResponse.json({ connected: false })
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
           stripe_payouts_enabled: status.payoutsEnabled,
           stripe_onboarding_complete: status.detailsSubmitted,
         })
-        .eq('user_id', user.id)
+        .eq('id', vendorProfile.id)
 
       return NextResponse.json({
         connected: true,

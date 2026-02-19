@@ -224,11 +224,70 @@ export async function GET(request: NextRequest) {
           crumb.logic('Failed to parse market box items metadata')
         }
       }
+      // H4 FIX: Vendor notifications moved INSIDE idempotency guard
+      // Prevents duplicate notifications on page refresh
+      crumb.supabase('select', 'order_items (vendor notifications)')
+      const { data: notifyItems, error: notifyItemsError } = await serviceClient
+        .from('order_items')
+        .select(`
+          vendor_profile_id,
+          market_id,
+          listing:listings(title),
+          markets!market_id(name),
+          vendor_profiles!vendor_profile_id(user_id)
+        `)
+        .eq('order_id', orderId)
+
+      if (notifyItemsError) {
+        crumb.logic('Failed to fetch order items for vendor notifications', { error: notifyItemsError.message })
+      } else if (notifyItems && notifyItems.length > 0) {
+        // Need order number — quick fetch since fullOrder is fetched later
+        const { data: orderForNotify } = await serviceClient
+          .from('orders')
+          .select('order_number')
+          .eq('id', orderId)
+          .single()
+        const orderNumber = orderForNotify?.order_number || ''
+
+        const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
+        for (const item of notifyItems) {
+          const vp = item.vendor_profiles as unknown as { user_id: string } | null
+          const vendorUserId = vp?.user_id
+          if (!vendorUserId) {
+            crumb.logic('Skipping vendor notification — no user_id', {
+              vendorProfileId: item.vendor_profile_id
+            })
+            continue
+          }
+          const listing = item.listing as unknown as { title: string } | null
+          const market = item.markets as unknown as { name: string } | null
+          const existing = vendorNotifications.get(vendorUserId)
+          if (existing) {
+            existing.items.push(listing?.title || 'Item')
+          } else {
+            vendorNotifications.set(vendorUserId, {
+              userId: vendorUserId,
+              items: [listing?.title || 'Item'],
+              marketName: market?.name || '',
+            })
+          }
+        }
+        crumb.logic(`Sending notifications to ${vendorNotifications.size} vendor(s)`)
+        await Promise.all(
+          Array.from(vendorNotifications).map(([vendorUserId, info]) =>
+            sendNotification(vendorUserId, 'new_paid_order', {
+              orderNumber,
+              itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
+              marketName: info.marketName,
+            })
+          )
+        )
+      }
     } else {
-      crumb.logic('Payment record already exists (skipping inventory decrement)')
+      crumb.logic('Payment record already exists (skipping duplicate processing)')
     }
 
-    // Clear the buyer's cart after successful payment
+    // Clear the buyer's cart after successful payment (idempotent — safe on every hit)
     crumb.supabase('select', 'carts')
     const { data: cart } = await supabase
       .from('carts')
@@ -296,61 +355,6 @@ export async function GET(request: NextRequest) {
         .eq('order_id', orderId)
 
       marketBoxSubscriptions = mbSubs as unknown as Array<Record<string, unknown>> | null
-    }
-
-    // Notify vendors of new paid order
-    // Fully independent query via service client — does NOT depend on buyer's fullOrder query
-    crumb.supabase('select', 'order_items (vendor notifications)')
-    const { data: notifyItems, error: notifyItemsError } = await serviceClient
-      .from('order_items')
-      .select(`
-        vendor_profile_id,
-        market_id,
-        listing:listings(title),
-        markets!market_id(name),
-        vendor_profiles!vendor_profile_id(user_id)
-      `)
-      .eq('order_id', orderId)
-
-    if (notifyItemsError) {
-      crumb.logic('Failed to fetch order items for vendor notifications', { error: notifyItemsError.message })
-    } else if (notifyItems && notifyItems.length > 0) {
-      // Get order number for notification message
-      const orderNumber = fullOrder?.order_number || ''
-
-      const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
-      for (const item of notifyItems) {
-        const vp = item.vendor_profiles as unknown as { user_id: string } | null
-        const vendorUserId = vp?.user_id
-        if (!vendorUserId) {
-          crumb.logic('Skipping vendor notification — no user_id', {
-            vendorProfileId: item.vendor_profile_id
-          })
-          continue
-        }
-        const listing = item.listing as unknown as { title: string } | null
-        const market = item.markets as unknown as { name: string } | null
-        const existing = vendorNotifications.get(vendorUserId)
-        if (existing) {
-          existing.items.push(listing?.title || 'Item')
-        } else {
-          vendorNotifications.set(vendorUserId, {
-            userId: vendorUserId,
-            items: [listing?.title || 'Item'],
-            marketName: market?.name || '',
-          })
-        }
-      }
-      crumb.logic(`Sending notifications to ${vendorNotifications.size} vendor(s)`)
-      await Promise.all(
-        Array.from(vendorNotifications).map(([vendorUserId, info]) =>
-          sendNotification(vendorUserId, 'new_paid_order', {
-            orderNumber,
-            itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
-            marketName: info.marketName,
-          })
-        )
-      )
     }
 
     return NextResponse.json({

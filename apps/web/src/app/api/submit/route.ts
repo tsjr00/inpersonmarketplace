@@ -3,6 +3,7 @@ import { createClient as createServerClient, createServiceClient } from "@/lib/s
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from "@/lib/rate-limit";
 import { withErrorTracing } from '@/lib/errors';
 import { FOOD_TRUCK_PERMIT_REQUIREMENTS } from '@/lib/onboarding/category-requirements';
+import { sendNotification } from '@/lib/notifications';
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/submit', 'POST', async () => {
@@ -173,6 +174,26 @@ export async function POST(request: NextRequest) {
             { ok: false, error: error.message },
             { status: 500 }
           );
+        }
+
+        // H8 FIX: Notify admin(s) of new vendor application
+        if (vendor) {
+          const profileData = data as Record<string, unknown>
+          const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'New vendor'
+          // Query admin users to notify
+          const { data: admins } = await supabaseAdmin
+            .from('user_profiles')
+            .select('user_id')
+            .or('role.eq.admin,role.eq.platform_admin')
+          if (admins && admins.length > 0) {
+            await Promise.all(
+              admins.map((admin) =>
+                sendNotification(admin.user_id, 'new_vendor_application', {
+                  vendorName,
+                }, { vertical })
+              )
+            )
+          }
         }
 
         return NextResponse.json({
