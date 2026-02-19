@@ -50,23 +50,43 @@ export async function GET(request: NextRequest) {
       if (startDate < earliest) startDate = earliest
     }
 
-    // Get aggregated trends from SQL function (GROUP BY instead of fetch-all)
-    const { data: rpcData, error } = await supabase.rpc('get_vendor_revenue_trends', {
-      p_vendor_id: vendorId,
-      p_start_date: startDate,
-      p_end_date: endDate,
-      p_period: period,
-    })
+    // C7 FIX: Query order_items directly instead of legacy RPC on transactions table
+    const { data: orderItems, error } = await supabase
+      .from('order_items')
+      .select('id, status, subtotal_cents, created_at')
+      .eq('vendor_profile_id', vendorId)
+      .gte('created_at', `${startDate}T00:00:00`)
+      .lte('created_at', `${endDate}T23:59:59`)
+      .order('created_at', { ascending: true })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Build lookup map from SQL results
+    // Group by period in JS
     const dateStats: Record<string, { date: string; revenue: number; orders: number }> = {}
-    for (const row of rpcData || []) {
-      const dateKey = row.period_date
-      dateStats[dateKey] = { date: dateKey, revenue: Number(row.revenue), orders: Number(row.orders) }
+    for (const item of orderItems || []) {
+      const date = new Date(item.created_at)
+      let periodKey: string
+
+      if (period === 'week') {
+        const day = date.getUTCDay()
+        const diff = date.getUTCDate() - day + (day === 0 ? -6 : 1)
+        const weekStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), diff))
+        periodKey = weekStart.toISOString().split('T')[0]
+      } else if (period === 'month') {
+        periodKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-01`
+      } else {
+        periodKey = date.toISOString().split('T')[0]
+      }
+
+      if (!dateStats[periodKey]) {
+        dateStats[periodKey] = { date: periodKey, revenue: 0, orders: 0 }
+      }
+      dateStats[periodKey].orders++
+      if (item.status === 'fulfilled' || item.status === 'completed') {
+        dateStats[periodKey].revenue += item.subtotal_cents || 0
+      }
     }
 
     // Fill in missing dates

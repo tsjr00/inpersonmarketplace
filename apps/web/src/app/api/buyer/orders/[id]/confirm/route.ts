@@ -50,8 +50,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
         order_id,
         order:orders!inner (
           id,
+          order_number,
           buyer_user_id,
-          vertical_id
+          vertical_id,
+          tip_amount
         )
       `)
       .eq('id', orderItemId)
@@ -113,12 +115,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
         .eq('id', orderItemId)
 
-      // C1 FIX: Check if vendor was already paid (prevents double payout on race condition)
+      // C1 FIX: Calculate tip share for this item
+      let tipShareCents = 0
+      if ((order as any)?.tip_amount && (order as any).tip_amount > 0) {
+        const { count: totalItemsInOrder } = await supabase
+          .from('order_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('order_id', orderItem.order_id)
+        tipShareCents = totalItemsInOrder
+          ? Math.round((order as any).tip_amount / totalItemsInOrder)
+          : 0
+      }
+      const actualPayoutCents = orderItem.vendor_payout_cents + tipShareCents
+
+      // Check if vendor was already paid (prevents double payout on race condition)
       crumb.supabase('select', 'vendor_payouts')
       const { data: existingPayout } = await supabase
         .from('vendor_payouts')
         .select('id, status')
         .eq('order_item_id', orderItem.id)
+        .neq('status', 'failed')
         .maybeSingle()
 
       if (existingPayout) {
@@ -131,7 +147,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         if (stripeReady) {
           try {
             const transfer = await transferToVendor({
-              amount: orderItem.vendor_payout_cents,
+              amount: actualPayoutCents,
               destination: vendorProfile.stripe_account_id,
               orderId: orderItem.order_id,
               orderItemId: orderItem.id,
@@ -141,7 +157,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             await supabase.from('vendor_payouts').insert({
               order_item_id: orderItem.id,
               vendor_profile_id: vendorProfile.id,
-              amount_cents: orderItem.vendor_payout_cents,
+              amount_cents: actualPayoutCents,
               stripe_transfer_id: transfer.id,
               status: 'processing',
             })
@@ -152,7 +168,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             await supabase.from('vendor_payouts').insert({
               order_item_id: orderItem.id,
               vendor_profile_id: vendorProfile.id,
-              amount_cents: orderItem.vendor_payout_cents,
+              amount_cents: actualPayoutCents,
               stripe_transfer_id: null,
               status: 'failed',
             })
@@ -163,7 +179,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           await supabase.from('vendor_payouts').insert({
             order_item_id: orderItem.id,
             vendor_profile_id: vendorProfile.id,
-            amount_cents: orderItem.vendor_payout_cents,
+            amount_cents: actualPayoutCents,
             stripe_transfer_id: `dev_skip_${orderItemId}`,
             status: 'skipped_dev',
           })
@@ -174,7 +190,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           await supabase.from('vendor_payouts').insert({
             order_item_id: orderItem.id,
             vendor_profile_id: vendorProfile.id,
-            amount_cents: orderItem.vendor_payout_cents,
+            amount_cents: actualPayoutCents,
             stripe_transfer_id: `pending_stripe_${orderItemId}`,
             status: 'pending_stripe_setup',
           })

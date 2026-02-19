@@ -56,7 +56,7 @@ export async function POST(
       .select(`
         id, status, vendor_payout_cents, order_id,
         buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -161,7 +161,47 @@ export async function POST(
         console.error('Fee balance check failed:', feeError)
       }
 
-      const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents
+      // C1 FIX: Calculate tip share for this item
+      const orderData = (orderItem as any).order as any
+      let tipShareCents = 0
+      if (orderData?.tip_amount && orderData.tip_amount > 0) {
+        const { count: totalItemsInOrder } = await supabase
+          .from('order_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('order_id', orderItem.order_id)
+        tipShareCents = totalItemsInOrder
+          ? Math.round(orderData.tip_amount / totalItemsInOrder)
+          : 0
+        crumb.logic('Tip share calculated', {
+          totalTip: orderData.tip_amount,
+          items: totalItemsInOrder,
+          share: tipShareCents
+        })
+      }
+
+      const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents + tipShareCents
+
+      // C2 FIX: Check if vendor was already paid (prevents double payout)
+      crumb.supabase('select', 'vendor_payouts')
+      const { data: existingPayout } = await supabase
+        .from('vendor_payouts')
+        .select('id, status')
+        .eq('order_item_id', orderItem.id)
+        .neq('status', 'failed')
+        .maybeSingle()
+
+      if (existingPayout) {
+        crumb.logic('Vendor payout already exists, skipping transfer', {
+          payoutId: existingPayout.id,
+          status: existingPayout.status
+        })
+        return NextResponse.json({
+          success: true,
+          message: 'Order fulfilled. Payment was already processed.',
+          completed: true,
+          vendor_confirmed_at: now.toISOString()
+        })
+      }
 
       if (hasStripe) {
         try {

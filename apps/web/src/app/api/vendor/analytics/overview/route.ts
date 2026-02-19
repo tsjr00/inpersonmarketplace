@@ -51,15 +51,10 @@ export async function GET(request: NextRequest) {
       if (startDate < earliest) startDate = earliest
     }
 
-    // Get transactions with listing data for this vendor in date range
-    const { data: transactions, error } = await supabase
-      .from('transactions')
-      .select(`
-        id,
-        status,
-        created_at,
-        listing:listings(price_cents)
-      `)
+    // C7 FIX: Query order_items instead of legacy transactions table
+    const { data: orderItems, error } = await supabase
+      .from('order_items')
+      .select('id, status, subtotal_cents, created_at')
       .eq('vendor_profile_id', vendorId)
       .gte('created_at', `${startDate}T00:00:00`)
       .lte('created_at', `${endDate}T23:59:59`)
@@ -68,33 +63,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Calculate metrics
-    const allTransactions = transactions || []
-
+    // Calculate metrics from order_items
     let totalRevenue = 0
     let completedOrders = 0
     let pendingOrders = 0
     let cancelledOrders = 0
 
-    for (const tx of allTransactions) {
-      // Supabase returns relations as arrays, get first element
-      const listingData = tx.listing as unknown
-      const listing = Array.isArray(listingData) ? listingData[0] : listingData
-      const priceCents = (listing as { price_cents?: number })?.price_cents || 0
-
-      // Count by status
-      if (tx.status === 'fulfilled') {
+    for (const item of orderItems || []) {
+      if (item.status === 'fulfilled' || item.status === 'completed') {
         completedOrders++
-        totalRevenue += priceCents
-      } else if (tx.status === 'accepted' || tx.status === 'initiated') {
+        totalRevenue += item.subtotal_cents || 0
+      } else if (['paid', 'confirmed', 'ready'].includes(item.status)) {
         pendingOrders++
-      } else if (tx.status === 'canceled' || tx.status === 'declined') {
+      } else if (['cancelled', 'refunded'].includes(item.status)) {
         cancelledOrders++
       }
     }
 
-    const totalOrders = allTransactions.length
-    const averageOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
+    const totalOrders = (orderItems || []).length
+    const averageOrderValue = completedOrders > 0 ? Math.round(totalRevenue / completedOrders) : 0
 
     return NextResponse.json({
       totalRevenue,

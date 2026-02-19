@@ -35,6 +35,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
       market_schedules(*)
     `)
     .eq('id', id)
+    .eq('vertical_id', vertical)
     .single()
 
   if (error || !market) {

@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient as createServerClient, createServiceClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from "@/lib/rate-limit";
 import { withErrorTracing } from '@/lib/errors';
 import { FOOD_TRUCK_PERMIT_REQUIREMENTS } from '@/lib/onboarding/category-requirements';
-
-// Use service role for server-side operations (no RLS restrictions)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/submit', 'POST', async () => {
@@ -20,6 +13,9 @@ export async function POST(request: NextRequest) {
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult);
     }
+
+    // C6 FIX: Create service client per-request (not module-level)
+    const supabaseAdmin = createServiceClient()
 
     try {
       const body = await request.json();

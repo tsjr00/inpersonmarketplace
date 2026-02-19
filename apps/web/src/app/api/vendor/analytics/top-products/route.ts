@@ -50,21 +50,22 @@ export async function GET(request: NextRequest) {
       if (startDate < earliest) startDate = earliest
     }
 
-    // Get fulfilled transactions with listing data
-    const { data: transactions, error } = await supabase
-      .from('transactions')
+    // C7 FIX: Query order_items instead of legacy transactions table
+    const { data: orderItems, error } = await supabase
+      .from('order_items')
       .select(`
         id,
         listing_id,
+        quantity,
+        subtotal_cents,
         listing:listings(
           id,
           title,
-          price_cents,
           listing_images(url, is_primary)
         )
       `)
       .eq('vendor_profile_id', vendorId)
-      .eq('status', 'fulfilled')
+      .in('status', ['fulfilled', 'completed'])
       .gte('created_at', `${startDate}T00:00:00`)
       .lte('created_at', `${endDate}T23:59:59`)
 
@@ -81,9 +82,8 @@ export async function GET(request: NextRequest) {
       revenue: number
     }> = {}
 
-    for (const tx of transactions || []) {
-      // Supabase returns relations as arrays, get first element
-      const listingData = tx.listing as unknown
+    for (const item of orderItems || []) {
+      const listingData = item.listing as unknown
       const listing = Array.isArray(listingData) ? listingData[0] : listingData
 
       if (!listing) continue
@@ -91,13 +91,11 @@ export async function GET(request: NextRequest) {
       const typedListing = listing as {
         id: string
         title: string
-        price_cents: number
         listing_images: Array<{ url: string; is_primary: boolean }>
       }
 
-      const listingId = tx.listing_id
+      const listingId = item.listing_id
       if (!productStats[listingId]) {
-        // Get primary image or first image
         const images = typedListing.listing_images || []
         const primaryImage = images.find(img => img.is_primary)
         const imageUrl = primaryImage?.url || images[0]?.url || null
@@ -111,8 +109,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      productStats[listingId].total_sold++
-      productStats[listingId].revenue += typedListing.price_cents || 0
+      productStats[listingId].total_sold += item.quantity || 1
+      productStats[listingId].revenue += item.subtotal_cents || 0
     }
 
     // Sort by total sold and limit

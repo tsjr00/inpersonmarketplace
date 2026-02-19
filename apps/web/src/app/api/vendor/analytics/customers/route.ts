@@ -49,10 +49,10 @@ export async function GET(request: NextRequest) {
       if (startDate < earliest) startDate = earliest
     }
 
-    // Get all transactions for this vendor in date range
-    const { data: transactions, error } = await supabase
-      .from('transactions')
-      .select('id, buyer_user_id, created_at')
+    // C7 FIX: Query order_items joined with orders for buyer_user_id
+    const { data: currentItems, error } = await supabase
+      .from('order_items')
+      .select('id, order:orders!inner(buyer_user_id)')
       .eq('vendor_profile_id', vendorId)
       .gte('created_at', `${startDate}T00:00:00`)
       .lte('created_at', `${endDate}T23:59:59`)
@@ -61,15 +61,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Get transactions before the start date to identify returning customers
-    const { data: previousTransactions } = await supabase
-      .from('transactions')
-      .select('buyer_user_id')
+    // Get order items before the start date to identify returning customers
+    const { data: previousItems } = await supabase
+      .from('order_items')
+      .select('order:orders!inner(buyer_user_id)')
       .eq('vendor_profile_id', vendorId)
       .lt('created_at', `${startDate}T00:00:00`)
 
     const previousCustomers = new Set(
-      (previousTransactions || []).map(tx => tx.buyer_user_id)
+      (previousItems || []).map((item: any) => {
+        const order = Array.isArray(item.order) ? item.order[0] : item.order
+        return order?.buyer_user_id
+      }).filter(Boolean)
     )
 
     // Calculate customer metrics
@@ -77,8 +80,11 @@ export async function GET(request: NextRequest) {
     const newCustomerIds = new Set<string>()
     const returningCustomerIds = new Set<string>()
 
-    for (const tx of transactions || []) {
-      const buyerId = tx.buyer_user_id
+    for (const item of currentItems || []) {
+      const orderData = (item as any).order
+      const order = Array.isArray(orderData) ? orderData[0] : orderData
+      const buyerId = order?.buyer_user_id
+      if (!buyerId) continue
 
       // Count orders per customer
       customerOrders[buyerId] = (customerOrders[buyerId] || 0) + 1
@@ -87,7 +93,6 @@ export async function GET(request: NextRequest) {
       if (previousCustomers.has(buyerId)) {
         returningCustomerIds.add(buyerId)
       } else {
-        // Check if they made multiple orders in this period (first order makes them new, subsequent don't)
         if (!newCustomerIds.has(buyerId) && !returningCustomerIds.has(buyerId)) {
           newCustomerIds.add(buyerId)
         }
@@ -97,7 +102,7 @@ export async function GET(request: NextRequest) {
     const totalCustomers = Object.keys(customerOrders).length
     const returningCustomers = returningCustomerIds.size
     const newCustomers = newCustomerIds.size
-    const totalOrders = transactions?.length || 0
+    const totalOrders = currentItems?.length || 0
     const averageOrdersPerCustomer = totalCustomers > 0
       ? Math.round((totalOrders / totalCustomers) * 100) / 100
       : 0

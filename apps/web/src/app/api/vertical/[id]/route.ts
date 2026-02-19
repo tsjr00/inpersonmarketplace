@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 import { withErrorTracing } from '@/lib/errors';
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit';
-
-// Use anon key for public read access
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function GET(
   request: Request,
@@ -17,6 +11,9 @@ export async function GET(
     const clientIp = getClientIp(request)
     const rateLimitResult = checkRateLimit(`vertical:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
+    // C6 FIX: Create client per-request (not module-level)
+    const supabase = await createClient()
 
     try {
       const { id } = await params;
