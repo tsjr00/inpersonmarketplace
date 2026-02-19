@@ -1,6 +1,6 @@
 /**
- * FASTWRKS DESIGN SYSTEM - Design Tokens
- * Color Palette: "Sunshine & Sprouts"
+ * 815 ENTERPRISES DESIGN SYSTEM - Design Tokens
+ * Multi-vertical marketplace design tokens
  *
  * Industry standard approach: JS tokens for React inline styles
  * These values match the CSS variables in globals.css
@@ -32,6 +32,42 @@ export const colors = {
   // Border Colors
   border: 'var(--color-border, #E8E5E0)',
   borderMuted: 'var(--color-border-muted, #F0EDE8)',
+}
+
+// Semantic status colors — NOT vertical-specific, same across all verticals.
+// Use these for error/success/warning/info states instead of hardcoded hex.
+export const statusColors = {
+  danger: '#dc2626',
+  dangerDark: '#991b1b',
+  dangerLight: '#fef2f2',
+  dangerBorder: '#fca5a5',
+
+  success: '#059669',
+  successDark: '#065f46',
+  successLight: '#ecfdf5',
+  successBorder: '#6ee7b7',
+
+  warning: '#d97706',
+  warningDark: '#92400e',
+  warningLight: '#fffbeb',
+  warningBorder: '#fcd34d',
+
+  info: '#2563eb',
+  infoDark: '#1e40af',
+  infoLight: '#eff6ff',
+  infoBorder: '#93c5fd',
+
+  // Neutral greys (for non-themed UI elements)
+  neutral50: '#f9fafb',
+  neutral100: '#f3f4f6',
+  neutral200: '#e5e7eb',
+  neutral300: '#d1d5db',
+  neutral400: '#9ca3af',
+  neutral500: '#6b7280',
+  neutral600: '#4b5563',
+  neutral700: '#374151',
+  neutral800: '#1f2937',
+  neutral900: '#111827',
 }
 
 export const spacing = {
@@ -225,6 +261,7 @@ export function getVerticalCSSVars(vertical: string): Record<string, string> {
 // Shorthand for common patterns
 export const tokens = {
   colors,
+  statusColors,
   spacing,
   typography,
   containers,

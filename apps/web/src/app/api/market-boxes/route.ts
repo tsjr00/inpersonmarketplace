@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { getSubscriberDefault } from '@/lib/vendor-limits'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * GET /api/market-boxes
  * Browse available market box offerings (public)
  */
 export async function GET(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`market-boxes:${clientIp}`, rateLimits.api)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   return withErrorTracing('/api/market-boxes', 'GET', async () => {
     const supabase = await createClient()
 

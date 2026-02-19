@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { VerticalBranding } from '@/lib/branding'
 import { term } from '@/lib/vertical'
-import { CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
+import { CATEGORIES, FOOD_TRUCK_CATEGORIES, QUANTITY_UNITS } from '@/lib/constants'
 import Link from 'next/link'
 import MarketSelector from '@/components/vendor/MarketSelector'
 import { ListingImageUpload, ListingImage } from '@/components/vendor/ListingImageUpload'
@@ -25,23 +25,6 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   'Home & Functional': 'Handcrafted cutting boards, utensils, textiles, baskets, small furniture, and similar functional household items.'
 }
 
-// Quantity unit options per vertical
-const QUANTITY_UNITS: { value: string; label: string; verticals: string[] }[] = [
-  { value: 'lb', label: 'lb', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'oz', label: 'oz', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'count', label: 'count', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'dozen', label: 'dozen', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'pack', label: 'pack', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'pint', label: 'pint', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'quart', label: 'quart', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'bag', label: 'bag', verticals: ['farmers_market'] },
-  { value: 'bunch', label: 'bunch', verticals: ['farmers_market'] },
-  { value: 'bouquet', label: 'bouquet', verticals: ['farmers_market'] },
-  { value: 'box', label: 'box', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'serving', label: 'serving', verticals: ['food_trucks'] },
-  { value: 'feeds', label: 'feeds', verticals: ['food_trucks'] },
-  { value: 'other', label: 'other', verticals: ['farmers_market', 'food_trucks'] },
-]
 
 interface ListingFormProps {
   vertical: string

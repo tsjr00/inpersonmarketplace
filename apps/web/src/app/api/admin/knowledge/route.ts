@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifyAdminForApi } from '@/lib/auth/admin'
 import { withErrorTracing, traced } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * GET /api/admin/knowledge
  * List all knowledge articles (admin sees published + unpublished)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   return withErrorTracing('/api/admin/knowledge', 'GET', async () => {
     const { isAdmin } = await verifyAdminForApi()
     if (!isAdmin) {
@@ -34,6 +39,10 @@ export async function GET() {
  * Create a new knowledge article
  */
 export async function POST(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   return withErrorTracing('/api/admin/knowledge', 'POST', async () => {
     const { isAdmin } = await verifyAdminForApi()
     if (!isAdmin) {
@@ -74,6 +83,10 @@ export async function POST(request: NextRequest) {
  * Update an existing knowledge article
  */
 export async function PATCH(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   return withErrorTracing('/api/admin/knowledge', 'PATCH', async () => {
     const { isAdmin } = await verifyAdminForApi()
     if (!isAdmin) {
@@ -118,6 +131,10 @@ export async function PATCH(request: NextRequest) {
  * Delete a knowledge article
  */
 export async function DELETE(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   return withErrorTracing('/api/admin/knowledge', 'DELETE', async () => {
     const { isAdmin } = await verifyAdminForApi()
     if (!isAdmin) {

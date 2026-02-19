@@ -6,14 +6,15 @@ import Link from 'next/link'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { colors } from '@/lib/design-tokens'
 import { FT_TIER_LIMITS, getFtTierLabel, type FoodTruckTier } from '@/lib/vendor-limits'
+import { SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
 
 // ── Food Truck 3-Tier Upgrade Page ──────────────────────────────────────
 
 const FT_TIERS: { key: FoodTruckTier; price: number; popular?: boolean }[] = [
   { key: 'free', price: 0 },
-  { key: 'basic', price: 10 },
-  { key: 'pro', price: 30, popular: true },
-  { key: 'boss', price: 50 },
+  { key: 'basic', price: SUBSCRIPTION_AMOUNTS.ft_basic_monthly_cents / 100 },
+  { key: 'pro', price: SUBSCRIPTION_AMOUNTS.ft_pro_monthly_cents / 100, popular: true },
+  { key: 'boss', price: SUBSCRIPTION_AMOUNTS.ft_boss_monthly_cents / 100 },
 ]
 
 function FtFeatureRow({ label, free, basic, pro, boss }: { label: string; free: string; basic: string; pro: string; boss: string }) {
@@ -650,7 +651,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
               {selectedPlan === 'monthly' && (<div style={{ backgroundColor: '#2563eb', color: 'white', padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>SELECTED</div>)}
             </div>
             <div style={{ marginBottom: 12 }}>
-              <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>$24.99</span>
+              <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${(SUBSCRIPTION_AMOUNTS.vendor_monthly_cents / 100).toFixed(2)}</span>
               <span style={{ color: '#666', fontSize: 16 }}>/month</span>
             </div>
             <p style={{ margin: 0, fontSize: 14, color: '#666' }}>Cancel anytime. No long-term commitment.</p>
@@ -663,10 +664,10 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
               {selectedPlan === 'annual' && (<div style={{ backgroundColor: '#2563eb', color: 'white', padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>SELECTED</div>)}
             </div>
             <div style={{ marginBottom: 12 }}>
-              <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>$208.15</span>
+              <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${(SUBSCRIPTION_AMOUNTS.vendor_annual_cents / 100).toFixed(2)}</span>
               <span style={{ color: '#666', fontSize: 16 }}>/year</span>
             </div>
-            <p style={{ margin: 0, fontSize: 14, color: '#666' }}>Just $17.35/month when billed annually.</p>
+            <p style={{ margin: 0, fontSize: 14, color: '#666' }}>Just ${(SUBSCRIPTION_AMOUNTS.vendor_annual_cents / 100 / 12).toFixed(2)}/month when billed annually.</p>
           </div>
         </div>
 
@@ -674,7 +675,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
 
         <div style={{ textAlign: 'center' }}>
           <button onClick={handleUpgrade} disabled={isProcessing} style={{ padding: '16px 48px', fontSize: 18, fontWeight: 600, backgroundColor: isProcessing ? '#9ca3af' : '#2563eb', color: 'white', border: 'none', borderRadius: 8, cursor: isProcessing ? 'not-allowed' : 'pointer', minHeight: 56 }}>
-            {isProcessing ? 'Processing...' : `Upgrade Now - ${selectedPlan === 'monthly' ? '$24.99/mo' : '$208.15/yr'}`}
+            {isProcessing ? 'Processing...' : `Upgrade Now - ${selectedPlan === 'monthly' ? `$${(SUBSCRIPTION_AMOUNTS.vendor_monthly_cents / 100).toFixed(2)}/mo` : `$${(SUBSCRIPTION_AMOUNTS.vendor_annual_cents / 100).toFixed(2)}/yr`}`}
           </button>
           <p style={{ marginTop: 16, fontSize: 13, color: '#666' }}>Secure payment powered by Stripe. Cancel anytime.</p>
         </div>

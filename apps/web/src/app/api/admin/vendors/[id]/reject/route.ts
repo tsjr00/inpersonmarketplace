@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { hasAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { sendNotification } from '@/lib/notifications'
 
 export async function POST(
   request: NextRequest,
@@ -24,7 +25,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify user is admin - check BOTH columns during transition
+    // Verify user is admin - check platform admin role or vertical admin
     const { data: userProfile } = await supabase
       .from('user_profiles')
       .select('role, roles')
@@ -32,7 +33,27 @@ export async function POST(
       .is('deleted_at', null)
       .single()
 
-    const isAdmin = hasAdminRole(userProfile || {})
+    let isAdmin = hasAdminRole(userProfile || {})
+
+    // If not platform admin, check if they're a vertical admin for this vendor's vertical
+    if (!isAdmin) {
+      const { data: vendor } = await supabase
+        .from('vendor_profiles')
+        .select('vertical_id')
+        .eq('id', vendorId)
+        .single()
+
+      if (vendor) {
+        const { data: verticalAdmin } = await supabase
+          .from('vertical_admins')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('vertical_id', vendor.vertical_id)
+          .single()
+        isAdmin = !!verticalAdmin
+      }
+    }
+
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
@@ -46,8 +67,11 @@ export async function POST(
       // No body provided, that's ok
     }
 
+    // Use service client for the update to bypass RLS
+    const serviceClient = createServiceClient()
+
     // Update vendor status to rejected
-    const { data, error } = await supabase
+    const { data, error } = await serviceClient
       .from('vendor_profiles')
       .update({
         status: 'rejected',
@@ -55,10 +79,14 @@ export async function POST(
       })
       .eq('id', vendorId)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     }
 
     // Get vendor details for notification
@@ -66,28 +94,12 @@ export async function POST(
     const businessName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Your business'
     const vendorEmail = profileData?.email as string
 
-    // Try to create in-app notification (table may not exist yet)
-    try {
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: data.user_id,
-          type: 'vendor_rejected',
-          title: 'Vendor Application Update',
-          message: `We were unable to approve ${businessName} at this time. Please contact support for more information.`,
-          data: {
-            vendor_profile_id: vendorId,
-            rejected_at: new Date().toISOString(),
-            reason: reason || null
-          }
-        })
-    } catch (notifError) {
-      // Notifications table may not exist - log but don't fail
-      console.log('[NOTIFICATION] Could not create notification:', notifError)
-    }
-
-    // Log for email integration (future)
-    console.log(`[VENDOR REJECTED] ${vendorEmail || data.user_id} - ${businessName}${reason ? ` - Reason: ${reason}` : ''}`)
+    // Use sendNotification() for multi-channel delivery (email + push + in-app)
+    await sendNotification(data.user_id, 'vendor_rejected', {
+      vendorName: businessName,
+      vendorId: vendorId,
+      reason: reason || undefined,
+    }, { vertical: data.vertical_id, userEmail: vendorEmail || undefined })
 
     return NextResponse.json({
       success: true,

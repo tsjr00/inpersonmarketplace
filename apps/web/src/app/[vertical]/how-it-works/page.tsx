@@ -5,10 +5,12 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { defaultBranding } from '@/lib/branding/defaults'
 
 export default function HowItWorksPage() {
   const params = useParams()
   const vertical = params.vertical as string
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
   return (
     <div style={{
@@ -23,8 +25,8 @@ export default function HowItWorksPage() {
         textAlign: 'center',
       }}>
         <Image
-          src="/logos/logo-icon-color.png"
-          alt="Fresh Market"
+          src={branding.logo_path}
+          alt={branding.brand_name}
           width={64}
           height={64}
           style={{ marginBottom: spacing.sm, borderRadius: radius.full, background: 'white', padding: '6px' }}

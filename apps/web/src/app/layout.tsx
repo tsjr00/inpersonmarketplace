@@ -14,12 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'FastWrks Marketplace - Connect Vendors with Local Customers',
+  title: '815 Enterprises - Local Marketplace Platform',
   description: 'Specialized marketplace platforms for in-person businesses. Join our verified vendor network and grow your local customer base.',
   keywords: 'marketplace, vendors, local business, food trucks, farmers market',
   openGraph: {
-    title: 'FastWrks Marketplace',
-    description: 'Connect Vendors with Local Customers',
+    title: '815 Enterprises',
+    description: 'Local Marketplace Platform',
     type: 'website',
   },
 };

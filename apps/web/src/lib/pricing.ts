@@ -19,6 +19,18 @@ export const FEES = {
   minimumOrderCents: 1000,  // $10.00 minimum order
 } as const
 
+// Subscription pricing amounts (cents) — single source of truth
+// stripe/config.ts SUBSCRIPTION_PRICES should match these values
+export const SUBSCRIPTION_AMOUNTS = {
+  vendor_monthly_cents: 2499,     // $24.99/month
+  vendor_annual_cents: 20815,     // $208.15/year
+  ft_basic_monthly_cents: 1000,   // $10/month
+  ft_pro_monthly_cents: 3000,     // $30/month
+  ft_boss_monthly_cents: 5000,    // $50/month
+  buyer_monthly_cents: 999,       // $9.99/month
+  buyer_annual_cents: 8150,       // $81.50/year
+} as const
+
 export interface OrderItem {
   price_cents: number
   quantity: number

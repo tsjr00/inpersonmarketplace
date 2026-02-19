@@ -211,10 +211,10 @@ export async function getTraditionalMarketUsage(
   supabase: SupabaseClient,
   vendorProfileId: string
 ): Promise<{ count: number; marketIds: string[] }> {
-  // Get markets from active listings
+  // Get markets from active listings (JOIN to get market_type in one query)
   const { data: listingMarkets } = await supabase
     .from('listings')
-    .select('market_id')
+    .select('market_id, markets!inner(market_type)')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('status', 'active')
     .not('market_id', 'is', null)
@@ -229,20 +229,12 @@ export async function getTraditionalMarketUsage(
   // Combine and dedupe market IDs, filtering for traditional markets only
   const marketIds = new Set<string>()
 
-  // Add listing markets (need to check if traditional)
+  // Add listing markets (market_type available from JOIN)
   if (listingMarkets) {
     for (const listing of listingMarkets) {
-      if (listing.market_id) {
-        // Check if it's a traditional market
-        const { data: market } = await supabase
-          .from('markets')
-          .select('market_type')
-          .eq('id', listing.market_id)
-          .single()
-
-        if (market && market.market_type !== 'private_pickup') {
-          marketIds.add(listing.market_id)
-        }
+      const market = listing.markets as unknown as { market_type: string } | null
+      if (listing.market_id && market && market.market_type !== 'private_pickup') {
+        marketIds.add(listing.market_id)
       }
     }
   }
@@ -250,7 +242,6 @@ export async function getTraditionalMarketUsage(
   // Add market box markets (already filtered for traditional in query)
   if (boxMarkets) {
     for (const box of boxMarkets) {
-      // Supabase !inner join returns the related record directly
       const market = box.markets as unknown as { market_type: string } | null
       if (box.pickup_market_id && market && market.market_type !== 'private_pickup') {
         marketIds.add(box.pickup_market_id)

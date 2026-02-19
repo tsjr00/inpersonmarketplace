@@ -1,13 +1,18 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * POST /api/vendor/onboarding/acknowledge-prohibited-items
  *
  * Record that the vendor has acknowledged the prohibited items policy.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`onboarding:${clientIp}`, rateLimits.api)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   return withErrorTracing('/api/vendor/onboarding/acknowledge-prohibited-items', 'POST', async () => {
     const supabase = await createClient()
 

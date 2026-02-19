@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
+import { QUANTITY_UNITS } from '@/lib/constants'
 import { MarketBoxImageUpload } from '@/components/vendor/MarketBoxImageUpload'
 
 interface MarketSchedule {
@@ -46,22 +47,6 @@ const CHEF_BOX_TYPES = [
   { value: 'office_lunch', label: 'Office Lunch' },
 ]
 
-const QUANTITY_UNITS: { value: string; label: string; verticals: string[] }[] = [
-  { value: 'lb', label: 'lb', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'oz', label: 'oz', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'count', label: 'count', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'dozen', label: 'dozen', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'pack', label: 'pack', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'pint', label: 'pint', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'quart', label: 'quart', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'bag', label: 'bag', verticals: ['farmers_market'] },
-  { value: 'bunch', label: 'bunch', verticals: ['farmers_market'] },
-  { value: 'bouquet', label: 'bouquet', verticals: ['farmers_market'] },
-  { value: 'box', label: 'box', verticals: ['farmers_market', 'food_trucks'] },
-  { value: 'serving', label: 'serving', verticals: ['food_trucks'] },
-  { value: 'feeds', label: 'feeds', verticals: ['food_trucks'] },
-  { value: 'other', label: 'other', verticals: ['farmers_market', 'food_trucks'] },
-]
 
 function formatTime(time: string): string {
   const [hours, minutes] = time.split(':')
