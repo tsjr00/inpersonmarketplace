@@ -7,6 +7,22 @@ import { logError } from '@/lib/errors/logger'
 import { crumb } from '@/lib/errors/breadcrumbs'
 
 /**
+ * Safely extract current_period_end from a Stripe subscription object.
+ * Handles API version differences where the field may be moved or restructured.
+ * Falls back to 30 days from now if the field is unavailable.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getSubscriptionPeriodEnd(subscription: any): string {
+  const periodEnd = subscription.current_period_end
+    ?? subscription.items?.data?.[0]?.current_period_end
+  if (periodEnd && typeof periodEnd === 'number') {
+    return new Date(periodEnd * 1000).toISOString()
+  }
+  console.warn('[stripe-webhook] current_period_end not found on subscription, using 30-day fallback. Keys:', Object.keys(subscription))
+  return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+}
+
+/**
  * Verify webhook signature
  */
 export function constructEvent(
@@ -182,8 +198,7 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
 
   // Retrieve subscription details from Stripe
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000).toISOString()
+  const currentPeriodEnd = getSubscriptionPeriodEnd(subscription)
 
   if (subscriptionType === 'vendor' || subscriptionType === 'food_truck_vendor') {
     // Determine tier from metadata — FT uses basic/pro/boss, FM defaults to premium
@@ -323,7 +338,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 
   const status = subscription.status
-  const currentPeriodEnd = new Date(subData.current_period_end * 1000).toISOString()
+  const currentPeriodEnd = getSubscriptionPeriodEnd(subData)
 
   crumb.stripe(`Subscription ${subscription.id} updated: status=${status}`)
 
@@ -440,7 +455,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
   if (!userId || !subscriptionType) return
 
-  const currentPeriodEnd = new Date(subData.current_period_end * 1000).toISOString()
+  const currentPeriodEnd = getSubscriptionPeriodEnd(subData)
 
   crumb.stripe(`Invoice paid for ${subscriptionType} ${userId}, extends to ${currentPeriodEnd}`)
 

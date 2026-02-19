@@ -43,8 +43,13 @@ export async function GET(request: NextRequest) {
 
         // Retrieve subscription from Stripe for period end date
         const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+        // Handle API version differences — current_period_end may be moved
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000).toISOString()
+        const subAny = subscription as any
+        const periodEnd = subAny.current_period_end ?? subAny.items?.data?.[0]?.current_period_end
+        const currentPeriodEnd = periodEnd && typeof periodEnd === 'number'
+          ? new Date(periodEnd * 1000).toISOString()
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
         if (type === 'vendor' || type === 'food_truck_vendor') {
           const targetTier = tier || 'premium'
