@@ -17,6 +17,7 @@ export {
 
 // Re-export specific fee constants for backwards compatibility
 import { FEES } from './pricing'
+import { getTierLimits } from './vendor-limits'
 export const PLATFORM_FEE_RATE = FEES.buyerFeePercent / 100  // 0.065
 export const PLATFORM_FLAT_FEE_CENTS = FEES.buyerFlatFeeCents  // 15
 export const MINIMUM_ORDER_CENTS = FEES.minimumOrderCents  // 1000
@@ -137,8 +138,12 @@ export type VendorTier = keyof typeof VENDOR_LIMITS
 
 /**
  * Get listing limit for a vendor tier (per-account total)
+ * Pass vertical to get correct limits for food truck tiers
  */
-export function getListingLimit(tier: string): number {
+export function getListingLimit(tier: string, vertical?: string): number {
+  if (vertical === 'food_trucks') {
+    return getTierLimits(tier, vertical).productListings
+  }
   return VENDOR_LIMITS[tier as VendorTier]?.totalListings || 5
 }
 

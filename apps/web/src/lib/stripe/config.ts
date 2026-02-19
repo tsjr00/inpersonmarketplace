@@ -1,4 +1,5 @@
 import Stripe from 'stripe'
+import { FEES } from '@/lib/pricing'
 
 // Only initialize Stripe if we have the secret key (allows builds without env vars)
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY
@@ -12,12 +13,12 @@ export const stripe = stripeSecretKey
 
 export const STRIPE_CONFIG = {
   publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
-  applicationFeePercent: 13.0, // 6.5% buyer + 6.5% vendor
-  buyerFeePercent: 6.5,
-  vendorFeePercent: 6.5,
-  buyerFlatFeeCents: 15, // $0.15 flat fee added to buyer price
-  vendorFlatFeeCents: 15, // $0.15 flat fee deducted from vendor payout
-  minimumOrderCents: 1000, // $10.00 minimum cart total (before fees)
+  applicationFeePercent: FEES.buyerFeePercent + FEES.vendorFeePercent,
+  buyerFeePercent: FEES.buyerFeePercent,
+  vendorFeePercent: FEES.vendorFeePercent,
+  buyerFlatFeeCents: FEES.buyerFlatFeeCents,
+  vendorFlatFeeCents: FEES.vendorFlatFeeCents,
+  minimumOrderCents: FEES.minimumOrderCents,
 }
 
 // Subscription pricing for premium tiers

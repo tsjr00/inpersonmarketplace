@@ -97,18 +97,32 @@ export default async function AdminLayout({
             margin: `${spacing.md} 0`,
             paddingTop: spacing.md
           }}>
+            <p style={{ fontSize: typography.sizes.xs, color: '#888', margin: `0 0 ${spacing['2xs']}`, paddingLeft: spacing.sm }}>
+              Vertical Admin
+            </p>
             <Link
               href="/farmers_market/admin"
               style={{
                 padding: `${spacing.xs} ${spacing.sm}`,
-                color: colors.primary,
+                color: '#6b8e23',
                 textDecoration: 'none',
                 borderRadius: radius.sm,
                 display: 'block',
-                backgroundColor: colors.primaryLight
               }}
             >
-              Vertical Admin
+              Farmers Marketing
+            </Link>
+            <Link
+              href="/food_trucks/admin"
+              style={{
+                padding: `${spacing.xs} ${spacing.sm}`,
+                color: '#ff5757',
+                textDecoration: 'none',
+                borderRadius: radius.sm,
+                display: 'block',
+              }}
+            >
+              Food Truck&apos;n
             </Link>
             <Link
               href="/"

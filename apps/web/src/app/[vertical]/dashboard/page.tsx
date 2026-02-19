@@ -868,8 +868,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       fontWeight: typography.weights.medium
                     }}>
                       {isFT
-                        ? <>Upgrade to Basic for just <strong>$10/month</strong></>
-                        : <>Upgrade to Premium for just <strong>$24.99/month</strong></>
+                        ? <>Upgrade to Basic for just <strong>${(SUBSCRIPTION_PRICES.food_truck_vendor.basic_monthly.amountCents / 100).toFixed(0)}/month</strong></>
+                        : <>Upgrade to Premium for just <strong>${(SUBSCRIPTION_PRICES.vendor.monthly.amountCents / 100).toFixed(2)}/month</strong></>
                       }
                     </p>
 

@@ -27,6 +27,7 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 3: Cancel external payment orders past their pickup date
  * Phase 4: Notify buyers about missed pickups
  * Phase 5: Retry failed vendor payouts (Stripe transfers)
+ * Phase 6: Error report digest — email admin a summary of pending reports
  *
  * Called by Vercel Cron daily at 6am UTC (configured in vercel.json)
  */
@@ -505,12 +506,95 @@ export async function GET(request: NextRequest) {
       console.error('Phase 5 error:', phase5Error instanceof Error ? phase5Error.message : 'Unknown error')
     }
 
+    // ============================================================
+    // PHASE 6: Error report digest
+    // Email admin a summary of pending error reports from last 24h.
+    // Groups by error_code so admin sees patterns at a glance.
+    // ============================================================
+    let errorReportsSummarized = 0
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+      const { data: pendingReports, error: reportsError } = await supabase
+        .from('error_reports')
+        .select('id, error_code, page_url, user_description, reporter_email, created_at')
+        .eq('status', 'pending')
+        .gte('created_at', twentyFourHoursAgo)
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      if (reportsError) {
+        console.error('[Phase 6] Error fetching reports:', reportsError.message)
+      } else if (pendingReports && pendingReports.length > 0) {
+        // Group by error_code
+        const grouped: Record<string, typeof pendingReports> = {}
+        for (const report of pendingReports) {
+          const key = report.error_code || 'unknown'
+          if (!grouped[key]) grouped[key] = []
+          grouped[key].push(report)
+        }
+
+        // Build digest email
+        const sortedCodes = Object.entries(grouped)
+          .sort((a, b) => b[1].length - a[1].length)
+
+        const rows = sortedCodes.map(([code, reports]) => {
+          const sample = reports[0]
+          const desc = sample.user_description
+            ? ` — "${sample.user_description.slice(0, 80)}${sample.user_description.length > 80 ? '...' : ''}"`
+            : ''
+          const page = sample.page_url ? ` (${sample.page_url})` : ''
+          return `<tr>
+            <td style="padding:6px 12px;border:1px solid #e5e7eb;font-family:monospace;font-size:13px">${code}</td>
+            <td style="padding:6px 12px;border:1px solid #e5e7eb;text-align:center;font-weight:bold">${reports.length}</td>
+            <td style="padding:6px 12px;border:1px solid #e5e7eb;font-size:13px;color:#6b7280">${desc}${page}</td>
+          </tr>`
+        }).join('')
+
+        const adminEmail = process.env.ADMIN_ALERT_EMAIL
+        const apiKey = process.env.RESEND_API_KEY
+        if (adminEmail && apiKey) {
+          const { Resend } = await import('resend')
+          const resend = new Resend(apiKey)
+
+          await resend.emails.send({
+            from: 'alerts@farmersmarketing.app',
+            to: adminEmail,
+            subject: `[Daily Digest] ${pendingReports.length} error report${pendingReports.length === 1 ? '' : 's'} — ${sortedCodes.length} unique error${sortedCodes.length === 1 ? '' : 's'}`,
+            html: `
+              <h2 style="margin:0 0 16px">Error Report Digest</h2>
+              <p style="color:#6b7280;margin:0 0 16px">${pendingReports.length} user-reported error${pendingReports.length === 1 ? '' : 's'} in the last 24 hours.</p>
+              <table style="border-collapse:collapse;width:100%">
+                <thead>
+                  <tr style="background:#f9fafb">
+                    <th style="padding:8px 12px;border:1px solid #e5e7eb;text-align:left">Error Code</th>
+                    <th style="padding:8px 12px;border:1px solid #e5e7eb;text-align:center">Count</th>
+                    <th style="padding:8px 12px;border:1px solid #e5e7eb;text-align:left">Sample</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+              <p style="color:#9ca3af;font-size:12px;margin-top:16px">
+                Review all reports: <a href="https://farmersmarketing.app/admin/errors">Admin Error Dashboard</a>
+              </p>
+            `,
+          })
+
+          errorReportsSummarized = pendingReports.length
+          console.log(`[Phase 6] Digest sent: ${pendingReports.length} reports, ${sortedCodes.length} unique codes`)
+        }
+      }
+    } catch (phase6Error) {
+      console.error('Phase 6 error:', phase6Error instanceof Error ? phase6Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
       processed: totalProcessed,
       errors: totalErrors,
       payouts: { retried: payoutsRetried, succeeded: payoutsSucceeded, cancelled: payoutsCancelled },
+      errorDigest: { reportsSummarized: errorReportsSummarized },
     })
   })
 }

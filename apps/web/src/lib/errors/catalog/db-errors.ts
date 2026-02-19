@@ -15,6 +15,8 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'medium',
     description: 'Referenced record does not exist in the parent table.',
+    userGuidance: 'Something went wrong saving your data. Please try again.',
+    retryable: true,
     causes: [
       'Trying to insert/update with invalid foreign key reference',
       'Referenced record was deleted',
@@ -35,6 +37,8 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'medium',
     description: 'Record with this value already exists (duplicate key).',
+    userGuidance: 'This record already exists. You may have submitted it twice.',
+    selfResolvable: true,
     causes: [
       'Trying to insert duplicate unique value',
       'Email already registered',
@@ -55,6 +59,8 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'medium',
     description: 'Required field is missing or null.',
+    userGuidance: 'A required field is missing. Please fill in all required fields and try again.',
+    selfResolvable: true,
     causes: [
       'Required field not provided in request',
       'Field validation passed but value is null',
@@ -73,6 +79,8 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'medium',
     description: 'Value does not meet CHECK constraint requirements.',
+    userGuidance: 'One of your entries is outside the allowed range. Please check your input and try again.',
+    selfResolvable: true,
     causes: [
       'Value out of allowed range',
       'Invalid enum value',
@@ -93,6 +101,7 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'high',
     description: 'Column does not exist in the table.',
+    userGuidance: 'Something went wrong on our end. Please try refreshing the page. If the problem continues, report it below.',
     causes: [
       'Typo in column name',
       'Column was renamed or removed',
@@ -113,6 +122,7 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'high',
     description: 'Database function or stored procedure does not exist.',
+    userGuidance: 'Something went wrong on our end. Please try again later.',
     causes: [
       'Function not created (migration not applied)',
       'Typo in function name',
@@ -133,6 +143,7 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'critical',
     description: 'Table does not exist in the database.',
+    userGuidance: 'Something went wrong on our end. Please try again later.',
     causes: [
       'Migration not applied',
       'Typo in table name',
@@ -155,6 +166,8 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'medium',
     description: 'Data format is invalid for the column type.',
+    userGuidance: 'The data you entered isn\'t in the right format. Please check your input and try again.',
+    selfResolvable: true,
     causes: [
       'Invalid UUID format',
       'Invalid date/timestamp format',
@@ -174,6 +187,8 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'medium',
     description: 'Numeric value exceeds column limits.',
+    userGuidance: 'The number you entered is outside the allowed range. Please check your input.',
+    selfResolvable: true,
     causes: [
       'Integer overflow',
       'Value exceeds decimal precision',
@@ -194,6 +209,7 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'low',
     description: 'Query expected a row but none was found.',
+    userGuidance: 'The item you\'re looking for couldn\'t be found. It may have been removed.',
     causes: [
       'Record does not exist',
       'Record was deleted',
@@ -214,6 +230,8 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'low',
     description: 'Query returned more rows than expected for .single().',
+    userGuidance: 'Something went wrong loading your data. Please try refreshing the page.',
+    retryable: true,
     causes: [
       'Multiple records match the filter',
       'Missing WHERE clause',
@@ -234,6 +252,7 @@ export const DB_ERRORS: ErrorCatalogEntry[] = [
     category: 'DB',
     severity: 'high',
     description: 'An unrecognized database error occurred.',
+    userGuidance: 'An unexpected error occurred. If this continues, please report it below.',
     causes: [
       'New/unmapped PostgreSQL error code',
       'Network or connection issue',

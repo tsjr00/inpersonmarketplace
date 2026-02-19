@@ -436,9 +436,10 @@ export async function canActivateMarketBox(
 export async function canCreateListing(
   supabase: SupabaseClient,
   vendorProfileId: string,
-  tier: string
+  tier: string,
+  vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier)
+  const limits = getTierLimits(tier, vertical)
   const usage = await getListingUsage(supabase, vendorProfileId)
 
   const allowed = usage.count < limits.productListings
@@ -447,7 +448,7 @@ export async function canCreateListing(
     current: usage.count,
     limit: limits.productListings,
     message: allowed ? undefined : `Limit reached: ${usage.count} of ${limits.productListings} listings used.`,
-    upgradeMessage: allowed ? undefined : `Upgrade to get ${TIER_LIMITS.premium.productListings} listings.`,
+    upgradeMessage: allowed ? undefined : `Upgrade to get more listings.`,
   }
 }
 

@@ -7,6 +7,8 @@ export const CART_ERRORS: ErrorCatalogEntry[] = [
     category: 'CART',
     severity: 'medium',
     description: 'The selected pickup market is not associated with this listing in listing_markets.',
+    userGuidance: 'This item isn\'t available at the selected pickup location. Please choose a different location.',
+    selfResolvable: true,
     causes: [
       'Listing is not available at the selected market',
       'listing_markets row does not exist for this listing+market pair',
@@ -24,6 +26,8 @@ export const CART_ERRORS: ErrorCatalogEntry[] = [
     category: 'CART',
     severity: 'medium',
     description: 'Item not available or insufficient inventory for the requested quantity.',
+    userGuidance: 'This item is no longer available or there isn\'t enough in stock. Try reducing the quantity or check back later.',
+    selfResolvable: true,
     causes: [
       'Listing is out of stock',
       'Requested quantity exceeds available inventory',
@@ -40,6 +44,8 @@ export const CART_ERRORS: ErrorCatalogEntry[] = [
     category: 'CART',
     severity: 'low',
     description: 'The market cutoff time has passed and orders are no longer being accepted.',
+    userGuidance: 'Ordering has closed for this pickup date. Try selecting a different date or check back for the next available pickup.',
+    selfResolvable: true,
     causes: [
       'Current time is past the market cutoff window',
       'Market schedule or cutoff_hours configuration',
@@ -56,6 +62,8 @@ export const CART_ERRORS: ErrorCatalogEntry[] = [
     category: 'CART',
     severity: 'high',
     description: 'A database operation on the cart failed unexpectedly.',
+    userGuidance: 'Something went wrong updating your cart. Please refresh the page and try again.',
+    retryable: true,
     causes: [
       'RLS policy blocking cart access',
       'Database connection issue',
@@ -73,6 +81,8 @@ export const CART_ERRORS: ErrorCatalogEntry[] = [
     category: 'CART',
     severity: 'low',
     description: 'Required fields were not provided in the add-to-cart request.',
+    userGuidance: 'Please select a pickup location before adding this item to your cart.',
+    selfResolvable: true,
     causes: [
       'No vertical or listingId in request body',
       'No market selected',

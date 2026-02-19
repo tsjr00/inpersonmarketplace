@@ -13,6 +13,8 @@ export const AUTH_ERRORS: ErrorCatalogEntry[] = [
     category: 'AUTH',
     severity: 'low',
     description: 'Request requires authentication but no valid session found.',
+    userGuidance: 'You need to be logged in to do this. Please log in and try again.',
+    selfResolvable: true,
     causes: [
       'User not logged in',
       'Session expired',
@@ -32,6 +34,7 @@ export const AUTH_ERRORS: ErrorCatalogEntry[] = [
     category: 'AUTH',
     severity: 'medium',
     description: 'User authenticated but lacks required role for this action.',
+    userGuidance: 'You don\'t have permission to access this. If you think this is wrong, please report it below.',
     causes: [
       'User is buyer but route requires vendor role',
       'User is vendor but route requires admin role',
@@ -51,6 +54,8 @@ export const AUTH_ERRORS: ErrorCatalogEntry[] = [
     category: 'AUTH',
     severity: 'medium',
     description: 'Authenticated user does not have a vendor profile.',
+    userGuidance: 'Your vendor profile wasn\'t found. If you haven\'t signed up as a vendor yet, please complete vendor registration first.',
+    selfResolvable: true,
     causes: [
       'User has vendor role but no vendor_profiles record',
       'Vendor profile was deleted or never created',
@@ -70,6 +75,7 @@ export const AUTH_ERRORS: ErrorCatalogEntry[] = [
     category: 'AUTH',
     severity: 'medium',
     description: 'User does not have access to this vertical.',
+    userGuidance: 'You don\'t have access to this section. You may be logged into the wrong account or vertical.',
     causes: [
       'Vertical admin trying to access different vertical',
       'Vendor registered in different vertical',
@@ -87,6 +93,8 @@ export const AUTH_ERRORS: ErrorCatalogEntry[] = [
     category: 'AUTH',
     severity: 'low',
     description: 'User session has expired and needs to re-authenticate.',
+    userGuidance: 'Your session has expired. Please log out and log back in.',
+    selfResolvable: true,
     causes: [
       'Session timeout reached',
       'Token refresh failed',

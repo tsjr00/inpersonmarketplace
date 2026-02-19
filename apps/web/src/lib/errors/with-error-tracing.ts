@@ -12,12 +12,11 @@ import { logError } from './logger'
 import { getHttpStatus } from './types'
 
 /**
- * Check if we should show error codes in responses
- * Always show error codes - they help users report issues and devs debug
+ * Error codes (ERR_AUTH_003) are always shown — they help users report issues
+ * and are not a security risk. SQL details (pgDetail) are hidden in production.
  */
-function shouldShowErrorCodes(): boolean {
-  // Always show error codes - they're essential for debugging and support
-  return true
+function shouldShowErrorDetails(): boolean {
+  return process.env.NODE_ENV !== 'production'
 }
 
 /**
@@ -58,7 +57,7 @@ export async function withErrorTracing<T>(
 
         // Return standardized error response
         return NextResponse.json(
-          error.toResponse(shouldShowErrorCodes()),
+          error.toResponse(shouldShowErrorDetails()),
           { status: error.httpStatus }
         )
       }
@@ -68,7 +67,7 @@ export async function withErrorTracing<T>(
       await logError(traced)
 
       return NextResponse.json(
-        traced.toResponse(shouldShowErrorCodes()),
+        traced.toResponse(shouldShowErrorDetails()),
         { status: 500 }
       )
     }

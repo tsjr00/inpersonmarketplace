@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { lookupError } from '@/lib/errors/error-catalog'
 
 interface ErrorFeedbackProps {
   errorCode?: string
@@ -291,6 +292,13 @@ interface ErrorDisplayProps {
 
 export function ErrorDisplay({ error, verticalId }: ErrorDisplayProps) {
   const [showFeedback, setShowFeedback] = useState(false)
+  const catalogEntry = useMemo(
+    () => (error.code ? lookupError(error.code) : undefined),
+    [error.code]
+  )
+
+  const guidance = catalogEntry?.userGuidance
+  const selfResolvable = catalogEntry?.selfResolvable ?? false
 
   return (
     <div>
@@ -302,7 +310,22 @@ export function ErrorDisplay({ error, verticalId }: ErrorDisplayProps) {
         color: '#991b1b',
         fontSize: typography.sizes.sm,
       }}>
-        <div style={{ fontWeight: typography.weights.medium }}>{error.message}</div>
+        {/* User guidance shown prominently when available */}
+        {guidance ? (
+          <>
+            <div style={{ fontWeight: typography.weights.medium }}>{guidance}</div>
+            <div style={{
+              marginTop: spacing['2xs'],
+              fontSize: typography.sizes.xs,
+              color: '#7f1d1d',
+              opacity: 0.7,
+            }}>
+              {error.message}
+            </div>
+          </>
+        ) : (
+          <div style={{ fontWeight: typography.weights.medium }}>{error.message}</div>
+        )}
         {(error.code || error.traceId) && (
           <div style={{
             marginTop: spacing['2xs'],
@@ -317,21 +340,40 @@ export function ErrorDisplay({ error, verticalId }: ErrorDisplayProps) {
           </div>
         )}
         {!showFeedback && (
-          <button
-            onClick={() => setShowFeedback(true)}
-            style={{
-              marginTop: spacing.xs,
-              padding: `${spacing['2xs']} ${spacing.xs}`,
-              backgroundColor: 'transparent',
-              border: '1px solid #991b1b',
-              borderRadius: radius.sm,
-              color: '#991b1b',
-              fontSize: typography.sizes.xs,
-              cursor: 'pointer',
-            }}
-          >
-            Report this error
-          </button>
+          selfResolvable ? (
+            <button
+              onClick={() => setShowFeedback(true)}
+              style={{
+                marginTop: spacing.xs,
+                padding: 0,
+                backgroundColor: 'transparent',
+                border: 'none',
+                color: '#7f1d1d',
+                fontSize: typography.sizes.xs,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                opacity: 0.8,
+              }}
+            >
+              Still having trouble? Report this error
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowFeedback(true)}
+              style={{
+                marginTop: spacing.xs,
+                padding: `${spacing['2xs']} ${spacing.xs}`,
+                backgroundColor: 'transparent',
+                border: '1px solid #991b1b',
+                borderRadius: radius.sm,
+                color: '#991b1b',
+                fontSize: typography.sizes.xs,
+                cursor: 'pointer',
+              }}
+            >
+              Report this error
+            </button>
+          )
         )}
       </div>
       {showFeedback && (

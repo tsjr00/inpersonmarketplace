@@ -162,16 +162,18 @@ async function sendEmail(
   }
 
   const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
-  // C7 FIX: Use vertical-aware brand name instead of hardcoded "Farmers Marketing"
-  const brandName = (vertical && defaultBranding[vertical]?.brand_name) || 'Farmers Marketing'
-  const brandDomain = (vertical && defaultBranding[vertical]?.domain) || 'farmersmarketing.app'
+  // Use vertical-aware branding for display name, domain, and header color
+  const branding = vertical ? defaultBranding[vertical] : undefined
+  const brandName = branding?.brand_name || 'Farmers Marketing'
+  const brandDomain = branding?.domain || 'farmersmarketing.app'
+  const brandColor = branding?.colors?.primary || '#166534'
 
   try {
     const { data, error } = await resend.emails.send({
       from: `${brandName} <${fromAddress}>`,
       to: userEmail,
       subject,
-      html: formatEmailHtml(subject, body, brandName, brandDomain),
+      html: formatEmailHtml(subject, body, brandName, brandDomain, brandColor),
       text: body,
     })
 
@@ -194,7 +196,8 @@ function formatEmailHtml(
   subject: string,
   body: string,
   brandName: string = 'Farmers Marketing',
-  brandDomain: string = 'farmersmarketing.app'
+  brandDomain: string = 'farmersmarketing.app',
+  brandColor: string = '#166534'
 ): string {
   const htmlBody = body
     .replace(/&/g, '&amp;')
@@ -211,7 +214,7 @@ function formatEmailHtml(
   <div style="max-width:560px;margin:0 auto;padding:32px 16px">
     <div style="background:#fff;border-radius:8px;padding:32px;border:1px solid #e5e7eb">
       <div style="margin-bottom:24px">
-        <strong style="color:#166534;font-size:18px">${brandName}</strong>
+        <strong style="color:${brandColor};font-size:18px">${brandName}</strong>
       </div>
       <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6">${htmlBody}</p>
     </div>

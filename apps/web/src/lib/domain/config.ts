@@ -58,14 +58,14 @@ export const DOMAIN_CONFIG: Record<string, DomainConfig> = {
     verticalId: 'food_trucks',
     isAdmin: false,
     brandName: "Food Truck'n",
-    logoPath: '/logos/street-eats-logo.svg'
+    logoPath: '/logos/food-truckn-logo.png'
   },
   'www.foodtruckn.app': {
     domain: 'foodtruckn.app',
     verticalId: 'food_trucks',
     isAdmin: false,
     brandName: "Food Truck'n",
-    logoPath: '/logos/street-eats-logo.svg'
+    logoPath: '/logos/food-truckn-logo.png'
   },
   // Development/Staging
   'localhost:3002': {

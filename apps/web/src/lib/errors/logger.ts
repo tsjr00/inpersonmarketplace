@@ -84,8 +84,9 @@ async function sendAdminAlert(error: TracedError): Promise<void> {
     const { Resend } = await import('resend')
     const resend = new Resend(apiKey)
 
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
     await resend.emails.send({
-      from: 'alerts@farmersmarketing.app',
+      from: `Platform Alerts <${fromAddress}>`,
       to: adminEmail,
       subject: `[${error.severity.toUpperCase()}] ${error.code}: ${error.message}`,
       html: [
@@ -116,8 +117,8 @@ export async function logError(error: TracedError): Promise<void> {
     await logErrorToDb(error)
   }
 
-  // Email admin for high-severity errors
-  if (error.severity === 'high') {
+  // Email admin for high and critical severity errors
+  if (error.severity === 'high' || error.severity === 'critical') {
     await sendAdminAlert(error)
   }
 }

@@ -40,7 +40,7 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
 
   // Check listing limit
   const tier = (vendorProfile as Record<string, unknown>).tier as string || 'standard'
-  const limit = getListingLimit(tier)
+  const limit = getListingLimit(tier, vertical)
 
   const { count: listingCount } = await supabase
     .from('listings')

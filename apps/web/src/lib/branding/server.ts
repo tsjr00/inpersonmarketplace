@@ -113,8 +113,10 @@ function getBrandingByDomainFallback(domain: string): {
   const domainMap: Record<string, string> = {
     'fireworksstand.com': 'fire_works',
     'www.fireworksstand.com': 'fire_works',
-    'farmersmarket.app': 'farmers_market',
-    'www.farmersmarket.app': 'farmers_market',
+    'farmersmarketing.app': 'farmers_market',
+    'www.farmersmarketing.app': 'farmers_market',
+    'foodtruckn.app': 'food_trucks',
+    'www.foodtruckn.app': 'food_trucks',
     'localhost:3002': 'farmers_market', // Default for dev
     'inpersonmarketplace.vercel.app': 'farmers_market', // Default for staging
   }

@@ -7,6 +7,7 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     category: 'ORDER',
     severity: 'medium',
     description: 'The specified order item could not be found.',
+    userGuidance: 'We couldn\'t find this order. It may have been removed. Please check your orders page.',
     causes: [
       'Invalid order item ID',
       'RLS policy blocking access to order_items',
@@ -24,6 +25,8 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     category: 'ORDER',
     severity: 'low',
     description: 'The order cannot be cancelled in its current state.',
+    userGuidance: 'This order can\'t be cancelled in its current status.',
+    selfResolvable: true,
     causes: [
       'Order has already been fulfilled or completed',
       'Order has already been cancelled',
@@ -39,6 +42,7 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     category: 'ORDER',
     severity: 'medium',
     description: 'The order item cannot be confirmed in its current state.',
+    userGuidance: 'This order can\'t be confirmed right now. It may not be ready for pickup yet.',
     causes: [
       'Item is not in ready/fulfilled status',
       'Buyer has already acknowledged receipt',
@@ -55,6 +59,7 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     category: 'ORDER',
     severity: 'high',
     description: 'Vendor could not confirm the handoff.',
+    userGuidance: 'Handoff confirmation failed. Please make sure the buyer has confirmed receipt first.',
     causes: [
       'Buyer has not acknowledged receipt yet',
       'Vendor has already confirmed',
@@ -72,6 +77,7 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     category: 'ORDER',
     severity: 'medium',
     description: 'Vendor has unresolved pickup confirmations blocking other actions.',
+    userGuidance: 'You have pending pickup confirmations that need to be resolved first. Check your dashboard.',
     causes: [
       'Buyer acknowledged receipt but vendor did not counter-confirm within 8 hours',
       'Multiple pending confirmations exist',
@@ -87,6 +93,8 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
     category: 'ORDER',
     severity: 'low',
     description: 'The 30-second confirmation window has expired.',
+    userGuidance: 'The confirmation window has expired. Please ask the buyer to confirm receipt again.',
+    selfResolvable: true,
     causes: [
       'Vendor did not click Fulfill within 30 seconds of buyer acknowledging',
       'Network delay caused timeout',
@@ -106,6 +114,8 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     category: 'ORDER',
     severity: 'low',
     description: 'Cart total is below the minimum order amount.',
+    userGuidance: 'Your cart total is below the $10.00 minimum. Add more items to continue.',
+    selfResolvable: true,
     causes: [
       'Subtotal is less than $10.00',
     ],
@@ -120,6 +130,8 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     category: 'STRIPE',
     severity: 'high',
     description: 'Failed to create Stripe checkout session.',
+    userGuidance: 'We couldn\'t start the checkout process. Please try again in a moment.',
+    retryable: true,
     causes: [
       'Stripe API error',
       'Invalid order data',
@@ -137,6 +149,7 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     category: 'STRIPE',
     severity: 'high',
     description: 'Could not verify payment status with Stripe.',
+    userGuidance: 'We couldn\'t verify your payment. If you were charged, don\'t worry — our team will make sure it\'s handled. Please contact support if needed.',
     causes: [
       'Invalid session_id',
       'Payment was not completed',
@@ -154,6 +167,7 @@ export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
     category: 'STRIPE',
     severity: 'high',
     description: 'Stripe refund could not be processed.',
+    userGuidance: 'Your refund couldn\'t be processed automatically. Our team will handle this manually — no action needed from you.',
     causes: [
       'Payment intent not found',
       'Refund amount exceeds original charge',

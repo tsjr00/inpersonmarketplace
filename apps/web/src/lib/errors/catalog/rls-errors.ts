@@ -15,6 +15,8 @@ export const RLS_ERRORS: ErrorCatalogEntry[] = [
     severity: 'high',
     description:
       'An RLS policy is calling itself through cross-table references, creating infinite recursion.',
+    userGuidance: 'Something went wrong loading your data. Please try refreshing the page.',
+    retryable: true,
     causes: [
       'Policy on table A references table B, whose policy references table A',
       'Example: orders_select checks order_items, order_items_select checks orders',
@@ -87,6 +89,7 @@ export const RLS_ERRORS: ErrorCatalogEntry[] = [
     category: 'RLS',
     severity: 'medium',
     description: 'Row-level security policy denied access to the requested data.',
+    userGuidance: 'You don\'t have access to this data. If you think this is wrong, please report it below.',
     causes: [
       'User is not authenticated (auth.uid() returns null)',
       'User does not own the resource (buyer_user_id/vendor_profile_id mismatch)',
@@ -109,6 +112,7 @@ export const RLS_ERRORS: ErrorCatalogEntry[] = [
     category: 'RLS',
     severity: 'medium',
     description: 'Cannot access order - RLS policy blocked the request.',
+    userGuidance: 'You don\'t have access to this order. Make sure you\'re logged into the right account.',
     causes: [
       'User is not the buyer of this order (orders.buyer_user_id != auth.uid())',
       'Vendor trying to access order not containing their items',
@@ -127,6 +131,7 @@ export const RLS_ERRORS: ErrorCatalogEntry[] = [
     category: 'RLS',
     severity: 'medium',
     description: 'Cannot access order items - RLS policy blocked the request.',
+    userGuidance: 'You don\'t have access to this order item. Make sure you\'re logged into the right account.',
     causes: [
       'User is not the buyer of the parent order',
       'Vendor does not own this order item (vendor_profile_id mismatch)',
@@ -145,6 +150,7 @@ export const RLS_ERRORS: ErrorCatalogEntry[] = [
     category: 'RLS',
     severity: 'medium',
     description: 'Cannot access market - RLS policy blocked the request.',
+    userGuidance: 'You don\'t have access to this market. It may not be available yet.',
     causes: [
       'Market is not approved/active',
       'Private pickup location belongs to different vendor',
@@ -163,6 +169,7 @@ export const RLS_ERRORS: ErrorCatalogEntry[] = [
     category: 'RLS',
     severity: 'medium',
     description: 'Cannot access vendor profile - RLS policy blocked the request.',
+    userGuidance: 'You don\'t have access to this vendor profile. Make sure you\'re logged into the right account.',
     causes: [
       'Vendor profile status is not approved',
       'User trying to access another users vendor profile',

@@ -13,6 +13,8 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
     category: 'VENDOR',
     severity: 'medium',
     description: 'Failed to insert market box offering into the database.',
+    userGuidance: 'Something went wrong creating your box. Please try again.',
+    retryable: true,
     causes: [
       'Database constraint violation',
       'RLS policy blocking insert',
@@ -32,6 +34,8 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
     category: 'VENDOR',
     severity: 'low',
     description: 'The selected pickup day/time does not match any of the traditional market\'s operating schedules.',
+    userGuidance: 'The pickup time you selected doesn\'t match this market\'s schedule. Please choose a different time.',
+    selfResolvable: true,
     causes: [
       'Vendor selected a day/time outside market operating hours',
       'Market schedule was changed after selection',
@@ -48,6 +52,8 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
     category: 'VENDOR',
     severity: 'low',
     description: 'Vendor has reached their tier limit for market box offerings.',
+    userGuidance: 'You\'ve reached your limit for boxes. Upgrade your plan or deactivate an existing box to create a new one.',
+    selfResolvable: true,
     causes: [
       'Standard tier vendor trying to create more than allowed market boxes',
       'All active market box slots are in use',
@@ -63,6 +69,8 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
     category: 'VENDOR',
     severity: 'medium',
     description: 'The specified pickup market does not exist or vendor cannot access it.',
+    userGuidance: 'This pickup location isn\'t available. Please select a different one.',
+    selfResolvable: true,
     causes: [
       'Market ID is invalid or deleted',
       'Vendor trying to use a market they don\'t have access to',
@@ -79,6 +87,8 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
     category: 'VENDOR',
     severity: 'medium',
     description: 'Failed to update an existing market box offering.',
+    userGuidance: 'Couldn\'t update this box. Please refresh the page and try again.',
+    retryable: true,
     causes: [
       'Market box no longer exists',
       'RLS policy blocking update',
@@ -96,6 +106,8 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
     category: 'VENDOR',
     severity: 'low',
     description: 'One or more price values are invalid.',
+    userGuidance: 'Please enter a valid price (minimum $1.00).',
+    selfResolvable: true,
     causes: [
       'Price is less than minimum ($1.00)',
       'Price is not a valid number',
@@ -112,6 +124,8 @@ export const MARKET_BOX_ERRORS: ErrorCatalogEntry[] = [
     category: 'VENDOR',
     severity: 'low',
     description: 'One or more required fields are missing from the request.',
+    userGuidance: 'Please fill in all required fields before saving.',
+    selfResolvable: true,
     causes: [
       'Form submitted without all required fields',
       'API called with incomplete data',

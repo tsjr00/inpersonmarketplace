@@ -80,8 +80,13 @@ export interface ErrorCatalogEntry {
   title: string // Short description
   category: ErrorCategory
   severity: ErrorSeverity
-  description: string // Detailed explanation
+  description: string // Detailed explanation (internal — for developers)
   causes: string[] // Possible causes
+
+  // User-facing guidance (shown in ErrorDisplay component)
+  userGuidance?: string // Plain-language message telling the user what to do
+  selfResolvable?: boolean // If true, userGuidance alone should fix it (hides Report button initially)
+  retryable?: boolean // If true, the operation can be automatically retried
 
   // Solution tracking - separate verified from theoretical
   solutions: string[] // Theoretical solutions (what MIGHT work)
@@ -150,8 +155,8 @@ export interface ErrorResolution {
  */
 export interface TracedErrorResponse {
   error: string // User-friendly message
-  code?: string // Error code (dev environments only)
-  details?: string // Additional details
+  code?: string // Error code (always included — helps users report issues)
+  details?: string // SQL details (dev/staging only — hidden in production)
   traceId?: string // Unique trace ID for log correlation
 }
 

@@ -75,20 +75,21 @@ export class TracedError extends Error {
 
   /**
    * Create response object for API routes
-   * @param showCode - Include error code in response (true for dev/staging)
+   * @param showDetails - Include SQL details in response (true for dev/staging only)
+   *
+   * Error codes are ALWAYS included — they help users report issues and
+   * are not a security risk. SQL details (pgDetail) are only shown in dev/staging.
    */
-  toResponse(showCode: boolean = false): TracedErrorResponse {
+  toResponse(showDetails: boolean = false): TracedErrorResponse {
     const response: TracedErrorResponse = {
       error: this.message,
       traceId: this.traceId,
+      code: this.code,
     }
 
-    // Include error code in dev/staging for debugging
-    if (showCode) {
-      response.code = this.code
-      if (this.context.pgDetail) {
-        response.details = this.context.pgDetail
-      }
+    // Only include SQL details in dev/staging — these can leak implementation info
+    if (showDetails && this.context.pgDetail) {
+      response.details = this.context.pgDetail
     }
 
     return response

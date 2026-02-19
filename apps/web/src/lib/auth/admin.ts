@@ -92,8 +92,8 @@ export async function isAdminCheck(): Promise<boolean> {
     .eq('user_id', user.id)
     .single()
 
-  // Check BOTH columns during transition
-  return profile?.role === 'admin' || profile?.roles?.includes('admin') || false
+  // Check BOTH columns during transition — include platform_admin (matches requireAdmin + hasAdminRole)
+  return hasAdminRole(profile || {})
 }
 
 /**

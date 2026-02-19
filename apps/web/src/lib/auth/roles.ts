@@ -6,7 +6,7 @@
  * for backward compatibility during transition.
  */
 
-export type UserRole = 'buyer' | 'vendor' | 'admin' | 'verifier'
+export type UserRole = 'buyer' | 'vendor' | 'admin' | 'verifier' | 'platform_admin'
 
 interface ProfileWithRoles {
   role?: string | null
