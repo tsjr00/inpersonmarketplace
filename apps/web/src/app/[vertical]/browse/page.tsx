@@ -783,12 +783,13 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                 style={{
                   display: 'inline-block',
                   padding: `${spacing.xs} ${spacing.md}`,
-                  backgroundColor: colors.primary,
-                  color: colors.textInverse,
+                  backgroundColor: 'transparent',
+                  color: '#737373',
                   textDecoration: 'none',
                   borderRadius: radius.sm,
                   fontWeight: typography.weights.semibold,
-                  minHeight: 44
+                  minHeight: 44,
+                  border: '2px solid #737373'
                 }}
               >
                 Clear Filters

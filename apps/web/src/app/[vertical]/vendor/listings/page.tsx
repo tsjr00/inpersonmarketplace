@@ -391,13 +391,14 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: `${spacing.xs} ${spacing.md}`,
-                  backgroundColor: colors.primary,
-                  color: colors.textInverse,
+                  backgroundColor: 'transparent',
+                  color: colors.primary,
                   textDecoration: 'none',
                   borderRadius: radius.sm,
                   fontWeight: typography.weights.semibold,
                   minHeight: 44,
-                  flex: 1
+                  flex: 1,
+                  border: `2px solid ${colors.primary}`
                 }}
               >
                 + {term(vertical, 'listing')}
@@ -667,12 +668,13 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: `${spacing.xs} ${spacing.md}`,
-                backgroundColor: colors.primary,
-                color: colors.textInverse,
+                backgroundColor: 'transparent',
+                color: colors.primary,
                 textDecoration: 'none',
                 borderRadius: radius.sm,
                 fontWeight: typography.weights.semibold,
-                minHeight: 44
+                minHeight: 44,
+                border: `2px solid ${colors.primary}`
               }}
             >
               + Create First Listing

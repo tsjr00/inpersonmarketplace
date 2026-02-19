@@ -107,13 +107,13 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
             style={{
               display: 'inline-block',
               padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: colors.primary,
-              color: colors.textInverse,
+              backgroundColor: 'transparent',
+              color: colors.primary,
               textDecoration: 'none',
               borderRadius: radius.sm,
               fontWeight: typography.weights.semibold,
               fontSize: typography.sizes.base,
-              boxShadow: shadows.primary
+              border: `2px solid ${colors.primary}`
             }}
           >
             Back to Login

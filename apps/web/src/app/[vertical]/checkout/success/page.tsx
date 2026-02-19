@@ -543,12 +543,12 @@ export default function CheckoutSuccessPage() {
             href={`/${vertical}/buyer/orders`}
             style={{
               padding: `${spacing.sm} ${spacing.lg}`,
-              backgroundColor: colors.primary,
-              color: colors.textInverse,
+              backgroundColor: 'transparent',
+              color: colors.primary,
               textDecoration: 'none',
               borderRadius: radius.sm,
               fontWeight: typography.weights.semibold,
-              boxShadow: shadows.primary,
+              border: `2px solid ${colors.primary}`,
               textAlign: 'center',
               display: 'inline-flex',
               alignItems: 'center',

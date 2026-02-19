@@ -303,9 +303,9 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                       padding: '14px 0',
                       fontSize: 16,
                       fontWeight: 600,
-                      backgroundColor: processing ? '#9ca3af' : '#ff3131',
-                      color: 'white',
-                      border: 'none',
+                      backgroundColor: processing ? '#f5f5f5' : 'transparent',
+                      color: processing ? '#9ca3af' : '#ff3131',
+                      border: processing ? '2px solid #9ca3af' : '2px solid #ff3131',
                       borderRadius: 8,
                       cursor: processing ? 'not-allowed' : 'pointer',
                     }}

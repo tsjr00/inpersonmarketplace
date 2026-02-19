@@ -84,12 +84,13 @@ function FtTierManager({ vertical, currentTier }: { vertical: string; currentTie
             style={{
               display: 'inline-block',
               padding: '10px 20px',
-              backgroundColor: '#ff3131',
-              color: 'white',
+              backgroundColor: 'transparent',
+              color: '#ff5757',
               textDecoration: 'none',
               borderRadius: 6,
               fontWeight: 600,
               fontSize: 14,
+              border: '2px solid #ff5757',
             }}
           >
             Upgrade Plan

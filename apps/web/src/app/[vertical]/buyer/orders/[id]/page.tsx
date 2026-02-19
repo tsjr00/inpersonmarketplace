@@ -334,12 +334,13 @@ export default function BuyerOrderDetailPage() {
           href={`/${vertical}/buyer/orders`}
           style={{
             padding: `${spacing.xs} ${spacing.md}`,
-            backgroundColor: colors.primary,
-            color: colors.textInverse,
+            backgroundColor: 'transparent',
+            color: '#737373',
             textDecoration: 'none',
             borderRadius: radius.sm,
             fontWeight: typography.weights.semibold,
-            fontSize: typography.sizes.base
+            fontSize: typography.sizes.base,
+            border: '2px solid #737373'
           }}
         >
           Back to Orders

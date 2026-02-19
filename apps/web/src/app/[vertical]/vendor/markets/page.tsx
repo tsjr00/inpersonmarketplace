@@ -1387,9 +1387,9 @@ export default function VendorMarketsPage() {
                 onClick={() => setShowForm(true)}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: colors.primary,
-                  color: 'white',
-                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: colors.primary,
+                  border: `2px solid ${colors.primary}`,
                   borderRadius: 6,
                   fontWeight: 600,
                   cursor: 'pointer'

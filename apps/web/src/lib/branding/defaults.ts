@@ -29,11 +29,11 @@ export const defaultBranding: Record<string, VerticalBranding> = {
     logo_path: '/logos/food-truckn-logo.png',
     favicon: '/logos/food-truckn-logo.png',
     colors: {
-      primary: '#545454',
-      secondary: '#737373',
+      primary: '#ff5757',
+      secondary: '#ff3131',
       accent: '#ff3131',
       background: '#ffffff',
-      text: '#545454'
+      text: '#1a1a1a'
     },
     meta: {
       title: "Food Truck'n | Local Food Trucks Near You",

@@ -81,9 +81,9 @@ export default function VendorFilters({
             type="submit"
             style={{
               padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: colors.primary,
-              color: colors.textInverse,
-              border: 'none',
+              backgroundColor: 'transparent',
+              color: colors.primary,
+              border: `2px solid ${colors.primary}`,
               borderRadius: radius.md,
               fontSize: typography.sizes.base,
               fontWeight: typography.weights.semibold,

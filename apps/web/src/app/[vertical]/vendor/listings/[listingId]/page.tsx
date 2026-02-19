@@ -118,14 +118,15 @@ export default async function ViewListingPage({ params }: ViewListingPageProps) 
               href={`/${vertical}/vendor/listings/${listing.id}/edit`}
               style={{
                 padding: `${spacing.xs} ${spacing.sm}`,
-                backgroundColor: colors.primary,
-                color: colors.textInverse,
+                backgroundColor: 'transparent',
+                color: colors.primary,
                 textDecoration: 'none',
                 borderRadius: radius.sm,
                 fontWeight: typography.weights.semibold,
                 minHeight: 44,
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                border: `2px solid ${colors.primary}`
               }}
             >
               Edit Listing
@@ -460,14 +461,15 @@ export default async function ViewListingPage({ params }: ViewListingPageProps) 
               href={`/${vertical}/vendor/listings/${listing.id}/edit`}
               style={{
                 padding: `${spacing.xs} ${spacing.md}`,
-                backgroundColor: colors.primary,
-                color: colors.textInverse,
+                backgroundColor: 'transparent',
+                color: colors.primary,
                 textDecoration: 'none',
                 borderRadius: radius.sm,
                 fontWeight: typography.weights.semibold,
                 minHeight: 44,
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                border: `2px solid ${colors.primary}`
               }}
             >
               Edit Listing

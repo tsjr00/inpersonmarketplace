@@ -629,15 +629,15 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: `${spacing.sm} ${spacing.lg}`,
-                  backgroundColor: colors.primary,
-                  color: colors.textInverse,
+                  backgroundColor: 'transparent',
+                  color: colors.primary,
                   textDecoration: 'none',
                   borderRadius: radius.md,
                   fontWeight: typography.weights.semibold,
                   fontSize: typography.sizes.base,
                   minHeight: 48,
                   whiteSpace: 'nowrap',
-                  boxShadow: shadows.primary
+                  border: `2px solid ${colors.primary}`
                 }}
               >
                 Upgrade Now →
@@ -737,12 +737,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     style={{
                       display: 'inline-block',
                       padding: `${spacing.sm} ${spacing.lg}`,
-                      backgroundColor: colors.primary,
-                      color: colors.textInverse,
+                      backgroundColor: 'transparent',
+                      color: colors.primary,
                       textDecoration: 'none',
                       borderRadius: radius.md,
                       fontWeight: typography.weights.semibold,
-                      fontSize: typography.sizes.base
+                      fontSize: typography.sizes.base,
+                      border: `2px solid ${colors.primary}`
                     }}
                   >
                     {term(vertical, 'vendor_signup_cta')} →

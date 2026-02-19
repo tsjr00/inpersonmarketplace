@@ -64,11 +64,12 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             href={`/${vertical}/login`}
             style={{
               padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: colors.primary,
-              color: 'white',
+              backgroundColor: 'transparent',
+              color: colors.primary,
               textDecoration: 'none',
               borderRadius: radius.md,
-              fontWeight: typography.weights.semibold
+              fontWeight: typography.weights.semibold,
+              border: `2px solid ${colors.primary}`
             }}
           >
             Get Started
@@ -287,12 +288,13 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
               style={{
                 display: 'inline-block',
                 padding: `${spacing.md} ${spacing.xl}`,
-                backgroundColor: colors.primary,
-                color: 'white',
+                backgroundColor: 'transparent',
+                color: colors.primary,
                 textDecoration: 'none',
                 borderRadius: radius.lg,
                 fontWeight: typography.weights.semibold,
-                fontSize: typography.sizes.lg
+                fontSize: typography.sizes.lg,
+                border: `2px solid ${colors.primary}`
               }}
             >
               Start Shopping

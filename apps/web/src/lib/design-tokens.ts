@@ -123,13 +123,13 @@ const verticalColorPalettes: Record<string, typeof colors> = {
     borderMuted: '#F0EDE8',
   },
   food_trucks: {
-    // Primary Colors (Charcoal — Approach A: grey-dominant UI, red as accent only)
-    primary: '#545454',           // Dark charcoal — nav, headers, buttons (brand kit)
-    primaryDark: '#3d3d3d',       // Darker charcoal — hover states, emphasis
-    primaryLight: '#f0f0f0',      // Light grey — subtle backgrounds
+    // Primary Colors (Medium red — brand identity, headers, links, active states)
+    primary: '#ff5757',           // Medium red (brand kit) — headers, links
+    primaryDark: '#ff3131',       // Bright red (brand kit) — hover, emphasis
+    primaryLight: '#fff5f5',      // Very light red — subtle highlight backgrounds
 
-    // Accent Colors (Red — brand identity, used sparingly + semantic)
-    accent: '#ff3131',            // Brand red — accent highlights, CTAs, danger/error
+    // Accent Colors
+    accent: '#ff3131',            // Bright red — key CTAs, danger/error
     accentMuted: '#b4b4b4',      // Light grey (brand kit) — secondary accents
 
     // Surface Colors (White-dominant — clean and classic)
@@ -138,10 +138,10 @@ const verticalColorPalettes: Record<string, typeof colors> = {
     surfaceSubtle: '#f5f5f5',     // Very light grey — alternate sections
     surfaceMuted: '#f0f0f0',      // Light grey — muted sections
 
-    // Text Colors (Brand kit charcoal/grey scale)
-    textPrimary: '#545454',       // Charcoal — headings (brand kit)
-    textSecondary: '#737373',     // Medium grey — body text (brand kit)
-    textMuted: '#b4b4b4',        // Light grey — captions, hints (brand kit)
+    // Text Colors (Black paragraphs, charcoal sub-headers, grey captions)
+    textPrimary: '#1a1a1a',       // Near-black — paragraph text
+    textSecondary: '#545454',     // Charcoal — sub-headers, labels (brand kit)
+    textMuted: '#737373',         // Medium grey — captions, hints (brand kit)
     textInverse: '#FFFFFF',
     textInverseMuted: 'rgba(255, 255, 255, 0.85)',
 
@@ -166,8 +166,8 @@ const verticalShadowPalettes: Record<string, typeof shadows> = {
     md: '0 4px 6px rgba(0, 0, 0, 0.07)',
     lg: '0 10px 15px rgba(0, 0, 0, 0.1)',
     xl: '0 20px 25px rgba(0, 0, 0, 0.1)',
-    primary: '0 4px 12px rgba(84, 84, 84, 0.25)',
-    primaryHover: '0 6px 16px rgba(84, 84, 84, 0.35)',
+    primary: '0 4px 12px rgba(255, 87, 87, 0.25)',
+    primaryHover: '0 6px 16px rgba(255, 87, 87, 0.35)',
   },
 }
 

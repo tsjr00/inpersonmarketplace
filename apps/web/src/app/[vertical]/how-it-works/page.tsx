@@ -241,12 +241,13 @@ export default function HowItWorksPage() {
             style={{
               display: 'inline-block',
               padding: `${spacing.sm} ${spacing.lg}`,
-              backgroundColor: colors.primary,
-              color: 'white',
+              backgroundColor: 'transparent',
+              color: colors.primary,
               textDecoration: 'none',
               borderRadius: radius.md,
               fontWeight: typography.weights.bold,
               fontSize: typography.sizes.lg,
+              border: `2px solid ${colors.primary}`,
             }}
           >
             {term(vertical, 'browse_products_cta')}

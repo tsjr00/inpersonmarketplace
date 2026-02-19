@@ -241,12 +241,13 @@ export default function VendorAnalyticsPage() {
             style={{
               display: 'inline-block',
               padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: '#ff3131',
-              color: 'white',
+              backgroundColor: 'transparent',
+              color: '#ff5757',
               textDecoration: 'none',
               borderRadius: radius.md,
               fontWeight: typography.weights.semibold,
               fontSize: typography.sizes.base,
+              border: '2px solid #ff5757',
             }}
           >
             View Plans
@@ -287,10 +288,11 @@ export default function VendorAnalyticsPage() {
               display: 'inline-block',
               marginTop: spacing.sm,
               padding: `${spacing['2xs']} ${spacing.sm}`,
-              backgroundColor: colors.primary,
-              color: colors.textInverse,
+              backgroundColor: 'transparent',
+              color: '#737373',
               textDecoration: 'none',
-              borderRadius: radius.sm
+              borderRadius: radius.sm,
+              border: '2px solid #737373'
             }}
           >
             Back to Dashboard

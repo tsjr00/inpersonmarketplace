@@ -272,9 +272,9 @@ export default function VendorReferralsPage({ params }: { params: Promise<{ vert
               onClick={handleCopy}
               style={{
                 padding: `${spacing.sm} ${spacing.md}`,
-                backgroundColor: colors.primary,
-                color: 'white',
-                border: 'none',
+                backgroundColor: 'transparent',
+                color: colors.primary,
+                border: `2px solid ${colors.primary}`,
                 borderRadius: radius.sm,
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,

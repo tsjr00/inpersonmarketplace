@@ -341,16 +341,15 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     alignItems: 'center',
     justifyContent: 'center',
     padding: `${spacing.sm} ${spacing.md}`,
-    backgroundColor: colors.primary,
-    color: colors.textInverse,
-    border: 'none',
+    backgroundColor: 'transparent',
+    color: colors.primary,
+    border: `2px solid ${colors.primary}`,
     borderRadius: radius.md,
     fontSize: typography.sizes.base,
     fontWeight: typography.weights.semibold,
     cursor: 'pointer',
     textDecoration: 'none',
     transition: 'all 0.2s ease',
-    boxShadow: shadows.primary,
   };
 
   const buttonSecondaryStyle = {
