@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 interface OrderItem {
   id: string
@@ -182,7 +183,7 @@ export default function VendorPrepPage() {
                 fontWeight: typography.weights.bold,
                 color: colors.primary
               }}>
-                Prep for Market
+                {vertical === 'food_trucks' ? 'Prep for Service' : 'Prep for Market'}
               </h1>
               <p style={{
                 margin: `${spacing['3xs']} 0 0 0`,
@@ -250,7 +251,7 @@ export default function VendorPrepPage() {
               fontWeight: typography.weights.semibold,
               color: colors.primaryDark
             }}>
-              Next Market: {formatDate(data.nextPickup.date)}
+              Next {term(vertical, 'market')}: {formatDate(data.nextPickup.date)}
               <span style={{ fontWeight: typography.weights.normal, marginLeft: spacing.xs }}>
                 {data.nextPickup.start_time} - {data.nextPickup.end_time}
               </span>

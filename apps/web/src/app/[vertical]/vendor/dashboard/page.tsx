@@ -470,7 +470,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                       lineHeight: 1.4
                     }}
                   >
-                    {market.market_type === 'private_pickup' ? '🏠 ' : '🛒 '}{market.name}
+                    {market.market_type === 'private_pickup' ? '🏠 ' : `${term(vertical, 'market_icon_emoji')} `}{market.name}
                   </Link>
                 ))}
                 {activeMarkets.length > 8 && (

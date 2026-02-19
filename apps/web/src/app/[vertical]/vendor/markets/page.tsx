@@ -665,10 +665,10 @@ export default function VendorMarketsPage() {
                         ) : (
                           <div style={{
                             padding: '6px 10px',
-                            backgroundColor: '#dcfce7',
+                            backgroundColor: colors.primaryLight,
                             borderRadius: 4,
                             fontSize: 12,
-                            color: '#166534',
+                            color: colors.primaryDark,
                             marginBottom: 12,
                             display: 'inline-block'
                           }}>

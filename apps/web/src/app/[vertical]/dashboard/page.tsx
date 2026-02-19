@@ -267,7 +267,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               fontSize: typography.sizes.sm,
               color: colors.textSecondary
             }}>
-              Get a text the moment your order is ready so you can pick it up hot and fresh. Quick setup in Settings.
+              Get a text the moment your order is ready for pickup. Quick setup in Settings.
             </p>
           </div>
         </Link>
