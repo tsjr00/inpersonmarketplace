@@ -20,7 +20,7 @@ export default async function VerticalLayout({
 
   return (
     <CartProviderWrapper vertical={vertical}>
-      <div style={{ minHeight: '100vh', ...cssVars } as React.CSSProperties}>
+      <div style={{ minHeight: '100vh', background: 'var(--color-surface-base)', ...cssVars } as React.CSSProperties}>
         <HeaderWrapper vertical={vertical} />
         <main>{children}</main>
       </div>
