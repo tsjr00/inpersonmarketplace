@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
 
     // Validate box_type for food truck vendors
     if (vendor.vertical_id === 'food_trucks' && !box_type) {
-      throw new TracedError('ERR_MBOX_008', 'Plan type is required for food truck meal plans', {
+      throw new TracedError('ERR_MBOX_008', 'Box type is required for food truck Chef Boxes', {
         vendorId: vendor.id,
       })
     }

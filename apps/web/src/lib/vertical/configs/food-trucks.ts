@@ -28,8 +28,8 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     traditional_markets: 'Food Truck Parks',
     private_pickup: 'Service Location',
     private_pickups: 'Service Locations',
-    market_box: 'Meal Plan',
-    market_boxes: 'Meal Plans',
+    market_box: 'Chef Box',
+    market_boxes: 'Chef Boxes',
     market_day: 'Service time',
     market_hours: 'Operating Hours',
 
@@ -40,8 +40,8 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     // Page-level text
     vendors_page_title: 'Local Food Trucks',
     vendors_page_subtitle: 'Discover food truck operators, chefs, and culinary artisans in your area.',
-    browse_page_subtitle: 'Discover menu items and meal plans from local food trucks near you.',
-    subscription_description: 'Meal Plans are recurring weekly meal bundles from your favorite food trucks. Subscribe to lock in your picks each week.',
+    browse_page_subtitle: 'Discover menu items and Chef Boxes from local food trucks near you.',
+    subscription_description: 'Chef Boxes are recurring weekly meal bundles from your favorite food trucks. Subscribe to lock in your picks each week.',
 
     // Emojis
     no_results_vendor_emoji: '👨‍🍳',
