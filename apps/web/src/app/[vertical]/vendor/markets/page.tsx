@@ -792,6 +792,22 @@ export default function VendorMarketsPage() {
                     >
                       {!market.hasAttendance ? 'Set Schedule' : 'Manage Schedule'}
                     </button>
+                    <Link
+                      href={`/${vertical}/vendor/markets/${market.id}/prep`}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: 'transparent',
+                        color: colors.primary,
+                        border: `1px solid ${colors.primary}`,
+                        borderRadius: 6,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        display: 'inline-block'
+                      }}
+                    >
+                      📋 Prep Sheet
+                    </Link>
                   </div>
 
                   {/* Schedule Selector - shown inline when this market is selected */}

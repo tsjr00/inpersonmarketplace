@@ -6,6 +6,7 @@ import {
   getCategoryRequirement,
   requiresDocuments,
   DOC_TYPE_LABELS,
+  JURISDICTION_DISCLAIMER,
   type DocType,
 } from '@/lib/onboarding/category-requirements'
 import type { Category } from '@/lib/constants'
@@ -109,6 +110,9 @@ export default function CategoryDocumentUpload({ category, verification, onUploa
             marginTop: spacing['3xs'],
           }}>
             {requirement.description}
+            <div style={{ marginTop: spacing['3xs'], fontStyle: 'italic', color: colors.textMuted }}>
+              {JURISDICTION_DISCLAIMER}
+            </div>
           </div>
         </div>
         <span style={{

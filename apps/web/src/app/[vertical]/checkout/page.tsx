@@ -1209,6 +1209,13 @@ export default function CheckoutPage() {
                       Add a tip
                     </div>
                     <div style={{
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted,
+                      marginBottom: spacing['2xs'],
+                    }}>
+                      100% of your tip goes directly to the vendor
+                    </div>
+                    <div style={{
                       display: 'flex',
                       gap: 4,
                       flexWrap: 'wrap',

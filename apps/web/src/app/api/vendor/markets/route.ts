@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
     const tierLimits = getTierLimits(tier)
     const isVendorPremium = isPremiumTier(tier)
 
-    // Query vendor attendance records to show schedule status
+    // Query vendor attendance records (including vendor-specific times for polling)
     const { data: attendanceData } = await supabase
       .from('vendor_market_schedules')
-      .select('market_id')
+      .select('market_id, schedule_id, vendor_start_time, vendor_end_time')
       .eq('vendor_profile_id', vendorProfile.id)
       .eq('is_active', true)
 
@@ -87,14 +87,37 @@ export async function GET(request: NextRequest) {
       (attendanceData || []).map(a => a.market_id as string)
     )
 
-    const fixedMarkets = (allMarkets || []).filter(m => m.market_type === 'traditional').map(m => ({
-      ...m,
-      isHomeMarket: m.id === vendorProfile.home_market_id,
-      // For standard vendors with a home market, restrict to only that market
-      canUse: isVendorPremium || !vendorProfile.home_market_id || m.id === vendorProfile.home_market_id,
-      homeMarketRestricted: !isVendorPremium && vendorProfile.home_market_id && m.id !== vendorProfile.home_market_id,
-      hasAttendance: marketsWithAttendance.has(m.id)
-    }))
+    // Build a lookup of vendor-specific times by schedule_id
+    const vendorTimesBySchedule = new Map<string, { start: string; end: string }>()
+    for (const a of attendanceData || []) {
+      if (a.schedule_id && (a.vendor_start_time || a.vendor_end_time)) {
+        vendorTimesBySchedule.set(a.schedule_id, {
+          start: a.vendor_start_time || '',
+          end: a.vendor_end_time || '',
+        })
+      }
+    }
+
+    const fixedMarkets = (allMarkets || []).filter(m => m.market_type === 'traditional').map(m => {
+      // Merge vendor-specific times into market schedules
+      const schedules = (m.market_schedules || []).map((s: any) => {
+        const vendorTimes = vendorTimesBySchedule.get(s.id)
+        return {
+          ...s,
+          // Use vendor times when available, otherwise market defaults
+          start_time: vendorTimes?.start || s.start_time,
+          end_time: vendorTimes?.end || s.end_time,
+        }
+      })
+      return {
+        ...m,
+        market_schedules: schedules,
+        isHomeMarket: m.id === vendorProfile.home_market_id,
+        canUse: isVendorPremium || !vendorProfile.home_market_id || m.id === vendorProfile.home_market_id,
+        homeMarketRestricted: !isVendorPremium && vendorProfile.home_market_id && m.id !== vendorProfile.home_market_id,
+        hasAttendance: marketsWithAttendance.has(m.id)
+      }
+    })
 
     // Count current fixed markets for this vendor
     const { data: currentCount } = await supabase

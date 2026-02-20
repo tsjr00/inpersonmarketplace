@@ -33,6 +33,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market);
 
   // Store actual File objects for upload after form submission
@@ -194,9 +195,11 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       return;
     }
 
+    setFormError(null);
+
     // Check if user is logged in
     if (!user) {
-      alert("Please login first to become a vendor");
+      setFormError("Please login first to become a vendor.");
       router.push(`/${vertical}/login`);
       return;
     }
@@ -207,28 +210,28 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       .map((f) => f.label);
 
     if (missingFields.length > 0) {
-      alert(`Please fill in required fields: ${missingFields.join(", ")}`);
+      setFormError(`Please fill in required fields: ${missingFields.join(", ")}`);
       return;
     }
 
     // Validate email format
     const email = values.email as string;
     if (email && !email.includes("@")) {
-      alert("Please enter a valid email address");
+      setFormError("Please enter a valid email address.");
       return;
     }
 
     // Validate phone format
     const phone = values.phone as string;
     if (phone && !/^\d{10}$|^\d{3}-\d{3}-\d{4}$/.test(phone)) {
-      alert("Please enter a valid phone number (10 digits, e.g., 555-555-5555)");
+      setFormError("Please enter a valid phone number (10 digits, e.g., 555-555-5555).");
       return;
     }
 
     // Validate acknowledgments
     const allAcknowledged = Object.values(acknowledgments).every(v => v === true);
     if (!allAcknowledged) {
-      alert("Please review and accept all vendor acknowledgments before submitting.");
+      setFormError("Please review and accept all vendor acknowledgments before submitting.");
       return;
     }
 
@@ -269,7 +272,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
 
       if (!res.ok) {
         setSubmitting(false);
-        alert(`Save failed: ${result.error || "Unknown error"}`);
+        setFormError(`Save failed: ${result.error || "Unknown error"}`);
         return;
       }
 
@@ -304,7 +307,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     } catch (err) {
       console.error("Submit error:", err);
       setSubmitting(false);
-      alert("Save failed. Check the console for errors.");
+      setFormError("Save failed. Please try again.");
     }
   }
 
@@ -924,6 +927,21 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
             </div>
           </div>
 
+          {/* Validation Error Banner */}
+          {formError && (
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: '#fef2f2',
+              border: '1px solid #ef4444',
+              borderRadius: radius.md,
+              color: '#ef4444',
+              fontSize: typography.sizes.sm,
+              marginBottom: spacing.sm,
+            }}>
+              {formError}
+            </div>
+          )}
+
           {/* Submit Button */}
           <button
             type="submit"
@@ -954,21 +972,6 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           <Link href={`/${vertical}/vendor/dashboard`} style={{ ...buttonSecondaryStyle, marginTop: spacing.md }}>
             Go to Vendor Dashboard
           </Link>
-          <details style={{ marginTop: spacing.md }}>
-            <summary style={{ cursor: "pointer", color: colors.textMuted, fontSize: typography.sizes.sm }}>View submitted data</summary>
-            <pre style={{
-              marginTop: spacing.xs,
-              padding: spacing.sm,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              overflow: "auto",
-              backgroundColor: colors.surfaceElevated,
-              fontSize: typography.sizes.xs,
-              color: colors.textSecondary,
-            }}>
-              {JSON.stringify(submitted, null, 2)}
-            </pre>
-          </details>
         </div>
       ) : null}
       </main>

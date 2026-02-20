@@ -16,11 +16,15 @@ export function TrustStats({ vertical, stats }: TrustStatsProps) {
   const colors = getVerticalColors(vertical)
   const { trust_stats } = getContent(vertical)
 
+  // Don't show stats section if platform has no real data yet
+  const hasData = stats.listingCount > 0 || stats.vendorCount > 0 || stats.marketCount > 0
+  if (!hasData) return null
+
   const statItems = [
     { icon: Package, value: stats.listingCount, label: trust_stats.products_label },
     { icon: Users, value: stats.vendorCount, label: trust_stats.vendors_label },
     { icon: Store, value: stats.marketCount, label: trust_stats.markets_label },
-  ]
+  ].filter(s => s.value > 0)
 
   return (
     <section

@@ -676,10 +676,12 @@ export default function ListingForm({
         {/* Size / Amount — required for publishing */}
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
-            Size / Amount {formData.status === 'published' && <span style={{ color: '#c00' }}>*</span>}
+            {vertical === 'food_trucks' ? 'Amount Available Today' : 'Size / Amount'} {formData.status === 'published' && <span style={{ color: '#c00' }}>*</span>}
           </label>
           <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 8 }}>
-            What does the buyer receive? (e.g., &quot;1 lb&quot;, &quot;3-pack&quot;, &quot;feeds 4&quot;)
+            {vertical === 'food_trucks'
+              ? 'How much will you have available? (e.g., "20 servings", "15 feeds")'
+              : 'What does the buyer receive? (e.g., "1 lb", "3-pack", "feeds 4")'}
           </p>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1 }}>

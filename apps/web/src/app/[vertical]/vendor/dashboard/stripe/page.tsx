@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface StripeStatus {
   connected: boolean
@@ -64,19 +65,19 @@ export default function VendorStripePage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8f9fa'
+        backgroundColor: colors.surfaceBase
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
             width: 40,
             height: 40,
-            border: '4px solid #e0e0e0',
-            borderTop: '4px solid #333',
+            border: `4px solid ${colors.border}`,
+            borderTop: `4px solid ${colors.primary}`,
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
             margin: '0 auto 15px'
           }} />
-          <p>Loading...</p>
+          <p style={{ color: colors.textMuted }}>Loading...</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -86,31 +87,39 @@ export default function VendorStripePage() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f8f9fa',
-      padding: 40
+      backgroundColor: colors.surfaceBase,
+      padding: spacing.xl
     }}>
-      {/* Header */}
-      <div style={{ maxWidth: 600, margin: '0 auto' }}>
+      <div style={{ maxWidth: containers.sm, margin: '0 auto' }}>
         <Link
           href={`/${vertical}/vendor/dashboard`}
-          style={{ color: '#666', textDecoration: 'none', fontSize: 14 }}
+          style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
         >
           ← Vendor Dashboard
         </Link>
 
-        <h1 style={{ marginTop: 20, marginBottom: 10 }}>Payment Settings</h1>
-        <p style={{ color: '#666', marginBottom: 30 }}>
+        <h1 style={{
+          marginTop: spacing.sm,
+          marginBottom: spacing['2xs'],
+          fontSize: typography.sizes['2xl'],
+          fontWeight: typography.weights.bold,
+          color: colors.primary
+        }}>
+          Payment Settings
+        </h1>
+        <p style={{ color: colors.textMuted, marginBottom: spacing.md, fontSize: typography.sizes.base }}>
           Connect your bank account to receive payments from customers
         </p>
 
         {error && (
           <div style={{
-            padding: 15,
-            backgroundColor: '#f8d7da',
-            border: '1px solid #f5c6cb',
-            borderRadius: 8,
-            color: '#721c24',
-            marginBottom: 20
+            padding: spacing.sm,
+            backgroundColor: '#fef2f2',
+            border: '1px solid #ef4444',
+            borderRadius: radius.md,
+            color: '#ef4444',
+            marginBottom: spacing.md,
+            fontSize: typography.sizes.sm
           }}>
             {error}
           </div>
@@ -118,28 +127,42 @@ export default function VendorStripePage() {
 
         {/* Main Card */}
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: 8,
-          border: '1px solid #ddd',
-          padding: 30
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.md,
+          border: `1px solid ${colors.border}`,
+          padding: spacing.lg,
+          boxShadow: shadows.sm
         }}>
-          <h2 style={{ marginTop: 0, marginBottom: 10 }}>Stripe Connect</h2>
-          <p style={{ color: '#666', marginBottom: 20 }}>
+          <h2 style={{
+            marginTop: 0,
+            marginBottom: spacing['2xs'],
+            fontSize: typography.sizes.xl,
+            fontWeight: typography.weights.semibold,
+            color: colors.textPrimary
+          }}>
+            Stripe Connect
+          </h2>
+          <p style={{ color: colors.textMuted, marginBottom: spacing.md, fontSize: typography.sizes.base }}>
             Receive payments directly to your bank account via Stripe
           </p>
 
           {!status?.connected ? (
             <>
-              <p style={{ color: '#666', marginBottom: 20, fontSize: 14 }}>
+              <p style={{ color: colors.textSecondary, marginBottom: spacing.md, fontSize: typography.sizes.sm }}>
                 To start selling and receiving payments, you need to connect your bank account
                 through Stripe. This is a secure process that takes about 5 minutes.
               </p>
 
-              <div style={{ marginBottom: 25 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>
+              <div style={{ marginBottom: spacing.md }}>
+                <h3 style={{
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold,
+                  marginBottom: spacing.xs,
+                  color: colors.textPrimary
+                }}>
                   What you&apos;ll need:
                 </h3>
-                <ul style={{ margin: 0, paddingLeft: 20, color: '#666', fontSize: 14 }}>
+                <ul style={{ margin: 0, paddingLeft: 20, color: colors.textSecondary, fontSize: typography.sizes.sm }}>
                   <li>Business or personal information</li>
                   <li>Bank account details (routing &amp; account number)</li>
                   <li>Social Security Number or EIN</li>
@@ -151,13 +174,13 @@ export default function VendorStripePage() {
                 disabled={onboarding}
                 style={{
                   width: '100%',
-                  padding: '15px 30px',
-                  backgroundColor: onboarding ? '#ccc' : '#333',
-                  color: 'white',
+                  padding: `${spacing.sm} ${spacing.lg}`,
+                  backgroundColor: onboarding ? colors.surfaceMuted : colors.primary,
+                  color: onboarding ? colors.textMuted : 'white',
                   border: 'none',
-                  borderRadius: 6,
-                  fontSize: 16,
-                  fontWeight: 600,
+                  borderRadius: radius.md,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold,
                   cursor: onboarding ? 'not-allowed' : 'pointer'
                 }}
               >
@@ -167,21 +190,21 @@ export default function VendorStripePage() {
           ) : (
             <>
               <div style={{
-                padding: 15,
-                backgroundColor: '#d4edda',
-                border: '1px solid #c3e6cb',
-                borderRadius: 8,
-                color: '#155724',
-                marginBottom: 20,
+                padding: spacing.sm,
+                backgroundColor: statusColors.successLight,
+                border: `1px solid ${statusColors.success}`,
+                borderRadius: radius.md,
+                color: statusColors.success,
+                marginBottom: spacing.md,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10
+                gap: spacing.xs
               }}>
                 <span style={{ fontSize: 20 }}>✓</span>
-                <span>Your Stripe account is connected</span>
+                <span style={{ fontWeight: typography.weights.semibold }}>Your Stripe account is connected</span>
               </div>
 
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: spacing.md }}>
                 <StatusItem label="Charges Enabled" enabled={status.chargesEnabled} />
                 <StatusItem label="Payouts Enabled" enabled={status.payoutsEnabled} />
                 <StatusItem label="Details Submitted" enabled={status.detailsSubmitted} />
@@ -189,20 +212,20 @@ export default function VendorStripePage() {
 
               {!status.chargesEnabled || !status.payoutsEnabled ? (
                 <>
-                  <p style={{ color: '#666', marginBottom: 15, fontSize: 14 }}>
+                  <p style={{ color: colors.textMuted, marginBottom: spacing.sm, fontSize: typography.sizes.sm }}>
                     Your account setup is incomplete. Click below to continue.
                   </p>
                   <button
                     onClick={startOnboarding}
                     disabled={onboarding}
                     style={{
-                      padding: '12px 24px',
-                      backgroundColor: 'white',
-                      color: '#333',
-                      border: '2px solid #333',
-                      borderRadius: 6,
-                      fontSize: 14,
-                      fontWeight: 600,
+                      padding: `${spacing.xs} ${spacing.md}`,
+                      backgroundColor: 'transparent',
+                      color: colors.primary,
+                      border: `2px solid ${colors.primary}`,
+                      borderRadius: radius.md,
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold,
                       cursor: onboarding ? 'not-allowed' : 'pointer'
                     }}
                   >
@@ -214,13 +237,13 @@ export default function VendorStripePage() {
                   onClick={() => router.push(`/${vertical}/vendor/orders`)}
                   style={{
                     width: '100%',
-                    padding: '15px 30px',
-                    backgroundColor: '#28a745',
+                    padding: `${spacing.sm} ${spacing.lg}`,
+                    backgroundColor: statusColors.success,
                     color: 'white',
                     border: 'none',
-                    borderRadius: 6,
-                    fontSize: 16,
-                    fontWeight: 600,
+                    borderRadius: radius.md,
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold,
                     cursor: 'pointer'
                   }}
                 >
@@ -241,14 +264,14 @@ function StatusItem({ label, enabled }: { label: string; enabled?: boolean }) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '12px 0',
-      borderBottom: '1px solid #eee'
+      padding: `${spacing.xs} 0`,
+      borderBottom: `1px solid ${colors.border}`
     }}>
-      <span>{label}</span>
+      <span style={{ color: colors.textPrimary, fontSize: typography.sizes.sm }}>{label}</span>
       {enabled ? (
-        <span style={{ color: '#28a745', fontSize: 20 }}>✓</span>
+        <span style={{ color: statusColors.success, fontSize: 20 }}>✓</span>
       ) : (
-        <span style={{ color: '#ccc', fontSize: 20 }}>○</span>
+        <span style={{ color: colors.textMuted, fontSize: 20 }}>○</span>
       )}
     </div>
   )

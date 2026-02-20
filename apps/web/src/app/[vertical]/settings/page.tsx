@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import SettingsForm from './SettingsForm'
@@ -47,12 +48,18 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
       margin: '0 auto',
       padding: spacing.md
     }}>
+      <Link
+        href={`/${vertical}/dashboard`}
+        style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
+      >
+        ← Back to Dashboard
+      </Link>
       <h1 style={{
         fontSize: typography.sizes['2xl'],
         fontWeight: typography.weights.bold,
         color: colors.primary,
         marginBottom: spacing.md,
-        marginTop: 0
+        marginTop: spacing.xs
       }}>
         Settings
       </h1>

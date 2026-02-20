@@ -101,6 +101,12 @@ const CATEGORY_REQUIREMENTS: Record<Category, CategoryRequirement> = {
   },
 }
 
+/**
+ * JURISDICTION NOTICE: All permit requirements below are specific to Texas.
+ * This disclaimer should be shown to users in the signup flow.
+ */
+export const JURISDICTION_DISCLAIMER = 'Permit requirements shown are based on Texas state regulations. Requirements may differ in other states.'
+
 export function getCategoryRequirement(category: Category): CategoryRequirement {
   return CATEGORY_REQUIREMENTS[category]
 }

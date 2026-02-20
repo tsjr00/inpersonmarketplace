@@ -42,6 +42,8 @@ export const QUANTITY_UNITS: { value: string; label: string; verticals: string[]
   { value: 'pack', label: 'pack', verticals: ['farmers_market', 'food_trucks'] },
   { value: 'pint', label: 'pint', verticals: ['farmers_market', 'food_trucks'] },
   { value: 'quart', label: 'quart', verticals: ['farmers_market', 'food_trucks'] },
+  { value: 'gallon', label: 'gallon', verticals: ['farmers_market'] },
+  { value: 'loaf', label: 'loaf', verticals: ['farmers_market'] },
   { value: 'bag', label: 'bag', verticals: ['farmers_market'] },
   { value: 'bunch', label: 'bunch', verticals: ['farmers_market'] },
   { value: 'bouquet', label: 'bouquet', verticals: ['farmers_market'] },

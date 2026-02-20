@@ -19,7 +19,7 @@ export const revalidate = 300
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string }>
+  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; hideAllergens?: string }>
 }
 
 interface MarketSchedule {
@@ -206,7 +206,8 @@ function groupListingsByCategory(listings: Listing[], vertical: string): Record<
 
 export default async function BrowsePage({ params, searchParams }: BrowsePageProps) {
   const { vertical } = await params
-  const { category, search, view, zip } = await searchParams
+  const { category, search, view, zip, hideAllergens } = await searchParams
+  const hideAllergenItems = hideAllergens === '1'
   const supabase = await createClient()
 
   // Get branding
@@ -601,6 +602,11 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     uniqueCategories = (categoryField?.options as string[]) || []
   }
 
+  // Filter out allergen items if requested
+  if (hideAllergenItems && listings) {
+    listings = listings.filter(l => !l.listing_data?.contains_allergens)
+  }
+
   // Group listings by category when no search/filter is applied
   const isFiltered = !!(search || category)
   const groupedListings = !isFiltered && listings ? groupListingsByCategory(listings, vertical) : {}
@@ -645,7 +651,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                 fontSize: typography.sizes.sm,
               }}>
                 <span>📍</span>
-                <span>Near {zip}</span>
+                <span>Near {zipCity || zip}</span>
                 <Link
                   href={`/${vertical}/browse${category ? `?category=${category}` : ''}${search ? `${category ? '&' : '?'}search=${search}` : ''}`}
                   style={{
@@ -674,6 +680,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           currentCategory={category}
           currentSearch={search}
           currentZip={zip}
+          currentHideAllergens={hideAllergenItems}
           branding={branding}
         />
 
@@ -958,7 +965,7 @@ function ListingCard({
             justifyContent: 'center',
             color: colors.textMuted
           }}>
-            <span style={{ fontSize: 36 }}>📦</span>
+            <span style={{ fontSize: 36 }}>{vertical === 'food_trucks' ? '🍽️' : '🌿'}</span>
           </div>
         )}
       </div>

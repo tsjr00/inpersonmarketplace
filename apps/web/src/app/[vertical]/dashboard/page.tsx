@@ -539,6 +539,27 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             </p>
           </Link>
 
+          {/* My Favorites Card */}
+          <Link
+            href={`/${vertical}/vendors?favorites=true`}
+            style={{
+              display: 'block',
+              padding: spacing.md,
+              backgroundColor: colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              textDecoration: 'none'
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
+              ❤️ My Favorites
+            </h3>
+            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
+              {`Your saved ${term(vertical, 'vendors').toLowerCase()}`}
+            </p>
+          </Link>
+
           {/* Notifications Card */}
           <DashboardNotifications vertical={vertical} limit={3} />
 

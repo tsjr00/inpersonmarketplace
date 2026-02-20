@@ -33,6 +33,7 @@ interface PrepSheetItem {
   title: string
   image: string | null
   total_quantity: number
+  quantity_unit: string | null
   order_count: number
 }
 
@@ -456,7 +457,7 @@ export default function VendorPrepPage() {
                             fontWeight: typography.weights.bold,
                             color: colors.primary
                           }}>
-                            {item.total_quantity}
+                            {item.total_quantity}{item.quantity_unit ? ` ${item.quantity_unit}` : ''}
                           </td>
                           <td style={{
                             padding: spacing.sm,

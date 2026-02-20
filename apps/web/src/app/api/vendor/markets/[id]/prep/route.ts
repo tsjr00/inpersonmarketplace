@@ -111,7 +111,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         listing:listings(
           id,
           title,
-          image_urls
+          image_urls,
+          quantity_unit
         )
       `)
       .in('vendor_profile_id', vendorProfileIds)
@@ -197,6 +198,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       title: string
       image: string | null
       total_quantity: number
+      quantity_unit: string | null
       order_count: number
     }>()
 
@@ -210,6 +212,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           title: item.listing?.title || 'Unknown',
           image: item.listing?.image_urls?.[0] || null,
           total_quantity: 0,
+          quantity_unit: item.listing?.quantity_unit || null,
           order_count: 0
         })
       }

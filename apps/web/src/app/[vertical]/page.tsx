@@ -84,12 +84,11 @@ async function getVerticalStats(supabase: Awaited<ReturnType<typeof createClient
     .eq('vertical_id', vertical)
     .eq('status', 'active')
 
-  // Use real counts if available, otherwise use reasonable fallback values
-  // Fallbacks ensure the page looks populated during early launch
+  // Use real counts — show 0 honestly rather than fake data
   return {
-    listingCount: (listingCount && listingCount > 0) ? listingCount : 50,
-    vendorCount: (vendorCount && vendorCount > 0) ? vendorCount : 25,
-    marketCount: (marketCount && marketCount > 0) ? marketCount : 5,
+    listingCount: listingCount || 0,
+    vendorCount: vendorCount || 0,
+    marketCount: marketCount || 0,
   }
 }
 

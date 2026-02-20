@@ -343,8 +343,45 @@ export default function VendorAnalyticsPage() {
               {canExport && (
                 <button
                   onClick={() => {
-                    // MVP: gate only — CSV generation is a follow-up
-                    alert('Export feature coming soon!')
+                    const rows: string[] = []
+                    const startStr = dateRange.start.toISOString().slice(0, 10)
+                    const endStr = dateRange.end.toISOString().slice(0, 10)
+                    rows.push(`Analytics Export,${startStr} to ${endStr}`)
+                    rows.push('')
+                    if (overview) {
+                      rows.push('Summary')
+                      rows.push(`Total Revenue,$${(overview.totalRevenue / 100).toFixed(2)}`)
+                      rows.push(`Total Orders,${overview.totalOrders}`)
+                      rows.push(`Average Order,$${(overview.averageOrderValue / 100).toFixed(2)}`)
+                      rows.push(`Completed,${overview.completedOrders}`)
+                      rows.push(`Pending,${overview.pendingOrders}`)
+                      rows.push(`Cancelled,${overview.cancelledOrders}`)
+                      rows.push('')
+                    }
+                    if (topProducts.length > 0) {
+                      rows.push('Top Products')
+                      rows.push('Product,Orders,Revenue')
+                      topProducts.forEach(p => {
+                        const name = p.title.replace(/,/g, ' ')
+                        rows.push(`${name},${p.total_sold},$${(p.revenue / 100).toFixed(2)}`)
+                      })
+                      rows.push('')
+                    }
+                    if (trends.length > 0) {
+                      rows.push('Daily Trends')
+                      rows.push('Date,Revenue,Orders')
+                      trends.forEach(t => {
+                        rows.push(`${t.date},$${(t.revenue / 100).toFixed(2)},${t.orders}`)
+                      })
+                    }
+                    const csv = rows.join('\n')
+                    const blob = new Blob([csv], { type: 'text/csv' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `analytics-${startStr}-to-${endStr}.csv`
+                    a.click()
+                    URL.revokeObjectURL(url)
                   }}
                   style={{
                     display: 'flex',
@@ -561,7 +598,7 @@ export default function VendorAnalyticsPage() {
                 <TopProductsTable
                   products={topProducts}
                   onProductClick={(listingId) => {
-                    router.push(`/${vertical}/listing/${listingId}`)
+                    router.push(`/${vertical}/vendor/listings/${listingId}/edit`)
                   }}
                 />
               </div>
