@@ -17,8 +17,9 @@ export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }:
     if (!file) return
 
     // Validate
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file')
+    const validProfileTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!validProfileTypes.includes(file.type)) {
+      setError('Please select a JPG, PNG, GIF, or WebP image')
       return
     }
 

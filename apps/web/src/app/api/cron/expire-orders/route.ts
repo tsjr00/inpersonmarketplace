@@ -714,14 +714,15 @@ export async function GET(request: NextRequest) {
         const sortedCodes = Object.entries(grouped)
           .sort((a, b) => b[1].length - a[1].length)
 
+        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
         const rows = sortedCodes.map(([code, reports]) => {
           const sample = reports[0]
           const desc = sample.user_description
-            ? ` — "${sample.user_description.slice(0, 80)}${sample.user_description.length > 80 ? '...' : ''}"`
+            ? ` — "${esc(sample.user_description.slice(0, 80))}${sample.user_description.length > 80 ? '...' : ''}"`
             : ''
-          const page = sample.page_url ? ` (${sample.page_url})` : ''
+          const page = sample.page_url ? ` (${esc(sample.page_url)})` : ''
           return `<tr>
-            <td style="padding:6px 12px;border:1px solid #e5e7eb;font-family:monospace;font-size:13px">${code}</td>
+            <td style="padding:6px 12px;border:1px solid #e5e7eb;font-family:monospace;font-size:13px">${esc(code)}</td>
             <td style="padding:6px 12px;border:1px solid #e5e7eb;text-align:center;font-weight:bold">${reports.length}</td>
             <td style="padding:6px 12px;border:1px solid #e5e7eb;font-size:13px;color:#6b7280">${desc}${page}</td>
           </tr>`

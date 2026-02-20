@@ -142,8 +142,8 @@ function canvasToBlob(
  * Validate that a file is an acceptable image type
  */
 export function isValidImageType(file: File): boolean {
-  const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif']
-  return validTypes.includes(file.type) || file.name.toLowerCase().endsWith('.heic')
+  const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  return validTypes.includes(file.type)
 }
 
 /**

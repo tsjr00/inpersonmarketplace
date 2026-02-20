@@ -21,13 +21,13 @@ const REQUIRED_SERVER_ENV = [
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'STRIPE_SECRET_KEY',
+  'CRON_SECRET',
 ] as const
 
 const OPTIONAL_SERVER_ENV: Record<string, string> = {
   RESEND_API_KEY: 'Email notifications disabled',
   TWILIO_ACCOUNT_SID: 'SMS notifications disabled',
   VAPID_PRIVATE_KEY: 'Push notifications disabled',
-  CRON_SECRET: 'Cron endpoint security disabled',
 }
 
 /**

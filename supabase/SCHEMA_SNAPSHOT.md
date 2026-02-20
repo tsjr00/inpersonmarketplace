@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-19 | 20260219_037_market_box_payout_support | Made `vendor_payouts.order_item_id` nullable (was NOT NULL). Added `market_box_pickup_id` (UUID, nullable, FK→market_box_pickups.id). Added CHECK constraint `vendor_payouts_has_reference` (order_item_id IS NOT NULL OR market_box_pickup_id IS NOT NULL). Added index `idx_payouts_market_box_pickup` (partial, WHERE market_box_pickup_id IS NOT NULL). Also fixed 27 missing PRIMARY KEY constraints on Prod (market_box_pickups + 26 other tables). Applied to Dev, Staging, & Prod. |
 | 2026-02-19 | 20260219_036_enforce_listing_tier_limits | Added `enforce_listing_tier_limit()` SECURITY DEFINER function + BEFORE INSERT OR UPDATE trigger `enforce_listing_limit_trigger` on `listings`. Only fires when status changes to 'active'. Checks vendor tier via `vendor_profiles`, enforces limits: FM standard=5, premium/featured=15; FT free=4, basic=8, pro=20, boss=45. Drafts unrestricted. Applied to Dev, Staging, & Prod. |
 | 2026-02-19 | 20260219_035_add_payout_status_enum_values | Added `skipped_dev` and `pending_stripe_setup` values to `payout_status` enum. These statuses were used in application code but missing from the DB enum. Uses `ADD VALUE IF NOT EXISTS` (non-transactional in PG). Applied to Dev, Staging, & Prod. |
 | 2026-02-18 | 20260218_035_market_box_type | Added `box_type` (TEXT, nullable) to `market_box_offerings`. Food truck "Chef Box" category (weekly_dinner, family_kit, mystery_box, meal_prep, office_lunch). FM offerings leave null. FT form requires it client-side + API validates for FT vendors. |
@@ -937,7 +938,8 @@
 | Column | Type | Nullable | Default |
 |--------|------|----------|--------|
 | id | uuid | NO | uuid_generate_v4() |
-| order_item_id | uuid | NO | - |
+| order_item_id | uuid | YES | - |
+| market_box_pickup_id | uuid | YES | - |
 | vendor_profile_id | uuid | NO | - |
 | amount_cents | int4 | NO | - |
 | stripe_transfer_id | text | YES | - |
@@ -1283,6 +1285,7 @@
 | Column | References |
 |--------|------------|
 | order_item_id | order_items.id |
+| market_box_pickup_id | market_box_pickups.id |
 | vendor_profile_id | vendor_profiles.id |
 
 ### vendor_profiles
@@ -1713,6 +1716,7 @@
 | vendor_payouts_stripe_transfer_id_key | UNIQUE btree (stripe_transfer_id) |
 | idx_payouts_vendor | btree (vendor_profile_id) |
 | idx_payouts_order_item | btree (order_item_id) |
+| idx_payouts_market_box_pickup | btree (market_box_pickup_id) WHERE market_box_pickup_id IS NOT NULL |
 | idx_payouts_status | btree (status) |
 
 ### vendor_profiles
@@ -1850,7 +1854,7 @@
 | vendor_location_cache | vendor_location_cache_location_source_check | `(location_source = ANY (ARRAY['direct'::text, 'market'::text]))` |
 | vendor_profiles | vendor_profiles_subscription_cycle_check | `((subscription_cycle = ANY (ARRAY['monthly'::text, 'annual'::text])) OR (subscription_cycle IS NULL))` |
 | vendor_profiles | vendor_profiles_subscription_status_check | `((subscription_status = ANY (ARRAY['active'::text, 'past_due'::text, 'canceled'::text, 'trialing'::text])) OR (subscr...` |
-| vendor_profiles | vendor_profiles_tier_check | `(tier = ANY (ARRAY['standard'::text, 'premium'::text]))` |
+| vendor_profiles | vendor_profiles_tier_check | `(tier = ANY (ARRAY['standard'::text, 'premium'::text, 'featured'::text, 'free'::text, 'basic'::text, 'pro'::text, 'boss'::text]))` |
 | vendor_referral_credits | vendor_referral_credits_status_check | `(status = ANY (ARRAY['pending'::text, 'earned'::text, 'applied'::text, 'expired'::text, 'voided'::text]))` |
 | vendor_verifications | vendor_verifications_coi_status_check | `(coi_status = ANY (ARRAY['not_submitted'::text, 'pending'::text, 'approved'::text, 'rejected'::text]))` |
 

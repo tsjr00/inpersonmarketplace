@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
       }
 
       // Validate file
-      if (!file.type.startsWith('image/')) {
-        return NextResponse.json({ error: 'File must be an image' }, { status: 400 })
+      const validProfileTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+      if (!validProfileTypes.includes(file.type)) {
+        return NextResponse.json({ error: 'File must be a JPG, PNG, GIF, or WebP image' }, { status: 400 })
       }
 
       // Size limit: 2MB
