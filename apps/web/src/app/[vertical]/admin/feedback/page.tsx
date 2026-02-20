@@ -117,14 +117,10 @@ export default function AdminFeedbackPage() {
 
   const fetchFeedback = async () => {
     setLoading(true)
-    console.log('[Admin Feedback] Fetching feedback for:', { vertical, feedbackSource })
     try {
       const url = `/api/admin/feedback?vertical=${vertical}&source=${feedbackSource}`
-      console.log('[Admin Feedback] Calling:', url)
       const res = await fetch(url)
-      console.log('[Admin Feedback] Response status:', res.status)
       const data = await res.json()
-      console.log('[Admin Feedback] Response data:', data)
       if (res.ok) {
         setFeedback(data.feedback || [])
         setCounts(data.counts || { new: 0, in_review: 0, resolved: 0, closed: 0, total: 0 })
@@ -140,14 +136,10 @@ export default function AdminFeedbackPage() {
 
   const fetchOrderIssues = async () => {
     setLoading(true)
-    console.log('[Admin Feedback] Fetching order issues for:', { vertical })
     try {
       const url = `/api/admin/order-issues?vertical=${vertical}`
-      console.log('[Admin Feedback] Calling:', url)
       const res = await fetch(url)
-      console.log('[Admin Feedback] Response status:', res.status)
       const data = await res.json()
-      console.log('[Admin Feedback] Response data:', data)
       if (res.ok) {
         setOrderIssues(data.issues || [])
         setCounts(data.counts || { new: 0, in_review: 0, resolved: 0, closed: 0, total: 0 })

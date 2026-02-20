@@ -240,17 +240,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const refund = await createRefund(payment.stripe_payment_intent_id, refundAmountCents)
         stripeRefundId = refund.id
       } catch (refundError) {
-        console.error('Stripe refund failed:', refundError)
-        // DB is already updated as cancelled. Log the failure but don't block the response.
-        // Admin will need to manually process this refund.
+        console.error('[REFUND_FAILED] Stripe refund failed for buyer cancellation:', {
+          orderItemId: orderItem.id,
+          orderId: order.id,
+          amountCents: refundAmountCents,
+          error: refundError instanceof Error ? refundError.message : refundError
+        })
+        // DB is already updated as cancelled. Refund needs manual processing.
+        // TODO: Send admin notification for failed refund
       }
     }
 
+    const refundFailed = payment?.stripe_payment_intent_id && !stripeRefundId
     return NextResponse.json({
       success: true,
-      message: cancellationFeeApplied
-        ? `Item cancelled. A ${CANCELLATION_FEE_PERCENT}% cancellation fee was applied. You will be refunded $${(refundAmountCents / 100).toFixed(2)}.`
-        : 'Item cancelled successfully. Full refund will be processed.',
+      message: refundFailed
+        ? 'Item cancelled. Refund processing encountered an issue and will be handled manually.'
+        : cancellationFeeApplied
+          ? `Item cancelled. A ${CANCELLATION_FEE_PERCENT}% cancellation fee was applied. You will be refunded $${(refundAmountCents / 100).toFixed(2)}.`
+          : 'Item cancelled successfully. Full refund will be processed.',
       cancelled_at: new Date().toISOString(),
       refund_amount_cents: refundAmountCents,
       cancellation_fee_cents: cancellationFeeCents,
@@ -259,7 +267,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       cancellation_fee_applied: cancellationFeeApplied,
       within_grace_period: withinGracePeriod,
       vendor_had_confirmed: vendorHasConfirmed,
-      stripe_refund_id: stripeRefundId
+      stripe_refund_id: stripeRefundId,
+      refundFailed: !!refundFailed
     })
   })
 }

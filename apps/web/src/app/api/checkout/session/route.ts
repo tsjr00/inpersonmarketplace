@@ -556,7 +556,8 @@ export async function POST(request: NextRequest) {
 
     // Pre-generate order ID and number
     const orderId = randomUUID()
-    const orderNumber = `FW-${new Date().getFullYear()}-${Math.random().toString().slice(2, 7)}`
+    const verticalPrefix = (vertical || 'FM').toUpperCase().slice(0, 2)
+    const orderNumber = `${verticalPrefix}-${new Date().getFullYear()}-${Math.random().toString().slice(2, 10)}`
 
     // Build Stripe line items
     crumb.logic('Creating Stripe checkout session (before order)')

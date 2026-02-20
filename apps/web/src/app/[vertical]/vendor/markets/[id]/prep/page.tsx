@@ -430,7 +430,7 @@ export default function VendorPrepPage() {
                               {item.image && (
                                 <img
                                   src={item.image}
-                                  alt=""
+                                  alt={item.title || 'Product image'}
                                   style={{
                                     width: 48,
                                     height: 48,
@@ -572,7 +572,7 @@ export default function VendorPrepPage() {
                             {item.listing_image && (
                               <img
                                 src={item.listing_image}
-                                alt=""
+                                alt={item.listing_title || 'Product image'}
                                 style={{
                                   width: 40,
                                   height: 40,

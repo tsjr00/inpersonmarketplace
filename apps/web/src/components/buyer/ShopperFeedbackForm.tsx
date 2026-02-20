@@ -258,7 +258,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
                     border: `2px solid ${category === cat.value ? colors.primary : colors.border}`,
                     borderRadius: radius.md,
                     cursor: 'pointer',
-                    backgroundColor: category === cat.value ? '#eff6ff' : 'white',
+                    backgroundColor: category === cat.value ? colors.primaryLight : 'white',
                     transition: 'all 0.15s ease'
                   }}
                 >

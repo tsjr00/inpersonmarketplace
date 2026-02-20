@@ -96,7 +96,7 @@ export default function DateRangePicker({
     fontWeight: 500 as const,
     cursor: disabled ? 'not-allowed' as const : 'pointer' as const,
     opacity: disabled ? 0.5 : 1,
-    backgroundColor: isActive ? 'var(--color-primary, #2563eb)' : '#f3f4f6',
+    backgroundColor: isActive ? 'var(--color-primary, #8BC34A)' : '#f3f4f6',
     color: isActive ? 'white' : '#374151',
     transition: 'all 0.15s ease'
   })
@@ -193,7 +193,7 @@ export default function DateRangePicker({
               padding: '8px 16px',
               borderRadius: 4,
               border: 'none',
-              backgroundColor: 'var(--color-primary, #2563eb)',
+              backgroundColor: 'var(--color-primary, #8BC34A)',
               color: 'white',
               fontSize: 14,
               fontWeight: 500,

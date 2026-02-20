@@ -54,6 +54,7 @@ export async function POST(
     .from('order_items')
     .select(`
       id,
+      status,
       order:orders!inner(id, order_number, buyer_user_id, vertical_id),
       listing:listings(title, vendor_profiles(profile_data))
     `)
@@ -63,6 +64,13 @@ export async function POST(
 
   if (!orderItem) {
     return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
+  }
+
+  // Validate current status — only pending items can be confirmed
+  if (orderItem.status !== 'pending') {
+    return NextResponse.json({
+      error: `Cannot confirm item with status "${orderItem.status}". Only pending items can be confirmed.`
+    }, { status: 409 })
   }
 
   // Update status

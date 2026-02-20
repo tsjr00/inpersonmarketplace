@@ -168,8 +168,12 @@ export async function GET(request: NextRequest) {
                 try {
                   await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
                 } catch (refundError) {
-                  console.error('Stripe refund failed for expired item:', refundError)
-                  // Continue processing — admin will need to handle manually
+                  console.error('[REFUND_FAILED] Stripe refund failed for expired item:', {
+                    orderItemId: item.id,
+                    amountCents: buyerPaidForItem,
+                    error: refundError instanceof Error ? refundError.message : refundError
+                  })
+                  // Continue processing — refund needs manual admin attention
                 }
               }
             }

@@ -148,8 +148,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const refund = await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
         stripeRefundId = refund.id
       } catch (refundError) {
-        console.error('Stripe refund failed for vendor rejection:', refundError)
-        // DB already updated — admin will need to manually process this refund
+        console.error('[REFUND_FAILED] Stripe refund failed for vendor rejection:', {
+          orderItemId: orderItem.id,
+          amountCents: buyerPaidForItem,
+          error: refundError instanceof Error ? refundError.message : refundError
+        })
+        // DB already updated — refund needs manual processing
       }
     }
 

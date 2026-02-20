@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
 
     // Create order
     crumb.supabase('insert', 'orders')
-    const orderNumber = `${vertical.toUpperCase().slice(0, 2)}-${new Date().getFullYear()}-${Math.random().toString().slice(2, 7)}`
+    const orderNumber = `${vertical.toUpperCase().slice(0, 2)}-${new Date().getFullYear()}-${Math.random().toString().slice(2, 10)}`
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
