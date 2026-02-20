@@ -62,6 +62,7 @@ export default function AdminMarketsPage() {
 
   const [formData, setFormData] = useState({
     name: '',
+    market_type: 'traditional' as 'traditional' | 'event',
     address: '',
     city: '',
     state: '',
@@ -71,6 +72,10 @@ export default function AdminMarketsPage() {
     schedules: [{ day_of_week: 6, start_time: '08:00', end_time: '13:00' }] as FormSchedule[],
     season_start: '',
     season_end: '',
+    event_start_date: '',
+    event_end_date: '',
+    event_url: '',
+    cutoff_hours: '',
     status: 'active'
   })
   const [submitting, setSubmitting] = useState(false)
@@ -167,9 +172,24 @@ export default function AdminMarketsPage() {
       return
     }
 
+    // Validate event dates
+    if (formData.market_type === 'event') {
+      if (!formData.event_start_date || !formData.event_end_date) {
+        alert('Event start and end dates are required for events.')
+        setSubmitting(false)
+        return
+      }
+      if (formData.event_end_date < formData.event_start_date) {
+        alert('Event end date must be on or after the start date.')
+        setSubmitting(false)
+        return
+      }
+    }
+
     // Parse lat/lng as numbers, handle season dates
-    const submitData = {
+    const submitData: Record<string, unknown> = {
       name: formData.name,
+      market_type: formData.market_type,
       address: formData.address,
       city: formData.city,
       state: formData.state,
@@ -180,6 +200,17 @@ export default function AdminMarketsPage() {
       season_start: formData.season_start || null,
       season_end: formData.season_end || null,
       status: formData.status
+    }
+
+    // Include event fields when market_type is event
+    if (formData.market_type === 'event') {
+      submitData.event_start_date = formData.event_start_date
+      submitData.event_end_date = formData.event_end_date
+      submitData.event_url = formData.event_url || null
+      submitData.cutoff_hours = formData.cutoff_hours ? parseInt(formData.cutoff_hours) : 24
+    }
+    if (formData.cutoff_hours) {
+      submitData.cutoff_hours = parseInt(formData.cutoff_hours)
     }
 
     try {
@@ -241,6 +272,7 @@ export default function AdminMarketsPage() {
 
     setFormData({
       name: market.name,
+      market_type: (market.market_type === 'event' ? 'event' : 'traditional') as 'traditional' | 'event',
       address: market.address,
       city: market.city,
       state: market.state,
@@ -250,6 +282,10 @@ export default function AdminMarketsPage() {
       schedules,
       season_start: market.season_start || '',
       season_end: market.season_end || '',
+      event_start_date: (market as Record<string, unknown>).event_start_date as string || '',
+      event_end_date: (market as Record<string, unknown>).event_end_date as string || '',
+      event_url: (market as Record<string, unknown>).event_url as string || '',
+      cutoff_hours: (market as Record<string, unknown>).cutoff_hours ? String((market as Record<string, unknown>).cutoff_hours) : '',
       status: market.status
     })
     setShowForm(true)
@@ -282,6 +318,7 @@ export default function AdminMarketsPage() {
     setEditingMarket(null)
     setFormData({
       name: '',
+      market_type: 'traditional',
       address: '',
       city: '',
       state: '',
@@ -291,6 +328,10 @@ export default function AdminMarketsPage() {
       schedules: [{ day_of_week: 6, start_time: '08:00', end_time: '13:00' }],
       season_start: '',
       season_end: '',
+      event_start_date: '',
+      event_end_date: '',
+      event_url: '',
+      cutoff_hours: '',
       status: 'active'
     })
   }
@@ -504,9 +545,132 @@ export default function AdminMarketsPage() {
             </h2>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+              {/* Market Type */}
               <div>
                 <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
-                  Market Name *
+                  Market Type *
+                </label>
+                <select
+                  value={formData.market_type}
+                  onChange={(e) => setFormData({ ...formData, market_type: e.target.value as 'traditional' | 'event' })}
+                  style={{
+                    width: '100%',
+                    padding: `${spacing.xs} ${spacing.sm}`,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm,
+                    boxSizing: 'border-box',
+                    fontSize: typography.sizes.sm,
+                    backgroundColor: colors.surfaceElevated
+                  }}
+                >
+                  <option value="traditional">{term(vertical, 'traditional_market')}</option>
+                  <option value="event">🎪 Event (Festival, Fair, Concert)</option>
+                </select>
+              </div>
+
+              {/* Event Date Fields */}
+              {formData.market_type === 'event' && (
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: '#fef3c7',
+                  borderRadius: radius.md,
+                  border: '1px solid #fde68a',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: spacing.sm
+                }}>
+                  <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#92400e' }}>
+                    🎪 Event Details
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+                    <div>
+                      <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing['3xs'], fontSize: typography.sizes.xs }}>
+                        Start Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.event_start_date}
+                        onChange={(e) => setFormData({ ...formData, event_start_date: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: `${spacing['2xs']} ${spacing.xs}`,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: radius.sm,
+                          boxSizing: 'border-box',
+                          fontSize: typography.sizes.sm
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing['3xs'], fontSize: typography.sizes.xs }}>
+                        End Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.event_end_date}
+                        onChange={(e) => setFormData({ ...formData, event_end_date: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: `${spacing['2xs']} ${spacing.xs}`,
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: radius.sm,
+                          boxSizing: 'border-box',
+                          fontSize: typography.sizes.sm
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing['3xs'], fontSize: typography.sizes.xs }}>
+                      Event Website URL
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.event_url}
+                      onChange={(e) => setFormData({ ...formData, event_url: e.target.value })}
+                      placeholder="https://..."
+                      style={{
+                        width: '100%',
+                        padding: `${spacing['2xs']} ${spacing.xs}`,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: radius.sm,
+                        boxSizing: 'border-box',
+                        fontSize: typography.sizes.sm
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing['3xs'], fontSize: typography.sizes.xs }}>
+                      Order Cutoff (hours before event)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="168"
+                      value={formData.cutoff_hours}
+                      onChange={(e) => setFormData({ ...formData, cutoff_hours: e.target.value })}
+                      placeholder="24"
+                      style={{
+                        width: '100%',
+                        padding: `${spacing['2xs']} ${spacing.xs}`,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: radius.sm,
+                        boxSizing: 'border-box',
+                        fontSize: typography.sizes.sm
+                      }}
+                    />
+                    <div style={{ fontSize: typography.sizes.xs, color: '#78350f', marginTop: spacing['3xs'] }}>
+                      Orders close this many hours before each event day. Default: 24 hours.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
+                  {formData.market_type === 'event' ? 'Event Name *' : 'Market Name *'}
                 </label>
                 <input
                   type="text"
@@ -975,6 +1139,7 @@ export default function AdminMarketsPage() {
                 <option value="all">All Types</option>
                 <option value="traditional">Traditional</option>
                 <option value="private_pickup">Private Pickup</option>
+                <option value="event">🎪 Event</option>
               </select>
 
               {/* Clear Filters */}
@@ -1115,10 +1280,10 @@ export default function AdminMarketsPage() {
                             borderRadius: radius.sm,
                             fontSize: typography.sizes.xs,
                             fontWeight: typography.weights.semibold,
-                            backgroundColor: market.market_type === 'traditional' ? '#d1fae5' : '#fef3c7',
-                            color: market.market_type === 'traditional' ? '#065f46' : '#92400e'
+                            backgroundColor: market.market_type === 'event' ? '#fef3c7' : market.market_type === 'traditional' ? '#d1fae5' : '#fef3c7',
+                            color: market.market_type === 'event' ? '#92400e' : market.market_type === 'traditional' ? '#065f46' : '#92400e'
                           }}>
-                            {market.market_type === 'traditional' ? 'Traditional' : 'Private Pickup'}
+                            {market.market_type === 'event' ? '🎪 Event' : market.market_type === 'traditional' ? 'Traditional' : 'Private Pickup'}
                           </span>
                         </td>
                         <td style={{ padding: spacing.sm }}>

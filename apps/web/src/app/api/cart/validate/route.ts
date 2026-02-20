@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
 
     // Check for mixed market types
     if (marketTypes.size > 1) {
-      warnings.push('Cart contains items from both traditional markets and private pickup locations. Please checkout separately.')
+      warnings.push('Cart contains items from different pickup types (markets, private pickup, events). Please checkout separately.')
       valid = false
     }
 

@@ -54,9 +54,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to fetch markets' }, { status: 500 })
       }
 
-      // Filter markets: show traditional markets + vendor's own private pickup markets
+      // Filter markets: show traditional markets + events + vendor's own private pickup markets
       const relevantMarkets = (allMarkets || []).filter(m =>
-        m.market_type === 'traditional' || m.vendor_profile_id === vendorProfile.id
+        m.market_type === 'traditional' || m.market_type === 'event' || m.vendor_profile_id === vendorProfile.id
       )
 
       // Check vendor tier for home market restrictions

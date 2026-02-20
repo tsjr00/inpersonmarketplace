@@ -31,6 +31,7 @@ export const DEFAULT_CUTOFF_HOURS = {
   traditional: 18,       // FM: 18 hours before market opens
   private_pickup: 10,    // Private pickup: 10 hours before window
   food_trucks: 0,        // FT: no cutoff (prepare on the spot)
+  event: 24,             // Events: 24 hours before event starts (advance ordering)
 } as const
 
 // Quantity/measurement units for listings and market box offerings

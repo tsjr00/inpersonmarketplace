@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
 
     // Private pickup schedule validation
     const privateScheduleItems = (typedItems || []).filter(
-      item => item.item_type === 'listing' && item.schedule_id && item.markets?.market_type === 'private_pickup'
+      item => item.item_type === 'listing' && item.schedule_id && (item.markets?.market_type === 'private_pickup' || item.markets?.market_type === 'event')
     )
     for (const item of privateScheduleItems) {
       const scheduleActive = item.market_schedules?.active ?? false

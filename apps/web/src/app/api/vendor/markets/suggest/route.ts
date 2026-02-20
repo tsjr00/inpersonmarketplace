@@ -20,10 +20,25 @@ export async function POST(request: NextRequest) {
       }
 
       const body = await request.json()
-      const { vertical, name, address, city, state, zip, description, website, season_start, season_end, schedules, vendor_sells_at_market = true } = body
+      const { vertical, name, address, city, state, zip, description, website, season_start, season_end, schedules, vendor_sells_at_market = true, market_type = 'traditional', event_start_date, event_end_date, event_url } = body
 
       if (!vertical || !name || !address || !city || !state || !zip) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+      }
+
+      // Validate market_type
+      if (!['traditional', 'event'].includes(market_type)) {
+        return NextResponse.json({ error: 'Invalid market_type' }, { status: 400 })
+      }
+
+      // Event-specific validation
+      if (market_type === 'event') {
+        if (!event_start_date || !event_end_date) {
+          return NextResponse.json({ error: 'Events require start and end dates' }, { status: 400 })
+        }
+        if (event_end_date < event_start_date) {
+          return NextResponse.json({ error: 'Event end date must be on or after start date' }, { status: 400 })
+        }
       }
 
       // Validate schedules - at least one required
@@ -51,18 +66,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
       }
 
-      // Check for duplicate market name in this vertical (case-insensitive)
+      // Check for duplicate market name in this vertical and market_type (case-insensitive)
       const { data: existingMarket } = await supabase
         .from('markets')
         .select('id, name')
         .eq('vertical_id', vertical)
-        .eq('market_type', 'traditional')
+        .eq('market_type', market_type)
         .ilike('name', name.trim())
         .maybeSingle()
 
       if (existingMarket) {
         return NextResponse.json({
-          error: `A location named "${existingMarket.name}" already exists. If you want to sell at this location, look for it in the markets section above.`
+          error: `A ${market_type === 'event' ? 'event' : 'location'} named "${existingMarket.name}" already exists. If you want to sell at this ${market_type === 'event' ? 'event' : 'location'}, look for it in the ${market_type === 'event' ? 'events' : 'markets'} section above.`
         }, { status: 400 })
       }
 
@@ -71,7 +86,7 @@ export async function POST(request: NextRequest) {
         .from('markets')
         .select('id, name, approval_status')
         .eq('vertical_id', vertical)
-        .eq('market_type', 'traditional')
+        .eq('market_type', market_type)
         .eq('submitted_by_vendor_id', vendorProfile.id)
         .ilike('name', `%${name.trim()}%`)
         .maybeSingle()
@@ -86,11 +101,10 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the market suggestion with pending approval status
-      // Food trucks default to 0 cutoff (prepare on the spot)
       const insertData: Record<string, unknown> = {
         vertical_id: vertical,
         name: name.trim(),
-        market_type: 'traditional',
+        market_type,
         address: address.trim(),
         city: city.trim(),
         state: state.trim().toUpperCase(),
@@ -105,7 +119,13 @@ export async function POST(request: NextRequest) {
         submitted_at: new Date().toISOString(),
         vendor_sells_at_market: vendor_sells_at_market === true,
       }
-      if (vertical === 'food_trucks') {
+      // Event-specific fields
+      if (market_type === 'event') {
+        insertData.event_start_date = event_start_date
+        insertData.event_end_date = event_end_date
+        insertData.event_url = event_url || null
+        insertData.cutoff_hours = DEFAULT_CUTOFF_HOURS.event // 24h advance cutoff
+      } else if (vertical === 'food_trucks') {
         insertData.cutoff_hours = DEFAULT_CUTOFF_HOURS.food_trucks
       }
       const { data: market, error: createError } = await supabase

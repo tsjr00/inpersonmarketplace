@@ -32,6 +32,9 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     market_boxes: 'Chef Boxes',
     market_day: 'Service time',
     market_hours: 'Operating Hours',
+    event: 'Event',
+    events: 'Events',
+    event_icon_emoji: '🎪',
 
     // Descriptive phrases
     product_examples: 'tacos, BBQ, and street food',

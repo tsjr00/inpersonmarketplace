@@ -205,7 +205,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     city?: string
     state?: string
     description?: string
-    market_type?: 'private_pickup' | 'traditional'
+    market_type?: 'private_pickup' | 'traditional' | 'event'
+    event_start_date?: string | null
+    event_end_date?: string | null
     schedules?: { day_of_week: number; start_time: string; end_time: string }[]
   }[] = []
 
@@ -222,7 +224,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           city,
           state,
           description,
-          expires_at
+          expires_at,
+          event_start_date,
+          event_end_date
         )
       `)
       .in('listing_id', listingIds)
@@ -231,6 +235,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     const marketsMap = new Map<string, { id: string; name: string; market_type: string }>()
     const pickupLocationsMap = new Map<string, typeof allPickupLocations[0]>()
     const nowIso = new Date().toISOString()
+    const todayStr = new Date().toISOString().split('T')[0]
     if (listingMarketsData) {
       for (const lm of listingMarketsData) {
         const market = lm.markets as unknown as {
@@ -242,9 +247,15 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           state?: string
           description?: string
           expires_at?: string | null
+          event_start_date?: string | null
+          event_end_date?: string | null
         } | null
         // Skip expired markets
         if (market?.expires_at && market.expires_at < nowIso) {
+          continue
+        }
+        // Skip past events
+        if (market?.market_type === 'event' && market.event_end_date && market.event_end_date < todayStr) {
           continue
         }
         if (market && !marketsMap.has(market.id)) {
@@ -253,7 +264,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             name: market.name,
             market_type: market.market_type
           })
-          // Collect ALL pickup locations (both private and traditional)
+          // Collect ALL pickup locations (both private, traditional, and events)
           pickupLocationsMap.set(market.id, {
             id: market.id,
             name: market.name,
@@ -261,7 +272,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             city: market.city,
             state: market.state,
             description: market.description,
-            market_type: market.market_type as 'private_pickup' | 'traditional'
+            market_type: market.market_type as 'private_pickup' | 'traditional' | 'event',
+            event_start_date: market.event_start_date,
+            event_end_date: market.event_end_date
           })
         }
       }

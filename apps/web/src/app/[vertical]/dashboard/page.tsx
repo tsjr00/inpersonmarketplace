@@ -399,7 +399,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                           marginTop: spacing['3xs']
                         }}>
                           <span style={{ fontSize: typography.sizes.xs }}>
-                            {pickup.market?.market_type === 'private_pickup' ? '🏠' : term(vertical, 'market_icon_emoji')}
+                            {pickup.market?.market_type === 'event' ? '🎪' : pickup.market?.market_type === 'private_pickup' ? '🏠' : term(vertical, 'market_icon_emoji')}
                           </span>
                           <span style={{
                             fontWeight: typography.weights.medium,

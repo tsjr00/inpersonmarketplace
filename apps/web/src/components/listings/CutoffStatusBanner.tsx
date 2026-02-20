@@ -231,8 +231,8 @@ export default function CutoffStatusBanner({ listingId, onStatusChange, forceSho
     if (!m.is_accepting || !m.cutoff_at) return false
     const hoursUntilCutoff = (new Date(m.cutoff_at).getTime() - Date.now()) / (1000 * 60 * 60)
     // Use market's actual cutoff_hours policy (FT=0, private=10, traditional=18)
-    const cutoffThreshold = m.cutoff_hours ?? (m.market_type === 'private_pickup' ? 10 : 18)
-    if (cutoffThreshold === 0) return false  // FT: no advance cutoff concept
+    const cutoffThreshold = m.cutoff_hours ?? (m.market_type === 'event' ? 24 : m.market_type === 'private_pickup' ? 10 : 18)
+    if (cutoffThreshold === 0) return false  // FT parks: no advance cutoff concept
     return hoursUntilCutoff < cutoffThreshold
   })
 
@@ -436,7 +436,7 @@ export default function CutoffStatusBanner({ listingId, onStatusChange, forceSho
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
         {availability.markets.map(market => {
           // Use market's actual cutoff_hours policy (FT=0, private=10, traditional=18)
-          const cutoffThreshold = market.cutoff_hours ?? (market.market_type === 'private_pickup' ? 10 : 18)
+          const cutoffThreshold = market.cutoff_hours ?? (market.market_type === 'event' ? 24 : market.market_type === 'private_pickup' ? 10 : 18)
           const isClosingSoon = cutoffThreshold > 0 && market.is_accepting && market.cutoff_at &&
             (new Date(market.cutoff_at).getTime() - Date.now()) < cutoffThreshold * 60 * 60 * 1000
 

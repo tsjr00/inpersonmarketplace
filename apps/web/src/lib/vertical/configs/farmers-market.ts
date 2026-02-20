@@ -32,6 +32,9 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
     market_boxes: 'Market Boxes',
     market_day: 'Market day',
     market_hours: 'Market Hours',
+    event: 'Event',
+    events: 'Events',
+    event_icon_emoji: '🎪',
 
     // Descriptive phrases
     product_examples: 'fresh produce, baked goods, and artisan products',

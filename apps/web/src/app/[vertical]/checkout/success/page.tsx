@@ -314,7 +314,7 @@ export default function CheckoutSuccessPage() {
                           color: colors.textSecondary,
                           flexWrap: 'wrap',
                         }}>
-                          <span>{item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
+                          <span>{item.market_type === 'event' ? '\u{1F3AA}' : item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
                           <span>
                             <strong>Pickup:</strong> {formatPickupDate(item.pickup_date) || 'Date TBD'}
                             {formatPickupTime(item.pickup_start_time, item.pickup_end_time) && `, ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}`}
@@ -449,7 +449,7 @@ export default function CheckoutSuccessPage() {
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing['2xs'] }}>
                       <span style={{
                         width: 10, height: 10, borderRadius: '50%',
-                        backgroundColor: item.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                        backgroundColor: item.market_type === 'event' ? '#f59e0b' : item.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
                         flexShrink: 0, marginTop: 4
                       }} />
                       <div>

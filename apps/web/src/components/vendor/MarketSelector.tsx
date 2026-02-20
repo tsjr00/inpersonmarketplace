@@ -168,6 +168,7 @@ export default function MarketSelector({
   }
 
   const fixedMarkets = markets.filter(m => m.market_type === 'traditional')
+  const eventMarkets = markets.filter(m => m.market_type === 'event')
   const privateMarkets = markets.filter(m => m.market_type === 'private_pickup')
 
   // For editing, the current listing doesn't count against limit
@@ -275,6 +276,65 @@ export default function MarketSelector({
                             Listing limit reached
                           </span>
                         )}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Event Markets */}
+      {eventMarkets.length > 0 && (
+        <div>
+          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, marginTop: 0, color: '#374151' }}>
+            🎪 Events <span style={{ fontWeight: 400, color: '#9ca3af', fontSize: 12 }}>(don&apos;t count against location limits)</span>
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {eventMarkets.map(market => {
+              const isSelected = selectedMarketIds.includes(market.id)
+              const canSelect = market.canAdd || isSelected
+
+              return (
+                <label
+                  key={market.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    padding: 12,
+                    border: '1px solid',
+                    borderColor: isSelected ? primaryColor : '#d1d5db',
+                    borderRadius: 8,
+                    cursor: canSelect && !disabled ? 'pointer' : 'not-allowed',
+                    backgroundColor: isSelected ? `${primaryColor}10` : '#fff',
+                    opacity: canSelect ? 1 : 0.6
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => handleToggle(market.id, canSelect)}
+                    disabled={!canSelect || disabled}
+                    style={{
+                      marginRight: 12,
+                      marginTop: 2,
+                      minWidth: 18,
+                      minHeight: 18,
+                      accentColor: primaryColor
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4, color: '#333' }}>
+                      🎪 {market.name}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#6b7280' }}>
+                      {market.address}, {market.city}, {market.state}
+                    </div>
+                    {!canSelect && !isSelected && (
+                      <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
+                        Listing limit reached
                       </div>
                     )}
                   </div>

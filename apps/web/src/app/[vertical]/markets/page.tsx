@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { defaultBranding } from '@/lib/branding'
+import Link from 'next/link'
 import MarketFilters from './MarketFilters'
 import MarketsWithLocation from '@/components/markets/MarketsWithLocation'
-import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { term, getRadiusOptions } from '@/lib/vertical'
 import { getMarketVendorCounts, mergeVendorCounts } from '@/lib/db/markets'
 
@@ -112,9 +113,24 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     query = query.ilike('name', `%${search}%`)
   }
 
-  // PARALLEL PHASE 1: Run location check, markets query, and cities query simultaneously
+  // Query for upcoming events
+  const todayStr = new Date().toISOString().split('T')[0]
+  const eventsQuery = supabase
+    .from('markets')
+    .select(`
+      *,
+      market_schedules(*)
+    `)
+    .eq('vertical_id', vertical)
+    .eq('status', 'active')
+    .eq('market_type', 'event')
+    .eq('approval_status', 'approved')
+    .gte('event_end_date', todayStr)
+    .order('event_start_date', { ascending: true })
+
+  // PARALLEL PHASE 1: Run location check, markets query, cities query, and events simultaneously
   // These are independent and can run in parallel to reduce waterfall
-  const [savedLocation, marketsResult, allMarketsResult] = await Promise.all([
+  const [savedLocation, marketsResult, allMarketsResult, eventsResult] = await Promise.all([
     getServerLocation(supabase),
     query,
     supabase
@@ -124,11 +140,13 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
       .eq('status', 'active')
       .eq('market_type', 'traditional')
       .eq('approval_status', 'approved')
-      .not('city', 'is', null)
+      .not('city', 'is', null),
+    eventsQuery
   ])
 
   const { data: markets, error } = marketsResult
   const { data: allMarkets } = allMarketsResult
+  const { data: eventMarkets } = eventsResult
 
   if (error) {
     console.error('Error fetching markets:', error)
@@ -179,12 +197,24 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   // Transform markets data with true vendor counts
   const transformedMarkets = markets?.map(market => ({
     ...market,
-    market_type: market.market_type as 'traditional' | 'private_pickup',
+    market_type: market.market_type as 'traditional' | 'private_pickup' | 'event',
     active: market.active ?? (market.status === 'active'),
     schedules: market.market_schedules,
     vendor_count: vendorCounts.get(market.id) || 0,
     market_schedules: undefined,
   })) || []
+
+  // Get event vendor counts
+  const eventIds = eventMarkets?.map(m => m.id) || []
+  const eventVendorCounts = eventIds.length > 0
+    ? await getMarketVendorCounts(supabase, eventIds)
+    : new Map<string, number>()
+
+  // Format event date for display
+  const formatEventDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
 
   return (
     <div style={{
@@ -216,6 +246,113 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
           }
         </p>
       </div>
+
+      {/* Upcoming Events Section */}
+      {eventMarkets && eventMarkets.length > 0 && (
+        <div style={{ marginBottom: spacing.lg }}>
+          <h2 style={{
+            color: branding.colors.primary,
+            margin: `0 0 ${spacing.sm} 0`,
+            fontSize: typography.sizes.xl,
+            fontWeight: typography.weights.semibold
+          }}>
+            🎪 Upcoming {term(vertical, 'events')}
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: spacing.sm
+          }}>
+            {eventMarkets.map(event => {
+              const startDate = event.event_start_date as string
+              const endDate = event.event_end_date as string
+              const isSingleDay = startDate === endDate
+              const vendorCount = eventVendorCounts.get(event.id) || 0
+              const address = [event.address, event.city, event.state].filter(Boolean).join(', ')
+
+              return (
+                <Link
+                  key={event.id}
+                  href={`/${vertical}/markets/${event.id}`}
+                  style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                >
+                  <div style={{
+                    backgroundColor: colors.surfaceElevated,
+                    borderRadius: radius.lg,
+                    border: '2px solid #fde68a',
+                    padding: spacing.md,
+                    transition: 'box-shadow 0.2s, transform 0.2s',
+                    cursor: 'pointer'
+                  }}>
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: spacing['3xs'],
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: '#fef3c7',
+                      color: '#92400e',
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      marginBottom: spacing.xs
+                    }}>
+                      🎪 Event
+                    </div>
+                    <h3 style={{
+                      margin: `0 0 ${spacing['2xs']} 0`,
+                      fontSize: typography.sizes.lg,
+                      fontWeight: typography.weights.semibold,
+                      color: colors.textPrimary
+                    }}>
+                      {event.name}
+                    </h3>
+                    <div style={{
+                      fontSize: typography.sizes.sm,
+                      color: '#92400e',
+                      fontWeight: typography.weights.medium,
+                      marginBottom: spacing['2xs']
+                    }}>
+                      📅 {formatEventDate(startDate)}{!isSingleDay && ` – ${formatEventDate(endDate)}`}
+                    </div>
+                    {address && (
+                      <div style={{
+                        fontSize: typography.sizes.sm,
+                        color: colors.textMuted,
+                        marginBottom: spacing.xs
+                      }}>
+                        📍 {address}
+                      </div>
+                    )}
+                    {event.description && (
+                      <p style={{
+                        margin: `0 0 ${spacing.xs} 0`,
+                        fontSize: typography.sizes.sm,
+                        color: colors.textSecondary,
+                        lineHeight: typography.leading.relaxed,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}>
+                        {event.description}
+                      </p>
+                    )}
+                    <div style={{
+                      fontSize: typography.sizes.sm,
+                      color: colors.textMuted,
+                      paddingTop: spacing.xs,
+                      borderTop: `1px solid ${colors.borderMuted}`
+                    }}>
+                      👥 {vendorCount} {term(vertical, vendorCount !== 1 ? 'vendors' : 'vendor').toLowerCase()}
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <MarketFilters

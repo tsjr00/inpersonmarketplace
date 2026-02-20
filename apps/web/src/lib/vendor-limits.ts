@@ -233,7 +233,7 @@ export async function getTraditionalMarketUsage(
   if (listingMarkets) {
     for (const listing of listingMarkets) {
       const market = listing.markets as unknown as { market_type: string } | null
-      if (listing.market_id && market && market.market_type !== 'private_pickup') {
+      if (listing.market_id && market && market.market_type === 'traditional') {
         marketIds.add(listing.market_id)
       }
     }
@@ -243,7 +243,7 @@ export async function getTraditionalMarketUsage(
   if (boxMarkets) {
     for (const box of boxMarkets) {
       const market = box.markets as unknown as { market_type: string } | null
-      if (box.pickup_market_id && market && market.market_type !== 'private_pickup') {
+      if (box.pickup_market_id && market && market.market_type === 'traditional') {
         marketIds.add(box.pickup_market_id)
       }
     }

@@ -121,9 +121,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Market not found' }, { status: 404 })
     }
 
-    if (market.market_type === 'private_pickup') {
+    if (market.market_type !== 'traditional') {
       return NextResponse.json({
-        error: 'Cannot set private pickup as home market',
+        error: 'Only traditional markets can be set as home market',
         success: false
       }, { status: 400 })
     }

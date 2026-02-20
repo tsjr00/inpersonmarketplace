@@ -12,7 +12,7 @@ const PAGE_SIZE = 35
 interface Market {
   id: string
   name: string
-  market_type: 'traditional' | 'private_pickup'
+  market_type: 'traditional' | 'private_pickup' | 'event'
   description?: string
   address?: string
   city?: string

@@ -154,10 +154,25 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, schedules, season_start, season_end, status = 'active' } = body
+    const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, schedules, season_start, season_end, status = 'active', market_type = 'traditional', event_start_date, event_end_date, event_url, cutoff_hours: customCutoffHours } = body
 
     if (!vertical || !name || !address || !city || !state || !zip) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Validate market_type
+    if (!['traditional', 'event'].includes(market_type)) {
+      return NextResponse.json({ error: 'Invalid market_type. Must be "traditional" or "event"' }, { status: 400 })
+    }
+
+    // Event-specific validation
+    if (market_type === 'event') {
+      if (!event_start_date || !event_end_date) {
+        return NextResponse.json({ error: 'Events require start and end dates' }, { status: 400 })
+      }
+      if (event_end_date < event_start_date) {
+        return NextResponse.json({ error: 'Event end date must be on or after start date' }, { status: 400 })
+      }
     }
 
     // Validate schedules - either new schedules array or legacy single schedule fields
@@ -196,25 +211,36 @@ export async function POST(request: NextRequest) {
     // Use service client to bypass RLS - admin role already verified above
     const serviceClient = createServiceClient()
 
+    const insertData: Record<string, unknown> = {
+      vertical_id: vertical,
+      vendor_profile_id: null, // Traditional/event markets have no owner
+      name,
+      market_type,
+      address,
+      city,
+      state,
+      zip,
+      latitude: latitude || null,
+      longitude: longitude || null,
+      season_start: season_start || null,
+      season_end: season_end || null,
+      status,
+      active: true, // Must be explicitly set
+      approval_status: 'approved' // Admin-created markets are pre-approved
+    }
+    // Event-specific fields
+    if (market_type === 'event') {
+      insertData.event_start_date = event_start_date
+      insertData.event_end_date = event_end_date
+      insertData.event_url = event_url || null
+      insertData.cutoff_hours = customCutoffHours ?? 24 // Default 24h advance cutoff for events
+    } else if (customCutoffHours !== undefined) {
+      insertData.cutoff_hours = customCutoffHours
+    }
+
     const { data: market, error: createError } = await serviceClient
       .from('markets')
-      .insert({
-        vertical_id: vertical,
-        vendor_profile_id: null, // Traditional markets have no owner
-        name,
-        market_type: 'traditional',
-        address,
-        city,
-        state,
-        zip,
-        latitude: latitude || null,
-        longitude: longitude || null,
-        season_start: season_start || null,
-        season_end: season_end || null,
-        status,
-        active: true, // Must be explicitly set
-        approval_status: 'approved' // Admin-created markets are pre-approved
-      })
+      .insert(insertData)
       .select()
       .single()
 

@@ -9,6 +9,7 @@ export type TerminologyKey =
   | 'private_pickup' | 'private_pickups'
   | 'market_box' | 'market_boxes'
   | 'market_day' | 'market_hours'
+  | 'event' | 'events' | 'event_icon_emoji'
   // CTAs & nav labels
   | 'browse_products_cta' | 'find_markets_cta' | 'find_vendors_cta'
   | 'vendor_signup_cta' | 'my_listings_nav' | 'create_listing_cta'

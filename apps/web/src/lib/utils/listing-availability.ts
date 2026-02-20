@@ -23,13 +23,15 @@ export interface MarketWithSchedules {
   cutoff_hours: number | null
   timezone: string | null
   active: boolean
+  event_start_date?: string | null
+  event_end_date?: string | null
   market_schedules: MarketSchedule[]
 }
 
 export interface ProcessedMarket {
   market_id: string
   market_name: string
-  market_type: 'traditional' | 'private_pickup'
+  market_type: 'traditional' | 'private_pickup' | 'event'
   address: string
   city: string
   state: string
@@ -152,6 +154,15 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
     return null
   }
 
+  const isEvent = market.market_type === 'event'
+
+  // Filter out past events automatically
+  if (isEvent && market.event_end_date) {
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    if (market.event_end_date < todayStr) return null
+  }
+
   const now = new Date()
   const timezone = market.timezone || 'America/Chicago'
   const activeSchedules = market.market_schedules?.filter(s => s.active) || []
@@ -161,48 +172,59 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   let cutoffAt: Date | null = null
   let isAccepting = false
   const isFoodTruck = market.vertical_id === 'food_trucks'
-  // FT: always 0 (no advance cutoff — accept orders until truck closes)
+  const isFtPark = isFoodTruck && !isEvent
+  // FT parks: always 0 (no advance cutoff — accept orders until truck closes)
+  // FT events: use DB value, fallback to 24 (advance ordering like FM)
   // FM: use DB value, fallback to DEFAULT_CUTOFF_HOURS by market type
-  const cutoffHours = isFoodTruck ? DEFAULT_CUTOFF_HOURS.food_trucks : (
+  const cutoffHours = isFtPark ? DEFAULT_CUTOFF_HOURS.food_trucks : (
     market.cutoff_hours ?? DEFAULT_CUTOFF_HOURS[market.market_type as keyof typeof DEFAULT_CUTOFF_HOURS] ?? DEFAULT_CUTOFF_HOURS.traditional
   )
 
   for (const schedule of activeSchedules) {
     // Calculate next occurrence of this schedule (in UTC)
-    // For FT: pass end_time so today's occurrence stays active until truck closes
+    // For FT parks: pass end_time so today's occurrence stays active until truck closes
+    // For events: use FM-style (no end_time passthrough — advance ordering)
     const nextOccurrence = getNextMarketDatetime(
       schedule.day_of_week,
       schedule.start_time,
       timezone,
-      isFoodTruck ? schedule.end_time : undefined
+      isFtPark ? schedule.end_time : undefined
     )
 
-    // Food trucks: same-day only — skip schedules that aren't today
-    if (isFoodTruck) {
-      const localDateFmt = new Intl.DateTimeFormat('en-CA', {
-        timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
-      })
+    // Get the date string for this occurrence in market timezone
+    const localDateFmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+    })
+    const nextStr = localDateFmt.format(nextOccurrence)
+
+    // Events: skip dates outside the event date range
+    if (isEvent && market.event_start_date && market.event_end_date) {
+      if (nextStr < market.event_start_date || nextStr > market.event_end_date) continue
+    }
+
+    // Food truck parks: same-day only — skip schedules that aren't today
+    // Food truck events: FM-style advance ordering (7-day window)
+    if (isFtPark) {
       const todayStr = localDateFmt.format(new Date())
-      const nextStr = localDateFmt.format(nextOccurrence)
       if (todayStr !== nextStr) continue
     }
 
-    // For food trucks: also calculate end time for acceptance window
+    // Calculate end time for acceptance window
     const [endHours, endMinutes] = schedule.end_time.split(':').map(Number)
     const endOccurrence = new Date(nextOccurrence.getTime() +
       ((endHours * 60 + endMinutes) - (parseInt(schedule.start_time.split(':')[0]) * 60 + parseInt(schedule.start_time.split(':')[1]))) * 60 * 1000)
 
     let cutoffTime: Date
     if (cutoffHours === 0) {
-      // FT / zero-cutoff: accepting until market ends
+      // FT parks / zero-cutoff: accepting until market ends
       cutoffTime = endOccurrence
     } else {
-      // FM / others: advance cutoff before market starts
+      // FM / events / others: advance cutoff before market starts
       cutoffTime = new Date(nextOccurrence.getTime() - cutoffHours * 60 * 60 * 1000)
     }
 
-    // For FT: also check market hasn't ended (use end time, not start)
-    const stillAvailable = isFoodTruck ? now < endOccurrence : now < cutoffTime
+    // For FT parks: also check market hasn't ended (use end time, not start)
+    const stillAvailable = isFtPark ? now < endOccurrence : now < cutoffTime
 
     if (stillAvailable && now < cutoffTime) {
       isAccepting = true
@@ -236,7 +258,7 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   return {
     market_id: market.id,
     market_name: market.name,
-    market_type: market.market_type as 'traditional' | 'private_pickup',
+    market_type: market.market_type as 'traditional' | 'private_pickup' | 'event',
     address: market.address,
     city: market.city,
     state: market.state,

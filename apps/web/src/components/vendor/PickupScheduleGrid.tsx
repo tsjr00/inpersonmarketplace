@@ -10,7 +10,7 @@ interface PickupLocation {
   address?: string
   city?: string
   state?: string
-  market_type?: 'private_pickup' | 'traditional'
+  market_type?: 'private_pickup' | 'traditional' | 'event'
   schedules?: { day_of_week: number; start_time: string; end_time: string }[]
 }
 

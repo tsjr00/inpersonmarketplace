@@ -286,7 +286,7 @@ export function AddToCartButton({
                         width: 8,
                         height: 8,
                         borderRadius: '50%',
-                        backgroundColor: market.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                        backgroundColor: market.market_type === 'event' ? '#f59e0b' : market.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
                         flexShrink: 0,
                         display: 'inline-block'
                       }} />
@@ -416,7 +416,7 @@ export function AddToCartButton({
                     width: 8,
                     height: 8,
                     borderRadius: '50%',
-                    backgroundColor: acceptingDates[0].market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                    backgroundColor: acceptingDates[0].market_type === 'event' ? '#f59e0b' : acceptingDates[0].market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
                     flexShrink: 0,
                     marginTop: 5
                   }} />

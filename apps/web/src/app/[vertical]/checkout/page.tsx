@@ -780,7 +780,7 @@ export default function CheckoutPage() {
                           marginBottom: spacing['2xs'],
                           color: colors.textSecondary,
                         }}>
-                          <span>{item.market_type === 'traditional' ? '🏪' : '📦'}</span>
+                          <span>{item.market_type === 'event' ? '🎪' : item.market_type === 'traditional' ? '🏪' : '📦'}</span>
                           <span>
                             <strong>Pickup:</strong> {item.market_name}
                             {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
@@ -1510,7 +1510,7 @@ export default function CheckoutPage() {
                       <div key={item.market_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: typography.sizes.xs, color: statusColors.warningDark }}>
                         <span style={{
                           width: 8, height: 8, borderRadius: '50%',
-                          backgroundColor: item.market_type === 'private_pickup' ? colors.primary : statusColors.info,
+                          backgroundColor: item.market_type === 'event' ? '#f59e0b' : item.market_type === 'private_pickup' ? colors.primary : statusColors.info,
                           flexShrink: 0
                         }} />
                         <strong>{item.market_name}</strong>

@@ -12,6 +12,8 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-21 | 20260221_040_event_availability_function | Rewrote `get_available_pickup_dates()` with event support: listing_schedules CTE adds event date columns + cutoff logic (FT events use 24h, not 0), matched_dates CTE adds event date range filter + FT events bypass same-day-only, attendance filter requires attendance for events + traditional (not just traditional), past events auto-filtered by `event_end_date >= CURRENT_DATE`. Applied to Staging. |
+| 2026-02-21 | 20260221_039_add_event_market_type | Expanded `markets.market_type` CHECK constraint to include `'event'`. Added columns: `event_start_date` (DATE, nullable), `event_end_date` (DATE, nullable), `event_url` (TEXT, nullable). Added CHECK: event dates required when market_type='event', end >= start. Added index `idx_markets_event_dates` (partial, on event markets). Applied to Staging. |
 | 2026-02-19 | 20260219_037_market_box_payout_support | Made `vendor_payouts.order_item_id` nullable (was NOT NULL). Added `market_box_pickup_id` (UUID, nullable, FK→market_box_pickups.id). Added CHECK constraint `vendor_payouts_has_reference` (order_item_id IS NOT NULL OR market_box_pickup_id IS NOT NULL). Added index `idx_payouts_market_box_pickup` (partial, WHERE market_box_pickup_id IS NOT NULL). Also fixed 27 missing PRIMARY KEY constraints on Prod (market_box_pickups + 26 other tables). Applied to Dev, Staging, & Prod. |
 | 2026-02-19 | 20260219_036_enforce_listing_tier_limits | Added `enforce_listing_tier_limit()` SECURITY DEFINER function + BEFORE INSERT OR UPDATE trigger `enforce_listing_limit_trigger` on `listings`. Only fires when status changes to 'active'. Checks vendor tier via `vendor_profiles`, enforces limits: FM standard=5, premium/featured=15; FT free=4, basic=8, pro=20, boss=45. Drafts unrestricted. Applied to Dev, Staging, & Prod. |
 | 2026-02-19 | 20260219_035_add_payout_status_enum_values | Added `skipped_dev` and `pending_stripe_setup` values to `payout_status` enum. These statuses were used in application code but missing from the DB enum. Uses `ADD VALUE IF NOT EXISTS` (non-transactional in PG). Applied to Dev, Staging, & Prod. |
@@ -504,6 +506,9 @@
 | website | text | YES | - |
 | vendor_sells_at_market | bool | YES | true |
 | expires_at | timestamptz | YES | - |
+| event_start_date | date | YES | - |
+| event_end_date | date | YES | - |
+| event_url | text | YES | - |
 
 ### notifications
 | Column | Type | Nullable | Default |
@@ -1505,6 +1510,7 @@
 | idx_markets_vertical_status | btree (vertical_id, status) |
 | idx_markets_expires_at | btree (expires_at) WHERE (expires_at IS NOT NULL) |
 | idx_markets_submitted_by_vendor_id | btree (submitted_by_vendor_id) |
+| idx_markets_event_dates | btree (vertical_id, event_start_date, event_end_date) WHERE (market_type = 'event' AND active = true) |
 
 ### notifications
 | Index Name | Definition |
@@ -1838,7 +1844,8 @@
 | market_box_subscriptions | market_box_subscriptions_term_weeks_check | `(term_weeks = ANY (ARRAY[4, 8]))` |
 | market_schedules | market_schedules_day_of_week_check | `((day_of_week >= 0) AND (day_of_week <= 6))` |
 | markets | markets_day_of_week_check | `((day_of_week >= 0) AND (day_of_week <= 6))` |
-| markets | markets_market_type_check | `(market_type = ANY (ARRAY['traditional'::text, 'private_pickup'::text]))` |
+| markets | markets_market_type_check | `(market_type = ANY (ARRAY['traditional'::text, 'private_pickup'::text, 'event'::text]))` |
+| markets | markets_event_dates_check | `(market_type != 'event' OR (event_start_date IS NOT NULL AND event_end_date IS NOT NULL AND event_end_date >= event_start_date))` |
 | markets | markets_status_check | `(status = ANY (ARRAY['pending'::text, 'active'::text, 'inactive'::text, 'rejected'::text, 'suspended'::text]))` |
 | markets | valid_market_status | `(status = ANY (ARRAY['pending'::text, 'active'::text, 'inactive'::text, 'rejected'::text]))` |
 | order_items | order_items_cancelled_by_check | `(cancelled_by = ANY (ARRAY['buyer'::text, 'vendor'::text, 'system'::text]))` |
@@ -1901,7 +1908,7 @@
 | geomfromewkb | bytea | geometry | INVOKER |
 | geomfromewkt | text | geometry | INVOKER |
 | get_analytics_overview | p_start_date date, p_end_date date, p_vertical_id text DEFAULT NULL::text | TABLE(total_revenue bigint, completed_orders bigint, pend... | DEFINER |
-| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week int, pickup_date date, start_time time, end_time time, cutoff_at timestamptz, is_accepting bool, hours_until_cutoff numeric, cutoff_hours int) | DEFINER | JOINs listings for vendor_profile_id, LEFT JOINs vendor_market_schedules for attendance + vendor times. FT traditional: requires attendance record, uses vendor times when set. FM: no attendance filter (backwards-compatible). FT: today only, cutoff=0. FM: 7 days, advance cutoff. |
+| get_available_pickup_dates | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text, address text, city text, state text, schedule_id uuid, day_of_week int, pickup_date date, start_time time, end_time time, cutoff_at timestamptz, is_accepting bool, hours_until_cutoff numeric, cutoff_hours int) | DEFINER | JOINs listings for vendor_profile_id, LEFT JOINs vendor_market_schedules for attendance + vendor times. FT traditional/events: requires attendance record. FM: no attendance filter. FT parks: today only, cutoff=0. FT events: 7-day window, advance cutoff (default 24h). FM: 7 days, advance cutoff. Events filtered by event_start_date/event_end_date range + auto-excludes past events (event_end_date >= CURRENT_DATE). |
 | get_buyer_order_ids | - | SETOF uuid | DEFINER |
 | get_cart_summary | p_cart_id uuid | TABLE(total_items bigint, total_cents bigint, vendor_coun... | DEFINER |
 | get_listing_fields | v_id text | jsonb | DEFINER |

@@ -97,7 +97,7 @@ export default async function VendorSchedulePage({ params }: SchedulePageProps) 
     address?: string
     city?: string
     state?: string
-    market_type?: 'private_pickup' | 'traditional'
+    market_type?: 'private_pickup' | 'traditional' | 'event'
     schedules?: { day_of_week: number; start_time: string; end_time: string }[]
   }[] = []
 
@@ -145,7 +145,7 @@ export default async function VendorSchedulePage({ params }: SchedulePageProps) 
             address: market.address,
             city: market.city,
             state: market.state,
-            market_type: market.market_type as 'private_pickup' | 'traditional'
+            market_type: market.market_type as 'private_pickup' | 'traditional' | 'event'
           })
         }
       }

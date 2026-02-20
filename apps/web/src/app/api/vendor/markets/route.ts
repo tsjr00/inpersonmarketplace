@@ -98,6 +98,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Get event markets (future events only — past events auto-filtered)
+    const today = new Date().toISOString().split('T')[0]
+    const eventMarkets = (allMarkets || [])
+      .filter(m => m.market_type === 'event' && m.event_end_date >= today)
+      .map(m => {
+        const schedules = (m.market_schedules || []).map((s: any) => {
+          const vendorTimes = vendorTimesBySchedule.get(s.id)
+          return {
+            ...s,
+            start_time: vendorTimes?.start || s.start_time,
+            end_time: vendorTimes?.end || s.end_time,
+          }
+        })
+        return {
+          ...m,
+          market_schedules: schedules,
+          hasAttendance: marketsWithAttendance.has(m.id)
+        }
+      })
+
     const fixedMarkets = (allMarkets || []).filter(m => m.market_type === 'traditional').map(m => {
       // Merge vendor-specific times into market schedules
       const schedules = (m.market_schedules || []).map((s: any) => {
@@ -128,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     const currentFixedMarketCount = currentCount || 0
 
-    // Get vendor's market suggestions (pending, approved, rejected)
+    // Get vendor's market suggestions (pending, approved, rejected) — both traditional and event
     const { data: marketSuggestions, error: suggestionsError } = await supabase
       .from('markets')
       .select(`
@@ -140,9 +160,12 @@ export async function GET(request: NextRequest) {
         zip,
         description,
         website,
+        market_type,
         approval_status,
         rejection_reason,
         submitted_at,
+        event_start_date,
+        event_end_date,
         market_schedules (
           id,
           day_of_week,
@@ -152,7 +175,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('vertical_id', vertical)
-      .eq('market_type', 'traditional')
+      .in('market_type', ['traditional', 'event'])
       .eq('submitted_by_vendor_id', vendorProfile.id)
       .in('approval_status', ['pending', 'rejected'])
       .order('submitted_at', { ascending: false })
@@ -170,6 +193,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       fixedMarkets,
+      eventMarkets,
       privatePickupMarkets: vendorMarkets,
       marketSuggestions: transformedSuggestions,
       homeMarketId: vendorProfile.home_market_id,

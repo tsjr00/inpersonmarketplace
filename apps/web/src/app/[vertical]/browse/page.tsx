@@ -1033,7 +1033,7 @@ function ListingCard({
           {listing.listing_markets.length === 1
             ? (() => {
                 const market = listing.listing_markets[0].markets
-                const prefix = market?.market_type === 'private_pickup' ? term(vertical, 'private_pickup') + ': ' : term(vertical, 'traditional_market') + ': '
+                const prefix = market?.market_type === 'event' ? term(vertical, 'event') + ': ' : market?.market_type === 'private_pickup' ? term(vertical, 'private_pickup') + ': ' : term(vertical, 'traditional_market') + ': '
                 return prefix + (market?.name || 'Location')
               })()
             : `${listing.listing_markets.length} pickup locations`

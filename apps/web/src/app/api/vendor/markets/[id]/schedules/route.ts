@@ -143,8 +143,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Market not found' }, { status: 404 })
       }
 
-      if (market.market_type !== 'traditional') {
-        return NextResponse.json({ error: 'Schedule management is only for traditional markets' }, { status: 400 })
+      if (market.market_type === 'private_pickup') {
+        return NextResponse.json({ error: 'Schedule management is not available for private pickup locations' }, { status: 400 })
       }
 
       if (market.status !== 'active') {
@@ -314,8 +314,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Market not found' }, { status: 404 })
       }
 
-      if (market.market_type !== 'traditional') {
-        return NextResponse.json({ error: 'Schedule management is only for traditional markets' }, { status: 400 })
+      if (market.market_type === 'private_pickup') {
+        return NextResponse.json({ error: 'Schedule management is not available for private pickup locations' }, { status: 400 })
       }
 
       if (market.status !== 'active') {

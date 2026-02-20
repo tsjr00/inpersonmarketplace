@@ -17,7 +17,7 @@ interface MarketCardProps {
   market: {
     id: string
     name: string
-    market_type: 'traditional' | 'private_pickup'
+    market_type: 'traditional' | 'private_pickup' | 'event'
     description?: string
     address?: string
     city?: string
@@ -30,6 +30,8 @@ interface MarketCardProps {
     distance_miles?: number
     season_start?: string | null
     season_end?: string | null
+    event_start_date?: string | null
+    event_end_date?: string | null
   }
   vertical: string
 }
@@ -74,6 +76,24 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
           e.currentTarget.style.transform = 'translateY(0)'
         }}
       >
+        {/* Event badge */}
+        {market.market_type === 'event' && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: spacing['3xs'],
+            padding: `${spacing['3xs']} ${spacing.xs}`,
+            backgroundColor: '#fef3c7',
+            color: '#92400e',
+            borderRadius: radius.sm,
+            fontSize: typography.sizes.xs,
+            fontWeight: typography.weights.semibold,
+            marginBottom: spacing['2xs']
+          }}>
+            🎪 Event
+          </div>
+        )}
+
         {/* Header - Market name */}
         <h3 style={{
           margin: `0 0 ${spacing['2xs']} 0`,
@@ -156,6 +176,25 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
             marginBottom: spacing['2xs']
           }}>
             <ScheduleDisplay schedules={market.schedules} compact />
+          </div>
+        )}
+
+        {/* Event dates */}
+        {market.market_type === 'event' && market.event_start_date && market.event_end_date && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing['2xs'],
+            marginBottom: spacing['2xs'],
+            fontSize: typography.sizes.sm,
+            color: '#92400e',
+            fontWeight: typography.weights.medium
+          }}>
+            <span>📅</span>
+            <span>
+              {formatSeasonDate(market.event_start_date)}
+              {market.event_start_date !== market.event_end_date && ` – ${formatSeasonDate(market.event_end_date)}`}
+            </span>
           </div>
         )}
 

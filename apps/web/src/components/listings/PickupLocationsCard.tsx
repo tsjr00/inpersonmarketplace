@@ -130,7 +130,7 @@ export default function PickupLocationsCard({
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
-                backgroundColor: market.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                backgroundColor: market.market_type === 'event' ? '#f59e0b' : market.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
                 flexShrink: 0
               }} />
               {market.market_name}

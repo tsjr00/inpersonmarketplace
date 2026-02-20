@@ -13,7 +13,7 @@
 export interface AvailablePickupDate {
   market_id: string
   market_name: string
-  market_type: 'traditional' | 'private_pickup'
+  market_type: 'traditional' | 'private_pickup' | 'event'
   address: string
   city: string
   state: string
@@ -34,10 +34,12 @@ export interface AvailablePickupDate {
 export interface MarketPickupDates {
   market_id: string
   market_name: string
-  market_type: 'traditional' | 'private_pickup'
+  market_type: 'traditional' | 'private_pickup' | 'event'
   address: string
   city: string
   state: string
+  event_start_date?: string
+  event_end_date?: string
   dates: PickupDateOption[]
 }
 
