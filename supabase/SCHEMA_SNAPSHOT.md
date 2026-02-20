@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-20 | 20260220_041_add_tip_on_platform_fee | Added `tip_on_platform_fee_cents` (INTEGER NOT NULL DEFAULT 0) to `orders`. Tracks portion of tip attributable to buyer platform fee. Vendor tip = tip_amount - tip_on_platform_fee_cents. Applied to Dev, Staging, & Prod. |
 | 2026-02-21 | 20260221_040_event_availability_function | Rewrote `get_available_pickup_dates()` with event support: listing_schedules CTE adds event date columns + cutoff logic (FT events use 24h, not 0), matched_dates CTE adds event date range filter + FT events bypass same-day-only, attendance filter requires attendance for events + traditional (not just traditional), past events auto-filtered by `event_end_date >= CURRENT_DATE`. Applied to Staging. |
 | 2026-02-21 | 20260221_039_add_event_market_type | Expanded `markets.market_type` CHECK constraint to include `'event'`. Added columns: `event_start_date` (DATE, nullable), `event_end_date` (DATE, nullable), `event_url` (TEXT, nullable). Added CHECK: event dates required when market_type='event', end >= start. Added index `idx_markets_event_dates` (partial, on event markets). Applied to Staging. |
 | 2026-02-19 | 20260219_037_market_box_payout_support | Made `vendor_payouts.order_item_id` nullable (was NOT NULL). Added `market_box_pickup_id` (UUID, nullable, FK→market_box_pickups.id). Added CHECK constraint `vendor_payouts_has_reference` (order_item_id IS NOT NULL OR market_box_pickup_id IS NOT NULL). Added index `idx_payouts_market_box_pickup` (partial, WHERE market_box_pickup_id IS NOT NULL). Also fixed 27 missing PRIMARY KEY constraints on Prod (market_box_pickups + 26 other tables). Applied to Dev, Staging, & Prod. |
@@ -594,6 +595,7 @@
 | order_suffix | varchar | YES | - |
 | tip_percentage | int2 | YES | 0 |
 | tip_amount | int4 | YES | 0 |
+| tip_on_platform_fee_cents | int4 | NO | 0 |
 
 ### organizations
 | Column | Type | Nullable | Default |

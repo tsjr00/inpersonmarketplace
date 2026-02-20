@@ -2,7 +2,7 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-02-19 (Session 33)
+**Last Updated:** 2026-02-20 (Session 40)
 
 ---
 
@@ -168,7 +168,9 @@ verifier - Can verify vendor applications
 - Revenue: 6.5% buyer fee + 6.5% vendor fee + $0.15 service fee per order
 - Fee logic lives in `src/lib/pricing.ts` — single source of truth
 - Tips (FT only): percentage-based, preset buttons + custom. Stripe processing on tip deducted from tip itself.
-- `tip_percentage` + `tip_amount` columns on orders table
+- `tip_percentage` + `tip_amount` + `tip_on_platform_fee_cents` columns on orders table
+- Tip calculated on displayed subtotal (per-item rounding), vendor gets tip on food cost only
+- Platform fee tip portion tracked in `tip_on_platform_fee_cents` (not shown to customer)
 
 ### 6. Vendor Tier System
 
@@ -240,7 +242,7 @@ Mobile-optimized at `src/app/[vertical]/vendor/pickup/page.tsx`. Smart polling, 
 
 - `withErrorTracing(route, method, handler)` wraps all API routes
 - `crumb.*` breadcrumbs + `traced.*` structured errors
-- Rate limiting on all routes: `admin` (30/min), `submit` (10/min), `auth` (5/min), `standard` (60/min)
+- Rate limiting on all routes: `admin` (30/min), `submit` (10/min), `auth` (5/min), `api` (60/min), `deletion` (3/hr), `webhook` (100/min)
 - `error_resolutions` table tracks fix attempts — MUST query before fixing any error
 
 ---
@@ -337,7 +339,7 @@ Mobile-optimized at `src/app/[vertical]/vendor/pickup/page.tsx`. Smart polling, 
 
 ## Applied Migrations (All 3 Environments)
 
-Migrations 001–035 applied to Dev, Staging, and Production. All in `supabase/migrations/applied/`. Key ones:
+Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/migrations/applied/`. Key ones:
 
 | Migration | Description |
 |-----------|-------------|
@@ -351,11 +353,16 @@ Migrations 001–035 applied to Dev, Staging, and Production. All in `supabase/m
 | 026 | Per-vertical buyer premium + market box regression fix |
 | 032 | Vendor attendance (start/end times on vendor_market_schedules) |
 | 034 | Vendor favorites table |
-| 035 | box_type column on market_box_offerings |
+| 035 (box_type) | box_type column on market_box_offerings |
+| 035 (enum) | payout_status enum: skipped_dev + pending_stripe_setup |
+| 037 | Market box payout support, vendor_payouts.order_item_id nullable |
+| 038 | Listing status enum fix: 'active' → 'published' in trigger |
+| 039-040 | Events: market_type='event', event date columns, availability function rewrite |
+| 041 | Tip platform fee tracking: tip_on_platform_fee_cents on orders |
 
 ---
 
-## Session History (Sessions 21–33)
+## Session History (Sessions 21–39)
 
 | Session | Date | Key Work |
 |---------|------|----------|
@@ -372,6 +379,11 @@ Migrations 001–035 applied to Dev, Staging, and Production. All in `supabase/m
 | 31 | 02-18 | FT attendance data flow — vendor schedules, pickup date function rewrite |
 | 32 | 02-18 | Chef Boxes (market boxes for FT) — 9 commits, migration 035 |
 | 33 | 02-19 | Findings fixes (terminology across 19 files), FT brand kit v2 (red headers, white bg, outlined buttons), vendor favorites, background fix |
+| 35 | 02-19 | Full codebase audit: C1-C5 critical, H1-H11 high, M1-M15 medium, L1-L12 low. Migration 035 (payout enum). statusColors tokens. Batch notifications. |
+| 37 | 02-19 | Comprehensive 63-item audit. Tiers 1-5 fixes (financial, UX, terminology, security, infra). Migration 037. |
+| 38 | 02-20 | Vitest 34 tests, enum fix (migration 038), FT seed data, events 5-phase plan |
+| 39 | 02-21 | **Events feature Phases 1-4 COMPLETE**. market_type='event' on markets. Migrations 039+040 (Staging). 37 files, event detail page, admin create, vendor suggest. |
+| 40 | 02-20 | **Post-demo 8-item plan + tip rounding fix**. ConfirmDialog (replaces browser popups), buyer status banners, full address links, events in availability, markets filters, lat/lng suggestions, input validation, PickupScheduleGrid branding. Tip fix: displaySubtotal per-item rounding, tip on displayed subtotal, platform fee tip tracking (migration 041). All pushed to prod+staging. |
 
 ---
 
@@ -383,8 +395,10 @@ Migrations 001–035 applied to Dev, Staging, and Production. All in `supabase/m
 - **Food truck icon**: `FoodTruckIcon_BW.jpg` saved at `public/icons/`, not yet integrated into nav/branding
 - **URL rewrite**: Remove redundant `/farmers_market/` from URLs on single-vertical domains
 - **Remaining outlined buttons**: ~50 buttons still need converting to outlined style for FT
-- **`skipped_dev` / `pending_stripe_setup` payout statuses**: used in code but not in DB enum
-- **Main ahead of origin/main**: ~26 commits — production push pending user approval
+- **`skipped_dev` / `pending_stripe_setup` payout statuses**: FIXED — migration 035 added to enum, applied to all 3 envs
+- **All branches synced**: main = origin/main = staging (as of Session 40)
+- **Dev out of sync**: Migrations 039-041 on Staging+Prod. Dev needs these applied.
+- **Events feature**: Phases 1-4 complete. Phase 5 (reminders/conversion) deferred. Needs testing on staging.
 
 ---
 
