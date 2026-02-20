@@ -484,6 +484,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           cutoff_hours,
           timezone,
           active,
+          latitude,
+          longitude,
           market_schedules (
             id,
             day_of_week,
@@ -539,6 +541,42 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     listings = allListings.filter(
       listing => !listing.premium_window_ends_at || listing.premium_window_ends_at <= now
     )
+  }
+
+  // ZIP code proximity filtering
+  let zipCity: string | null = null
+  if (zip && listings && listings.length > 0) {
+    // Look up ZIP coordinates
+    const { data: zipData } = await supabase
+      .from('zip_codes')
+      .select('latitude, longitude, city')
+      .eq('zip', zip)
+      .single()
+
+    if (zipData?.latitude && zipData?.longitude) {
+      zipCity = zipData.city
+      const MAX_DISTANCE_KM = 40 // ~25 miles
+
+      // Haversine distance calculation
+      const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+        const R = 6371
+        const dLat = (lat2 - lat1) * Math.PI / 180
+        const dLng = (lng2 - lng1) * Math.PI / 180
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2)
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      }
+
+      listings = listings.filter(listing => {
+        const markets = listing.listing_markets || []
+        return markets.some(lm => {
+          const m = lm.markets as any
+          if (!m?.latitude || !m?.longitude) return false
+          return distanceKm(zipData.latitude, zipData.longitude, Number(m.latitude), Number(m.longitude)) <= MAX_DISTANCE_KM
+        })
+      })
+    }
   }
 
   // Get categories - use CATEGORIES constant for farmers_market, or fall back to config

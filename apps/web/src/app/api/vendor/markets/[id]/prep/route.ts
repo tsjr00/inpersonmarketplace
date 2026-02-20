@@ -105,6 +105,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         subtotal_cents,
         status,
         pickup_date,
+        preferred_pickup_time,
         buyer_confirmed_at,
         created_at,
         listing:listings(
@@ -183,7 +184,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         unit_price_cents: item.unit_price_cents,
         subtotal_cents: item.subtotal_cents,
         status: item.status || 'pending',
-        pickup_date: item.pickup_date
+        pickup_date: item.pickup_date,
+        preferred_pickup_time: item.preferred_pickup_time || null
       })
     })
 

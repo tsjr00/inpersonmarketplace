@@ -676,9 +676,20 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             <p style={{
               margin: `${spacing.xs} 0 0 0`,
               fontSize: typography.sizes.xs,
-              color: vendorProfile.tier === 'premium' ? colors.accent : colors.textMuted
+              color: (vendorProfile.tier && vendorProfile.tier !== 'standard' && vendorProfile.tier !== 'basic') ? colors.accent : colors.textMuted
             }}>
-              {vendorProfile.tier === 'premium' ? 'Premium' : vendorProfile.tier === 'featured' ? 'Featured' : 'Standard'} Plan
+              {(() => {
+                const tier = vendorProfile.tier || 'standard'
+                const labels: Record<string, string> = {
+                  boss: 'Boss',
+                  pro: 'Pro',
+                  premium: 'Premium',
+                  featured: 'Featured',
+                  basic: 'Basic',
+                  standard: 'Standard',
+                }
+                return labels[tier] || tier.charAt(0).toUpperCase() + tier.slice(1)
+              })()} Plan
             </p>
 
             {/* Cancellation rate warning */}

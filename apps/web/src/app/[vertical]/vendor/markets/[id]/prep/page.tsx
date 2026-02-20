@@ -16,6 +16,7 @@ interface OrderItem {
   subtotal_cents: number
   status: string
   pickup_date: string | null
+  preferred_pickup_time: string | null
 }
 
 interface Order {
@@ -596,6 +597,20 @@ export default function VendorPrepPage() {
                               }}>
                                 {formatPrice(item.unit_price_cents)} each
                               </p>
+                              {item.preferred_pickup_time && (
+                                <p style={{
+                                  margin: 0,
+                                  fontSize: typography.sizes.xs,
+                                  color: '#0369a1',
+                                  fontWeight: typography.weights.medium
+                                }}>
+                                  Pickup: {(() => {
+                                    const [h, m] = item.preferred_pickup_time.split(':').map(Number)
+                                    const ampm = h >= 12 ? 'PM' : 'AM'
+                                    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+                                  })()}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>

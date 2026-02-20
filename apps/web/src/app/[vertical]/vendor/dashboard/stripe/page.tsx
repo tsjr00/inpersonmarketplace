@@ -211,7 +211,7 @@ export default function VendorStripePage() {
                 </>
               ) : (
                 <button
-                  onClick={() => router.push(`/${vertical}/vendor/dashboard/orders`)}
+                  onClick={() => router.push(`/${vertical}/vendor/orders`)}
                   style={{
                     width: '100%',
                     padding: '15px 30px',

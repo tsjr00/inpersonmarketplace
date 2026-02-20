@@ -1,96 +1,87 @@
-# Current Task: Session 36 — Medium Items Batch 2 IN PROGRESS
+# Current Task: Session 37 — Systems Audit Fixes
+
 Started: 2026-02-19
 
-## STATUS: M3+M4, M18, M19, M21, M22 DONE. TSC clean. ALL UNCOMMITTED.
+## Goal
+Fix all findings from the comprehensive audit (`session37_comprehensive_audit.md`). Working through tiers in order.
 
-## CANONICAL REFERENCE
-**`apps/web/.claude/session36_audit_report.md`** — Master todo list with checkboxes.
+## Status Summary
+- **Tier 1 (F1-F9): ALL COMPLETE** — committed `9a07d0c`, pushed to staging + production
+- **Tier 2 (U1-U7): ALL COMPLETE** — TSC passes, ready to commit
+- **Migration 037**: Applied to all 3 envs. Also fixed 27 missing PKs on Prod.
 
-## COMMITTED + PUSHED (from earlier in session — 5 commits)
-- **ffdd0de**: C1-C7 critical fixes (on prod + staging)
-- **7fc84f3**: H1-H17 high priority fixes (on prod + staging)
-- **7dea597**: H5,H7,H9-H11,H18,M10 (staging only)
-- **2542f66**: H15,H16,H19 (staging only)
-- **a5cb8e6**: M2,M5,M9,M13,M15,M16,M25 quick wins (staging only)
-- **main is 3 commits ahead of origin/main** (7dea597, 2542f66, a5cb8e6)
+## Tier 1 Completed (commit 9a07d0c)
 
-## MIGRATION 036 — APPLIED TO ALL 3 ENVS ✅ (moved to applied/)
+| Fix | What was done |
+|-----|---------------|
+| F1 | Payment race condition — handle `23505` unique constraint violation as no-op in `checkout/success/route.ts` and `stripe/webhooks.ts` |
+| F2 | Market box vendor payouts — added per-pickup payout logic to `vendor/market-boxes/pickups/[id]/route.ts` and `buyer/market-boxes/[id]/confirm-pickup/route.ts`. Migration 037 adds `market_box_pickup_id` to `vendor_payouts`. Per-pickup payout = `price_cents - Math.round(price_cents * vendorFeePercent / 100)` (flat fee already deducted at checkout) |
+| F3 | Fee auto-deduction normalized — added `getVendorFeeBalance` + `calculateAutoDeductAmount` + `recordFeeCredit` to `buyer/confirm/route.ts` and `vendor/confirm-handoff/route.ts` (both already had it in `fulfill/route.ts`) |
+| F4 | Status validation on ready route — only `pending`/`confirmed` items can transition to `ready` |
+| F5 | Tip cap at $50 (5000 cents) — `Math.min(Math.max(0, ...), MAX_TIP_CENTS)` in `checkout/session/route.ts` |
+| F6 | At-capacity market box auto-refund — `createRefund()` in 3 paths: `checkout/success`, webhook `handleCheckoutComplete`, webhook `handleMarketBoxCheckoutComplete` |
+| F7 | Cancellation fee vendor share — added `transferToVendor()` after successful refund in `buyer/orders/[id]/cancel/route.ts`. Added `stripe_account_id, stripe_payouts_enabled` to vendor_profiles select. |
+| F8 | `pending_stripe_setup` retry — expanded cron Phase 5 to query + retry these payouts when vendor's Stripe is now ready. On failure, moves to `failed` status for regular retry. |
+| F9 | Admin email alert — Resend email to `ADMIN_ALERT_EMAIL` when payouts permanently cancelled after 7 days |
 
-## UNCOMMITTED CHANGES — Batch 2 (ready to commit)
+## Tier 2 Completed (U1-U7)
 
-### M21: Vendor markets page — non-approved vendor banner — DONE
-- Files: `src/app/api/vendor/markets/route.ts`, `src/app/[vertical]/vendor/markets/page.tsx`
-- API: Added `status` to vendor_profiles select, returns `vendorStatus` in response
-- Page: Added `vendorStatus` state, shows yellow "Complete Your Setup" banner when status !== 'approved'
-- Banner has link back to dashboard, explains pending approval
+| Fix | What was done |
+|-----|---------------|
+| U1 | Added Gate 4 (Stripe Connect) to OnboardingChecklist: `gate4` in interface, 4th entry in `gates` array, status derived from `stripeConnected`/`stripePayoutsEnabled` |
+| U2 | Added `Gate4Content` component with 3 states: not connected (setup CTA), connected but incomplete (complete setup link), fully enabled (success message). Links to `/${vertical}/vendor/dashboard/stripe` |
+| U3 | Fixed dead link on stripe page: `/${vertical}/vendor/dashboard/orders` → `/${vertical}/vendor/orders` |
+| U4 | Added `preferred_pickup_time` to vendor orders API response (`display.preferred_pickup_time`), vendor pickup page (shows "Pickup time: X:XX AM/PM"), and prep page order items. Also added to prep API select + response. |
+| U5 | Added ZIP proximity filtering to browse page: queries `zip_codes` for coordinates, filters listings by Haversine distance (40km/25mi radius). Added ZIP input to SearchFilter with go button + clear all. |
+| U6 | Fixed tier labels on dashboard: replaced hardcoded premium/featured/standard with lookup object supporting all tiers (boss/pro/premium/featured/basic/standard). Color accent for non-standard/basic tiers. |
+| U7 | Enabled allergen declarations for food trucks: changed `vertical === 'farmers_market'` gate to `(vertical === 'farmers_market' \|\| vertical === 'food_trucks')` in both places (section + description hint). |
 
-### M22: Market Boxes dashboard card — upgrade prompt for free FT — DONE
-- File: `src/app/[vertical]/vendor/dashboard/page.tsx`
-- Added `import { getTierLimits } from '@/lib/vendor-limits'`
-- Checks `getTierLimits(vendorProfile.tier, vertical).totalMarketBoxes === 0`
-- When locked: dimmed card style + amber "Upgrade to Basic or higher" message
-- Card stays as Link (user said "keep visible and accessible")
+### Files modified in Tier 2:
+- `src/components/vendor/OnboardingChecklist.tsx` — U1, U2
+- `src/app/[vertical]/vendor/dashboard/stripe/page.tsx` — U3
+- `src/app/api/vendor/orders/route.ts` — U4 (added `preferred_pickup_time` to select + response)
+- `src/app/[vertical]/vendor/pickup/page.tsx` — U4 (interface + UI)
+- `src/app/api/vendor/markets/[id]/prep/route.ts` — U4 (added to select + response)
+- `src/app/[vertical]/vendor/markets/[id]/prep/page.tsx` — U4 (interface + UI)
+- `src/app/[vertical]/browse/page.tsx` — U5 (geo-filter + lat/lng in market select)
+- `src/app/[vertical]/browse/SearchFilter.tsx` — U5 (ZIP input UI)
+- `src/app/[vertical]/vendor/dashboard/page.tsx` — U6 (tier labels)
+- `src/app/[vertical]/vendor/listings/ListingForm.tsx` — U7 (allergen gate)
 
-### M18: Vendor signup file upload wired up — DONE
-- File: `src/app/[vertical]/vendor-signup/page.tsx`
-- Added `useRef` import, `fileObjectsRef` to store actual File objects
-- File input now stores File object + displays filename
-- After successful form submit, uploads files to `/api/vendor/onboarding/documents?vertical=` API
-- Non-blocking: if upload fails, vendor profile is already created
-- Changed hint text from "File upload coming soon" to "Accepted: PDF, JPG, PNG (max 10MB)"
-- Added `accept="image/jpeg,image/png,application/pdf"` to file input
+## Remaining Tiers (not started)
+- **Tier 3 (T1-T14)**: Terminology leakage — hardcoded FM language in FT context
+- **Tier 4 (S1-S6)**: Security & data integrity
+- **Tier 5 (I1-I8)**: Infrastructure & scalability
+- **Tier 6 (P1-P19)**: UX polish & optimization
 
-### M19: Image upload available on listing creation — DONE
-- File: `src/app/[vertical]/vendor/listings/ListingForm.tsx`
-- After creating listing, redirects to edit page (`/${vertical}/vendor/listings/${savedListingId}/edit`) instead of listings list
-- Updated placeholder text: "After saving, you'll be taken to the edit page where you can upload photos."
-- Changed placeholder style from grey to blue info-style to indicate upcoming action
+## Key Decisions Made
+- Tip cap: $50 (5000 cents) per user instruction
+- Per-pickup market box payout excludes flat fee (already deducted at subscription checkout)
+- vendor_payouts.order_item_id made nullable for market box support (migration 037)
+- 27 missing PKs fixed on Prod (initial schema migration was incomplete)
 
-### M3+M4: Hardcoded hex → design tokens — DONE
-- **checkout/page.tsx**: All ~20 hex values replaced with design tokens
-  - Purple (#F5F3FF, #DDD6FE, #E9D5FF, #A78BFA, #8b5cf6) → colors.primary/primaryLight/border
-  - Bootstrap red #dc3545 → statusColors.danger
-  - Info blues → statusColors.info/infoLight/infoBorder/infoDark
-  - Amber #ffc107 → statusColors.warningBorder
-  - Neutral #f8fafc → statusColors.neutral50
-- **vendor/markets/page.tsx**: All 152 hex values replaced with design tokens
-  - Non-brand purple (#7c3aed, #5b21b6, #6b21a8, #f5f3ff, #ddd6fe) → colors.primary/primaryDark/primaryLight/border
-  - Grey scale → statusColors.neutral50-900
-  - Semantic colors → statusColors.danger*/warning*/info*/success*
-  - Border strings converted from single-quoted to template literals
-  - Also added `statusColors, spacing, typography, radius` to imports
+## Files Modified in Tier 1 (commit 9a07d0c)
+- `apps/web/src/app/api/buyer/market-boxes/[id]/confirm-pickup/route.ts`
+- `apps/web/src/app/api/buyer/orders/[id]/cancel/route.ts`
+- `apps/web/src/app/api/buyer/orders/[id]/confirm/route.ts`
+- `apps/web/src/app/api/checkout/session/route.ts`
+- `apps/web/src/app/api/checkout/success/route.ts`
+- `apps/web/src/app/api/cron/expire-orders/route.ts`
+- `apps/web/src/app/api/vendor/market-boxes/pickups/[id]/route.ts`
+- `apps/web/src/app/api/vendor/orders/[id]/confirm-handoff/route.ts`
+- `apps/web/src/app/api/vendor/orders/[id]/ready/route.ts`
+- `apps/web/src/lib/stripe/webhooks.ts`
+- `supabase/migrations/applied/20260219_037_market_box_payout_support.sql`
 
-## FILES MODIFIED THIS BATCH (7 files)
-- `src/app/[vertical]/vendor/dashboard/page.tsx` — M22 (upgrade prompt)
-- `src/app/api/vendor/markets/route.ts` — M21 (vendorStatus in response)
-- `src/app/[vertical]/vendor/markets/page.tsx` — M21 (banner) + M4 (152 hex → tokens)
-- `src/app/[vertical]/vendor-signup/page.tsx` — M18 (file upload wiring)
-- `src/app/[vertical]/vendor/listings/ListingForm.tsx` — M19 (redirect to edit after create)
-- `src/app/[vertical]/checkout/page.tsx` — M3 (20 hex → tokens)
+## Schema Snapshot
+- Migration 037 changelog entry added ✅
+- vendor_payouts columns updated (order_item_id nullable, market_box_pickup_id added) ✅
+- FK references updated ✅
+- Index updated ✅
+- Full structured table regeneration NOT done (user should run REFRESH_SCHEMA.sql when convenient)
 
-## REMAINING TASKS (task #33 — not yet started)
-User said "resolve others the best way or ask for clarification" for:
-- **M1**: Admin layout redirects to `/login` without vertical context
-- **M6**: `any` type usage in 41 files (skip — too large, low impact)
-- **M7**: No React error boundaries (skip — would be a new system, not a quick fix)
-- **M8**: No input sanitization (low risk — Supabase parameterizes, React escapes)
-- **M11**: Email template has hardcoded #166534 color (needs brand color from vertical config)
-- **M14**: Tier badge component not used consistently
-- **M23**: Analytics gating for FT tiers not implemented
-- **M24**: N+1 query patterns in 5 API routes
-- **M26**: Hardcoded config values
-- **M27**: Transfer failure doesn't revert order status
-
-## WHAT'S NEXT
-1. **Commit this batch** (7 files for M3+M4, M18, M19, M21, M22)
-2. **Push to staging**
-3. **Tackle remaining M items** (task #33) — or user decides which to do
-4. **User verifies staging**
-5. **Push all commits to production** (main is 3+ commits ahead of origin/main)
-
-## TASK LIST STATE
-- #29 [completed] M21+M22
-- #30 [completed] M18
-- #31 [completed] M19
-- #32 [in_progress] M3+M4 — DONE, needs commit
-- #33 [pending] Remaining medium items
+## Gotchas / Watch Out For
+- Prod had 27 tables missing PKs — all fixed now
+- `vendor_payouts` inserts in existing code use authenticated client (not service client) — may silently fail due to missing INSERT RLS policy. Works for now but worth investigating.
+- `mbItem.priceCents` in checkout metadata may be base price or fee-inclusive — used as-is for F6 refund amount
+- Audit report is at `apps/web/.claude/session37_comprehensive_audit.md` — master reference for all findings

@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
         market_id,
         schedule_id,
         pickup_date,
+        preferred_pickup_time,
         pickup_snapshot,
         pickup_confirmed_at,
         buyer_confirmed_at,
@@ -215,6 +216,7 @@ export async function GET(request: NextRequest) {
         market_address: item.market?.address,
         market_city: item.market?.city,
         pickup_date: item.pickup_date,
+        preferred_pickup_time: item.preferred_pickup_time || (pickupSnapshot?.preferred_pickup_time as string) || null,
         pickup_snapshot: pickupSnapshot,
         // Unified display data (prefers pickup_snapshot when available)
         display: {
@@ -222,6 +224,7 @@ export async function GET(request: NextRequest) {
           pickup_date: item.pickup_date,
           start_time: (pickupSnapshot?.start_time as string) || null,
           end_time: (pickupSnapshot?.end_time as string) || null,
+          preferred_pickup_time: item.preferred_pickup_time || (pickupSnapshot?.preferred_pickup_time as string) || null,
           address: displayMarket.address as string | null,
           city: displayMarket.city as string | null,
           state: displayMarket.state as string | null

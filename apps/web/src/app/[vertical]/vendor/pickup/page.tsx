@@ -56,6 +56,7 @@ interface OrderItem {
   quantity: number
   subtotal_cents: number
   status: string
+  preferred_pickup_time: string | null
   buyer_confirmed_at: string | null
   vendor_confirmed_at: string | null
 }
@@ -829,6 +830,20 @@ export default function VendorPickupPage() {
                         }}>
                           Qty: {item.quantity} • {formatPrice(item.subtotal_cents)}
                         </p>
+                        {item.preferred_pickup_time && (
+                          <p style={{
+                            margin: '4px 0 0 0',
+                            fontSize: 12,
+                            color: '#0369a1',
+                            fontWeight: 500
+                          }}>
+                            Pickup time: {(() => {
+                              const [h, m] = item.preferred_pickup_time.split(':').map(Number)
+                              const ampm = h >= 12 ? 'PM' : 'AM'
+                              return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`
+                            })()}
+                          </p>
+                        )}
                         {item.buyer_confirmed_at && (
                           <p style={{
                             margin: '6px 0 0 0',

@@ -30,6 +30,10 @@ interface OnboardingStatus {
     coiDocuments: Array<{ url: string; filename: string; uploaded_at: string }>
     coiVerifiedAt: string | null
   }
+  gate4?: {
+    stripeConnected: boolean
+    stripePayoutsEnabled: boolean
+  }
   prohibitedItemsAcknowledged: boolean
   canSubmitForApproval: boolean
   canPublishListings: boolean
@@ -130,6 +134,13 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
       description: 'Upload Certificate of Insurance (COI)',
       status: status.gate3.coiStatus,
       complete: status.gate3.coiStatus === 'approved',
+    },
+    {
+      number: 4,
+      title: 'Payment Setup',
+      description: 'Connect your bank account via Stripe to receive payments',
+      status: status.gate4?.stripePayoutsEnabled ? 'approved' : status.gate4?.stripeConnected ? 'pending' : 'not_submitted',
+      complete: !!status.gate4?.stripePayoutsEnabled,
     },
   ]
 
@@ -348,6 +359,9 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
               {gate.number === 3 && (
                 <Gate3Content status={status} onUploaded={fetchStatus} />
               )}
+              {gate.number === 4 && (
+                <Gate4Content status={status} vertical={vertical} />
+              )}
             </div>
           )}
         </div>
@@ -533,5 +547,87 @@ function Gate3Content({
       coiVerifiedAt={status.gate3.coiVerifiedAt}
       onUploaded={onUploaded}
     />
+  )
+}
+
+function Gate4Content({
+  status,
+  vertical,
+}: {
+  status: OnboardingStatus
+  vertical: string
+}) {
+  const gate4 = status.gate4
+
+  if (gate4?.stripePayoutsEnabled) {
+    return (
+      <div style={{
+        padding: spacing.xs,
+        backgroundColor: colors.primaryLight,
+        borderRadius: radius.sm,
+        fontSize: typography.sizes.xs,
+        color: colors.primaryDark,
+      }}>
+        Stripe account connected and payouts enabled. You&apos;re all set!
+      </div>
+    )
+  }
+
+  if (gate4?.stripeConnected) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+        <div style={{
+          padding: spacing.xs,
+          backgroundColor: '#fef3c7',
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.xs,
+          color: '#92400e',
+        }}>
+          Stripe account connected, but setup is incomplete. Charges or payouts are not yet enabled.
+        </div>
+        <a
+          href={`/${vertical}/vendor/dashboard/stripe`}
+          style={{
+            display: 'inline-block',
+            padding: `${spacing['3xs']} ${spacing.xs}`,
+            backgroundColor: colors.surfaceElevated,
+            color: colors.primary,
+            border: `1px solid ${colors.primary}`,
+            borderRadius: radius.sm,
+            fontSize: typography.sizes.xs,
+            fontWeight: typography.weights.medium,
+            textDecoration: 'none',
+            textAlign: 'center',
+          }}
+        >
+          Complete Stripe Setup
+        </a>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+      <div style={{ fontSize: typography.sizes.xs, color: colors.textSecondary }}>
+        Connect your bank account through Stripe to receive payments from customers. This is a secure process that takes about 5 minutes.
+      </div>
+      <a
+        href={`/${vertical}/vendor/dashboard/stripe`}
+        style={{
+          display: 'inline-block',
+          padding: `${spacing['3xs']} ${spacing.xs}`,
+          backgroundColor: colors.primary,
+          color: 'white',
+          border: 'none',
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.xs,
+          fontWeight: typography.weights.medium,
+          textDecoration: 'none',
+          textAlign: 'center',
+        }}
+      >
+        Set Up Stripe Connect
+      </a>
+    </div>
   )
 }

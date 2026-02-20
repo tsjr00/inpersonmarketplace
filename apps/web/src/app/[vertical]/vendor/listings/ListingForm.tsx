@@ -515,7 +515,7 @@ export default function ListingForm({
           />
           <p style={{ fontSize: 13, color: '#666', marginTop: 6, lineHeight: 1.4 }}>
             Include: what it is, variety/type, quantity (size, count, or weight), and any special qualities.
-            {vertical === 'farmers_market' && (
+            {(vertical === 'farmers_market' || vertical === 'food_trucks') && (
               <><br /><strong>If your product contains potential allergens</strong>, check the allergen box below and list the ingredients.</>
             )}
           </p>
@@ -559,8 +559,8 @@ export default function ListingForm({
           )}
         </div>
 
-        {/* Allergen Section - only for farmers market */}
-        {vertical === 'farmers_market' && (
+        {/* Allergen Section - for food-related verticals */}
+        {(vertical === 'farmers_market' || vertical === 'food_trucks') && (
           <div style={{ marginBottom: 20 }}>
             {/* Allergen Checkbox */}
             <label style={{

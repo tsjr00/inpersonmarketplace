@@ -23,6 +23,7 @@ export default function SearchFilter({
 }: SearchFilterProps) {
   const router = useRouter()
   const [search, setSearch] = useState(currentSearch || '')
+  const [zipInput, setZipInput] = useState(currentZip || '')
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,10 +44,8 @@ export default function SearchFilter({
 
   const clearFilters = () => {
     setSearch('')
-    // Preserve zip when clearing other filters
-    const params = new URLSearchParams()
-    if (currentZip) params.set('zip', currentZip)
-    router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
+    setZipInput('')
+    router.push(`/${vertical}/browse`)
   }
 
   return (
@@ -116,8 +115,64 @@ export default function SearchFilter({
         </select>
       </div>
 
+      {/* ZIP Code Filter */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <label style={{ fontWeight: 600, color: '#333' }}>Near:</label>
+        <input
+          type="text"
+          value={zipInput}
+          onChange={(e) => {
+            const val = e.target.value.replace(/\D/g, '').slice(0, 5)
+            setZipInput(val)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && zipInput.length === 5) {
+              const params = new URLSearchParams()
+              if (currentSearch) params.set('search', currentSearch)
+              if (currentCategory) params.set('category', currentCategory)
+              params.set('zip', zipInput)
+              router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
+            }
+          }}
+          placeholder="ZIP code"
+          inputMode="numeric"
+          maxLength={5}
+          style={{
+            padding: '10px 15px',
+            fontSize: 16,
+            border: `1px solid ${branding.colors.secondary}`,
+            borderRadius: 6,
+            width: 100,
+            boxSizing: 'border-box'
+          }}
+        />
+        {zipInput.length === 5 && zipInput !== currentZip && (
+          <button
+            onClick={() => {
+              const params = new URLSearchParams()
+              if (currentSearch) params.set('search', currentSearch)
+              if (currentCategory) params.set('category', currentCategory)
+              params.set('zip', zipInput)
+              router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
+            }}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: branding.colors.primary,
+              color: 'white',
+              border: 'none',
+              borderRadius: 6,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: 14
+            }}
+          >
+            Go
+          </button>
+        )}
+      </div>
+
       {/* Clear Filters */}
-      {(currentSearch || currentCategory) && (
+      {(currentSearch || currentCategory || currentZip) && (
         <button
           onClick={clearFilters}
           style={{
