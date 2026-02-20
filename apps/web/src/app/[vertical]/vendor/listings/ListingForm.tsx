@@ -66,6 +66,8 @@ export default function ListingForm({
                 setPublishBlockReason('Business verification pending')
               } else if (data.gate3.coiStatus !== 'approved') {
                 setPublishBlockReason('Certificate of Insurance not yet verified')
+              } else if (data.gate4 && !data.gate4.stripePayoutsEnabled) {
+                setPublishBlockReason('Stripe Connect setup required to accept payments')
               } else {
                 setPublishBlockReason('Category authorization pending')
               }

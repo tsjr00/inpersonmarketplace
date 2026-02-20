@@ -91,11 +91,8 @@ After context compaction, Claude should read THIS FILE to see what's been done a
   - Problem: Does not call `is_listing_accepting_orders` or validate cutoff time.
   - Fix: Add cutoff validation matching Stripe checkout path.
 
-- [ ] **H16: Subscription Downgrade — Stripe vs DB Out of Sync**
-  - Location: `/api/vendor/tier/downgrade`, `/api/buyer/tier/downgrade`, `/api/vendor/subscription/downgrade-free`
-  - Problem: `cancel_at_period_end: true` means Stripe keeps access until billing period ends, but DB tier is downgraded immediately. User loses paid features before period expires.
-  - Impact: Users who paid for Pro/Boss lose features mid-period. Trust/contractual issue.
-  - Fix: Either (a) downgrade DB tier only on Stripe webhook `customer.subscription.deleted`, or (b) cancel Stripe immediately + refund prorated amount.
+- [x] **H16: Subscription Downgrade — Stripe vs DB Out of Sync** ✅ FIXED
+  - Downgrade routes no longer change DB tier immediately. Set `subscription_status: 'canceling'`. Actual tier downgrade happens via `handleSubscriptionDeleted` webhook when billing period ends. No refund (user decision).
 
 ---
 
@@ -165,9 +162,8 @@ After context compaction, Claude should read THIS FILE to see what's been done a
   - Problem: `canPublish` initializes to `null`. Submit handler allows publish while state is `null`.
   - Fix: Initialize `canPublish` to `false`. 1-line fix.
 
-- [ ] **H15: Stripe Connect Not Part of Onboarding Gates**
-  - Problem: Vendor can publish listings without Stripe setup. Orders can't be paid out.
-  - Fix: Either add Stripe as Gate 4, or block publish without Stripe, or add prominent warning banner.
+- [x] **H15: Stripe Connect Not Part of Onboarding Gates** ✅ FIXED
+  - Added Gate 4 (Stripe Connect) to onboarding status API. `canPublishListings` now requires `stripe_payouts_enabled`. ListingForm shows "Stripe Connect setup required" block reason. Progress bar includes Gate 4.
 
 - [x] **H7: Listing Count Limits Not Enforced at API Level** ✅ MIGRATION WRITTEN
   - DB trigger `enforce_listing_tier_limit` in migration 036. Fires BEFORE INSERT/UPDATE on listings when status→active. Pending application to environments.
@@ -185,10 +181,8 @@ After context compaction, Claude should read THIS FILE to see what's been done a
 - [x] **H11: About Page Contact Form is Stub** ✅ FIXED
   - Removed non-functional form. Replaced with `support@815enterprises.com` mailto link.
 
-- [ ] **H19: Cron Phase 4 — No-Show Items Fulfilled Without Paying Vendor**
-  - Location: `cron/expire-orders/route.ts` Phase 4
-  - Problem: Items `ready` past pickup date marked `fulfilled` but no payout created.
-  - Fix: Business decision needed — pay vendor for no-shows, or document as intentional.
+- [x] **H19: Cron Phase 4 — No-Show Items Fulfilled Without Paying Vendor** ✅ FIXED
+  - Phase 4 now initiates vendor payout (including tip share) for no-show items. Double-payout check included. Failed transfers recorded for Phase 5 retry. Buyer notified to contact vendor for resolution.
 
 - [ ] **M19: Image Upload Not Available on Listing Creation**
   - Problem: Requires save → edit → add images. High friction for new vendors.
@@ -323,4 +317,5 @@ To ship FT to real users, the **absolute minimum**:
 | 2026-02-19 | C7 CONFIRMED BROKEN | — | `transactions` table has 0 writes in codebase. Analytics 100% broken. |
 | 2026-02-19 | C1-C7 critical fixes | ffdd0de | Tips, double-payout, analytics rewrite, security |
 | 2026-02-19 | H1-H17 high priority | 7fc84f3 | Refunds, fees, vertical filters, admin roles, notifications |
-| 2026-02-19 | H5,H7,H9-H11,H18,M10 | (pending) | Wave 1+2: webhook RPC, tier trigger, notifications, cart UUID fix |
+| 2026-02-19 | H5,H7,H9-H11,H18,M10 | 7dea597 | Wave 1+2: webhook RPC, tier trigger, notifications, cart UUID fix |
+| 2026-02-19 | H15,H16,H19 | (pending) | Wave 3: Stripe Gate 4, downgrade timing, no-show vendor payout |

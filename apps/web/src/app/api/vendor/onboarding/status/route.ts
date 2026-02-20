@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     crumb.logic('Fetching vendor profile')
     let vpQuery = supabase
       .from('vendor_profiles')
-      .select('id, status, user_id, vertical_id')
+      .select('id, status, user_id, vertical_id, stripe_account_id, stripe_payouts_enabled')
       .eq('user_id', user.id)
     if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
     const { data: vendor } = await vpQuery.single()
@@ -190,10 +190,17 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Gate 4: Stripe Connect (vendor can receive payments)
+    const gate4 = {
+      stripeConnected: !!vendor.stripe_account_id,
+      stripePayoutsEnabled: !!vendor.stripe_payouts_enabled,
+    }
+
     const canPublishListings =
       verification.status === 'approved' &&
       allAuthorized &&
-      verification.coi_status === 'approved'
+      verification.coi_status === 'approved' &&
+      gate4.stripePayoutsEnabled
 
     // Overall progress (0-100)
     let steps = 0
@@ -232,12 +239,17 @@ export async function GET(request: NextRequest) {
     steps++
     if (verification.coi_status === 'approved') completed++
 
+    // Step 6: Stripe Connect (Gate 4)
+    steps++
+    if (gate4.stripePayoutsEnabled) completed++
+
     const overallProgress = steps > 0 ? Math.round((completed / steps) * 100) : 0
 
     return NextResponse.json({
       gate1,
       gate2,
       gate3,
+      gate4,
       prohibitedItemsAcknowledged,
       canSubmitForApproval,
       canPublishListings,

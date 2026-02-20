@@ -59,27 +59,26 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Update vendor tier to standard
-      // Note: If subscription was cancelled at period end, the webhook will handle final tier change
-      // For immediate downgrade, we update now
+      // H16 FIX: Don't downgrade DB tier immediately — keep access until billing period ends.
+      // Mark subscription as canceling so UI can show "expires on [date]".
+      // The actual tier downgrade happens in handleSubscriptionDeleted webhook
+      // when Stripe fires customer.subscription.deleted at period end.
       const { error: updateError } = await supabase
         .from('vendor_profiles')
         .update({
-          tier: 'standard',
-          stripe_subscription_id: null,
-          subscription_status: 'canceled',
+          subscription_status: 'canceling',
           updated_at: new Date().toISOString()
         })
         .eq('id', vendorId)
 
       if (updateError) {
-        console.error('Error downgrading vendor tier:', updateError)
-        return NextResponse.json({ error: 'Failed to downgrade tier' }, { status: 500 })
+        console.error('Error updating vendor subscription status:', updateError)
+        return NextResponse.json({ error: 'Failed to process downgrade' }, { status: 500 })
       }
 
       return NextResponse.json({
         success: true,
-        message: 'Successfully downgraded to Standard tier'
+        message: 'Your subscription will be cancelled at the end of your billing period. You will keep your current tier until then.'
       })
     } catch (error) {
       console.error('Downgrade error:', error)

@@ -337,9 +337,9 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
-    // PHASE 4: Notify buyers about missed pickups
-    // Order items with status 'ready' where pickup_date has passed
-    // Vendor marked ready but buyer never showed up
+    // PHASE 4: Handle missed pickups (buyer no-show)
+    // Order items with status 'ready' where pickup_date has passed.
+    // Vendor did their part — pay vendor, notify buyer to contact vendor.
     // ============================================================
     try {
       const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
@@ -350,6 +350,8 @@ export async function GET(request: NextRequest) {
           id,
           order_id,
           pickup_date,
+          vendor_payout_cents,
+          vendor_profile_id,
           listing:listings (
             title
           ),
@@ -357,11 +359,17 @@ export async function GET(request: NextRequest) {
             id,
             order_number,
             buyer_user_id,
-            vertical_id
+            vertical_id,
+            tip_amount,
+            stripe_checkout_session_id,
+            order_items (id)
           ),
           vendor:vendor_profiles (
             id,
-            profile_data
+            user_id,
+            profile_data,
+            stripe_account_id,
+            stripe_payouts_enabled
           )
         `)
         .eq('status', 'ready')
@@ -378,21 +386,77 @@ export async function GET(request: NextRequest) {
             const listing = item.listing as any
             const vendor = item.vendor as any
             const vendorData = vendor?.profile_data as Record<string, unknown> | null
-
-            // Send pickup_missed notification to buyer
-            if (order?.buyer_user_id) {
-              await sendNotification(order.buyer_user_id, 'pickup_missed', {
-                orderNumber: order.order_number || item.order_id.slice(0, 8),
-                itemTitle: listing?.title || 'Item',
-                vendorName: (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor',
-              }, { vertical: order.vertical_id })
-            }
+            const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
 
             // Mark as fulfilled — vendor did their part, buyer didn't show
             await supabase
               .from('order_items')
               .update({ status: 'fulfilled' })
               .eq('id', item.id)
+
+            // H19 FIX: Pay vendor for no-show items (vendor prepared the order)
+            // Calculate payout: vendor_payout_cents + prorated tip share
+            const tipAmount = order?.tip_amount || 0
+            const totalItemsInOrder = order?.order_items?.length || 1
+            const tipShareCents = totalItemsInOrder > 0 ? Math.round(tipAmount / totalItemsInOrder) : 0
+            const actualPayoutCents = (item.vendor_payout_cents || 0) + tipShareCents
+
+            if (actualPayoutCents > 0 && order?.stripe_checkout_session_id) {
+              // Check for existing payout (prevent double payout)
+              const { data: existingPayout } = await supabase
+                .from('vendor_payouts')
+                .select('id')
+                .eq('order_item_id', item.id)
+                .neq('status', 'failed')
+                .maybeSingle()
+
+              if (!existingPayout && vendor?.stripe_account_id && vendor?.stripe_payouts_enabled) {
+                try {
+                  const transfer = await transferToVendor({
+                    amount: actualPayoutCents,
+                    destination: vendor.stripe_account_id,
+                    orderId: item.order_id,
+                    orderItemId: item.id,
+                  })
+
+                  await supabase.from('vendor_payouts').insert({
+                    order_item_id: item.id,
+                    vendor_profile_id: item.vendor_profile_id,
+                    amount_cents: actualPayoutCents,
+                    stripe_transfer_id: transfer.id,
+                    status: 'processing',
+                  })
+                } catch (transferError) {
+                  console.error('[Phase 4] Stripe transfer failed for no-show payout:', transferError)
+                  // Record failed payout for retry in Phase 5
+                  await supabase.from('vendor_payouts').insert({
+                    order_item_id: item.id,
+                    vendor_profile_id: item.vendor_profile_id,
+                    amount_cents: actualPayoutCents,
+                    stripe_transfer_id: null,
+                    status: 'failed',
+                  })
+                }
+              } else if (!existingPayout && !vendor?.stripe_payouts_enabled) {
+                // Vendor doesn't have Stripe ready — record as pending
+                await supabase.from('vendor_payouts').insert({
+                  order_item_id: item.id,
+                  vendor_profile_id: item.vendor_profile_id,
+                  amount_cents: actualPayoutCents,
+                  stripe_transfer_id: null,
+                  status: 'pending_stripe_setup',
+                })
+              }
+            }
+
+            // Notify buyer: pickup was missed, contact vendor for resolution
+            if (order?.buyer_user_id) {
+              await sendNotification(order.buyer_user_id, 'pickup_missed', {
+                orderNumber: order.order_number || item.order_id.slice(0, 8),
+                itemTitle: listing?.title || 'Item',
+                vendorName,
+              }, { vertical: order.vertical_id })
+            }
 
             totalProcessed++
           } catch (itemError) {

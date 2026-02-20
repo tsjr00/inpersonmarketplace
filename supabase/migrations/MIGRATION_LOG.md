@@ -70,6 +70,8 @@
 | 20260218_033_add_free_ft_tier.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | Expand tier CHECK to include 'free'; auto-set trigger for new FT vendors. Applied to all 3 envs. |
 | 20260218_034_vendor_favorites.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | New vendor_favorites table with RLS for shopper favorites. Applied to all 3 envs. |
 | 20260218_035_market_box_type.sql | ✅ | 2026-02-18 | ✅ | 2026-02-18 | Add box_type TEXT column to market_box_offerings for FT Chef Box categories. Applied to all 3 envs. |
+| 20260219_036_enforce_listing_tier_limits.sql | ✅ | 2026-02-19 | ✅ | 2026-02-19 | BEFORE INSERT/UPDATE trigger enforcing vendor tier listing limits. Applied to all 3 envs. |
+| 20260219_035_add_payout_status_enum_values.sql | ✅ | 2026-02-19 | ✅ | 2026-02-19 | Add skipped_dev + pending_stripe_setup to payout_status enum. Applied to all 3 envs. |
 
 ---
 
