@@ -361,7 +361,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
     // Convert map to array, sorted by name
     allPickupLocations = Array.from(pickupLocationsMap.values())
-      .filter(loc => loc.schedules && loc.schedules.length > 0) // Only show locations with schedules
+      .filter(loc =>
+        // Show locations with schedules OR events with date ranges
+        (loc.schedules && loc.schedules.length > 0) ||
+        (loc.market_type === 'event' && loc.event_start_date)
+      )
       .sort((a, b) => a.name.localeCompare(b.name))
   }
 

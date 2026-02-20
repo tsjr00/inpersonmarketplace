@@ -7,6 +7,7 @@ import OrderCard from '@/components/vendor/OrderCard'
 import OrderFilters from '@/components/vendor/OrderFilters'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import Toast, { type ToastType } from '@/components/shared/Toast'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface OrderItem {
   id: string
@@ -75,6 +76,14 @@ export default function VendorOrdersPage() {
   const [pickupDateFilter, setPickupDateFilter] = useState<string | null>(null)
   const [dateRangeFilter, setDateRangeFilter] = useState<string | null>('30days') // Default to last 30 days
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    confirmLabel?: string
+    variant?: 'default' | 'danger'
+    onConfirm: () => void
+  }>({ open: false, title: '', message: '', onConfirm: () => {} })
 
   useEffect(() => {
     fetchOrders()
@@ -123,29 +132,31 @@ export default function VendorOrdersPage() {
     }
   }
 
-  const handleConfirmItem = async (itemId: string) => {
-    const confirmed = window.confirm(
-      'By confirming this order, you are committing to fulfill it. ' +
-      'This means you have the product available and the capacity to prepare it for the scheduled pickup. ' +
-      'Cancelling confirmed orders affects your reliability score.\n\n' +
-      'Do you want to confirm this order?'
-    )
-    if (!confirmed) return
-
-    try {
-      const res = await fetch(`/api/vendor/orders/${itemId}/confirm`, {
-        method: 'POST'
-      })
-      if (res.ok) {
-        fetchOrders()
-      } else {
-        const error = await res.json()
-        setToast({ message: error.error || 'Failed to confirm item', type: 'error' })
+  const handleConfirmItem = (itemId: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Confirm Order',
+      message: 'By confirming this order, you are committing to fulfill it. This means you have the product available and the capacity to prepare it for the scheduled pickup. Cancelling confirmed orders affects your reliability score.\n\nDo you want to confirm this order?',
+      confirmLabel: 'Confirm Order',
+      variant: 'default',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }))
+        try {
+          const res = await fetch(`/api/vendor/orders/${itemId}/confirm`, {
+            method: 'POST'
+          })
+          if (res.ok) {
+            fetchOrders()
+          } else {
+            const error = await res.json()
+            setToast({ message: error.error || 'Failed to confirm item', type: 'error' })
+          }
+        } catch (error) {
+          console.error('Error confirming item:', error)
+          setToast({ message: 'An error occurred', type: 'error' })
+        }
       }
-    } catch (error) {
-      console.error('Error confirming item:', error)
-      setToast({ message: 'An error occurred', type: 'error' })
-    }
+    })
   }
 
   const handleReadyItem = async (itemId: string) => {
@@ -165,46 +176,60 @@ export default function VendorOrdersPage() {
     }
   }
 
-  const handleFulfillItem = async (itemId: string) => {
-    if (!confirm('Mark this item as fulfilled (customer picked up)?')) return
-
-    try {
-      const res = await fetch(`/api/vendor/orders/${itemId}/fulfill`, {
-        method: 'POST'
-      })
-      if (res.ok) {
-        fetchOrders()
-      } else {
-        const error = await res.json()
-        setToast({ message: error.error || 'Failed to fulfill item', type: 'error' })
+  const handleFulfillItem = (itemId: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Mark as Fulfilled',
+      message: 'Mark this item as fulfilled (customer picked up)?',
+      confirmLabel: 'Mark Fulfilled',
+      variant: 'default',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }))
+        try {
+          const res = await fetch(`/api/vendor/orders/${itemId}/fulfill`, {
+            method: 'POST'
+          })
+          if (res.ok) {
+            fetchOrders()
+          } else {
+            const error = await res.json()
+            setToast({ message: error.error || 'Failed to fulfill item', type: 'error' })
+          }
+        } catch (error) {
+          console.error('Error fulfilling item:', error)
+          setToast({ message: 'An error occurred', type: 'error' })
+        }
       }
-    } catch (error) {
-      console.error('Error fulfilling item:', error)
-      setToast({ message: 'An error occurred', type: 'error' })
-    }
+    })
   }
 
-  const handleRejectItem = async (itemId: string, reason: string) => {
-    if (!confirm(`Are you sure you want to reject this item? The customer will be refunded.\n\nReason: ${reason}`)) {
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/vendor/orders/${itemId}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason })
-      })
-      if (res.ok) {
-        fetchOrders()
-      } else {
-        const error = await res.json()
-        setToast({ message: error.error || 'Failed to reject item', type: 'error' })
+  const handleRejectItem = (itemId: string, reason: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Reject Item',
+      message: `Are you sure you want to reject this item? The customer will be refunded.\n\nReason: ${reason}`,
+      confirmLabel: 'Reject & Refund',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }))
+        try {
+          const res = await fetch(`/api/vendor/orders/${itemId}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+          })
+          if (res.ok) {
+            fetchOrders()
+          } else {
+            const error = await res.json()
+            setToast({ message: error.error || 'Failed to reject item', type: 'error' })
+          }
+        } catch (error) {
+          console.error('Error rejecting item:', error)
+          setToast({ message: 'An error occurred', type: 'error' })
+        }
       }
-    } catch (error) {
-      console.error('Error rejecting item:', error)
-      setToast({ message: 'An error occurred', type: 'error' })
-    }
+    })
   }
 
   const handleClearFilters = () => {
@@ -480,6 +505,15 @@ export default function VendorOrdersPage() {
           onClose={() => setToast(null)}
         />
       )}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
     </div>
   )
 }

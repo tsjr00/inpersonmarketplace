@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       }
 
       const body = await request.json()
-      const { vertical, name, address, city, state, zip, description, website, season_start, season_end, schedules, vendor_sells_at_market = true, market_type = 'traditional', event_start_date, event_end_date, event_url } = body
+      const { vertical, name, address, city, state, zip, latitude, longitude, description, website, season_start, season_end, schedules, vendor_sells_at_market = true, market_type = 'traditional', event_start_date, event_end_date, event_url } = body
 
       if (!vertical || !name || !address || !city || !state || !zip) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -111,6 +111,8 @@ export async function POST(request: NextRequest) {
         zip: zip.trim(),
         description: description?.trim() || null,
         website: website?.trim() || null,
+        latitude: (typeof latitude === 'number' && isFinite(latitude)) ? latitude : null,
+        longitude: (typeof longitude === 'number' && isFinite(longitude)) ? longitude : null,
         season_start: season_start || null,
         season_end: season_end || null,
         status: 'active',

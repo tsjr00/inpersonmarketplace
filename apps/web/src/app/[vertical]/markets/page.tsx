@@ -78,12 +78,12 @@ export const revalidate = 600
 
 interface MarketsPageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ city?: string; search?: string; zip?: string; state?: string }>
+  searchParams: Promise<{ city?: string; search?: string; zip?: string; state?: string; type?: string }>
 }
 
 export default async function MarketsPage({ params, searchParams }: MarketsPageProps) {
   const { vertical } = await params
-  const { city, search, zip, state } = await searchParams
+  const { city, search, zip, state, type: locationType } = await searchParams
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
@@ -247,8 +247,19 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
         </p>
       </div>
 
-      {/* Upcoming Events Section */}
-      {eventMarkets && eventMarkets.length > 0 && (
+      {/* Filters */}
+      <MarketFilters
+        vertical={vertical}
+        currentCity={city}
+        currentSearch={search}
+        currentState={state}
+        currentType={locationType}
+        cities={filteredCities}
+        states={states}
+      />
+
+      {/* Upcoming Events Section — hidden when type filter excludes events */}
+      {(!locationType || locationType === 'event') && eventMarkets && eventMarkets.length > 0 && (
         <div style={{ marginBottom: spacing.lg }}>
           <h2 style={{
             color: branding.colors.primary,
@@ -256,7 +267,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
             fontSize: typography.sizes.xl,
             fontWeight: typography.weights.semibold
           }}>
-            🎪 Upcoming {term(vertical, 'events')}
+            {'\u{1F3AA}'} Upcoming {term(vertical, 'events')}
           </h2>
           <div style={{
             display: 'grid',
@@ -296,7 +307,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
                       fontWeight: typography.weights.semibold,
                       marginBottom: spacing.xs
                     }}>
-                      🎪 Event
+                      {'\u{1F3AA}'} Event
                     </div>
                     <h3 style={{
                       margin: `0 0 ${spacing['2xs']} 0`,
@@ -312,7 +323,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
                       fontWeight: typography.weights.medium,
                       marginBottom: spacing['2xs']
                     }}>
-                      📅 {formatEventDate(startDate)}{!isSingleDay && ` – ${formatEventDate(endDate)}`}
+                      {'\u{1F4C5}'} {formatEventDate(startDate)}{!isSingleDay && ` \u2013 ${formatEventDate(endDate)}`}
                     </div>
                     {address && (
                       <div style={{
@@ -320,7 +331,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
                         color: colors.textMuted,
                         marginBottom: spacing.xs
                       }}>
-                        📍 {address}
+                        {'\u{1F4CD}'} {address}
                       </div>
                     )}
                     {event.description && (
@@ -344,7 +355,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
                       paddingTop: spacing.xs,
                       borderTop: `1px solid ${colors.borderMuted}`
                     }}>
-                      👥 {vendorCount} {term(vertical, vendorCount !== 1 ? 'vendors' : 'vendor').toLowerCase()}
+                      {'\u{1F465}'} {vendorCount} {term(vertical, vendorCount !== 1 ? 'vendors' : 'vendor').toLowerCase()}
                     </div>
                   </div>
                 </Link>
@@ -354,26 +365,18 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
         </div>
       )}
 
-      {/* Filters */}
-      <MarketFilters
-        vertical={vertical}
-        currentCity={city}
-        currentSearch={search}
-        currentState={state}
-        cities={filteredCities}
-        states={states}
-      />
-
-      {/* Markets with Location Filtering */}
-      <MarketsWithLocation
-        vertical={vertical}
-        initialMarkets={transformedMarkets}
-        cities={cities}
-        currentCity={city}
-        currentSearch={search}
-        initialLocation={savedLocation}
-        radiusOptions={getRadiusOptions(vertical)}
-      />
+      {/* Markets with Location Filtering — hidden when type filter is events-only */}
+      {locationType !== 'event' && (
+        <MarketsWithLocation
+          vertical={vertical}
+          initialMarkets={transformedMarkets}
+          cities={cities}
+          currentCity={city}
+          currentSearch={search}
+          initialLocation={savedLocation}
+          radiusOptions={getRadiusOptions(vertical)}
+        />
+      )}
     </div>
   )
 }

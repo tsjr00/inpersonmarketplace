@@ -380,6 +380,42 @@ export default function CheckoutSuccessPage() {
           </div>
         )}
 
+        {/* Food Truck Order Expectation Card */}
+        {vertical === 'food_trucks' && order && order.items && order.items.length > 0 && (
+          <div style={{
+            backgroundColor: '#fffbeb',
+            borderRadius: radius.md,
+            border: '1px solid #fde68a',
+            padding: spacing.md,
+            marginBottom: spacing.lg,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
+              <span style={{ fontSize: typography.sizes.lg, flexShrink: 0 }}>{'\u{1F4F1}'}</span>
+              <div>
+                <h3 style={{
+                  margin: `0 0 ${spacing['2xs']} 0`,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold,
+                  color: '#92400e',
+                }}>
+                  What happens next?
+                </h3>
+                <p style={{
+                  margin: 0,
+                  fontSize: typography.sizes.sm,
+                  color: '#78350f',
+                  lineHeight: typography.leading.relaxed,
+                }}>
+                  Your order has been sent to {order.items[0]?.vendor_name || 'the truck'}. You&apos;ll receive
+                  a notification when they confirm it. Food truck operators sometimes experience unexpected
+                  rushes or supply changes &mdash; if you haven&apos;t received confirmation within 30 minutes
+                  of your pickup time, the truck may not be able to fulfill your order this time.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div style={{
             padding: spacing.sm,

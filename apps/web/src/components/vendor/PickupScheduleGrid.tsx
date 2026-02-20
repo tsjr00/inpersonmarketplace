@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { colors } from '@/lib/design-tokens'
+import { colors, statusColors, spacing, radius, typography } from '@/lib/design-tokens'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 
 interface PickupLocation {
@@ -11,6 +11,8 @@ interface PickupLocation {
   city?: string
   state?: string
   market_type?: 'private_pickup' | 'traditional' | 'event'
+  event_start_date?: string | null
+  event_end_date?: string | null
   schedules?: { day_of_week: number; start_time: string; end_time: string }[]
 }
 
@@ -26,7 +28,6 @@ function formatTime(time: string): string {
   const hour = parseInt(hours)
   const ampm = hour >= 12 ? 'p' : 'a'
   const displayHour = hour % 12 || 12
-  // Only show minutes if not :00
   if (minutes === '00') {
     return `${displayHour}${ampm}`
   }
@@ -39,20 +40,14 @@ function formatTimeRange(start: string, end: string): string {
 
 function getWeekDates(): { start: Date; end: Date; label: string } {
   const now = new Date()
-  const dayOfWeek = now.getDay() // 0 = Sunday
-
-  // Get Monday of current week (if Sunday, go back 6 days)
+  const dayOfWeek = now.getDay()
   const monday = new Date(now)
   const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
   monday.setDate(now.getDate() - daysToMonday)
   monday.setHours(0, 0, 0, 0)
-
-  // Get Sunday of current week
   const sunday = new Date(monday)
   sunday.setDate(monday.getDate() + 6)
-
   const formatDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-
   return {
     start: monday,
     end: sunday,
@@ -60,19 +55,22 @@ function getWeekDates(): { start: Date; end: Date; label: string } {
   }
 }
 
+function formatEventDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00')
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export default function PickupScheduleGrid({ locations }: PickupScheduleGridProps) {
   const weekInfo = useMemo(() => getWeekDates(), [])
 
-  // Build schedule matrix: location -> day -> time ranges
+  const regularLocations = locations.filter(loc => loc.market_type !== 'event')
+  const eventLocations = locations.filter(loc => loc.market_type === 'event' && loc.event_start_date)
+
   const scheduleMatrix = useMemo(() => {
     const matrix: Map<string, Map<number, string[]>> = new Map()
-
-    for (const location of locations) {
+    for (const location of regularLocations) {
       const dayMap = new Map<number, string[]>()
-      for (let d = 0; d < 7; d++) {
-        dayMap.set(d, [])
-      }
-
+      for (let d = 0; d < 7; d++) dayMap.set(d, [])
       if (location.schedules) {
         for (const schedule of location.schedules) {
           const times = dayMap.get(schedule.day_of_week) || []
@@ -80,34 +78,31 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
           dayMap.set(schedule.day_of_week, times)
         }
       }
-
       matrix.set(location.id, dayMap)
     }
-
     return matrix
-  }, [locations])
+  }, [regularLocations])
 
-  // Reorder days to start with Monday (1,2,3,4,5,6,0)
   const orderedDays = [1, 2, 3, 4, 5, 6, 0]
 
   return (
     <div style={{
-      backgroundColor: '#fef3c7',
-      border: '1px solid #fcd34d',
-      borderRadius: 8,
-      marginBottom: 16,
+      backgroundColor: colors.surfaceMuted,
+      border: `1px solid ${colors.border}`,
+      borderRadius: radius.md,
+      marginBottom: parseInt(spacing.sm),
       overflow: 'hidden'
     }}>
       {/* Header */}
       <div style={{
-        padding: '10px 16px',
-        borderBottom: '1px solid #fcd34d',
-        backgroundColor: '#fef3c7'
+        padding: `${spacing.xs} ${spacing.sm}`,
+        borderBottom: `1px solid ${colors.border}`,
+        backgroundColor: colors.surfaceMuted
       }}>
         <span style={{
-          fontSize: 14,
-          fontWeight: 600,
-          color: '#92400e'
+          fontSize: typography.sizes.sm,
+          fontWeight: typography.weights.semibold,
+          color: colors.textSecondary
         }}>
           {weekInfo.label}
         </span>
@@ -115,7 +110,7 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
 
       {/* Desktop Grid View */}
       <div className="pickup-schedule-desktop" style={{
-        padding: '12px 16px',
+        padding: `${spacing.xs} ${spacing.sm}`,
         overflowX: 'auto'
       }}>
         <table style={{
@@ -128,9 +123,9 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
               <th style={{
                 textAlign: 'left',
                 padding: '6px 8px',
-                color: '#78350f',
-                fontWeight: 600,
-                borderBottom: '1px solid #fcd34d',
+                color: colors.textPrimary,
+                fontWeight: typography.weights.semibold,
+                borderBottom: `1px solid ${colors.border}`,
                 minWidth: 120
               }}>
                 Location
@@ -139,9 +134,9 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                 <th key={day} style={{
                   textAlign: 'center',
                   padding: '6px 4px',
-                  color: '#78350f',
-                  fontWeight: 600,
-                  borderBottom: '1px solid #fcd34d',
+                  color: colors.textPrimary,
+                  fontWeight: typography.weights.semibold,
+                  borderBottom: `1px solid ${colors.border}`,
                   minWidth: 60
                 }}>
                   <span className="day-full">{DAYS_FULL[day]}</span>
@@ -151,27 +146,27 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
             </tr>
           </thead>
           <tbody>
-            {locations.map(location => {
+            {regularLocations.map(location => {
               const dayMap = scheduleMatrix.get(location.id)
               return (
                 <tr key={location.id}>
                   <td style={{
                     padding: '8px 8px',
-                    color: '#78350f',
-                    fontWeight: 500,
+                    color: colors.textPrimary,
+                    fontWeight: typography.weights.medium,
                     verticalAlign: 'top'
                   }}>
-                    <div style={{ fontWeight: 600 }}>{location.name}</div>
+                    <div style={{ fontWeight: typography.weights.semibold }}>{location.name}</div>
                     {(location.city || location.address) && (
                       <a
                         href={getMapsUrl(location.address, location.city, location.state)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ display: 'block', fontSize: 11, color: '#92400e', marginTop: 2, textDecoration: 'none' }}
+                        style={{ display: 'block', fontSize: 11, color: colors.textMuted, marginTop: 2, textDecoration: 'none' }}
                         onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
                         onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
                       >
-                        {[location.city, location.state].filter(Boolean).join(', ')}
+                        {[location.address, location.city, location.state].filter(Boolean).join(', ')}
                       </a>
                     )}
                   </td>
@@ -181,7 +176,7 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                       <td key={day} style={{
                         textAlign: 'center',
                         padding: '8px 4px',
-                        color: times.length > 0 ? colors.primaryDark : '#d1d5db',
+                        color: times.length > 0 ? colors.primaryDark : statusColors.neutral300,
                         verticalAlign: 'top',
                         fontSize: 12
                       }}>
@@ -192,14 +187,14 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                               borderRadius: 4,
                               padding: '2px 4px',
                               marginBottom: i < times.length - 1 ? 2 : 0,
-                              fontWeight: 500,
+                              fontWeight: typography.weights.medium,
                               whiteSpace: 'nowrap'
                             }}>
                               {time}
                             </div>
                           ))
                         ) : (
-                          <span style={{ fontSize: 14 }}>—</span>
+                          <span style={{ fontSize: 14 }}>{'\u2014'}</span>
                         )}
                       </td>
                     )
@@ -213,9 +208,9 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
 
       {/* Mobile Stacked View */}
       <div className="pickup-schedule-mobile" style={{
-        padding: '12px 16px'
+        padding: `${spacing.xs} ${spacing.sm}`
       }}>
-        {locations.map((location, locIndex) => {
+        {regularLocations.map((location, locIndex) => {
           const dayMap = scheduleMatrix.get(location.id)
           const hasAnySchedule = orderedDays.some(d => (dayMap?.get(d) || []).length > 0)
 
@@ -223,14 +218,14 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
             <div
               key={location.id}
               style={{
-                marginBottom: locIndex < locations.length - 1 ? 16 : 0,
-                paddingBottom: locIndex < locations.length - 1 ? 16 : 0,
-                borderBottom: locIndex < locations.length - 1 ? '1px solid #fcd34d' : 'none'
+                marginBottom: locIndex < regularLocations.length - 1 ? 16 : 0,
+                paddingBottom: locIndex < regularLocations.length - 1 ? 16 : 0,
+                borderBottom: locIndex < regularLocations.length - 1 ? `1px solid ${colors.border}` : 'none'
               }}
             >
               <div style={{
-                fontWeight: 600,
-                color: '#78350f',
+                fontWeight: typography.weights.semibold,
+                color: colors.textPrimary,
                 marginBottom: 4
               }}>
                 {location.name}
@@ -240,7 +235,7 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                   href={getMapsUrl(location.address, location.city, location.state)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: 'block', fontSize: 12, color: '#92400e', marginBottom: 8, textDecoration: 'none' }}
+                  style={{ display: 'block', fontSize: 12, color: colors.textMuted, marginBottom: 8, textDecoration: 'none' }}
                   onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
                   onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
                 >
@@ -259,9 +254,9 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                         padding: '4px 8px',
                         fontSize: 12,
                         color: colors.primaryDark,
-                        fontWeight: 500
+                        fontWeight: typography.weights.medium
                       }}>
-                        <span style={{ fontWeight: 600 }}>{DAYS_FULL[day]}</span>
+                        <span style={{ fontWeight: typography.weights.semibold }}>{DAYS_FULL[day]}</span>
                         {' '}
                         {times.join(', ')}
                       </div>
@@ -269,7 +264,7 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
                   })}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: '#92400e', fontStyle: 'italic' }}>
+                <div style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
                   No scheduled times
                 </div>
               )}
@@ -277,6 +272,64 @@ export default function PickupScheduleGrid({ locations }: PickupScheduleGridProp
           )
         })}
       </div>
+
+      {/* Event Locations */}
+      {eventLocations.length > 0 && (
+        <div style={{
+          padding: `${spacing.xs} ${spacing.sm}`,
+          borderTop: regularLocations.length > 0 ? `1px solid ${colors.border}` : 'none',
+        }}>
+          {eventLocations.map((event, idx) => {
+            const isSingleDay = event.event_start_date === event.event_end_date
+            return (
+              <div key={event.id} style={{
+                marginBottom: idx < eventLocations.length - 1 ? 12 : 0,
+                paddingBottom: idx < eventLocations.length - 1 ? 12 : 0,
+                borderBottom: idx < eventLocations.length - 1 ? `1px solid ${colors.border}` : 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 14 }}>{'\u{1F3AA}'}</span>
+                  <span style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{event.name}</span>
+                  <span style={{
+                    fontSize: 10,
+                    padding: '1px 6px',
+                    backgroundColor: statusColors.warningLight,
+                    color: statusColors.warningDark,
+                    borderRadius: 4,
+                    fontWeight: typography.weights.semibold,
+                  }}>Event</span>
+                </div>
+                {(event.city || event.address) && (
+                  <a
+                    href={getMapsUrl(event.address, event.city, event.state)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'block', fontSize: 12, color: colors.textMuted, marginBottom: 4, textDecoration: 'none' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                  >
+                    {[event.address, event.city, event.state].filter(Boolean).join(', ')}
+                  </a>
+                )}
+                <div style={{
+                  display: 'inline-block',
+                  backgroundColor: colors.primaryLight,
+                  borderRadius: 6,
+                  padding: '4px 8px',
+                  fontSize: 12,
+                  color: colors.primaryDark,
+                  fontWeight: typography.weights.medium,
+                }}>
+                  {isSingleDay
+                    ? formatEventDate(event.event_start_date!)
+                    : `${formatEventDate(event.event_start_date!)} \u2013 ${formatEventDate(event.event_end_date!)}`
+                  }
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Responsive CSS */}
       <style>{`

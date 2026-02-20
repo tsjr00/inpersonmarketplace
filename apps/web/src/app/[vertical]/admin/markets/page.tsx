@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { formatState, formatZip } from '@/lib/validation'
 
 type Schedule = {
   id: string
@@ -737,16 +738,18 @@ export default function AdminMarketsPage() {
                     type="text"
                     required
                     value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, state: formatState(e.target.value) })}
                     style={{
                       width: '100%',
                       padding: `${spacing.xs} ${spacing.sm}`,
                       border: `1px solid ${colors.border}`,
                       borderRadius: radius.sm,
                       boxSizing: 'border-box',
-                      fontSize: typography.sizes.sm
+                      fontSize: typography.sizes.sm,
+                      textTransform: 'uppercase'
                     }}
                     maxLength={2}
+                    pattern="[A-Za-z]{2}"
                     placeholder="TX"
                   />
                 </div>
@@ -757,8 +760,12 @@ export default function AdminMarketsPage() {
                   <input
                     type="text"
                     required
+                    inputMode="numeric"
                     value={formData.zip}
-                    onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, zip: formatZip(e.target.value) })}
+                    maxLength={5}
+                    pattern="\d{5}"
+                    placeholder="79101"
                     style={{
                       width: '100%',
                       padding: `${spacing.xs} ${spacing.sm}`,

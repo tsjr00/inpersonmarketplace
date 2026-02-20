@@ -695,6 +695,50 @@ export default function BuyerOrderDetailPage() {
               ← Back to Orders
             </Link>
 
+            {/* Status Info Banner */}
+            {(() => {
+              const primaryVendorName = order.items.find(i => !i.cancelled_at)?.vendor_name || 'the vendor'
+              const bannerConfig: Record<string, { bg: string; border: string; color: string; text: string }> = {
+                pending: {
+                  bg: '#fffbeb', border: '#fde68a', color: '#92400e',
+                  text: `Awaiting confirmation from ${primaryVendorName}. You\u2019ll be notified when confirmed.`
+                },
+                confirmed: {
+                  bg: '#ecfdf5', border: '#6ee7b7', color: '#065f46',
+                  text: `Order confirmed! ${primaryVendorName} will have your order ready for pickup.`
+                },
+                ready: {
+                  bg: '#eff6ff', border: '#93c5fd', color: '#1e40af',
+                  text: 'Your order is ready for pickup!'
+                },
+                cancelled: {
+                  bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
+                  text: `${primaryVendorName} was unable to fulfill this order. You have been refunded.`
+                },
+                fulfilled: {
+                  bg: '#f5f3ff', border: '#c4b5fd', color: '#5b21b6',
+                  text: 'Order complete. Thank you for your purchase!'
+                },
+              }
+              const config = bannerConfig[effectiveStatus]
+              if (!config) return null
+              return (
+                <div style={{
+                  marginTop: spacing.sm,
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: config.bg,
+                  border: `1px solid ${config.border}`,
+                  borderRadius: radius.md,
+                  color: config.color,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.medium,
+                  lineHeight: typography.leading.relaxed,
+                }}>
+                  {config.text}
+                </div>
+              )
+            })()}
+
             {/* Header with Order Number + Status + Dates */}
             <div style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
               {/* Large Order Number Box */}

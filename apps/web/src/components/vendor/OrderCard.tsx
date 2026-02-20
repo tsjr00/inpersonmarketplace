@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import OrderStatusBadge from './OrderStatusBadge'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface OrderItem {
   id: string
@@ -103,6 +105,7 @@ function getMostUrgentStatus(items: OrderItem[]): string {
 }
 
 export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem }: OrderCardProps) {
+  const [rejectDialog, setRejectDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
   const orderDate = new Date(order.created_at).toLocaleDateString()
   const orderTime = new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
@@ -401,12 +404,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                       {/* Reject Button - available for pending/confirmed/ready items */}
                       {onRejectItem && (
                         <button
-                          onClick={() => {
-                            const reason = prompt('Why can\'t you fulfill this item?')
-                            if (reason) {
-                              onRejectItem(item.id, reason)
-                            }
-                          }}
+                          onClick={() => setRejectDialog({ open: true, itemId: item.id })}
                           style={{
                             padding: '6px 12px',
                             backgroundColor: 'white',
@@ -419,7 +417,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                             minHeight: 32
                           }}
                         >
-                          Can't Fulfill
+                          Can&apos;t Fulfill
                         </button>
                       )}
                     </div>
@@ -430,6 +428,24 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
           ))}
         </div>
       </div>
+      <ConfirmDialog
+        open={rejectDialog.open}
+        title="Can't Fulfill Item"
+        message="Please let the customer know why you can't fulfill this item. They will be refunded."
+        confirmLabel="Reject & Refund"
+        variant="danger"
+        showInput
+        inputLabel="Reason"
+        inputPlaceholder="Why can't you fulfill this item?"
+        inputRequired
+        onConfirm={(reason) => {
+          setRejectDialog({ open: false, itemId: '' })
+          if (reason && onRejectItem) {
+            onRejectItem(rejectDialog.itemId, reason)
+          }
+        }}
+        onCancel={() => setRejectDialog({ open: false, itemId: '' })}
+      />
     </div>
   )
 }

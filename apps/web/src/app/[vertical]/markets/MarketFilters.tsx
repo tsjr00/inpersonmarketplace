@@ -10,6 +10,7 @@ interface MarketFiltersProps {
   currentCity?: string
   currentSearch?: string
   currentState?: string
+  currentType?: string
   cities: string[]
   states: string[]
 }
@@ -19,6 +20,7 @@ export default function MarketFilters({
   currentCity,
   currentSearch,
   currentState,
+  currentType,
   cities,
   states,
 }: MarketFiltersProps) {
@@ -44,12 +46,16 @@ export default function MarketFilters({
     if (key === 'search' && value) params.set('search', value)
     else if (currentSearch && key !== 'search') params.set('search', currentSearch)
 
+    // Type filter
+    if (key === 'type' && value) params.set('type', value)
+    else if (currentType && key !== 'type') params.set('type', currentType)
+
     // Remove the key if value is empty
     if (!value) params.delete(key)
 
     const queryString = params.toString()
     router.push(`${pathname}${queryString ? `?${queryString}` : ''}`)
-  }, [router, pathname, currentCity, currentSearch, currentState])
+  }, [router, pathname, currentCity, currentSearch, currentState, currentType])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,7 +67,7 @@ export default function MarketFilters({
     router.push(pathname)
   }
 
-  const hasFilters = currentCity || currentSearch || currentState
+  const hasFilters = currentCity || currentSearch || currentState || currentType
 
   return (
     <div style={{
@@ -192,6 +198,39 @@ export default function MarketFilters({
             </select>
           </div>
         )}
+
+        {/* Location Type filter */}
+        <div style={{ flex: '0 0 170px' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: spacing['2xs'],
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.medium,
+            color: colors.textSecondary
+          }}>
+            Location Type
+          </label>
+          <select
+            value={currentType || ''}
+            onChange={(e) => updateFilter('type', e.target.value || undefined)}
+            style={{
+              width: '100%',
+              padding: `${spacing.xs} ${spacing.sm}`,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              fontSize: typography.sizes.base,
+              backgroundColor: colors.surfaceBase,
+              minHeight: 44,
+              cursor: 'pointer'
+            }}
+          >
+            <option value="">All Types</option>
+            <option value="traditional">
+              {vertical === 'food_trucks' ? 'Food Truck Parks' : 'Markets'}
+            </option>
+            <option value="event">Events</option>
+          </select>
+        </div>
 
         {/* Clear filters */}
         {hasFilters && (

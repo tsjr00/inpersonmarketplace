@@ -7,6 +7,7 @@ import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import ErrorDisplay from '@/components/shared/ErrorDisplay'
 import { term } from '@/lib/vertical'
 import { colors, statusColors, spacing, radius } from '@/lib/design-tokens'
+import { formatState, formatZip } from '@/lib/validation'
 
 type Schedule = {
   id?: string
@@ -107,6 +108,8 @@ export default function VendorMarketsPage() {
     city: '',
     state: '',
     zip: '',
+    latitude: '',
+    longitude: '',
     description: '',
     website: '',
     season_start: '',
@@ -389,6 +392,8 @@ export default function VendorMarketsPage() {
           zip: suggestionFormData.zip,
           description: suggestionFormData.description || null,
           website: suggestionFormData.website || null,
+          latitude: suggestionFormData.latitude ? parseFloat(suggestionFormData.latitude) : null,
+          longitude: suggestionFormData.longitude ? parseFloat(suggestionFormData.longitude) : null,
           season_start: suggestionFormData.season_start || null,
           season_end: suggestionFormData.season_end || null,
           schedules: validSchedules.map(s => ({
@@ -428,6 +433,8 @@ export default function VendorMarketsPage() {
       city: '',
       state: '',
       zip: '',
+      latitude: '',
+      longitude: '',
       description: '',
       website: '',
       season_start: '',
@@ -1047,9 +1054,58 @@ export default function VendorMarketsPage() {
                       type="text"
                       required
                       value={suggestionFormData.state}
-                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, state: e.target.value })}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, state: formatState(e.target.value) })}
                       maxLength={2}
+                      pattern="[A-Za-z]{2}"
                       placeholder="TX"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: `1px solid ${statusColors.neutral300}`,
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box',
+                        textTransform: 'uppercase'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      ZIP *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      inputMode="numeric"
+                      value={suggestionFormData.zip}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, zip: formatZip(e.target.value) })}
+                      maxLength={5}
+                      pattern="\d{5}"
+                      placeholder="79101"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: `1px solid ${statusColors.neutral300}`,
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Coordinates (optional) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+                      Latitude <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={suggestionFormData.latitude}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, latitude: e.target.value })}
+                      placeholder="e.g. 35.1983"
                       style={{
                         width: '100%',
                         padding: '10px 12px',
@@ -1062,14 +1118,14 @@ export default function VendorMarketsPage() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      ZIP *
+                      Longitude <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(optional)</span>
                     </label>
                     <input
                       type="text"
-                      required
-                      value={suggestionFormData.zip}
-                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, zip: e.target.value })}
-                      maxLength={10}
+                      inputMode="decimal"
+                      value={suggestionFormData.longitude}
+                      onChange={(e) => setSuggestionFormData({ ...suggestionFormData, longitude: e.target.value })}
+                      placeholder="e.g. -101.8313"
                       style={{
                         width: '100%',
                         padding: '10px 12px',
@@ -1081,6 +1137,9 @@ export default function VendorMarketsPage() {
                     />
                   </div>
                 </div>
+                <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: 12, color: statusColors.neutral500 }}>
+                  Providing coordinates helps speed up approval. Find them in Google Maps by right-clicking the location.
+                </p>
 
                 <div>
                   <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
