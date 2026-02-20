@@ -184,7 +184,7 @@ After context compaction, Claude should read THIS FILE to see what's been done a
 - [x] **H19: Cron Phase 4 — No-Show Items Fulfilled Without Paying Vendor** ✅ FIXED
   - Phase 4 now initiates vendor payout (including tip share) for no-show items. Double-payout check included. Failed transfers recorded for Phase 5 retry. Buyer notified to contact vendor for resolution.
 
-- [ ] **M19: Image Upload Not Available on Listing Creation**
+- [x] **M19: Image Upload Not Available on Listing Creation**
   - Problem: Requires save → edit → add images. High friction for new vendors.
   - Fix: Allow upload on create, or auto-redirect to edit after save.
 
@@ -202,8 +202,8 @@ After context compaction, Claude should read THIS FILE to see what's been done a
 ### Medium Priority
 - [ ] **M1**: Admin layout redirects to `/login` without vertical context
 - [x] **M2**: Admin layout uses manual role check instead of `hasAdminRole()`
-- [ ] **M3**: Checkout page has ~20 hardcoded hex values including non-brand purple
-- [ ] **M4**: `vendor/markets/page.tsx` has 152 hardcoded hex values
+- [x] **M3**: Checkout page has ~20 hardcoded hex values including non-brand purple
+- [x] **M4**: `vendor/markets/page.tsx` has 152 hardcoded hex values
 - [x] **M5**: Vendor dashboard has 5 sequential DB queries (should be `Promise.all`)
 - [ ] **M6**: `any` type usage in 41 files
 - [ ] **M7**: No React error boundaries anywhere
@@ -215,9 +215,9 @@ After context compaction, Claude should read THIS FILE to see what's been done a
 - [ ] **M14**: `constants.ts` TIER_BADGES has hardcoded hex values
 - [x] **M15**: 15 routes missing rate limiting (12 added, 3 excluded: 2 cron + 1 webhook)
 - [x] **M16**: 3 routes missing `withErrorTracing` (including vendor confirm order)
-- [ ] **M18**: File upload in vendor signup is dead-end (only saves filename)
-- [ ] **M21**: Vendors can access markets page before approval
-- [ ] **M22**: Market Boxes card shown to free-tier FT vendors who can't use it
+- [x] **M18**: File upload in vendor signup is dead-end (only saves filename)
+- [x] **M21**: Vendors can access markets page before approval
+- [x] **M22**: Market Boxes card shown to free-tier FT vendors who can't use it
 - [ ] **M23**: Analytics gating for FT tiers not implemented (Steps 7-9 pending)
 - [ ] **M24**: N+1 query patterns in 5 API routes
 - [x] **M25**: ZIP_LOOKUP table duplicated in 2 files

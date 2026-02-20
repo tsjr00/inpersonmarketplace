@@ -365,11 +365,17 @@ export default function ListingForm({
       }
     }
 
-    // Success - clear draft and redirect to listings
+    // Success - clear draft
     if (storageKey) {
       sessionStorage.removeItem(storageKey)
     }
-    router.push(`/${vertical}/vendor/listings`)
+    // On create: redirect to edit page so vendor can immediately add images
+    // On edit: redirect back to listings list
+    if (mode === 'create' && savedListingId) {
+      router.push(`/${vertical}/vendor/listings/${savedListingId}/edit`)
+    } else {
+      router.push(`/${vertical}/vendor/listings`)
+    }
     router.refresh()
   }
 
@@ -539,15 +545,15 @@ export default function ListingForm({
           ) : (
             <div style={{
               padding: 16,
-              backgroundColor: '#f9fafb',
-              border: '1px solid #e5e7eb',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #93c5fd',
               borderRadius: 6
             }}>
-              <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: '#374151' }}>
+              <label style={{ display: 'block', marginBottom: 8, fontWeight: 600, color: '#1e40af' }}>
                 {term(vertical, 'product')} Images
               </label>
-              <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-                Save this listing first, then you can add photos by editing it.
+              <p style={{ fontSize: 14, color: '#1e40af', margin: 0 }}>
+                After saving, you&apos;ll be taken to the edit page where you can upload photos.
               </p>
             </div>
           )}

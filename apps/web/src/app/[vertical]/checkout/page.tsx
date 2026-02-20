@@ -667,7 +667,7 @@ export default function CheckoutPage() {
               <div style={{
                 padding: spacing.sm,
                 backgroundColor: statusColors.dangerLight,
-                border: '2px solid #dc2626',
+                border: `2px solid ${statusColors.danger}`,
                 borderRadius: radius.md,
                 marginBottom: spacing.sm,
                 display: 'flex',
@@ -726,10 +726,10 @@ export default function CheckoutPage() {
               {hasMarketBoxItems && checkoutItems.some(i => i.itemType !== 'market_box') && (
                 <div style={{
                   padding: spacing.xs,
-                  backgroundColor: '#f0f9ff',
-                  border: '1px solid #bae6fd',
+                  backgroundColor: statusColors.infoLight,
+                  border: `1px solid ${statusColors.infoBorder}`,
                   borderRadius: radius.md,
-                  color: '#0c4a6e',
+                  color: statusColors.infoDark,
                   fontSize: typography.sizes.xs,
                 }}>
                   This order includes Market Box subscriptions. Card payment is required.
@@ -744,7 +744,7 @@ export default function CheckoutPage() {
                     padding: spacing.sm,
                     backgroundColor: colors.surfaceElevated,
                     borderRadius: radius.md,
-                    border: item.available ? `1px solid ${colors.border}` : '2px solid #dc3545',
+                    border: item.available ? `1px solid ${colors.border}` : `2px solid ${statusColors.danger}`,
                     boxShadow: shadows.sm,
                   }}
                 >
@@ -908,7 +908,7 @@ export default function CheckoutPage() {
                           padding: `${spacing['3xs']} ${spacing.xs}`,
                           backgroundColor: colors.surfaceElevated,
                           color: statusColors.danger,
-                          border: '1px solid #dc3545',
+                          border: `1px solid ${statusColors.danger}`,
                           borderRadius: radius.sm,
                           cursor: 'pointer',
                           fontSize: typography.sizes.xs,
@@ -949,9 +949,9 @@ export default function CheckoutPage() {
                         key={item.offeringId}
                         style={{
                           padding: spacing.sm,
-                          backgroundColor: '#f8fafc',
+                          backgroundColor: statusColors.neutral50,
                           borderRadius: radius.md,
-                          border: '1px solid #dbeafe',
+                          border: `1px solid ${statusColors.infoBorder}`,
                           boxShadow: shadows.sm,
                         }}
                       >
@@ -982,7 +982,7 @@ export default function CheckoutPage() {
                               alignItems: 'center',
                               gap: spacing['2xs'],
                               padding: `${spacing['2xs']} ${spacing.xs}`,
-                              backgroundColor: '#eff6ff',
+                              backgroundColor: statusColors.infoLight,
                               borderRadius: radius.sm,
                               fontSize: typography.sizes.xs,
                               color: statusColors.infoDark,
@@ -1023,7 +1023,7 @@ export default function CheckoutPage() {
                                 padding: `${spacing['3xs']} ${spacing.xs}`,
                                 backgroundColor: colors.surfaceElevated,
                                 color: statusColors.danger,
-                                border: '1px solid #dc3545',
+                                border: `1px solid ${statusColors.danger}`,
                                 borderRadius: radius.sm,
                                 cursor: 'pointer',
                                 fontSize: typography.sizes.xs,
@@ -1045,10 +1045,10 @@ export default function CheckoutPage() {
             {suggestedProducts.length > 0 && (
               <div style={{
                 marginTop: spacing.md,
-                backgroundColor: '#F5F3FF',
+                backgroundColor: colors.primaryLight,
                 borderRadius: radius.md,
                 padding: spacing.md,
-                border: '2px solid #DDD6FE'
+                border: `2px solid ${colors.border}`
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm }}>
                   <span style={{ fontSize: typography.sizes.xl }}>✨</span>
@@ -1073,7 +1073,7 @@ export default function CheckoutPage() {
                         backgroundColor: colors.surfaceElevated,
                         borderRadius: radius.md,
                         padding: spacing.xs,
-                        border: '1px solid #E9D5FF',
+                        border: `1px solid ${colors.border}`,
                         boxShadow: shadows.sm,
                       }}
                     >
@@ -1136,8 +1136,8 @@ export default function CheckoutPage() {
                           display: 'block',
                           width: '100%',
                           padding: `${spacing['2xs']} ${spacing.xs}`,
-                          backgroundColor: '#A78BFA',
-                          color: '#FFFFFF',
+                          backgroundColor: colors.primary,
+                          color: colors.textInverse,
                           border: 'none',
                           borderRadius: radius.sm,
                           fontSize: typography.sizes.xs,
@@ -1449,7 +1449,7 @@ export default function CheckoutPage() {
                 <div style={{
                   padding: spacing.xs,
                   backgroundColor: statusColors.dangerLight,
-                  border: '1px solid #f5c6cb',
+                  border: `1px solid ${statusColors.dangerBorder}`,
                   borderRadius: radius.md,
                   marginBottom: spacing.sm,
                   fontSize: typography.sizes.sm,
@@ -1463,7 +1463,7 @@ export default function CheckoutPage() {
                 <div style={{
                   padding: spacing.sm,
                   backgroundColor: statusColors.warningLight,
-                  border: '1px solid #ffc107',
+                  border: `1px solid ${statusColors.warningBorder}`,
                   borderRadius: radius.md,
                   marginBottom: spacing.sm,
                   fontSize: typography.sizes.sm,
@@ -1478,7 +1478,7 @@ export default function CheckoutPage() {
                 <div style={{
                   padding: spacing.sm,
                   backgroundColor: statusColors.warningLight,
-                  border: '2px solid #ffc107',
+                  border: `2px solid ${statusColors.warningBorder}`,
                   borderRadius: radius.md,
                   marginBottom: spacing.sm,
                 }}>
@@ -1502,7 +1502,7 @@ export default function CheckoutPage() {
                       <div key={item.market_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: typography.sizes.xs, color: statusColors.warningDark }}>
                         <span style={{
                           width: 8, height: 8, borderRadius: '50%',
-                          backgroundColor: item.market_type === 'private_pickup' ? '#8b5cf6' : '#3b82f6',
+                          backgroundColor: item.market_type === 'private_pickup' ? colors.primary : statusColors.info,
                           flexShrink: 0
                         }} />
                         <strong>{item.market_name}</strong>

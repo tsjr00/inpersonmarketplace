@@ -13,6 +13,7 @@ import { DashboardNotifications } from '@/components/notifications/DashboardNoti
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { getTierLimits } from '@/lib/vendor-limits'
 import UpcomingPickupItem from './UpcomingPickupItem'
 
 interface VendorDashboardPageProps {
@@ -567,35 +568,47 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </Link>
 
           {/* Market Boxes */}
-          <Link
-            href={`/${vertical}/vendor/market-boxes`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              minHeight: 120,
-              boxShadow: shadows.sm
-            }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>{term(vertical, 'market_icon_emoji')}</div>
-              <h3 style={{
-                color: colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                {term(vertical, 'market_boxes')}
-              </h3>
-              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                Offer four or eight week pre-paid subscription bundles
-              </p>
-            </div>
-          </Link>
+          {(() => {
+            const mbLimit = getTierLimits(vendorProfile.tier || 'standard', vertical).totalMarketBoxes
+            const isLocked = mbLimit === 0
+            return (
+              <Link
+                href={`/${vertical}/vendor/market-boxes`}
+                style={{ textDecoration: 'none' }}
+              >
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: isLocked ? '#f9fafb' : colors.surfaceElevated,
+                  color: colors.textPrimary,
+                  border: `1px solid ${isLocked ? '#d1d5db' : colors.border}`,
+                  borderRadius: radius.md,
+                  cursor: 'pointer',
+                  height: '100%',
+                  minHeight: 120,
+                  boxShadow: shadows.sm
+                }}>
+                  <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>{term(vertical, 'market_icon_emoji')}</div>
+                  <h3 style={{
+                    color: isLocked ? colors.textSecondary : colors.primary,
+                    margin: `0 0 ${spacing['2xs']} 0`,
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold
+                  }}>
+                    {term(vertical, 'market_boxes')}
+                  </h3>
+                  {isLocked ? (
+                    <p style={{ color: '#d97706', margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
+                      Upgrade to Basic or higher to offer subscription bundles
+                    </p>
+                  ) : (
+                    <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                      Offer four or eight week pre-paid subscription bundles
+                    </p>
+                  )}
+                </div>
+              </Link>
+            )
+          })()}
         </div>
 
         {/* ============================================= */}

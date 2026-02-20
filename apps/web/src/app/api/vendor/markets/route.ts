@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Get vendor profile for this vertical (including home_market_id)
     const { data: vendorProfile, error: vpError } = await supabase
       .from('vendor_profiles')
-      .select('id, tier, home_market_id')
+      .select('id, tier, home_market_id, status')
       .eq('user_id', user.id)
       .eq('vertical_id', vertical)
       .is('deleted_at', null)
@@ -150,6 +150,7 @@ export async function GET(request: NextRequest) {
       marketSuggestions: transformedSuggestions,
       homeMarketId: vendorProfile.home_market_id,
       vendorTier: tier,
+      vendorStatus: vendorProfile.status || 'pending',
       isPremium: isVendorPremium,
       limits: {
         traditionalMarkets: tierLimits.traditionalMarkets,

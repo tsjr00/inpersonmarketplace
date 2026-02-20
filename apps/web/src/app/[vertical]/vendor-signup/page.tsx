@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User } from "@supabase/supabase-js";
@@ -34,6 +34,9 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market);
+
+  // Store actual File objects for upload after form submission
+  const fileObjectsRef = useRef<Record<string, File>>({});
 
   // Referral tracking
   const [referralCode, setReferralCode] = useState<string | null>(null);
@@ -271,6 +274,27 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       }
 
       setSubmitted({ ...payload, vendor_id: result.vendor_id });
+
+      // Upload any file fields to onboarding documents API
+      const fileKeys = Object.keys(fileObjectsRef.current);
+      if (fileKeys.length > 0) {
+        for (const key of fileKeys) {
+          const file = fileObjectsRef.current[key];
+          if (file) {
+            try {
+              const formData = new FormData();
+              formData.append('document', file);
+              await fetch(`/api/vendor/onboarding/documents?vertical=${vertical}`, {
+                method: 'POST',
+                body: formData,
+              });
+            } catch (uploadErr) {
+              console.error(`File upload failed for ${key}:`, uploadErr);
+              // Non-blocking: vendor profile is already created, file can be re-uploaded later
+            }
+          }
+        }
+      }
 
       // Auto-redirect to vendor dashboard after short delay
       setTimeout(() => {
@@ -711,11 +735,18 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                       </label>
                       <input
                         type="file"
-                        onChange={(e) => setVal(f.key, e.target.files?.[0]?.name ?? "")}
+                        accept="image/jpeg,image/png,application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            fileObjectsRef.current[f.key] = file;
+                            setVal(f.key, file.name);
+                          }
+                        }}
                         style={{ ...inputStyle, padding: spacing.xs }}
                       />
                       <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                        (File upload coming soon - filename recorded only)
+                        Accepted: PDF, JPG, PNG (max 10MB)
                       </div>
                     </div>
                   );

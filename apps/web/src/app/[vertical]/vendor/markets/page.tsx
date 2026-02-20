@@ -6,7 +6,7 @@ import Link from 'next/link'
 import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import ErrorDisplay from '@/components/shared/ErrorDisplay'
 import { term } from '@/lib/vertical'
-import { colors } from '@/lib/design-tokens'
+import { colors, statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 
 type Schedule = {
   id?: string
@@ -77,6 +77,7 @@ export default function VendorMarketsPage() {
   const [limits, setLimits] = useState<MarketLimits | null>(null)
   const [homeMarketId, setHomeMarketId] = useState<string | null>(null)
   const [vendorTier, setVendorTier] = useState<string>('standard')
+  const [vendorStatus, setVendorStatus] = useState<string>('pending')
   const [isPremium, setIsPremium] = useState(false)
   const [changingHomeMarket, setChangingHomeMarket] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -129,6 +130,7 @@ export default function VendorMarketsPage() {
         setLimits(data.limits)
         setHomeMarketId(data.homeMarketId || null)
         setVendorTier(data.vendorTier || 'standard')
+        setVendorStatus(data.vendorStatus || 'pending')
         setIsPremium(data.isPremium || false)
       } else if (res.status === 404) {
         // Vendor profile not found - redirect to signup
@@ -528,7 +530,7 @@ export default function VendorMarketsPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f8f9fa'
+        backgroundColor: statusColors.neutral50
       }}>
         <p>Loading markets...</p>
       </div>
@@ -538,7 +540,7 @@ export default function VendorMarketsPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f8f9fa',
+      backgroundColor: statusColors.neutral50,
       padding: '24px 16px'
     }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
@@ -556,7 +558,7 @@ export default function VendorMarketsPage() {
             href={`/${vertical}/vendor/dashboard`}
             style={{
               padding: '10px 20px',
-              backgroundColor: '#6b7280',
+              backgroundColor: statusColors.neutral500,
               color: 'white',
               textDecoration: 'none',
               borderRadius: 6,
@@ -575,11 +577,52 @@ export default function VendorMarketsPage() {
           />
         )}
 
+        {/* Onboarding Banner for Non-Approved Vendors */}
+        {vendorStatus !== 'approved' && (
+          <div style={{
+            padding: 16,
+            backgroundColor: statusColors.warningLight,
+            border: `1px solid ${statusColors.warningBorder}`,
+            borderRadius: 8,
+            marginBottom: 24,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 12
+          }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>!</span>
+            <div>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600, color: statusColors.warningDark }}>
+                Complete Your Setup
+              </h3>
+              <p style={{ margin: 0, fontSize: 14, color: statusColors.warningDark, lineHeight: 1.5 }}>
+                Your vendor account is pending approval. You can browse available {term(vertical, 'markets').toLowerCase()} while you wait.
+                Once approved, you&apos;ll be able to join {term(vertical, 'markets').toLowerCase()} and start accepting orders.
+              </p>
+              <Link
+                href={`/${vertical}/vendor/dashboard`}
+                style={{
+                  display: 'inline-block',
+                  marginTop: 8,
+                  padding: '8px 16px',
+                  backgroundColor: statusColors.warningDark,
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: 6,
+                  fontSize: 14,
+                  fontWeight: 600
+                }}
+              >
+                Back to Dashboard
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Traditional Markets Section */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: 8,
-          border: '1px solid #e5e7eb',
+          border: `1px solid ${statusColors.neutral200}`,
           padding: 24,
           marginBottom: 24
         }}>
@@ -587,21 +630,21 @@ export default function VendorMarketsPage() {
             <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
               {term(vertical, 'traditional_markets')}
             </h2>
-            <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+            <p style={{ margin: 0, fontSize: 14, color: statusColors.neutral500 }}>
               {isFoodTruck
                 ? 'Food truck parks and event locations where you can set up.'
                 : 'Traditional schedule farmers markets.'}
               {limits && ` You can join ${limits.traditionalMarkets} ${limits.traditionalMarkets > 1 ? term(vertical, 'traditional_markets').toLowerCase() : term(vertical, 'traditional_market').toLowerCase()} (${limits.currentFixedMarketCount} of ${limits.traditionalMarkets} used).`}
               {limits && !limits.canAddFixed && (
-                <span style={{ color: '#dc2626', marginLeft: 8 }}>
-                  Limit reached. <a href={`/${vertical}/settings`} style={{ color: '#2563eb' }}>Upgrade</a> for more markets.
+                <span style={{ color: statusColors.danger, marginLeft: 8 }}>
+                  Limit reached. <a href={`/${vertical}/settings`} style={{ color: statusColors.info }}>Upgrade</a> for more markets.
                 </span>
               )}
             </p>
           </div>
 
           {fixedMarkets.length === 0 ? (
-            <p style={{ color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>
+            <p style={{ color: statusColors.neutral400, fontStyle: 'italic', margin: 0 }}>
               No {term(vertical, 'traditional_markets').toLowerCase()} available yet. Check back soon!
             </p>
           ) : (
@@ -611,9 +654,9 @@ export default function VendorMarketsPage() {
                   key={market.id}
                   style={{
                     padding: 16,
-                    border: market.isHomeMarket ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                    border: market.isHomeMarket ? `2px solid ${statusColors.info}` : `1px solid ${statusColors.neutral200}`,
                     borderRadius: 8,
-                    backgroundColor: market.isHomeMarket ? '#eff6ff' : 'white'
+                    backgroundColor: market.isHomeMarket ? statusColors.infoLight : 'white'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
@@ -628,7 +671,7 @@ export default function VendorMarketsPage() {
                             alignItems: 'center',
                             gap: 4,
                             padding: '2px 8px',
-                            backgroundColor: '#2563eb',
+                            backgroundColor: statusColors.info,
                             color: 'white',
                             borderRadius: 4,
                             fontSize: 12,
@@ -638,11 +681,11 @@ export default function VendorMarketsPage() {
                           </span>
                         )}
                       </div>
-                      <p style={{ margin: '0 0 4px 0', fontSize: 14, color: '#6b7280' }}>
+                      <p style={{ margin: '0 0 4px 0', fontSize: 14, color: statusColors.neutral500 }}>
                         {market.address}, {market.city}, {market.state} {market.zip}
                       </p>
                       {market.day_of_week !== null && market.day_of_week !== undefined && (
-                        <p style={{ margin: '0 0 8px 0', fontSize: 14, color: '#6b7280' }}>
+                        <p style={{ margin: '0 0 8px 0', fontSize: 14, color: statusColors.neutral500 }}>
                           {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
                         </p>
                       )}
@@ -653,10 +696,10 @@ export default function VendorMarketsPage() {
                         return display ? (
                           <div style={{
                             padding: '6px 10px',
-                            backgroundColor: '#fef3c7',
+                            backgroundColor: statusColors.warningLight,
                             borderRadius: 4,
                             fontSize: 12,
-                            color: '#92400e',
+                            color: statusColors.warningDark,
                             marginBottom: 12,
                             display: 'inline-block'
                           }}>
@@ -684,9 +727,9 @@ export default function VendorMarketsPage() {
                         disabled={changingHomeMarket}
                         style={{
                           padding: '6px 12px',
-                          backgroundColor: changingHomeMarket ? '#9ca3af' : '#f3f4f6',
-                          color: '#374151',
-                          border: '1px solid #d1d5db',
+                          backgroundColor: changingHomeMarket ? statusColors.neutral400 : statusColors.neutral100,
+                          color: statusColors.neutral700,
+                          border: `1px solid ${statusColors.neutral300}`,
                           borderRadius: 6,
                           fontSize: 13,
                           fontWeight: 500,
@@ -702,11 +745,11 @@ export default function VendorMarketsPage() {
                     <div style={{
                       marginTop: 8,
                       padding: 10,
-                      backgroundColor: '#fefce8',
-                      border: '1px solid #fde68a',
+                      backgroundColor: statusColors.warningLight,
+                      border: `1px solid ${statusColors.warningBorder}`,
                       borderRadius: 6,
                       fontSize: 13,
-                      color: '#92400e',
+                      color: statusColors.warningDark,
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8
@@ -723,7 +766,7 @@ export default function VendorMarketsPage() {
                       onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: '#2563eb',
+                        backgroundColor: statusColors.info,
                         color: 'white',
                         border: 'none',
                         borderRadius: 6,
@@ -738,7 +781,7 @@ export default function VendorMarketsPage() {
                       onClick={() => setSelectedMarketForSchedule(market)}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: !market.hasAttendance ? '#f59e0b' : colors.primary,
+                        backgroundColor: !market.hasAttendance ? statusColors.warning : colors.primary,
                         color: 'white',
                         border: 'none',
                         borderRadius: 6,
@@ -772,7 +815,7 @@ export default function VendorMarketsPage() {
         <div style={{
           backgroundColor: 'white',
           borderRadius: 8,
-          border: '1px solid #e5e7eb',
+          border: `1px solid ${statusColors.neutral200}`,
           padding: 24,
           marginBottom: 24
         }}>
@@ -788,7 +831,7 @@ export default function VendorMarketsPage() {
               <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
                 {term(vertical, 'suggest_market_cta')}
               </h2>
-              <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+              <p style={{ margin: 0, fontSize: 14, color: statusColors.neutral500 }}>
                 {isFoodTruck
                   ? "Know of a food truck park or event location that isn't listed? Submit it for review and help grow our community."
                   : "Know of a farmers market that isn't listed? Submit it for review and help grow our community."}
@@ -799,7 +842,7 @@ export default function VendorMarketsPage() {
                 onClick={() => setShowSuggestionForm(true)}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: '#7c3aed',
+                  backgroundColor: colors.primary,
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
@@ -815,18 +858,18 @@ export default function VendorMarketsPage() {
           {/* Info Notice */}
           <div style={{
             padding: 16,
-            backgroundColor: '#f5f3ff',
-            border: '1px solid #ddd6fe',
+            backgroundColor: colors.primaryLight,
+            border: '1px solid ${colors.border}',
             borderRadius: 8,
             marginBottom: 20
           }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
               <span style={{ fontSize: 20 }}>ℹ️</span>
               <div>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#5b21b6' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: colors.primaryDark }}>
                   How Market Suggestions Work
                 </h4>
-                <p style={{ margin: 0, fontSize: 13, color: '#6b21a8', lineHeight: 1.5 }}>
+                <p style={{ margin: 0, fontSize: 13, color: colors.primaryDark, lineHeight: 1.5 }}>
                   {isFoodTruck
                     ? 'When you suggest a location, our team will review it to verify the information. Once approved, the location will appear in the public list and all truck operators can join it. This helps ensure we only list real, verified locations.'
                     : 'When you suggest a farmers market, our team will review it to verify the information. Once approved, the market will appear in the public markets list and all vendors can join it. This helps ensure we only list real, verified markets.'}
@@ -841,9 +884,9 @@ export default function VendorMarketsPage() {
               onSubmit={handleSuggestionSubmit}
               style={{
                 padding: 20,
-                border: '1px solid #e5e7eb',
+                border: `1px solid ${statusColors.neutral200}`,
                 borderRadius: 8,
-                backgroundColor: '#f9fafb',
+                backgroundColor: statusColors.neutral50,
                 marginBottom: 20
               }}
             >
@@ -865,7 +908,7 @@ export default function VendorMarketsPage() {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      border: '1px solid #d1d5db',
+                      border: `1px solid ${statusColors.neutral300}`,
                       borderRadius: 6,
                       fontSize: 14,
                       boxSizing: 'border-box'
@@ -876,11 +919,11 @@ export default function VendorMarketsPage() {
                 {/* Do you sell at this market? */}
                 <div style={{
                   padding: 16,
-                  backgroundColor: suggestionFormData.vendor_sells_at_market ? colors.primaryLight : '#fef3c7',
-                  border: `1px solid ${suggestionFormData.vendor_sells_at_market ? colors.primary : '#fcd34d'}`,
+                  backgroundColor: suggestionFormData.vendor_sells_at_market ? colors.primaryLight : statusColors.warningLight,
+                  border: `1px solid ${suggestionFormData.vendor_sells_at_market ? colors.primary : statusColors.warningBorder}`,
                   borderRadius: 8
                 }}>
-                  <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#374151' }}>
+                  <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 12, color: statusColors.neutral700 }}>
                     Do you sell at this market? *
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -890,7 +933,7 @@ export default function VendorMarketsPage() {
                       gap: 10,
                       padding: '10px 12px',
                       backgroundColor: suggestionFormData.vendor_sells_at_market ? colors.primaryLight : 'white',
-                      border: `2px solid ${suggestionFormData.vendor_sells_at_market ? colors.primary : '#e5e7eb'}`,
+                      border: `2px solid ${suggestionFormData.vendor_sells_at_market ? colors.primary : statusColors.neutral200}`,
                       borderRadius: 6,
                       cursor: 'pointer'
                     }}>
@@ -903,7 +946,7 @@ export default function VendorMarketsPage() {
                       />
                       <div>
                         <div style={{ fontWeight: 500, color: colors.primaryDark }}>Yes, I sell at this market</div>
-                        <div style={{ fontSize: 12, color: '#6b7280' }}>I&apos;ll be associated with this market when approved</div>
+                        <div style={{ fontSize: 12, color: statusColors.neutral500 }}>I&apos;ll be associated with this market when approved</div>
                       </div>
                     </label>
                     <label style={{
@@ -911,8 +954,8 @@ export default function VendorMarketsPage() {
                       alignItems: 'center',
                       gap: 10,
                       padding: '10px 12px',
-                      backgroundColor: !suggestionFormData.vendor_sells_at_market ? '#fef9c3' : 'white',
-                      border: `2px solid ${!suggestionFormData.vendor_sells_at_market ? '#ca8a04' : '#e5e7eb'}`,
+                      backgroundColor: !suggestionFormData.vendor_sells_at_market ? statusColors.warningLight : 'white',
+                      border: `2px solid ${!suggestionFormData.vendor_sells_at_market ? statusColors.warning : statusColors.neutral200}`,
                       borderRadius: 6,
                       cursor: 'pointer'
                     }}>
@@ -924,8 +967,8 @@ export default function VendorMarketsPage() {
                         style={{ width: 18, height: 18, cursor: 'pointer' }}
                       />
                       <div>
-                        <div style={{ fontWeight: 500, color: '#854d0e' }}>No, but I think it should be on the platform</div>
-                        <div style={{ fontSize: 12, color: '#6b7280' }}>This is a lead/referral for the platform to pursue</div>
+                        <div style={{ fontWeight: 500, color: statusColors.warningDark }}>No, but I think it should be on the platform</div>
+                        <div style={{ fontSize: 12, color: statusColors.neutral500 }}>This is a lead/referral for the platform to pursue</div>
                       </div>
                     </label>
                   </div>
@@ -944,7 +987,7 @@ export default function VendorMarketsPage() {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      border: '1px solid #d1d5db',
+                      border: `1px solid ${statusColors.neutral300}`,
                       borderRadius: 6,
                       fontSize: 14,
                       boxSizing: 'border-box'
@@ -965,7 +1008,7 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
@@ -986,7 +1029,7 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
@@ -1006,7 +1049,7 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
@@ -1017,7 +1060,7 @@ export default function VendorMarketsPage() {
 
                 <div>
                   <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                    Description <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                    Description <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(optional)</span>
                   </label>
                   <textarea
                     value={suggestionFormData.description}
@@ -1027,7 +1070,7 @@ export default function VendorMarketsPage() {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      border: '1px solid #d1d5db',
+                      border: `1px solid ${statusColors.neutral300}`,
                       borderRadius: 6,
                       fontSize: 14,
                       boxSizing: 'border-box',
@@ -1038,7 +1081,7 @@ export default function VendorMarketsPage() {
 
                 <div>
                   <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                    Website <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                    Website <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(optional)</span>
                   </label>
                   <input
                     type="url"
@@ -1048,7 +1091,7 @@ export default function VendorMarketsPage() {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      border: '1px solid #d1d5db',
+                      border: `1px solid ${statusColors.neutral300}`,
                       borderRadius: 6,
                       fontSize: 14,
                       boxSizing: 'border-box'
@@ -1060,7 +1103,7 @@ export default function VendorMarketsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      Season Start <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                      Season Start <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(optional)</span>
                     </label>
                     <input
                       type="date"
@@ -1069,19 +1112,19 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
                       }}
                     />
-                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.neutral500 }}>
                       When does this market&apos;s season begin?
                     </p>
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      Season End <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                      Season End <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(optional)</span>
                     </label>
                     <input
                       type="date"
@@ -1090,18 +1133,18 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
                       }}
                     />
-                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.neutral500 }}>
                       When does this market&apos;s season end?
                     </p>
                   </div>
                 </div>
-                <p style={{ margin: '4px 0 12px 0', fontSize: 13, color: '#6b7280', fontStyle: 'italic' }}>
+                <p style={{ margin: '4px 0 12px 0', fontSize: 13, color: statusColors.neutral500, fontStyle: 'italic' }}>
                   Leave blank if the market operates year-round.
                 </p>
 
@@ -1117,8 +1160,8 @@ export default function VendorMarketsPage() {
                         onClick={addSuggestionSchedule}
                         style={{
                           padding: '4px 12px',
-                          backgroundColor: '#e0f2fe',
-                          color: '#0369a1',
+                          backgroundColor: statusColors.infoLight,
+                          color: statusColors.infoDark,
                           border: 'none',
                           borderRadius: 4,
                           fontSize: 13,
@@ -1136,7 +1179,7 @@ export default function VendorMarketsPage() {
                       key={index}
                       style={{
                         padding: 12,
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         backgroundColor: 'white',
                         marginBottom: 8
@@ -1144,7 +1187,7 @@ export default function VendorMarketsPage() {
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                         <div style={{ flex: '1 1 120px', minWidth: 120 }}>
-                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                          <label style={{ display: 'block', fontSize: 12, color: statusColors.neutral500, marginBottom: 4 }}>
                             Day
                           </label>
                           <select
@@ -1154,7 +1197,7 @@ export default function VendorMarketsPage() {
                             style={{
                               width: '100%',
                               padding: '8px 10px',
-                              border: '1px solid #d1d5db',
+                              border: `1px solid ${statusColors.neutral300}`,
                               borderRadius: 4,
                               fontSize: 14,
                               boxSizing: 'border-box'
@@ -1167,7 +1210,7 @@ export default function VendorMarketsPage() {
                           </select>
                         </div>
                         <div style={{ flex: '0 0 100px' }}>
-                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                          <label style={{ display: 'block', fontSize: 12, color: statusColors.neutral500, marginBottom: 4 }}>
                             Start Time
                           </label>
                           <input
@@ -1178,7 +1221,7 @@ export default function VendorMarketsPage() {
                             style={{
                               width: '100%',
                               padding: '8px 10px',
-                              border: '1px solid #d1d5db',
+                              border: `1px solid ${statusColors.neutral300}`,
                               borderRadius: 4,
                               fontSize: 14,
                               boxSizing: 'border-box'
@@ -1186,7 +1229,7 @@ export default function VendorMarketsPage() {
                           />
                         </div>
                         <div style={{ flex: '0 0 100px' }}>
-                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                          <label style={{ display: 'block', fontSize: 12, color: statusColors.neutral500, marginBottom: 4 }}>
                             End Time
                           </label>
                           <input
@@ -1197,7 +1240,7 @@ export default function VendorMarketsPage() {
                             style={{
                               width: '100%',
                               padding: '8px 10px',
-                              border: '1px solid #d1d5db',
+                              border: `1px solid ${statusColors.neutral300}`,
                               borderRadius: 4,
                               fontSize: 14,
                               boxSizing: 'border-box'
@@ -1210,8 +1253,8 @@ export default function VendorMarketsPage() {
                             onClick={() => removeSuggestionSchedule(index)}
                             style={{
                               padding: '8px',
-                              backgroundColor: '#fee2e2',
-                              color: '#991b1b',
+                              backgroundColor: statusColors.dangerLight,
+                              color: statusColors.dangerDark,
                               border: 'none',
                               borderRadius: 4,
                               fontSize: 14,
@@ -1234,7 +1277,7 @@ export default function VendorMarketsPage() {
                   disabled={submittingSuggestion}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: submittingSuggestion ? '#9ca3af' : '#7c3aed',
+                    backgroundColor: submittingSuggestion ? statusColors.neutral400 : colors.primary,
                     color: 'white',
                     border: 'none',
                     borderRadius: 6,
@@ -1249,8 +1292,8 @@ export default function VendorMarketsPage() {
                   onClick={resetSuggestionForm}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: '#e5e7eb',
-                    color: '#374151',
+                    backgroundColor: statusColors.neutral200,
+                    color: statusColors.neutral700,
                     border: 'none',
                     borderRadius: 6,
                     fontWeight: 600,
@@ -1275,10 +1318,10 @@ export default function VendorMarketsPage() {
                     key={suggestion.id}
                     style={{
                       padding: 16,
-                      border: '1px solid #e5e7eb',
+                      border: `1px solid ${statusColors.neutral200}`,
                       borderRadius: 8,
-                      backgroundColor: suggestion.approval_status === 'rejected' ? '#fef2f2' :
-                                       suggestion.approval_status === 'approved' ? '#f0fdf4' : '#fffbeb'
+                      backgroundColor: suggestion.approval_status === 'rejected' ? statusColors.dangerLight :
+                                       suggestion.approval_status === 'approved' ? statusColors.successLight : statusColors.warningLight
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
@@ -1291,8 +1334,8 @@ export default function VendorMarketsPage() {
                             display: 'inline-flex',
                             alignItems: 'center',
                             padding: '2px 8px',
-                            backgroundColor: suggestion.approval_status === 'rejected' ? '#dc2626' :
-                                           suggestion.approval_status === 'approved' ? '#16a34a' : '#d97706',
+                            backgroundColor: suggestion.approval_status === 'rejected' ? statusColors.danger :
+                                           suggestion.approval_status === 'approved' ? statusColors.success : statusColors.warning,
                             color: 'white',
                             borderRadius: 4,
                             fontSize: 12,
@@ -1302,11 +1345,11 @@ export default function VendorMarketsPage() {
                             {suggestion.approval_status === 'pending' ? 'Pending Review' : suggestion.approval_status}
                           </span>
                         </div>
-                        <p style={{ margin: '0 0 4px 0', fontSize: 14, color: '#6b7280' }}>
+                        <p style={{ margin: '0 0 4px 0', fontSize: 14, color: statusColors.neutral500 }}>
                           {suggestion.address}, {suggestion.city}, {suggestion.state} {suggestion.zip}
                         </p>
                         {suggestion.schedules && suggestion.schedules.length > 0 && (
-                          <p style={{ margin: '0 0 4px 0', fontSize: 14, color: '#6b7280' }}>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 14, color: statusColors.neutral500 }}>
                             {suggestion.schedules.map((s, i) => (
                               <span key={i}>
                                 {i > 0 && ', '}
@@ -1315,7 +1358,7 @@ export default function VendorMarketsPage() {
                             ))}
                           </p>
                         )}
-                        <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>
+                        <p style={{ margin: 0, fontSize: 12, color: statusColors.neutral400 }}>
                           Submitted {new Date(suggestion.submitted_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -1324,10 +1367,10 @@ export default function VendorMarketsPage() {
                       <div style={{
                         marginTop: 12,
                         padding: '10px 12px',
-                        backgroundColor: '#fee2e2',
+                        backgroundColor: statusColors.dangerLight,
                         borderRadius: 6,
                         fontSize: 13,
-                        color: '#991b1b'
+                        color: statusColors.dangerDark
                       }}>
                         <strong>Reason:</strong> {suggestion.rejection_reason}
                       </div>
@@ -1355,7 +1398,7 @@ export default function VendorMarketsPage() {
         <div style={{
           backgroundColor: 'white',
           borderRadius: 8,
-          border: '1px solid #e5e7eb',
+          border: `1px solid ${statusColors.neutral200}`,
           padding: 24
         }}>
           <div style={{
@@ -1370,14 +1413,14 @@ export default function VendorMarketsPage() {
               <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
                 {term(vertical, 'private_pickups')}
               </h2>
-              <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
+              <p style={{ margin: 0, fontSize: 14, color: statusColors.neutral500 }}>
                 {isFoodTruck
                   ? 'Your own service locations with flexible scheduling.'
                   : 'Your own pickup locations with flexible scheduling.'}
                 {limits && ` (${limits.currentPrivatePickupCount} of ${limits.privatePickupLocations} used)`}
                 {limits && !limits.canAddPrivatePickup && (
-                  <span style={{ color: '#dc2626', marginLeft: 8 }}>
-                    Limit reached. <a href={`/${vertical}/settings`} style={{ color: '#2563eb' }}>Upgrade</a> for more locations.
+                  <span style={{ color: statusColors.danger, marginLeft: 8 }}>
+                    Limit reached. <a href={`/${vertical}/settings`} style={{ color: statusColors.info }}>Upgrade</a> for more locations.
                   </span>
                 )}
               </p>
@@ -1403,7 +1446,7 @@ export default function VendorMarketsPage() {
                 disabled
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: '#9ca3af',
+                  backgroundColor: statusColors.neutral400,
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
@@ -1421,18 +1464,18 @@ export default function VendorMarketsPage() {
           {getDefaultCutoffHours('private_pickup') > 0 && (
             <div style={{
               padding: 16,
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
+              backgroundColor: statusColors.dangerLight,
+              border: `1px solid ${statusColors.dangerBorder}`,
               borderRadius: 8,
               marginBottom: 20
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 <span style={{ fontSize: 20 }}>⚠️</span>
                 <div>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#991b1b' }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: statusColors.dangerDark }}>
                     Notice: Automatic Order Cutoff
                   </h4>
-                  <p style={{ margin: 0, fontSize: 13, color: '#7f1d1d', lineHeight: 1.5 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: statusColors.dangerDark, lineHeight: 1.5 }}>
                     All pre-order sales automatically close <strong>{getDefaultCutoffHours('private_pickup')} hours before your pickup time</strong>. This gives you time to prepare orders and know exactly what to bring. When you set your pickup day and time below, your cutoff time will be calculated automatically.
                   </p>
                 </div>
@@ -1446,9 +1489,9 @@ export default function VendorMarketsPage() {
               onSubmit={handleSubmit}
               style={{
                 padding: 20,
-                border: '1px solid #e5e7eb',
+                border: `1px solid ${statusColors.neutral200}`,
                 borderRadius: 8,
-                backgroundColor: '#f9fafb',
+                backgroundColor: statusColors.neutral50,
                 marginBottom: 20
               }}
             >
@@ -1470,7 +1513,7 @@ export default function VendorMarketsPage() {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      border: '1px solid #d1d5db',
+                      border: `1px solid ${statusColors.neutral300}`,
                       borderRadius: 6,
                       fontSize: 14,
                       boxSizing: 'border-box'
@@ -1491,7 +1534,7 @@ export default function VendorMarketsPage() {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      border: '1px solid #d1d5db',
+                      border: `1px solid ${statusColors.neutral300}`,
                       borderRadius: 6,
                       fontSize: 14,
                       boxSizing: 'border-box'
@@ -1512,7 +1555,7 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
@@ -1533,7 +1576,7 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
@@ -1553,7 +1596,7 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
@@ -1565,22 +1608,22 @@ export default function VendorMarketsPage() {
                 {/* Coordinates Info Notice */}
                 <div style={{
                   padding: 16,
-                  backgroundColor: '#eff6ff',
-                  border: '1px solid #3b82f6',
+                  backgroundColor: statusColors.infoLight,
+                  border: `1px solid ${statusColors.infoBorder}`,
                   borderRadius: 8,
                   marginTop: 12
                 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                     <span style={{ fontSize: 20 }}>📍</span>
                     <div>
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#1e40af' }}>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: statusColors.infoDark }}>
                         Improve Your Visibility with Coordinates
                       </h4>
-                      <p style={{ margin: 0, fontSize: 13, color: '#1e40af', lineHeight: 1.5 }}>
+                      <p style={{ margin: 0, fontSize: 13, color: statusColors.infoDark, lineHeight: 1.5 }}>
                         Adding coordinates helps buyers find your pickup location more accurately. Without coordinates, buyers searching near the edge of the 25-mile radius may not see your products at this location.
                       </p>
-                      <p style={{ margin: '8px 0 0 0', fontSize: 12, color: '#3b82f6' }}>
-                        Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', fontWeight: 500 }}>latlong.net</a> - enter your address to find the coordinates.
+                      <p style={{ margin: '8px 0 0 0', fontSize: 12, color: statusColors.infoBorder }}>
+                        Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: statusColors.info, fontWeight: 500 }}>latlong.net</a> - enter your address to find the coordinates.
                       </p>
                     </div>
                   </div>
@@ -1590,7 +1633,7 @@ export default function VendorMarketsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      Latitude <span style={{ fontWeight: 400, color: '#6b7280' }}>(recommended)</span>
+                      Latitude <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(recommended)</span>
                     </label>
                     <input
                       type="text"
@@ -1600,7 +1643,7 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
@@ -1609,7 +1652,7 @@ export default function VendorMarketsPage() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      Longitude <span style={{ fontWeight: 400, color: '#6b7280' }}>(recommended)</span>
+                      Longitude <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(recommended)</span>
                     </label>
                     <input
                       type="text"
@@ -1619,7 +1662,7 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
@@ -1632,7 +1675,7 @@ export default function VendorMarketsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      Season Start <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                      Season Start <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(optional)</span>
                     </label>
                     <input
                       type="date"
@@ -1641,19 +1684,19 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
                       }}
                     />
-                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.neutral500 }}>
                       When does this location open for the season?
                     </p>
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      Season End <span style={{ fontWeight: 400, color: '#6b7280' }}>(optional)</span>
+                      Season End <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(optional)</span>
                     </label>
                     <input
                       type="date"
@@ -1662,36 +1705,36 @@ export default function VendorMarketsPage() {
                       style={{
                         width: '100%',
                         padding: '10px 12px',
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box'
                       }}
                     />
-                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                    <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.neutral500 }}>
                       When does this location close for the season?
                     </p>
                   </div>
                 </div>
-                <p style={{ margin: '4px 0 12px 0', fontSize: 13, color: '#6b7280', fontStyle: 'italic' }}>
+                <p style={{ margin: '4px 0 12px 0', fontSize: 13, color: statusColors.neutral500, fontStyle: 'italic' }}>
                   Leave blank if open year-round.
                 </p>
 
                 {/* Expiration Date (for temporary/one-time events) */}
                 <div style={{
                   padding: 16,
-                  backgroundColor: '#fef3c7',
-                  border: '1px solid #fcd34d',
+                  backgroundColor: statusColors.warningLight,
+                  border: `1px solid ${statusColors.warningBorder}`,
                   borderRadius: 8,
                   marginTop: 12
                 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                     <span style={{ fontSize: 20 }}>📅</span>
                     <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 4, color: '#92400e' }}>
-                        Expiration Date <span style={{ fontWeight: 400, color: '#b45309' }}>(optional)</span>
+                      <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 4, color: statusColors.warningDark }}>
+                        Expiration Date <span style={{ fontWeight: 400, color: statusColors.warningDark }}>(optional)</span>
                       </label>
-                      <p style={{ margin: '0 0 8px 0', fontSize: 13, color: '#92400e' }}>
+                      <p style={{ margin: '0 0 8px 0', fontSize: 13, color: statusColors.warningDark }}>
                         For one-time events or temporary locations. After this date, the location will no longer be visible to buyers.
                       </p>
                       <input
@@ -1703,14 +1746,14 @@ export default function VendorMarketsPage() {
                           width: '100%',
                           maxWidth: 200,
                           padding: '10px 12px',
-                          border: '1px solid #fcd34d',
+                          border: `1px solid ${statusColors.warningBorder}`,
                           borderRadius: 6,
                           fontSize: 14,
                           boxSizing: 'border-box',
                           backgroundColor: 'white'
                         }}
                       />
-                      <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#b45309' }}>
+                      <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.warningDark }}>
                         Leave blank for recurring/permanent locations.
                       </p>
                     </div>
@@ -1721,7 +1764,7 @@ export default function VendorMarketsPage() {
                 <div style={{ marginTop: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <label style={{ fontSize: 14, fontWeight: 500 }}>
-                      Pickup Windows * <span style={{ fontWeight: 400, color: '#6b7280' }}>(max {maxPickupWindows} per week)</span>
+                      Pickup Windows * <span style={{ fontWeight: 400, color: statusColors.neutral500 }}>(max {maxPickupWindows} per week)</span>
                     </label>
                     {formData.pickup_windows.length < maxPickupWindows && (
                       <button
@@ -1729,8 +1772,8 @@ export default function VendorMarketsPage() {
                         onClick={addPickupWindow}
                         style={{
                           padding: '4px 12px',
-                          backgroundColor: '#e0f2fe',
-                          color: '#0369a1',
+                          backgroundColor: statusColors.infoLight,
+                          color: statusColors.infoDark,
                           border: 'none',
                           borderRadius: 4,
                           fontSize: 13,
@@ -1748,7 +1791,7 @@ export default function VendorMarketsPage() {
                       key={index}
                       style={{
                         padding: 12,
-                        border: '1px solid #d1d5db',
+                        border: `1px solid ${statusColors.neutral300}`,
                         borderRadius: 6,
                         backgroundColor: 'white',
                         marginBottom: 8
@@ -1756,7 +1799,7 @@ export default function VendorMarketsPage() {
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
                         <div style={{ flex: '1 1 120px', minWidth: 120 }}>
-                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                          <label style={{ display: 'block', fontSize: 12, color: statusColors.neutral500, marginBottom: 4 }}>
                             Day
                           </label>
                           <select
@@ -1766,7 +1809,7 @@ export default function VendorMarketsPage() {
                             style={{
                               width: '100%',
                               padding: '8px 10px',
-                              border: '1px solid #d1d5db',
+                              border: `1px solid ${statusColors.neutral300}`,
                               borderRadius: 4,
                               fontSize: 14,
                               boxSizing: 'border-box'
@@ -1779,7 +1822,7 @@ export default function VendorMarketsPage() {
                           </select>
                         </div>
                         <div style={{ flex: '0 0 100px' }}>
-                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                          <label style={{ display: 'block', fontSize: 12, color: statusColors.neutral500, marginBottom: 4 }}>
                             Start Time
                           </label>
                           <input
@@ -1790,7 +1833,7 @@ export default function VendorMarketsPage() {
                             style={{
                               width: '100%',
                               padding: '8px 10px',
-                              border: '1px solid #d1d5db',
+                              border: `1px solid ${statusColors.neutral300}`,
                               borderRadius: 4,
                               fontSize: 14,
                               boxSizing: 'border-box'
@@ -1798,7 +1841,7 @@ export default function VendorMarketsPage() {
                           />
                         </div>
                         <div style={{ flex: '0 0 100px' }}>
-                          <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                          <label style={{ display: 'block', fontSize: 12, color: statusColors.neutral500, marginBottom: 4 }}>
                             End Time
                           </label>
                           <input
@@ -1809,7 +1852,7 @@ export default function VendorMarketsPage() {
                             style={{
                               width: '100%',
                               padding: '8px 10px',
-                              border: '1px solid #d1d5db',
+                              border: `1px solid ${statusColors.neutral300}`,
                               borderRadius: 4,
                               fontSize: 14,
                               boxSizing: 'border-box'
@@ -1822,8 +1865,8 @@ export default function VendorMarketsPage() {
                             onClick={() => removePickupWindow(index)}
                             style={{
                               padding: '8px',
-                              backgroundColor: '#fee2e2',
-                              color: '#991b1b',
+                              backgroundColor: statusColors.dangerLight,
+                              color: statusColors.dangerDark,
                               border: 'none',
                               borderRadius: 4,
                               fontSize: 14,
@@ -1843,10 +1886,10 @@ export default function VendorMarketsPage() {
                           <div style={{
                             marginTop: 8,
                             padding: '6px 10px',
-                            backgroundColor: '#fef3c7',
+                            backgroundColor: statusColors.warningLight,
                             borderRadius: 4,
                             fontSize: 12,
-                            color: '#92400e'
+                            color: statusColors.warningDark
                           }}>
                             <strong>Cutoff:</strong> {display}
                           </div>
@@ -1863,7 +1906,7 @@ export default function VendorMarketsPage() {
                   disabled={submitting}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: submitting ? '#9ca3af' : colors.primary,
+                    backgroundColor: submitting ? statusColors.neutral400 : colors.primary,
                     color: 'white',
                     border: 'none',
                     borderRadius: 6,
@@ -1878,8 +1921,8 @@ export default function VendorMarketsPage() {
                   onClick={resetForm}
                   style={{
                     padding: '10px 20px',
-                    backgroundColor: '#e5e7eb',
-                    color: '#374151',
+                    backgroundColor: statusColors.neutral200,
+                    color: statusColors.neutral700,
                     border: 'none',
                     borderRadius: 6,
                     fontWeight: 600,
@@ -1894,7 +1937,7 @@ export default function VendorMarketsPage() {
 
           {/* Private Pickup Markets List */}
           {privatePickupMarkets.length === 0 ? (
-            <p style={{ color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>
+            <p style={{ color: statusColors.neutral400, fontStyle: 'italic', margin: 0 }}>
               No pickup locations yet. Create one above!
             </p>
           ) : (
@@ -1904,7 +1947,7 @@ export default function VendorMarketsPage() {
                   key={market.id}
                   style={{
                     padding: 16,
-                    border: '1px solid #e5e7eb',
+                    border: `1px solid ${statusColors.neutral200}`,
                     borderRadius: 8
                   }}
                 >
@@ -1926,8 +1969,8 @@ export default function VendorMarketsPage() {
                             alignItems: 'center',
                             gap: 4,
                             padding: '2px 8px',
-                            backgroundColor: new Date(market.expires_at) < new Date() ? '#fee2e2' : '#fef3c7',
-                            color: new Date(market.expires_at) < new Date() ? '#991b1b' : '#92400e',
+                            backgroundColor: new Date(market.expires_at) < new Date() ? statusColors.dangerLight : statusColors.warningLight,
+                            color: new Date(market.expires_at) < new Date() ? statusColors.dangerDark : statusColors.warningDark,
                             borderRadius: 4,
                             fontSize: 11,
                             fontWeight: 500
@@ -1936,7 +1979,7 @@ export default function VendorMarketsPage() {
                           </span>
                         )}
                       </div>
-                      <p style={{ margin: '0 0 8px 0', fontSize: 14, color: '#6b7280' }}>
+                      <p style={{ margin: '0 0 8px 0', fontSize: 14, color: statusColors.neutral500 }}>
                         {market.address}, {market.city}, {market.state} {market.zip}
                       </p>
 
@@ -1951,7 +1994,7 @@ export default function VendorMarketsPage() {
                                 alignItems: 'center',
                                 gap: 16,
                                 padding: '8px 12px',
-                                backgroundColor: '#f3f4f6',
+                                backgroundColor: statusColors.neutral100,
                                 borderRadius: 6,
                                 marginBottom: 6,
                                 fontSize: 13
@@ -1967,10 +2010,10 @@ export default function VendorMarketsPage() {
                                 return display ? (
                                   <div style={{
                                     padding: '4px 8px',
-                                    backgroundColor: '#fef3c7',
+                                    backgroundColor: statusColors.warningLight,
                                     borderRadius: 4,
                                     fontSize: 12,
-                                    color: '#92400e'
+                                    color: statusColors.warningDark
                                   }}>
                                     Cutoff: {display}
                                   </div>
@@ -1986,11 +2029,11 @@ export default function VendorMarketsPage() {
                         <div style={{
                           marginTop: 8,
                           padding: '8px 12px',
-                          backgroundColor: '#fef2f2',
-                          border: '1px solid #fecaca',
+                          backgroundColor: statusColors.dangerLight,
+                          border: `1px solid ${statusColors.dangerBorder}`,
                           borderRadius: 6,
                           fontSize: 13,
-                          color: '#991b1b'
+                          color: statusColors.dangerDark
                         }}>
                           ⚠️ No pickup schedule set. Edit to add pickup times.
                         </div>
@@ -2001,7 +2044,7 @@ export default function VendorMarketsPage() {
                         onClick={() => handleEdit(market)}
                         style={{
                           padding: '8px 16px',
-                          backgroundColor: '#2563eb',
+                          backgroundColor: statusColors.info,
                           color: 'white',
                           border: 'none',
                           borderRadius: 6,
@@ -2016,7 +2059,7 @@ export default function VendorMarketsPage() {
                         onClick={() => handleDelete(market.id)}
                         style={{
                           padding: '8px 16px',
-                          backgroundColor: '#dc2626',
+                          backgroundColor: statusColors.danger,
                           color: 'white',
                           border: 'none',
                           borderRadius: 6,
@@ -2034,7 +2077,7 @@ export default function VendorMarketsPage() {
                     style={{
                       marginTop: 12,
                       padding: '8px 16px',
-                      backgroundColor: '#2563eb',
+                      backgroundColor: statusColors.info,
                       color: 'white',
                       border: 'none',
                       borderRadius: 6,
