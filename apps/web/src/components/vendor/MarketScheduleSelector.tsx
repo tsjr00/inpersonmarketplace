@@ -21,6 +21,7 @@ interface MarketScheduleSelectorProps {
   marketId: string
   marketName: string
   vertical?: string
+  marketType?: 'traditional' | 'private_pickup' | 'event'
   onClose?: () => void
 }
 
@@ -43,6 +44,7 @@ export default function MarketScheduleSelector({
   marketId,
   marketName,
   vertical,
+  marketType,
   onClose
 }: MarketScheduleSelectorProps) {
   const [schedules, setSchedules] = useState<Schedule[]>([])
@@ -54,6 +56,8 @@ export default function MarketScheduleSelector({
   const [errorType, setErrorType] = useState<'warning' | 'blocking'>('warning')
 
   const isFT = vertical === 'food_trucks'
+  const isEvent = marketType === 'event'
+  const locationLabel = isEvent ? 'event' : isFT ? 'park' : 'market'
 
   useEffect(() => {
     fetchSchedules()
@@ -88,7 +92,7 @@ export default function MarketScheduleSelector({
       scheduleId,
       isActive: !currentlyAttending
     }
-    if (isFT && !currentlyAttending && schedule) {
+    if ((isFT || isEvent) && !currentlyAttending && schedule) {
       // Pre-fill vendor times with market hours when first toggling on
       patchBody.startTime = schedule.market_start_time
       patchBody.endTime = schedule.market_end_time
@@ -109,8 +113,8 @@ export default function MarketScheduleSelector({
           prev.map(s => {
             if (s.id !== scheduleId) return s
             const updated = { ...s, is_attending: !currentlyAttending }
-            // Set vendor times when toggling ON for FT
-            if (isFT && !currentlyAttending) {
+            // Set vendor times when toggling ON for FT/events
+            if ((isFT || isEvent) && !currentlyAttending) {
               updated.vendor_start_time = s.market_start_time
               updated.vendor_end_time = s.market_end_time
             }
@@ -221,9 +225,11 @@ export default function MarketScheduleSelector({
             {marketName}
           </h3>
           <p style={{ margin: 0, fontSize: 14, color: '#6b7280' }}>
-            {isFT
-              ? "Select the days you're at this park"
-              : 'Select the days you attend this market'}
+            {isEvent
+              ? "Select the days you'll be at this event"
+              : isFT
+                ? "Select the days you're at this park"
+                : 'Select the days you attend this market'}
           </p>
         </div>
         {onClose && (
@@ -255,9 +261,7 @@ export default function MarketScheduleSelector({
           fontSize: 13,
           color: '#991b1b'
         }}>
-          {isFT
-            ? "You haven't selected any days. Your menu won't appear for this park until you select at least one day."
-            : "You haven't selected any days. Your listings won't appear for this market until you select at least one day."}
+          {`You haven't selected any days. Your ${isFT ? 'menu' : 'listings'} won't appear for this ${locationLabel} until you select at least one day.`}
         </div>
       )}
 
@@ -282,7 +286,7 @@ export default function MarketScheduleSelector({
       {/* Schedule checkboxes */}
       {schedules.length === 0 ? (
         <p style={{ margin: 0, color: '#6b7280', fontStyle: 'italic' }}>
-          No schedules found for this {isFT ? 'park' : 'market'}.
+          No schedules found for this {locationLabel}.
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -296,7 +300,7 @@ export default function MarketScheduleSelector({
                   padding: '12px 16px',
                   backgroundColor: schedule.is_attending ? colors.primaryLight : '#f9fafb',
                   border: `2px solid ${schedule.is_attending ? colors.primary : '#e5e7eb'}`,
-                  borderRadius: isFT && schedule.is_attending ? '8px 8px 0 0' : 8,
+                  borderRadius: (isFT || isEvent) && schedule.is_attending ? '8px 8px 0 0' : 8,
                   cursor: saving === schedule.id ? 'wait' : 'pointer',
                   opacity: saving === schedule.id ? 0.7 : 1,
                   transition: 'all 0.2s ease'
@@ -341,7 +345,7 @@ export default function MarketScheduleSelector({
                     fontSize: 12,
                     fontWeight: 600
                   }}>
-                    {isFT ? 'At this park' : 'Attending'}
+                    {isEvent ? 'Attending' : isFT ? 'At this park' : 'Attending'}
                   </span>
                 )}
                 {saving === schedule.id && (
@@ -354,8 +358,8 @@ export default function MarketScheduleSelector({
                 )}
               </label>
 
-              {/* FT: Vendor-specific time pickers (shown when attending) */}
-              {isFT && schedule.is_attending && (
+              {/* FT/Events: Vendor-specific time pickers (shown when attending) */}
+              {(isFT || isEvent) && schedule.is_attending && (
                 <div style={{
                   padding: '12px 16px',
                   backgroundColor: '#f0fdf4',
@@ -367,7 +371,7 @@ export default function MarketScheduleSelector({
                   gap: 8
                 }}>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    Park hours: {formatTime12h(schedule.market_start_time || schedule.start_time)} - {formatTime12h(schedule.market_end_time || schedule.end_time)}
+                    {isEvent ? 'Event' : 'Park'} hours: {formatTime12h(schedule.market_start_time || schedule.start_time)} - {formatTime12h(schedule.market_end_time || schedule.end_time)}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <label style={{ fontSize: 13, color: '#374151', fontWeight: 500, minWidth: 70 }}>
@@ -429,9 +433,11 @@ export default function MarketScheduleSelector({
         color: '#1e40af'
       }}>
         <strong>How this works:</strong>{' '}
-        {isFT
-          ? "When customers order from you at this park, they'll pick a time slot within the hours you set. Only days you've selected will show as available."
-          : "When buyers order from you at this market, their pickup date will be calculated based on the days you've selected. Orders will be assigned to your next available market day."}
+        {isEvent
+          ? "When customers pre-order for this event, they'll pick a time slot within the hours you set. Only days you've selected will show as available."
+          : isFT
+            ? "When customers order from you at this park, they'll pick a time slot within the hours you set. Only days you've selected will show as available."
+            : "When buyers order from you at this market, their pickup date will be calculated based on the days you've selected. Orders will be assigned to your next available market day."}
       </div>
     </div>
   )

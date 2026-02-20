@@ -824,7 +824,8 @@ export default function VendorMarketsPage() {
                         marketId={market.id}
                         marketName={market.name}
                         vertical={vertical}
-                        onClose={() => setSelectedMarketForSchedule(null)}
+                        marketType={market.market_type as 'traditional' | 'private_pickup' | 'event'}
+                        onClose={() => { setSelectedMarketForSchedule(null); fetchMarkets() }}
                       />
                     </div>
                   )}
@@ -1693,7 +1694,8 @@ export default function VendorMarketsPage() {
                         marketId={market.id}
                         marketName={market.name}
                         vertical={vertical}
-                        onClose={() => setSelectedMarketForSchedule(null)}
+                        marketType="event"
+                        onClose={() => { setSelectedMarketForSchedule(null); fetchMarkets() }}
                       />
                     </div>
                   )}
