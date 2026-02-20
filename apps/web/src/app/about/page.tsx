@@ -1,19 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import Footer from '@/components/shared/Footer'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
 export default function AboutPage() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  })
-  const [submitted, setSubmitted] = useState(false)
-
   // Handle scroll to hash on page load
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
@@ -27,30 +19,6 @@ export default function AboutPage() {
     }
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // In a real implementation, this would send the form data to an API
-    console.log('Contact form submitted:', formData)
-    setSubmitted(true)
-  }
-
-  const inputStyle = {
-    width: '100%',
-    padding: spacing.sm,
-    fontSize: typography.sizes.base,
-    border: `1px solid ${colors.border}`,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceElevated,
-    color: colors.textPrimary,
-  }
-
-  const labelStyle = {
-    display: 'block',
-    marginBottom: spacing.xs,
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.medium,
-    color: colors.textPrimary,
-  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -135,105 +103,32 @@ export default function AboutPage() {
             </h2>
             <p style={{ marginBottom: spacing.lg }}>
               Have questions, feedback, or need support? We&apos;d love to hear from you.
-              Fill out the form below and we&apos;ll get back to you as soon as possible.
             </p>
 
-            {submitted ? (
-              <div style={{
-                padding: spacing.lg,
-                backgroundColor: colors.primaryLight,
-                border: `1px solid ${colors.primary}`,
-                borderRadius: radius.lg,
-                textAlign: 'center'
-              }}>
-                <p style={{ color: colors.primaryDark, fontSize: typography.sizes.lg, fontWeight: typography.weights.medium, marginBottom: spacing.xs }}>
-                  Thank you for your message!
+            <div style={{
+              backgroundColor: colors.surfaceSubtle,
+              padding: spacing.lg,
+              borderRadius: radius.lg,
+              border: `1px solid ${colors.border}`
+            }}>
+              <div style={{ marginBottom: spacing.md }}>
+                <p style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium, color: colors.textPrimary, marginBottom: spacing.xs }}>
+                  Email Us
                 </p>
-                <p style={{ color: colors.primaryDark, fontSize: typography.sizes.base }}>
-                  We&apos;ll review your inquiry and get back to you soon.
+                <a
+                  href="mailto:support@815enterprises.com"
+                  style={{ fontSize: typography.sizes.lg, color: colors.primary, textDecoration: 'none' }}
+                >
+                  support@815enterprises.com
+                </a>
+              </div>
+
+              <div>
+                <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                  We typically respond within 1-2 business days.
                 </p>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} style={{
-                backgroundColor: colors.surfaceSubtle,
-                padding: spacing.lg,
-                borderRadius: radius.lg,
-                border: `1px solid ${colors.border}`
-              }}>
-                <div style={{ marginBottom: spacing.md }}>
-                  <label htmlFor="name" style={labelStyle}>Name</label>
-                  <input
-                    type="text"
-                    id="name"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div style={{ marginBottom: spacing.md }}>
-                  <label htmlFor="email" style={labelStyle}>Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div style={{ marginBottom: spacing.md }}>
-                  <label htmlFor="subject" style={labelStyle}>Subject</label>
-                  <select
-                    id="subject"
-                    required
-                    value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    style={inputStyle}
-                  >
-                    <option value="">Select a topic...</option>
-                    <option value="general">General Inquiry</option>
-                    <option value="shopper">Shopper Support</option>
-                    <option value="vendor">Vendor Support</option>
-                    <option value="market">Market Partnership</option>
-                    <option value="feedback">Feedback</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: spacing.lg }}>
-                  <label htmlFor="message" style={labelStyle}>Message</label>
-                  <textarea
-                    id="message"
-                    required
-                    rows={5}
-                    value={formData.message}
-                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    style={{ ...inputStyle, resize: 'vertical' }}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  style={{
-                    width: '100%',
-                    padding: spacing.sm,
-                    fontSize: typography.sizes.base,
-                    fontWeight: typography.weights.semibold,
-                    color: colors.textInverse,
-                    backgroundColor: colors.primary,
-                    border: 'none',
-                    borderRadius: radius.md,
-                    cursor: 'pointer',
-                    boxShadow: shadows.sm,
-                  }}
-                >
-                  Send Message
-                </button>
-              </form>
-            )}
+            </div>
           </section>
         </div>
       </main>

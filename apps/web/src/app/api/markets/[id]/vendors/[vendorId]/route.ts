@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { hasAdminRole } from '@/lib/auth/admin'
+import { sendNotification } from '@/lib/notifications'
 
 // PATCH /api/markets/[id]/vendors/[vendorId] - Update vendor (approve, assign booth)
 export async function PATCH(
@@ -72,34 +73,17 @@ export async function PATCH(
     }
 
     // If approving, try to send notification
+    // H9 FIX: Use sendNotification() instead of raw DB insert (enables email/push/SMS)
     if (body.approved === true && marketVendor.vendor_profiles?.user_id) {
-      try {
-        const { data: market } = await supabase
-          .from('markets')
-          .select('name')
-          .eq('id', marketId)
-          .single()
+      const { data: market } = await supabase
+        .from('markets')
+        .select('name, vertical_id')
+        .eq('id', marketId)
+        .single()
 
-        const businessName = (marketVendor.vendor_profiles.profile_data as Record<string, unknown>)?.business_name ||
-                            (marketVendor.vendor_profiles.profile_data as Record<string, unknown>)?.farm_name ||
-                            'Your business'
-
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: marketVendor.vendor_profiles.user_id,
-            type: 'market_approved',
-            title: 'Market Application Approved!',
-            message: `${businessName} has been approved to sell at ${market?.name || 'the market'}${marketVendor.booth_number ? ` (Booth ${marketVendor.booth_number})` : ''}.`,
-            data: {
-              market_id: marketId,
-              market_vendor_id: vendorId,
-              booth_number: marketVendor.booth_number,
-            }
-          })
-      } catch (notifError) {
-        console.log('[NOTIFICATION] Could not create market approval notification:', notifError)
-      }
+      await sendNotification(marketVendor.vendor_profiles.user_id, 'market_approved', {
+        marketName: market?.name || 'the market',
+      }, { vertical: market?.vertical_id || undefined })
     }
 
     return NextResponse.json({ market_vendor: marketVendor })

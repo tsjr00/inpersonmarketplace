@@ -145,29 +145,23 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
           priceCents: number
         }>
 
+        // H5 FIX: Use RPC with capacity check instead of direct INSERT
         for (const mbItem of marketBoxItems) {
-          const { data: existingSub } = await supabase
-            .from('market_box_subscriptions')
-            .select('id')
-            .eq('offering_id', mbItem.offeringId)
-            .eq('buyer_user_id', order.buyer_user_id)
-            .eq('order_id', orderId)
-            .single()
+          const { data: result, error: rpcError } = await supabase
+            .rpc('subscribe_to_market_box_if_capacity', {
+              p_offering_id: mbItem.offeringId,
+              p_buyer_user_id: order.buyer_user_id,
+              p_order_id: orderId,
+              p_total_paid_cents: mbItem.priceCents,
+              p_start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
+              p_term_weeks: mbItem.termWeeks,
+              p_stripe_payment_intent_id: paymentIntentId,
+            })
 
-          if (!existingSub) {
-            await supabase
-              .from('market_box_subscriptions')
-              .insert({
-                offering_id: mbItem.offeringId,
-                buyer_user_id: order.buyer_user_id,
-                order_id: orderId,
-                total_paid_cents: mbItem.priceCents,
-                start_date: mbItem.startDate || new Date().toISOString().split('T')[0],
-                term_weeks: mbItem.termWeeks,
-                status: 'active',
-                weeks_completed: 0,
-                stripe_payment_intent_id: paymentIntentId,
-              })
+          if (rpcError) {
+            crumb.stripe(`Market box RPC error for offering ${mbItem.offeringId}: ${rpcError.message}`)
+          } else if (result && !result.success) {
+            crumb.stripe(`Market box at capacity: ${mbItem.offeringId}`)
           }
         }
         crumb.stripe(`Created ${marketBoxItems.length} market box subscription(s) for order ${orderId}`)
@@ -283,41 +277,32 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     return
   }
 
-  // Create the market box subscription
-  const { data: subscription, error: subError } = await supabase
-    .from('market_box_subscriptions')
-    .insert({
-      offering_id: offeringId,
-      buyer_user_id: userId,
-      total_paid_cents: priceCents,
-      start_date: startDate,
-      term_weeks: termWeeks,
-      status: 'active',
-      weeks_completed: 0,
-      stripe_payment_intent_id: paymentIntentId,
+  // H5 FIX: Use RPC with capacity check instead of direct INSERT
+  const { data: result, error: rpcError } = await supabase
+    .rpc('subscribe_to_market_box_if_capacity', {
+      p_offering_id: offeringId,
+      p_buyer_user_id: userId,
+      p_order_id: null,
+      p_total_paid_cents: priceCents,
+      p_start_date: startDate,
+      p_term_weeks: termWeeks,
+      p_stripe_payment_intent_id: paymentIntentId,
     })
-    .select()
-    .single()
 
-  if (subError) {
-    await logError(new TracedError('ERR_WEBHOOK_005', 'Failed to create market box subscription', { route: '/webhooks/stripe', method: 'POST', userId }))
+  if (rpcError) {
+    await logError(new TracedError('ERR_WEBHOOK_005', 'Failed to create market box subscription via RPC', { route: '/webhooks/stripe', method: 'POST', userId, error: rpcError.message }))
     return
   }
 
-  crumb.stripe(`Market box subscription created: ${subscription.id}`)
+  if (result && !result.success) {
+    crumb.stripe(`Market box at capacity for offering ${offeringId}`)
+    return
+  }
 
-  // Pickups are auto-created by the database trigger
-  // Verify pickups were created
-  const { data: pickups, error: pickupsError } = await supabase
-    .from('market_box_pickups')
-    .select('id, week_number, scheduled_date')
-    .eq('subscription_id', subscription.id)
-    .order('week_number')
-
-  if (pickupsError) {
-    await logError(new TracedError('ERR_WEBHOOK_006', 'Failed to fetch pickups after subscription creation', { route: '/webhooks/stripe', method: 'POST' }))
+  if (result?.already_existed) {
+    crumb.stripe(`Market box subscription already exists (idempotent): ${result.id}`)
   } else {
-    crumb.stripe(`${pickups?.length || 0} pickups created for subscription ${subscription.id}`)
+    crumb.stripe(`Market box subscription created via RPC: ${result?.id}`)
   }
 }
 

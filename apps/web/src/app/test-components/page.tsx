@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminTable from '@/components/shared/AdminTable';
 import StandardForm from '@/components/shared/StandardForm';
 import StatusBadge from '@/components/shared/StatusBadge';
@@ -44,6 +45,15 @@ const UserIcon = () => (
 );
 
 export default function TestComponentsPage() {
+  const router = useRouter();
+
+  // H10 FIX: Block access in production
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      router.replace('/');
+    }
+  }, [router]);
+
   const [formLoading, setFormLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
 

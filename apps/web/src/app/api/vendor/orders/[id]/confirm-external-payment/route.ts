@@ -177,25 +177,17 @@ export async function POST(
       .single()
 
     if (orderData) {
-      // Get cart ID
-      const { data: verticalData } = await supabase
-        .from('verticals')
-        .select('id')
-        .eq('vertical_id', orderData.vertical_id)
-        .single()
+      // M10 FIX: Pass TEXT slug directly to get_or_create_cart (no UUID lookup needed)
+      const { data: cartId } = await serviceClient.rpc('get_or_create_cart', {
+        p_user_id: orderData.buyer_user_id,
+        p_vertical_id: orderData.vertical_id
+      })
 
-      if (verticalData) {
-        const { data: cartId } = await serviceClient.rpc('get_or_create_cart', {
-          p_user_id: orderData.buyer_user_id,
-          p_vertical_id: verticalData.id
-        })
-
-        if (cartId) {
-          await serviceClient
-            .from('cart_items')
-            .delete()
-            .eq('cart_id', cartId)
-        }
+      if (cartId) {
+        await serviceClient
+          .from('cart_items')
+          .delete()
+          .eq('cart_id', cartId)
       }
     }
 
