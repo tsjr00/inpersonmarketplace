@@ -139,35 +139,21 @@ export const TIER_BADGES = {
 
 export type VendorTierType = keyof typeof TIER_BADGES
 
-// Vendor tier limits
-// Note: Listings are counted per-account total, not per-market
-export const VENDOR_LIMITS = {
-  standard: {
-    totalListings: 5,
-    traditionalMarkets: 1,
-  },
-  premium: {
-    totalListings: 15,
-    traditionalMarkets: 4,
-  },
-} as const
-
-export type VendorTier = keyof typeof VENDOR_LIMITS
+// Vendor tier type — re-export from vendor-limits.ts (source of truth)
+export type { VendorTier } from './vendor-limits'
 
 /**
  * Get listing limit for a vendor tier (per-account total)
- * Pass vertical to get correct limits for food truck tiers
+ * Delegates to getTierLimits() for all verticals
  */
 export function getListingLimit(tier: string, vertical?: string): number {
-  if (vertical === 'food_trucks') {
-    return getTierLimits(tier, vertical).productListings
-  }
-  return VENDOR_LIMITS[tier as VendorTier]?.totalListings || 5
+  return getTierLimits(tier, vertical).productListings
 }
 
 /**
  * Get market limit for a vendor tier
+ * Delegates to getTierLimits() for all verticals
  */
-export function getMarketLimit(tier: string): number {
-  return VENDOR_LIMITS[tier as VendorTier]?.traditionalMarkets || 1
+export function getMarketLimit(tier: string, vertical?: string): number {
+  return getTierLimits(tier, vertical).traditionalMarkets
 }

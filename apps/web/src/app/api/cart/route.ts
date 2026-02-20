@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /*
  * CART API
@@ -80,6 +81,10 @@ interface CartItemResult {
 // GET - Get user's cart with items
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cart', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`cart-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()

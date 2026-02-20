@@ -95,7 +95,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
 
         const existingProfiles = profiles || [];
         const tier = (existingProfiles[0]?.tier as string) || 'standard';
-        const limit = getMarketLimit(tier);
+        const limit = getMarketLimit(tier, vertical);
         const alreadyInMarket = existingProfiles.some(p => p.vertical_id === vertical);
         const atLimit = existingProfiles.length >= limit && !alreadyInMarket;
 

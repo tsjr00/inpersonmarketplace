@@ -1,9 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/user/profile', 'PATCH', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`user-profile-patch:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     // Get authenticated user

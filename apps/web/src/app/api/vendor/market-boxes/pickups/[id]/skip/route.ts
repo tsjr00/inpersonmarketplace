@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications/service'
 
 interface RouteContext {
@@ -12,6 +14,11 @@ interface RouteContext {
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id: pickupId } = await context.params
+  return withErrorTracing(`/api/vendor/market-boxes/pickups/${pickupId}/skip`, 'POST', async () => {
+  const clientIp = getClientIp(request)
+  const rateLimitResult = checkRateLimit(`vendor-skip-pickup:${clientIp}`, rateLimits.submit)
+  if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -147,5 +154,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       new_end_date: result?.[0]?.new_scheduled_date
     },
     message: 'Week skipped. Subscription extended by 1 week.'
+  })
   })
 }

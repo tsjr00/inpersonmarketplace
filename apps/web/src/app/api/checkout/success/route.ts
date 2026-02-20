@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { sendNotification } from '@/lib/notifications'
 import { logPublicActivityEvent } from '@/lib/marketing/activity-events'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/checkout/success', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`checkout-success:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const sessionId = request.nextUrl.searchParams.get('session_id')
 

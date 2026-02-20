@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getSubscriberDefault } from '@/lib/vendor-limits'
 
 interface RouteContext {
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { id: offeringId } = await context.params
 
   return withErrorTracing('/api/market-boxes/[id]', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`market-boxes-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     crumb.supabase('select', 'market_box_offerings')

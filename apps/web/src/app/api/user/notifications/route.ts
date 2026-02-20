@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 // Default notification preferences
 const DEFAULT_PREFERENCES = {
@@ -11,8 +12,12 @@ const DEFAULT_PREFERENCES = {
   push_enabled: false,
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   return withErrorTracing('/api/user/notifications', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`user-notifications-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const supabase = await createClient()
 
@@ -41,6 +46,10 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   return withErrorTracing('/api/user/notifications', 'PUT', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`user-notifications-put:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     try {
       const supabase = await createClient()
 

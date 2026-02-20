@@ -335,9 +335,10 @@ export interface LimitCheckResult {
 export async function canAddTraditionalMarket(
   supabase: SupabaseClient,
   vendorProfileId: string,
-  tier: string
+  tier: string,
+  vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier)
+  const limits = getTierLimits(tier, vertical)
   const usage = await getTraditionalMarketUsage(supabase, vendorProfileId)
 
   const allowed = usage.count < limits.traditionalMarkets
@@ -356,9 +357,10 @@ export async function canAddTraditionalMarket(
 export async function canAddPrivatePickup(
   supabase: SupabaseClient,
   vendorProfileId: string,
-  tier: string
+  tier: string,
+  vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier)
+  const limits = getTierLimits(tier, vertical)
   const usage = await getPrivatePickupUsage(supabase, vendorProfileId)
 
   const allowed = usage.count < limits.privatePickupLocations
@@ -612,9 +614,10 @@ export interface VendorUsageSummary {
 export async function getVendorUsageSummary(
   supabase: SupabaseClient,
   vendorProfileId: string,
-  tier: string
+  tier: string,
+  vertical?: string
 ): Promise<VendorUsageSummary> {
-  const limits = getTierLimits(tier)
+  const limits = getTierLimits(tier, vertical)
 
   const [traditionalMarkets, privatePickups, marketBoxes, listings, homeMarketId] = await Promise.all([
     getTraditionalMarketUsage(supabase, vendorProfileId),

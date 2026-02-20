@@ -1,33 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-
-// ZIP code to coordinates lookup using Census Geocoding API (free, no API key needed)
-// Falls back to a static lookup table for common ZIP codes
-
-// Static lookup for faster responses on common ZIP codes
-const ZIP_LOOKUP: Record<string, { lat: number; lng: number; city: string; state: string }> = {
-  // Major US cities - extend as needed
-  '10001': { lat: 40.7506, lng: -73.9971, city: 'New York', state: 'NY' },
-  '90001': { lat: 33.9425, lng: -118.2551, city: 'Los Angeles', state: 'CA' },
-  '60601': { lat: 41.8819, lng: -87.6278, city: 'Chicago', state: 'IL' },
-  '77001': { lat: 29.7604, lng: -95.3698, city: 'Houston', state: 'TX' },
-  '85001': { lat: 33.4484, lng: -112.074, city: 'Phoenix', state: 'AZ' },
-  '19101': { lat: 39.9526, lng: -75.1652, city: 'Philadelphia', state: 'PA' },
-  '78201': { lat: 29.4241, lng: -98.4936, city: 'San Antonio', state: 'TX' },
-  '92101': { lat: 32.7157, lng: -117.1611, city: 'San Diego', state: 'CA' },
-  '75201': { lat: 32.7767, lng: -96.7970, city: 'Dallas', state: 'TX' },
-  '95101': { lat: 37.3382, lng: -121.8863, city: 'San Jose', state: 'CA' },
-  // Amarillo, TX area
-  '79106': { lat: 35.1992, lng: -101.8451, city: 'Amarillo', state: 'TX' },
-  '79101': { lat: 35.2220, lng: -101.8313, city: 'Amarillo', state: 'TX' },
-  '79102': { lat: 35.1958, lng: -101.8568, city: 'Amarillo', state: 'TX' },
-  '79107': { lat: 35.2283, lng: -101.7897, city: 'Amarillo', state: 'TX' },
-  '79109': { lat: 35.1731, lng: -101.8779, city: 'Amarillo', state: 'TX' },
-  '79110': { lat: 35.1542, lng: -101.9156, city: 'Amarillo', state: 'TX' },
-  '79118': { lat: 35.1089, lng: -101.8010, city: 'Amarillo', state: 'TX' },
-  '79119': { lat: 35.1456, lng: -101.9456, city: 'Amarillo', state: 'TX' },
-}
+import { ZIP_LOOKUP } from '@/lib/geocode'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/location/geocode', 'POST', async () => {

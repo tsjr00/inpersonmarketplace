@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { hasAdminRole } from '@/lib/auth/admin'
 
 export default async function AdminLayout({
   children,
@@ -15,15 +16,14 @@ export default async function AdminLayout({
     redirect('/login')
   }
 
-  // Verify admin role - check BOTH columns during transition
+  // Verify admin role using centralized check (covers admin + platform_admin)
   const { data: userProfile } = await supabase
     .from('user_profiles')
     .select('role, roles')
     .eq('user_id', user.id)
     .single()
 
-  const isAdmin = userProfile?.role === 'admin' || userProfile?.roles?.includes('admin')
-  if (!isAdmin) {
+  if (!hasAdminRole(userProfile || {})) {
     // Redirect to home - can't determine vertical here
     redirect('/')
   }

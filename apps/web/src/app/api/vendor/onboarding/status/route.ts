@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { withErrorTracing } from '@/lib/errors'
 import { crumb } from '@/lib/errors/breadcrumbs'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import {
   getCategoryRequirement,
   requiresDocuments,
@@ -21,6 +22,10 @@ interface CategoryStatus {
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/onboarding/status', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-onboarding-status:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
 import { getAccountStatus } from '@/lib/stripe/connect'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
 
 interface RouteContext {
@@ -16,6 +17,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderItemId } = await context.params
 
   return withErrorTracing('/api/vendor/orders/[id]/confirm-handoff', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`vendor-confirm-handoff:${clientIp}`, rateLimits.submit)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
 
     crumb.auth('Checking user authentication')

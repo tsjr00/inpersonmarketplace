@@ -29,25 +29,28 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     redirect(`/${vertical}/login`)
   }
 
-  // Get vendor profile for THIS vertical
-  const { data: vendorProfile, error: vendorError } = await supabase
-    .from('vendor_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('vertical_id', vertical)
-    .single()
+  // Fetch vendor profile + user profile in parallel (both depend only on user.id)
+  const [vendorResult, userProfileResult] = await Promise.all([
+    supabase
+      .from('vendor_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vertical_id', vertical)
+      .single(),
+    supabase
+      .from('user_profiles')
+      .select('display_name, email, vendor_tutorial_completed_at, vendor_tutorial_skipped_at')
+      .eq('user_id', user.id)
+      .single()
+  ])
+
+  const vendorProfile = vendorResult.data
+  const userProfile = userProfileResult.data
 
   // If no vendor profile, redirect to vendor signup
-  if (vendorError || !vendorProfile) {
+  if (vendorResult.error || !vendorProfile) {
     redirect(`/${vertical}/vendor-signup`)
   }
-
-  // Get user profile for display name and tutorial status
-  const { data: userProfile } = await supabase
-    .from('user_profiles')
-    .select('display_name, email, vendor_tutorial_completed_at, vendor_tutorial_skipped_at')
-    .eq('user_id', user.id)
-    .single()
 
   // Check if vendor tutorial should be shown
   const hasSeenVendorTutorial = !!(userProfile?.vendor_tutorial_completed_at || userProfile?.vendor_tutorial_skipped_at)
@@ -63,50 +66,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   const cancellationWarningLevel: 'red' | 'orange' | null =
     vpCancellationRate >= 20 ? 'red' : vpCancellationRate >= 10 ? 'orange' : null
 
-  // Get draft listings count for approved vendors
-  let draftCount = 0
-  let outOfStockCount = 0
-  let lowStockCount = 0
-
-  if (vendorProfile.status === 'approved') {
-    const { data: draftListings } = await supabase
-      .from('listings')
-      .select('id')
-      .eq('vendor_profile_id', vendorProfile.id)
-      .eq('status', 'draft')
-      .is('deleted_at', null)
-
-    draftCount = draftListings?.length || 0
-
-    // Check for out of stock listings
-    const { count: outOfStock } = await supabase
-      .from('listings')
-      .select('id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfile.id)
-      .eq('status', 'published')
-      .eq('quantity', 0)
-      .is('deleted_at', null)
-
-    outOfStockCount = outOfStock || 0
-
-    // Check for low stock listings (quantity > 0 and <= threshold)
-    const { count: lowStock } = await supabase
-      .from('listings')
-      .select('id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfile.id)
-      .eq('status', 'published')
-      .gt('quantity', 0)
-      .lte('quantity', LOW_STOCK_THRESHOLD)
-      .is('deleted_at', null)
-
-    lowStockCount = lowStock || 0
-  }
-
-  // Stock warning level for Listings card border
-  const stockWarningLevel: 'red' | 'orange' | null =
-    outOfStockCount > 0 ? 'red' : lowStockCount > 0 ? 'orange' : null
-
-  // Get all configured markets/pickup locations for this vendor
+  // Types for dashboard data
   interface ActiveMarket {
     id: string
     name: string
@@ -118,134 +78,141 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     start_time: string | null
     end_time: string | null
   }
-
-  let activeMarkets: ActiveMarket[] = []
-  if (vendorProfile.status === 'approved') {
-    // Get vendor's private pickup locations (markets they own)
-    const { data: privatePickups } = await supabase
-      .from('markets')
-      .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time')
-      .eq('vendor_profile_id', vendorProfile.id)
-      .eq('market_type', 'private_pickup')
-      .eq('status', 'active')
-
-    // Get traditional markets where vendor has set up their schedule
-    const { data: vendorMarketSchedules } = await supabase
-      .from('vendor_market_schedules')
-      .select(`
-        market_id,
-        markets (
-          id,
-          name,
-          market_type,
-          address,
-          city,
-          state,
-          day_of_week,
-          start_time,
-          end_time
-        )
-      `)
-      .eq('vendor_profile_id', vendorProfile.id)
-      .eq('is_active', true)
-
-    // Also get the vendor's home market if set
-    let homeMarket: ActiveMarket | null = null
-    if (vendorProfile.home_market_id) {
-      const { data: hm } = await supabase
-        .from('markets')
-        .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time')
-        .eq('id', vendorProfile.home_market_id)
-        .single()
-      homeMarket = hm
-    }
-
-    // Combine all sources into activeMarkets
-    const marketMap = new Map<string, ActiveMarket>()
-
-    // Add home market first (if set)
-    if (homeMarket) {
-      marketMap.set(homeMarket.id, homeMarket)
-    }
-
-    // Add private pickup locations
-    privatePickups?.forEach(market => {
-      if (!marketMap.has(market.id)) {
-        marketMap.set(market.id, market)
-      }
-    })
-
-    // Add traditional markets from vendor schedules
-    vendorMarketSchedules?.forEach(vms => {
-      const market = vms.markets as unknown as ActiveMarket | null
-      if (market && !marketMap.has(market.id)) {
-        marketMap.set(market.id, market)
-      }
-    })
-
-    activeMarkets = Array.from(marketMap.values())
-  }
-
-  // Check for orders needing vendor action
-  let pendingOrdersToConfirm = 0
-  let needsFulfillment = 0
-
-  if (vendorProfile.status === 'approved') {
-    const { count: pendingCount } = await supabase
-      .from('order_items')
-      .select('id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfile.id)
-      .eq('status', 'pending')
-      .is('cancelled_at', null)
-
-    pendingOrdersToConfirm = pendingCount || 0
-
-    const { count: needsFulfillCount } = await supabase
-      .from('order_items')
-      .select('id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfile.id)
-      .not('buyer_confirmed_at', 'is', null)
-      .is('vendor_confirmed_at', null)
-      .is('cancelled_at', null)
-      .gt('confirmation_window_expires_at', new Date().toISOString())
-
-    needsFulfillment = needsFulfillCount || 0
-  }
-
-  const ordersNeedingAttention = pendingOrdersToConfirm + needsFulfillment
-
-  // Get upcoming pickup dates with order counts (next 7 days)
   interface UpcomingPickup {
     pickup_date: string
     market_id: string
     market_name: string
     item_count: number
   }
+
+  // Default values for non-approved vendors
+  let draftCount = 0
+  let outOfStockCount = 0
+  let lowStockCount = 0
+  let activeMarkets: ActiveMarket[] = []
+  let pendingOrdersToConfirm = 0
+  let needsFulfillment = 0
   let upcomingPickups: UpcomingPickup[] = []
 
+  // Run all dashboard queries in parallel for approved vendors
   if (vendorProfile.status === 'approved') {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const nextWeek = new Date(today)
     nextWeek.setDate(nextWeek.getDate() + 7)
 
-    const { data: upcomingItems } = await supabase
-      .from('order_items')
-      .select(`
-        pickup_date,
-        market_id,
-        markets!market_id(name)
-      `)
-      .eq('vendor_profile_id', vendorProfile.id)
-      .not('pickup_date', 'is', null)
-      .gte('pickup_date', today.toISOString().split('T')[0])
-      .lte('pickup_date', nextWeek.toISOString().split('T')[0])
-      .not('status', 'in', '("fulfilled","cancelled")')
-      .is('cancelled_at', null)
+    const [
+      draftResult,
+      outOfStockResult,
+      lowStockResult,
+      privatePickupsResult,
+      vendorSchedulesResult,
+      homeMarketResult,
+      pendingResult,
+      fulfillResult,
+      upcomingResult
+    ] = await Promise.all([
+      // Draft listings
+      supabase
+        .from('listings')
+        .select('id')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'draft')
+        .is('deleted_at', null),
+      // Out of stock
+      supabase
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'published')
+        .eq('quantity', 0)
+        .is('deleted_at', null),
+      // Low stock
+      supabase
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'published')
+        .gt('quantity', 0)
+        .lte('quantity', LOW_STOCK_THRESHOLD)
+        .is('deleted_at', null),
+      // Private pickup locations
+      supabase
+        .from('markets')
+        .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('market_type', 'private_pickup')
+        .eq('status', 'active'),
+      // Vendor market schedules (traditional markets)
+      supabase
+        .from('vendor_market_schedules')
+        .select(`
+          market_id,
+          markets (
+            id, name, market_type, address, city, state, day_of_week, start_time, end_time
+          )
+        `)
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('is_active', true),
+      // Home market (conditional — returns null data if no home_market_id)
+      vendorProfile.home_market_id
+        ? supabase
+            .from('markets')
+            .select('id, name, market_type, address, city, state, day_of_week, start_time, end_time')
+            .eq('id', vendorProfile.home_market_id)
+            .single()
+        : Promise.resolve({ data: null, error: null }),
+      // Pending orders to confirm
+      supabase
+        .from('order_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'pending')
+        .is('cancelled_at', null),
+      // Orders needing fulfillment
+      supabase
+        .from('order_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vendorProfile.id)
+        .not('buyer_confirmed_at', 'is', null)
+        .is('vendor_confirmed_at', null)
+        .is('cancelled_at', null)
+        .gt('confirmation_window_expires_at', new Date().toISOString()),
+      // Upcoming pickups (next 7 days)
+      supabase
+        .from('order_items')
+        .select(`pickup_date, market_id, markets!market_id(name)`)
+        .eq('vendor_profile_id', vendorProfile.id)
+        .not('pickup_date', 'is', null)
+        .gte('pickup_date', today.toISOString().split('T')[0])
+        .lte('pickup_date', nextWeek.toISOString().split('T')[0])
+        .not('status', 'in', '("fulfilled","cancelled")')
+        .is('cancelled_at', null)
+    ])
 
-    // Group by pickup_date + market_id
+    // Extract results
+    draftCount = draftResult.data?.length || 0
+    outOfStockCount = outOfStockResult.count || 0
+    lowStockCount = lowStockResult.count || 0
+    pendingOrdersToConfirm = pendingResult.count || 0
+    needsFulfillment = fulfillResult.count || 0
+
+    // Build active markets from 3 sources (home market + private pickups + vendor schedules)
+    const marketMap = new Map<string, ActiveMarket>()
+    const homeMarket = homeMarketResult.data as ActiveMarket | null
+    if (homeMarket) marketMap.set(homeMarket.id, homeMarket)
+    privatePickupsResult.data?.forEach(market => {
+      if (!marketMap.has(market.id)) marketMap.set(market.id, market)
+    })
+    vendorSchedulesResult.data?.forEach(vms => {
+      const market = vms.markets as unknown as ActiveMarket | null
+      if (market && !marketMap.has(market.id)) marketMap.set(market.id, market)
+    })
+    activeMarkets = Array.from(marketMap.values())
+
+    // Group upcoming items by pickup_date + market_id
     const pickupMap = new Map<string, UpcomingPickup>()
-    for (const item of upcomingItems || []) {
+    for (const item of upcomingResult.data || []) {
       if (item.pickup_date && item.market_id) {
         const key = `${item.pickup_date}|${item.market_id}`
         const market = item.markets as unknown as { name: string } | null
@@ -264,6 +231,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     }
     upcomingPickups = Array.from(pickupMap.values()).sort((a, b) => a.pickup_date.localeCompare(b.pickup_date))
   }
+
+  // Derived values
+  const stockWarningLevel: 'red' | 'orange' | null =
+    outOfStockCount > 0 ? 'red' : lowStockCount > 0 ? 'orange' : null
+  const ordersNeedingAttention = pendingOrdersToConfirm + needsFulfillment
 
   return (
     <div style={{

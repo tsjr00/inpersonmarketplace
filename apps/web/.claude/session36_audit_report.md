@@ -201,26 +201,26 @@ After context compaction, Claude should read THIS FILE to see what's been done a
 
 ### Medium Priority
 - [ ] **M1**: Admin layout redirects to `/login` without vertical context
-- [ ] **M2**: Admin layout uses manual role check instead of `hasAdminRole()`
+- [x] **M2**: Admin layout uses manual role check instead of `hasAdminRole()`
 - [ ] **M3**: Checkout page has ~20 hardcoded hex values including non-brand purple
 - [ ] **M4**: `vendor/markets/page.tsx` has 152 hardcoded hex values
-- [ ] **M5**: Vendor dashboard has 5 sequential DB queries (should be `Promise.all`)
+- [x] **M5**: Vendor dashboard has 5 sequential DB queries (should be `Promise.all`)
 - [ ] **M6**: `any` type usage in 41 files
 - [ ] **M7**: No React error boundaries anywhere
 - [ ] **M8**: Rate limiter is per-serverless-instance (in-memory)
-- [ ] **M9**: `canAddTraditionalMarket` missing vertical parameter
+- [x] **M9**: `canAddTraditionalMarket` missing vertical parameter
 - [ ] **M11**: Email template hardcoded `#166534` fallback color
 - [ ] **M12**: `can_vendor_publish()` DB function never called from application code
-- [ ] **M13**: Duplicate `VENDOR_LIMITS` in `constants.ts` vs `vendor-limits.ts`
+- [x] **M13**: Duplicate `VENDOR_LIMITS` in `constants.ts` vs `vendor-limits.ts`
 - [ ] **M14**: `constants.ts` TIER_BADGES has hardcoded hex values
-- [ ] **M15**: 15 routes missing rate limiting
-- [ ] **M16**: 3 routes missing `withErrorTracing` (including vendor confirm order)
+- [x] **M15**: 15 routes missing rate limiting (12 added, 3 excluded: 2 cron + 1 webhook)
+- [x] **M16**: 3 routes missing `withErrorTracing` (including vendor confirm order)
 - [ ] **M18**: File upload in vendor signup is dead-end (only saves filename)
 - [ ] **M21**: Vendors can access markets page before approval
 - [ ] **M22**: Market Boxes card shown to free-tier FT vendors who can't use it
 - [ ] **M23**: Analytics gating for FT tiers not implemented (Steps 7-9 pending)
 - [ ] **M24**: N+1 query patterns in 5 API routes
-- [ ] **M25**: ZIP_LOOKUP table duplicated in 2 files
+- [x] **M25**: ZIP_LOOKUP table duplicated in 2 files
 - [ ] **M26**: Hardcoded configurable values in 6 routes
 - [ ] **M27**: Transfer failure revert can leave item in fulfilled state with no retry
 

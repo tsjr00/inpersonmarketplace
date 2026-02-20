@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -12,6 +13,10 @@ interface RouteContext {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/buyer/market-boxes/[id]', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = checkRateLimit(`buyer-market-boxes-get:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const { id: subscriptionId } = await context.params
     const supabase = await createClient()
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 interface RouteContext {
@@ -8,11 +9,12 @@ interface RouteContext {
 
 // POST /api/buyer/orders/[id]/rate - Submit a rating for an order
 export async function POST(request: NextRequest, context: RouteContext) {
+  const { id: orderId } = await context.params
+  return withErrorTracing(`/api/buyer/orders/${orderId}/rate`, 'POST', async () => {
   const clientIp = getClientIp(request)
   const rateLimitResult = checkRateLimit(`buyer-order-rate-post:${clientIp}`, rateLimits.submit)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
-  const { id: orderId } = await context.params
   const supabase = await createClient()
 
   // Verify authentication
@@ -118,15 +120,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     message: 'Rating submitted',
     rating: newRating
   }, { status: 201 })
+  })
 }
 
 // GET /api/buyer/orders/[id]/rate - Get existing rating for an order
 export async function GET(request: NextRequest, context: RouteContext) {
+  const { id: orderId } = await context.params
+  return withErrorTracing(`/api/buyer/orders/${orderId}/rate`, 'GET', async () => {
   const clientIp = getClientIp(request)
   const rateLimitResult = checkRateLimit(`buyer-order-rate-get:${clientIp}`, rateLimits.submit)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
-  const { id: orderId } = await context.params
   const supabase = await createClient()
 
   // Verify authentication
@@ -158,4 +162,5 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   return NextResponse.json({ ratings: ratings || [] })
+  })
 }
