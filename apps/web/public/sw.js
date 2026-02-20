@@ -1,6 +1,11 @@
 // Service Worker for Web Push Notifications
 // Push-only — no caching, offline support, or fetch interception
 
+// Determine vertical from hostname for branded notifications
+var isFoodTrucks = self.location.hostname === 'foodtruckn.app'
+var notifIcon = isFoodTrucks ? '/icons/ft-icon-192.png' : '/icons/fm-icon-192.png'
+var defaultTitle = isFoodTrucks ? "Food Truck'n" : 'Farmers Marketing'
+
 self.addEventListener('push', function(event) {
   if (!event.data) return
 
@@ -13,14 +18,14 @@ self.addEventListener('push', function(event) {
 
   var options = {
     body: data.body || '',
-    icon: '/logos/logo-icon-color.png',
-    badge: '/logos/logo-icon-color.png',
+    icon: data.icon || notifIcon,
+    badge: notifIcon,
     data: { url: data.url || '/' },
     tag: data.tag || 'default',
   }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Farmers Marketing', options)
+    self.registration.showNotification(data.title || defaultTitle, options)
   )
 })
 
