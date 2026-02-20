@@ -5,6 +5,7 @@ import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 import { TracedError } from '@/lib/errors/traced-error'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { geocodeZipCode } from '@/lib/geocode'
+import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 
 // GET - Get vendor's markets
 export async function GET(request: NextRequest) {
@@ -273,8 +274,8 @@ export async function POST(request: NextRequest) {
 
     // Create private pickup market
     // Note: submitted_by_vendor_id is required by RLS policy for INSERT
-    // Food trucks default to 0 cutoff (prepare on the spot), FM uses DB default (18)
-    const cutoffHours = vertical === 'food_trucks' ? 0 : undefined
+    // Food trucks default to 0 cutoff (prepare on the spot), FM uses DB default
+    const cutoffHours = vertical === 'food_trucks' ? DEFAULT_CUTOFF_HOURS.food_trucks : undefined
     const insertData: Record<string, unknown> = {
       vertical_id: vertical,
       vendor_profile_id: vendorProfile.id,

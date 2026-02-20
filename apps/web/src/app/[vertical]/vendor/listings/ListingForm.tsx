@@ -305,7 +305,8 @@ export default function ListingForm({
 
       if (insertError) {
         console.error('Error creating listing markets:', insertError)
-        // Continue anyway - listing was saved, markets can be added later
+        // Listing was saved but market associations failed — warn the vendor
+        setError('Listing saved, but market assignments failed. Please edit the listing to reassign markets.')
       }
 
       // Auto-create vendor attendance records for traditional markets
@@ -315,27 +316,26 @@ export default function ListingForm({
         return m && m.market_type === 'traditional'
       })
       if (traditionalIds.length > 0) {
-        for (const mktId of traditionalIds) {
-          const { data: schedules } = await supabase
-            .from('market_schedules')
-            .select('id')
-            .eq('market_id', mktId)
-            .eq('active', true)
+        // Batch fetch all schedules for selected traditional markets (avoids N+1)
+        const { data: allSchedules } = await supabase
+          .from('market_schedules')
+          .select('id, market_id')
+          .in('market_id', traditionalIds)
+          .eq('active', true)
 
-          if (schedules && schedules.length > 0) {
-            const entries = schedules.map(ms => ({
-              vendor_profile_id: vendorProfileId,
-              market_id: mktId,
-              schedule_id: ms.id,
-              is_active: true
-            }))
-            await supabase
-              .from('vendor_market_schedules')
-              .upsert(entries, {
-                onConflict: 'vendor_profile_id,schedule_id',
-                ignoreDuplicates: true
-              })
-          }
+        if (allSchedules && allSchedules.length > 0) {
+          const entries = allSchedules.map(ms => ({
+            vendor_profile_id: vendorProfileId,
+            market_id: ms.market_id,
+            schedule_id: ms.id,
+            is_active: true
+          }))
+          await supabase
+            .from('vendor_market_schedules')
+            .upsert(entries, {
+              onConflict: 'vendor_profile_id,schedule_id',
+              ignoreDuplicates: true
+            })
         }
       }
     }

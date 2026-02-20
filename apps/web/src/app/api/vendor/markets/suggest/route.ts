@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 
 // POST - Submit a traditional market suggestion for admin approval
 export async function POST(request: NextRequest) {
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
         vendor_sells_at_market: vendor_sells_at_market === true,
       }
       if (vertical === 'food_trucks') {
-        insertData.cutoff_hours = 0
+        insertData.cutoff_hours = DEFAULT_CUTOFF_HOURS.food_trucks
       }
       const { data: market, error: createError } = await supabase
         .from('markets')

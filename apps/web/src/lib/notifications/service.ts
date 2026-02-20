@@ -163,10 +163,10 @@ async function sendEmail(
 
   const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
   // Use vertical-aware branding for display name, domain, and header color
-  const branding = vertical ? defaultBranding[vertical] : undefined
+  const branding = defaultBranding[vertical || 'farmers_market']
   const brandName = branding?.brand_name || 'Farmers Marketing'
   const brandDomain = branding?.domain || 'farmersmarketing.app'
-  const brandColor = branding?.colors?.primary || '#166534'
+  const brandColor = branding?.colors?.primary || '#2d5016'
 
   try {
     const { data, error } = await resend.emails.send({

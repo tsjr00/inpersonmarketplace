@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 
 interface MarketAvailability {
   market_id: string
@@ -91,9 +92,9 @@ export async function GET(
         const hoursLeft = (nextCutoff - Date.now()) / (1000 * 60 * 60)
         hoursUntilCutoff = Math.round(hoursLeft * 10) / 10
 
-        // Use market's actual cutoff_hours policy (FT=0, private=10, traditional=18)
+        // Use market's actual cutoff_hours policy, fallback to centralized defaults
         const cutoffThreshold = nextCutoffMarket.cutoff_hours ??
-          (nextCutoffMarket.market_type === 'private_pickup' ? 10 : 18)
+          (DEFAULT_CUTOFF_HOURS[nextCutoffMarket.market_type as keyof typeof DEFAULT_CUTOFF_HOURS] ?? DEFAULT_CUTOFF_HOURS.traditional)
 
         // Flag if closing within the market's cutoff threshold
         if (hoursLeft <= cutoffThreshold && hoursLeft > 0) {

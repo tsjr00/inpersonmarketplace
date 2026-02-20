@@ -6,10 +6,11 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
+import { FEES } from '@/lib/pricing'
 
-// Fee structure
-export const BUYER_FEE_PERCENT = 6.5 // 6.5%
-export const STRIPE_BUYER_FEE_FIXED_CENTS = 15 // $0.15 (only for Stripe)
+// Fee structure — derived from pricing.ts (single source of truth)
+export const BUYER_FEE_PERCENT = FEES.buyerFeePercent
+export const STRIPE_BUYER_FEE_FIXED_CENTS = FEES.buyerFlatFeeCents
 export const EXTERNAL_BUYER_FEE_FIXED_CENTS = 0 // External payments have no fixed fee
 export const SELLER_FEE_PERCENT = 3.5 // 3.5% for external payments
 

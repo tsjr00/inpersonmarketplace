@@ -155,6 +155,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
     }
 
+    let payoutFailed = false
     if (hasStripe) {
       try {
         const transfer = await transferToVendor({
@@ -174,6 +175,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
       } catch (transferError) {
         console.error('Stripe transfer failed:', transferError)
+        payoutFailed = true
         // Record failed payout for retry cron — handoff already happened
         crumb.supabase('insert', 'vendor_payouts (failed)')
         await supabase.from('vendor_payouts').insert({
@@ -215,7 +217,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       success: true,
-      message: 'Handoff confirmed. Payment is being transferred to your account.',
+      message: payoutFailed
+        ? 'Handoff confirmed. Payment transfer encountered an issue and will be retried automatically.'
+        : 'Handoff confirmed. Payment is being transferred to your account.',
+      payoutFailed,
       vendor_confirmed_at: now.toISOString()
     })
   })

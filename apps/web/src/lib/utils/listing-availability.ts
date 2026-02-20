@@ -2,6 +2,7 @@
  * Shared utility for calculating listing market availability.
  * Used both server-side (listing page) and in API routes.
  */
+import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 
 export interface MarketSchedule {
   id: string
@@ -161,9 +162,9 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   let isAccepting = false
   const isFoodTruck = market.vertical_id === 'food_trucks'
   // FT: always 0 (no advance cutoff — accept orders until truck closes)
-  // FM: use DB value, fallback to 18 (traditional) or 10 (private_pickup)
-  const cutoffHours = isFoodTruck ? 0 : (
-    market.cutoff_hours ?? (market.market_type === 'traditional' ? 18 : 10)
+  // FM: use DB value, fallback to DEFAULT_CUTOFF_HOURS by market type
+  const cutoffHours = isFoodTruck ? DEFAULT_CUTOFF_HOURS.food_trucks : (
+    market.cutoff_hours ?? DEFAULT_CUTOFF_HOURS[market.market_type as keyof typeof DEFAULT_CUTOFF_HOURS] ?? DEFAULT_CUTOFF_HOURS.traditional
   )
 
   for (const schedule of activeSchedules) {

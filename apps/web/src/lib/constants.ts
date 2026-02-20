@@ -25,6 +25,14 @@ export const MINIMUM_ORDER_CENTS = FEES.minimumOrderCents  // 1000
 // Inventory thresholds
 export const LOW_STOCK_THRESHOLD = 5
 
+// Default cutoff hours by market type/vertical
+// Used when market.cutoff_hours is NULL (fallback)
+export const DEFAULT_CUTOFF_HOURS = {
+  traditional: 18,       // FM: 18 hours before market opens
+  private_pickup: 10,    // Private pickup: 10 hours before window
+  food_trucks: 0,        // FT: no cutoff (prepare on the spot)
+} as const
+
 // Quantity/measurement units for listings and market box offerings
 export const QUANTITY_UNITS: { value: string; label: string; verticals: string[] }[] = [
   { value: 'lb', label: 'lb', verticals: ['farmers_market', 'food_trucks'] },
@@ -91,49 +99,53 @@ export function formatQuantityDisplay(amount: number | null, unit: string | null
 }
 
 // Premium tier badge configuration
+// Uses statusColors from design-tokens for standard palette colors
+// FT tiers (pro/boss) use brand-specific colors from the FT brand kit
+import { statusColors } from './design-tokens'
+
 export const TIER_BADGES = {
   premium: {
     label: 'Premium',
     icon: '⭐',
-    color: '#3b82f6',
-    bgColor: '#dbeafe',
-    borderColor: '#93c5fd'
+    color: statusColors.info,
+    bgColor: statusColors.infoLight,
+    borderColor: statusColors.infoBorder
   },
   featured: {
     label: 'Featured',
     icon: '✨',
-    color: '#f59e0b',
-    bgColor: '#fef3c7',
-    borderColor: '#fcd34d'
+    color: statusColors.warning,
+    bgColor: statusColors.warningLight,
+    borderColor: statusColors.warningBorder
   },
   standard: {
     label: 'Standard',
     icon: '',
-    color: '#6b7280',
-    bgColor: '#f3f4f6',
-    borderColor: '#d1d5db'
+    color: statusColors.neutral500,
+    bgColor: statusColors.neutral100,
+    borderColor: statusColors.neutral300
   },
   // Food truck tiers
   basic: {
     label: 'Basic',
     icon: '',
-    color: '#6b7280',
-    bgColor: '#f3f4f6',
-    borderColor: '#d1d5db'
+    color: statusColors.neutral500,
+    bgColor: statusColors.neutral100,
+    borderColor: statusColors.neutral300
   },
   pro: {
     label: 'Pro',
     icon: '🔥',
-    color: '#ff3131',
-    bgColor: '#fff5f5',
-    borderColor: '#ff8f8f'
+    color: '#ff3131',       // FT brand primaryDark
+    bgColor: '#fff5f5',     // FT brand primaryLight
+    borderColor: '#ff8f8f'  // FT brand accent border
   },
   boss: {
     label: 'Boss',
     icon: '👑',
-    color: '#545454',
-    bgColor: '#ffe38f',
-    borderColor: '#ffd54f'
+    color: '#545454',       // FT brand textSecondary
+    bgColor: '#ffe38f',     // FT brand boss yellow
+    borderColor: '#ffd54f'  // FT brand boss border
   }
 } as const
 
