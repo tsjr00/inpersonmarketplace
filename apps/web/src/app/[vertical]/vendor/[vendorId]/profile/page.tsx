@@ -9,7 +9,7 @@ import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
 import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
-import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import { colors } from '@/lib/design-tokens'
 import type { Metadata } from 'next'
 
@@ -878,7 +878,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       fontWeight: 600
                     }}
                   >
-                    📦 Market Box
+                    📦 {term(vertical, 'market_box')}
                   </span>
                 )}
               </div>
@@ -949,7 +949,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               fontSize: 20,
               fontWeight: 600
             }}>
-              📦 Market Box Subscriptions
+              📦 {term(vertical, 'market_box')} Subscriptions
             </h2>
 
             <div className="listings-grid" style={{
@@ -1028,7 +1028,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         fontWeight: 600,
                         zIndex: 1
                       }}>
-                        📦 Market Box
+                        📦 {term(vertical, 'market_box')}
                       </span>
 
                       {boxImageUrls && boxImageUrls.length > 0 ? (

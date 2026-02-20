@@ -7,6 +7,7 @@ import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { colors } from '@/lib/design-tokens'
 import { FT_TIER_LIMITS, getFtTierLabel, type FoodTruckTier } from '@/lib/vendor-limits'
 import { SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
+import { term } from '@/lib/vertical'
 
 // ── Food Truck 3-Tier Upgrade Page ──────────────────────────────────────
 
@@ -570,11 +571,11 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.primaryDark }}>Market Box Subscriptions</h3>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.primaryDark }}>{term(vertical, 'market_box')} Subscriptions</h3>
                   <span style={{ padding: '2px 8px', backgroundColor: colors.primary, color: 'white', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>REVENUE BOOSTER</span>
                 </div>
                 <p style={{ margin: 0, fontSize: 14, color: colors.primaryDark, lineHeight: 1.5 }}>
-                  Create 6 Market Box offerings with 4 active simultaneously. <strong>Unlimited subscribers</strong> (Standard: 2 max). Guaranteed recurring revenue with 4-week prepaid subscriptions.
+                  Create 6 {term(vertical, 'market_box')} offerings with 4 active simultaneously. <strong>Unlimited subscribers</strong> (Standard: 2 max). Guaranteed recurring revenue with 4-week prepaid subscriptions.
                 </p>
               </div>
             </div>
@@ -602,7 +603,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
             <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center' }}>2</div>
             <div style={{ padding: '8px 16px', backgroundColor: '#eff6ff', color: '#1e40af', textAlign: 'center', fontWeight: 600 }}>6</div>
 
-            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563' }}>Market Box Offerings</div>
+            <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563' }}>{term(vertical, 'market_box')} Offerings</div>
             <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center' }}>2</div>
             <div style={{ padding: '8px 16px', backgroundColor: '#eff6ff', color: '#1e40af', textAlign: 'center', fontWeight: 600 }}>6</div>
 
@@ -684,8 +685,8 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
           <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600, color: '#333' }}>Frequently Asked Questions</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>What are Market Boxes?</h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>Market Boxes let you offer 4-week prepaid subscription bundles to buyers. You get guaranteed recurring revenue and can build customer loyalty with weekly pickups.</p>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>What are {term(vertical, 'market_boxes')}?</h4>
+              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>{term(vertical, 'market_boxes')} let you offer 4-week prepaid subscription bundles to buyers. You get guaranteed recurring revenue and can build customer loyalty with weekly pickups.</p>
             </div>
             <div>
               <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>What happens if I downgrade?</h4>

@@ -1116,7 +1116,7 @@ function MarketBoxCard({
           fontWeight: typography.weights.semibold,
           zIndex: 1
         }}>
-          4-Week Box
+          {term(vertical, 'market_box')}
         </span>
 
         {/* Availability Badge */}

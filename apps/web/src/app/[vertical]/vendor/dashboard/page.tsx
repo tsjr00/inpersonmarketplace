@@ -598,11 +598,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                   </h3>
                   {isLocked ? (
                     <p style={{ color: '#d97706', margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
-                      Upgrade to Basic or higher to offer subscription bundles
+                      Upgrade to Basic or higher to offer {term(vertical, 'market_boxes')}
                     </p>
                   ) : (
                     <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                      Offer four or eight week pre-paid subscription bundles
+                      Offer four or eight week pre-paid {term(vertical, 'market_boxes').toLowerCase()}
                     </p>
                   )}
                 </div>

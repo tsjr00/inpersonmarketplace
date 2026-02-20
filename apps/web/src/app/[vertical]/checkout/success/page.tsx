@@ -7,6 +7,7 @@ import { colors, spacing, typography, radius, shadows, containers } from '@/lib/
 import { formatQuantityDisplay } from '@/lib/constants'
 import { useCart } from '@/lib/hooks/useCart'
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { term } from '@/lib/vertical'
 
 // Format pickup date for display
 function formatPickupDate(dateStr: string | null | undefined): string | null {
@@ -331,7 +332,7 @@ export default function CheckoutSuccessPage() {
             {order.marketBoxSubscriptions && order.marketBoxSubscriptions.length > 0 && (
               <>
                 <h3 style={{ fontSize: typography.sizes.base, marginTop: spacing.md, marginBottom: spacing.sm, color: colors.textPrimary }}>
-                  Market Box Subscriptions
+                  {term(vertical, 'market_box')} Subscriptions
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                   {order.marketBoxSubscriptions.map((sub) => (

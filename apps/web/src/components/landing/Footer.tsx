@@ -21,8 +21,8 @@ export function Footer({ vertical }: FooterProps) {
     {
       title: 'For Shoppers',
       links: [
-        { label: 'Browse Markets', href: `/${vertical}/markets` },
-        { label: 'Browse Products', href: `/${vertical}/browse` },
+        { label: `Browse ${term(vertical, 'markets')}`, href: `/${vertical}/markets` },
+        { label: term(vertical, 'browse_products_cta'), href: `/${vertical}/browse` },
         { label: 'Features & Benefits', href: `/${vertical}/features` },
         { label: 'How It Works', href: `/${vertical}/how-it-works` },
         { label: 'Sign Up', href: `/${vertical}/signup` },

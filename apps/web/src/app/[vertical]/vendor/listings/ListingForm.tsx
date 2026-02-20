@@ -479,7 +479,7 @@ export default function ListingForm({
             onChange={handleChange}
             required
             disabled={loading}
-            placeholder="e.g., Fresh Organic Tomatoes"
+            placeholder={vertical === 'food_trucks' ? 'e.g., BBQ Brisket Plate' : 'e.g., Fresh Organic Tomatoes'}
             style={{
               width: '100%',
               padding: 10,
@@ -514,7 +514,9 @@ export default function ListingForm({
             }}
           />
           <p style={{ fontSize: 13, color: '#666', marginTop: 6, lineHeight: 1.4 }}>
-            Include: what it is, variety/type, quantity (size, count, or weight), and any special qualities.
+            {vertical === 'food_trucks'
+              ? 'Include: what the dish is, portion size, sides included, and any allergens or dietary info.'
+              : 'Include: what it is, variety/type, quantity (size, count, or weight), and any special qualities.'}
             {(vertical === 'farmers_market' || vertical === 'food_trucks') && (
               <><br /><strong>If your product contains potential allergens</strong>, check the allergen box below and list the ingredients.</>
             )}

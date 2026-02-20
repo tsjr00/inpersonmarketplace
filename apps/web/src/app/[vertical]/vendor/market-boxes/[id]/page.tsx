@@ -321,7 +321,7 @@ export default function VendorMarketBoxDetailPage() {
             href={`/${vertical}/vendor/market-boxes`}
             style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
           >
-            ← Back to Market Boxes
+            ← Back to {term(vertical, 'market_boxes')}
           </Link>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 16, flexWrap: 'wrap', gap: 16 }}>
             <div>

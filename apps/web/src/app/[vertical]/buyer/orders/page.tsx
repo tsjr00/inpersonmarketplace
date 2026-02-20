@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
+import { term } from '@/lib/vertical'
 
 interface Order {
   id: string
@@ -248,7 +249,7 @@ export default function BuyerOrdersPage() {
           {markets.length > 0 && (
             <div style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center' }}>
               <label style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
-                Market:
+                {term(vertical, 'market')}:
               </label>
               <select
                 value={marketFilter}
@@ -261,7 +262,7 @@ export default function BuyerOrdersPage() {
                   backgroundColor: colors.surfaceElevated
                 }}
               >
-                <option value="">All Markets</option>
+                <option value="">All {term(vertical, 'markets')}</option>
                 {markets.map(market => (
                   <option key={market.id} value={market.id}>
                     {market.name}
@@ -323,7 +324,7 @@ export default function BuyerOrdersPage() {
                     border: `2px solid ${colors.primary}`,
                   }}
                 >
-                  Browse Products
+                  {term(vertical, 'browse_products_cta')}
                 </Link>
               </div>
             )}
@@ -687,7 +688,7 @@ export default function BuyerOrdersPage() {
                       border: '2px solid #0f766e20'
                     }}>
                       <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
-                        Market Box
+                        {term(vertical, 'market_box')}
                       </span>
                       <span style={{
                         fontSize: typography.sizes.lg,

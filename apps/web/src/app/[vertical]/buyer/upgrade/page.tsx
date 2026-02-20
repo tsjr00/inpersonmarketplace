@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
-import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import { colors } from '@/lib/design-tokens'
 
@@ -147,7 +147,7 @@ export default function BuyerUpgradePage() {
             margin: '0 0 32px 0',
             lineHeight: 1.6
           }}>
-            Your account already has premium membership. You have access to Market Box subscriptions and all premium features.
+            Your account already has premium membership. You have access to {term(vertical, 'market_box')} subscriptions and all premium features.
           </p>
           <Link
             href={`/${vertical}/browse`}
@@ -276,7 +276,7 @@ export default function BuyerUpgradePage() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.primaryDark }}>
-                    Market Box Subscriptions
+                    {term(vertical, 'market_box')} Subscriptions
                   </h3>
                   <span style={{
                     padding: '2px 8px',
@@ -566,10 +566,10 @@ export default function BuyerUpgradePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What are Market Boxes?
+                What are {term(vertical, 'market_boxes')}?
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Market Boxes are 4-week prepaid subscription bundles from vendors. You get guaranteed weekly pickups with curated items. Only premium shoppers can subscribe!
+                {term(vertical, 'market_boxes')} are 4-week prepaid subscription bundles from vendors. You get guaranteed weekly pickups with curated items. Only premium shoppers can subscribe!
               </p>
             </div>
             <div>
@@ -577,7 +577,7 @@ export default function BuyerUpgradePage() {
                 Can I cancel anytime?
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Yes! Cancel your membership anytime. Benefits remain active until your billing period ends. Market Box subscriptions are separate commitments.
+                Yes! Cancel your membership anytime. Benefits remain active until your billing period ends. {term(vertical, 'market_box')} subscriptions are separate commitments.
               </p>
             </div>
             <div>

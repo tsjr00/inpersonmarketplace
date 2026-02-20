@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, statusColors } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 // Buffer time around market hours for polling (30 minutes before/after)
 const MARKET_BUFFER_MINUTES = 30
@@ -530,7 +531,7 @@ export default function VendorPickupPage() {
             marginBottom: 12
           }}
         >
-          <option value="">Select a market...</option>
+          <option value="">Select a {term(vertical, 'market').toLowerCase()}...</option>
           {markets.map(market => (
             <option key={market.id} value={market.id}>
               {market.isHomeMarket ? '🏠 ' : ''}{market.name}
@@ -715,7 +716,7 @@ export default function VendorPickupPage() {
             border: '1px solid #e5e7eb'
           }}>
             <p style={{ color: statusColors.neutral500, margin: 0 }}>
-              Select a market to view pickup orders
+              Select a {term(vertical, 'market').toLowerCase()} to view pickup orders
             </p>
           </div>
         ) : (filteredOrders.length === 0 && filteredMBPickups.length === 0) ? (
@@ -922,7 +923,7 @@ export default function VendorPickupPage() {
                       textTransform: 'uppercase',
                       letterSpacing: 0.5
                     }}>
-                      Market Box Pickups
+                      {term(vertical, 'market_box')} Pickups
                     </p>
                   </div>
                 )}
@@ -930,7 +931,7 @@ export default function VendorPickupPage() {
                 {filteredMBPickups.map(pickup => {
                   const sub = pickup.subscription as any
                   const buyerName = sub?.buyer?.display_name || sub?.buyer?.email || 'Subscriber'
-                  const offeringName = sub?.offering?.name || 'Market Box'
+                  const offeringName = sub?.offering?.name || term(vertical, 'market_box')
                   const isWaitingForBuyer = !!pickup.vendor_confirmed_at && !pickup.buyer_confirmed_at && pickup.status !== 'picked_up'
                   const isWaitingForVendor = !!pickup.buyer_confirmed_at && !pickup.vendor_confirmed_at && pickup.status !== 'picked_up'
                   const windowActive = pickup.confirmation_window_expires_at

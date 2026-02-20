@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import { colors } from '@/lib/design-tokens'
 
@@ -101,7 +101,7 @@ export default function BuyerTierManager({
           color: '#1e3a8a',
           lineHeight: 1.6
         }}>
-          <li><strong>Market Box Subscriptions</strong> - exclusive access to vendor bundles</li>
+          <li><strong>{term(vertical, 'market_box')} Subscriptions</strong> - exclusive access to vendor bundles</li>
           <li>Early access to new & seasonal listings</li>
           <li>Priority customer support</li>
           <li>Order insights dashboard</li>
@@ -164,7 +164,7 @@ export default function BuyerTierManager({
           color: colors.primaryDark,
           lineHeight: 1.6
         }}>
-          <li><strong>Market Box Subscriptions</strong> - exclusive access to vendor bundles</li>
+          <li><strong>{term(vertical, 'market_box')} Subscriptions</strong> - exclusive access to vendor bundles</li>
           <li><strong>Early access</strong> to new and seasonal listings</li>
           <li><strong>Priority support</strong> for faster response times</li>
           <li><strong>Order insights</strong> dashboard and purchase analytics</li>
@@ -242,7 +242,7 @@ export default function BuyerTierManager({
               color: '#6b7280',
               lineHeight: 1.6
             }}>
-              <li><strong>Market Box Subscriptions</strong> - no longer able to subscribe</li>
+              <li><strong>{term(vertical, 'market_box')} Subscriptions</strong> - no longer able to subscribe</li>
               <li>Early access to new listings</li>
               <li>Early access to seasonal products</li>
               <li>Priority customer support</li>

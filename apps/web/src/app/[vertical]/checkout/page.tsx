@@ -8,6 +8,7 @@ import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS, FEES } from '@/lib/constants'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
+import { term } from '@/lib/vertical'
 
 interface CheckoutItem {
   itemType?: 'listing' | 'market_box'
@@ -592,7 +593,7 @@ export default function CheckoutPage() {
               boxShadow: shadows.primary,
             }}
           >
-            Browse Products
+            {term(vertical, 'browse_products_cta')}
           </Link>
         </div>
       </div>
@@ -711,7 +712,7 @@ export default function CheckoutPage() {
                 marginBottom: spacing.sm,
               }}>
                 <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                  Market Compatibility Issues:
+                  {term(vertical, 'market')} Compatibility Issues:
                 </p>
                 <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary }}>
                   {marketWarnings.map((warning, idx) => (
@@ -732,7 +733,7 @@ export default function CheckoutPage() {
                   color: statusColors.infoDark,
                   fontSize: typography.sizes.xs,
                 }}>
-                  This order includes Market Box subscriptions. Card payment is required.
+                  This order includes {term(vertical, 'market_box')} subscriptions. Card payment is required.
                 </div>
               )}
 
@@ -936,7 +937,7 @@ export default function CheckoutPage() {
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                     }}>
-                      Market Box Subscriptions
+                      {term(vertical, 'market_box')} Subscriptions
                     </div>
                   )}
                   {checkoutItems.filter(i => i.itemType === 'market_box').map(item => {

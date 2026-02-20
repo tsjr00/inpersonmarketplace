@@ -443,7 +443,10 @@ export default function MarketBoxDetailClient() {
               color: colors.primaryDark,
               lineHeight: 1.5
             }}>
-              If unforeseen circumstances such as weather or other agricultural realities require your vendor to skip a week, your subscription will automatically be extended by one week at no additional cost.
+              {vertical === 'food_trucks'
+                ? 'If unforeseen circumstances such as mechanical issues, event cancellations, or weather require your vendor to skip a week, your subscription will automatically be extended by one week at no additional cost.'
+                : 'If unforeseen circumstances such as weather or other agricultural realities require your vendor to skip a week, your subscription will automatically be extended by one week at no additional cost.'
+              }
             </div>
           </div>
 

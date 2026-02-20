@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useCart, CartItem } from '@/lib/hooks/useCart'
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
 import { formatPickupDate } from '@/types/pickup'
+import { term } from '@/lib/vertical'
 
 export function CartDrawer() {
   const router = useRouter()
@@ -151,7 +152,7 @@ export function CartDrawer() {
                   color: '#0c4a6e',
                   fontSize: 12,
                 }}>
-                  Market Box subscriptions require card payment. External payment options will not be available for this order.
+                  {term(vertical, 'market_box')} subscriptions require card payment. External payment options will not be available for this order.
                 </div>
               )}
 
@@ -179,7 +180,7 @@ export function CartDrawer() {
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                     }}>
-                      Market Box Subscriptions
+                      {term(vertical, 'market_box')} Subscriptions
                     </div>
                   )}
                   {marketBoxItems.map(item => (

@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors } from '@/lib/design-tokens'
 import { getFtTierLabel, FT_TIER_LIMITS, type FoodTruckTier } from '@/lib/vendor-limits'
+import { term } from '@/lib/vertical'
 
 export default function SubscriptionSuccessPage() {
   const params = useParams()
@@ -93,7 +94,7 @@ export default function SubscriptionSuccessPage() {
       ? `Your ${getFtTierLabel(tier)} plan is now active. You can start using all your ${getFtTierLabel(tier)} features right away.`
       : isVendor
         ? 'Your premium subscription is now active. You can now access all premium vendor features.'
-        : 'Your premium subscription is now active. You can now access Market Box subscriptions and other premium features.'
+        : `Your premium subscription is now active. You can now access ${term(vertical, 'market_box')} subscriptions and other premium features.`
 
   // FT tier-specific benefits
   const ftTierKey = (tier || 'free') as FoodTruckTier
@@ -190,14 +191,14 @@ export default function SubscriptionSuccessPage() {
               <li><strong>15 product listings</strong> (was 5)</li>
               <li><strong>4 traditional markets</strong> (was 1)</li>
               <li><strong>5 private pickup locations</strong> (was 1)</li>
-              <li><strong>6 Market Box offerings</strong> with unlimited subscribers</li>
+              <li><strong>6 {term(vertical, 'market_box')} offerings</strong> with unlimited subscribers</li>
               <li><strong>Priority placement</strong> in search results</li>
               <li><strong>Premium badge</strong> on your profile</li>
               <li><strong>Advanced analytics</strong></li>
             </ul>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: colors.primaryDark, lineHeight: 1.8 }}>
-              <li><strong>Market Box Subscriptions</strong> - exclusive access to vendor bundles</li>
+              <li><strong>{term(vertical, 'market_box')} Subscriptions</strong> - exclusive access to vendor bundles</li>
               <li><strong>Early access</strong> to new and seasonal listings</li>
               <li><strong>Priority support</strong> for faster response times</li>
               <li><strong>Premium member badge</strong></li>
