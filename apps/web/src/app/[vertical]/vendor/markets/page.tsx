@@ -31,6 +31,9 @@ type Market = {
   end_time?: string
   season_start?: string
   season_end?: string
+  event_start_date?: string | null
+  event_end_date?: string | null
+  event_url?: string | null
   expires_at?: string | null
   cutoff_hours?: number | null
   isHomeMarket?: boolean
@@ -1625,11 +1628,11 @@ export default function VendorMarketsPage() {
                       <p style={{ fontSize: 13,color: colors.textMuted, margin: '4px 0' }}>
                         {market.address}, {market.city}, {market.state}
                       </p>
-                      {(market as any).event_start_date && (
+                      {market.event_start_date && (
                         <p style={{ fontSize: 13,color: colors.primary, fontWeight: 600, margin: '4px 0' }}>
-                          {new Date((market as any).event_start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {(market as any).event_end_date !== (market as any).event_start_date && (
-                            <> – {new Date((market as any).event_end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</>
+                          {new Date(market.event_start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {market.event_end_date !== market.event_start_date && (
+                            <> – {new Date(market.event_end_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</>
                           )}
                         </p>
                       )}
@@ -1681,6 +1684,18 @@ export default function VendorMarketsPage() {
                     >
                       Manage Schedule
                     </button>
+                  )}
+
+                  {/* Schedule Selector - shown inline when this event is selected */}
+                  {selectedMarketForSchedule?.id === market.id && (
+                    <div style={{ marginTop: 16 }}>
+                      <MarketScheduleSelector
+                        marketId={market.id}
+                        marketName={market.name}
+                        vertical={vertical}
+                        onClose={() => setSelectedMarketForSchedule(null)}
+                      />
+                    </div>
                   )}
                 </div>
               ))}
