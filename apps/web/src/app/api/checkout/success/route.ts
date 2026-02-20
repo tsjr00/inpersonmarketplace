@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
+import { createRefund } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
@@ -94,9 +95,15 @@ export async function GET(request: NextRequest) {
       })
 
       if (insertError) {
-        throw traced.fromSupabase(insertError, { table: 'payments', operation: 'insert' })
+        // F1 FIX: Handle unique constraint violation as no-op (webhook may have inserted first)
+        if (insertError.code === '23505') {
+          crumb.logic('Payment record already exists (concurrent webhook), skipping')
+        } else {
+          throw traced.fromSupabase(insertError, { table: 'payments', operation: 'insert' })
+        }
+      } else {
+        crumb.logic('Payment record created')
       }
-      crumb.logic('Payment record created')
 
       // Inventory was already decremented at checkout time (checkout/session route).
       // Check stock levels and send notifications to vendors if needed.
@@ -219,6 +226,20 @@ export async function GET(request: NextRequest) {
               crumb.logic('Failed to create market box subscription', { error: rpcError.message, offeringId: mbItem.offeringId })
             } else if (result && !result.success) {
               crumb.logic('Market box at capacity, subscription not created', { offeringId: mbItem.offeringId, ...result })
+              // F6 FIX: Refund buyer for at-capacity market box
+              try {
+                await createRefund(paymentIntentId, mbItem.priceCents)
+                crumb.logic('Refund issued for at-capacity market box', {
+                  offeringId: mbItem.offeringId,
+                  refundCents: mbItem.priceCents,
+                })
+              } catch (refundErr) {
+                console.error('[MARKET_BOX_REFUND] Failed to refund at-capacity market box:', {
+                  offeringId: mbItem.offeringId,
+                  amount: mbItem.priceCents,
+                  error: refundErr instanceof Error ? refundErr.message : refundErr,
+                })
+              }
             } else if (result?.already_existed) {
               crumb.logic('Market box subscription already exists (idempotent)', { offeringId: mbItem.offeringId })
             } else {

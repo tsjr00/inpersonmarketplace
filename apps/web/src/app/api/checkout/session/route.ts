@@ -67,8 +67,9 @@ export async function POST(request: NextRequest) {
     }
     const hasMarketBoxes = marketBoxItems && marketBoxItems.length > 0
 
-    // Validate tip
-    const validTipAmount = Math.max(0, Math.round(tipAmountCents as number))
+    // Validate tip — F5 FIX: cap at $50 (5000 cents)
+    const MAX_TIP_CENTS = 5000
+    const validTipAmount = Math.min(Math.max(0, Math.round(tipAmountCents as number)), MAX_TIP_CENTS)
     const validTipPercentage = Math.max(0, Math.round(tipPercentage as number))
 
     crumb.auth('Checking user authentication')

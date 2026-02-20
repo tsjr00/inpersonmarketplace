@@ -559,6 +559,76 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // F8 FIX: Also retry pending_stripe_setup payouts where vendor now has Stripe ready
+      const { data: pendingStripePayouts } = await supabase
+        .from('vendor_payouts')
+        .select(`
+          id,
+          order_item_id,
+          vendor_profile_id,
+          amount_cents,
+          created_at,
+          vendor_profiles!inner (
+            stripe_account_id,
+            stripe_payouts_enabled,
+            user_id
+          ),
+          order_items!inner (
+            order_id
+          )
+        `)
+        .eq('status', 'pending_stripe_setup')
+        .order('created_at', { ascending: true })
+        .limit(MAX_PAYOUTS_PER_RUN)
+
+      if (pendingStripePayouts && pendingStripePayouts.length > 0) {
+        for (const payout of pendingStripePayouts) {
+          const vp = payout.vendor_profiles as unknown as {
+            stripe_account_id: string | null
+            stripe_payouts_enabled: boolean
+            user_id: string
+          }
+          const oi = payout.order_items as unknown as { order_id: string }
+
+          if (!vp?.stripe_account_id || !vp.stripe_payouts_enabled) {
+            continue // Vendor still doesn't have Stripe ready
+          }
+
+          payoutsRetried++
+          try {
+            const transfer = await transferToVendor({
+              amount: payout.amount_cents,
+              destination: vp.stripe_account_id,
+              orderId: oi.order_id,
+              orderItemId: payout.order_item_id,
+            })
+
+            await supabase
+              .from('vendor_payouts')
+              .update({
+                status: 'processing',
+                stripe_transfer_id: transfer.id,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', payout.id)
+
+            payoutsSucceeded++
+            totalProcessed++
+          } catch {
+            // Move to failed status so regular retry logic handles it
+            await supabase
+              .from('vendor_payouts')
+              .update({
+                status: 'failed',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', payout.id)
+
+            totalErrors++
+          }
+        }
+      }
+
       // Mark expired payouts (older than retry window) as cancelled
       const { data: expiredPayouts } = await supabase
         .from('vendor_payouts')
@@ -580,6 +650,33 @@ export async function GET(request: NextRequest) {
           `[Phase 5] ALERT: ${payoutsCancelled} payouts cancelled after ${MAX_RETRY_AGE_DAYS} days. ` +
           `Total: $${(totalCents / 100).toFixed(2)}. Manual resolution required.`
         )
+
+        // F9 FIX: Send admin alert email for permanently cancelled payouts
+        const adminEmail = process.env.ADMIN_ALERT_EMAIL
+        const apiKey = process.env.RESEND_API_KEY
+        if (adminEmail && apiKey) {
+          try {
+            const { Resend } = await import('resend')
+            const resend = new Resend(apiKey)
+            await resend.emails.send({
+              from: 'alerts@farmersmarketing.app',
+              to: adminEmail,
+              subject: `[ACTION REQUIRED] ${payoutsCancelled} vendor payout${payoutsCancelled === 1 ? '' : 's'} cancelled — $${(totalCents / 100).toFixed(2)} needs manual resolution`,
+              html: `
+                <h2 style="color:#dc2626;margin:0 0 16px">Vendor Payouts Cancelled</h2>
+                <p>${payoutsCancelled} vendor payout${payoutsCancelled === 1 ? '' : 's'} failed for ${MAX_RETRY_AGE_DAYS}+ days and ${payoutsCancelled === 1 ? 'has' : 'have'} been permanently cancelled.</p>
+                <p style="font-size:24px;font-weight:bold;margin:16px 0">$${(totalCents / 100).toFixed(2)}</p>
+                <p>These vendors were not paid. Manual resolution required:</p>
+                <ul>
+                  ${expiredPayouts.map(p => `<li>Payout ${p.id.slice(0, 8)}... — $${(p.amount_cents / 100).toFixed(2)}</li>`).join('')}
+                </ul>
+                <p style="color:#6b7280;font-size:12px;margin-top:24px">Check the vendor_payouts table for full details.</p>
+              `,
+            })
+          } catch (emailErr) {
+            console.error('[Phase 5] Failed to send admin alert email:', emailErr)
+          }
+        }
       }
     } catch (phase5Error) {
       console.error('Phase 5 error:', phase5Error instanceof Error ? phase5Error.message : 'Unknown error')

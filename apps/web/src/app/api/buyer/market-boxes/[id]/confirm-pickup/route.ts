@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { transferToVendor } from '@/lib/stripe/payments'
+import { FEES } from '@/lib/pricing'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -32,8 +34,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id, status,
         offering:market_box_offerings(
-          id, name, vertical_id, vendor_profile_id,
-          vendor_profiles(user_id, profile_data)
+          id, name, price_cents, vertical_id, vendor_profile_id,
+          vendor_profiles(user_id, profile_data, stripe_account_id, stripe_payouts_enabled)
         )
       `)
       .eq('id', subscriptionId)
@@ -129,6 +131,52 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
 
       // The trigger will auto-update subscription.weeks_completed
+
+      // F2 FIX: Transfer payout to vendor for completed market box pickup
+      const mbOffering = (subscription as any)?.offering
+      const perPickupPriceCents = mbOffering?.price_cents || 0
+
+      if (perPickupPriceCents > 0) {
+        const vendorPayoutCents = perPickupPriceCents - Math.round(perPickupPriceCents * (FEES.vendorFeePercent / 100))
+        const mbServiceClient = createServiceClient()
+        const mbVendor = mbOffering?.vendor_profiles
+
+        // Check for existing payout (prevent double payout)
+        const { data: existingMbPayout } = await mbServiceClient
+          .from('vendor_payouts')
+          .select('id')
+          .eq('market_box_pickup_id', pickup_id)
+          .neq('status', 'failed')
+          .maybeSingle()
+
+        if (!existingMbPayout && mbVendor?.stripe_account_id && mbVendor?.stripe_payouts_enabled) {
+          try {
+            const transfer = await transferToVendor({
+              amount: vendorPayoutCents,
+              destination: mbVendor.stripe_account_id,
+              orderId: subscriptionId,
+              orderItemId: pickup_id,
+            })
+
+            await mbServiceClient.from('vendor_payouts').insert({
+              market_box_pickup_id: pickup_id,
+              vendor_profile_id: mbOffering.vendor_profile_id,
+              amount_cents: vendorPayoutCents,
+              stripe_transfer_id: transfer.id,
+              status: 'processing',
+            })
+          } catch (transferErr) {
+            console.error('[MARKET_BOX_PAYOUT] Transfer failed:', transferErr)
+            await mbServiceClient.from('vendor_payouts').insert({
+              market_box_pickup_id: pickup_id,
+              vendor_profile_id: mbOffering.vendor_profile_id,
+              amount_cents: vendorPayoutCents,
+              stripe_transfer_id: null,
+              status: 'failed',
+            })
+          }
+        }
+      }
 
       return NextResponse.json({
         pickup: updated,

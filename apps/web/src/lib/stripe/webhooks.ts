@@ -1,4 +1,5 @@
 import { stripe } from './config'
+import { createRefund } from './payments'
 import Stripe from 'stripe'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/notifications'
@@ -126,7 +127,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
       .eq('id', orderId)
       .single()
 
-    await supabase.from('payments').insert({
+    const { error: insertError } = await supabase.from('payments').insert({
       order_id: orderId,
       stripe_payment_intent_id: paymentIntentId,
       amount_cents: session.amount_total!,
@@ -134,6 +135,16 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
       status: 'succeeded',
       paid_at: new Date().toISOString(),
     })
+
+    // F1 FIX: Handle unique constraint violation as no-op (success route may have inserted first)
+    if (insertError) {
+      if (insertError.code === '23505') {
+        crumb.stripe('Payment record already exists (concurrent success route), skipping')
+        return // success route handles the rest
+      }
+      await logError(new TracedError('ERR_WEBHOOK_010', `Payment insert failed: ${insertError.message}`, { route: '/webhooks/stripe', method: 'POST' }))
+      return
+    }
 
     // Process market box subscriptions from unified checkout (idempotent)
     if (session.metadata?.has_market_boxes === 'true' && session.metadata?.market_box_items && order?.buyer_user_id) {
@@ -162,6 +173,15 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
             crumb.stripe(`Market box RPC error for offering ${mbItem.offeringId}: ${rpcError.message}`)
           } else if (result && !result.success) {
             crumb.stripe(`Market box at capacity: ${mbItem.offeringId}`)
+            // F6 FIX: Refund buyer for at-capacity market box
+            try {
+              await createRefund(paymentIntentId, mbItem.priceCents)
+              crumb.stripe(`Refund issued for at-capacity market box: ${mbItem.offeringId}`)
+            } catch (refundErr) {
+              await logError(new TracedError('ERR_WEBHOOK_008', `Failed to refund at-capacity market box ${mbItem.offeringId}`, {
+                route: '/webhooks/stripe', method: 'POST', amount: mbItem.priceCents,
+              }))
+            }
           }
         }
         crumb.stripe(`Created ${marketBoxItems.length} market box subscription(s) for order ${orderId}`)
@@ -296,6 +316,15 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
 
   if (result && !result.success) {
     crumb.stripe(`Market box at capacity for offering ${offeringId}`)
+    // F6 FIX: Refund buyer for at-capacity market box (standalone checkout)
+    try {
+      await createRefund(paymentIntentId, priceCents)
+      crumb.stripe(`Refund issued for at-capacity standalone market box: ${offeringId}`)
+    } catch (refundErr) {
+      await logError(new TracedError('ERR_WEBHOOK_009', `Failed to refund at-capacity standalone market box ${offeringId}`, {
+        route: '/webhooks/stripe', method: 'POST', amount: priceCents,
+      }))
+    }
     return
   }
 

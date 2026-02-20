@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { createRefund } from '@/lib/stripe/payments'
+import { createRefund, transferToVendor } from '@/lib/stripe/payments'
 import { STRIPE_CONFIG } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
@@ -73,7 +73,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
             vendor_profiles (
               id,
               user_id,
-              profile_data
+              profile_data,
+              stripe_account_id,
+              stripe_payouts_enabled
             )
           )
         )
@@ -248,6 +250,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
         // DB is already updated as cancelled. Refund needs manual processing.
         // TODO: Send admin notification for failed refund
+      }
+    }
+
+    // F7 FIX: Transfer cancellation fee vendor share to vendor via Stripe
+    if (cancellationFeeApplied && vendorShareCents > 0 && stripeRefundId) {
+      const cancelVendor = (orderItem.listing as any)?.vendor_profiles
+      if (cancelVendor?.stripe_account_id && cancelVendor.stripe_payouts_enabled) {
+        try {
+          crumb.logic('Transferring cancellation fee vendor share', {
+            vendorShareCents,
+            vendorId: cancelVendor.id,
+          })
+          await transferToVendor({
+            amount: vendorShareCents,
+            destination: cancelVendor.stripe_account_id,
+            orderId: order.id,
+            orderItemId: orderItemId,
+          })
+        } catch (transferErr) {
+          console.error('[CANCEL_VENDOR_SHARE] Cancellation fee transfer failed:', {
+            orderItemId,
+            vendorShareCents,
+            error: transferErr instanceof Error ? transferErr.message : transferErr,
+          })
+        }
       }
     }
 

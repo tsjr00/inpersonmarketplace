@@ -49,6 +49,7 @@ export async function POST(
       .from('order_items')
       .select(`
         id,
+        status,
         order:orders!inner(id, order_number, buyer_user_id, vertical_id),
         listing:listings(title, vendor_profiles(profile_data)),
         market:markets!market_id(name)
@@ -59,6 +60,15 @@ export async function POST(
 
     if (!orderItem) {
       return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
+    }
+
+    // F4 FIX: Validate current status — only pending/confirmed items can be marked ready
+    const currentStatus = (orderItem as any).status
+    if (currentStatus && !['pending', 'confirmed'].includes(currentStatus)) {
+      return NextResponse.json({
+        error: `Cannot mark as ready — item is currently "${currentStatus}".`,
+        code: 'INVALID_STATUS_TRANSITION'
+      }, { status: 400 })
     }
 
     // Update status

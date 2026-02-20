@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { transferToVendor } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
+import {
+  getVendorFeeBalance,
+  calculateAutoDeductAmount,
+  recordFeeCredit
+} from '@/lib/payments/vendor-fees'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -126,7 +131,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
           ? Math.round((order as any).tip_amount / totalItemsInOrder)
           : 0
       }
-      const actualPayoutCents = orderItem.vendor_payout_cents + tipShareCents
+
+      // F3 FIX: Check for outstanding fee balance and calculate deduction
+      let feeDeductionCents = 0
+      const serviceClient = createServiceClient()
+
+      try {
+        const { balanceCents } = await getVendorFeeBalance(supabase, vendorProfile.id)
+        if (balanceCents > 0) {
+          feeDeductionCents = calculateAutoDeductAmount(
+            orderItem.vendor_payout_cents,
+            balanceCents
+          )
+          crumb.logic('Fee deduction calculated', {
+            balance: balanceCents,
+            deduction: feeDeductionCents,
+            payout: orderItem.vendor_payout_cents
+          })
+        }
+      } catch (feeError) {
+        console.error('Fee balance check failed:', feeError)
+      }
+
+      const actualPayoutCents = orderItem.vendor_payout_cents - feeDeductionCents + tipShareCents
 
       // Check if vendor was already paid (prevents double payout on race condition)
       crumb.supabase('select', 'vendor_payouts')
@@ -161,6 +188,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
               stripe_transfer_id: transfer.id,
               status: 'processing',
             })
+
+            // F3 FIX: Record fee credit if deduction was made
+            if (feeDeductionCents > 0) {
+              await recordFeeCredit(
+                serviceClient,
+                vendorProfile.id,
+                feeDeductionCents,
+                `Auto-deducted from Stripe payout`,
+                orderItem.order_id
+              )
+            }
           } catch (transferError) {
             console.error('Stripe transfer failed:', transferError)
             // Record failed payout for retry cron — buyer did their part
