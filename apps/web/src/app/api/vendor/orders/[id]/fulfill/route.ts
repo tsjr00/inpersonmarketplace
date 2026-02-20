@@ -10,6 +10,7 @@ import {
   recordFeeCredit
 } from '@/lib/payments/vendor-fees'
 import { sendNotification } from '@/lib/notifications'
+import { calculateTipShare } from '@/lib/payments/tip-math'
 
 export async function POST(
   request: NextRequest,
@@ -169,9 +170,7 @@ export async function POST(
           .from('order_items')
           .select('id', { count: 'exact', head: true })
           .eq('order_id', orderItem.order_id)
-        tipShareCents = totalItemsInOrder
-          ? Math.round(orderData.tip_amount / totalItemsInOrder)
-          : 0
+        tipShareCents = calculateTipShare(orderData.tip_amount, totalItemsInOrder)
         crumb.logic('Tip share calculated', {
           totalTip: orderData.tip_amount,
           items: totalItemsInOrder,

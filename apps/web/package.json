@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start -p 3002",
     "lint": "eslint",
-    "load-zip-codes": "npx tsx scripts/load-zip-codes.ts"
+    "load-zip-codes": "npx tsx scripts/load-zip-codes.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@stripe/stripe-js": "^8.6.1",
@@ -36,6 +38,7 @@
     "lint-staged": "^16.2.7",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }

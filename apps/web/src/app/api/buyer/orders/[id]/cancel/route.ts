@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createRefund, transferToVendor } from '@/lib/stripe/payments'
-import { STRIPE_CONFIG } from '@/lib/stripe/config'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { calculateCancellationFee, CANCELLATION_FEE_PERCENT } from '@/lib/payments/cancellation-fees'
 
 interface RouteContext {
   params: Promise<{ id: string }>
 }
-
-// Cancellation fee: 25% of what the buyer paid, retained and split between platform + vendor
-const CANCELLATION_FEE_PERCENT = 25
 
 // POST /api/buyer/orders/[id]/cancel - Buyer cancels an order item
 // Layer 1: Within 1-hour grace period → full refund (always wins)
@@ -120,54 +117,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw traced.validation('ERR_ORDER_002', 'Cannot cancel - this order has already been picked up.', { current_status: orderItem.status })
     }
 
-    // Determine cancellation penalty eligibility
-    // Layer 1: 1-hour grace period — always wins, no penalty
-    // Layer 2: After grace period, penalty only applies if vendor has confirmed the order
-    // Note: grace_period_ends_at column may not exist, so we calculate from created_at
-    const orderCreatedAt = order.created_at ? new Date(order.created_at) : new Date()
-    const gracePeriodEndsAt = new Date(orderCreatedAt.getTime() + 60 * 60 * 1000) // 1 hour after creation
-    const withinGracePeriod = new Date() < gracePeriodEndsAt
-    const vendorHasConfirmed = ['confirmed', 'ready', 'fulfilled'].includes(orderItem.status)
-
-    // Calculate what buyer originally paid for this item
-    // subtotal_cents is the base price, buyer paid base + buyer fee portion
-    // C3 FIX: Flat fee is once per ORDER, prorate across items (was previously charged per item)
-    const totalItemsInOrder = order.order_items?.length || 1
-    const flatFeePerItem = Math.round(STRIPE_CONFIG.buyerFlatFeeCents / totalItemsInOrder)
-    const buyerFeeOnItem = Math.round(orderItem.subtotal_cents * (STRIPE_CONFIG.buyerFeePercent / 100)) + flatFeePerItem
-    const buyerPaidForItem = orderItem.subtotal_cents + buyerFeeOnItem
-
-    let refundAmountCents: number
-    let cancellationFeeCents: number
-    let vendorShareCents: number
-    let platformShareCents: number
-    let cancellationFeeApplied = false
-
+    // Calculate cancellation fee using extracted pure function
     crumb.logic('Calculating refund amounts')
-    if (withinGracePeriod) {
-      // Layer 1: Within 1-hour grace — full refund, no questions asked
-      refundAmountCents = buyerPaidForItem
-      cancellationFeeCents = 0
-      vendorShareCents = 0
-      platformShareCents = 0
-    } else if (!vendorHasConfirmed) {
-      // After grace but vendor hasn't confirmed yet — still full refund
-      refundAmountCents = buyerPaidForItem
-      cancellationFeeCents = 0
-      vendorShareCents = 0
-      platformShareCents = 0
-    } else {
-      // After grace period AND vendor has confirmed: buyer gets 75% of what they paid
-      cancellationFeeApplied = true
-      refundAmountCents = Math.round(buyerPaidForItem * (1 - CANCELLATION_FEE_PERCENT / 100))
-      cancellationFeeCents = buyerPaidForItem - refundAmountCents
+    const orderCreatedAt = order.created_at ? new Date(order.created_at) : new Date()
+    const totalItemsInOrder = order.order_items?.length || 1
 
-      // Split the retained 25% between platform and vendor using normal fee percentages
-      // Platform takes its normal percentage from the retained amount
-      const platformPercentShare = Math.round(cancellationFeeCents * (STRIPE_CONFIG.applicationFeePercent / 100))
-      platformShareCents = platformPercentShare
-      vendorShareCents = cancellationFeeCents - platformShareCents
-    }
+    const {
+      refundAmountCents,
+      cancellationFeeCents,
+      vendorShareCents,
+      platformShareCents,
+      feeApplied: cancellationFeeApplied,
+      withinGracePeriod,
+      vendorHadConfirmed: vendorHasConfirmed,
+    } = calculateCancellationFee({
+      subtotalCents: orderItem.subtotal_cents,
+      totalItemsInOrder,
+      orderStatus: orderItem.status,
+      orderCreatedAt,
+    })
 
     // Update the order item as cancelled
     // Note: cancellation_fee_cents column doesn't exist - we only store refund_amount_cents

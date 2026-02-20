@@ -9,6 +9,7 @@ import {
   calculateAutoDeductAmount,
   recordFeeCredit
 } from '@/lib/payments/vendor-fees'
+import { calculateTipShare } from '@/lib/payments/tip-math'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -127,9 +128,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .from('order_items')
           .select('id', { count: 'exact', head: true })
           .eq('order_id', orderItem.order_id)
-        tipShareCents = totalItemsInOrder
-          ? Math.round((order as any).tip_amount / totalItemsInOrder)
-          : 0
+        tipShareCents = calculateTipShare((order as any).tip_amount, totalItemsInOrder)
       }
 
       // F3 FIX: Check for outstanding fee balance and calculate deduction
