@@ -520,6 +520,14 @@ export async function POST(request: NextRequest) {
     const platformFeeCents = orderPricing.platformFeeCents
     const totalCents = orderPricing.buyerTotalCents + validTipAmount
 
+    // Split tip into vendor portion and platform fee portion.
+    // Customer's tip is calculated on displayed subtotal (food + buyer fee).
+    // Vendor gets tip on food cost only. The remainder is platform fee tip.
+    const vendorTipCents = validTipPercentage > 0
+      ? Math.min(validTipAmount, Math.round(subtotalCents * validTipPercentage / 100))
+      : 0
+    const tipOnPlatformFeeCents = validTipAmount - vendorTipCents
+
     // Build pickup snapshots for each order item
     crumb.logic('Building pickup snapshots for order items')
     const pickupSnapshotPromises = orderItems.map(async (item) => {
@@ -666,6 +674,7 @@ export async function POST(request: NextRequest) {
         total_cents: totalCents,
         tip_percentage: validTipPercentage,
         tip_amount: validTipAmount,
+        tip_on_platform_fee_cents: tipOnPlatformFeeCents,
         stripe_checkout_session_id: session.id,
       })
 

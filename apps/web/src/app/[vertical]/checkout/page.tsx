@@ -516,12 +516,20 @@ export default function CheckoutPage() {
     return sum + item.price_cents * item.quantity
   }, 0)
 
-  // Tip calculation (food trucks only, on base subtotal before fees)
-  const tipAmountCents = vertical === 'food_trucks' ? Math.round(baseSubtotal * tipPercentage / 100) : 0
+  // Display subtotal = sum of per-item display prices (includes buyer % fee, per-item rounding)
+  // This matches what's shown next to each item AND what Stripe charges
+  const displaySubtotal = checkoutItems.reduce((sum, item) => {
+    if (item.itemType === 'market_box') {
+      return sum + calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
+    }
+    return sum + calculateDisplayPrice(item.price_cents) * item.quantity
+  }, 0)
 
-  // Calculate display total with platform fee + tip
-  // Use calculateBuyerPrice for order total (includes flat fee once)
-  const total = calculateBuyerPrice(baseSubtotal) + tipAmountCents
+  // Tip calculation (food trucks only, on displayed subtotal so math matches what customer sees)
+  const tipAmountCents = vertical === 'food_trucks' ? Math.round(displaySubtotal * tipPercentage / 100) : 0
+
+  // Total = displayed subtotal + flat fee + tip
+  const total = displaySubtotal + FEES.buyerFlatFeeCents + tipAmountCents
   const belowMinimum = baseSubtotal < MINIMUM_ORDER_CENTS
   const amountNeeded = belowMinimum ? ((MINIMUM_ORDER_CENTS - baseSubtotal) / 100).toFixed(2) : '0'
 
@@ -1178,7 +1186,7 @@ export default function CheckoutPage() {
                   color: colors.textMuted,
                 }}>
                   <span>Subtotal ({checkoutItems.reduce((s, i) => s + (i.itemType === 'market_box' ? 1 : i.quantity), 0)} items)</span>
-                  <span>{formatPrice(total - FEES.buyerFlatFeeCents)}</span>
+                  <span>{formatPrice(displaySubtotal)}</span>
                 </div>
                 <div style={{
                   display: 'flex',
@@ -1213,7 +1221,7 @@ export default function CheckoutPage() {
                       color: colors.textMuted,
                       marginBottom: spacing['2xs'],
                     }}>
-                      100% of your tip goes directly to the vendor
+                      Your tip goes directly to the vendor
                     </div>
                     <div style={{
                       display: 'flex',

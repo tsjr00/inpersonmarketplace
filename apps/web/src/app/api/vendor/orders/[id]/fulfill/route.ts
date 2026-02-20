@@ -57,7 +57,7 @@ export async function POST(
       .select(`
         id, status, vendor_payout_cents, order_id,
         buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount, tip_on_platform_fee_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -163,16 +163,20 @@ export async function POST(
       }
 
       // C1 FIX: Calculate tip share for this item
+      // Vendor gets tip on food cost only (total tip minus platform fee tip portion)
       const orderData = (orderItem as any).order as any
       let tipShareCents = 0
       if (orderData?.tip_amount && orderData.tip_amount > 0) {
+        const vendorTipCents = orderData.tip_amount - (orderData.tip_on_platform_fee_cents || 0)
         const { count: totalItemsInOrder } = await supabase
           .from('order_items')
           .select('id', { count: 'exact', head: true })
           .eq('order_id', orderItem.order_id)
-        tipShareCents = calculateTipShare(orderData.tip_amount, totalItemsInOrder)
+        tipShareCents = calculateTipShare(vendorTipCents, totalItemsInOrder)
         crumb.logic('Tip share calculated', {
           totalTip: orderData.tip_amount,
+          platformFeeTip: orderData.tip_on_platform_fee_cents || 0,
+          vendorTip: vendorTipCents,
           items: totalItemsInOrder,
           share: tipShareCents
         })

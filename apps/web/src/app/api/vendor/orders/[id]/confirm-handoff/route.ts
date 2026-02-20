@@ -53,7 +53,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id, status, vendor_payout_cents, order_id,
         buyer_confirmed_at, vendor_confirmed_at, vendor_profile_id,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount, tip_on_platform_fee_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -120,18 +120,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     crumb.logic('Processing vendor payout')
 
     // C1 FIX: Calculate tip share for this item
+    // Vendor gets tip on food cost only (total tip minus platform fee tip portion)
     const handoffOrder = (orderItem as any).order as any
     let tipShareCents = 0
     if (handoffOrder?.tip_amount && handoffOrder.tip_amount > 0) {
+      const vendorTipCents = handoffOrder.tip_amount - (handoffOrder.tip_on_platform_fee_cents || 0)
       const { count: totalItemsInOrder } = await supabase
         .from('order_items')
         .select('id', { count: 'exact', head: true })
         .eq('order_id', orderItem.order_id)
       tipShareCents = totalItemsInOrder
-        ? Math.round(handoffOrder.tip_amount / totalItemsInOrder)
+        ? Math.round(vendorTipCents / totalItemsInOrder)
         : 0
       crumb.logic('Tip share calculated', {
         totalTip: handoffOrder.tip_amount,
+        platformFeeTip: handoffOrder.tip_on_platform_fee_cents || 0,
+        vendorTip: vendorTipCents,
         items: totalItemsInOrder,
         share: tipShareCents
       })
