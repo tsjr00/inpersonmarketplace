@@ -659,7 +659,7 @@ export async function GET(request: NextRequest) {
             const { Resend } = await import('resend')
             const resend = new Resend(apiKey)
             await resend.emails.send({
-              from: 'alerts@farmersmarketing.app',
+              from: `Platform Alerts <${process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'}>`,
               to: adminEmail,
               subject: `[ACTION REQUIRED] ${payoutsCancelled} vendor payout${payoutsCancelled === 1 ? '' : 's'} cancelled — $${(totalCents / 100).toFixed(2)} needs manual resolution`,
               html: `
@@ -735,7 +735,7 @@ export async function GET(request: NextRequest) {
           const resend = new Resend(apiKey)
 
           await resend.emails.send({
-            from: 'alerts@farmersmarketing.app',
+            from: `Platform Alerts <${process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'}>`,
             to: adminEmail,
             subject: `[Daily Digest] ${pendingReports.length} error report${pendingReports.length === 1 ? '' : 's'} — ${sortedCodes.length} unique error${sortedCodes.length === 1 ? '' : 's'}`,
             html: `
