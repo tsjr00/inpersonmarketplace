@@ -42,6 +42,16 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
     notFound()
   }
 
+  const isEvent = market.market_type === 'event'
+  const eventStartDate = market.event_start_date as string | null
+  const eventEndDate = market.event_end_date as string | null
+  const eventUrl = market.event_url as string | null
+
+  const formatEventDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  }
+
   // Fetch vendors with listings from API
   const baseUrl = getAppUrl()
   let vendorsData: { vendors: VendorWithListings[]; categories: string[] } = { vendors: [], categories: [] }
@@ -193,7 +203,19 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             marginBottom: spacing.xs,
             flexWrap: 'wrap'
           }}>
-            <span style={{ fontSize: 28, flexShrink: 0 }}>{term(vertical, 'market_icon_emoji')}</span>
+            <span style={{ fontSize: 28, flexShrink: 0 }}>{isEvent ? '🎪' : term(vertical, 'market_icon_emoji')}</span>
+            {isEvent && (
+              <span style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: '#fef3c7',
+                color: '#92400e',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+              }}>
+                {term(vertical, 'event')}
+              </span>
+            )}
             <h1 style={{
               color: branding.colors.primary,
               margin: 0,
@@ -239,6 +261,46 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             </p>
           )}
 
+          {/* Event dates */}
+          {isEvent && eventStartDate && eventEndDate && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: spacing.xs,
+              marginBottom: spacing.xs,
+              padding: spacing.sm,
+              backgroundColor: '#fef3c7',
+              borderRadius: radius.md,
+              border: '1px solid #fde68a'
+            }}>
+              <span style={{ fontSize: 20 }}>📅</span>
+              <div>
+                <div style={{
+                  fontWeight: typography.weights.semibold,
+                  color: '#92400e',
+                  fontSize: typography.sizes.base
+                }}>
+                  {formatEventDate(eventStartDate)}
+                  {eventStartDate !== eventEndDate && ` – ${formatEventDate(eventEndDate)}`}
+                </div>
+                {eventUrl && (
+                  <a
+                    href={eventUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: branding.colors.primary,
+                      fontSize: typography.sizes.sm,
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Event website →
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Location */}
           {fullAddress && (
             <div style={{
@@ -280,7 +342,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
               👥 {vendorsData.vendors.length} vendor{vendorsData.vendors.length !== 1 ? 's' : ''}
             </span>
-            {nextMarketDate && (
+            {!isEvent && nextMarketDate && (
               <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                 📅 Next: {nextMarketDate.toLocaleDateString('en-US', {
                   weekday: 'short',
@@ -304,7 +366,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 color: colors.textSecondary,
                 margin: `0 0 ${spacing['2xs']} 0`
               }}>
-                {term(vertical, 'market_hours')}
+                {isEvent ? 'Event Hours' : term(vertical, 'market_hours')}
               </h3>
               <ScheduleDisplay schedules={market.market_schedules} grid />
             </div>
@@ -437,7 +499,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             fontSize: typography.sizes.xl,
             fontWeight: typography.weights.semibold
           }}>
-            {term(vertical, 'vendors')} at {market.name}
+            {isEvent ? `${term(vertical, 'vendors')} at This Event` : `${term(vertical, 'vendors')} at ${market.name}`}
           </h2>
 
           <MarketVendorsList
