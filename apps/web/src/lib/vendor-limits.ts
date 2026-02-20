@@ -216,7 +216,7 @@ export async function getTraditionalMarketUsage(
     .from('listings')
     .select('market_id, markets!inner(market_type)')
     .eq('vendor_profile_id', vendorProfileId)
-    .eq('status', 'active')
+    .eq('status', 'published')
     .not('market_id', 'is', null)
 
   // Get markets from active market boxes
@@ -312,7 +312,7 @@ export async function getListingUsage(
     .from('listings')
     .select('*', { count: 'exact', head: true })
     .eq('vendor_profile_id', vendorProfileId)
-    .eq('status', 'active')
+    .eq('status', 'published')
 
   return { count: error ? 0 : (count || 0) }
 }
@@ -504,12 +504,12 @@ export async function canChangeHomeMarket(
     .select('*', { count: 'exact', head: true })
     .eq('vendor_profile_id', vendorProfileId)
     .eq('market_id', currentHomeMarketId)
-    .eq('status', 'active')
+    .eq('status', 'published')
 
   if (listingCount && listingCount > 0) {
     return {
       allowed: false,
-      reason: `Cannot change home market: ${listingCount} active listing(s) at current home market. Deactivate or move them first.`,
+      reason: `Cannot change home market: ${listingCount} published listing(s) at current home market. Unpublish or move them first.`,
     }
   }
 
