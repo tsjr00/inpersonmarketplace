@@ -56,6 +56,7 @@ export type NotificationType =
   | 'payout_processed'
   | 'payout_failed'
   | 'vendor_cancellation_warning'
+  | 'vendor_quality_alert'
   // Admin-facing
   | 'new_vendor_application'
   | 'issue_disputed'
@@ -84,6 +85,8 @@ export interface NotificationTemplateData {
   resolution?: string
   paymentMethod?: string
   pendingOrderCount?: number
+  findingsCount?: number
+  findingsSummary?: string
 }
 
 export interface NotificationTypeConfig {
@@ -284,6 +287,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `Order Cancellation Rate Notice`,
     message: (d) => `Your order cancellation rate is ${d.cancellationRate ? `${d.cancellationRate}%` : 'above average'} (${d.cancelledCount || 0} cancelled out of ${d.confirmedCount || 0} confirmed orders). Confirming an order is a commitment to fulfill it. Continued cancellations may result in account restrictions. If you are experiencing issues fulfilling orders, please reach out to support.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  vendor_quality_alert: {
+    urgency: 'standard',
+    audience: 'vendor',
+    title: (d) => `Quality Check: ${d.findingsCount || 0} item${(d.findingsCount || 0) !== 1 ? 's' : ''} need attention`,
+    message: (d) => d.findingsSummary || `We found ${d.findingsCount || 0} potential issue${(d.findingsCount || 0) !== 1 ? 's' : ''} with your listings or schedule. Please review.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/quality`,
   },
 
   // ── Admin-facing ─────────────────────────────────────────────────

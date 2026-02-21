@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/vendor-activity-scan",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/vendor-quality-checks",
+      "schedule": "0 10 * * *"
     }
   ]
 }

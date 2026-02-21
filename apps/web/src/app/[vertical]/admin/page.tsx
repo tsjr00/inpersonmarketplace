@@ -554,7 +554,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             </p>
           </Link>
 
-          {/* CSV Reports Card */}
+          {/* Reports & Quality Checks Card */}
           <Link
             href={`/${vertical}/admin/reports`}
             style={{
@@ -571,11 +571,11 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
               <span style={{ fontSize: typography.sizes['2xl'] }}>📋</span>
               <h3 style={{ margin: 0, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.primary }}>
-                CSV Reports
+                Reports
               </h3>
             </div>
             <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: 0 }}>
-              Export sales, vendors, and customer data
+              CSV exports and vendor quality checks
             </p>
           </Link>
         </div>
