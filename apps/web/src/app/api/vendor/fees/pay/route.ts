@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getVendorFeeBalance } from '@/lib/payments/vendor-fees'
 import { stripe } from '@/lib/stripe/config'
+import { getStatementSuffix } from '@/lib/stripe/payments'
 import { getAppUrl } from '@/lib/environment'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -80,6 +81,9 @@ export async function POST(request: NextRequest) {
               quantity: 1
             }
           ],
+          payment_intent_data: {
+            statement_descriptor_suffix: getStatementSuffix(vertical_id),
+          },
           metadata: {
             type: 'vendor_fee_payment',
             vendor_profile_id: vendor_id,

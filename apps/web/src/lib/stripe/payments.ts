@@ -4,6 +4,20 @@ import { stripe } from './config'
 // Use calculateOrderPricing() from there instead
 
 /**
+ * Get Stripe statement descriptor suffix for a vertical.
+ * Appears on buyer bank statements after the platform name (815ENTERPRISES).
+ * Max 22 chars. Stripe auto-uppercases and strips invalid chars.
+ */
+export function getStatementSuffix(vertical?: string | null): string {
+  switch (vertical) {
+    case 'food_trucks': return 'FOOD TRUCKN'
+    case 'fire_works': return 'FIREWORKS'
+    case 'farmers_market': return 'FARMERS MARKETING'
+    default: return 'MARKETPLACE'
+  }
+}
+
+/**
  * Create checkout session
  */
 export async function createCheckoutSession({
@@ -13,6 +27,7 @@ export async function createCheckoutSession({
   successUrl,
   cancelUrl,
   metadata,
+  vertical,
 }: {
   orderId: string
   orderNumber: string
@@ -25,6 +40,7 @@ export async function createCheckoutSession({
   successUrl: string
   cancelUrl: string
   metadata?: Record<string, string>
+  vertical?: string
 }) {
   const lineItems = items.map((item) => ({
     price_data: {
@@ -46,6 +62,9 @@ export async function createCheckoutSession({
       success_url: successUrl,
       cancel_url: cancelUrl,
       client_reference_id: orderId,
+      payment_intent_data: {
+        statement_descriptor_suffix: getStatementSuffix(vertical),
+      },
       metadata: {
         order_id: orderId,
         order_number: orderNumber,
@@ -106,6 +125,7 @@ export async function createMarketBoxCheckoutSession({
   startDate,
   successUrl,
   cancelUrl,
+  vertical,
 }: {
   offeringId: string
   offeringName: string
@@ -115,6 +135,7 @@ export async function createMarketBoxCheckoutSession({
   startDate: string
   successUrl: string
   cancelUrl: string
+  vertical?: string
 }) {
   // Deterministic idempotency key — retries hit the same Stripe session instead of creating duplicates
   const idempotencyKey = `market-box-${offeringId}-${userId}-${startDate}`
@@ -139,6 +160,9 @@ export async function createMarketBoxCheckoutSession({
       success_url: successUrl,
       cancel_url: cancelUrl,
       client_reference_id: `market_box_${offeringId}_${userId}`,
+      payment_intent_data: {
+        statement_descriptor_suffix: getStatementSuffix(vertical),
+      },
       metadata: {
         type: 'market_box',
         offering_id: offeringId,

@@ -646,6 +646,7 @@ export async function POST(request: NextRequest) {
       items: checkoutItems,
       successUrl,
       cancelUrl,
+      vertical,
       metadata: hasMarketBoxes ? {
         has_market_boxes: 'true',
         market_box_items: JSON.stringify(marketBoxItems!.map(mb => ({
