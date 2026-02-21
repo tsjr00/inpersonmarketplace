@@ -79,6 +79,7 @@
 | 20260220_041_add_tip_on_platform_fee.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Add tip_on_platform_fee_cents to orders. Applied to all 3 envs. |
 | 20260220_042_fix_remaining_security_definer_search_paths.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | SET search_path=public on 11 SECURITY DEFINER functions. Applied to all 3 envs. |
 | 20260220_043_vendor_payout_unique_constraint.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Partial unique index on vendor_payouts(order_item_id). Applied to all 3 envs. |
+| 20260221_046_supabase_linter_fixes.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Merged 9 overlapping permissive policies, dropped 4 duplicate indexes, added 18 FK indexes, dropped 4 legacy indexes. Applied to all 3 envs. |
 
 ---
 

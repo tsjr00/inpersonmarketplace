@@ -1,60 +1,65 @@
-# Session 41 — Systems Audit Implementation
-Started: 2026-02-20
+# Current Task: Supabase Linter Issues Remediation
+
+Started: 2026-02-21
 
 ## Goal
-Implement approved fixes from comprehensive systems audit (17 items across security, data integrity, order lifecycle, infrastructure, and polish).
+Address all warnings/suggestions from the Supabase database linter (staging environment) in a single migration.
 
-## Status: ALL 17 ITEMS COMPLETE
+## Status
+- [x] Read entire linter report file
+- [x] Categorized all issues
+- [x] Explored codebase — found all policy definitions + duplicate index pairs
+- [x] Written remediation plan
+- [x] Got user approval
+- [x] Created migration: `supabase/migrations/20260221_046_supabase_linter_fixes.sql`
+- [x] Updated SCHEMA_SNAPSHOT.md changelog
+- [ ] User applies migration to staging
+- [ ] Re-run Supabase linter to verify warnings resolved
+- [ ] Test key flows on staging
+- [ ] Move migration to applied/ after confirmation
 
-Full checklist: `apps/web/.claude/session41_audit_checklist.md`
+## Migration Contents (046)
 
-## Summary of All Completed Items
+### Part 1: Merged 9 Overlapping Permissive Policies
+1. **knowledge_articles**: Replaced FOR ALL + FOR SELECT with single SELECT (public + admin) + 3 per-op admin policies (INSERT, UPDATE, DELETE)
+2. **payments**: Merged buyer_select + admin_select into single SELECT
+3. **shopper_feedback**: Merged user + platform admin + vertical admin into single SELECT
+4. **vendor_fee_balance**: Merged vendor + admin into single SELECT
+5. **vendor_fee_ledger**: Merged vendor + admin into single SELECT
+6. **vendor_feedback**: Merged vendor + platform admin + vertical admin into single SELECT
+7. **vendor_profiles**: Dropped redundant `vendor_profiles_admin_select` (main policy already comprehensive)
+8. **vendor_verifications**: Merged vendor + admin UPDATE into single UPDATE with USING + WITH CHECK
+9. **zip_codes**: Replaced FOR ALL + FOR SELECT with single SELECT (public) + 3 per-op admin policies
 
-### Security & Data Integrity
-- **C2**: Phase 7 in cron — auto-fulfills stale confirmation windows (partially done; daily cron, Vercel upgrade is next step)
-- **C3**: Migration 042 — `SET search_path = public` for 11 SECURITY DEFINER functions
-- **C4**: Migration 043 — Partial unique index on `vendor_payouts(order_item_id)`
-- **M8**: Admin login rate limiting — `/api/admin/login` with `rateLimits.auth` (5/min)
+### Part 2: Dropped 4 Duplicate Indexes
+- idx_market_box_subscriptions_offering_active (kept idx_market_box_subs_active)
+- idx_order_items_order_id (kept idx_order_items_order)
+- idx_orders_buyer_user_id (kept idx_orders_buyer)
+- idx_orders_parent_id (kept idx_orders_parent)
 
-### Order Lifecycle
-- **H3**: `payout_failed` notification type + notification in fulfill route catch block
-- **H4**: Full issue resolution flow — vendor self-resolve endpoint, admin notification on dispute
-- **M4**: Refunded status transition — cancel and reject routes now set `status='refunded'` after Stripe refund
-- **M7**: Already handled by existing cron Phases 1-3 (confirmed, no new code needed)
-- **M3**: Schedule deletion/deactivation guards in PATCH and DELETE handlers
+### Part 3: Added 18 FK Indexes
+admin_activity_log(vertical_id), error_reports(4 columns), knowledge_articles(vertical_id),
+market_box_subscriptions(order_id), markets(reviewed_by), orders(external_payment_confirmed_by),
+shopper_feedback(resolved_by), vendor_activity_flags(resolved_by), vendor_activity_settings(updated_by),
+vendor_feedback(resolved_by), vendor_location_cache(source_market_id), vendor_referral_credits(voided_by),
+vendor_verifications(coi_verified_by, reviewed_by), vertical_admins(granted_by)
 
-### Infrastructure & Polish
-- **L1**: GitHub Actions CI/CD — `.github/workflows/ci.yml` (lint + type-check + test)
-- **L2**: Bundle analyzer — `@next/bundle-analyzer` + `npm run analyze`
-- **L6**: DateRangePicker color — fixed fallback from green to `#166534`
-- **L7**: Cache headers — `Cache-Control: no-store` via middleware for sensitive paths
-- **H6**: Schema snapshot timestamp — bumped to 2026-02-20
-- **H2**: External payment fees verified correct (3.5% seller + 6.5% buyer = 10% total)
-- **M5**: 7 new tip rounding test cases for 3+ items at odd prices — all pass
-- **L4**: Function reference directory — 57 functions cataloged in `supabase/functions/README.md`
-
-## Pending Actions
-1. **Apply migrations 042 + 043** to Staging, then Prod (after user testing)
-2. **Update schema snapshot** after migrations applied (changelog + structured tables if needed)
-3. **Commit and push** to staging for testing
+### Part 4: Dropped 4 Legacy Indexes
+- idx_transactions_listing, idx_transactions_vendor (legacy transactions table)
+- idx_fulfillments_transaction, idx_fulfillments_status (legacy fulfillments table)
 
 ## Key Decisions Made
-- C1 (external payment completion): SKIPPED — Claude's understanding of external payment UX was wrong. Must re-discuss before implementing.
-- H4: Vendors can self-resolve issues; admin notified if vendor disputes buyer's claim.
-- M7: No new code needed — existing Phases 1-3 already handle inventory cleanup.
-- H2: Fee structure is intentionally different for external (3.5% vendor) vs Stripe (6.5% vendor).
+- **FOR ALL → per-operation split**: knowledge_articles and zip_codes had FOR ALL admin policies overlapping with FOR SELECT public policies. Simply dropping the SELECT wouldn't help — FOR ALL still generates a permissive SELECT. Had to break FOR ALL into INSERT + UPDATE + DELETE separately.
+- **payments policy name**: Original was `payments_buyer_select` (from migration 001). Dropped both possible names with IF EXISTS for safety.
+- **Used `(SELECT is_platform_admin())`**: Standard helper function, consistent with rest of codebase.
+- **Used `user_vendor_profile_ids()`**: SECURITY DEFINER helper that bypasses RLS for vendor profile lookups (avoids recursion).
+- **Conservative on unused indexes**: Only dropped 4 legacy indexes on transactions/fulfillments. Kept all other "unused" indexes — staging has low data, they'll be needed at scale.
 
-## Deferred Items (9 total)
-- C1: External payment completion (needs UX discussion)
-- H1: Test coverage expansion
-- H5: Dev environment sync
-- M2: FT outlined buttons (~50 remaining)
-- M6: Redis rate limiting (after MVP)
-- M9: Texas validation
-- M10: CSP nonces
-- L3: Error tracking (at launch)
-- L5: External payment system testing
+## Files Modified
+- `supabase/migrations/20260221_046_supabase_linter_fixes.sql` — NEW migration
+- `supabase/SCHEMA_SNAPSHOT.md` — changelog entry added
 
-## Migrations Created This Session (NOT YET APPLIED)
-- `20260220_042_fix_remaining_security_definer_search_paths.sql`
-- `20260220_043_vendor_payout_unique_constraint.sql`
+## Gotchas / Watch Out For
+- FOR ALL policies in PostgreSQL create implicit permissive policies for ALL operations including SELECT — can't just merge the SELECT overlay
+- `payments_buyer_select` vs `payments_select` — unclear which name is in DB, dropped both with IF EXISTS
+- After applying, must run `NOTIFY pgrst, 'reload schema'` (included in migration)
