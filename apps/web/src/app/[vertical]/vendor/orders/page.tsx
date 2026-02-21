@@ -43,6 +43,7 @@ interface Order {
   id: string
   order_number: string
   order_status: string
+  payment_method?: string
   customer_name: string
   total_cents: number
   created_at: string
@@ -230,6 +231,42 @@ export default function VendorOrdersPage() {
         }
       }
     })
+  }
+
+  const handleConfirmExternalPayment = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/vendor/orders/${orderId}/confirm-external-payment`, {
+        method: 'POST'
+      })
+      if (res.ok) {
+        setToast({ message: 'Payment confirmed! Order is now active.', type: 'success' })
+        fetchOrders()
+      } else {
+        const error = await res.json()
+        setToast({ message: error.error || 'Failed to confirm payment', type: 'error' })
+      }
+    } catch (error) {
+      console.error('Error confirming external payment:', error)
+      setToast({ message: 'An error occurred', type: 'error' })
+    }
+  }
+
+  const handleConfirmCashComplete = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/vendor/orders/${orderId}/confirm-cash-complete`, {
+        method: 'POST'
+      })
+      if (res.ok) {
+        setToast({ message: 'Cash payment confirmed and order completed!', type: 'success' })
+        fetchOrders()
+      } else {
+        const error = await res.json()
+        setToast({ message: error.error || 'Failed to complete cash order', type: 'error' })
+      }
+    } catch (error) {
+      console.error('Error completing cash order:', error)
+      setToast({ message: 'An error occurred', type: 'error' })
+    }
   }
 
   const handleClearFilters = () => {
@@ -474,6 +511,8 @@ export default function VendorOrdersPage() {
                   onReadyItem={handleReadyItem}
                   onFulfillItem={handleFulfillItem}
                   onRejectItem={handleRejectItem}
+                  onConfirmExternalPayment={handleConfirmExternalPayment}
+                  onConfirmCashComplete={handleConfirmCashComplete}
                 />
               </div>
             )

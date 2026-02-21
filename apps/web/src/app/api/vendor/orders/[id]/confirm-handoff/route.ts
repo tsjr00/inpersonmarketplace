@@ -53,7 +53,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(`
         id, status, vendor_payout_cents, order_id,
         buyer_confirmed_at, vendor_confirmed_at, vendor_profile_id,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount, tip_on_platform_fee_cents),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, tip_amount, tip_on_platform_fee_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -76,13 +76,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const now = new Date()
+    const handoffOrderData = (orderItem as any).order as any
+    const isExternalPayment = handoffOrderData?.payment_method && handoffOrderData.payment_method !== 'stripe'
 
-    // Verify Stripe is ready BEFORE marking fulfilled (so we don't get fulfilled + no payout)
+    // Verify Stripe is ready BEFORE marking fulfilled (skip for external payment orders)
     const isProd = process.env.NODE_ENV === 'production'
     const isDev = !isProd
     const hasStripe = !!vendorProfile.stripe_account_id
 
-    if (isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
+    if (!isExternalPayment && isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
       crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
       try {
         const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id)
@@ -116,15 +118,34 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       .eq('id', orderItemId)
 
+    if (isExternalPayment) {
+      // External payment: no Stripe transfer needed — fees handled via ledger
+      crumb.logic('External payment order — skipping Stripe transfer')
+      await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
+
+      const handoffListing = (orderItem as any).listing as any
+      const handoffVendorName = handoffListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+      await sendNotification(handoffOrderData.buyer_user_id, 'order_fulfilled', {
+        orderNumber: handoffOrderData.order_number,
+        vendorName: handoffVendorName,
+        itemTitle: handoffListing?.title,
+      }, { vertical: handoffOrderData.vertical_id })
+
+      return NextResponse.json({
+        success: true,
+        message: 'Handoff confirmed. External payment was already confirmed.',
+        vendor_confirmed_at: now.toISOString()
+      })
+    }
+
     // Trigger Stripe transfer to vendor
     crumb.logic('Processing vendor payout')
 
     // C1 FIX: Calculate tip share for this item
     // Vendor gets tip on food cost only (total tip minus platform fee tip portion)
-    const handoffOrder = (orderItem as any).order as any
     let tipShareCents = 0
-    if (handoffOrder?.tip_amount && handoffOrder.tip_amount > 0) {
-      const vendorTipCents = handoffOrder.tip_amount - (handoffOrder.tip_on_platform_fee_cents || 0)
+    if (handoffOrderData?.tip_amount && handoffOrderData.tip_amount > 0) {
+      const vendorTipCents = handoffOrderData.tip_amount - (handoffOrderData.tip_on_platform_fee_cents || 0)
       const { count: totalItemsInOrder } = await supabase
         .from('order_items')
         .select('id', { count: 'exact', head: true })
@@ -133,8 +154,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ? Math.round(vendorTipCents / totalItemsInOrder)
         : 0
       crumb.logic('Tip share calculated', {
-        totalTip: handoffOrder.tip_amount,
-        platformFeeTip: handoffOrder.tip_on_platform_fee_cents || 0,
+        totalTip: handoffOrderData.tip_amount,
+        platformFeeTip: handoffOrderData.tip_on_platform_fee_cents || 0,
         vendorTip: vendorTipCents,
         items: totalItemsInOrder,
         share: tipShareCents
@@ -248,13 +269,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
 
     // Notify buyer that order is fulfilled
-    const handoffOrderData = (orderItem as any).order as any
-    const handoffListing = (orderItem as any).listing as any
-    const handoffVendorName = handoffListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+    const stripeHandoffListing = (orderItem as any).listing as any
+    const stripeHandoffVendorName = stripeHandoffListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
     await sendNotification(handoffOrderData.buyer_user_id, 'order_fulfilled', {
       orderNumber: handoffOrderData.order_number,
-      vendorName: handoffVendorName,
-      itemTitle: handoffListing?.title,
+      vendorName: stripeHandoffVendorName,
+      itemTitle: stripeHandoffListing?.title,
     }, { vertical: handoffOrderData.vertical_id })
 
     return NextResponse.json({

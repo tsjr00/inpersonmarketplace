@@ -65,11 +65,24 @@ function formatFulfilledDateTime(dateStr: string | null | undefined): string | n
   })
 }
 
+// Format payment method for display
+function formatPaymentMethod(method: string): string {
+  const labels: Record<string, string> = {
+    venmo: 'Venmo',
+    cashapp: 'Cash App',
+    paypal: 'PayPal',
+    cash: 'Cash',
+    stripe: 'Card',
+  }
+  return labels[method] || method
+}
+
 interface OrderCardProps {
   order: {
     id: string
     order_number: string
     order_status: string
+    payment_method?: string
     customer_name: string
     total_cents: number
     created_at: string
@@ -79,6 +92,8 @@ interface OrderCardProps {
   onReadyItem?: (itemId: string) => void
   onFulfillItem?: (itemId: string) => void
   onRejectItem?: (itemId: string, reason: string) => void
+  onConfirmExternalPayment?: (orderId: string) => void
+  onConfirmCashComplete?: (orderId: string) => void
 }
 
 function formatPrice(cents: number): string {
@@ -104,8 +119,13 @@ function getMostUrgentStatus(items: OrderItem[]): string {
   return 'cancelled'
 }
 
-export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem }: OrderCardProps) {
+export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onConfirmCashComplete }: OrderCardProps) {
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
+  const [externalConfirmDialog, setExternalConfirmDialog] = useState(false)
+
+  const isExternalPayment = order.payment_method && order.payment_method !== 'stripe'
+  const isCash = order.payment_method === 'cash'
+  const isPendingExternal = isExternalPayment && order.order_status === 'pending'
   const orderDate = new Date(order.created_at).toLocaleDateString()
   const orderTime = new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
@@ -186,9 +206,25 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
             </span>
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#374151' }}>
-              {order.customer_name}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#374151' }}>
+                {order.customer_name}
+              </p>
+              {isExternalPayment && (
+                <span style={{
+                  padding: '2px 8px',
+                  backgroundColor: isCash ? '#fef3c7' : '#fef3c7',
+                  color: '#92400e',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5
+                }}>
+                  {formatPaymentMethod(order.payment_method!)}
+                </span>
+              )}
+            </div>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#6b7280' }}>
               Ordered: {orderDate} at {orderTime}
             </p>
@@ -249,6 +285,46 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
           </span>
         ))}
       </div>
+
+      {/* External Payment Banner */}
+      {isPendingExternal && (
+        <div style={{
+          padding: 14,
+          backgroundColor: '#fffbeb',
+          border: '2px solid #f59e0b',
+          borderRadius: 8,
+          marginBottom: 16
+        }}>
+          <p style={{ margin: 0, fontWeight: 700, color: '#92400e', fontSize: 14 }}>
+            {isCash
+              ? 'Cash Payment — Customer will pay at pickup'
+              : `Payment sent via ${formatPaymentMethod(order.payment_method!)} — Verify and confirm below`
+            }
+          </p>
+          <p style={{ margin: '6px 0 12px 0', fontSize: 13, color: '#78350f' }}>
+            {isCash
+              ? 'When the customer pays you in cash, click the button below to confirm payment and complete the order.'
+              : `Check your ${formatPaymentMethod(order.payment_method!)} account for a payment of ${formatPrice(order.total_cents)}. Once verified, confirm below to start preparing the order.`
+            }
+          </p>
+          <button
+            onClick={() => setExternalConfirmDialog(true)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: isCash ? '#16a34a' : '#f59e0b',
+              color: isCash ? 'white' : '#78350f',
+              border: 'none',
+              borderRadius: 6,
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              minHeight: 40
+            }}
+          >
+            {isCash ? 'Confirm Cash & Complete Order' : 'Confirm Payment Received'}
+          </button>
+        </div>
+      )}
 
       {/* Items */}
       <div>
@@ -341,8 +417,8 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                     </div>
                   )}
 
-                  {/* Item Actions - hide for cancelled or fulfilled items */}
-                  {!item.cancelled_at && item.status !== 'cancelled' && item.status !== 'fulfilled' && (
+                  {/* Item Actions - hide for cancelled, fulfilled, or pending external payment items */}
+                  {!item.cancelled_at && item.status !== 'cancelled' && item.status !== 'fulfilled' && !isPendingExternal && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                       {item.status === 'pending' && onConfirmItem && (
                         <button
@@ -428,6 +504,25 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
           ))}
         </div>
       </div>
+      <ConfirmDialog
+        open={externalConfirmDialog}
+        title={isCash ? 'Confirm Cash Payment & Complete' : 'Confirm Payment Received'}
+        message={isCash
+          ? `Confirm that you received cash payment of ${formatPrice(order.total_cents)} from ${order.customer_name}? This will complete the order immediately.`
+          : `Confirm that you received ${formatPaymentMethod(order.payment_method || '')} payment of ${formatPrice(order.total_cents)} from ${order.customer_name}? This will move the order to active status.`
+        }
+        confirmLabel={isCash ? 'Confirm Cash & Complete' : 'Confirm Payment'}
+        variant="default"
+        onConfirm={() => {
+          setExternalConfirmDialog(false)
+          if (isCash && onConfirmCashComplete) {
+            onConfirmCashComplete(order.id)
+          } else if (onConfirmExternalPayment) {
+            onConfirmExternalPayment(order.id)
+          }
+        }}
+        onCancel={() => setExternalConfirmDialog(false)}
+      />
       <ConfirmDialog
         open={rejectDialog.open}
         title="Can't Fulfill Item"

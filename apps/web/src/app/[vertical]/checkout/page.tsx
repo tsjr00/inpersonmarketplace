@@ -96,6 +96,7 @@ export default function CheckoutPage() {
   const [tipPercentage, setTipPercentage] = useState<number>(0)
   const [customTipInput, setCustomTipInput] = useState<string>('')
   const [showCustomTip, setShowCustomTip] = useState(false)
+  const [unresolvedExternalCount, setUnresolvedExternalCount] = useState(0)
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
   const isSubmittingRef = useRef(false)
@@ -385,6 +386,26 @@ export default function CheckoutPage() {
 
     fetchPaymentMethods()
   }, [checkoutItems])
+
+  // Check for unresolved external payment orders (non-blocking warning)
+  useEffect(() => {
+    async function checkUnresolvedExternalOrders() {
+      if (!user) return
+      try {
+        const res = await fetch(`/api/buyer/orders?vertical=${vertical}`)
+        if (res.ok) {
+          const data = await res.json()
+          const unresolved = (data.orders || []).filter((o: { payment_method: string; status: string }) =>
+            o.payment_method && o.payment_method !== 'stripe' && o.status === 'handed_off'
+          )
+          setUnresolvedExternalCount(unresolved.length)
+        }
+      } catch {
+        // Non-critical — don't block checkout on failure
+      }
+    }
+    checkUnresolvedExternalOrders()
+  }, [user, vertical])
 
   async function handleCheckout() {
     // Prevent double-click submissions using ref (faster than state)
@@ -1545,6 +1566,39 @@ export default function CheckoutPage() {
                     />
                     I understand I&apos;ll visit multiple locations
                   </label>
+                </div>
+              )}
+
+              {/* Unresolved External Orders Warning */}
+              {unresolvedExternalCount > 0 && (
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: '#ecfdf5',
+                  border: `2px solid #10b981`,
+                  borderRadius: radius.md,
+                  marginBottom: spacing.sm,
+                }}>
+                  <p style={{
+                    margin: 0,
+                    fontWeight: typography.weights.semibold,
+                    color: '#065f46',
+                    fontSize: typography.sizes.sm,
+                  }}>
+                    You have {unresolvedExternalCount} external payment order{unresolvedExternalCount !== 1 ? 's' : ''} awaiting your confirmation.
+                  </p>
+                  <Link
+                    href={`/${vertical}/buyer/orders`}
+                    style={{
+                      display: 'inline-block',
+                      marginTop: spacing.xs,
+                      color: '#065f46',
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.medium,
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    Review and confirm your orders →
+                  </Link>
                 </div>
               )}
 

@@ -76,6 +76,7 @@ interface OrderDetail {
   id: string
   order_number: string
   status: string
+  payment_method?: string
   total_cents: number
   tip_percentage: number
   tip_amount: number
@@ -501,6 +502,26 @@ export default function BuyerOrderDetailPage() {
               }}>
                 Vendor: {primaryVendor}
               </p>
+
+              {/* Payment method badge for external payments */}
+              {order.payment_method && order.payment_method !== 'stripe' && (
+                <div style={{
+                  display: 'inline-block',
+                  padding: `${spacing['3xs']} ${spacing.sm}`,
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold,
+                  marginBottom: spacing.sm,
+                  border: '1px solid rgba(255,255,255,0.3)'
+                }}>
+                  {order.payment_method === 'cash' ? 'Cash at Pickup' :
+                   order.payment_method === 'venmo' ? 'Paid via Venmo' :
+                   order.payment_method === 'cashapp' ? 'Paid via Cash App' :
+                   order.payment_method === 'paypal' ? 'Paid via PayPal' :
+                   order.payment_method}
+                </div>
+              )}
 
               {/* Item count — with partial readiness context */}
               <p style={{

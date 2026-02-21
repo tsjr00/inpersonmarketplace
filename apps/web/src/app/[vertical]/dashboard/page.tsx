@@ -12,6 +12,7 @@ import FeedbackCard from '@/components/buyer/FeedbackCard'
 import VendorFeedbackCard from '@/components/vendor/VendorFeedbackCard'
 import ReferralCard from '@/app/[vertical]/vendor/dashboard/ReferralCard'
 import RateOrderCard from '@/components/buyer/RateOrderCard'
+import ExternalOrderFollowUp from '@/components/buyer/ExternalOrderFollowUp'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
@@ -450,6 +451,9 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             </Link>
           </div>
         )}
+
+        {/* External Order Follow-Up — confirm pickup for external payment orders */}
+        <ExternalOrderFollowUp vertical={vertical} />
 
         {/* Rate Recent Order Card */}
         <RateOrderCard vertical={vertical} />

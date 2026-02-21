@@ -39,15 +39,9 @@ export async function POST(
     return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
   }
 
-  // Require Stripe setup before vendors can confirm orders
-  // This prevents creating buyer expectations when payment processing isn't ready
+  // Require Stripe setup before vendors can confirm orders (skip for external payment orders)
   const isProd = process.env.NODE_ENV === 'production'
-  if (isProd && !vendorProfile.stripe_account_id) {
-    return NextResponse.json({
-      error: 'Please complete your Stripe setup before confirming orders. Go to Dashboard > Payment Methods to connect your account.',
-      code: 'STRIPE_NOT_CONNECTED'
-    }, { status: 400 })
-  }
+  // We'll check payment_method after fetching the order item below
 
   // Verify vendor owns this order item and get buyer/order info for notification
   const { data: orderItem } = await supabase
@@ -55,7 +49,7 @@ export async function POST(
     .select(`
       id,
       status,
-      order:orders!inner(id, order_number, buyer_user_id, vertical_id),
+      order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method),
       listing:listings(title, vendor_profiles(profile_data))
     `)
     .eq('id', orderItemId)
@@ -64,6 +58,16 @@ export async function POST(
 
   if (!orderItem) {
     return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
+  }
+
+  // Skip Stripe requirement for external payment orders
+  const orderData = (orderItem as any).order as any
+  const isExternalPayment = orderData?.payment_method && orderData.payment_method !== 'stripe'
+  if (isProd && !isExternalPayment && !vendorProfile.stripe_account_id) {
+    return NextResponse.json({
+      error: 'Please complete your Stripe setup before confirming orders. Go to Dashboard > Payment Methods to connect your account.',
+      code: 'STRIPE_NOT_CONNECTED'
+    }, { status: 400 })
   }
 
   // Validate current status — only pending items can be confirmed
@@ -89,7 +93,6 @@ export async function POST(
   })
 
   // Notify buyer that vendor confirmed their order
-  const orderData = (orderItem as any).order as any
   const listing = (orderItem as any).listing as any
   const vendorName = listing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
   await sendNotification(orderData.buyer_user_id, 'order_confirmed', {

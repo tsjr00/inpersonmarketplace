@@ -30,6 +30,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id,
         order_number,
         status,
+        payment_method,
         total_cents,
         tip_percentage,
         tip_amount,

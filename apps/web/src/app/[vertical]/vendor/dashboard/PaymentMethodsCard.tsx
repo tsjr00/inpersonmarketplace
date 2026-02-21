@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { validatePaymentUsername } from '@/lib/payments/external-links'
 
 interface PaymentMethodsCardProps {
   vendorId: string
@@ -70,6 +71,27 @@ export default function PaymentMethodsCard({
     setSaving(true)
     setError(null)
     setSuccess(false)
+
+    // Validate usernames before saving
+    const venmoValidation = validatePaymentUsername('venmo', venmoUsername || null)
+    const cashappValidation = validatePaymentUsername('cashapp', cashappCashtag || null)
+    const paypalValidation = validatePaymentUsername('paypal', paypalUsername || null)
+
+    if (!venmoValidation.valid) {
+      setError(venmoValidation.error || 'Invalid Venmo username')
+      setSaving(false)
+      return
+    }
+    if (!cashappValidation.valid) {
+      setError(cashappValidation.error || 'Invalid Cash App tag')
+      setSaving(false)
+      return
+    }
+    if (!paypalValidation.valid) {
+      setError(paypalValidation.error || 'Invalid PayPal username')
+      setSaving(false)
+      return
+    }
 
     try {
       const response = await fetch('/api/vendor/profile', {
@@ -334,6 +356,21 @@ export default function PaymentMethodsCard({
               borderRadius: radius.sm
             }}>
               External payments: 6.5% + $0.15 buyer fee, 3.5% seller fee (auto-deducted from card sales)
+            </p>
+          )}
+
+          {/* Username accuracy warning */}
+          {(venmoUsername || cashappCashtag || paypalUsername) && (
+            <p style={{
+              fontSize: typography.sizes.xs,
+              color: '#92400e',
+              margin: `${spacing['2xs']} 0 0 0`,
+              padding: spacing['2xs'],
+              backgroundColor: '#fffbeb',
+              borderRadius: radius.sm,
+              border: '1px solid #fde68a'
+            }}>
+              Double-check your usernames — if wrong, customer payments will go to someone else.
             </p>
           )}
 

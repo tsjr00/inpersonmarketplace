@@ -42,6 +42,9 @@ export type NotificationType =
   | 'issue_resolved'
   // Vendor-facing
   | 'new_paid_order'
+  | 'new_external_order'
+  | 'external_payment_reminder'
+  | 'external_payment_auto_confirmed'
   | 'order_cancelled_by_buyer'
   | 'vendor_approved'
   | 'vendor_rejected'
@@ -79,6 +82,8 @@ export interface NotificationTemplateData {
   offeringName?: string
   subscriptionId?: string
   resolution?: string
+  paymentMethod?: string
+  pendingOrderCount?: number
 }
 
 export interface NotificationTypeConfig {
@@ -167,6 +172,30 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `New Order Received`,
     message: (d) => `${d.buyerName || 'A customer'} placed order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''}.${d.marketName ? ` Pickup at ${d.marketName}` : ''}${d.pickupDate ? ` on ${d.pickupDate}` : ''}.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  new_external_order: {
+    urgency: 'immediate',
+    audience: 'vendor',
+    title: () => `New External Payment Order`,
+    message: (d) => `New order #${d.orderNumber} via ${d.paymentMethod || 'external payment'}! ${d.paymentMethod === 'cash' ? 'Customer will pay cash at pickup.' : `Check your ${d.paymentMethod} account and confirm when you've received`}${d.amountCents ? ` $${(d.amountCents / 100).toFixed(2)}` : ''}.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard/orders`,
+  },
+
+  external_payment_reminder: {
+    urgency: 'immediate',
+    audience: 'vendor',
+    title: () => `Unconfirmed External Payment Orders`,
+    message: (d) => `You have ${d.pendingOrderCount || ''} unconfirmed external payment order${(d.pendingOrderCount || 0) > 1 ? 's' : ''}. Please verify payment and confirm in your dashboard.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard/orders`,
+  },
+
+  external_payment_auto_confirmed: {
+    urgency: 'standard',
+    audience: 'vendor',
+    title: () => `External Payment Auto-Confirmed`,
+    message: (d) => `Order #${d.orderNumber} was auto-confirmed because the pickup date has passed. If you did not receive payment, please dispute within 7 days by contacting support.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard/orders`,
   },
 
   order_cancelled_by_buyer: {

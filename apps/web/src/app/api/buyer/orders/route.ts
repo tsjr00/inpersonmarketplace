@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         id,
         order_number,
         status,
+        payment_method,
         total_cents,
         created_at,
         updated_at,
@@ -263,6 +264,7 @@ export async function GET(request: NextRequest) {
         order_number: order.order_number,
         status: effectiveStatus,
         payment_status: order.status, // Keep original for reference
+        payment_method: order.payment_method || 'stripe',
         total_cents: order.total_cents,
         created_at: order.created_at,
         updated_at: order.updated_at,

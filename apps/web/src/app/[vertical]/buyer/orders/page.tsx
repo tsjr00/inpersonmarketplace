@@ -8,10 +8,23 @@ import { colors, spacing, typography, radius, shadows, containers } from '@/lib/
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { term } from '@/lib/vertical'
 
+// Format payment method for display
+function formatPaymentMethodLabel(method: string | undefined): string | null {
+  if (!method || method === 'stripe') return null
+  const labels: Record<string, string> = {
+    venmo: 'Paid via Venmo',
+    cashapp: 'Paid via Cash App',
+    paypal: 'Paid via PayPal',
+    cash: 'Cash at Pickup',
+  }
+  return labels[method] || null
+}
+
 interface Order {
   id: string
   order_number: string
   status: string
+  payment_method?: string
   total_cents: number
   created_at: string
   type?: 'order' | 'market_box'
@@ -435,13 +448,29 @@ export default function BuyerOrdersPage() {
                     <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                       {formatPrice(orderTotal)}
                     </span>
-                    <span style={{
-                      color: config.color,
-                      fontSize: typography.sizes.xs,
-                      fontWeight: typography.weights.semibold,
-                    }}>
-                      {config.label}
-                    </span>
+                    <div style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{
+                        color: config.color,
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.semibold,
+                      }}>
+                        {config.label}
+                      </span>
+                      {formatPaymentMethodLabel(order.payment_method) && (
+                        <span style={{
+                          padding: `1px ${spacing['2xs']}`,
+                          backgroundColor: '#fef3c7',
+                          color: '#92400e',
+                          borderRadius: radius.sm,
+                          fontSize: 10,
+                          fontWeight: typography.weights.bold,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.3
+                        }}>
+                          {formatPaymentMethodLabel(order.payment_method)}
+                        </span>
+                      )}
+                    </div>
                     <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                       {new Date(order.created_at).toLocaleDateString('en-US', {
                         month: 'short',
@@ -629,6 +658,27 @@ export default function BuyerOrdersPage() {
                     }}>
                       <span style={{ fontSize: typography.sizes.lg }}>✓</span>
                       All items in your order have been confirmed
+                    </p>
+                  </div>
+                )}
+
+                {/* External Payment Instructions Banner */}
+                {order.payment_method && order.payment_method !== 'stripe' && order.status === 'pending' && (
+                  <div style={{
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    borderTop: `1px solid #f59e0b`,
+                    backgroundColor: '#fffbeb',
+                  }}>
+                    <p style={{
+                      margin: 0,
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.semibold,
+                      color: '#92400e',
+                    }}>
+                      {order.payment_method === 'cash'
+                        ? 'Bring cash to your pickup — vendor will confirm when you pay'
+                        : `Send payment via ${formatPaymentMethodLabel(order.payment_method)?.replace('Paid via ', '') || order.payment_method} — vendor will confirm once received`
+                      }
                     </p>
                   </div>
                 )}

@@ -59,6 +59,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           order_number,
           buyer_user_id,
           vertical_id,
+          payment_method,
           tip_amount
         )
       `)
@@ -91,6 +92,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const now = new Date()
     const vendorAlreadyFulfilled = orderItem.status === 'fulfilled'
 
+    const isExternalPayment = (order as any)?.payment_method && (order as any).payment_method !== 'stripe'
+
     if (vendorAlreadyFulfilled) {
       // EDGE CASE: Vendor fulfilled first, now buyer acknowledges
       // Complete the transaction and trigger payment
@@ -120,6 +123,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
           vendor_confirmed_at: now.toISOString(), // Auto-complete since vendor already fulfilled
         })
         .eq('id', orderItemId)
+
+      if (isExternalPayment) {
+        // External payment: no Stripe transfer needed — fees handled via ledger
+        crumb.logic('External payment order — skipping Stripe transfer')
+        await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
+
+        return NextResponse.json({
+          success: true,
+          message: 'Receipt acknowledged. Transaction complete!',
+          buyer_confirmed_at: now.toISOString(),
+          completed: true
+        })
+      }
 
       // C1 FIX: Calculate tip share for this item
       let tipShareCents = 0

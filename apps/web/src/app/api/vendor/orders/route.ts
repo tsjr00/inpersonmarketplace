@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
     if (orderIds.length > 0) {
       const { data: orders } = await supabaseService
         .from('orders')
-        .select('id, order_number, status, total_cents, created_at, buyer_user_id')
+        .select('id, order_number, status, total_cents, created_at, buyer_user_id, payment_method')
         .in('id', orderIds)
 
       orders?.forEach((o: any) => {
@@ -183,6 +183,7 @@ export async function GET(request: NextRequest) {
           id: orderId,
           order_number: order?.order_number || orderId.slice(0, 8),
           order_status: order?.status || 'pending',
+          payment_method: order?.payment_method || 'stripe',
           customer_name: buyerNames[buyerId] || 'Customer',
           total_cents: order?.total_cents || 0,
           created_at: order?.created_at || item.created_at,

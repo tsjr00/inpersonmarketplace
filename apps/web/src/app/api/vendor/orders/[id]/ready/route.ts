@@ -35,14 +35,9 @@ export async function POST(
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     }
 
-    // Require Stripe setup before vendors can mark orders as ready
+    // Require Stripe setup before vendors can mark orders as ready (skip for external payment orders)
     const isProd = process.env.NODE_ENV === 'production'
-    if (isProd && !vendorProfile.stripe_account_id) {
-      return NextResponse.json({
-        error: 'Please complete your Stripe setup before processing orders. Go to Dashboard > Payment Methods to connect your account.',
-        code: 'STRIPE_NOT_CONNECTED'
-      }, { status: 400 })
-    }
+    // We'll check payment_method after fetching the order item below
 
     // Verify vendor owns this order item and get buyer/order info for notification
     const { data: orderItem } = await supabase
@@ -50,7 +45,7 @@ export async function POST(
       .select(`
         id,
         status,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method),
         listing:listings(title, vendor_profiles(profile_data)),
         market:markets!market_id(name)
       `)
@@ -60,6 +55,16 @@ export async function POST(
 
     if (!orderItem) {
       return NextResponse.json({ error: 'Order item not found' }, { status: 404 })
+    }
+
+    // Skip Stripe requirement for external payment orders
+    const orderData = (orderItem as any).order as any
+    const isExternalPayment = orderData?.payment_method && orderData.payment_method !== 'stripe'
+    if (isProd && !isExternalPayment && !vendorProfile.stripe_account_id) {
+      return NextResponse.json({
+        error: 'Please complete your Stripe setup before processing orders. Go to Dashboard > Payment Methods to connect your account.',
+        code: 'STRIPE_NOT_CONNECTED'
+      }, { status: 400 })
     }
 
     // F4 FIX: Validate current status — only pending/confirmed items can be marked ready
@@ -82,7 +87,6 @@ export async function POST(
     }
 
     // Notify buyer that their order is ready for pickup (IMMEDIATE urgency)
-    const orderData = (orderItem as any).order as any
     const listing = (orderItem as any).listing as any
     const vendorName = listing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
     await sendNotification(orderData.buyer_user_id, 'order_ready', {

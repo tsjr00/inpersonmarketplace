@@ -15,6 +15,7 @@ import { colors, spacing, typography, radius, shadows, containers } from '@/lib/
 import { term } from '@/lib/vertical'
 import { getTierLimits } from '@/lib/vendor-limits'
 import UpcomingPickupItem from './UpcomingPickupItem'
+import ExternalPaymentBanner from '@/components/vendor/ExternalPaymentBanner'
 
 interface VendorDashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -272,6 +273,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           <div style={{ marginBottom: spacing.md }}>
             <OnboardingChecklist vertical={vertical} vendorStatus={vendorProfile.status} />
           </div>
+        )}
+
+        {/* External Payment Banner — pending orders needing vendor confirmation */}
+        {vendorProfile.status === 'approved' && (
+          <ExternalPaymentBanner vertical={vertical} />
         )}
 
         {/* ============================================= */}

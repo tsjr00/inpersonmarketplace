@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { generatePaymentLink, ExternalPaymentMethod } from '@/lib/payments/external-links'
+import { sendNotification } from '@/lib/notifications'
 import {
   calculateExternalBuyerFee,
   calculateExternalPaymentTotal,
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
           vendor_profile_id,
           vendor_profiles (
             id,
+            user_id,
             profile_data,
             stripe_account_id,
             venmo_username,
@@ -136,6 +138,7 @@ export async function POST(request: NextRequest) {
       vendor_profile_id: string
       vendor_profiles: {
         id: string
+        user_id: string
         profile_data: Record<string, unknown> | null
         stripe_account_id: string | null
         venmo_username: string | null
@@ -322,6 +325,18 @@ export async function POST(request: NextRequest) {
     // Clear the buyer's cart now that order is created
     crumb.supabase('delete', 'cart_items')
     await supabase.from('cart_items').delete().eq('cart_id', cartId)
+
+    // Notify vendor about the new external payment order
+    const vendorUserId = vendor.user_id
+    if (vendorUserId) {
+      const methodLabel = payment_method === 'cashapp' ? 'Cash App'
+        : payment_method.charAt(0).toUpperCase() + payment_method.slice(1)
+      await sendNotification(vendorUserId, 'new_external_order', {
+        orderNumber,
+        paymentMethod: methodLabel,
+        amountCents: totalCents,
+      }, { vertical })
+    }
 
     // Generate payment link
     const paymentLink = generatePaymentLink(

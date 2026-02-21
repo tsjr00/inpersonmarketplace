@@ -6,6 +6,7 @@ import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
 import { FEES } from '@/lib/pricing'
+import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -26,6 +27,8 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 1: Expire order items vendors didn't confirm in time
  * Phase 2: Cancel Stripe orders where buyer never completed payment (10min window)
  * Phase 3: Cancel external payment orders past their pickup date
+ * Phase 3.5: Vendor reminder for unconfirmed external orders (2+ hours old)
+ * Phase 3.6: Auto-confirm digital external orders (24h after pickup date)
  * Phase 4: Notify buyers about missed pickups
  * Phase 5: Retry failed vendor payouts (Stripe transfers)
  * Phase 6: Error report digest — email admin a summary of pending reports
@@ -339,6 +342,206 @@ export async function GET(request: NextRequest) {
       }
     } catch (phase3Error) {
       console.error('Phase 3 error:', phase3Error instanceof Error ? phase3Error.message : 'Unknown error')
+    }
+
+    // ============================================================
+    // PHASE 3.5: Vendor reminder for unconfirmed external orders
+    // Nudge vendors who haven't confirmed external payment 2+ hours
+    // after order was placed (same day) or 24+ hours (events).
+    // Does NOT auto-confirm — just sends a reminder notification.
+    // ============================================================
+    let externalReminders = 0
+    try {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+
+      const { data: unreminderOrders, error: reminderError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          payment_method,
+          total_cents,
+          buyer_user_id,
+          vertical_id,
+          order_items (
+            id,
+            vendor_profile_id,
+            vendor_profiles (
+              id,
+              user_id,
+              profile_data
+            )
+          )
+        `)
+        .eq('status', 'pending')
+        .in('payment_method', ['venmo', 'cashapp', 'paypal', 'cash'])
+        .is('external_payment_confirmed_at', null)
+        .lte('created_at', twoHoursAgo)
+        .limit(50)
+
+      if (reminderError) {
+        console.error('[Phase 3.5] Error fetching unconfirmed external orders:', reminderError.message)
+      } else if (unreminderOrders && unreminderOrders.length > 0) {
+        // Group by vendor to send one reminder per vendor
+        const vendorOrders = new Map<string, { userId: string; orderCount: number; vertical: string }>()
+        for (const order of unreminderOrders) {
+          const items = order.order_items as unknown as Array<{
+            id: string
+            vendor_profile_id: string
+            vendor_profiles: { id: string; user_id: string; profile_data?: unknown }
+          }>
+          for (const item of items) {
+            const vp = item.vendor_profiles
+            if (vp?.user_id && !vendorOrders.has(vp.user_id)) {
+              vendorOrders.set(vp.user_id, {
+                userId: vp.user_id,
+                orderCount: 0,
+                vertical: order.vertical_id || 'farmers_market',
+              })
+            }
+            const entry = vendorOrders.get(vp?.user_id || '')
+            if (entry) entry.orderCount++
+          }
+        }
+
+        for (const [, vendor] of vendorOrders) {
+          await sendNotification(vendor.userId, 'external_payment_reminder', {
+            pendingOrderCount: vendor.orderCount,
+          }, { vertical: vendor.vertical })
+          externalReminders++
+        }
+
+        if (externalReminders > 0) {
+          console.log(`[Phase 3.5] Sent ${externalReminders} vendor reminders for unconfirmed external orders`)
+        }
+      }
+    } catch (phase35Error) {
+      console.error('Phase 3.5 error:', phase35Error instanceof Error ? phase35Error.message : 'Unknown error')
+    }
+
+    // ============================================================
+    // PHASE 3.6: Auto-confirm digital external orders 24h after pickup
+    // Digital orders (Venmo/CashApp/PayPal) where vendor never
+    // confirmed payment and pickup_date + 24 hours has passed.
+    // Auto-confirm payment, record fees, notify vendor.
+    // Cash orders are NOT auto-confirmed (no way to verify exchange).
+    // ============================================================
+    let externalAutoConfirmed = 0
+    try {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      const yesterdayDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD
+
+      const { data: staleDigitalOrders, error: digitalError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          payment_method,
+          subtotal_cents,
+          total_cents,
+          buyer_user_id,
+          vertical_id,
+          order_items (
+            id,
+            pickup_date,
+            cancelled_at,
+            vendor_profile_id,
+            subtotal_cents,
+            vendor_profiles (
+              id,
+              user_id,
+              profile_data
+            )
+          )
+        `)
+        .eq('status', 'pending')
+        .in('payment_method', ['venmo', 'cashapp', 'paypal'])
+        .is('external_payment_confirmed_at', null)
+        .limit(50)
+
+      if (digitalError) {
+        console.error('[Phase 3.6] Error fetching stale digital orders:', digitalError.message)
+      } else if (staleDigitalOrders && staleDigitalOrders.length > 0) {
+        for (const order of staleDigitalOrders) {
+          try {
+            const items = order.order_items as unknown as Array<{
+              id: string
+              pickup_date: string | null
+              cancelled_at: string | null
+              vendor_profile_id: string
+              subtotal_cents: number
+              vendor_profiles: { id: string; user_id: string; profile_data?: unknown }
+            }>
+
+            const activeItems = items.filter(i => !i.cancelled_at)
+            if (activeItems.length === 0) continue
+
+            // All active items must have pickup_date 24+ hours ago
+            const allPastWindow = activeItems.every(item => {
+              if (!item.pickup_date) return false
+              return item.pickup_date <= yesterdayDate
+            })
+
+            if (!allPastWindow) continue
+
+            const now = new Date().toISOString()
+
+            // Record platform fees
+            for (const item of activeItems) {
+              await recordExternalPaymentFee(
+                supabase,
+                item.vendor_profile_id,
+                order.id,
+                item.subtotal_cents
+              )
+            }
+
+            // Auto-confirm: update order status to paid
+            await supabase
+              .from('orders')
+              .update({
+                status: 'paid',
+                external_payment_confirmed_at: now,
+                external_payment_confirmed_by: 'system',
+                updated_at: now,
+              })
+              .eq('id', order.id)
+
+            // Update order items to confirmed
+            await supabase
+              .from('order_items')
+              .update({
+                status: 'confirmed',
+                updated_at: now,
+              })
+              .eq('order_id', order.id)
+              .is('cancelled_at', null)
+
+            // Notify vendor
+            const firstVendor = activeItems[0]?.vendor_profiles
+            if (firstVendor?.user_id) {
+              const methodLabel = order.payment_method === 'cashapp' ? 'Cash App'
+                : order.payment_method.charAt(0).toUpperCase() + order.payment_method.slice(1)
+              await sendNotification(firstVendor.user_id, 'external_payment_auto_confirmed', {
+                orderNumber: order.order_number,
+                paymentMethod: methodLabel,
+              }, { vertical: order.vertical_id || 'farmers_market' })
+            }
+
+            externalAutoConfirmed++
+            totalProcessed++
+          } catch (orderError) {
+            console.error('[Phase 3.6] Error auto-confirming external order:', orderError instanceof Error ? orderError.message : 'Unknown error')
+            totalErrors++
+          }
+        }
+
+        if (externalAutoConfirmed > 0) {
+          console.log(`[Phase 3.6] Auto-confirmed ${externalAutoConfirmed} digital external orders`)
+        }
+      }
+    } catch (phase36Error) {
+      console.error('Phase 3.6 error:', phase36Error instanceof Error ? phase36Error.message : 'Unknown error')
     }
 
     // ============================================================
@@ -877,6 +1080,7 @@ export async function GET(request: NextRequest) {
       processed: totalProcessed,
       errors: totalErrors,
       payouts: { retried: payoutsRetried, succeeded: payoutsSucceeded, cancelled: payoutsCancelled },
+      externalPayments: { reminders: externalReminders, autoConfirmed: externalAutoConfirmed },
       errorDigest: { reportsSummarized: errorReportsSummarized },
       staleWindows: { fulfilled: staleWindowsFulfilled },
     })

@@ -57,7 +57,7 @@ export async function POST(
       .select(`
         id, status, vendor_payout_cents, order_id,
         buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
-        order:orders!inner(id, order_number, buyer_user_id, vertical_id, tip_amount, tip_on_platform_fee_cents),
+        order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, tip_amount, tip_on_platform_fee_cents),
         listing:listings(title, vendor_profiles(profile_data))
       `)
       .eq('id', orderItemId)
@@ -67,6 +67,8 @@ export async function POST(
     if (!orderItem) {
       throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
     }
+
+    const orderData = (orderItem as any).order as any
 
     // Check if already fulfilled
     if (orderItem.vendor_confirmed_at) {
@@ -99,12 +101,13 @@ export async function POST(
       }
 
       // NORMAL FLOW: Buyer acknowledged first, vendor fulfills within 30-second window
-      // Verify Stripe is ready BEFORE marking fulfilled (so we don't get fulfilled + no payout)
       const isProd = process.env.NODE_ENV === 'production'
       const isDev = !isProd
       const hasStripe = !!vendorProfile.stripe_account_id
+      const isExternalPayment = orderData?.payment_method && orderData.payment_method !== 'stripe'
 
-      if (isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
+      // Skip Stripe verification for external payment orders (no Stripe transfer needed)
+      if (!isExternalPayment && isProd && hasStripe && !vendorProfile.stripe_payouts_enabled) {
         crumb.logic('Cached stripe_payouts_enabled is falsy, checking live status')
         try {
           const liveStatus = await getAccountStatus(vendorProfile.stripe_account_id)
@@ -138,6 +141,31 @@ export async function POST(
         })
         .eq('id', orderItemId)
 
+      if (isExternalPayment) {
+        // External payment: no Stripe transfer needed — fees handled via ledger at confirm-external-payment
+        crumb.logic('External payment order — skipping Stripe transfer')
+
+        // Atomically mark order completed if all items are fully confirmed
+        crumb.logic('Checking atomic order completion')
+        await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
+
+        // Notify buyer that order is fulfilled
+        const fulfillListing = (orderItem as any).listing as any
+        const fulfillVendorName = fulfillListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+        await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
+          orderNumber: orderData.order_number,
+          vendorName: fulfillVendorName,
+          itemTitle: fulfillListing?.title,
+        }, { vertical: orderData.vertical_id })
+
+        return NextResponse.json({
+          success: true,
+          message: 'Order fulfilled. External payment was already confirmed.',
+          completed: true,
+          vendor_confirmed_at: now.toISOString()
+        })
+      }
+
       crumb.logic('Processing vendor payout')
 
       // Check for outstanding fee balance and calculate deduction
@@ -164,7 +192,6 @@ export async function POST(
 
       // C1 FIX: Calculate tip share for this item
       // Vendor gets tip on food cost only (total tip minus platform fee tip portion)
-      const orderData = (orderItem as any).order as any
       let tipShareCents = 0
       if (orderData?.tip_amount && orderData.tip_amount > 0) {
         const vendorTipCents = orderData.tip_amount - (orderData.tip_on_platform_fee_cents || 0)
@@ -249,7 +276,6 @@ export async function POST(
           console.error('Stripe transfer failed:', transferError)
 
           // H3 FIX: Notify vendor that payout failed
-          const orderData = orderItem.order as unknown as { order_number?: string; vertical_id?: string }
           await sendNotification(user.id, 'payout_failed', {
             orderNumber: orderData?.order_number || orderItemId.slice(0, 8),
             amountCents: actualPayoutCents,
