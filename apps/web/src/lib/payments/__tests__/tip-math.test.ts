@@ -31,6 +31,23 @@ describe('calculateTipShare', () => {
   it('returns 0 for zero item count', () => {
     expect(calculateTipShare(500, 0)).toBe(0)
   })
+
+  // M5: 3+ items rounding edge cases
+  it('splits $2.53 tip across 3 items — 84 each (rounding down)', () => {
+    // 253 / 3 = 84.33 → rounds to 84
+    // Total distributed = 84*3 = 252 (1 cent underpaid — acceptable)
+    expect(calculateTipShare(253, 3)).toBe(84)
+  })
+
+  it('splits $2.93 tip across 5 items — 59 each', () => {
+    // 293 / 5 = 58.6 → rounds to 59
+    expect(calculateTipShare(293, 5)).toBe(59)
+  })
+
+  it('splits $2.55 tip across 4 items — 64 each', () => {
+    // 255 / 4 = 63.75 → rounds to 64
+    expect(calculateTipShare(255, 4)).toBe(64)
+  })
 })
 
 describe('calculateVendorTip', () => {
@@ -95,5 +112,43 @@ describe('calculatePlatformFeeTip', () => {
     // vendorTipCents = min(5000, round(100000 * 10/100)) = min(5000, 10000) = 5000
     // platformFeeTip = 5000 - 5000 = 0
     expect(calculatePlatformFeeTip(5000, 100000, 10)).toBe(0)
+  })
+
+  // M5: 3+ items at odd prices — verify rounding chain consistency
+  it('3 items at $7.33 each — 10% tip', () => {
+    // Base: 733 * 3 = 2199 cents
+    // Per-item display: round(733 * 1.065) = 781 each → displaySubtotal = 781 * 3 = 2343
+    // Total tip = round(2343 * 10/100) = 234
+    // Vendor tip = round(2199 * 10/100) = 220
+    // Platform fee tip = 234 - 220 = 14
+    expect(calculatePlatformFeeTip(234, 2199, 10)).toBe(14)
+  })
+
+  it('4 items at $3.99 each — 15% tip', () => {
+    // Base: 399 * 4 = 1596 cents
+    // Per-item display: round(399 * 1.065) = 425 each → displaySubtotal = 425 * 4 = 1700
+    // Total tip = round(1700 * 15/100) = 255
+    // Vendor tip = round(1596 * 15/100) = 239
+    // Platform fee tip = 255 - 239 = 16
+    expect(calculatePlatformFeeTip(255, 1596, 15)).toBe(16)
+  })
+
+  it('5 items at $2.75 each — 20% tip', () => {
+    // Base: 275 * 5 = 1375 cents
+    // Per-item display: round(275 * 1.065) = 293 each → displaySubtotal = 293 * 5 = 1465
+    // Total tip = round(1465 * 20/100) = 293
+    // Vendor tip = round(1375 * 20/100) = 275
+    // Platform fee tip = 293 - 275 = 18
+    expect(calculatePlatformFeeTip(293, 1375, 20)).toBe(18)
+  })
+
+  it('3 items at different odd prices — 10% tip', () => {
+    // Items: $7.33 + $4.99 + $11.47 = base 2379 cents
+    // Per-item: round(733*1.065)=781, round(499*1.065)=531, round(1147*1.065)=1221
+    // displaySubtotal = 781 + 531 + 1221 = 2533
+    // Total tip = round(2533 * 10/100) = 253
+    // Vendor tip = round(2379 * 10/100) = 238
+    // Platform fee tip = 253 - 238 = 15
+    expect(calculatePlatformFeeTip(253, 2379, 10)).toBe(15)
   })
 })

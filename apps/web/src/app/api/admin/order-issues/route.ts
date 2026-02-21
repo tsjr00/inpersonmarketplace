@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { hasAdminRole } from '@/lib/auth/admin'
+import { sendNotification } from '@/lib/notifications'
 
 // GET - Get all order issues (admin only)
 export async function GET(request: NextRequest) {
@@ -270,6 +271,22 @@ export async function PATCH(request: NextRequest) {
       if (updateError) {
         console.error('[/api/admin/order-issues] Error updating order issue:', updateError.message)
         return NextResponse.json({ error: 'Failed to update order issue' }, { status: 500 })
+      }
+
+      // H4 FIX: Send issue_resolved notification to buyer when admin resolves
+      if (issue_status === 'resolved' || issue_status === 'closed') {
+        const { data: orderData } = await serviceClient
+          .from('orders')
+          .select('order_number, buyer_user_id, vertical_id')
+          .eq('id', orderItem.order_id)
+          .single()
+
+        if (orderData?.buyer_user_id) {
+          await sendNotification(orderData.buyer_user_id, 'issue_resolved', {
+            orderNumber: orderData.order_number || id.slice(0, 8),
+            resolution: issue_admin_notes || 'Issue has been resolved by our team.',
+          }, { vertical: orderData.vertical_id })
+        }
       }
 
       return NextResponse.json({ success: true, orderItem })

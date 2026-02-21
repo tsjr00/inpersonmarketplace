@@ -247,6 +247,14 @@ export async function POST(
             .eq('id', orderItemId)
 
           console.error('Stripe transfer failed:', transferError)
+
+          // H3 FIX: Notify vendor that payout failed
+          const orderData = orderItem.order as unknown as { order_number?: string; vertical_id?: string }
+          await sendNotification(user.id, 'payout_failed', {
+            orderNumber: orderData?.order_number || orderItemId.slice(0, 8),
+            amountCents: actualPayoutCents,
+          }, { vertical: orderData?.vertical_id })
+
           throw traced.external('ERR_ORDER_004', 'Failed to process vendor payout. Order status has been reverted — please try again.', { orderItemId })
         }
       } else if (isDev) {

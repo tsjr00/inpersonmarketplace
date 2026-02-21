@@ -1,8 +1,18 @@
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
+// Paths that contain sensitive user data — prevent caching by proxies/CDNs/browser
+const SENSITIVE_PATHS = ['/admin', '/dashboard', '/vendor/dashboard', '/buyer/orders', '/settings']
+
 export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+  const response = await updateSession(request)
+
+  const path = request.nextUrl.pathname
+  if (SENSITIVE_PATHS.some(p => path.includes(p))) {
+    response.headers.set('Cache-Control', 'no-store, max-age=0')
+  }
+
+  return response
 }
 
 export const config = {

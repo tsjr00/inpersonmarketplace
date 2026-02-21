@@ -147,6 +147,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       try {
         const refund = await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
         stripeRefundId = refund.id
+
+        // M4 FIX: Update status to 'refunded' after successful Stripe refund
+        await supabase
+          .from('order_items')
+          .update({ status: 'refunded' })
+          .eq('id', orderItemId)
       } catch (refundError) {
         console.error('[REFUND_FAILED] Stripe refund failed for vendor rejection:', {
           orderItemId: orderItem.id,

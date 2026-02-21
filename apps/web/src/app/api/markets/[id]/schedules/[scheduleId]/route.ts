@@ -73,6 +73,22 @@ export async function PATCH(
       )
     }
 
+    // M3 FIX: Block deactivation if active orders reference this schedule
+    if (updateData.active === false) {
+      const { count } = await supabase
+        .from('order_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('schedule_id', scheduleId)
+        .in('status', ['pending', 'confirmed', 'ready'])
+
+      if (count && count > 0) {
+        return NextResponse.json(
+          { error: `Cannot deactivate schedule: ${count} active order${count === 1 ? '' : 's'} use this schedule. Complete or cancel them first.` },
+          { status: 409 }
+        )
+      }
+    }
+
     // Update schedule
     const { data: schedule, error } = await supabase
       .from('market_schedules')
@@ -122,6 +138,20 @@ export async function DELETE(
     const isAdmin = hasAdminRole(userProfile || {})
     if (!isAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    // M3 FIX: Block deletion if any orders have ever used this schedule
+    const { count } = await supabase
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('schedule_id', scheduleId)
+      .in('status', ['pending', 'confirmed', 'ready'])
+
+    if (count && count > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete schedule: ${count} active order${count === 1 ? '' : 's'} reference this schedule. Deactivate it instead after completing or cancelling orders.` },
+        { status: 409 }
+      )
     }
 
     // Delete schedule

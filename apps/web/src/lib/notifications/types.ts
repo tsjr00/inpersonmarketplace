@@ -39,6 +39,7 @@ export type NotificationType =
   | 'order_expired'
   | 'pickup_missed'
   | 'market_box_skip'
+  | 'issue_resolved'
   // Vendor-facing
   | 'new_paid_order'
   | 'order_cancelled_by_buyer'
@@ -50,9 +51,11 @@ export type NotificationType =
   | 'inventory_low_stock'
   | 'inventory_out_of_stock'
   | 'payout_processed'
+  | 'payout_failed'
   | 'vendor_cancellation_warning'
   // Admin-facing
   | 'new_vendor_application'
+  | 'issue_disputed'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -75,6 +78,7 @@ export interface NotificationTemplateData {
   confirmedCount?: number
   offeringName?: string
   subscriptionId?: string
+  resolution?: string
 }
 
 export interface NotificationTypeConfig {
@@ -145,6 +149,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `Market Box Week Skipped`,
     message: (d) => `${d.vendorName} has skipped your ${d.offeringName || 'Market Box'} pickup scheduled for ${d.pickupDate}. An extension week has been added to your subscription.${d.reason ? ` Reason: ${d.reason}` : ''}`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/subscriptions`,
+  },
+
+  issue_resolved: {
+    urgency: 'standard',
+    audience: 'buyer',
+    title: () => `Issue Resolved`,
+    message: (d) => `The issue you reported for order #${d.orderNumber} has been resolved.${d.resolution ? ` Resolution: ${d.resolution}` : ''}`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   // ── Vendor-facing ────────────────────────────────────────────────
@@ -229,6 +241,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
   },
 
+  payout_failed: {
+    urgency: 'standard',
+    audience: 'vendor',
+    title: () => `Payout Failed`,
+    message: (d) => `A payout${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} for order #${d.orderNumber} could not be processed. We'll retry automatically. If this persists, please check your Stripe account settings.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
   vendor_cancellation_warning: {
     urgency: 'standard',
     audience: 'vendor',
@@ -245,6 +265,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `New Vendor Application`,
     message: (d) => `${d.vendorName || 'A new vendor'} has submitted an application for review.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/vendors`,
+  },
+
+  issue_disputed: {
+    urgency: 'standard',
+    audience: 'admin',
+    title: () => `Vendor Disputed Buyer Issue`,
+    message: (d) => `${d.vendorName} resolved a buyer-reported issue on order #${d.orderNumber} in their own favor (confirmed delivery). Review may be needed.`,
+    actionUrl: () => `/admin/feedback`,
   },
 }
 

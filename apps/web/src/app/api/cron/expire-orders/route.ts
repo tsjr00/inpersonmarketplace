@@ -29,6 +29,7 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 4: Notify buyers about missed pickups
  * Phase 5: Retry failed vendor payouts (Stripe transfers)
  * Phase 6: Error report digest — email admin a summary of pending reports
+ * Phase 7: Auto-fulfill stale confirmation windows (buyer confirmed, vendor didn't)
  *
  * Called by Vercel Cron daily at 6am UTC (configured in vercel.json)
  */
@@ -765,6 +766,111 @@ export async function GET(request: NextRequest) {
       console.error('Phase 6 error:', phase6Error instanceof Error ? phase6Error.message : 'Unknown error')
     }
 
+    // ============================================================
+    // PHASE 7: Auto-fulfill stale confirmation windows
+    // When buyer confirmed receipt but vendor didn't click "Fulfill"
+    // within the 30-second window, the order item hangs indefinitely.
+    // This phase finds stale windows (>5 min old) and auto-fulfills.
+    // ============================================================
+    let staleWindowsFulfilled = 0
+    try {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
+      // Order items: buyer confirmed but vendor didn't fulfill
+      const { data: staleItems, error: staleError } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          order_id,
+          vendor_profile_id,
+          vendor_payout_cents,
+          status,
+          buyer_confirmed_at,
+          vendor_confirmed_at,
+          confirmation_window_expires_at,
+          order:orders!inner (
+            id,
+            order_number,
+            buyer_user_id,
+            vertical_id,
+            payment_method
+          )
+        `)
+        .not('buyer_confirmed_at', 'is', null)
+        .is('vendor_confirmed_at', null)
+        .lt('confirmation_window_expires_at', fiveMinutesAgo)
+        .in('status', ['ready', 'confirmed'])
+        .limit(50)
+
+      if (staleError) {
+        console.error('[Phase 7] Error fetching stale windows:', staleError.message)
+      } else if (staleItems && staleItems.length > 0) {
+        for (const item of staleItems) {
+          try {
+            const now = new Date().toISOString()
+            // Auto-set vendor_confirmed_at to fulfill the item
+            const { error: updateError } = await supabase
+              .from('order_items')
+              .update({
+                status: 'fulfilled',
+                vendor_confirmed_at: now,
+              })
+              .eq('id', item.id)
+
+            if (updateError) {
+              console.error(`[Phase 7] Failed to auto-fulfill ${item.id}:`, updateError.message)
+              totalErrors++
+              continue
+            }
+
+            // Try to complete the parent order atomically
+            await supabase.rpc('atomic_complete_order_if_ready', {
+              p_order_id: item.order_id
+            })
+
+            staleWindowsFulfilled++
+            totalProcessed++
+          } catch (itemError) {
+            console.error(`[Phase 7] Error processing stale item ${item.id}:`, itemError)
+            totalErrors++
+          }
+        }
+
+        if (staleWindowsFulfilled > 0) {
+          console.log(`[Phase 7] Auto-fulfilled ${staleWindowsFulfilled} stale confirmation windows`)
+        }
+      }
+
+      // Market box pickups: same pattern
+      const { data: stalePickups } = await supabase
+        .from('market_box_pickups')
+        .select('id, subscription_id, buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at')
+        .not('buyer_confirmed_at', 'is', null)
+        .is('vendor_confirmed_at', null)
+        .lt('confirmation_window_expires_at', fiveMinutesAgo)
+        .eq('status', 'ready')
+        .limit(50)
+
+      if (stalePickups && stalePickups.length > 0) {
+        for (const pickup of stalePickups) {
+          const { error: pickupError } = await supabase
+            .from('market_box_pickups')
+            .update({
+              status: 'picked_up',
+              vendor_confirmed_at: new Date().toISOString(),
+            })
+            .eq('id', pickup.id)
+
+          if (!pickupError) {
+            staleWindowsFulfilled++
+            totalProcessed++
+          }
+        }
+      }
+    } catch (phase7Error) {
+      console.error('Phase 7 error:', phase7Error instanceof Error ? phase7Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -772,6 +878,7 @@ export async function GET(request: NextRequest) {
       errors: totalErrors,
       payouts: { retried: payoutsRetried, succeeded: payoutsSucceeded, cancelled: payoutsCancelled },
       errorDigest: { reportsSummarized: errorReportsSummarized },
+      staleWindows: { fulfilled: staleWindowsFulfilled },
     })
   })
 }

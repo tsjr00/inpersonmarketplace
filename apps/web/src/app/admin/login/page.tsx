@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -17,32 +18,32 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+    // M8 FIX: Use rate-limited API endpoint instead of direct Supabase auth
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
 
-    if (error) {
-      setError(error.message)
+      const result = await res.json()
+
+      if (!res.ok) {
+        setError(result.error || 'Login failed')
+        setLoading(false)
+        return
+      }
+    } catch {
+      setError('Network error. Please try again.')
       setLoading(false)
       return
     }
 
-    // Check if user has admin role
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role, roles')
-      .eq('user_id', data.user.id)
-      .single()
+    // API verified credentials + admin role. Now sign in client-side for session.
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    const isAdmin = profile?.role === 'admin' ||
-                    profile?.role === 'platform_admin' ||
-                    profile?.roles?.includes('admin') ||
-                    profile?.roles?.includes('platform_admin')
-
-    if (!isAdmin) {
-      await supabase.auth.signOut()
-      setError('Access denied. Admin privileges required.')
+    if (error) {
+      setError(error.message)
       setLoading(false)
       return
     }
@@ -190,7 +191,7 @@ export default function AdminLoginPage() {
           paddingTop: 20,
           borderTop: '1px solid #eee'
         }}>
-          <a
+          <Link
             href="/"
             style={{
               color: '#666',
@@ -199,7 +200,7 @@ export default function AdminLoginPage() {
             }}
           >
             ← Back to 815enterprises.com
-          </a>
+          </Link>
         </div>
       </div>
     </div>
