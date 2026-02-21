@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
-import { calculateOrderPricing, FEES, getMinimumOrderCents } from '@/lib/pricing'
+import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { restoreOrderInventory } from '@/lib/inventory'
@@ -479,12 +479,8 @@ export async function POST(request: NextRequest) {
     // Calculate order-level pricing (handles flat fee correctly - once per order)
     const orderPricing = calculateOrderPricing(pricingItems)
 
-    // Enforce minimum order total (before fees) — per-vertical minimum
-    const minimumCents = getMinimumOrderCents(vertical)
-    if (orderPricing.subtotalCents < minimumCents) {
-      const remaining = ((minimumCents - orderPricing.subtotalCents) / 100).toFixed(2)
-      throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(minimumCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
-    }
+    // Calculate small order fee (replaces hard minimum block)
+    const smallOrderFeeCents = calculateSmallOrderFee(orderPricing.subtotalCents, vertical)
 
     // Build order items with per-item fee breakdown
     // H6 FIX: Prorate flat fee across items so it's deducted from vendor payout
@@ -516,10 +512,10 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Use order-level totals from unified pricing (tip is additive on top)
+    // Use order-level totals from unified pricing (tip + small order fee are additive on top)
     const subtotalCents = orderPricing.subtotalCents
-    const platformFeeCents = orderPricing.platformFeeCents
-    const totalCents = orderPricing.buyerTotalCents + validTipAmount
+    const platformFeeCents = orderPricing.platformFeeCents + smallOrderFeeCents
+    const totalCents = orderPricing.buyerTotalCents + smallOrderFeeCents + validTipAmount
 
     // Split tip into vendor portion and platform fee portion.
     // Customer's tip is calculated on displayed subtotal (food + buyer fee).
@@ -623,6 +619,16 @@ export async function POST(request: NextRequest) {
       quantity: 1,
     })
 
+    // Add small order fee if applicable
+    if (smallOrderFeeCents > 0) {
+      checkoutItems.push({
+        name: 'Small Order Fee',
+        description: `Applied to orders under $${(getSmallOrderFeeConfig(vertical).thresholdCents / 100).toFixed(2)}`,
+        amount: smallOrderFeeCents,
+        quantity: 1,
+      })
+    }
+
     // Add tip as Stripe line item (food trucks)
     if (validTipAmount > 0) {
       checkoutItems.push({
@@ -676,6 +682,7 @@ export async function POST(request: NextRequest) {
         tip_percentage: validTipPercentage,
         tip_amount: validTipAmount,
         tip_on_platform_fee_cents: tipOnPlatformFeeCents,
+        small_order_fee_cents: smallOrderFeeCents,
         stripe_checkout_session_id: session.id,
       })
 

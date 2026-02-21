@@ -9,7 +9,7 @@ import {
   calculateExternalPaymentTotal,
   canUseExternalPayments
 } from '@/lib/payments/vendor-fees'
-import { getMinimumOrderCents } from '@/lib/pricing'
+import { calculateSmallOrderFee } from '@/lib/pricing'
 
 /**
  * POST /api/checkout/external
@@ -268,16 +268,12 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Enforce minimum order total (before fees) — per-vertical minimum
-    const minimumCents = getMinimumOrderCents(vertical)
-    if (subtotalCents < minimumCents) {
-      const remaining = ((minimumCents - subtotalCents) / 100).toFixed(2)
-      throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(minimumCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
-    }
+    // Calculate small order fee (replaces hard minimum block)
+    const smallOrderFeeCents = calculateSmallOrderFee(subtotalCents, vertical)
 
-    // Total including buyer fee (external: 6.5% flat, no $0.15)
+    // Total including buyer fee (external: 6.5% flat, no $0.15) + small order fee
     const buyerFeeCents = calculateExternalBuyerFee(subtotalCents)
-    const totalCents = calculateExternalPaymentTotal(subtotalCents)
+    const totalCents = calculateExternalPaymentTotal(subtotalCents) + smallOrderFeeCents
 
     // Create order
     crumb.supabase('insert', 'orders')
@@ -291,8 +287,9 @@ export async function POST(request: NextRequest) {
         order_number: orderNumber,
         status: 'pending',
         subtotal_cents: subtotalCents,
-        platform_fee_cents: buyerFeeCents,
+        platform_fee_cents: buyerFeeCents + smallOrderFeeCents,
         total_cents: totalCents,
+        small_order_fee_cents: smallOrderFeeCents,
         payment_method: payment_method
       })
       .select()
@@ -361,6 +358,7 @@ export async function POST(request: NextRequest) {
       payment_link: paymentLink, // null for cash
       subtotal_cents: subtotalCents,
       buyer_fee_cents: buyerFeeCents,
+      small_order_fee_cents: smallOrderFeeCents,
       total_cents: totalCents,
       vendor_name: vendorName
     })

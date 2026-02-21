@@ -51,6 +51,40 @@ export function getMinimumOrderCents(vertical?: string): number {
   return FEES.minimumOrderCents
 }
 
+// Small order fee defaults per vertical (applied when subtotal < threshold)
+// These match the values stored in verticals.config JSONB
+export const SMALL_ORDER_FEE_DEFAULTS: Record<string, { thresholdCents: number; feeCents: number }> = {
+  farmers_market: { thresholdCents: 500, feeCents: 50 },
+  food_trucks: { thresholdCents: 500, feeCents: 50 },
+  fire_works: { thresholdCents: 500, feeCents: 50 },
+}
+
+export const DEFAULT_SMALL_ORDER_FEE = { thresholdCents: 500, feeCents: 50 }
+
+/**
+ * Get small order fee config for a vertical
+ * Returns { thresholdCents, feeCents } — the threshold below which the fee applies
+ */
+export function getSmallOrderFeeConfig(vertical?: string): { thresholdCents: number; feeCents: number } {
+  if (vertical && vertical in SMALL_ORDER_FEE_DEFAULTS) {
+    return SMALL_ORDER_FEE_DEFAULTS[vertical]
+  }
+  return DEFAULT_SMALL_ORDER_FEE
+}
+
+/**
+ * Calculate the small order fee for a given subtotal
+ * Returns fee in cents (50) if below threshold, else 0
+ *
+ * @param subtotalCents - Order subtotal before fees
+ * @param vertical - Optional vertical slug for per-vertical config
+ * @returns Fee amount in cents (0 or feeCents)
+ */
+export function calculateSmallOrderFee(subtotalCents: number, vertical?: string): number {
+  const config = getSmallOrderFeeConfig(vertical)
+  return subtotalCents < config.thresholdCents ? config.feeCents : 0
+}
+
 export interface OrderItem {
   price_cents: number
   quantity: number

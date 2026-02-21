@@ -12,6 +12,7 @@ interface OrderData {
   payment_link: string | null
   subtotal_cents: number
   buyer_fee_cents: number
+  small_order_fee_cents: number
   total_cents: number
   vendor_name: string
 }
@@ -29,6 +30,7 @@ export default function ExternalCheckoutPage() {
     const paymentLink = searchParams.get('payment_link')
     const subtotal = searchParams.get('subtotal')
     const buyerFee = searchParams.get('buyer_fee')
+    const smallOrderFee = searchParams.get('small_order_fee')
     const total = searchParams.get('total')
     const vendorName = searchParams.get('vendor_name')
 
@@ -44,6 +46,7 @@ export default function ExternalCheckoutPage() {
         payment_link: paymentLink ? decodeURIComponent(paymentLink) : null,
         subtotal_cents: parseInt(subtotal || '0', 10),
         buyer_fee_cents: parseInt(buyerFee || '0', 10),
+        small_order_fee_cents: parseInt(smallOrderFee || '0', 10),
         total_cents: parseInt(total || '0', 10),
         vendor_name: vendorName ? decodeURIComponent(vendorName) : 'Vendor'
       } as OrderData,
@@ -149,6 +152,19 @@ export default function ExternalCheckoutPage() {
           }}>
             Order Summary
           </h2>
+
+          {orderData.small_order_fee_cents > 0 && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: spacing.xs,
+              fontSize: typography.sizes.sm,
+              color: colors.textMuted,
+            }}>
+              <span>Small Order Fee</span>
+              <span>{formatCurrency(orderData.small_order_fee_cents)}</span>
+            </div>
+          )}
 
           <div style={{
             display: 'flex',

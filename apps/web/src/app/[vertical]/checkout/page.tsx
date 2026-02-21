@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, FEES } from '@/lib/constants'
-import { getMinimumOrderCents } from '@/lib/pricing'
+import { calculateSmallOrderFee, getSmallOrderFeeConfig, formatPrice as formatPriceFn } from '@/lib/pricing'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 import { term } from '@/lib/vertical'
@@ -465,6 +465,7 @@ export default function CheckoutPage() {
           payment_method: selectedPaymentMethod,
           subtotal: data.subtotal_cents.toString(),
           buyer_fee: data.buyer_fee_cents.toString(),
+          small_order_fee: (data.small_order_fee_cents || 0).toString(),
           total: data.total_cents.toString(),
           vendor_name: encodeURIComponent(data.vendor_name || 'Vendor')
         })
@@ -550,11 +551,13 @@ export default function CheckoutPage() {
   // Tip calculation (food trucks only, on displayed subtotal so math matches what customer sees)
   const tipAmountCents = vertical === 'food_trucks' ? Math.round(displaySubtotal * tipPercentage / 100) : 0
 
-  // Total = displayed subtotal + flat fee + tip
-  const total = displaySubtotal + FEES.buyerFlatFeeCents + tipAmountCents
-  const minimumCents = getMinimumOrderCents(vertical as string)
-  const belowMinimum = baseSubtotal < minimumCents
-  const amountNeeded = belowMinimum ? ((minimumCents - baseSubtotal) / 100).toFixed(2) : '0'
+  // Small order fee (replaces hard minimum block)
+  const smallOrderFeeCents = calculateSmallOrderFee(baseSubtotal, vertical)
+  const hasSmallOrderFee = smallOrderFeeCents > 0
+  const smallOrderFeeConfig = getSmallOrderFeeConfig(vertical)
+
+  // Total = displayed subtotal + flat fee + small order fee + tip
+  const total = displaySubtotal + FEES.buyerFlatFeeCents + smallOrderFeeCents + tipAmountCents
 
   // Check if all items are available
   const hasUnavailableItems = checkoutItems.some(item => !item.available)
@@ -1222,6 +1225,20 @@ export default function CheckoutPage() {
                   <span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
                 </div>
 
+                {/* Small Order Fee */}
+                {hasSmallOrderFee && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: spacing['2xs'],
+                    fontSize: typography.sizes.sm,
+                    color: colors.textMuted,
+                  }}>
+                    <span>Small Order Fee</span>
+                    <span>{formatPrice(smallOrderFeeCents)}</span>
+                  </div>
+                )}
+
                 {/* Tip Selector — Food trucks only */}
                 {vertical === 'food_trucks' && baseSubtotal > 0 && (
                   <div style={{
@@ -1498,17 +1515,17 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {belowMinimum && (
+              {hasSmallOrderFee && (
                 <div style={{
                   padding: spacing.sm,
-                  backgroundColor: statusColors.warningLight,
-                  border: `1px solid ${statusColors.warningBorder}`,
+                  backgroundColor: statusColors.infoLight,
+                  border: `1px solid ${statusColors.infoBorder}`,
                   borderRadius: radius.md,
                   marginBottom: spacing.sm,
                   fontSize: typography.sizes.sm,
-                  color: statusColors.warningDark,
+                  color: statusColors.infoDark,
                 }}>
-                  Minimum order is {formatPrice(minimumCents)}. Add ${amountNeeded} more to your cart.
+                  A {formatPrice(smallOrderFeeCents)} small order fee applies to orders under {formatPrice(smallOrderFeeConfig.thresholdCents)}. To avoid this fee, add another item.
                 </div>
               )}
 
@@ -1606,7 +1623,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={processing || validationFailed || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)}
+                disabled={processing || validationFailed || hasUnavailableItems || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -1615,16 +1632,16 @@ export default function CheckoutPage() {
                   padding: `${spacing.sm} ${spacing.md}`,
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold,
-                  backgroundColor: processing || validationFailed || hasUnavailableItems || belowMinimum || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? colors.border : colors.primary,
+                  backgroundColor: processing || validationFailed || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? colors.border : colors.primary,
                   color: colors.textInverse,
                   border: 'none',
                   borderRadius: radius.sm,
-                  cursor: processing || validationFailed || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'not-allowed' : 'pointer',
+                  cursor: processing || validationFailed || hasUnavailableItems || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'not-allowed' : 'pointer',
                   minHeight: 48,
-                  boxShadow: processing || validationFailed || hasUnavailableItems || belowMinimum || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'none' : shadows.primary,
+                  boxShadow: processing || validationFailed || hasUnavailableItems || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'none' : shadows.primary,
                 }}
               >
-                {processing ? 'Processing...' : validationFailed ? 'Validation Required' : belowMinimum ? `Add $${amountNeeded} More` : !marketValid ? 'Fix Market Issues' : hasScheduleIssues ? 'Remove Unavailable Items' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`}
+                {processing ? 'Processing...' : validationFailed ? 'Validation Required' : !marketValid ? 'Fix Market Issues' : hasScheduleIssues ? 'Remove Unavailable Items' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`}
               </button>
 
               {/* Security messaging */}

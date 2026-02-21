@@ -8,8 +8,12 @@ import {
   amountToMinimum,
   formatPrice,
   getMinimumOrderCents,
+  calculateSmallOrderFee,
+  getSmallOrderFeeConfig,
   FEES,
   VERTICAL_MINIMUM_DEFAULTS,
+  DEFAULT_SMALL_ORDER_FEE,
+  SMALL_ORDER_FEE_DEFAULTS,
 } from '@/lib/pricing'
 
 describe('calculateOrderPricing', () => {
@@ -174,5 +178,59 @@ describe('formatPrice', () => {
 
   it('formats single-digit cents', () => {
     expect(formatPrice(5)).toBe('$0.05')
+  })
+})
+
+describe('calculateSmallOrderFee', () => {
+  it('returns fee when subtotal is below threshold', () => {
+    expect(calculateSmallOrderFee(300, 'food_trucks')).toBe(50)
+  })
+
+  it('returns 0 when subtotal is at threshold', () => {
+    expect(calculateSmallOrderFee(500, 'food_trucks')).toBe(0)
+  })
+
+  it('returns 0 when subtotal is above threshold', () => {
+    expect(calculateSmallOrderFee(1000, 'food_trucks')).toBe(0)
+  })
+
+  it('works per-vertical', () => {
+    expect(calculateSmallOrderFee(300, 'farmers_market')).toBe(50)
+    expect(calculateSmallOrderFee(300, 'fire_works')).toBe(50)
+    expect(calculateSmallOrderFee(600, 'farmers_market')).toBe(0)
+  })
+
+  it('falls back to default for unknown vertical', () => {
+    expect(calculateSmallOrderFee(300, 'unknown_vertical')).toBe(DEFAULT_SMALL_ORDER_FEE.feeCents)
+    expect(calculateSmallOrderFee(600, 'unknown_vertical')).toBe(0)
+  })
+
+  it('falls back to default when no vertical provided', () => {
+    expect(calculateSmallOrderFee(300)).toBe(DEFAULT_SMALL_ORDER_FEE.feeCents)
+    expect(calculateSmallOrderFee(500)).toBe(0)
+  })
+
+  it('returns fee for zero subtotal', () => {
+    expect(calculateSmallOrderFee(0, 'food_trucks')).toBe(50)
+  })
+})
+
+describe('getSmallOrderFeeConfig', () => {
+  it('returns config for known verticals', () => {
+    for (const [vertical, expected] of Object.entries(SMALL_ORDER_FEE_DEFAULTS)) {
+      const config = getSmallOrderFeeConfig(vertical)
+      expect(config.thresholdCents).toBe(expected.thresholdCents)
+      expect(config.feeCents).toBe(expected.feeCents)
+    }
+  })
+
+  it('returns default for unknown vertical', () => {
+    const config = getSmallOrderFeeConfig('unknown_vertical')
+    expect(config).toEqual(DEFAULT_SMALL_ORDER_FEE)
+  })
+
+  it('returns default when no vertical provided', () => {
+    const config = getSmallOrderFeeConfig()
+    expect(config).toEqual(DEFAULT_SMALL_ORDER_FEE)
   })
 })
