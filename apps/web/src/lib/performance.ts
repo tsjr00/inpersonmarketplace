@@ -110,7 +110,7 @@ export function getMetricsSummary(since?: Date): AggregatedMetric[] {
  * Get raw metrics (for detailed analysis)
  */
 export function getRawMetrics(name?: string, limit = 100): MetricEntry[] {
-  let filtered = name ? metrics.filter(m => m.name === name) : metrics
+  const filtered = name ? metrics.filter(m => m.name === name) : metrics
   return filtered.slice(-limit).reverse() // Most recent first
 }
 

@@ -77,7 +77,7 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
                 Coordinates Required for Approval
               </p>
               <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#92400e' }}>
-                Set the vendor's location using the Location Editor above before approving. Without coordinates, the vendor won't appear in buyer location searches.
+                Set the vendor&apos;s location using the Location Editor above before approving. Without coordinates, the vendor won&apos;t appear in buyer location searches.
               </p>
             </div>
           </div>

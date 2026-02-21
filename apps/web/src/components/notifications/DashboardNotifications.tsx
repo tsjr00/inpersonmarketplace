@@ -199,7 +199,7 @@ export function DashboardNotifications({ vertical, limit = 5 }: DashboardNotific
           fontSize: typography.sizes.sm,
           color: colors.textMuted,
         }}>
-          No notifications yet. You'll see order updates, alerts, and more here.
+          No notifications yet. You&apos;ll see order updates, alerts, and more here.
         </p>
       )}
 
