@@ -69,6 +69,7 @@ export interface FtTierExtras {
   analyticsExport: boolean
   priorityPlacement: number  // 0=none, 1=2nd priority, 2=1st priority
   notificationChannels: readonly string[]
+  locationInsights: 'none' | 'basic' | 'pro' | 'boss'
 }
 
 export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = {
@@ -85,6 +86,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     analyticsExport: false,
     priorityPlacement: 0,
     notificationChannels: ['in_app'],
+    locationInsights: 'none',
   },
   basic: {
     productListings: 8,
@@ -99,6 +101,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     analyticsExport: false,
     priorityPlacement: 0,
     notificationChannels: ['in_app'],
+    locationInsights: 'basic',
   },
   pro: {
     productListings: 20,
@@ -113,6 +116,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     analyticsExport: false,
     priorityPlacement: 1,
     notificationChannels: ['in_app', 'push', 'email'],
+    locationInsights: 'pro',
   },
   boss: {
     productListings: 45,
@@ -127,6 +131,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     analyticsExport: true,
     priorityPlacement: 2,
     notificationChannels: ['in_app', 'push', 'email', 'sms'],
+    locationInsights: 'boss',
   },
 } as const
 

@@ -13,7 +13,7 @@ import { DashboardNotifications } from '@/components/notifications/DashboardNoti
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
-import { getTierLimits } from '@/lib/vendor-limits'
+import { getTierLimits, getFtTierExtras } from '@/lib/vendor-limits'
 import UpcomingPickupItem from './UpcomingPickupItem'
 import ExternalPaymentBanner from '@/components/vendor/ExternalPaymentBanner'
 import QualityAlertBanner from '@/components/vendor/QualityAlertBanner'
@@ -764,6 +764,51 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </p>
             </div>
           </Link>
+
+          {/* Location Insights */}
+          {(() => {
+            const insightsLevel = vertical === 'food_trucks'
+              ? getFtTierExtras(vendorProfile.tier || 'free').locationInsights
+              : 'basic' // FM vendors get basic by default
+            const isInsightsLocked = insightsLevel === 'none'
+            return (
+              <Link
+                href={`/${vertical}/vendor/insights`}
+                style={{ textDecoration: 'none' }}
+              >
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: isInsightsLocked ? '#f9fafb' : colors.surfaceElevated,
+                  color: colors.textPrimary,
+                  border: `1px solid ${isInsightsLocked ? '#d1d5db' : colors.border}`,
+                  borderRadius: radius.md,
+                  cursor: 'pointer',
+                  height: '100%',
+                  minHeight: 120,
+                  boxShadow: shadows.sm
+                }}>
+                  <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📍</div>
+                  <h3 style={{
+                    color: isInsightsLocked ? colors.textSecondary : colors.primary,
+                    margin: `0 0 ${spacing['2xs']} 0`,
+                    fontSize: typography.sizes.base,
+                    fontWeight: typography.weights.semibold
+                  }}>
+                    Location Insights
+                  </h3>
+                  {isInsightsLocked ? (
+                    <p style={{ color: '#d97706', margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
+                      Upgrade to Basic to see which locations perform best
+                    </p>
+                  ) : (
+                    <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
+                      See which locations perform best
+                    </p>
+                  )}
+                </div>
+              </Link>
+            )
+          })()}
         </div>
 
         {/* ============================================= */}

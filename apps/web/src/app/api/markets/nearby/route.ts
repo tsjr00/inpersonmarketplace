@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { getMarketVendorCounts } from '@/lib/db/markets'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -92,6 +93,9 @@ export async function GET(request: NextRequest) {
 
       // Cache key for edge caching
       const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
+
+      // Log search for geographic intelligence (fire-and-forget)
+      logBuyerSearch(latitude, longitude, vertical, total)
 
       return NextResponse.json(
         {
@@ -200,6 +204,9 @@ async function fallbackNearbyQuery(
   // Cache key for edge caching
   const cacheKey = `${Math.round(latitude * 10) / 10},${Math.round(longitude * 10) / 10}`
 
+  // Log search for geographic intelligence (fire-and-forget)
+  logBuyerSearch(latitude, longitude, vertical, total)
+
   return NextResponse.json(
     {
       markets: paginatedMarkets,
@@ -233,4 +240,27 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 function toRad(deg: number): number {
   return deg * (Math.PI / 180)
+}
+
+// Fire-and-forget search logging for geographic intelligence
+function logBuyerSearch(lat: number, lng: number, vertical: string | null, resultsCount: number) {
+  try {
+    const serviceClient = createServiceClient()
+    // Get nearest ZIP code, then insert log
+    serviceClient.rpc('get_nearby_zip_codes', {
+      user_lat: lat,
+      user_lng: lng,
+      limit_count: 1,
+    }).then(({ data: zips }) => {
+      const zip = zips?.[0]?.zip || null
+      serviceClient.from('buyer_search_log').insert({
+        zip_code: zip,
+        vertical_id: vertical || null,
+        results_count: resultsCount,
+        search_type: 'markets',
+      }).then(() => { /* logged */ })
+    })
+  } catch {
+    // Never block the response for logging failures
+  }
 }

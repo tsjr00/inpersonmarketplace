@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { getTierSortPriority } from '@/lib/vendor-limits'
@@ -260,6 +260,9 @@ export async function GET(request: NextRequest) {
       const paginatedVendors = filteredVendors.slice(offset, offset + limit)
       const hasMore = offset + paginatedVendors.length < total
 
+      // Log search for geographic intelligence (fire-and-forget)
+      logBuyerSearch(latitude, longitude, vertical, total)
+
       return NextResponse.json(
         {
           vendors: paginatedVendors,
@@ -472,6 +475,9 @@ async function fallbackNearbyQuery(
   const paginatedVendors = filteredVendors.slice(offset, offset + limit)
   const hasMore = offset + paginatedVendors.length < total
 
+  // Log search for geographic intelligence (fire-and-forget)
+  logBuyerSearch(latitude, longitude, vertical, total)
+
   return NextResponse.json({
     vendors: paginatedVendors,
     total,
@@ -480,4 +486,26 @@ async function fallbackNearbyQuery(
     radiusMiles,
     fallback: true
   })
+}
+
+// Fire-and-forget search logging for geographic intelligence
+function logBuyerSearch(lat: number, lng: number, vertical: string | null, resultsCount: number) {
+  try {
+    const serviceClient = createServiceClient()
+    serviceClient.rpc('get_nearby_zip_codes', {
+      user_lat: lat,
+      user_lng: lng,
+      limit_count: 1,
+    }).then(({ data: zips }) => {
+      const zip = zips?.[0]?.zip || null
+      serviceClient.from('buyer_search_log').insert({
+        zip_code: zip,
+        vertical_id: vertical || null,
+        results_count: resultsCount,
+        search_type: 'vendors',
+      }).then(() => { /* logged */ })
+    })
+  } catch {
+    // Never block the response for logging failures
+  }
 }

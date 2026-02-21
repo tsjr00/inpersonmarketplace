@@ -1,65 +1,43 @@
-# Current Task: Supabase Linter Issues Remediation
+# Current Task: Location Insights — Tier-Gated Geographic Intelligence
 
-Started: 2026-02-21
+Started: 2026-02-22
 
 ## Goal
-Address all warnings/suggestions from the Supabase database linter (staging environment) in a single migration.
-
-## Status
-- [x] Read entire linter report file
-- [x] Categorized all issues
-- [x] Explored codebase — found all policy definitions + duplicate index pairs
-- [x] Written remediation plan
-- [x] Got user approval
-- [x] Created migration: `supabase/migrations/20260221_046_supabase_linter_fixes.sql`
-- [x] Updated SCHEMA_SNAPSHOT.md changelog
-- [ ] User applies migration to staging
-- [ ] Re-run Supabase linter to verify warnings resolved
-- [ ] Test key flows on staging
-- [ ] Move migration to applied/ after confirmation
-
-## Migration Contents (046)
-
-### Part 1: Merged 9 Overlapping Permissive Policies
-1. **knowledge_articles**: Replaced FOR ALL + FOR SELECT with single SELECT (public + admin) + 3 per-op admin policies (INSERT, UPDATE, DELETE)
-2. **payments**: Merged buyer_select + admin_select into single SELECT
-3. **shopper_feedback**: Merged user + platform admin + vertical admin into single SELECT
-4. **vendor_fee_balance**: Merged vendor + admin into single SELECT
-5. **vendor_fee_ledger**: Merged vendor + admin into single SELECT
-6. **vendor_feedback**: Merged vendor + platform admin + vertical admin into single SELECT
-7. **vendor_profiles**: Dropped redundant `vendor_profiles_admin_select` (main policy already comprehensive)
-8. **vendor_verifications**: Merged vendor + admin UPDATE into single UPDATE with USING + WITH CHECK
-9. **zip_codes**: Replaced FOR ALL + FOR SELECT with single SELECT (public) + 3 per-op admin policies
-
-### Part 2: Dropped 4 Duplicate Indexes
-- idx_market_box_subscriptions_offering_active (kept idx_market_box_subs_active)
-- idx_order_items_order_id (kept idx_order_items_order)
-- idx_orders_buyer_user_id (kept idx_orders_buyer)
-- idx_orders_parent_id (kept idx_orders_parent)
-
-### Part 3: Added 18 FK Indexes
-admin_activity_log(vertical_id), error_reports(4 columns), knowledge_articles(vertical_id),
-market_box_subscriptions(order_id), markets(reviewed_by), orders(external_payment_confirmed_by),
-shopper_feedback(resolved_by), vendor_activity_flags(resolved_by), vendor_activity_settings(updated_by),
-vendor_feedback(resolved_by), vendor_location_cache(source_market_id), vendor_referral_credits(voided_by),
-vendor_verifications(coi_verified_by, reviewed_by), vertical_admins(granted_by)
-
-### Part 4: Dropped 4 Legacy Indexes
-- idx_transactions_listing, idx_transactions_vendor (legacy transactions table)
-- idx_fulfillments_transaction, idx_fulfillments_status (legacy fulfillments table)
+Implement Phases 1-2 of Location Insights feature: Basic tier (own-data insights) + Pro tier (location scores, market expansion recs) + Boss tier (buyer density, coverage gaps). Includes migration, API, UI page, and dashboard card.
 
 ## Key Decisions Made
-- **FOR ALL → per-operation split**: knowledge_articles and zip_codes had FOR ALL admin policies overlapping with FOR SELECT public policies. Simply dropping the SELECT wouldn't help — FOR ALL still generates a permissive SELECT. Had to break FOR ALL into INSERT + UPDATE + DELETE separately.
-- **payments policy name**: Original was `payments_buyer_select` (from migration 001). Dropped both possible names with IF EXISTS for safety.
-- **Used `(SELECT is_platform_admin())`**: Standard helper function, consistent with rest of codebase.
-- **Used `user_vendor_profile_ids()`**: SECURITY DEFINER helper that bypasses RLS for vendor profile lookups (avoids recursion).
-- **Conservative on unused indexes**: Only dropped 4 legacy indexes on transactions/fulfillments. Kept all other "unused" indexes — staging has low data, they'll be needed at scale.
+- Tier gating: Free=blocked, Basic=4 metrics, Pro=+2 metrics, Boss=+2 metrics
+- New table `buyer_search_log` for anonymous search tracking (feeds Boss tier)
+- `locationInsights` field added to `FtTierExtras` interface
+- Single GET endpoint at `/api/vendor/location-insights/`
+- Page at `[vertical]/vendor/insights/page.tsx`
+- Dashboard card added to Row 3
 
-## Files Modified
-- `supabase/migrations/20260221_046_supabase_linter_fixes.sql` — NEW migration
-- `supabase/SCHEMA_SNAPSHOT.md` — changelog entry added
+## Files to Create/Modify
+### New (3)
+1. `supabase/migrations/20260222_048_buyer_search_log.sql`
+2. `src/app/api/vendor/location-insights/route.ts`
+3. `src/app/[vertical]/vendor/insights/page.tsx`
 
-## Gotchas / Watch Out For
-- FOR ALL policies in PostgreSQL create implicit permissive policies for ALL operations including SELECT — can't just merge the SELECT overlay
-- `payments_buyer_select` vs `payments_select` — unclear which name is in DB, dropped both with IF EXISTS
-- After applying, must run `NOTIFY pgrst, 'reload schema'` (included in migration)
+### Modified (4)
+4. `src/lib/vendor-limits.ts` — add locationInsights to FtTierExtras
+5. `src/app/api/markets/nearby/route.ts` — search logging
+6. `src/app/api/vendors/nearby/route.ts` — search logging
+7. `src/app/[vertical]/vendor/dashboard/page.tsx` — insights card in Row 3
+
+## What's Been Completed
+- [x] Read all pattern files
+- [x] Migration 048 — buyer_search_log table + indexes + RLS
+- [x] vendor-limits.ts — locationInsights field on FtTierExtras + all 4 tiers
+- [x] Search logging in markets/nearby + vendors/nearby (fire-and-forget)
+- [x] API route — /api/vendor/location-insights (single GET, tier-gated)
+- [x] Insights page — /[vertical]/vendor/insights (full 3-state UI)
+- [x] Dashboard card — Location Insights in Row 3 with lock pattern
+- [x] TypeScript clean compile
+- [x] ESLint — 0 errors (warnings are pre-existing any pattern)
+
+## What's Remaining
+- Apply migration 048 to staging SQL editor
+- Deploy to staging for user testing
+- Schema snapshot update after migration applied
+- Commit + push to staging
