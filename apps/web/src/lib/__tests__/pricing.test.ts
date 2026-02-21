@@ -7,7 +7,9 @@ import {
   meetsMinimumOrder,
   amountToMinimum,
   formatPrice,
+  getMinimumOrderCents,
   FEES,
+  VERTICAL_MINIMUM_DEFAULTS,
 } from '@/lib/pricing'
 
 describe('calculateOrderPricing', () => {
@@ -100,6 +102,16 @@ describe('meetsMinimumOrder', () => {
   it('returns true above minimum', () => {
     expect(meetsMinimumOrder(1001)).toBe(true)
   })
+
+  it('uses custom minimum when provided', () => {
+    // $5.00 minimum (food trucks)
+    expect(meetsMinimumOrder(499, 500)).toBe(false)
+    expect(meetsMinimumOrder(500, 500)).toBe(true)
+    expect(meetsMinimumOrder(501, 500)).toBe(true)
+    // $40.00 minimum (fireworks)
+    expect(meetsMinimumOrder(3999, 4000)).toBe(false)
+    expect(meetsMinimumOrder(4000, 4000)).toBe(true)
+  })
 })
 
 describe('amountToMinimum', () => {
@@ -110,6 +122,44 @@ describe('amountToMinimum', () => {
   it('returns 0 when at or above minimum', () => {
     expect(amountToMinimum(1000)).toBe(0)
     expect(amountToMinimum(1500)).toBe(0)
+  })
+
+  it('uses custom minimum when provided', () => {
+    // $5.00 minimum
+    expect(amountToMinimum(300, 500)).toBe(200)
+    expect(amountToMinimum(500, 500)).toBe(0)
+    // $40.00 minimum
+    expect(amountToMinimum(3000, 4000)).toBe(1000)
+    expect(amountToMinimum(4000, 4000)).toBe(0)
+  })
+})
+
+describe('getMinimumOrderCents', () => {
+  it('returns $10.00 for farmers_market', () => {
+    expect(getMinimumOrderCents('farmers_market')).toBe(1000)
+  })
+
+  it('returns $5.00 for food_trucks', () => {
+    expect(getMinimumOrderCents('food_trucks')).toBe(500)
+  })
+
+  it('returns $40.00 for fire_works', () => {
+    expect(getMinimumOrderCents('fire_works')).toBe(4000)
+  })
+
+  it('falls back to global minimum for unknown vertical', () => {
+    expect(getMinimumOrderCents('unknown_vertical')).toBe(FEES.minimumOrderCents)
+  })
+
+  it('falls back to global minimum when no vertical provided', () => {
+    expect(getMinimumOrderCents()).toBe(FEES.minimumOrderCents)
+    expect(getMinimumOrderCents(undefined)).toBe(FEES.minimumOrderCents)
+  })
+
+  it('matches VERTICAL_MINIMUM_DEFAULTS for all known verticals', () => {
+    for (const [vertical, expected] of Object.entries(VERTICAL_MINIMUM_DEFAULTS)) {
+      expect(getMinimumOrderCents(vertical)).toBe(expected)
+    }
   })
 })
 

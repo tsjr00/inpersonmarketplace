@@ -9,6 +9,7 @@ import {
   calculateExternalPaymentTotal,
   canUseExternalPayments
 } from '@/lib/payments/vendor-fees'
+import { getMinimumOrderCents } from '@/lib/pricing'
 
 /**
  * POST /api/checkout/external
@@ -266,6 +267,13 @@ export async function POST(request: NextRequest) {
         preferred_pickup_time: item.preferred_pickup_time || null
       }
     })
+
+    // Enforce minimum order total (before fees) — per-vertical minimum
+    const minimumCents = getMinimumOrderCents(vertical)
+    if (subtotalCents < minimumCents) {
+      const remaining = ((minimumCents - subtotalCents) / 100).toFixed(2)
+      throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(minimumCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
+    }
 
     // Total including buyer fee (external: 6.5% flat, no $0.15)
     const buyerFeeCents = calculateExternalBuyerFee(subtotalCents)

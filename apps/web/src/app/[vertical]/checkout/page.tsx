@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/hooks/useCart'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
-import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, MINIMUM_ORDER_CENTS, FEES } from '@/lib/constants'
+import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, FEES } from '@/lib/constants'
+import { getMinimumOrderCents } from '@/lib/pricing'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 import { term } from '@/lib/vertical'
@@ -551,8 +552,9 @@ export default function CheckoutPage() {
 
   // Total = displayed subtotal + flat fee + tip
   const total = displaySubtotal + FEES.buyerFlatFeeCents + tipAmountCents
-  const belowMinimum = baseSubtotal < MINIMUM_ORDER_CENTS
-  const amountNeeded = belowMinimum ? ((MINIMUM_ORDER_CENTS - baseSubtotal) / 100).toFixed(2) : '0'
+  const minimumCents = getMinimumOrderCents(vertical as string)
+  const belowMinimum = baseSubtotal < minimumCents
+  const amountNeeded = belowMinimum ? ((minimumCents - baseSubtotal) / 100).toFixed(2) : '0'
 
   // Check if all items are available
   const hasUnavailableItems = checkoutItems.some(item => !item.available)
@@ -1506,7 +1508,7 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.sm,
                   color: statusColors.warningDark,
                 }}>
-                  Minimum order is $10.00. Add ${amountNeeded} more to your cart.
+                  Minimum order is {formatPrice(minimumCents)}. Add ${amountNeeded} more to your cart.
                 </div>
               )}
 

@@ -31,6 +31,26 @@ export const SUBSCRIPTION_AMOUNTS = {
   buyer_annual_cents: 8150,       // $81.50/year
 } as const
 
+// Per-vertical minimum order defaults (cents)
+// These match the values in verticals.config.minimum_order_cents
+// Used as hardcoded fallbacks so client components don't need a DB call
+export const VERTICAL_MINIMUM_DEFAULTS: Record<string, number> = {
+  farmers_market: 1000,  // $10.00
+  food_trucks: 500,      // $5.00
+  fire_works: 4000,      // $40.00
+}
+
+/**
+ * Get minimum order amount for a vertical (in cents)
+ * Falls back to FEES.minimumOrderCents (1000) for unknown verticals
+ */
+export function getMinimumOrderCents(vertical?: string): number {
+  if (vertical && vertical in VERTICAL_MINIMUM_DEFAULTS) {
+    return VERTICAL_MINIMUM_DEFAULTS[vertical]
+  }
+  return FEES.minimumOrderCents
+}
+
 export interface OrderItem {
   price_cents: number
   quantity: number
@@ -158,18 +178,22 @@ export function formatDisplayPrice(basePriceCents: number): string {
  * Check if order meets minimum
  *
  * @param subtotalCents - Order subtotal before fees
+ * @param minimumCents - Optional override (defaults to global FEES.minimumOrderCents)
  * @returns Whether order meets minimum
  */
-export function meetsMinimumOrder(subtotalCents: number): boolean {
-  return subtotalCents >= FEES.minimumOrderCents
+export function meetsMinimumOrder(subtotalCents: number, minimumCents?: number): boolean {
+  const min = minimumCents ?? FEES.minimumOrderCents
+  return subtotalCents >= min
 }
 
 /**
  * Get amount needed to reach minimum order
  *
  * @param subtotalCents - Current subtotal
+ * @param minimumCents - Optional override (defaults to global FEES.minimumOrderCents)
  * @returns Cents needed, or 0 if minimum met
  */
-export function amountToMinimum(subtotalCents: number): number {
-  return Math.max(0, FEES.minimumOrderCents - subtotalCents)
+export function amountToMinimum(subtotalCents: number, minimumCents?: number): number {
+  const min = minimumCents ?? FEES.minimumOrderCents
+  return Math.max(0, min - subtotalCents)
 }

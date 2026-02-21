@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
-import { calculateOrderPricing, FEES } from '@/lib/pricing'
+import { calculateOrderPricing, FEES, getMinimumOrderCents } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { restoreOrderInventory } from '@/lib/inventory'
@@ -479,10 +479,11 @@ export async function POST(request: NextRequest) {
     // Calculate order-level pricing (handles flat fee correctly - once per order)
     const orderPricing = calculateOrderPricing(pricingItems)
 
-    // Enforce minimum order total (before fees)
-    if (orderPricing.subtotalCents < FEES.minimumOrderCents) {
-      const remaining = ((FEES.minimumOrderCents - orderPricing.subtotalCents) / 100).toFixed(2)
-      throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(FEES.minimumOrderCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
+    // Enforce minimum order total (before fees) — per-vertical minimum
+    const minimumCents = getMinimumOrderCents(vertical)
+    if (orderPricing.subtotalCents < minimumCents) {
+      const remaining = ((minimumCents - orderPricing.subtotalCents) / 100).toFixed(2)
+      throw traced.validation('ERR_CHECKOUT_001', `Minimum order is $${(minimumCents / 100).toFixed(2)}. Add $${remaining} more to your cart.`, { code: 'BELOW_MINIMUM' })
     }
 
     // Build order items with per-item fee breakdown
