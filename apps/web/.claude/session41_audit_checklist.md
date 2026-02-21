@@ -24,18 +24,16 @@
 ### C3: SECURITY DEFINER Functions Missing `SET search_path = public`
 - [x] Approved for implementation
 - [x] Migration created (`20260220_042_fix_remaining_security_definer_search_paths.sql`)
-- [ ] Migration applied to Staging
-- [ ] Migration applied to Prod
-- [ ] Schema snapshot updated
+- [x] Migration applied to Dev, Staging, & Prod
+- [x] Schema snapshot updated
 - **Issue:** ~23 SECURITY DEFINER functions lack `SET search_path = public`, creating a search path injection vulnerability.
 - **Fix:** Single migration that re-creates all affected functions with `SET search_path = public`.
 
 ### C4: Vendor Payout Uniqueness Not Enforced at DB Level
 - [x] Approved for implementation
 - [x] Migration created (`20260220_043_vendor_payout_unique_constraint.sql`)
-- [ ] Migration applied to Staging
-- [ ] Migration applied to Prod
-- [ ] Schema snapshot updated
+- [x] Migration applied to Dev, Staging, & Prod
+- [x] Schema snapshot updated
 - **Issue:** `vendor_payouts` table has no UNIQUE constraint on `order_item_id`. App code checks before insert, but DB doesn't enforce it.
 - **Fix:** Partial unique index `ON vendor_payouts(order_item_id) WHERE status != 'failed'` — allows retries of failed payouts but prevents duplicate successful ones.
 

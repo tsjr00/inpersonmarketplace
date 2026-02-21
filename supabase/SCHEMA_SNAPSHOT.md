@@ -12,6 +12,8 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-20 | 20260220_043_vendor_payout_unique_constraint | Added partial unique index `idx_vendor_payouts_order_item_unique` on `vendor_payouts(order_item_id) WHERE status NOT IN ('failed', 'cancelled')`. Prevents duplicate successful payouts at DB level (app code already checked, this is the safety net). Applied to Dev, Staging, & Prod. |
+| 2026-02-20 | 20260220_042_fix_remaining_security_definer_search_paths | Added `SET search_path = public` to 11 SECURITY DEFINER functions from early migrations (002/003) that were missed by the 20260126_002 fix: `has_role`, `is_admin`, `is_verifier`, `get_user_vendor_ids`, `handle_new_user`, `track_vendor_status_change`, `notify_transaction_status_change`, `get_vertical_config`, `get_vendor_fields`, `get_listing_fields`, `user_owns_vendor`. All public SECURITY DEFINER functions now have search_path set. Applied to Dev, Staging, & Prod. |
 | 2026-02-20 | 20260220_041_add_tip_on_platform_fee | Added `tip_on_platform_fee_cents` (INTEGER NOT NULL DEFAULT 0) to `orders`. Tracks portion of tip attributable to buyer platform fee. Vendor tip = tip_amount - tip_on_platform_fee_cents. Applied to Dev, Staging, & Prod. |
 | 2026-02-21 | 20260221_040_event_availability_function | Rewrote `get_available_pickup_dates()` with event support: listing_schedules CTE adds event date columns + cutoff logic (FT events use 24h, not 0), matched_dates CTE adds event date range filter + FT events bypass same-day-only, attendance filter requires attendance for events + traditional (not just traditional), past events auto-filtered by `event_end_date >= CURRENT_DATE`. Applied to Staging. |
 | 2026-02-21 | 20260221_039_add_event_market_type | Expanded `markets.market_type` CHECK constraint to include `'event'`. Added columns: `event_start_date` (DATE, nullable), `event_end_date` (DATE, nullable), `event_url` (TEXT, nullable). Added CHECK: event dates required when market_type='event', end >= start. Added index `idx_markets_event_dates` (partial, on event markets). Applied to Staging. |
@@ -1725,6 +1727,7 @@
 | idx_payouts_vendor | btree (vendor_profile_id) |
 | idx_payouts_order_item | btree (order_item_id) |
 | idx_payouts_market_box_pickup | btree (market_box_pickup_id) WHERE market_box_pickup_id IS NOT NULL |
+| idx_vendor_payouts_order_item_unique | UNIQUE btree (order_item_id) WHERE status NOT IN ('failed', 'cancelled') |
 | idx_payouts_status | btree (status) |
 
 ### vendor_profiles
