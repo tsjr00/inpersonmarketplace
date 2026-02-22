@@ -23,6 +23,7 @@ import {
   URGENCY_CHANNELS,
 } from './types'
 import { defaultBranding } from '@/lib/branding/defaults'
+import { TracedError, logError } from '@/lib/errors'
 
 // ── External Clients (lazy init) ────────────────────────────────────
 
@@ -355,7 +356,7 @@ async function sendPush(
 /**
  * Send a notification through all appropriate channels.
  *
- * @param userId - The user_profiles.id (NOT auth.uid) to notify
+ * @param userId - The auth.users.id (auth.uid) to notify
  * @param type - The notification type from the registry
  * @param templateData - Data to populate the notification template
  * @param options - Optional overrides
@@ -395,7 +396,7 @@ export async function sendNotification(
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single()
 
     if (profile?.notification_preferences) {
@@ -504,6 +505,23 @@ export async function sendNotification(
     }
   }
 
+  // Log any channel failures to error tracking
+  const failures = results.filter(r => !r.success)
+  if (failures.length > 0) {
+    const error = new TracedError(
+      'ERR_NOTIF_001',
+      `Notification delivery failed: ${failures.map(f => `${f.channel}: ${f.error}`).join('; ')}`,
+      {
+        userId,
+        originalError: {
+          notificationType: type,
+          failedChannels: failures.map(f => ({ channel: f.channel, error: f.error })),
+        },
+      }
+    )
+    await logError(error)
+  }
+
   return {
     notificationType: type,
     channels: results,
@@ -533,12 +551,12 @@ export async function sendNotificationBatch(
     const supabase = createServiceClient()
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('id, email, phone')
-      .in('id', userIds)
+      .select('user_id, email, phone')
+      .in('user_id', userIds)
 
     if (profiles) {
       for (const p of profiles) {
-        profileMap.set(p.id, { email: p.email || undefined, phone: p.phone || undefined })
+        profileMap.set(p.user_id, { email: p.email || undefined, phone: p.phone || undefined })
       }
     }
   } catch {

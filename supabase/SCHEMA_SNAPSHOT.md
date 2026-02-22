@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-22 | 20260222_050_fix_notifications_user_id_fk | **FK fix:** Changed `notifications.user_id` FK from `user_profiles(id)` → `auth.users(id)`. Existing rows translated via `user_profiles.user_id`. Orphaned rows deleted. **Function rewrite:** `notify_transaction_status_change()` now resolves buyer auth.uid via `user_profiles` JOIN (since `transactions.buyer_user_id` references `user_profiles.id`). Vendor path unchanged (`vendor_profiles.user_id` is already auth.uid). Includes `NOTIFY pgrst, 'reload schema'`. Applied to Dev, Staging, & Prod. |
 | 2026-02-22 | 20260222_049_scan_vendor_activity_validation | **Function update:** `scan_vendor_activity(p_vertical_id TEXT)` now validates `p_vertical_id` against the `verticals` table when non-NULL. Raises exception `'Invalid vertical_id: %. Must be a valid vertical.'` if the value doesn't exist. NULL remains valid (scans all verticals). No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
 | 2026-02-22 | 20260222_048_buyer_search_log | **New table:** `buyer_search_log` (anonymous buyer search tracking for geographic intelligence). Columns: id (UUID PK), zip_code (TEXT, nullable), vertical_id (TEXT FK→verticals), results_count (INTEGER NOT NULL DEFAULT 0), search_type (TEXT, CHECK IN markets/vendors), created_at (TIMESTAMPTZ). **3 indexes:** `idx_bsl_vertical_created` (vertical_id, created_at DESC), `idx_bsl_zip_vertical` (zip_code, vertical_id WHERE zip_code IS NOT NULL), `idx_bsl_zero_results` (vertical_id, created_at DESC WHERE results_count = 0). **RLS:** admin SELECT only. Service role writes from API routes. Applied to Dev, Staging, & Prod. |
 | 2026-02-22 | 20260222_047_vendor_quality_checks | **New tables:** `vendor_quality_scan_log` (tracks nightly batch runs: status, vendors_scanned, findings_created, findings_by_check JSONB) and `vendor_quality_findings` (individual findings: vendor_profile_id FK, vertical_id FK, check_type, severity, title, message, details JSONB, reference_key, status, batch_id FK, dismissed_at). **3 partial indexes:** `idx_vqf_vendor_active` (vendor+status WHERE active), `idx_vqf_vendor_dismissed` (vendor+check_type+reference_key WHERE dismissed), `idx_vqf_batch` (batch_id). **RLS:** scan_log admin SELECT only; findings vendor SELECT/UPDATE own + admin SELECT all. **5 check types:** schedule_conflict, low_stock_event, price_anomaly, ghost_listing, inventory_velocity. **3 severities:** action_required, heads_up, suggestion. **3 finding statuses:** active, dismissed, superseded. Cron at `0 10 * * *` (4am CT). New notification type: `vendor_quality_alert`. Applied to Dev, Staging, & Prod. |
@@ -1257,7 +1258,7 @@
 ### notifications
 | Column | References |
 |--------|------------|
-| user_id | user_profiles.id |
+| user_id | auth.users.id |
 
 ### order_items
 | Column | References |
