@@ -50,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         if (geocodeResponse) {
           parsedLat = geocodeResponse.latitude
           parsedLng = geocodeResponse.longitude
-          console.log(`[/api/vendor/markets/[id]] Auto-geocoded ZIP ${zip} to ${parsedLat}, ${parsedLng}`)
+          // Auto-geocoded successfully
         }
       } catch (geocodeError) {
         console.warn('[/api/vendor/markets/[id]] Geocoding failed:', geocodeError)

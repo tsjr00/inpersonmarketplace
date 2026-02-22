@@ -59,7 +59,7 @@ export default function TestComponentsPage() {
 
   const handleFormSubmit = async (data: Record<string, string>) => {
     setFormLoading(true);
-    console.log('Form submitted:', data);
+    void data; // test page handler
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setFormLoading(false);

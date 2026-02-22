@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
@@ -286,12 +287,12 @@ export default function VendorMarketBoxesPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
                   {/* Image */}
                   {offering.image_urls && offering.image_urls.length > 0 && (
-                    <img
+                    <Image
                       src={offering.image_urls[0]}
                       alt={offering.name}
+                      width={100}
+                      height={100}
                       style={{
-                        width: 100,
-                        height: 100,
                         objectFit: 'cover',
                         borderRadius: 8,
                         flexShrink: 0

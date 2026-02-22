@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 
@@ -430,12 +431,12 @@ export default function VendorPrepPage() {
                           <td style={{ padding: spacing.sm }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
                               {item.image && (
-                                <img
+                                <Image
                                   src={item.image}
                                   alt={item.title || 'Product image'}
+                                  width={48}
+                                  height={48}
                                   style={{
-                                    width: 48,
-                                    height: 48,
                                     objectFit: 'cover',
                                     borderRadius: radius.sm
                                   }}
@@ -572,12 +573,12 @@ export default function VendorPrepPage() {
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
                             {item.listing_image && (
-                              <img
+                              <Image
                                 src={item.listing_image}
                                 alt={item.listing_title || 'Product image'}
+                                width={40}
+                                height={40}
                                 style={{
-                                  width: 40,
-                                  height: 40,
                                   objectFit: 'cover',
                                   borderRadius: radius.sm
                                 }}

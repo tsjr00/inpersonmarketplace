@@ -41,3 +41,44 @@ export function createServiceClient() {
     }
   )
 }
+
+/**
+ * Create a service client ONLY after verifying the current user is an admin.
+ * Use this in API routes that need service-role access for admin operations.
+ *
+ * Returns the service client + userId, or throws if not authorized.
+ *
+ * Usage:
+ * ```typescript
+ * const { serviceClient, userId } = await createVerifiedServiceClient()
+ * ```
+ */
+export async function createVerifiedServiceClient() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error('Not authenticated')
+  }
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role, roles')
+    .eq('user_id', user.id)
+    .single()
+
+  const isAdmin = profile?.role === 'admin' ||
+    profile?.role === 'platform_admin' ||
+    (profile?.roles as string[] | null)?.includes('admin') ||
+    (profile?.roles as string[] | null)?.includes('platform_admin') ||
+    false
+
+  if (!isAdmin) {
+    throw new Error('Forbidden: admin role required')
+  }
+
+  return {
+    serviceClient: createServiceClient(),
+    userId: user.id,
+  }
+}

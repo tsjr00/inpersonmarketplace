@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useCart } from '@/lib/hooks/useCart'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, FEES } from '@/lib/constants'
@@ -1124,12 +1125,15 @@ export default function CheckoutPage() {
                         justifyContent: 'center',
                         fontSize: typography.sizes['2xl'],
                         overflow: 'hidden',
+                        position: 'relative',
                       }}>
                         {product.image_urls?.[0] ? (
-                          <img
+                          <Image
                             src={product.image_urls[0]}
                             alt={product.title}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            fill
+                            sizes="64px"
+                            style={{ objectFit: 'cover' }}
                           />
                         ) : (
                           '📦'

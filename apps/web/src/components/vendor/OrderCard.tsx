@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import OrderStatusBadge from './OrderStatusBadge'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
@@ -354,13 +355,16 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  position: 'relative',
                 }}>
                   {item.listing_image ? (
-                    <img
+                    <Image
                       src={item.listing_image}
                       alt={item.listing_title}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      fill
+                      sizes="60px"
+                      style={{ objectFit: 'cover' }}
                     />
                   ) : (
                     <span style={{ fontSize: 24 }}>📦</span>

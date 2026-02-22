@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 
 interface Vendor {
@@ -109,13 +110,16 @@ export default function MarketVendorsList({ vendors, categories, vertical }: Mar
                   color: colors.primaryDark,
                   fontWeight: typography.weights.semibold,
                   fontSize: typography.sizes.sm,
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  position: 'relative'
                 }}>
                   {vendor.profile_image_url ? (
-                    <img
+                    <Image
                       src={vendor.profile_image_url}
                       alt={vendor.business_name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      fill
+                      sizes="40px"
+                      style={{ objectFit: 'cover' }}
                     />
                   ) : (
                     vendor.business_name.charAt(0).toUpperCase()

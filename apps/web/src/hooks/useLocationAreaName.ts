@@ -113,12 +113,10 @@ export function useLocationAreaName(
       // Handle specific geolocation errors silently - these are expected on many devices
       if (err instanceof GeolocationPositionError) {
         // User denied or location unavailable - not an error state, just no data
-        console.log('Geolocation not available:', err.message)
       } else if (err instanceof Error && err.name === 'AbortError') {
-        console.log('Location request aborted')
+        // Location request aborted — expected during cleanup
       } else if (err instanceof Error && err.message === 'Location timeout') {
         // Timeout is common on slow connections, don't treat as error
-        console.log('Location request timed out')
       } else {
         console.error('Error getting area name:', err)
         setError(err instanceof Error ? err.message : 'Unknown error')

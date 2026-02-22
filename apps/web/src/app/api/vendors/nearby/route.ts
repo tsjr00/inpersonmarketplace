@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
       // If PostGIS function fails (e.g., not available), fall back to cache-based method
       if (postgisError) {
-        console.log('[Vendors Nearby] PostGIS function failed, using fallback:', postgisError.message)
+        console.warn('[Vendors Nearby] PostGIS function failed, using fallback:', postgisError.message)
         return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, market, category, search, sort)
       }
 

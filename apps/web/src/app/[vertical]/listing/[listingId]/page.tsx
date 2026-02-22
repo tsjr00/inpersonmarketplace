@@ -214,6 +214,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
       }}
       className="listing-detail-page"
     >
+      {/* Safe: JSON-LD structured data — server-rendered, no user input */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

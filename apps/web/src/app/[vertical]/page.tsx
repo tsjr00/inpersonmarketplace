@@ -158,7 +158,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
 
   return (
     <>
-      {/* Schema.org JSON-LD */}
+      {/* Safe: JSON-LD structured data — server-rendered, no user input */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

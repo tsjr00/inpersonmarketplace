@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
@@ -415,6 +416,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
       }}
       className="vendor-profile-page"
     >
+      {/* Safe: JSON-LD structured data — server-rendered, no user input */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -1049,9 +1051,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       </span>
 
                       {boxImageUrls && boxImageUrls.length > 0 ? (
-                        <img
+                        <Image
                           src={boxImageUrls[0]}
                           alt={boxName}
+                          width={280}
+                          height={140}
                           style={{
                             width: '100%',
                             height: 140,
@@ -1213,9 +1217,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       )}
 
                       {primaryImage?.url ? (
-                        <img
+                        <Image
                           src={primaryImage.url}
                           alt={listingTitle}
+                          width={280}
+                          height={140}
                           style={{
                             width: '100%',
                             height: 140,

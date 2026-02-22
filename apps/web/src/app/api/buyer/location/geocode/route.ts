@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (censusError) {
-        console.log('Census API failed, trying Nominatim:', censusError)
+        console.warn('Census API failed, trying Nominatim:', censusError)
       }
 
       // Fallback to Nominatim (OpenStreetMap) - also free
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (nominatimError) {
-        console.log('Nominatim API also failed:', nominatimError)
+        console.warn('Nominatim API also failed:', nominatimError)
       }
 
       // If all APIs fail

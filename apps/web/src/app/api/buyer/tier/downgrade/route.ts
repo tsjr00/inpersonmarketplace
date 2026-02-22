@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
           await stripe.subscriptions.update(userProfile.stripe_subscription_id, {
             cancel_at_period_end: true
           })
-          console.log(`[buyer-downgrade] Cancelled subscription ${userProfile.stripe_subscription_id} for user ${user.id}`)
+          // Subscription set to cancel at period end
         } catch (stripeError) {
           console.error('Error cancelling Stripe subscription:', stripeError)
           // Continue with downgrade even if Stripe fails

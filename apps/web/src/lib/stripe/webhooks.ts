@@ -63,6 +63,10 @@ export async function handleWebhookEvent(event: Stripe.Event) {
       await handleTransferFailed(event.data.object as Stripe.Transfer)
       break
 
+    case 'charge.refunded':
+      await handleChargeRefunded(event.data.object as Stripe.Charge)
+      break
+
     // Subscription events for premium tiers
     case 'customer.subscription.updated':
       await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
@@ -171,6 +175,11 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 
           if (rpcError) {
             crumb.stripe(`Market box RPC error for offering ${mbItem.offeringId}: ${rpcError.message}`)
+            // M-8 FIX: Escalate RPC failure — buyer paid but subscription wasn't created
+            await logError(new TracedError('ERR_WEBHOOK_010', `Market box subscription RPC failed in webhook: ${rpcError.message}`, {
+              route: '/webhooks/stripe', method: 'POST',
+              offeringId: mbItem.offeringId, orderId, paymentIntentId,
+            }))
           } else if (result && !result.success) {
             crumb.stripe(`Market box at capacity: ${mbItem.offeringId}`)
             // F6 FIX: Refund buyer for at-capacity market box
@@ -603,4 +612,114 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
     .from('vendor_payouts')
     .update({ status: 'failed' })
     .eq('order_item_id', orderItemId)
+
+  // Notify vendor that their payout was reversed
+  const { data: orderItem } = await supabase
+    .from('order_items')
+    .select('vendor_profiles!vendor_profile_id(user_id), order:orders(vertical_id)')
+    .eq('id', orderItemId)
+    .single()
+
+  const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string } | null })?.vendor_profiles
+  const orderData = (orderItem as unknown as { order: { vertical_id: string } | null })?.order
+  if (vendorProfile?.user_id) {
+    await sendNotification(vendorProfile.user_id, 'payout_failed', {
+      amountCents: transfer.amount,
+      reason: 'Transfer was reversed by Stripe',
+    }, { vertical: orderData?.vertical_id })
+  }
+}
+
+/**
+ * Handle charge refunded — admin issued refund via Stripe Dashboard
+ * Updates order status and notifies buyer/vendor
+ */
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  const supabase = createServiceClient()
+
+  const paymentIntentId = typeof charge.payment_intent === 'string'
+    ? charge.payment_intent
+    : charge.payment_intent?.id
+
+  if (!paymentIntentId) {
+    crumb.stripe('charge.refunded: no payment_intent ID found')
+    return
+  }
+
+  // Find the order linked to this payment
+  const { data: payment } = await supabase
+    .from('payments')
+    .select('order_id')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .single()
+
+  if (!payment?.order_id) {
+    crumb.stripe(`charge.refunded: no order found for PI ${paymentIntentId}`)
+    return
+  }
+
+  const isFullRefund = charge.amount_refunded >= charge.amount
+
+  if (isFullRefund) {
+    // Full refund — mark order as refunded
+    await supabase
+      .from('orders')
+      .update({ status: 'refunded' })
+      .eq('id', payment.order_id)
+
+    // Mark all non-cancelled order items as refunded
+    await supabase
+      .from('order_items')
+      .update({ status: 'refunded', refund_amount_cents: charge.amount_refunded })
+      .eq('order_id', payment.order_id)
+      .is('cancelled_at', null)
+  }
+
+  // Update payment status
+  await supabase
+    .from('payments')
+    .update({ status: isFullRefund ? 'refunded' : 'partially_refunded' })
+    .eq('stripe_payment_intent_id', paymentIntentId)
+
+  // Get order details for notifications
+  const { data: order } = await supabase
+    .from('orders')
+    .select(`
+      order_number, buyer_user_id, vertical_id,
+      order_items(vendor_profile_id, vendor_profiles!vendor_profile_id(user_id))
+    `)
+    .eq('id', payment.order_id)
+    .single()
+
+  if (!order) return
+
+  const refundAmountCents = charge.amount_refunded
+
+  // Notify buyer about refund
+  if (order.buyer_user_id) {
+    await sendNotification(order.buyer_user_id, 'order_refunded', {
+      orderNumber: order.order_number,
+      amountCents: refundAmountCents,
+    }, { vertical: order.vertical_id })
+  }
+
+  // Notify vendors about refund
+  const vendorUserIds = new Set<string>()
+  const items = order.order_items as unknown as Array<{
+    vendor_profile_id: string
+    vendor_profiles: { user_id: string } | null
+  }>
+  for (const item of items || []) {
+    const userId = item.vendor_profiles?.user_id
+    if (userId) vendorUserIds.add(userId)
+  }
+
+  for (const vendorUserId of vendorUserIds) {
+    await sendNotification(vendorUserId, 'order_refunded', {
+      orderNumber: order.order_number,
+      amountCents: refundAmountCents,
+    }, { vertical: order.vertical_id })
+  }
+
+  crumb.stripe(`charge.refunded processed: order ${payment.order_id}, ${isFullRefund ? 'full' : 'partial'} refund of $${(refundAmountCents / 100).toFixed(2)}`)
 }

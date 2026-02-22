@@ -258,7 +258,7 @@ export async function POST(request: NextRequest) {
         if (geocodeResponse) {
           parsedLat = geocodeResponse.latitude
           parsedLng = geocodeResponse.longitude
-          console.log(`[/api/vendor/markets] Auto-geocoded ZIP ${zip} to ${parsedLat}, ${parsedLng}`)
+          // Auto-geocoded successfully
         }
       } catch (geocodeError) {
         // Don't fail market creation if geocoding fails, just log it

@@ -197,7 +197,7 @@ function formatEmailHtml(
   body: string,
   brandName: string = 'Farmers Marketing',
   brandDomain: string = 'farmersmarketing.app',
-  brandColor: string = '#166534'
+  brandColor: string = '#2d5016'
 ): string {
   const htmlBody = body
     .replace(/&/g, '&amp;')
@@ -477,13 +477,13 @@ export async function sendNotification(
         break
       }
       case 'sms': {
-        // SMS is fallback when push is not enabled
-        if (preferences.push_enabled) {
+        // SMS sends independently when user has sms_order_updates enabled
+        if (!preferences.sms_order_updates) {
           results.push({
             channel: 'sms',
             success: true,
             skipped: true,
-            reason: 'Push is enabled, SMS not needed',
+            reason: 'SMS notifications not enabled by user',
           })
         } else if (userPhone) {
           results.push(await sendSms(userPhone, `${title}: ${message}`))

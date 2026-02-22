@@ -33,3 +33,26 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Security audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+      - name: Report build size
+        run: |
+          echo "## Build Size Report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          du -sh .next/ 2>/dev/null || echo "No .next directory"
+          du -sh .next/static/ 2>/dev/null || echo "No static directory"
+          find .next/static -name '*.js' -exec du -sh {} + 2>/dev/null | sort -rh | head -10
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          # Also output to log
+          echo "=== Total build size ==="
+          du -sh .next/ 2>/dev/null
+          echo "=== Static assets ==="
+          du -sh .next/static/ 2>/dev/null
+          echo "=== Largest JS bundles ==="
+          find .next/static -name '*.js' -exec du -sh {} + 2>/dev/null | sort -rh | head -10

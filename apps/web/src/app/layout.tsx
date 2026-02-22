@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { EnvironmentBanner } from "@/components/layout/EnvironmentBanner";
+import { WebVitals } from "@/components/layout/WebVitals";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,12 +36,14 @@ export default function RootLayout({
         <link rel="manifest" href="/api/manifest" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        {/* Safe: inline SW registration script — no user-supplied content */}
         <script
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}`,
           }}
         />
         <EnvironmentBanner />
+        <WebVitals />
         {children}
       </body>
     </html>

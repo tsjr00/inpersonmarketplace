@@ -195,11 +195,20 @@ export default function TermsPage() {
               By making a purchase, you agree to Stripe&apos;s terms of service in addition to these Terms.
             </p>
 
-            <h3 style={h3Style}>4.2 Pricing</h3>
+            <h3 style={h3Style}>4.2 Pricing & Fees</h3>
             <p style={pStyle}>
-              All prices displayed on the platform are set by individual vendors. Prices include applicable
-              platform fees and payment processing costs. Vendors receive the listed price minus platform
-              and processing fees.
+              All prices displayed on the platform are set by individual vendors. The platform charges
+              service fees to facilitate transactions:
+            </p>
+            <ul style={listStyle}>
+              <li><strong>Buyer service fee:</strong> 6.5% of the order subtotal, added to the buyer&apos;s total at checkout.</li>
+              <li><strong>Vendor service fee (online payment):</strong> 6.5% of the order subtotal, deducted from the vendor&apos;s payout. This covers payment processing and platform services.</li>
+              <li><strong>Vendor service fee (cash/external payment):</strong> 3.5% of the order subtotal, invoiced to the vendor. This reduced rate reflects the absence of payment processing costs.</li>
+              <li><strong>Order service fee:</strong> $0.15 per order, split between buyer and vendor ($0.15 each).</li>
+            </ul>
+            <p style={pStyle}>
+              Fee percentages may be updated with notice. Current rates are always displayed during checkout.
+              Vendors can view their fee history in their dashboard.
             </p>
 
             <h3 style={h3Style}>4.3 Refunds and Cancellations</h3>

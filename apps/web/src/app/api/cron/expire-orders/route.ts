@@ -33,6 +33,7 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 5: Retry failed vendor payouts (Stripe transfers)
  * Phase 6: Error report digest — email admin a summary of pending reports
  * Phase 7: Auto-fulfill stale confirmation windows (buyer confirmed, vendor didn't)
+ * Phase 8: Expire vendor/buyer tier subscriptions past tier_expires_at
  *
  * Called by Vercel Cron daily at 6am UTC (configured in vercel.json)
  */
@@ -1074,6 +1075,71 @@ export async function GET(request: NextRequest) {
       console.error('Phase 7 error:', phase7Error instanceof Error ? phase7Error.message : 'Unknown error')
     }
 
+    // ============================================================
+    // PHASE 8: Expire vendor/buyer tier subscriptions
+    // Downgrade vendors and buyers whose tier_expires_at has passed.
+    // FT vendors → 'free', FM vendors → 'standard', Buyers → 'standard'
+    // ============================================================
+    let vendorTiersExpired = 0
+    let buyerTiersExpired = 0
+    try {
+      // Expire vendor tiers
+      const { data: expiredVendors } = await supabase
+        .from('vendor_profiles')
+        .select('id, tier, vertical_id, user_id')
+        .lt('tier_expires_at', new Date().toISOString())
+        .not('tier', 'in', '("standard","free")')
+        .limit(100)
+
+      if (expiredVendors && expiredVendors.length > 0) {
+        for (const vendor of expiredVendors) {
+          const newTier = vendor.vertical_id === 'food_trucks' ? 'free' : 'standard'
+          const { error: updateErr } = await supabase
+            .from('vendor_profiles')
+            .update({
+              tier: newTier,
+              tier_expires_at: null,
+              stripe_subscription_id: null,
+            })
+            .eq('id', vendor.id)
+
+          if (!updateErr) {
+            vendorTiersExpired++
+            totalProcessed++
+            // Notify vendor their subscription expired
+            await sendNotification(vendor.user_id, 'payout_failed', {
+              orderNumber: 'subscription',
+              amountCents: 0,
+            }, { vertical: vendor.vertical_id })
+          }
+        }
+      }
+
+      // Expire buyer tiers
+      const { data: expiredBuyers } = await supabase
+        .from('user_profiles')
+        .select('id, buyer_tier')
+        .lt('tier_expires_at', new Date().toISOString())
+        .neq('buyer_tier', 'standard')
+        .limit(100)
+
+      if (expiredBuyers && expiredBuyers.length > 0) {
+        const expiredIds = expiredBuyers.map(b => b.id)
+        await supabase
+          .from('user_profiles')
+          .update({
+            buyer_tier: 'standard',
+            tier_expires_at: null,
+          })
+          .in('id', expiredIds)
+
+        buyerTiersExpired = expiredBuyers.length
+        totalProcessed += buyerTiersExpired
+      }
+    } catch (phase8Error) {
+      console.error('Phase 8 error:', phase8Error instanceof Error ? phase8Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -1083,6 +1149,7 @@ export async function GET(request: NextRequest) {
       externalPayments: { reminders: externalReminders, autoConfirmed: externalAutoConfirmed },
       errorDigest: { reportsSummarized: errorReportsSummarized },
       staleWindows: { fulfilled: staleWindowsFulfilled },
+      tierExpirations: { vendors: vendorTiersExpired, buyers: buyerTiersExpired },
     })
   })
 }

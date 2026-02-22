@@ -36,6 +36,7 @@ export type NotificationType =
   | 'order_ready'
   | 'order_fulfilled'
   | 'order_cancelled_by_vendor'
+  | 'order_refunded'
   | 'order_expired'
   | 'pickup_missed'
   | 'market_box_skip'
@@ -132,6 +133,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'buyer',
     title: () => `Order Cancelled`,
     message: (d) => `${d.vendorName} cancelled your order #${d.orderNumber}.${d.reason ? ` Reason: ${d.reason}` : ''} A refund will be processed.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+  },
+
+  order_refunded: {
+    urgency: 'standard',
+    audience: 'buyer',
+    title: () => `Order Refunded`,
+    message: (d) => `A refund${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been issued for order #${d.orderNumber}. It may take 5-10 business days to appear on your statement.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 

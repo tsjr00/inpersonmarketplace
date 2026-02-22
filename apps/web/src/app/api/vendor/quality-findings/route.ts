@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * GET /api/vendor/quality-findings?vertical=food_trucks
@@ -11,6 +12,10 @@ import { withErrorTracing } from '@/lib/errors'
  * Dismisses a finding.
  */
 export async function GET(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rl = checkRateLimit(`vendor-quality-findings-get:${clientIp}`, rateLimits.api)
+  if (!rl.success) return rateLimitResponse(rl)
+
   return withErrorTracing('/api/vendor/quality-findings', 'GET', async () => {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -54,6 +59,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const clientIp = getClientIp(request)
+  const rl = checkRateLimit(`vendor-quality-findings-patch:${clientIp}`, rateLimits.submit)
+  if (!rl.success) return rateLimitResponse(rl)
+
   return withErrorTracing('/api/vendor/quality-findings', 'PATCH', async () => {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()

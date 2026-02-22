@@ -111,6 +111,7 @@ export default async function MarketBoxDetailPage({ params }: MarketBoxPageProps
       vendorName,
     })
 
+    // Safe: JSON-LD structured data — server-rendered, no user input
     jsonLdScript = (
       <script
         type="application/ld+json"

@@ -130,12 +130,6 @@ export default function PlatformAdminErrorsPage() {
       setActionLoading(true)
       // This would call a new API endpoint to record the resolution
       // For now, we'll just show the data that would be sent
-      console.log('Recording resolution:', {
-        errorCode: selectedReport.error_code,
-        traceId: selectedReport.trace_id,
-        ...resolutionForm,
-      })
-
       alert('Resolution recorded! Run the migration and verify the fix, then mark verified or failed.')
       setShowResolutionForm(false)
       setResolutionForm({ attemptedFix: '', migrationFile: '', codeChanges: '' })

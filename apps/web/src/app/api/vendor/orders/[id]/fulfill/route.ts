@@ -242,6 +242,22 @@ export async function POST(
             orderItemId: orderItem.id,
           })
 
+          // Record fee credit BEFORE payout insert (compensating transaction pattern)
+          // If credit recording fails, we still proceed with the payout
+          if (feeDeductionCents > 0) {
+            try {
+              await recordFeeCredit(
+                serviceClient,
+                vendorProfile.id,
+                feeDeductionCents,
+                `Auto-deducted from Stripe payout`,
+                orderItem.order_id
+              )
+            } catch (feeErr) {
+              crumb.logic('Fee credit recording failed, continuing with payout', { error: feeErr })
+            }
+          }
+
           crumb.supabase('insert', 'vendor_payouts')
           await supabase.from('vendor_payouts').insert({
             order_item_id: orderItem.id,
@@ -250,17 +266,6 @@ export async function POST(
             stripe_transfer_id: transfer.id,
             status: 'processing',
           })
-
-          // Record fee credit if deduction was made
-          if (feeDeductionCents > 0) {
-            await recordFeeCredit(
-              serviceClient,
-              vendorProfile.id,
-              feeDeductionCents,
-              `Auto-deducted from Stripe payout`,
-              orderItem.order_id
-            )
-          }
         } catch (transferError) {
           // C2 FIX: Revert status on failed transfer to prevent orphaned fulfillment
           crumb.logic('Stripe transfer failed, reverting order item status')

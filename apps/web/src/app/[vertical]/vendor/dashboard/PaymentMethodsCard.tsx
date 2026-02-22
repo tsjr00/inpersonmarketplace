@@ -161,7 +161,7 @@ export default function PaymentMethodsCard({
             fontSize: typography.sizes.base,
             fontWeight: typography.weights.semibold
           }}>
-            Payment Methods
+            Payments
           </h3>
           <p style={{
             margin: `${spacing['3xs']} 0 0 0`,

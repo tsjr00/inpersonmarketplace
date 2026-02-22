@@ -147,8 +147,18 @@ export async function POST(request: NextRequest) {
             try {
               await stripe.subscriptions.cancel(vendorProfile.stripe_subscription_id)
             } catch (cancelErr) {
-              console.warn('[subscription-checkout] Failed to cancel existing subscription:', cancelErr)
-              // Continue — may already be canceled
+              // Check if subscription is already canceled (safe to proceed)
+              try {
+                const sub = await stripe.subscriptions.retrieve(vendorProfile.stripe_subscription_id)
+                if (sub.status !== 'canceled') {
+                  return NextResponse.json(
+                    { error: 'Failed to cancel your existing subscription. Please try again or contact support.' },
+                    { status: 500 }
+                  )
+                }
+              } catch {
+                // Subscription doesn't exist in Stripe — safe to proceed
+              }
             }
           }
         } else {

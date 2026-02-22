@@ -106,17 +106,6 @@ export function CartProvider({
   const [hasScheduleIssues, setHasScheduleIssues] = useState(false)
   const [hasMarketBoxItems, setHasMarketBoxItems] = useState(false)
 
-  // Clear localStorage cart on mount (migration cleanup)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const oldCart = localStorage.getItem('cart')
-      if (oldCart) {
-        console.log('Migrating from localStorage cart to database cart...')
-        localStorage.removeItem('cart')
-      }
-    }
-  }, [])
-
   const refreshCart = useCallback(async () => {
     setLoading(true)
     try {

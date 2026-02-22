@@ -11,6 +11,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LOW_STOCK_THRESHOLD } from './constants'
+import { TracedError, logError } from './errors'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ export async function checkScheduleConflicts(
     .eq('is_active', true)
 
   if (error || !schedules) {
-    console.error('[QC1] Schedule conflict check failed:', error?.message)
+    await logError(new TracedError('ERR_QC_001', `Schedule conflict check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
     return findings
   }
 
@@ -138,7 +139,7 @@ export async function checkLowStockEvents(
     .gt('quantity', 0)
 
   if (error || !data) {
-    console.error('[QC2] Low stock + event check failed:', error?.message)
+    await logError(new TracedError('ERR_QC_002', `Low stock + event check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
     return findings
   }
 
@@ -190,7 +191,7 @@ export async function checkPriceAnomalies(
     .gte('updated_at', yesterday)
 
   if (error || !listings) {
-    console.error('[QC3] Price anomaly check failed:', error?.message)
+    await logError(new TracedError('ERR_QC_003', `Price anomaly check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
     return findings
   }
 
@@ -260,7 +261,7 @@ export async function checkGhostListings(
     .is('deleted_at', null)
 
   if (error || !listings) {
-    console.error('[QC4] Ghost listing check failed:', error?.message)
+    await logError(new TracedError('ERR_QC_004', `Ghost listing check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
     return findings
   }
 
@@ -346,7 +347,7 @@ export async function checkInventoryVelocity(
     .gt('quantity', 0)
 
   if (error || !listings) {
-    console.error('[QC5] Inventory velocity check failed:', error?.message)
+    await logError(new TracedError('ERR_QC_005', `Inventory velocity check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
     return findings
   }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund } from '@/lib/stripe/payments'
-import { withErrorTracing, traced, crumb } from '@/lib/errors'
+import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { sendNotification } from '@/lib/notifications'
@@ -224,6 +224,11 @@ export async function GET(request: NextRequest) {
 
             if (rpcError) {
               crumb.logic('Failed to create market box subscription', { error: rpcError.message, offeringId: mbItem.offeringId })
+              // M-8 FIX: Escalate RPC failure — buyer paid but subscription wasn't created
+              await logError(new TracedError('ERR_CHECKOUT_010', `Market box subscription RPC failed after payment: ${rpcError.message}`, {
+                route: '/api/checkout/success', method: 'GET',
+                offeringId: mbItem.offeringId, orderId, paymentIntentId,
+              }))
             } else if (result && !result.success) {
               crumb.logic('Market box at capacity, subscription not created', { offeringId: mbItem.offeringId, ...result })
               // F6 FIX: Refund buyer for at-capacity market box
