@@ -84,6 +84,7 @@
 | 20260222_048_buyer_search_log.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Buyer search log table for geographic intelligence. Applied to all 3 envs. |
 | 20260222_049_scan_vendor_activity_validation.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Add vertical_id validation to scan_vendor_activity(). Applied to all 3 envs. |
 | 20260222_050_fix_notifications_user_id_fk.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Fix notifications.user_id FK → auth.users(id). Rewrite trigger. Applied to all 3 envs. |
+| 20260222_051_fix_ft_seed_onboarding_gates.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Fix FT seed vendor onboarding gates 2 & 4. Data-only. Applied to Dev & Staging. |
 
 ---
 
