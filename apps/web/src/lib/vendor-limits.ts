@@ -74,12 +74,12 @@ export interface FtTierExtras {
 
 export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = {
   free: {
-    productListings: 4,
+    productListings: 5,
     totalMarketBoxes: 0,
     activeMarketBoxes: 0,
     traditionalMarkets: 1,
-    privatePickupLocations: 1,
-    pickupWindowsPerLocation: 2,
+    privatePickupLocations: 2,
+    pickupWindowsPerLocation: 4,
     maxSubscribersPerOffering: 0,
     defaultSubscribersPerOffering: 0,
     analyticsDays: 0,
@@ -89,40 +89,40 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     locationInsights: 'none',
   },
   basic: {
-    productListings: 8,
+    productListings: 10,
     totalMarketBoxes: 2,
     activeMarketBoxes: 2,
     traditionalMarkets: 3,
     privatePickupLocations: 3,
-    pickupWindowsPerLocation: 4,
+    pickupWindowsPerLocation: 5,
     maxSubscribersPerOffering: 10,
     defaultSubscribersPerOffering: 5,
     analyticsDays: 30,
     analyticsExport: false,
     priorityPlacement: 0,
-    notificationChannels: ['in_app'],
+    notificationChannels: ['in_app', 'email'],
     locationInsights: 'basic',
   },
   pro: {
     productListings: 20,
     totalMarketBoxes: 4,
     activeMarketBoxes: 4,
-    traditionalMarkets: 7,
-    privatePickupLocations: 7,
+    traditionalMarkets: 5,
+    privatePickupLocations: 5,
     pickupWindowsPerLocation: 6,
     maxSubscribersPerOffering: 20,
     defaultSubscribersPerOffering: 10,
-    analyticsDays: 90,
+    analyticsDays: 60,
     analyticsExport: false,
     priorityPlacement: 1,
-    notificationChannels: ['in_app', 'push', 'email'],
+    notificationChannels: ['in_app', 'email', 'push'],
     locationInsights: 'pro',
   },
   boss: {
     productListings: 45,
     totalMarketBoxes: 8,
     activeMarketBoxes: 8,
-    traditionalMarkets: 15,
+    traditionalMarkets: 8,
     privatePickupLocations: 15,
     pickupWindowsPerLocation: 7,
     maxSubscribersPerOffering: 50,
@@ -130,7 +130,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     analyticsDays: 90,
     analyticsExport: true,
     priorityPlacement: 2,
-    notificationChannels: ['in_app', 'push', 'email', 'sms'],
+    notificationChannels: ['in_app', 'email', 'push', 'sms'],
     locationInsights: 'boss',
   },
 } as const
@@ -177,8 +177,8 @@ export function getTierSortPriority(tier: string | undefined, vertical: string):
  * - `max`: Hard cap on subscribers per offering
  * - `default`: Default value when vendor hasn't set max_subscribers
  */
-export function getSubscriberDefault(tier: string): number {
-  const limits = getTierLimits(tier)
+export function getSubscriberDefault(tier: string, vertical?: string): number {
+  const limits = getTierLimits(tier, vertical)
   return limits.defaultSubscribersPerOffering
 }
 

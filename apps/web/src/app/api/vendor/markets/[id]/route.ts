@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       // Check tier-based window limit
       const tier = vendorProfile.tier || 'standard'
-      const tierLimits = getTierLimits(tier)
+      const tierLimits = getTierLimits(tier, market.vertical_id)
       const maxWindows = tierLimits.pickupWindowsPerLocation
 
       if (pickup_windows.length > maxWindows) {

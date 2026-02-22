@@ -73,8 +73,8 @@ export async function GET(request: NextRequest) {
 
     // Get traditional markets with home market info
     const tier = vendorProfile.tier || 'standard'
-    const tierLimits = getTierLimits(tier)
-    const isVendorPremium = isPremiumTier(tier)
+    const tierLimits = getTierLimits(tier, vertical)
+    const isVendorPremium = isPremiumTier(tier, vertical)
 
     // Query vendor attendance records (including vendor-specific times for polling)
     const { data: attendanceData } = await supabase
@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tier = vendorProfileForTier.tier || 'standard'
-    const tierLimits = getTierLimits(tier)
+    const tierLimits = getTierLimits(tier, vertical)
     const maxWindows = tierLimits.pickupWindowsPerLocation
 
     if (pickup_windows.length > maxWindows) {
