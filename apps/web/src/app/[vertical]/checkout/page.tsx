@@ -3,77 +3,18 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useCart } from '@/lib/hooks/useCart'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
-import { calculateBuyerPrice, calculateDisplayPrice, formatPrice, FEES } from '@/lib/constants'
-import { calculateSmallOrderFee, getSmallOrderFeeConfig, formatPrice as formatPriceFn } from '@/lib/pricing'
+import { calculateDisplayPrice, formatPrice, FEES } from '@/lib/constants'
+import { calculateSmallOrderFee, getSmallOrderFeeConfig } from '@/lib/pricing'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
-import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 import { term } from '@/lib/vertical'
-
-interface CheckoutItem {
-  itemType?: 'listing' | 'market_box'
-  listingId: string | null
-  quantity: number
-  title: string
-  price_cents: number
-  vendor_name: string
-  vendor_profile_id?: string
-  available: boolean
-  available_quantity: number | null
-  market_id?: string
-  market_name?: string
-  market_type?: string
-  market_city?: string
-  market_state?: string
-  // Pickup scheduling fields
-  schedule_id?: string | null
-  pickup_date?: string | null  // YYYY-MM-DD format
-  pickup_display?: {
-    date_formatted: string
-    time_formatted: string | null
-    day_name: string | null
-  } | null
-  // Market box fields
-  offeringId?: string | null
-  offeringName?: string | null
-  termWeeks?: number | null
-  startDate?: string | null
-  termPriceCents?: number | null
-  pickupDayOfWeek?: number | null
-  pickupStartTime?: string | null
-  pickupEndTime?: string | null
-}
-
-interface SuggestedProduct {
-  id: string
-  title: string
-  price_cents: number
-  image_urls?: string[] | null
-  vendor_profile_id: string
-  vendor_profiles?: {
-    id: string
-    business_name?: string
-    tier?: string
-  }
-}
-
-interface PaymentMethod {
-  id: 'stripe' | 'venmo' | 'cashapp' | 'paypal' | 'cash'
-  name: string
-  icon: string
-  description: string
-}
-
-interface VendorPaymentInfo {
-  vendor_profile_id: string
-  vendor_name: string
-  venmo_username: string | null
-  cashapp_cashtag: string | null
-  paypal_username: string | null
-  accepts_cash_at_pickup: boolean
-}
+import { TipSelector } from './TipSelector'
+import { CheckoutListingItem } from './CheckoutListingItem'
+import { CheckoutMarketBoxItem } from './CheckoutMarketBoxItem'
+import { CrossSellSection } from './CrossSellSection'
+import { PaymentMethodSelector } from './PaymentMethodSelector'
+import type { CheckoutItem, SuggestedProduct, PaymentMethod, VendorPaymentInfo } from './types'
 
 export default function CheckoutPage() {
   const params = useParams()
@@ -92,12 +33,10 @@ export default function CheckoutPage() {
   const [multiLocationAcknowledged, setMultiLocationAcknowledged] = useState(false)
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null)
-  const [vendorPaymentInfo, setVendorPaymentInfo] = useState<VendorPaymentInfo[]>([])
+  const [, setVendorPaymentInfo] = useState<VendorPaymentInfo[]>([])
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null)
   const [validationFailed, setValidationFailed] = useState(false)
   const [tipPercentage, setTipPercentage] = useState<number>(0)
-  const [customTipInput, setCustomTipInput] = useState<string>('')
-  const [showCustomTip, setShowCustomTip] = useState(false)
   const [unresolvedExternalCount, setUnresolvedExternalCount] = useState(0)
 
   // Ref to prevent double-click submissions (state update may not re-render in time)
@@ -563,6 +502,34 @@ export default function CheckoutPage() {
   // Check if all items are available
   const hasUnavailableItems = checkoutItems.some(item => !item.available)
 
+  // Checkout button disabled state
+  const checkoutDisabled = processing || validationFailed || hasUnavailableItems || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)
+
+  // Checkout button label
+  const checkoutLabel = processing ? 'Processing...' : validationFailed ? 'Validation Required' : !marketValid ? 'Fix Market Issues' : hasScheduleIssues ? 'Remove Unavailable Items' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`
+
+  // Item action handlers that bridge cart items ↔ checkout items
+  async function handleQuantityChange(listingId: string, newQuantity: number) {
+    const cartItem = items.find(ci => ci.listingId === listingId)
+    if (cartItem) {
+      setUpdatingItemId(listingId)
+      try { await updateQuantity(cartItem.id, newQuantity) } finally { setUpdatingItemId(null) }
+    }
+  }
+
+  function handleRemoveListing(listingId: string) {
+    const cartItem = items.find(ci => ci.listingId === listingId)
+    if (cartItem) removeFromCart(cartItem.id)
+  }
+
+  function handleRemoveMarketBox(offeringId: string) {
+    const cartItem = items.find(ci => ci.offeringId === offeringId)
+    if (cartItem) removeFromCart(cartItem.id)
+  }
+
+  const listingItems = checkoutItems.filter(i => i.itemType !== 'market_box')
+  const marketBoxCheckoutItems = checkoutItems.filter(i => i.itemType === 'market_box')
+
   if (loading) {
     return (
       <div style={{
@@ -637,10 +604,7 @@ export default function CheckoutPage() {
 
   return (
     <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: colors.surfaceBase,
-      }}
+      style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}
       className="checkout-page"
     >
       {/* Header */}
@@ -649,10 +613,7 @@ export default function CheckoutPage() {
         borderBottom: `1px solid ${colors.border}`,
         padding: spacing.sm,
       }}>
-        <div style={{
-          maxWidth: containers.lg,
-          margin: '0 auto',
-        }}>
+        <div style={{ maxWidth: containers.lg, margin: '0 auto' }}>
           <Link
             href={`/${vertical}/browse`}
             style={{
@@ -680,10 +641,7 @@ export default function CheckoutPage() {
         margin: '0 auto',
         padding: `${spacing.md} ${spacing.sm}`,
       }}>
-        <div className="checkout-grid" style={{
-          display: 'grid',
-          gap: spacing.md,
-        }}>
+        <div className="checkout-grid" style={{ display: 'grid', gap: spacing.md }}>
           {/* Cart Items */}
           <div className="cart-items">
             <h2 style={{
@@ -759,7 +717,7 @@ export default function CheckoutPage() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
               {/* Market box notice */}
-              {hasMarketBoxItems && checkoutItems.some(i => i.itemType !== 'market_box') && (
+              {hasMarketBoxItems && listingItems.length > 0 && (
                 <div style={{
                   padding: spacing.xs,
                   backgroundColor: statusColors.infoLight,
@@ -773,195 +731,20 @@ export default function CheckoutPage() {
               )}
 
               {/* Listing items */}
-              {checkoutItems.filter(i => i.itemType !== 'market_box').map(item => (
-                <div
+              {listingItems.map(item => (
+                <CheckoutListingItem
                   key={item.listingId}
-                  style={{
-                    padding: spacing.sm,
-                    backgroundColor: colors.surfaceElevated,
-                    borderRadius: radius.md,
-                    border: item.available ? `1px solid ${colors.border}` : `2px solid ${statusColors.danger}`,
-                    boxShadow: shadows.sm,
-                  }}
-                >
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    gap: spacing.xs,
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{
-                        margin: `0 0 ${spacing['3xs']} 0`,
-                        fontSize: typography.sizes.base,
-                        color: colors.textPrimary,
-                      }}>
-                        {item.title}
-                      </h3>
-                      <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']} 0` }}>
-                        {item.vendor_name}
-                      </p>
-
-                      {/* Pickup Location and Date */}
-                      {item.market_name && (
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: spacing['2xs'],
-                          padding: `${spacing['2xs']} ${spacing.xs}`,
-                          backgroundColor: colors.primaryLight,
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                          marginBottom: spacing['2xs'],
-                          color: colors.textSecondary,
-                        }}>
-                          <span>{item.market_type === 'event' ? '🎪' : item.market_type === 'traditional' ? '🏪' : '📦'}</span>
-                          <span>
-                            <strong>Pickup:</strong> {item.market_name}
-                            {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
-                            {item.pickup_date && (
-                              <>
-                                {' · '}
-                                <span style={{
-                                  fontWeight: 600,
-                                  borderBottom: `2px solid ${getPickupDateColor(0)}`,
-                                  paddingBottom: 1
-                                }}>
-                                  {formatPickupDate(item.pickup_date)}
-                                </span>
-                                {item.pickup_display?.time_formatted && (
-                                  <span style={{ fontWeight: 500 }}>
-                                    {' @ '}{item.pickup_display.time_formatted}
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      )}
-
-                      {!item.available && (
-                        <div style={{
-                          padding: `${spacing['2xs']} ${spacing.xs}`,
-                          backgroundColor: statusColors.dangerLight,
-                          color: statusColors.dangerDark,
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                          marginBottom: spacing['2xs'],
-                        }}>
-                          {item.available_quantity === 0
-                            ? 'Sold out'
-                            : `Only ${item.available_quantity} available`
-                          }
-                        </div>
-                      )}
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                        <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>Qty:</span>
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                          <button
-                            onClick={async () => {
-                              const cartItem = items.find(ci => ci.listingId === item.listingId)
-                              if (cartItem) {
-                                setUpdatingItemId(item.listingId)
-                                try { await updateQuantity(cartItem.id, item.quantity - 1) } finally { setUpdatingItemId(null) }
-                              }
-                            }}
-                            disabled={updatingItemId === item.listingId}
-                            style={{
-                              width: 36,
-                              height: 36,
-                              border: `1px solid ${colors.border}`,
-                              borderRadius: `${radius.sm} 0 0 ${radius.sm}`,
-                              backgroundColor: colors.surfaceElevated,
-                              cursor: updatingItemId === item.listingId ? 'default' : 'pointer',
-                              fontSize: typography.sizes.lg,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: colors.textPrimary,
-                              opacity: updatingItemId === item.listingId ? 0.5 : 1,
-                            }}
-                          >
-                            −
-                          </button>
-                          <span style={{
-                            width: 40,
-                            height: 36,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderTop: `1px solid ${colors.border}`,
-                            borderBottom: `1px solid ${colors.border}`,
-                            fontSize: typography.sizes.sm,
-                            color: colors.textPrimary,
-                          }}>
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={async () => {
-                              const cartItem = items.find(ci => ci.listingId === item.listingId)
-                              if (cartItem) {
-                                setUpdatingItemId(item.listingId)
-                                try { await updateQuantity(cartItem.id, item.quantity + 1) } finally { setUpdatingItemId(null) }
-                              }
-                            }}
-                            disabled={updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)}
-                            style={{
-                              width: 36,
-                              height: 36,
-                              border: `1px solid ${colors.border}`,
-                              borderRadius: `0 ${radius.sm} ${radius.sm} 0`,
-                              backgroundColor: colors.surfaceElevated,
-                              cursor: (updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)) ? 'not-allowed' : 'pointer',
-                              fontSize: typography.sizes.lg,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              opacity: (updatingItemId === item.listingId || (item.available_quantity !== null && item.quantity >= item.available_quantity)) ? 0.5 : 1,
-                              color: colors.textPrimary,
-                            }}
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <p style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, margin: `0 0 ${spacing['3xs']} 0`, color: colors.textPrimary }}>
-                        {formatPrice(calculateDisplayPrice(item.price_cents) * item.quantity)}
-                      </p>
-                      <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: `0 0 ${spacing['2xs']} 0` }}>
-                        {formatPrice(calculateDisplayPrice(item.price_cents))} each
-                      </p>
-                      <button
-                        onClick={() => {
-                          const cartItem = items.find(ci => ci.listingId === item.listingId)
-                          if (cartItem) removeFromCart(cartItem.id)
-                        }}
-                        style={{
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: colors.surfaceElevated,
-                          color: statusColors.danger,
-                          border: `1px solid ${statusColors.danger}`,
-                          borderRadius: radius.sm,
-                          cursor: 'pointer',
-                          fontSize: typography.sizes.xs,
-                          minHeight: 36,
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  item={item}
+                  updatingItemId={updatingItemId}
+                  onQuantityChange={handleQuantityChange}
+                  onRemove={handleRemoveListing}
+                />
               ))}
 
               {/* Market Box items */}
-              {checkoutItems.filter(i => i.itemType === 'market_box').length > 0 && (
+              {marketBoxCheckoutItems.length > 0 && (
                 <>
-                  {checkoutItems.some(i => i.itemType !== 'market_box') && (
+                  {listingItems.length > 0 && (
                     <div style={{
                       borderTop: `1px solid ${colors.border}`,
                       paddingTop: spacing.xs,
@@ -975,223 +758,18 @@ export default function CheckoutPage() {
                       {term(vertical, 'market_box')} Subscriptions
                     </div>
                   )}
-                  {checkoutItems.filter(i => i.itemType === 'market_box').map(item => {
-                    const termLabel = item.termWeeks === 8 ? '8-week' : '4-week'
-                    const displayPrice = calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
-                    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-                    return (
-                      <div
-                        key={item.offeringId}
-                        style={{
-                          padding: spacing.sm,
-                          backgroundColor: statusColors.neutral50,
-                          borderRadius: radius.md,
-                          border: `1px solid ${statusColors.infoBorder}`,
-                          boxShadow: shadows.sm,
-                        }}
-                      >
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          gap: spacing.xs,
-                        }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], marginBottom: spacing['3xs'] }}>
-                              <span style={{ fontSize: typography.sizes.sm }}>📦</span>
-                              <h3 style={{
-                                margin: 0,
-                                fontSize: typography.sizes.base,
-                                color: colors.textPrimary,
-                              }}>
-                                {item.offeringName || item.title}
-                              </h3>
-                            </div>
-                            <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']} 0` }}>
-                              {item.vendor_name} · {termLabel} subscription
-                            </p>
-
-                            {/* Pickup schedule */}
-                            <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: spacing['2xs'],
-                              padding: `${spacing['2xs']} ${spacing.xs}`,
-                              backgroundColor: statusColors.infoLight,
-                              borderRadius: radius.sm,
-                              fontSize: typography.sizes.xs,
-                              color: statusColors.infoDark,
-                            }}>
-                              <span>📅</span>
-                              <span>
-                                <strong>Pickup:</strong>{' '}
-                                {item.pickupDayOfWeek != null ? DAY_NAMES[item.pickupDayOfWeek] + 's' : 'TBD'}
-                                {item.pickup_display?.time_formatted && ` · ${item.pickup_display.time_formatted}`}
-                                {item.market_name && (
-                                  <span style={{ display: 'block', marginTop: 2, color: colors.textMuted }}>
-                                    @ {item.market_name}
-                                    {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
-                                  </span>
-                                )}
-                                {item.startDate && (
-                                  <span style={{ display: 'block', marginTop: 2, color: colors.textMuted }}>
-                                    Starting {new Date(item.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                            <p style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, margin: `0 0 ${spacing['3xs']} 0`, color: colors.textPrimary }}>
-                              {formatPrice(displayPrice)}
-                            </p>
-                            <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: `0 0 ${spacing['2xs']} 0` }}>
-                              {termLabel} total
-                            </p>
-                            <button
-                              onClick={() => {
-                                const cartItem = items.find(ci => ci.offeringId === item.offeringId)
-                                if (cartItem) removeFromCart(cartItem.id)
-                              }}
-                              style={{
-                                padding: `${spacing['3xs']} ${spacing.xs}`,
-                                backgroundColor: colors.surfaceElevated,
-                                color: statusColors.danger,
-                                border: `1px solid ${statusColors.danger}`,
-                                borderRadius: radius.sm,
-                                cursor: 'pointer',
-                                fontSize: typography.sizes.xs,
-                                minHeight: 36,
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+                  {marketBoxCheckoutItems.map(item => (
+                    <CheckoutMarketBoxItem
+                      key={item.offeringId}
+                      item={item}
+                      onRemove={handleRemoveMarketBox}
+                    />
+                  ))}
                 </>
               )}
             </div>
 
-            {/* Cross-Sell Section */}
-            {suggestedProducts.length > 0 && (
-              <div style={{
-                marginTop: spacing.md,
-                backgroundColor: colors.primaryLight,
-                borderRadius: radius.md,
-                padding: spacing.md,
-                border: `2px solid ${colors.border}`
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm }}>
-                  <span style={{ fontSize: typography.sizes.xl }}>✨</span>
-                  <h3 style={{
-                    margin: 0,
-                    fontSize: typography.sizes.lg,
-                    fontWeight: typography.weights.semibold,
-                    color: colors.textPrimary
-                  }}>
-                    Other items you may enjoy from these vendors
-                  </h3>
-                </div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                  gap: spacing.xs
-                }}>
-                  {suggestedProducts.map(product => (
-                    <div
-                      key={product.id}
-                      style={{
-                        backgroundColor: colors.surfaceElevated,
-                        borderRadius: radius.md,
-                        padding: spacing.xs,
-                        border: `1px solid ${colors.border}`,
-                        boxShadow: shadows.sm,
-                      }}
-                    >
-                      {/* Product image */}
-                      <div style={{
-                        width: '100%',
-                        height: 80,
-                        backgroundColor: colors.surfaceMuted,
-                        borderRadius: radius.sm,
-                        marginBottom: spacing['2xs'],
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: typography.sizes['2xl'],
-                        overflow: 'hidden',
-                        position: 'relative',
-                      }}>
-                        {product.image_urls?.[0] ? (
-                          <Image
-                            src={product.image_urls[0]}
-                            alt={product.title}
-                            fill
-                            sizes="64px"
-                            style={{ objectFit: 'cover' }}
-                          />
-                        ) : (
-                          '📦'
-                        )}
-                      </div>
-
-                      <h4 style={{
-                        margin: `0 0 ${spacing['3xs']} 0`,
-                        fontSize: typography.sizes.sm,
-                        fontWeight: typography.weights.semibold,
-                        color: colors.textPrimary,
-                        lineHeight: typography.leading.snug,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {product.title}
-                      </h4>
-
-                      <p style={{
-                        margin: `0 0 ${spacing['2xs']} 0`,
-                        fontSize: typography.sizes.base,
-                        display: 'flex',
-                        alignItems: 'baseline',
-                        gap: spacing['2xs'],
-                        flexWrap: 'wrap'
-                      }}>
-                        <span style={{ fontWeight: typography.weights.bold, color: colors.primary }}>
-                          {formatPrice(calculateDisplayPrice(product.price_cents))}
-                        </span>
-                        <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
-                          from {product.vendor_profiles?.business_name || 'Vendor'}
-                        </span>
-                      </p>
-
-                      <Link
-                        href={`/${vertical}/listing/${product.id}`}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          padding: `${spacing['2xs']} ${spacing.xs}`,
-                          backgroundColor: colors.primary,
-                          color: colors.textInverse,
-                          border: 'none',
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.semibold,
-                          textAlign: 'center',
-                          textDecoration: 'none'
-                        }}
-                      >
-                        View Item
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <CrossSellSection products={suggestedProducts} vertical={vertical} />
           </div>
 
           {/* Order Summary */}
@@ -1245,135 +823,11 @@ export default function CheckoutPage() {
 
                 {/* Tip Selector — Food trucks only */}
                 {vertical === 'food_trucks' && baseSubtotal > 0 && (
-                  <div style={{
-                    marginBottom: spacing['2xs'],
-                    padding: spacing.xs,
-                    backgroundColor: colors.surfaceMuted,
-                    borderRadius: radius.sm,
-                    border: `1px solid ${colors.border}`,
-                  }}>
-                    <div style={{
-                      fontSize: typography.sizes.xs,
-                      fontWeight: typography.weights.semibold,
-                      color: colors.textPrimary,
-                      marginBottom: spacing['2xs'],
-                    }}>
-                      Add a tip
-                    </div>
-                    <div style={{
-                      fontSize: typography.sizes.xs,
-                      color: colors.textMuted,
-                      marginBottom: spacing['2xs'],
-                    }}>
-                      Your tip goes directly to the vendor
-                    </div>
-                    <div style={{
-                      display: 'flex',
-                      gap: 4,
-                      flexWrap: 'wrap',
-                    }}>
-                      {[
-                        { label: 'No Tip', value: 0 },
-                        { label: '10%', value: 10 },
-                        { label: '15%', value: 15 },
-                        { label: '20%', value: 20 },
-                      ].map(option => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => {
-                            setTipPercentage(option.value)
-                            setShowCustomTip(false)
-                            setCustomTipInput('')
-                          }}
-                          style={{
-                            flex: 1,
-                            minWidth: 52,
-                            padding: `${spacing['2xs']} ${spacing['2xs']}`,
-                            border: tipPercentage === option.value && !showCustomTip
-                              ? `2px solid ${colors.primary}`
-                              : `1px solid ${colors.border}`,
-                            borderRadius: radius.sm,
-                            backgroundColor: tipPercentage === option.value && !showCustomTip
-                              ? colors.primaryLight
-                              : colors.surfaceElevated,
-                            cursor: 'pointer',
-                            fontSize: typography.sizes.xs,
-                            fontWeight: tipPercentage === option.value && !showCustomTip
-                              ? typography.weights.semibold
-                              : typography.weights.normal,
-                            color: colors.textPrimary,
-                          }}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCustomTip(true)
-                          setCustomTipInput(tipPercentage > 0 ? String(tipPercentage) : '')
-                        }}
-                        style={{
-                          flex: 1,
-                          minWidth: 52,
-                          padding: `${spacing['2xs']} ${spacing['2xs']}`,
-                          border: showCustomTip
-                            ? `2px solid ${colors.primary}`
-                            : `1px solid ${colors.border}`,
-                          borderRadius: radius.sm,
-                          backgroundColor: showCustomTip ? colors.primaryLight : colors.surfaceElevated,
-                          cursor: 'pointer',
-                          fontSize: typography.sizes.xs,
-                          fontWeight: showCustomTip ? typography.weights.semibold : typography.weights.normal,
-                          color: colors.textPrimary,
-                        }}
-                      >
-                        Custom
-                      </button>
-                    </div>
-                    {showCustomTip && (
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: spacing['2xs'],
-                        marginTop: spacing['2xs'],
-                      }}>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="1"
-                          value={customTipInput}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '')
-                            setCustomTipInput(val)
-                            const num = parseInt(val, 10)
-                            setTipPercentage(isNaN(num) ? 0 : Math.min(num, 100))
-                          }}
-                          placeholder="0"
-                          style={{
-                            width: 60,
-                            padding: `${spacing['2xs']} ${spacing.xs}`,
-                            border: `1px solid ${colors.border}`,
-                            borderRadius: radius.sm,
-                            fontSize: typography.sizes.sm,
-                            textAlign: 'center',
-                          }}
-                        />
-                        <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>%</span>
-                      </div>
-                    )}
-                    {tipAmountCents > 0 && (
-                      <div style={{
-                        marginTop: spacing['2xs'],
-                        fontSize: typography.sizes.xs,
-                        color: colors.textSecondary,
-                      }}>
-                        Tip: {formatPrice(tipAmountCents)}
-                      </div>
-                    )}
-                  </div>
+                  <TipSelector
+                    tipPercentage={tipPercentage}
+                    onTipChange={setTipPercentage}
+                    tipAmountCents={tipAmountCents}
+                  />
                 )}
 
                 {/* Tip line in summary (when tip > 0) */}
@@ -1404,90 +858,11 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Payment Method Selection */}
-              {paymentMethods.length > 1 && (
-                <div style={{
-                  marginBottom: spacing.sm,
-                  padding: spacing.sm,
-                  backgroundColor: colors.surfaceMuted,
-                  borderRadius: radius.md,
-                  border: `1px solid ${colors.border}`
-                }}>
-                  <h3 style={{
-                    margin: `0 0 ${spacing.xs} 0`,
-                    fontSize: typography.sizes.sm,
-                    fontWeight: typography.weights.semibold,
-                    color: colors.textPrimary
-                  }}>
-                    Payment Method
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                    {paymentMethods.map(method => (
-                      <label
-                        key={method.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: spacing.xs,
-                          padding: spacing.xs,
-                          backgroundColor: selectedPaymentMethod === method.id ? colors.primaryLight : colors.surfaceElevated,
-                          border: selectedPaymentMethod === method.id ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
-                          borderRadius: radius.sm,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value={method.id}
-                          checked={selectedPaymentMethod === method.id}
-                          onChange={() => setSelectedPaymentMethod(method.id)}
-                          style={{ width: 18, height: 18 }}
-                        />
-                        <span style={{ fontSize: typography.sizes.lg }}>{method.icon}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: typography.weights.medium, fontSize: typography.sizes.sm }}>
-                            {method.name}
-                          </div>
-                          <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                            {method.description}
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                  {selectedPaymentMethod && selectedPaymentMethod !== 'stripe' && (
-                    <p style={{
-                      margin: `${spacing.xs} 0 0 0`,
-                      fontSize: typography.sizes.xs,
-                      color: colors.textMuted,
-                      fontStyle: 'italic'
-                    }}>
-                      {selectedPaymentMethod === 'cash'
-                        ? 'You will pay in cash when you pick up your order.'
-                        : `You will be redirected to complete payment via ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name}.`
-                      }
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Single payment method indicator */}
-              {paymentMethods.length === 1 && (
-                <div style={{
-                  marginBottom: spacing.sm,
-                  padding: spacing.xs,
-                  backgroundColor: colors.surfaceMuted,
-                  borderRadius: radius.md,
-                  fontSize: typography.sizes.sm,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing.xs
-                }}>
-                  <span>{paymentMethods[0].icon}</span>
-                  <span>Pay with {paymentMethods[0].name}</span>
-                </div>
-              )}
+              <PaymentMethodSelector
+                methods={paymentMethods}
+                selected={selectedPaymentMethod}
+                onSelect={setSelectedPaymentMethod}
+              />
 
               {!user && (
                 <div style={{
@@ -1627,7 +1002,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={processing || validationFailed || hasUnavailableItems || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)}
+                disabled={checkoutDisabled}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -1636,16 +1011,16 @@ export default function CheckoutPage() {
                   padding: `${spacing.sm} ${spacing.md}`,
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold,
-                  backgroundColor: processing || validationFailed || hasUnavailableItems || !marketValid || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? colors.border : colors.primary,
+                  backgroundColor: checkoutDisabled ? colors.border : colors.primary,
                   color: colors.textInverse,
                   border: 'none',
                   borderRadius: radius.sm,
-                  cursor: processing || validationFailed || hasUnavailableItems || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'not-allowed' : 'pointer',
+                  cursor: checkoutDisabled ? 'not-allowed' : 'pointer',
                   minHeight: 48,
-                  boxShadow: processing || validationFailed || hasUnavailableItems || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod) ? 'none' : shadows.primary,
+                  boxShadow: checkoutDisabled ? 'none' : shadows.primary,
                 }}
               >
-                {processing ? 'Processing...' : validationFailed ? 'Validation Required' : !marketValid ? 'Fix Market Issues' : hasScheduleIssues ? 'Remove Unavailable Items' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`}
+                {checkoutLabel}
               </button>
 
               {/* Security messaging */}
