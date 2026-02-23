@@ -912,29 +912,18 @@ function ListingCard({
           </span>
         )}
 
-        {/* Allergen Warning Badge */}
-        {listing.listing_data?.contains_allergens && (
-          <span
-            style={{
-              position: 'absolute',
-              top: spacing['2xs'],
-              right: spacing['2xs'],
-              padding: `${spacing['3xs']} ${spacing.xs}`,
-              backgroundColor: colors.surfaceSubtle,
-              color: colors.accent,
-              borderRadius: radius.lg,
-              fontSize: typography.sizes.xs,
-              fontWeight: typography.weights.semibold,
-              zIndex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing['3xs']
-            }}
-            title={listing.listing_data?.ingredients || 'Contains allergens'}
-          >
-            <span>⚠️</span> Allergens
-          </span>
-        )}
+        {/* Cutoff/Open/Closed Badge - top right */}
+        <div style={{
+          position: 'absolute',
+          top: spacing['2xs'],
+          right: spacing['2xs'],
+          zIndex: 1,
+        }}>
+          <CutoffBadge
+            preCalculatedStatus={availability.status}
+            hoursUntilCutoff={availability.hoursUntilCutoff}
+          />
+        </div>
 
         {/* Product Image or Placeholder */}
         {primaryImage?.url ? (
@@ -1016,11 +1005,6 @@ function ListingCard({
             </span>
           )}
         </span>
-        {/* Cutoff/Closed Status Badge - pre-calculated server-side */}
-        <CutoffBadge
-          preCalculatedStatus={availability.status}
-          hoursUntilCutoff={availability.hoursUntilCutoff}
-        />
       </div>
 
       {/* Market/Location - above the separator */}

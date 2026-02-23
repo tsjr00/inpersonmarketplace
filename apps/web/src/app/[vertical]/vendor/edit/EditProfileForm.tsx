@@ -33,6 +33,7 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
     email: (profileData.email as string) || '',
     business_name: (profileData.business_name as string) || (profileData.farm_name as string) || '',
   })
+  const [multipleTrucks, setMultipleTrucks] = useState(!!profileData.multiple_trucks)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -53,7 +54,8 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
     // Merge new data with existing profile_data
     const updatedProfileData = {
       ...profileData,
-      ...formData
+      ...formData,
+      multiple_trucks: multipleTrucks,
     }
 
     const { error } = await supabase
@@ -207,6 +209,40 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
             }}
           />
         </div>
+
+        {/* Multiple Trucks Checkbox — Food Trucks only */}
+        {vertical === 'food_trucks' && (
+          <div style={{
+            marginBottom: 20,
+            padding: 16,
+            backgroundColor: '#f9fafb',
+            border: '1px solid #e5e7eb',
+            borderRadius: 8,
+          }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={multipleTrucks}
+                onChange={(e) => setMultipleTrucks(e.target.checked)}
+                disabled={loading}
+                style={{ width: 18, height: 18, marginTop: 2, accentColor: branding.colors.primary }}
+              />
+              <div>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>
+                  I operate more than one truck/trailer simultaneously
+                </span>
+                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#6b7280' }}>
+                  When enabled, schedule overlap warnings are turned off since you can serve multiple locations at once.
+                </p>
+              </div>
+            </label>
+          </div>
+        )}
 
         {/* Buttons */}
         <div style={{ display: 'flex', gap: 10, marginTop: 30 }}>

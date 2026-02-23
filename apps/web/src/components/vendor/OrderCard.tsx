@@ -22,12 +22,14 @@ interface OrderItem {
   pickup_start_time?: string | null
   pickup_end_time?: string | null
   pickup_snapshot?: Record<string, unknown> | null
+  preferred_pickup_time?: string | null
   // Unified display data (prefers pickup_snapshot when available)
   display?: {
     market_name: string
     pickup_date: string | null
     start_time: string | null
     end_time: string | null
+    preferred_pickup_time?: string | null
     address: string | null
     city: string | null
     state: string | null
@@ -64,6 +66,16 @@ function formatFulfilledDateTime(dateStr: string | null | undefined): string | n
     hour: 'numeric',
     minute: '2-digit'
   })
+}
+
+// Format preferred pickup time (HH:MM or HH:MM:SS) to 12h display
+function formatPickupTime12h(time: string | null | undefined): string | null {
+  if (!time) return null
+  const [h, m] = time.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return null
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
 }
 
 // Format payment method for display
@@ -156,14 +168,20 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
   const latestFulfilledDate = fulfilledDates[0] ? formatFulfilledDateTime(fulfilledDates[0]) : null
 
-  // Get earliest pickup date from items (only for non-fulfilled orders)
+  // Get earliest pickup date + preferred time from items (only for non-fulfilled orders)
   // Use display data when available (from pickup_snapshot)
-  const pickupDates = order.items
+  const activePickupItems = order.items
     .filter(item => item.status !== 'fulfilled' && item.status !== 'cancelled')
+  const pickupDates = activePickupItems
     .map(item => item.display?.pickup_date || item.pickup_date)
     .filter((d): d is string => !!d)
     .sort()
   const earliestPickupDate = pickupDates[0] ? formatPickupDate(pickupDates[0]) : null
+  // Get preferred pickup time from first active item that has one
+  const preferredTime = activePickupItems
+    .map(item => item.display?.preferred_pickup_time || item.preferred_pickup_time)
+    .find(t => !!t)
+  const formattedPickupTime = formatPickupTime12h(preferredTime)
 
   return (
     <div style={{
@@ -211,20 +229,18 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#374151' }}>
                 {order.customer_name}
               </p>
-              {isExternalPayment && (
-                <span style={{
-                  padding: '2px 8px',
-                  backgroundColor: isCash ? '#fef3c7' : '#fef3c7',
-                  color: '#92400e',
-                  borderRadius: 4,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5
-                }}>
-                  {formatPaymentMethod(order.payment_method!)}
-                </span>
-              )}
+              <span style={{
+                padding: '2px 8px',
+                backgroundColor: isExternalPayment ? '#fef3c7' : '#dbeafe',
+                color: isExternalPayment ? '#92400e' : '#1e40af',
+                borderRadius: 4,
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5
+              }}>
+                {isExternalPayment ? formatPaymentMethod(order.payment_method!) : 'CARD'}
+              </span>
             </div>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#6b7280' }}>
               Ordered: {orderDate} at {orderTime}
@@ -257,7 +273,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               color: '#1e40af',
               display: 'inline-block'
             }}>
-              Pickup: {earliestPickupDate}
+              Pickup: {earliestPickupDate}{formattedPickupTime ? ` at ${formattedPickupTime}` : ''}
             </div>
           ) : null}
           <div style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>

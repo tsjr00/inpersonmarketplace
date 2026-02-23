@@ -694,6 +694,16 @@ export default function VendorMarketsPage() {
                             🏠 {vertical === 'food_trucks' ? 'Home Park' : 'Home Market'}
                           </span>
                         )}
+                        {market.isHomeMarket && (
+                          <p style={{
+                            margin: '4px 0 0 0',
+                            fontSize: 12,
+                            color: statusColors.neutral500,
+                            fontStyle: 'italic',
+                          }}>
+                            Your home location is used as your primary position in geographic search results. Buyers searching near this location will see you first.
+                          </p>
+                        )}
                       </div>
                       <p style={{ margin: '0 0 4px 0', fontSize: 14, color: statusColors.neutral500 }}>
                         {market.address}, {market.city}, {market.state} {market.zip}
@@ -752,6 +762,16 @@ export default function VendorMarketsPage() {
                       >
                         {changingHomeMarket ? 'Changing...' : (vertical === 'food_trucks' ? 'Set as Home Park' : 'Set as Home Market')}
                       </button>
+                    )}
+                    {!isPremium && !market.isHomeMarket && !changingHomeMarket && (
+                      <p style={{
+                        margin: '4px 0 0 0',
+                        fontSize: 11,
+                        color: statusColors.neutral400,
+                        maxWidth: 200,
+                      }}>
+                        Sets this as your primary location for geographic search ranking
+                      </p>
                     )}
                   </div>
                   {/* Attendance prompt for markets without schedule set */}

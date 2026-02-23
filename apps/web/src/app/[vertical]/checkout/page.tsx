@@ -237,9 +237,10 @@ export default function CheckoutPage() {
         return
       }
 
-      // Get unique vendor IDs from cart
+      // Get unique vendor IDs and market IDs from cart
       const vendorIds = [...new Set(checkoutItems.map(item => item.vendor_profile_id).filter(Boolean))]
       const excludeIds = checkoutItems.map(item => item.listingId)
+      const marketIds = [...new Set(checkoutItems.map(item => item.market_id).filter(Boolean))]
 
       if (vendorIds.length === 0) return
 
@@ -250,6 +251,7 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             vendorIds,
             excludeIds,
+            marketIds,
             limit: 4,
             vertical
           })

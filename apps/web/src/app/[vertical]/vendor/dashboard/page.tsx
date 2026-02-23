@@ -734,79 +734,66 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             }}
           />
 
-          {/* Analytics */}
-          <Link
-            href={`/${vertical}/vendor/analytics`}
-            style={{ textDecoration: 'none' }}
-          >
-            <div style={{
-              padding: spacing.sm,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              cursor: 'pointer',
-              height: '100%',
-              minHeight: 120,
-              boxShadow: shadows.sm
-            }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📊</div>
-              <h3 style={{
-                color: colors.primary,
-                margin: `0 0 ${spacing['2xs']} 0`,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Analytics
-              </h3>
-              <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                View sales trends, top products, and insights
-              </p>
-            </div>
-          </Link>
-
-          {/* Location Insights */}
+          {/* Analytics & Insights — consolidated card */}
           {(() => {
             const insightsLevel = vertical === 'food_trucks'
               ? getFtTierExtras(vendorProfile.tier || 'free').locationInsights
               : 'basic' // FM vendors get basic by default
             const isInsightsLocked = insightsLevel === 'none'
             return (
-              <Link
-                href={`/${vertical}/vendor/insights`}
-                style={{ textDecoration: 'none' }}
-              >
-                <div style={{
-                  padding: spacing.sm,
-                  backgroundColor: isInsightsLocked ? '#f9fafb' : colors.surfaceElevated,
-                  color: colors.textPrimary,
-                  border: `1px solid ${isInsightsLocked ? '#d1d5db' : colors.border}`,
-                  borderRadius: radius.md,
-                  cursor: 'pointer',
-                  height: '100%',
-                  minHeight: 120,
-                  boxShadow: shadows.sm
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: colors.surfaceElevated,
+                color: colors.textPrimary,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.md,
+                height: '100%',
+                minHeight: 120,
+                boxShadow: shadows.sm
+              }}>
+                <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📊</div>
+                <h3 style={{
+                  color: colors.primary,
+                  margin: `0 0 ${spacing.xs} 0`,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold
                 }}>
-                  <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📍</div>
-                  <h3 style={{
-                    color: isInsightsLocked ? colors.textSecondary : colors.primary,
-                    margin: `0 0 ${spacing['2xs']} 0`,
-                    fontSize: typography.sizes.base,
-                    fontWeight: typography.weights.semibold
-                  }}>
-                    Location Insights
-                  </h3>
-                  {isInsightsLocked ? (
-                    <p style={{ color: '#d97706', margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.medium }}>
-                      Upgrade to Basic to see which locations perform best
-                    </p>
-                  ) : (
-                    <p style={{ color: colors.textSecondary, margin: 0, fontSize: typography.sizes.sm }}>
-                      See which locations perform best
-                    </p>
-                  )}
+                  Analytics &amp; Insights
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                  <Link
+                    href={`/${vertical}/vendor/analytics`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing['2xs'],
+                      textDecoration: 'none',
+                      color: colors.textSecondary,
+                      fontSize: typography.sizes.sm,
+                      padding: `${spacing['2xs']} 0`,
+                    }}
+                  >
+                    <span>📈</span>
+                    <span>Sales trends &amp; top products</span>
+                  </Link>
+                  <Link
+                    href={`/${vertical}/vendor/insights`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing['2xs'],
+                      textDecoration: 'none',
+                      color: isInsightsLocked ? '#d97706' : colors.textSecondary,
+                      fontSize: typography.sizes.sm,
+                      padding: `${spacing['2xs']} 0`,
+                      borderTop: `1px solid ${colors.borderMuted}`,
+                    }}
+                  >
+                    <span>📍</span>
+                    <span>{isInsightsLocked ? 'Location Insights (upgrade to unlock)' : 'Location performance'}</span>
+                  </Link>
                 </div>
-              </Link>
+              </div>
             )
           })()}
         </div>

@@ -8,6 +8,7 @@ import OrderTimeline from '@/components/buyer/OrderTimeline'
 import PickupDetails from '@/components/buyer/PickupDetails'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import PostPurchaseSharePrompt from '@/components/marketing/PostPurchaseSharePrompt'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES, formatQuantityDisplay } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -102,11 +103,35 @@ export default function BuyerOrderDetailPage() {
   const [showSharePrompt, setShowSharePrompt] = useState(false)
   const [shareVendors, setShareVendors] = useState<{ id: string; name: string }[]>([])
 
+  // Inline status banners (replace browser alert())
+  const [statusBanner, setStatusBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  // Confirmation dialog state (replace browser confirm())
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    message: string
+    confirmLabel: string
+    variant: 'default' | 'danger'
+    showInput?: boolean
+    inputLabel?: string
+    inputPlaceholder?: string
+    onConfirm: (input?: string) => void
+  }>({
+    open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {}
+  })
+
   // Problem reporting state
   const [showProblemSection, setShowProblemSection] = useState(false)
   const [problemItems, setProblemItems] = useState<Record<string, boolean>>({})
   const [problemDescriptions, setProblemDescriptions] = useState<Record<string, string>>({})
   const [submittingProblems, setSubmittingProblems] = useState(false)
+
+  // Show a status banner that auto-dismisses
+  const showBanner = (message: string, type: 'success' | 'error') => {
+    setStatusBanner({ message, type })
+    setTimeout(() => setStatusBanner(null), 5000)
+  }
 
   useEffect(() => {
     fetchOrder()
@@ -136,11 +161,7 @@ export default function BuyerOrderDetailPage() {
     }
   }
 
-  const handleConfirmPickup = async (itemId: string, skipDialog = false) => {
-    if (!skipDialog && !confirm('Confirm you have received this item? This cannot be undone.')) {
-      return
-    }
-
+  const executeConfirmPickup = async (itemId: string) => {
     setConfirmingItemId(itemId)
     try {
       const res = await fetch(`/api/buyer/orders/${itemId}/confirm`, {
@@ -172,132 +193,164 @@ export default function BuyerOrderDetailPage() {
       // Refresh order to get updated status
       fetchOrder()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to confirm pickup')
+      showBanner(err instanceof Error ? err.message : 'Failed to confirm pickup', 'error')
     } finally {
       setConfirmingItemId(null)
     }
   }
 
-  const handleCancelItem = async (itemId: string, itemStatus: string) => {
-    const isConfirmed = ['confirmed', 'ready'].includes(itemStatus)
-
-    const reason = prompt('Why do you want to cancel this item? (optional)')
-    if (reason === null) {
-      // User clicked Cancel on prompt
+  const handleConfirmPickup = (itemId: string, skipDialog = false) => {
+    if (skipDialog) {
+      executeConfirmPickup(itemId)
       return
     }
+    setConfirmDialog({
+      open: true,
+      title: 'Confirm Pickup',
+      message: 'Confirm you have received this item? This cannot be undone.',
+      confirmLabel: 'Confirm Received',
+      variant: 'default',
+      onConfirm: () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }))
+        executeConfirmPickup(itemId)
+      },
+    })
+  }
 
+  const handleCancelItem = (itemId: string, itemStatus: string) => {
+    const isConfirmed = ['confirmed', 'ready'].includes(itemStatus)
     const confirmMessage = isConfirmed
       ? 'This order has been confirmed by the vendor. A cancellation/restocking fee of up to 50% may apply. Are you sure you want to cancel?'
       : 'Are you sure you want to cancel this item? You will receive a full refund.'
 
-    if (!confirm(confirmMessage)) {
-      return
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Cancel Item',
+      message: confirmMessage,
+      confirmLabel: 'Cancel Item',
+      variant: 'danger',
+      showInput: true,
+      inputLabel: 'Reason (optional)',
+      inputPlaceholder: 'Why do you want to cancel?',
+      onConfirm: async (reason?: string) => {
+        setConfirmDialog(prev => ({ ...prev, open: false }))
+        setCancellingItemId(itemId)
+        try {
+          const res = await fetch(`/api/buyer/orders/${itemId}/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason || '' })
+          })
 
-    setCancellingItemId(itemId)
-    try {
-      const res = await fetch(`/api/buyer/orders/${itemId}/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason })
-      })
+          const data = await res.json()
 
-      const data = await res.json()
+          if (!res.ok) {
+            throw new Error(data.error || 'Failed to cancel item')
+          }
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to cancel item')
-      }
+          if (data.cancellation_fee_applied) {
+            showBanner(`Item cancelled. A cancellation fee was applied. Refund: $${(data.refund_amount_cents / 100).toFixed(2)}`, 'success')
+          } else {
+            showBanner('Item cancelled successfully.', 'success')
+          }
 
-      // Show result message
-      if (data.cancellation_fee_applied) {
-        alert(`Item cancelled. A cancellation fee was applied. Refund amount: $${(data.refund_amount_cents / 100).toFixed(2)}`)
-      } else {
-        alert('Item cancelled successfully.')
-      }
-
-      // Refresh order to get updated status - await to ensure UI updates
-      await fetchOrder()
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to cancel item')
-    } finally {
-      setCancellingItemId(null)
-    }
+          await fetchOrder()
+        } catch (err) {
+          showBanner(err instanceof Error ? err.message : 'Failed to cancel item', 'error')
+        } finally {
+          setCancellingItemId(null)
+        }
+      },
+    })
   }
 
-  const handleReportIssue = async (itemId: string) => {
-    const description = prompt('Describe the issue (e.g., "I did not receive this item", "Wrong item received"):')
-    if (description === null) return
+  const handleReportIssue = (itemId: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Report Issue',
+      message: 'Describe the issue with this item. For the fastest resolution, please also contact the vendor directly.',
+      confirmLabel: 'Report Issue',
+      variant: 'danger',
+      showInput: true,
+      inputLabel: 'Issue description',
+      inputPlaceholder: 'e.g., "I did not receive this item", "Wrong item received"',
+      onConfirm: async (description?: string) => {
+        setConfirmDialog(prev => ({ ...prev, open: false }))
+        setReportingItemId(itemId)
+        try {
+          const res = await fetch(`/api/buyer/orders/${itemId}/report-issue`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description: description || 'Item not received' })
+          })
 
-    setReportingItemId(itemId)
-    try {
-      const res = await fetch(`/api/buyer/orders/${itemId}/report-issue`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: description || 'Item not received' })
-      })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Failed to report issue')
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to report issue')
-
-      alert('Issue reported. For the fastest resolution, please contact the vendor directly. If unresolved, our team will review and assist.')
-      fetchOrder()
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to report issue')
-    } finally {
-      setReportingItemId(null)
-    }
+          showBanner('Issue reported. Contact the vendor directly for fastest resolution.', 'success')
+          fetchOrder()
+        } catch (err) {
+          showBanner(err instanceof Error ? err.message : 'Failed to report issue', 'error')
+        } finally {
+          setReportingItemId(null)
+        }
+      },
+    })
   }
 
   // Handle submitting all items at once (problems + received)
-  const handleSubmitAllItems = async (itemsNeedingConfirm: OrderItem[]) => {
+  const handleSubmitAllItems = (itemsNeedingConfirm: OrderItem[]) => {
     const problemItemIds = Object.keys(problemItems).filter(id => problemItems[id])
 
     // Validate that problem items have descriptions
     for (const itemId of problemItemIds) {
       if (!problemDescriptions[itemId]?.trim()) {
-        alert('Please provide a description for each item with a problem.')
+        showBanner('Please provide a description for each item with a problem.', 'error')
         return
       }
     }
 
-    if (!confirm('Submit your receipt confirmation? Items marked as problems will be reported to the vendor.')) {
-      return
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Submit Receipt Confirmation',
+      message: problemItemIds.length > 0
+        ? 'Items marked as problems will be reported to the vendor. Remaining items will be confirmed as received.'
+        : 'Confirm you have received all items?',
+      confirmLabel: 'Submit',
+      variant: 'default',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }))
+        setSubmittingProblems(true)
+        try {
+          for (const item of itemsNeedingConfirm) {
+            if (problemItems[item.id]) {
+              await fetch(`/api/buyer/orders/${item.id}/report-issue`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: problemDescriptions[item.id] })
+              })
+            } else {
+              await fetch(`/api/buyer/orders/${item.id}/confirm`, {
+                method: 'POST'
+              })
+            }
+          }
 
-    setSubmittingProblems(true)
-    try {
-      // Process all items
-      for (const item of itemsNeedingConfirm) {
-        if (problemItems[item.id]) {
-          // Report issue for problem items
-          await fetch(`/api/buyer/orders/${item.id}/report-issue`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ description: problemDescriptions[item.id] })
-          })
-        } else {
-          // Confirm receipt for non-problem items
-          await fetch(`/api/buyer/orders/${item.id}/confirm`, {
-            method: 'POST'
-          })
+          setProblemItems({})
+          setProblemDescriptions({})
+          setShowProblemSection(false)
+          fetchOrder()
+
+          if (problemItemIds.length > 0) {
+            showBanner('Submitted. For items with problems, contact the vendor directly for fastest resolution.', 'success')
+          }
+        } catch (err) {
+          showBanner(err instanceof Error ? err.message : 'Failed to submit', 'error')
+        } finally {
+          setSubmittingProblems(false)
         }
-      }
-
-      // Reset state and refresh
-      setProblemItems({})
-      setProblemDescriptions({})
-      setShowProblemSection(false)
-      fetchOrder()
-
-      if (problemItemIds.length > 0) {
-        alert('Submitted. For items with problems, please contact the vendor directly for fastest resolution.')
-      }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to submit')
-    } finally {
-      setSubmittingProblems(false)
-    }
+      },
+    })
   }
 
   if (loading) {
@@ -542,10 +595,17 @@ export default function BuyerOrderDetailPage() {
               <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: colors.primaryLight, borderBottom: `2px solid ${colors.primary}` }}>
                 <button
                   onClick={() => {
-                    // Confirm all ready items at once
-                    if (confirm('Confirm you have received all items from this order? This cannot be undone.')) {
-                      itemsNeedingConfirm.forEach(item => handleConfirmPickup(item.id, true))
-                    }
+                    setConfirmDialog({
+                      open: true,
+                      title: 'Acknowledge Receipt',
+                      message: 'Confirm you have received all items from this order? This cannot be undone.',
+                      confirmLabel: 'Confirm All Received',
+                      variant: 'default',
+                      onConfirm: () => {
+                        setConfirmDialog(prev => ({ ...prev, open: false }))
+                        itemsNeedingConfirm.forEach(item => handleConfirmPickup(item.id, true))
+                      },
+                    })
                   }}
                   disabled={confirmingItemId !== null}
                   style={{
@@ -1085,6 +1145,57 @@ export default function BuyerOrderDetailPage() {
           onClose={() => setShowSharePrompt(false)}
         />
       )}
+
+      {/* Status Banner — replaces browser alert() */}
+      {statusBanner && (
+        <div style={{
+          position: 'fixed',
+          bottom: spacing.md,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: `${spacing.xs} ${spacing.lg}`,
+          backgroundColor: statusBanner.type === 'error' ? '#fef2f2' : '#ecfdf5',
+          border: `1px solid ${statusBanner.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
+          color: statusBanner.type === 'error' ? '#991b1b' : '#065f46',
+          borderRadius: radius.md,
+          boxShadow: shadows.lg,
+          fontSize: typography.sizes.sm,
+          fontWeight: typography.weights.medium,
+          zIndex: 1000,
+          maxWidth: '90vw',
+          textAlign: 'center',
+        }}>
+          {statusBanner.message}
+          <button
+            onClick={() => setStatusBanner(null)}
+            style={{
+              marginLeft: spacing.xs,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'inherit',
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.bold,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Confirm Dialog — replaces browser confirm() */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        showInput={confirmDialog.showInput}
+        inputLabel={confirmDialog.inputLabel}
+        inputPlaceholder={confirmDialog.inputPlaceholder}
+        onConfirm={(input) => confirmDialog.onConfirm(input)}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
-import { getNotificationConfig } from '@/lib/notifications/types'
+import { getNotificationConfig, type NotificationSeverity } from '@/lib/notifications/types'
 
 interface Notification {
   id: string
@@ -20,8 +20,14 @@ interface NotificationBellProps {
   vertical: string
 }
 
+function getNotificationSeverity(type: string): NotificationSeverity {
+  const config = getNotificationConfig(type)
+  return config?.severity || 'info'
+}
+
 export function NotificationBell({ primaryColor = colors.primary, vertical }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0)
+  const [hasCriticalUnread, setHasCriticalUnread] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -29,13 +35,18 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   const router = useRouter()
   const pathname = usePathname()
 
-  // Fetch unread count
+  // Fetch unread count + check for critical severity
   const fetchCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications/count')
+      const res = await fetch('/api/notifications?limit=10&unread_only=true')
       if (res.ok) {
-        const { count } = await res.json()
-        setUnreadCount(count)
+        const { notifications: unread, pagination } = await res.json()
+        setUnreadCount(pagination?.total ?? unread?.length ?? 0)
+        // Check if any unread notification is critical severity
+        const hasCritical = (unread || []).some((n: Notification) =>
+          getNotificationSeverity(n.type) === 'critical'
+        )
+        setHasCriticalUnread(hasCritical)
       }
     } catch {
       // Silently fail - count badge is non-critical
@@ -62,6 +73,12 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   useEffect(() => {
     fetchCount()
   }, [pathname, fetchCount])
+
+  // 60-second polling interval for count
+  useEffect(() => {
+    const interval = setInterval(fetchCount, 60000)
+    return () => clearInterval(interval)
+  }, [fetchCount])
 
   // Refresh count when user returns to the tab
   useEffect(() => {
@@ -119,6 +136,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   const handleMarkAllRead = async () => {
     await fetch('/api/notifications/read-all', { method: 'POST' })
     setUnreadCount(0)
+    setHasCriticalUnread(false)
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
     )
@@ -136,6 +154,9 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
     if (days < 7) return `${days}d ago`
     return new Date(dateStr).toLocaleDateString()
   }
+
+  // Badge color: red for critical, primaryColor otherwise
+  const badgeColor = hasCriticalUnread ? '#dc2626' : '#dc3545'
 
   return (
     <div style={{ position: 'relative' }} ref={dropdownRef}>
@@ -181,7 +202,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
             minWidth: 18,
             height: 18,
             padding: '0 5px',
-            backgroundColor: '#dc3545',
+            backgroundColor: badgeColor,
             color: 'white',
             borderRadius: 9,
             fontSize: 11,
@@ -266,84 +287,93 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                 No notifications yet
               </div>
             ) : (
-              notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: `${spacing.xs} ${spacing.sm}`,
-                    textAlign: 'left',
-                    background: notification.read_at ? 'transparent' : colors.primaryLight,
-                    border: 'none',
-                    borderBottom: `1px solid ${colors.borderMuted}`,
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s',
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = notification.read_at
-                      ? colors.surfaceMuted
-                      : colors.primaryLight
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = notification.read_at
-                      ? 'transparent'
-                      : colors.primaryLight
-                  }}
-                >
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    gap: spacing['2xs'],
-                  }}>
-                    <span style={{
-                      fontWeight: notification.read_at
-                        ? typography.weights.normal
-                        : typography.weights.semibold,
-                      fontSize: typography.sizes.sm,
-                      color: colors.textPrimary,
-                      lineHeight: 1.3,
+              notifications.map((notification) => {
+                const severity = getNotificationSeverity(notification.type)
+                const severityColors: Record<NotificationSeverity, string> = {
+                  critical: '#dc2626',
+                  warning: '#f59e0b',
+                  info: primaryColor,
+                }
+                return (
+                  <button
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: `${spacing.xs} ${spacing.sm}`,
+                      textAlign: 'left',
+                      background: notification.read_at ? 'transparent' : colors.primaryLight,
+                      border: 'none',
+                      borderBottom: `1px solid ${colors.borderMuted}`,
+                      borderLeft: severity !== 'info' ? `3px solid ${severityColors[severity]}` : 'none',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = notification.read_at
+                        ? colors.surfaceMuted
+                        : colors.primaryLight
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = notification.read_at
+                        ? 'transparent'
+                        : colors.primaryLight
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: spacing['2xs'],
                     }}>
-                      {notification.title}
-                    </span>
-                    {!notification.read_at && (
                       <span style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        backgroundColor: primaryColor,
-                        flexShrink: 0,
-                        marginTop: 4,
-                      }} />
+                        fontWeight: notification.read_at
+                          ? typography.weights.normal
+                          : typography.weights.semibold,
+                        fontSize: typography.sizes.sm,
+                        color: colors.textPrimary,
+                        lineHeight: 1.3,
+                      }}>
+                        {notification.title}
+                      </span>
+                      {!notification.read_at && (
+                        <span style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          backgroundColor: severityColors[severity],
+                          flexShrink: 0,
+                          marginTop: 4,
+                        }} />
+                      )}
+                    </div>
+                    {notification.message && (
+                      <p style={{
+                        margin: `${spacing['3xs']} 0 0`,
+                        fontSize: typography.sizes.xs,
+                        color: colors.textMuted,
+                        lineHeight: 1.4,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                      }}>
+                        {notification.message}
+                      </p>
                     )}
-                  </div>
-                  {notification.message && (
-                    <p style={{
-                      margin: `${spacing['3xs']} 0 0`,
-                      fontSize: typography.sizes.xs,
+                    <span style={{
+                      display: 'block',
+                      marginTop: spacing['3xs'],
+                      fontSize: '11px',
                       color: colors.textMuted,
-                      lineHeight: 1.4,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
                     }}>
-                      {notification.message}
-                    </p>
-                  )}
-                  <span style={{
-                    display: 'block',
-                    marginTop: spacing['3xs'],
-                    fontSize: '11px',
-                    color: colors.textMuted,
-                  }}>
-                    {formatTimeAgo(notification.created_at)}
-                  </span>
-                </button>
-              ))
+                      {formatTimeAgo(notification.created_at)}
+                    </span>
+                  </button>
+                )
+              })
             )}
           </div>
 

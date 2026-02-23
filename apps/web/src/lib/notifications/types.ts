@@ -90,8 +90,11 @@ export interface NotificationTemplateData {
   findingsSummary?: string
 }
 
+export type NotificationSeverity = 'critical' | 'warning' | 'info'
+
 export interface NotificationTypeConfig {
   urgency: NotificationUrgency
+  severity: NotificationSeverity
   audience: 'buyer' | 'vendor' | 'admin'
   title: (data: NotificationTemplateData) => string
   message: (data: NotificationTemplateData) => string
@@ -106,6 +109,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   order_confirmed: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'buyer',
     title: (d) => `Order Confirmed`,
     message: (d) => `${d.vendorName} confirmed your order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''}. We'll notify you when it's ready for pickup.`,
@@ -114,6 +118,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   order_ready: {
     urgency: 'immediate',
+    severity: 'info',
     audience: 'buyer',
     title: () => `Order Ready for Pickup`,
     message: (d) => `Your order #${d.orderNumber} from ${d.vendorName} has been marked ready for pickup${d.marketName ? ` at ${d.marketName}` : ''}. It will be waiting for you during pickup hours — no need to rush.`,
@@ -122,6 +127,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   order_fulfilled: {
     urgency: 'info',
+    severity: 'info',
     audience: 'buyer',
     title: () => `Order Complete`,
     message: (d) => `Order #${d.orderNumber} has been marked as picked up. Thanks for shopping with ${d.vendorName}!`,
@@ -129,7 +135,8 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   order_cancelled_by_vendor: {
-    urgency: 'urgent',
+    urgency: 'immediate',
+    severity: 'critical',
     audience: 'buyer',
     title: () => `Order Cancelled`,
     message: (d) => `${d.vendorName} cancelled your order #${d.orderNumber}.${d.reason ? ` Reason: ${d.reason}` : ''} A refund will be processed.`,
@@ -138,6 +145,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   order_refunded: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'buyer',
     title: () => `Order Refunded`,
     message: (d) => `A refund${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been issued for order #${d.orderNumber}. It may take 5-10 business days to appear on your statement.`,
@@ -146,6 +154,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   order_expired: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'buyer',
     title: () => `Order Expired`,
     message: (d) => `Order #${d.orderNumber} has expired because it wasn't confirmed in time.${d.amountCents ? ` A refund of $${(d.amountCents / 100).toFixed(2)} will be processed.` : ''}`,
@@ -154,6 +163,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   pickup_missed: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'buyer',
     title: () => `Pickup Not Confirmed`,
     message: (d) => `Your order #${d.orderNumber}${d.itemTitle ? ` (${d.itemTitle})` : ''} from ${d.vendorName} was not marked as picked up during the scheduled pickup window. If you did pick up your items, please mark it as received in the app now. If there was a miscommunication, please reach out to the vendor directly to clarify.`,
@@ -162,6 +172,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   market_box_skip: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'buyer',
     title: () => `Market Box Week Skipped`,
     message: (d) => `${d.vendorName} has skipped your ${d.offeringName || 'Market Box'} pickup scheduled for ${d.pickupDate}. An extension week has been added to your subscription.${d.reason ? ` Reason: ${d.reason}` : ''}`,
@@ -170,6 +181,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   issue_resolved: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'buyer',
     title: () => `Issue Resolved`,
     message: (d) => `The issue you reported for order #${d.orderNumber} has been resolved.${d.resolution ? ` Resolution: ${d.resolution}` : ''}`,
@@ -179,7 +191,8 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   // ── Vendor-facing ────────────────────────────────────────────────
 
   new_paid_order: {
-    urgency: 'standard',
+    urgency: 'immediate',
+    severity: 'warning',
     audience: 'vendor',
     title: () => `New Order Received`,
     message: (d) => `${d.buyerName || 'A customer'} placed order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''}.${d.marketName ? ` Pickup at ${d.marketName}` : ''}${d.pickupDate ? ` on ${d.pickupDate}` : ''}.`,
@@ -188,6 +201,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   new_external_order: {
     urgency: 'immediate',
+    severity: 'warning',
     audience: 'vendor',
     title: () => `New External Payment Order`,
     message: (d) => `New order #${d.orderNumber} via ${d.paymentMethod || 'external payment'}! ${d.paymentMethod === 'cash' ? 'Customer will pay cash at pickup.' : `Check your ${d.paymentMethod} account and confirm when you've received`}${d.amountCents ? ` $${(d.amountCents / 100).toFixed(2)}` : ''}.`,
@@ -196,6 +210,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   external_payment_reminder: {
     urgency: 'immediate',
+    severity: 'warning',
     audience: 'vendor',
     title: () => `Unconfirmed External Payment Orders`,
     message: (d) => `You have ${d.pendingOrderCount || ''} unconfirmed external payment order${(d.pendingOrderCount || 0) > 1 ? 's' : ''}. Please verify payment and confirm in your dashboard.`,
@@ -204,6 +219,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   external_payment_auto_confirmed: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'vendor',
     title: () => `External Payment Auto-Confirmed`,
     message: (d) => `Order #${d.orderNumber} was auto-confirmed because the pickup date has passed. If you did not receive payment, please dispute within 7 days by contacting support.`,
@@ -211,7 +227,8 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   order_cancelled_by_buyer: {
-    urgency: 'standard',
+    urgency: 'immediate',
+    severity: 'critical',
     audience: 'vendor',
     title: () => `Order Cancelled by Customer`,
     message: (d) => `${d.buyerName || 'A customer'} cancelled order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''}.${d.reason ? ` Reason: ${d.reason}` : ''}`,
@@ -220,6 +237,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   vendor_approved: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'vendor',
     title: () => `Vendor Application Approved!`,
     message: () => `Congratulations! Your vendor application has been approved. You can now start listing products.`,
@@ -228,6 +246,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   vendor_rejected: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'vendor',
     title: () => `Vendor Application Update`,
     message: (d) => `Your vendor application was not approved at this time.${d.reason ? ` Reason: ${d.reason}` : ''} You may reapply after addressing any issues.`,
@@ -236,6 +255,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   market_approved: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'vendor',
     title: () => `Market Approved!`,
     message: (d) => `Your market "${d.marketName}" has been approved and is now live.`,
@@ -244,6 +264,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   pickup_confirmation_needed: {
     urgency: 'immediate',
+    severity: 'info',
     audience: 'vendor',
     title: () => `Pickup Confirmation Needed`,
     message: (d) => `${d.buyerName || 'A customer'} says they've picked up order #${d.orderNumber}. Please confirm within 30 seconds.`,
@@ -252,6 +273,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   pickup_issue_reported: {
     urgency: 'urgent',
+    severity: 'critical',
     audience: 'vendor',
     title: () => `Pickup Issue Reported`,
     message: (d) => `An issue was reported for order #${d.orderNumber}.${d.reason ? ` Details: ${d.reason}` : ''} Please check your dashboard.`,
@@ -260,6 +282,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   inventory_low_stock: {
     urgency: 'info',
+    severity: 'warning',
     audience: 'vendor',
     title: () => `Low Stock Warning`,
     message: (d) => `"${d.listingTitle}" is running low — ${d.quantity} remaining.`,
@@ -268,6 +291,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   inventory_out_of_stock: {
     urgency: 'standard',
+    severity: 'warning',
     audience: 'vendor',
     title: () => `Item Out of Stock`,
     message: (d) => `"${d.listingTitle}" is now out of stock. Update your listing to restock.`,
@@ -276,6 +300,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   payout_processed: {
     urgency: 'info',
+    severity: 'info',
     audience: 'vendor',
     title: () => `Payout Processed`,
     message: (d) => `A payout${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been sent to your account.`,
@@ -283,7 +308,8 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   payout_failed: {
-    urgency: 'standard',
+    urgency: 'urgent',
+    severity: 'critical',
     audience: 'vendor',
     title: () => `Payout Failed`,
     message: (d) => `A payout${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} for order #${d.orderNumber} could not be processed. We'll retry automatically. If this persists, please check your Stripe account settings.`,
@@ -292,6 +318,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   vendor_cancellation_warning: {
     urgency: 'standard',
+    severity: 'warning',
     audience: 'vendor',
     title: () => `Order Cancellation Rate Notice`,
     message: (d) => `Your order cancellation rate is ${d.cancellationRate ? `${d.cancellationRate}%` : 'above average'} (${d.cancelledCount || 0} cancelled out of ${d.confirmedCount || 0} confirmed orders). Confirming an order is a commitment to fulfill it. Continued cancellations may result in account restrictions. If you are experiencing issues fulfilling orders, please reach out to support.`,
@@ -300,6 +327,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   vendor_quality_alert: {
     urgency: 'standard',
+    severity: 'critical',
     audience: 'vendor',
     title: (d) => `Quality Check: ${d.findingsCount || 0} item${(d.findingsCount || 0) !== 1 ? 's' : ''} need attention`,
     message: (d) => d.findingsSummary || `We found ${d.findingsCount || 0} potential issue${(d.findingsCount || 0) !== 1 ? 's' : ''} with your listings or schedule. Please review.`,
@@ -310,6 +338,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   new_vendor_application: {
     urgency: 'standard',
+    severity: 'info',
     audience: 'admin',
     title: () => `New Vendor Application`,
     message: (d) => `${d.vendorName || 'A new vendor'} has submitted an application for review.`,
@@ -318,6 +347,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
 
   issue_disputed: {
     urgency: 'standard',
+    severity: 'warning',
     audience: 'admin',
     title: () => `Vendor Disputed Buyer Issue`,
     message: (d) => `${d.vendorName} resolved a buyer-reported issue on order #${d.orderNumber} in their own favor (confirmed delivery). Review may be needed.`,

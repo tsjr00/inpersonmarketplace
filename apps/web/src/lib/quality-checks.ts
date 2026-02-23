@@ -52,6 +52,16 @@ export async function checkScheduleConflicts(
     `)
     .eq('is_active', true)
 
+  // Look up which vendors have multiple_trucks enabled (skip conflicts for them)
+  const { data: multiTruckVendors } = await supabase
+    .from('vendor_profiles')
+    .select('id, profile_data')
+  const multiTruckIds = new Set(
+    (multiTruckVendors || [])
+      .filter(vp => (vp.profile_data as Record<string, unknown>)?.multiple_trucks === true)
+      .map(vp => vp.id)
+  )
+
   if (error || !schedules) {
     await logError(new TracedError('ERR_QC_001', `Schedule conflict check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
     return findings
@@ -70,6 +80,9 @@ export async function checkScheduleConflicts(
   }
 
   for (const [vendorId, vendorSchedules] of byVendor) {
+    // Skip vendors who declared multiple trucks — overlaps are intentional
+    if (multiTruckIds.has(vendorId)) continue
+
     // Compare every pair of schedules for same day overlap
     for (let i = 0; i < vendorSchedules.length; i++) {
       for (let j = i + 1; j < vendorSchedules.length; j++) {

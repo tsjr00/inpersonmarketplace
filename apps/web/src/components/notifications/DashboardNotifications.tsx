@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
-import { getNotificationConfig } from '@/lib/notifications/types'
+import { getNotificationConfig, type NotificationSeverity } from '@/lib/notifications/types'
 
 interface Notification {
   id: string
@@ -21,7 +21,18 @@ interface DashboardNotificationsProps {
   limit?: number
 }
 
-export function DashboardNotifications({ vertical, limit = 5 }: DashboardNotificationsProps) {
+const SEVERITY_COLORS: Record<NotificationSeverity, string> = {
+  critical: '#dc2626',
+  warning: '#f59e0b',
+  info: 'transparent',
+}
+
+function getNotificationSeverity(type: string): NotificationSeverity {
+  const config = getNotificationConfig(type)
+  return config?.severity || 'info'
+}
+
+export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotificationsProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -133,10 +144,10 @@ export function DashboardNotifications({ vertical, limit = 5 }: DashboardNotific
   return (
     <div style={{
       padding: spacing.sm,
-      backgroundColor: unreadCount > 0 ? '#eff6ff' : colors.surfaceElevated,
-      border: unreadCount > 0 ? '2px solid #3b82f6' : `1px solid ${colors.border}`,
+      backgroundColor: colors.surfaceElevated,
+      border: unreadCount > 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
       borderRadius: radius.md,
-      boxShadow: unreadCount > 0 ? '0 0 0 3px rgba(59, 130, 246, 0.15)' : shadows.sm,
+      boxShadow: shadows.sm,
     }}>
       {/* Header */}
       <div style={{
@@ -161,7 +172,7 @@ export function DashboardNotifications({ vertical, limit = 5 }: DashboardNotific
           </h3>
           {unreadCount > 0 && (
             <span style={{
-              backgroundColor: '#3b82f6',
+              backgroundColor: colors.primary,
               color: 'white',
               padding: `2px ${spacing['2xs']}`,
               borderRadius: radius.full,
@@ -181,7 +192,7 @@ export function DashboardNotifications({ vertical, limit = 5 }: DashboardNotific
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              color: '#3b82f6',
+              color: colors.primary,
               fontSize: typography.sizes.xs,
               fontWeight: typography.weights.medium,
               padding: spacing['3xs'],
@@ -203,7 +214,7 @@ export function DashboardNotifications({ vertical, limit = 5 }: DashboardNotific
         </p>
       )}
 
-      {/* Notification list */}
+      {/* Notification list — constrained height with scroll */}
       {notifications.length > 0 && (
         <div style={{
           display: 'flex',
@@ -212,76 +223,85 @@ export function DashboardNotifications({ vertical, limit = 5 }: DashboardNotific
           backgroundColor: colors.border,
           borderRadius: radius.sm,
           overflow: 'hidden',
+          maxHeight: 280,
+          overflowY: 'auto',
         }}>
-          {notifications.map((notification) => (
-            <button
-              key={notification.id}
-              onClick={() => handleNotificationClick(notification)}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: spacing['2xs'],
-                padding: `${spacing['2xs']} ${spacing.xs}`,
-                backgroundColor: notification.read_at ? colors.surfaceElevated : '#f0f7ff',
-                border: 'none',
-                cursor: 'pointer',
-                textAlign: 'left',
-                width: '100%',
-              }}
-            >
-              {/* Unread dot */}
-              <div style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                backgroundColor: notification.read_at ? 'transparent' : '#3b82f6',
-                flexShrink: 0,
-                marginTop: 5,
-              }} />
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
+          {notifications.map((notification) => {
+            const severity = getNotificationSeverity(notification.type)
+            const borderColor = SEVERITY_COLORS[severity]
+            return (
+              <button
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                style={{
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
+                  alignItems: 'flex-start',
                   gap: spacing['2xs'],
-                }}>
-                  <span style={{
-                    fontWeight: notification.read_at
-                      ? typography.weights.normal
-                      : typography.weights.semibold,
-                    fontSize: typography.sizes.sm,
-                    color: colors.textPrimary,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                  padding: `${spacing['2xs']} ${spacing.xs}`,
+                  backgroundColor: notification.read_at ? colors.surfaceElevated : colors.primaryLight,
+                  border: 'none',
+                  borderLeft: severity !== 'info' ? `3px solid ${borderColor}` : 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+              >
+                {/* Severity/unread dot */}
+                <div style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: !notification.read_at
+                    ? (severity === 'critical' ? '#dc2626' : severity === 'warning' ? '#f59e0b' : colors.primary)
+                    : 'transparent',
+                  flexShrink: 0,
+                  marginTop: 5,
+                }} />
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    gap: spacing['2xs'],
                   }}>
-                    {notification.title}
-                  </span>
-                  <span style={{
-                    fontSize: '11px',
-                    color: colors.textMuted,
-                    flexShrink: 0,
-                  }}>
-                    {formatTimeAgo(notification.created_at)}
-                  </span>
+                    <span style={{
+                      fontWeight: notification.read_at
+                        ? typography.weights.normal
+                        : typography.weights.semibold,
+                      fontSize: typography.sizes.sm,
+                      color: colors.textPrimary,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {notification.title}
+                    </span>
+                    <span style={{
+                      fontSize: '11px',
+                      color: colors.textMuted,
+                      flexShrink: 0,
+                    }}>
+                      {formatTimeAgo(notification.created_at)}
+                    </span>
+                  </div>
+                  {notification.message && (
+                    <p style={{
+                      margin: `2px 0 0`,
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted,
+                      lineHeight: 1.4,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {notification.message}
+                    </p>
+                  )}
                 </div>
-                {notification.message && (
-                  <p style={{
-                    margin: `2px 0 0`,
-                    fontSize: typography.sizes.xs,
-                    color: colors.textMuted,
-                    lineHeight: 1.4,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {notification.message}
-                  </p>
-                )}
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -297,7 +317,7 @@ export function DashboardNotifications({ vertical, limit = 5 }: DashboardNotific
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            color: '#3b82f6',
+            color: colors.primary,
             fontSize: typography.sizes.xs,
             fontWeight: typography.weights.medium,
             textAlign: 'center',
