@@ -47,9 +47,13 @@ export function generateTimeSlots(
 
   // If pickup is today, filter out slots that are too soon
   if (pickupDate) {
-    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    // Use local date (not UTC) to match the pickup date from the DB
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const today = `${year}-${month}-${day}`
     if (pickupDate === today) {
-      const now = new Date()
       const nowMins = now.getHours() * 60 + now.getMinutes()
       const cutoff = nowMins + minLeadMinutes
       return slots.filter(slot => parseTimeToMinutes(slot) >= cutoff)

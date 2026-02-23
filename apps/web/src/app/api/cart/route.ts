@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Vertical required' }, { status: 400 })
     }
 
-    // Get vertical
+    // Validate vertical exists
     const { data: verticalData, error: vertError } = await supabase
       .from('verticals')
       .select('id')
@@ -110,17 +110,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Vertical not found' }, { status: 404 })
     }
 
-    // Get or create cart (vertical_id is TEXT slug, not UUID)
-    const { data: cartId, error: cartError } = await supabase
-      .rpc('get_or_create_cart', {
-        p_user_id: user.id,
-        p_vertical_id: vertical
-      })
+    // Find existing cart — don't create one just for browsing.
+    // Carts are created only when items are added (POST /api/cart/items).
+    const { data: cart } = await supabase
+      .from('carts')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('vertical_id', vertical)
+      .maybeSingle()
 
-    if (cartError) {
-      console.error('Error getting cart:', cartError)
-      return NextResponse.json({ error: 'Failed to get cart' }, { status: 500 })
+    if (!cart) {
+      return NextResponse.json({
+        items: [],
+        summary: { total_items: 0, total_cents: 0, vendor_count: 0 },
+        hasScheduleIssues: false,
+        hasMarketBoxItems: false,
+      })
     }
+
+    const cartId = cart.id
 
     // Get cart items with listing, market, schedule, AND market_box_offerings details
     const { data: items, error: itemsError } = await supabase

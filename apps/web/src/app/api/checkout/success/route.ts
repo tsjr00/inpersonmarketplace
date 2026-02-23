@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     crumb.supabase('select', 'orders')
     const { data: order, error: orderError } = await serviceClient
       .from('orders')
-      .select('platform_fee_cents, buyer_user_id, order_number')
+      .select('platform_fee_cents, buyer_user_id, order_number, vertical_id')
       .eq('id', orderId)
       .single()
 
@@ -325,15 +325,26 @@ export async function GET(request: NextRequest) {
     }
 
     // Clear the buyer's cart after successful payment (idempotent — safe on every hit)
+    // Uses serviceClient to bypass RLS and avoid auth-context issues after long execution.
+    // Must filter by vertical_id — users can have multiple carts (one per vertical).
     crumb.supabase('select', 'carts')
-    const { data: cart } = await supabase
+    const { data: cart, error: cartError } = await serviceClient
       .from('carts')
       .select('id')
       .eq('user_id', user.id)
-      .single()
-    if (cart) {
+      .eq('vertical_id', order.vertical_id)
+      .maybeSingle()
+    if (cartError) {
+      crumb.logic('Failed to find cart for clearing', { error: cartError.message })
+    } else if (cart) {
       crumb.supabase('delete', 'cart_items')
-      await supabase.from('cart_items').delete().eq('cart_id', cart.id)
+      const { error: deleteError } = await serviceClient
+        .from('cart_items')
+        .delete()
+        .eq('cart_id', cart.id)
+      if (deleteError) {
+        crumb.logic('Failed to clear cart items', { error: deleteError.message })
+      }
     }
 
     // Fetch full order details for the success page
