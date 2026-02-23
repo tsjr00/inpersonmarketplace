@@ -251,23 +251,7 @@ export default function VendorOrdersPage() {
     }
   }
 
-  const handleConfirmCashComplete = async (orderId: string) => {
-    try {
-      const res = await fetch(`/api/vendor/orders/${orderId}/confirm-cash-complete`, {
-        method: 'POST'
-      })
-      if (res.ok) {
-        setToast({ message: 'Cash payment confirmed and order completed!', type: 'success' })
-        fetchOrders()
-      } else {
-        const error = await res.json()
-        setToast({ message: error.error || 'Failed to complete cash order', type: 'error' })
-      }
-    } catch (error) {
-      console.error('Error completing cash order:', error)
-      setToast({ message: 'An error occurred', type: 'error' })
-    }
-  }
+
 
   const handleResolveStaleOrder = async (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => {
     if (resolution === 'fulfilled') {
@@ -550,7 +534,6 @@ export default function VendorOrdersPage() {
                   onFulfillItem={handleFulfillItem}
                   onRejectItem={handleRejectItem}
                   onConfirmExternalPayment={handleConfirmExternalPayment}
-                  onConfirmCashComplete={handleConfirmCashComplete}
                   onResolveStaleOrder={handleResolveStaleOrder}
                 />
               </div>

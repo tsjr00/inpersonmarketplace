@@ -102,19 +102,24 @@ export async function POST(
     const serviceClient = createServiceClient()
 
     // Record platform fees owed for each vendor's portion
-    crumb.logic('Recording platform fees')
-    for (const item of orderItems) {
-      const result = await recordExternalPaymentFee(
-        serviceClient,
-        item.vendor_profile_id,
-        orderId,
-        item.subtotal_cents
-      )
+    // Cash orders: fees deferred to fulfill time (vendor hasn't received payment yet)
+    if (order.payment_method !== 'cash') {
+      crumb.logic('Recording platform fees')
+      for (const item of orderItems) {
+        const result = await recordExternalPaymentFee(
+          serviceClient,
+          item.vendor_profile_id,
+          orderId,
+          item.subtotal_cents
+        )
 
-      if (!result.success) {
-        console.error('Failed to record fee:', result.error)
-        // Continue anyway - don't block order confirmation
+        if (!result.success) {
+          console.error('Failed to record fee:', result.error)
+          // Continue anyway - don't block order confirmation
+        }
       }
+    } else {
+      crumb.logic('Cash order — fees deferred to fulfill time')
     }
 
     // Update order status

@@ -375,7 +375,7 @@ export async function GET(request: NextRequest) {
           )
         `)
         .eq('status', 'pending')
-        .in('payment_method', ['venmo', 'cashapp', 'paypal', 'cash'])
+        .in('payment_method', ['venmo', 'cashapp', 'paypal'])
         .is('external_payment_confirmed_at', null)
         .lte('created_at', twoHoursAgo)
         .limit(50)

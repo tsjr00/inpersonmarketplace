@@ -7,7 +7,8 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit
 import {
   getVendorFeeBalance,
   calculateAutoDeductAmount,
-  recordFeeCredit
+  recordFeeCredit,
+  recordExternalPaymentFee
 } from '@/lib/payments/vendor-fees'
 import { sendNotification } from '@/lib/notifications'
 import { calculateTipShare } from '@/lib/payments/tip-math'
@@ -55,7 +56,7 @@ export async function POST(
     const { data: orderItem } = await supabase
       .from('order_items')
       .select(`
-        id, status, vendor_payout_cents, order_id,
+        id, status, vendor_payout_cents, order_id, subtotal_cents, vendor_profile_id,
         buyer_confirmed_at, vendor_confirmed_at, confirmation_window_expires_at,
         order:orders!inner(id, order_number, buyer_user_id, vertical_id, payment_method, tip_amount, tip_on_platform_fee_cents),
         listing:listings(title, vendor_profiles(profile_data))
@@ -142,8 +143,20 @@ export async function POST(
         .eq('id', orderItemId)
 
       if (isExternalPayment) {
-        // External payment: no Stripe transfer needed — fees handled via ledger at confirm-external-payment
+        // External payment: no Stripe transfer needed
         crumb.logic('External payment order — skipping Stripe transfer')
+
+        // Cash orders: record platform fees now (deferred from confirm time)
+        if (orderData.payment_method === 'cash') {
+          crumb.logic('Cash order — recording deferred platform fees')
+          const feeServiceClient = createServiceClient()
+          await recordExternalPaymentFee(
+            feeServiceClient,
+            (orderItem as any).vendor_profile_id,
+            orderItem.order_id,
+            (orderItem as any).subtotal_cents
+          )
+        }
 
         // Atomically mark order completed if all items are fully confirmed
         crumb.logic('Checking atomic order completion')

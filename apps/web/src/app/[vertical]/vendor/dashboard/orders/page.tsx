@@ -258,21 +258,6 @@ export default function VendorDashboardOrdersPage() {
     }
   }
 
-  const handleConfirmCashComplete = async (orderId: string) => {
-    try {
-      const res = await fetch(`/api/vendor/orders/${orderId}/confirm-cash-complete`, { method: 'POST' })
-      if (res.ok) {
-        setToast({ message: 'Cash payment confirmed and order completed!', type: 'success' })
-        fetchOrders()
-      } else {
-        const data = await res.json()
-        setToast({ message: data.error || 'Failed to complete cash order', type: 'error' })
-      }
-    } catch {
-      setToast({ message: 'An error occurred', type: 'error' })
-    }
-  }
-
   const handleResolveStaleOrder = async (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => {
     if (resolution === 'fulfilled') {
       // Late fulfillment: mark each stale confirmed item as ready, then fulfilled
@@ -648,7 +633,6 @@ export default function VendorDashboardOrdersPage() {
                   onFulfillItem={handleFulfillItem}
                   onRejectItem={handleRejectItem}
                   onConfirmExternalPayment={handleConfirmExternalPayment}
-                  onConfirmCashComplete={handleConfirmCashComplete}
                   onResolveStaleOrder={handleResolveStaleOrder}
                 />
               </div>

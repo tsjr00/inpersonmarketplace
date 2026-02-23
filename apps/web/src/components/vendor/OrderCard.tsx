@@ -107,7 +107,6 @@ interface OrderCardProps {
   onFulfillItem?: (itemId: string) => void
   onRejectItem?: (itemId: string, reason: string) => void
   onConfirmExternalPayment?: (orderId: string) => void
-  onConfirmCashComplete?: (orderId: string) => void
   onResolveStaleOrder?: (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => void
 }
 
@@ -134,7 +133,7 @@ function getMostUrgentStatus(items: OrderItem[]): string {
   return 'cancelled'
 }
 
-export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onConfirmCashComplete, onResolveStaleOrder }: OrderCardProps) {
+export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onResolveStaleOrder }: OrderCardProps) {
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
   const [externalConfirmDialog, setExternalConfirmDialog] = useState(false)
   const [staleResolveDialog, setStaleResolveDialog] = useState<{ open: boolean; resolution: 'fulfilled' | 'problem' } | null>(null)
@@ -318,24 +317,24 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
         ))}
       </div>
 
-      {/* External Payment Banner */}
+      {/* External Payment / Cash Order Banner */}
       {isPendingExternal && (
         <div style={{
           padding: 14,
-          backgroundColor: '#fffbeb',
-          border: '2px solid #f59e0b',
+          backgroundColor: isCash ? '#eff6ff' : '#fffbeb',
+          border: `2px solid ${isCash ? '#3b82f6' : '#f59e0b'}`,
           borderRadius: 8,
           marginBottom: 16
         }}>
-          <p style={{ margin: 0, fontWeight: 700, color: '#92400e', fontSize: 14 }}>
+          <p style={{ margin: 0, fontWeight: 700, color: isCash ? '#1e40af' : '#92400e', fontSize: 14 }}>
             {isCash
-              ? 'Cash Payment — Customer will pay at pickup'
+              ? 'Cash Order — Confirm You Can Fulfill This'
               : `Payment sent via ${formatPaymentMethod(order.payment_method!)} — Verify and confirm below`
             }
           </p>
-          <p style={{ margin: '6px 0 12px 0', fontSize: 13, color: '#78350f' }}>
+          <p style={{ margin: '6px 0 12px 0', fontSize: 13, color: isCash ? '#1e3a8a' : '#78350f' }}>
             {isCash
-              ? 'When the customer pays you in cash, click the button below to confirm payment and complete the order.'
+              ? 'This customer selected cash payment. Confirm that you can prepare this order for the scheduled pickup time. You\'ll collect cash when they arrive.'
               : `Check your ${formatPaymentMethod(order.payment_method!)} account for a payment of ${formatPrice(order.total_cents)}. Once verified, confirm below to start preparing the order.`
             }
           </p>
@@ -343,7 +342,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
             onClick={() => setExternalConfirmDialog(true)}
             style={{
               padding: '8px 16px',
-              backgroundColor: isCash ? '#16a34a' : '#f59e0b',
+              backgroundColor: isCash ? '#3b82f6' : '#f59e0b',
               color: isCash ? 'white' : '#78350f',
               border: 'none',
               borderRadius: 6,
@@ -353,7 +352,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               minHeight: 40
             }}
           >
-            {isCash ? 'Confirm Cash & Complete Order' : 'Confirm Payment Received'}
+            {isCash ? 'Confirm Order' : 'Confirm Payment Received'}
           </button>
         </div>
       )}
@@ -565,6 +564,26 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                         </button>
                       )}
 
+                      {/* Cash no-show button - only for cash orders in ready status */}
+                      {item.status === 'ready' && isCash && onRejectItem && (
+                        <button
+                          onClick={() => onRejectItem(item.id, 'Buyer no-show — cash payment not received')}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: 'white',
+                            color: '#92400e',
+                            border: '1px solid #f59e0b',
+                            borderRadius: 6,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            minHeight: 32
+                          }}
+                        >
+                          Buyer Didn&apos;t Show Up
+                        </button>
+                      )}
+
                       {/* Reject Button - available for pending/confirmed/ready items */}
                       {onRejectItem && (
                         <button
@@ -594,18 +613,16 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
       </div>
       <ConfirmDialog
         open={externalConfirmDialog}
-        title={isCash ? 'Confirm Cash Payment & Complete' : 'Confirm Payment Received'}
+        title={isCash ? 'Confirm Order' : 'Confirm Payment Received'}
         message={isCash
-          ? `Confirm that you received cash payment of ${formatPrice(order.total_cents)} from ${order.customer_name}? This will complete the order immediately.`
+          ? `Confirm that you can prepare this order for ${order.customer_name}'s scheduled pickup? The customer will be notified and will pay cash when they arrive.`
           : `Confirm that you received ${formatPaymentMethod(order.payment_method || '')} payment of ${formatPrice(order.total_cents)} from ${order.customer_name}? This will move the order to active status.`
         }
-        confirmLabel={isCash ? 'Confirm Cash & Complete' : 'Confirm Payment'}
+        confirmLabel={isCash ? 'Confirm Order' : 'Confirm Payment'}
         variant="default"
         onConfirm={() => {
           setExternalConfirmDialog(false)
-          if (isCash && onConfirmCashComplete) {
-            onConfirmCashComplete(order.id)
-          } else if (onConfirmExternalPayment) {
+          if (onConfirmExternalPayment) {
             onConfirmExternalPayment(order.id)
           }
         }}
