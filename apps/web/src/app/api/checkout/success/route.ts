@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     crumb.supabase('select', 'orders')
     const { data: order, error: orderError } = await serviceClient
       .from('orders')
-      .select('platform_fee_cents, buyer_user_id')
+      .select('platform_fee_cents, buyer_user_id, order_number')
       .eq('id', orderId)
       .single()
 
@@ -255,8 +255,20 @@ export async function GET(request: NextRequest) {
           crumb.logic('Failed to parse market box items metadata')
         }
       }
-      // H4 FIX: Vendor notifications moved INSIDE idempotency guard
-      // Prevents duplicate notifications on page refresh
+    } else {
+      crumb.logic('Payment record already exists (skipping duplicate processing)')
+    }
+
+    // Vendor notifications — OUTSIDE payment idempotency guard
+    // Webhook may insert payment first, causing the guard above to skip.
+    // Own idempotency: check if notifications already exist for this order.
+    const { count: existingNotifCount } = await serviceClient
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('type', 'new_paid_order')
+      .contains('data', { orderNumber: order.order_number })
+
+    if ((existingNotifCount || 0) === 0) {
       crumb.supabase('select', 'order_items (vendor notifications)')
       const { data: notifyItems, error: notifyItemsError } = await serviceClient
         .from('order_items')
@@ -272,13 +284,7 @@ export async function GET(request: NextRequest) {
       if (notifyItemsError) {
         crumb.logic('Failed to fetch order items for vendor notifications', { error: notifyItemsError.message })
       } else if (notifyItems && notifyItems.length > 0) {
-        // Need order number — quick fetch since fullOrder is fetched later
-        const { data: orderForNotify } = await serviceClient
-          .from('orders')
-          .select('order_number')
-          .eq('id', orderId)
-          .single()
-        const orderNumber = orderForNotify?.order_number || ''
+        const orderNumber = order.order_number || ''
 
         const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
         for (const item of notifyItems) {
@@ -315,7 +321,7 @@ export async function GET(request: NextRequest) {
         )
       }
     } else {
-      crumb.logic('Payment record already exists (skipping duplicate processing)')
+      crumb.logic('Vendor notifications already sent for this order')
     }
 
     // Clear the buyer's cart after successful payment (idempotent — safe on every hit)
