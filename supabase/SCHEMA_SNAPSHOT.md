@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-23 | 20260223_054_fix_availability_timezone | **Function rewrite:** `get_available_pickup_dates()` — replaced all `CURRENT_DATE` (UTC) with `(NOW() AT TIME ZONE market_timezone)::DATE` to fix evening blackout bug. FT same-day filter, season checks, event date filter, and date series generation now all use market-local date. Prevents zero-row results when UTC date advances past local date (e.g., Sunday 6pm CT = Monday UTC). Applied to all 3 envs. |
 | 2026-02-22 | 20260222_053_add_small_order_fee_cents | **New column:** `orders.small_order_fee_cents` (INTEGER NOT NULL DEFAULT 0). Tracks small order surcharge applied when subtotal is below vertical minimum ($5). Applied to all 3 envs. |
 | 2026-02-22 | 20260221_045_small_order_fee | **Data update:** Added `small_order_fee_threshold_cents` (500) and `small_order_fee_cents` (50) to `verticals.config` JSONB for all 3 verticals. Code uses hardcoded defaults but this keeps DB config in sync. Applied to all 3 envs. |
 | 2026-02-22 | 20260222_052_update_ft_tier_listing_limits | **Function update:** `enforce_listing_tier_limit()` — updated FT listing limits: free 4→5, basic 8→10. Pro (20) and Boss (45) unchanged. FM limits unchanged (standard=5, premium/featured=15). No schema changes — function logic only. Applied to Dev, Staging, & Prod. |

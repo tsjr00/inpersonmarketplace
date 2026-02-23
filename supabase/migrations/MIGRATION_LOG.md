@@ -84,6 +84,7 @@
 | 20260222_048_buyer_search_log.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Buyer search log table for geographic intelligence. Applied to all 3 envs. |
 | 20260222_049_scan_vendor_activity_validation.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Add vertical_id validation to scan_vendor_activity(). Applied to all 3 envs. |
 | 20260222_050_fix_notifications_user_id_fk.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Fix notifications.user_id FK → auth.users(id). Rewrite trigger. Applied to all 3 envs. |
+| 20260223_054_fix_availability_timezone.sql | ✅ | 2026-02-23 | ✅ | 2026-02-23 | Fix get_available_pickup_dates() UTC timezone bug. Applied to all 3 envs. |
 | 20260222_053_add_small_order_fee_cents.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Add orders.small_order_fee_cents column. Applied to all 3 envs. |
 | 20260221_045_small_order_fee.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Add small order fee config to verticals.config JSONB. Applied to all 3 envs. |
 | 20260222_052_update_ft_tier_listing_limits.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Update enforce_listing_tier_limit(): FT free 4→5, basic 8→10. Applied to all 3 envs. |
