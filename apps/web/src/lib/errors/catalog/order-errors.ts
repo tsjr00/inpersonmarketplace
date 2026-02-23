@@ -110,17 +110,20 @@ export const ORDER_ERRORS: ErrorCatalogEntry[] = [
 export const CHECKOUT_ERRORS: ErrorCatalogEntry[] = [
   {
     code: 'ERR_CHECKOUT_001',
-    title: 'Below Minimum Order',
+    title: 'Checkout Validation Error',
     category: 'ORDER',
     severity: 'low',
-    description: 'Cart total is below the minimum order amount.',
-    userGuidance: 'Your cart total is below the $10.00 minimum. Add more items to continue.',
+    description: 'An item in the cart failed checkout validation.',
+    userGuidance: '',
     selfResolvable: true,
     causes: [
-      'Subtotal is less than $10.00',
+      'Item out of stock',
+      'Ordering window closed (cutoff passed)',
+      'Item no longer available at pickup location',
     ],
     solutions: [
-      'Add more items to cart to meet minimum',
+      'Remove unavailable items and try again',
+      'Check pickup times and availability',
     ],
     pgCodes: [],
   },
