@@ -12,6 +12,22 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES, formatQuantityDisplay } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
+// Format confirmed pickup time (HH:MM or HH:MM:SS) to 12h display
+function formatPickupTime12h(time: string | null | undefined): string | null {
+  if (!time) return null
+  const [h, m] = time.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return null
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
+}
+
+function formatPickupDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  const date = new Date(dateStr + 'T12:00:00')
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 interface Market {
   id: string
   name: string
@@ -68,6 +84,7 @@ interface OrderItem {
   refund_amount_cents: number | null
   confirmation_window_expires_at: string | null
   lockdown_active: boolean
+  preferred_pickup_time: string | null
   issue_reported_at: string | null
   issue_reported_by: string | null
   issue_description: string | null
@@ -489,9 +506,9 @@ export default function BuyerOrderDetailPage() {
         {/* === PICKUP PRESENTATION MODE === */}
         {isPickupReady && (
           <>
-            {/* Green Hero Section - designed for showing to vendor */}
+            {/* Green Hero Section - ready for pickup */}
             <div style={{
-              background: `linear-gradient(135deg, ${colors.primaryDark} 0%, ${colors.primary} 100%)`,
+              background: 'linear-gradient(135deg, #065f46 0%, #059669 100%)',
               color: 'white',
               padding: `${spacing.lg} ${spacing.md} ${spacing.md}`,
               textAlign: 'center',
@@ -510,7 +527,7 @@ export default function BuyerOrderDetailPage() {
               <div style={{
                 display: 'inline-block',
                 padding: `${spacing['3xs']} ${spacing.sm}`,
-                backgroundColor: effectiveStatus === 'handed_off' ? '#f59e0b' : 'rgba(255,255,255,0.2)',
+                backgroundColor: effectiveStatus === 'handed_off' ? '#f59e0b' : '#16a34a',
                 borderRadius: radius.full,
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.bold,
@@ -792,10 +809,24 @@ export default function BuyerOrderDetailPage() {
                   bg: '#eff6ff', border: '#93c5fd', color: '#1e40af',
                   text: 'Your order is ready for pickup!'
                 },
-                cancelled: {
-                  bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
-                  text: `${primaryVendorName} was unable to fulfill this order. You have been refunded.`
-                },
+                cancelled: (() => {
+                  const buyerCancelled = order.items.some(i => i.cancelled_by === 'buyer')
+                  const isExternal = order.payment_method && !['stripe'].includes(order.payment_method)
+                  if (buyerCancelled) {
+                    return {
+                      bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
+                      text: isExternal
+                        ? 'You cancelled this order.'
+                        : 'You cancelled this order. Any applicable refund has been processed.'
+                    }
+                  }
+                  return {
+                    bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
+                    text: isExternal
+                      ? `${primaryVendorName} was unable to fulfill this order. Please contact them regarding your refund.`
+                      : `${primaryVendorName} was unable to fulfill this order. You have been refunded.`
+                  }
+                })(),
                 fulfilled: {
                   bg: '#f5f3ff', border: '#c4b5fd', color: '#5b21b6',
                   text: 'Order complete. Thank you for your purchase!'
@@ -951,6 +982,14 @@ export default function BuyerOrderDetailPage() {
                     <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
                       by {item.vendor_name}
                     </p>
+                    {(item.display?.pickup_date || item.pickup_date) && (
+                      <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                        Scheduled pickup: {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
+                        {formatPickupTime12h(item.preferred_pickup_time)
+                          ? ` at ${formatPickupTime12h(item.preferred_pickup_time)}`
+                          : ''}
+                      </p>
+                    )}
                     <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                       Quantity: {item.quantity} × {formatPrice(calculateDisplayPrice(item.unit_price_cents))} = <strong>{formatPrice(calculateDisplayPrice(item.subtotal_cents))}</strong>
                     </p>

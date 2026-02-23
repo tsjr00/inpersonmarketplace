@@ -137,6 +137,7 @@ export default function BuyerOrdersPage() {
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [marketFilter, setMarketFilter] = useState<string>('')
+  const [view, setView] = useState<'current' | 'history'>('current')
 
   useEffect(() => {
     fetchOrders()
@@ -296,6 +297,35 @@ export default function BuyerOrdersPage() {
               </select>
             </div>
           )}
+        </div>
+
+        {/* Current / History Toggle */}
+        <div style={{
+          display: 'flex',
+          gap: 0,
+          marginTop: spacing.md,
+          borderRadius: radius.sm,
+          overflow: 'hidden',
+          border: `1px solid ${colors.border}`,
+          width: 'fit-content',
+        }}>
+          {(['current', 'history'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setView(tab)}
+              style={{
+                padding: `${spacing['2xs']} ${spacing.md}`,
+                fontSize: typography.sizes.sm,
+                fontWeight: view === tab ? typography.weights.bold : typography.weights.normal,
+                backgroundColor: view === tab ? colors.primary : colors.surfaceElevated,
+                color: view === tab ? '#fff' : colors.textSecondary,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {tab === 'current' ? 'Current' : 'History'}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -899,58 +929,97 @@ export default function BuyerOrdersPage() {
           const renderItem = (order: Order) =>
             order.type === 'market_box' ? renderMarketBox(order) : renderOrder(order)
 
+          const currentHasOrders = readyOrders.length > 0 || pendingOrders.length > 0
+          const historyHasOrders = completedOrders.length > 0 || cancelledOrders.length > 0
+
           return (
             <div>
-              {/* Section 1: Ready for Pickup */}
-              {readyOrders.length > 0 && (
-                <div style={{ marginBottom: spacing.lg }}>
-                  <SectionHeader
-                    title="Ready for Pickup"
-                    count={readyOrders.length}
-                    color={colors.primaryDark}
-                    bgColor={colors.primaryLight}
-                  />
-                  {readyOrders.map(renderItem)}
-                </div>
+              {view === 'current' && (
+                <>
+                  {/* Section 1: Ready for Pickup */}
+                  {readyOrders.length > 0 && (
+                    <div style={{ marginBottom: spacing.lg }}>
+                      <SectionHeader
+                        title="Ready for Pickup"
+                        count={readyOrders.length}
+                        color={colors.primaryDark}
+                        bgColor={colors.primaryLight}
+                      />
+                      {readyOrders.map(renderItem)}
+                    </div>
+                  )}
+
+                  {/* Section 2: Pending / In Progress */}
+                  {pendingOrders.length > 0 && (
+                    <div style={{ marginBottom: spacing.lg }}>
+                      <SectionHeader
+                        title="In Progress"
+                        count={pendingOrders.length}
+                        color={colors.primaryDark}
+                        bgColor={colors.primaryLight}
+                      />
+                      {pendingOrders.map(renderItem)}
+                    </div>
+                  )}
+
+                  {!currentHasOrders && (
+                    <div style={{
+                      backgroundColor: colors.surfaceElevated,
+                      borderRadius: radius.md,
+                      border: `1px dashed ${colors.border}`,
+                      padding: spacing['2xl'],
+                      textAlign: 'center',
+                    }}>
+                      <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
+                        No active orders
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* Section 2: Pending / In Progress */}
-              {pendingOrders.length > 0 && (
-                <div style={{ marginBottom: spacing.lg }}>
-                  <SectionHeader
-                    title="In Progress"
-                    count={pendingOrders.length}
-                    color={colors.primaryDark}
-                    bgColor={colors.primaryLight}
-                  />
-                  {pendingOrders.map(renderItem)}
-                </div>
-              )}
+              {view === 'history' && (
+                <>
+                  {/* Section 3: Completed */}
+                  {completedOrders.length > 0 && (
+                    <div style={{ marginBottom: spacing.lg }}>
+                      <SectionHeader
+                        title="Completed"
+                        count={completedOrders.length}
+                        color={colors.textMuted}
+                        bgColor={colors.surfaceMuted}
+                      />
+                      {completedOrders.map(renderItem)}
+                    </div>
+                  )}
 
-              {/* Section 3: Cancelled */}
-              {cancelledOrders.length > 0 && (
-                <div style={{ marginBottom: spacing.lg }}>
-                  <SectionHeader
-                    title="Cancelled"
-                    count={cancelledOrders.length}
-                    color="#991b1b"
-                    bgColor="#fee2e2"
-                  />
-                  {cancelledOrders.map(renderItem)}
-                </div>
-              )}
+                  {/* Section 4: Cancelled */}
+                  {cancelledOrders.length > 0 && (
+                    <div style={{ marginBottom: spacing.lg }}>
+                      <SectionHeader
+                        title="Cancelled"
+                        count={cancelledOrders.length}
+                        color="#991b1b"
+                        bgColor="#fee2e2"
+                      />
+                      {cancelledOrders.map(renderItem)}
+                    </div>
+                  )}
 
-              {/* Section 4: Completed */}
-              {completedOrders.length > 0 && (
-                <div style={{ marginBottom: spacing.lg }}>
-                  <SectionHeader
-                    title="Completed"
-                    count={completedOrders.length}
-                    color={colors.textMuted}
-                    bgColor={colors.surfaceMuted}
-                  />
-                  {completedOrders.map(renderItem)}
-                </div>
+                  {!historyHasOrders && (
+                    <div style={{
+                      backgroundColor: colors.surfaceElevated,
+                      borderRadius: radius.md,
+                      border: `1px dashed ${colors.border}`,
+                      padding: spacing['2xl'],
+                      textAlign: 'center',
+                    }}>
+                      <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
+                        No order history yet
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )

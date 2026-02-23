@@ -558,7 +558,7 @@ export default function CheckoutPage() {
     )
   }
 
-  if (items.length === 0) {
+  if (items.length === 0 && !processing) {
     return (
       <div style={{
         minHeight: '100vh',

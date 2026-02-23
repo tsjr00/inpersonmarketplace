@@ -468,6 +468,10 @@ export async function POST(request: NextRequest) {
     // Add market box items to pricing
     if (hasMarketBoxes) {
       for (const mbItem of marketBoxItems!) {
+        // Food trucks: 4-week subscriptions only
+        if (vertical === 'food_trucks' && mbItem.termWeeks !== 4) {
+          throw traced.validation('ERR_CHECKOUT_020', 'Food truck subscriptions are 4-week (1 month) only')
+        }
         const offering = marketBoxOfferings.find(o => o.id === mbItem.offeringId)!
         const termPrice = mbItem.termWeeks === 8
           ? (offering.price_8week_cents || offering.price_4week_cents)

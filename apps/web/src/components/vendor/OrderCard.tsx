@@ -506,6 +506,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
 
                   {/* Item Actions - hide for cancelled, fulfilled, pending external, or stale blocked items */}
                   {!item.cancelled_at && item.status !== 'cancelled' && item.status !== 'fulfilled' && !isPendingExternal && !isStaleBlocked && (
+                    <>
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                       {item.status === 'pending' && onConfirmItem && (
                         <button
@@ -564,26 +565,6 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                         </button>
                       )}
 
-                      {/* Cash no-show button - only for cash orders in ready status */}
-                      {item.status === 'ready' && isCash && onRejectItem && (
-                        <button
-                          onClick={() => onRejectItem(item.id, 'Buyer no-show — cash payment not received')}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: 'white',
-                            color: '#92400e',
-                            border: '1px solid #f59e0b',
-                            borderRadius: 6,
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            minHeight: 32
-                          }}
-                        >
-                          Buyer Didn&apos;t Show Up
-                        </button>
-                      )}
-
                       {/* Reject Button - available for pending/confirmed/ready items */}
                       {onRejectItem && (
                         <button
@@ -604,6 +585,25 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                         </button>
                       )}
                     </div>
+                    {/* Cash no-show — small text link below button row */}
+                    {item.status === 'ready' && isCash && onRejectItem && (
+                      <button
+                        onClick={() => onRejectItem(item.id, 'Buyer no-show — cash payment not received')}
+                        style={{
+                          padding: '4px 0',
+                          backgroundColor: 'transparent',
+                          color: '#92400e',
+                          border: 'none',
+                          fontSize: 11,
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          marginTop: 4,
+                        }}
+                      >
+                        Buyer didn&apos;t show up?
+                      </button>
+                    )}
+                    </>
                   )}
                 </div>
               </div>

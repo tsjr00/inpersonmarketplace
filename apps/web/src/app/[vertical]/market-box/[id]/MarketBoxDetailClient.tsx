@@ -478,7 +478,9 @@ export default function MarketBoxDetailClient() {
                   <span style={{ fontSize: 20 }}>🕐</span>
                   <div>
                     <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
-                      {formatTime(offering.pickup_start_time)} - {formatTime(offering.pickup_end_time)}
+                      {offering.pickup_start_time === offering.pickup_end_time
+                        ? `Pickup at ${formatTime(offering.pickup_start_time)}`
+                        : `${formatTime(offering.pickup_start_time)} - ${formatTime(offering.pickup_end_time)}`}
                     </div>
                   </div>
                 </div>

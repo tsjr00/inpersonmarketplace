@@ -472,7 +472,8 @@ export default function NewMarketBoxPage() {
                 </p>
               </div>
 
-              {/* 2-Month Option */}
+              {/* 2-Month Option — FM only (food trucks are 1-month subscriptions) */}
+              {vertical !== 'food_trucks' && (
               <div style={{ marginBottom: 20 }}>
                 <label style={{
                   display: 'flex',
@@ -531,6 +532,7 @@ export default function NewMarketBoxPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Pickup Location */}
               <div style={{ marginBottom: 20 }}>
@@ -639,38 +641,77 @@ export default function NewMarketBoxPage() {
                     </select>
                   </div>
 
-                  <div style={{ marginBottom: 24 }}>
-                    <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
-                      Pickup Window *
-                    </label>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <input
-                        type="time"
+                  {vertical === 'food_trucks' ? (
+                    // Food trucks: single pickup time (not a range)
+                    <div style={{ marginBottom: 24 }}>
+                      <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
+                        Pickup Time *
+                      </label>
+                      <select
                         value={formData.pickup_start_time}
-                        onChange={(e) => setFormData({ ...formData, pickup_start_time: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, pickup_start_time: e.target.value, pickup_end_time: e.target.value })}
                         required
                         style={{
+                          width: '100%',
                           padding: '10px 12px',
                           border: '1px solid #d1d5db',
                           borderRadius: 6,
-                          fontSize: 14
+                          fontSize: 14,
+                          boxSizing: 'border-box',
+                          backgroundColor: 'white'
                         }}
-                      />
-                      <span style={{ color: '#6b7280' }}>to</span>
-                      <input
-                        type="time"
-                        value={formData.pickup_end_time}
-                        onChange={(e) => setFormData({ ...formData, pickup_end_time: e.target.value })}
-                        required
-                        style={{
-                          padding: '10px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: 6,
-                          fontSize: 14
-                        }}
-                      />
+                      >
+                        <option value="">Select a time...</option>
+                        {Array.from({ length: 33 }, (_, i) => {
+                          const totalMinutes = 360 + i * 30 // 6:00 AM to 10:00 PM
+                          const h = Math.floor(totalMinutes / 60)
+                          const m = totalMinutes % 60
+                          const value = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+                          const ampm = h >= 12 ? 'PM' : 'AM'
+                          const displayH = h % 12 || 12
+                          const label = `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`
+                          return <option key={value} value={value}>{label}</option>
+                        })}
+                      </select>
+                      <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                        Subscribers must pick up at this exact time each week
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    // FM: pickup window range
+                    <div style={{ marginBottom: 24 }}>
+                      <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, color: '#374151' }}>
+                        Pickup Window *
+                      </label>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <input
+                          type="time"
+                          value={formData.pickup_start_time}
+                          onChange={(e) => setFormData({ ...formData, pickup_start_time: e.target.value })}
+                          required
+                          style={{
+                            padding: '10px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: 6,
+                            fontSize: 14
+                          }}
+                        />
+                        <span style={{ color: '#6b7280' }}>to</span>
+                        <input
+                          type="time"
+                          value={formData.pickup_end_time}
+                          onChange={(e) => setFormData({ ...formData, pickup_end_time: e.target.value })}
+                          required
+                          style={{
+                            padding: '10px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: 6,
+                            fontSize: 14
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 

@@ -71,6 +71,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
+  // Food truck subscriptions do not support skip-a-week
+  if (offering.vertical_id === 'food_trucks') {
+    return NextResponse.json({
+      error: 'Skip-a-week is not available for food truck subscriptions'
+    }, { status: 403 })
+  }
+
   // Validate pickup can be skipped
   if (!['scheduled', 'ready'].includes(pickup.status)) {
     return NextResponse.json({

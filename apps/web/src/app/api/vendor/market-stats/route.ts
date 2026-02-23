@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
       // Check vendor tier for home market restrictions
       const vendorTier = vendorProfile.tier || 'standard'
-      const isVendorPremium = isPremiumTier(vendorTier)
+      const isVendorPremium = isPremiumTier(vendorTier, vertical)
       const tierLimits = getTierLimits(vendorTier, vertical)
 
       // Get TOTAL listing count for this vendor (per-account, not per-market)

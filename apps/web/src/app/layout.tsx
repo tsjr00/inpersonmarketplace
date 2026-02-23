@@ -34,6 +34,9 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="manifest" href="/api/manifest" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/api/apple-touch-icon" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {/* Safe: inline SW registration script — no user-supplied content */}

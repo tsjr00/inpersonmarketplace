@@ -46,6 +46,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           schedule_id,
           pickup_date,
           pickup_snapshot,
+          preferred_pickup_time,
           buyer_confirmed_at,
           vendor_confirmed_at,
           confirmation_window_expires_at,
@@ -155,6 +156,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             schedules: market?.market_schedules || []
           },
           pickup_date: item.pickup_date,
+          preferred_pickup_time: item.preferred_pickup_time || null,
           pickup_snapshot: pickupSnapshot,
           // Unified display data (prefers pickup_snapshot when available)
           display: displayMarket ? {

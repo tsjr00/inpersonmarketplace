@@ -152,7 +152,7 @@ export default function NotificationsPage() {
       <div style={{ maxWidth: containers.md, margin: '0 auto' }}>
         {/* Back link */}
         <Link
-          href={`/${vertical}/vendor/dashboard`}
+          href={`/${vertical}/dashboard`}
           style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
         >
           ← Back to Dashboard

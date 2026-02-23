@@ -30,6 +30,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         name,
         description,
         image_urls,
+        vertical_id,
         price_cents,
         price_4week_cents,
         price_8week_cents,
@@ -148,7 +149,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     // Build available terms
     const price4Week = offering.price_4week_cents || offering.price_cents
-    const price8Week = offering.price_8week_cents
+    // Food trucks: 1-month only (no 8-week option)
+    const price8Week = offering.vertical_id === 'food_trucks' ? null : offering.price_8week_cents
 
     const availableTerms = [
       {

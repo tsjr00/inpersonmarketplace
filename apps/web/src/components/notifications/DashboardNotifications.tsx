@@ -285,19 +285,6 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
                       {formatTimeAgo(notification.created_at)}
                     </span>
                   </div>
-                  {notification.message && (
-                    <p style={{
-                      margin: `2px 0 0`,
-                      fontSize: typography.sizes.xs,
-                      color: colors.textMuted,
-                      lineHeight: 1.4,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {notification.message}
-                    </p>
-                  )}
                 </div>
               </button>
             )

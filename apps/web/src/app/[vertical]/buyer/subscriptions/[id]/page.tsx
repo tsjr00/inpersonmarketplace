@@ -325,7 +325,9 @@ export default function BuyerSubscriptionDetailPage() {
                   {formatDate(nextPickup.scheduled_date)}
                 </div>
                 <div style={{ fontSize: 14, color: nextPickup.status === 'ready' ? '#b45309' : '#3b82f6', marginTop: 4 }}>
-                  {formatTime(subscription.offering.pickup_start_time)} - {formatTime(subscription.offering.pickup_end_time)}
+                  {subscription.offering.pickup_start_time === subscription.offering.pickup_end_time
+                    ? `Pickup at ${formatTime(subscription.offering.pickup_start_time)}`
+                    : `${formatTime(subscription.offering.pickup_start_time)} - ${formatTime(subscription.offering.pickup_end_time)}`}
                 </div>
               </div>
               <div style={{
@@ -368,7 +370,9 @@ export default function BuyerSubscriptionDetailPage() {
               {subscription.offering.market.city}, {subscription.offering.market.state}
             </a>
             <div style={{ marginTop: 12, fontSize: 14, color: '#6b7280' }}>
-              Every {DAYS[subscription.offering.pickup_day_of_week]}, {formatTime(subscription.offering.pickup_start_time)} - {formatTime(subscription.offering.pickup_end_time)}
+              Every {DAYS[subscription.offering.pickup_day_of_week]}, {subscription.offering.pickup_start_time === subscription.offering.pickup_end_time
+                ? `pickup at ${formatTime(subscription.offering.pickup_start_time)}`
+                : `${formatTime(subscription.offering.pickup_start_time)} - ${formatTime(subscription.offering.pickup_end_time)}`}
             </div>
           </div>
         )}
