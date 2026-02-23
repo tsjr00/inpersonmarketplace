@@ -838,7 +838,7 @@ export default function VendorPickupPage() {
                             color: '#0369a1',
                             fontWeight: 500
                           }}>
-                            Pickup time: {(() => {
+                            Scheduled pickup: {(() => {
                               const [h, m] = item.preferred_pickup_time.split(':').map(Number)
                               const ampm = h >= 12 ? 'PM' : 'AM'
                               return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`

@@ -27,7 +27,7 @@ function getNotificationSeverity(type: string): NotificationSeverity {
 
 export function NotificationBell({ primaryColor = colors.primary, vertical }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0)
-  const [hasCriticalUnread, setHasCriticalUnread] = useState(false)
+  const [highestUnreadSeverity, setHighestUnreadSeverity] = useState<NotificationSeverity>('info')
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -42,11 +42,14 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
       if (res.ok) {
         const { notifications: unread, pagination } = await res.json()
         setUnreadCount(pagination?.total ?? unread?.length ?? 0)
-        // Check if any unread notification is critical severity
-        const hasCritical = (unread || []).some((n: Notification) =>
-          getNotificationSeverity(n.type) === 'critical'
-        )
-        setHasCriticalUnread(hasCritical)
+        // Determine highest severity among unread notifications
+        let highest: NotificationSeverity = 'info'
+        for (const n of (unread || []) as Notification[]) {
+          const sev = getNotificationSeverity(n.type)
+          if (sev === 'critical') { highest = 'critical'; break }
+          if (sev === 'warning') highest = 'warning'
+        }
+        setHighestUnreadSeverity(highest)
       }
     } catch {
       // Silently fail - count badge is non-critical
@@ -136,7 +139,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   const handleMarkAllRead = async () => {
     await fetch('/api/notifications/read-all', { method: 'POST' })
     setUnreadCount(0)
-    setHasCriticalUnread(false)
+    setHighestUnreadSeverity('info')
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
     )
@@ -155,8 +158,13 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
     return new Date(dateStr).toLocaleDateString()
   }
 
-  // Badge color: red for critical, primaryColor otherwise
-  const badgeColor = hasCriticalUnread ? '#dc2626' : '#dc3545'
+  // Badge color: RED for critical, YELLOW for warning, GREEN for info-only
+  const BADGE_COLORS: Record<NotificationSeverity, { bg: string; text: string }> = {
+    critical: { bg: '#dc2626', text: 'white' },
+    warning: { bg: '#f59e0b', text: '#78350f' },
+    info: { bg: '#16a34a', text: 'white' },
+  }
+  const badge = BADGE_COLORS[highestUnreadSeverity]
 
   return (
     <div style={{ position: 'relative' }} ref={dropdownRef}>
@@ -202,8 +210,8 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
             minWidth: 18,
             height: 18,
             padding: '0 5px',
-            backgroundColor: badgeColor,
-            color: 'white',
+            backgroundColor: badge.bg,
+            color: badge.text,
             borderRadius: 9,
             fontSize: 11,
             fontWeight: 'bold',

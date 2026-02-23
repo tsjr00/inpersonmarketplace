@@ -1,56 +1,50 @@
-# Current Task: Staging Testing Fixes — Round 2 (12 items)
+# Current Task: Staging Round 2 — Follow-up Fixes
 Started: 2026-02-23
 
-## Goal
-Implement 9 bug fixes + 3 changes from staging testing round 2.
+## Status
+ALL 4 FINDINGS COMPLETE + TERMINOLOGY + LOOKBACK WINDOWS + BLOCKING BANNER.
+0 type errors, 94 tests pass. Ready for commit + push to staging.
 
-## ALL 12 ITEMS IMPLEMENTED — NEEDS VERIFICATION
+## Stale Confirmed Order System (F4 complete)
 
-### Completed Items
-- [x] **B5 Part A** — Bumped notification urgencies in `src/lib/notifications/types.ts`:
-  - `order_cancelled_by_buyer`: standard → immediate
-  - `new_paid_order`: standard → immediate
-  - `payout_failed`: standard → urgent
-  - `order_cancelled_by_vendor`: urgent → immediate
-- [x] **B5 Part B** — Added `severity: 'critical' | 'warning' | 'info'` field to ALL 24 notification types
-  - Critical: order_cancelled_by_buyer, order_cancelled_by_vendor, payout_failed, pickup_issue_reported, vendor_quality_alert
-  - Warning: new_paid_order, new_external_order, inventory_out_of_stock, inventory_low_stock, external_payment_reminder, vendor_cancellation_warning, issue_disputed
-  - Info: everything else
-- [x] **B6** — Dashboard notifications: brand colors replace hardcoded blue, maxHeight 280px, severity left-borders/dots, default limit 4
-- [x] **B5 Part C** — NotificationBell: severity-aware dots, 60s polling, hasCriticalUnread state. DashboardNotifications: severity left-border + colored dots.
-- [x] **B1** — Created `src/app/[vertical]/notifications/page.tsx` — paginated, grouped by date, mark-all-read, severity indicators
-- [x] **B2** — OrderCard: `preferred_pickup_time` in interface/display, `formatPickupTime12h()`, pickup badge shows "at 2:30 PM"
-- [x] **B3** — OrderCard: payment badge always shows. Stripe=blue "CARD", external=yellow with method name
-- [x] **B7** — Cross-sale: API accepts `marketIds`, inner join `listing_markets`, dedup. Checkout passes `marketIds`.
-- [x] **C3** — Browse: removed allergen badge from card, moved CutoffBadge to absolute top-right
-- [x] **C1** — Dashboard: "Analytics & Insights" consolidated card with Location Insights as second row
-- [x] **C4** — Home park: explanation text on home market badge + near "Set as Home Park" button
-- [x] **C2** — Multiple trucks: checkbox in EditProfileForm (FT only), saves to `profile_data.multiple_trucks`, quality checks skip conflicts
-- [x] **B4** — Buyer order page: ALL confirm()/alert() replaced with ConfirmDialog + inline status banners
+### Notification Timeline
+- **Day 0 midnight** (end of pickup day): First vendor notification (`stale_confirmed_vendor`) — "Missed Order — Action Needed"
+- **Day 1 during**: Second vendor notification (`stale_confirmed_vendor_final`) — "Order Action Required — App Blocked" + Buyer notification (`stale_confirmed_buyer`)
+- **Day 1 midnight** (2 days after pickup): Blocking banner activates in vendor UI
 
-### What's Remaining
-- [ ] Run `npx tsc --noEmit` — verify 0 type errors
-- [ ] Run `npx vitest run` — verify tests pass
-- [ ] Fix any errors found
+### Blocking Banner (OrderCard.tsx)
+- Detects items where `status='confirmed'` and `pickup_date` is 2+ days past (browser local time)
+- Shows RED blocking banner: "Overdue Order — Action Required"
+- Two resolution buttons:
+  - "Yes, Order Was Completed" → marks items ready→fulfilled (triggers payout)
+  - "There Was a Problem" → rejects items (triggers refund)
+- ALL other item action buttons hidden while blocked (same pattern as external payment blocking)
+- Wired into both dashboard orders page AND standalone orders page
 
-## Files Modified (13 files, 1 new)
-1. `src/lib/notifications/types.ts` — severity field + type export, urgency bumps
-2. `src/components/notifications/NotificationBell.tsx` — FULL REWRITE: severity dots, 60s polling, critical badge
-3. `src/components/notifications/DashboardNotifications.tsx` — FULL REWRITE: brand colors, constrained height, severity borders
-4. `src/app/[vertical]/notifications/page.tsx` — **NEW**: full notification list page
-5. `src/components/vendor/OrderCard.tsx` — pickup time display, always-show payment badge
-6. `src/app/api/listings/suggestions/route.ts` — marketIds filter + dedup
-7. `src/app/[vertical]/checkout/page.tsx` — passes marketIds to suggestions API
-8. `src/app/[vertical]/browse/page.tsx` — removed allergen badge, moved CutoffBadge top-right
-9. `src/app/[vertical]/vendor/dashboard/page.tsx` — consolidated Analytics+Insights card
-10. `src/app/[vertical]/vendor/markets/page.tsx` — home park explanation text
-11. `src/app/[vertical]/vendor/edit/EditProfileForm.tsx` — multiple trucks checkbox
-12. `src/lib/quality-checks.ts` — skip schedule conflicts for multi-truck vendors
-13. `src/app/[vertical]/buyer/orders/[id]/page.tsx` — ConfirmDialog + status banners replace all confirm/alert
+### Cron Phase 4.5 Timing
+- Buyer lookback: 3 days
+- Vendor first notification: day 1 (pickup was yesterday)
+- Vendor final notification: day 2 (blocking imminent)
+- All dedup via notifications table
 
-## Key Design Decisions
-- Severity colors: critical=#dc2626 red, warning=#f59e0b yellow, info=transparent/primary
-- NotificationBell fetches unread list (not just count) to detect critical severity
-- Cross-sale dedup needed because `listing_markets!inner` join returns dupes
-- B4 uses single reconfigurable `confirmDialog` state object
-- Quality checks query all vendor_profiles for multi-truck flag (ok for nightly cron)
+## Terminology Refinement ✅
+**Principle**: Pre-checkout = "Select a pickup time" (preference). Post-vendor-confirmation = "Confirmed/Scheduled pickup" (commitment).
+
+## All Files Modified This Session
+1. `src/app/[vertical]/vendor/dashboard/orders/page.tsx` — Full rewrite (F3) + stale order handler
+2. `src/components/notifications/NotificationBell.tsx` — 3-tier badge colors (F2)
+3. `src/app/api/buyer/orders/route.ts` — Added preferred_pickup_time (F1)
+4. `src/app/[vertical]/buyer/orders/page.tsx` — Display pickup time + terminology (F1)
+5. `src/lib/notifications/types.ts` — 3 new notification types (F4): stale_confirmed_buyer, stale_confirmed_vendor, stale_confirmed_vendor_final
+6. `src/app/api/cron/expire-orders/route.ts` — Phase 4.5 day-based timing (F4)
+7. `src/components/vendor/OrderCard.tsx` — Stale confirmed blocking banner + terminology
+8. `src/app/[vertical]/vendor/pickup/page.tsx` — "Scheduled pickup:" label
+9. `src/app/[vertical]/vendor/markets/[id]/prep/page.tsx` — "Scheduled:" label
+10. `src/app/[vertical]/checkout/success/page.tsx` — confirmed_pickup_time display
+11. `src/app/api/checkout/success/route.ts` — Added preferred_pickup_time to query
+12. `src/app/[vertical]/vendor/orders/page.tsx` — Stale order handler + prop wiring
+
+## Repo State
+- Main branch, uncommitted changes
+- 0 type errors, 94 tests pass
+- NOT yet committed or pushed

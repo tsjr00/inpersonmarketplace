@@ -68,7 +68,8 @@ function formatFulfilledDateTime(dateStr: string | null | undefined): string | n
   })
 }
 
-// Format preferred pickup time (HH:MM or HH:MM:SS) to 12h display
+// Format confirmed pickup time (HH:MM or HH:MM:SS) to 12h display
+// DB column is `preferred_pickup_time` but once vendor confirms, this is a commitment
 function formatPickupTime12h(time: string | null | undefined): string | null {
   if (!time) return null
   const [h, m] = time.split(':').map(Number)
@@ -107,6 +108,7 @@ interface OrderCardProps {
   onRejectItem?: (itemId: string, reason: string) => void
   onConfirmExternalPayment?: (orderId: string) => void
   onConfirmCashComplete?: (orderId: string) => void
+  onResolveStaleOrder?: (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => void
 }
 
 function formatPrice(cents: number): string {
@@ -132,13 +134,26 @@ function getMostUrgentStatus(items: OrderItem[]): string {
   return 'cancelled'
 }
 
-export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onConfirmCashComplete }: OrderCardProps) {
+export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onConfirmCashComplete, onResolveStaleOrder }: OrderCardProps) {
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
   const [externalConfirmDialog, setExternalConfirmDialog] = useState(false)
+  const [staleResolveDialog, setStaleResolveDialog] = useState<{ open: boolean; resolution: 'fulfilled' | 'problem' } | null>(null)
 
   const isExternalPayment = order.payment_method && order.payment_method !== 'stripe'
   const isCash = order.payment_method === 'cash'
   const isPendingExternal = isExternalPayment && order.order_status === 'pending'
+
+  // Stale confirmed detection: items in 'confirmed' status with pickup_date 2+ days past (local time)
+  // Blocking activates at midnight local time on the day after the first notification
+  const now = new Date()
+  const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const staleConfirmedItems = order.items.filter(item => {
+    if (item.status !== 'confirmed' || !item.pickup_date) return false
+    const pickupDate = new Date(item.pickup_date + 'T00:00:00')
+    const daysSince = Math.floor((todayLocal.getTime() - pickupDate.getTime()) / (24 * 60 * 60 * 1000))
+    return daysSince >= 2
+  })
+  const isStaleBlocked = staleConfirmedItems.length > 0 && !isPendingExternal
   const orderDate = new Date(order.created_at).toLocaleDateString()
   const orderTime = new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
@@ -177,7 +192,7 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
     .filter((d): d is string => !!d)
     .sort()
   const earliestPickupDate = pickupDates[0] ? formatPickupDate(pickupDates[0]) : null
-  // Get preferred pickup time from first active item that has one
+  // Get confirmed pickup time from first active item that has one
   const preferredTime = activePickupItems
     .map(item => item.display?.preferred_pickup_time || item.preferred_pickup_time)
     .find(t => !!t)
@@ -343,6 +358,59 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
         </div>
       )}
 
+      {/* Stale Confirmed Order Blocking Banner */}
+      {isStaleBlocked && (
+        <div style={{
+          padding: 14,
+          backgroundColor: '#fef2f2',
+          border: '2px solid #dc2626',
+          borderRadius: 8,
+          marginBottom: 16
+        }}>
+          <p style={{ margin: 0, fontWeight: 700, color: '#991b1b', fontSize: 14 }}>
+            Overdue Order — Action Required
+          </p>
+          <p style={{ margin: '6px 0 12px 0', fontSize: 13, color: '#991b1b', lineHeight: 1.4 }}>
+            This order&apos;s scheduled pickup has passed and it was never marked as ready or fulfilled.
+            You cannot manage other orders until this is resolved. Was this order completed?
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setStaleResolveDialog({ open: true, resolution: 'fulfilled' })}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#16a34a',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: 'pointer',
+                minHeight: 40
+              }}
+            >
+              Yes, Order Was Completed
+            </button>
+            <button
+              onClick={() => setStaleResolveDialog({ open: true, resolution: 'problem' })}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'white',
+                color: '#dc2626',
+                border: '2px solid #dc2626',
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: 'pointer',
+                minHeight: 40
+              }}
+            >
+              There Was a Problem on Our End
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Items */}
       <div>
         <p style={{ fontSize: 13, fontWeight: 600, color: '#6b7280', marginBottom: 8, marginTop: 0 }}>
@@ -437,8 +505,8 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                     </div>
                   )}
 
-                  {/* Item Actions - hide for cancelled, fulfilled, or pending external payment items */}
-                  {!item.cancelled_at && item.status !== 'cancelled' && item.status !== 'fulfilled' && !isPendingExternal && (
+                  {/* Item Actions - hide for cancelled, fulfilled, pending external, or stale blocked items */}
+                  {!item.cancelled_at && item.status !== 'cancelled' && item.status !== 'fulfilled' && !isPendingExternal && !isStaleBlocked && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                       {item.status === 'pending' && onConfirmItem && (
                         <button
@@ -560,6 +628,36 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
           }
         }}
         onCancel={() => setRejectDialog({ open: false, itemId: '' })}
+      />
+      {/* Stale order resolution dialog */}
+      <ConfirmDialog
+        open={!!staleResolveDialog?.open}
+        title={staleResolveDialog?.resolution === 'fulfilled'
+          ? 'Confirm Order Was Completed'
+          : 'Unable to Complete Order'}
+        message={staleResolveDialog?.resolution === 'fulfilled'
+          ? `Confirm that ${order.customer_name} received their order? This will mark all overdue items as fulfilled.`
+          : isExternalPayment && !isCash
+            ? `I wasn't able to complete this order. I understand I need to arrange a refund with ${order.customer_name} through ${formatPaymentMethod(order.payment_method || '')}.`
+            : isCash
+              ? `I wasn't able to complete this order.`
+              : `I wasn't able to complete this order. I understand the customer will be refunded for any unresolved items.`}
+        confirmLabel={staleResolveDialog?.resolution === 'fulfilled'
+          ? 'Yes, Mark Fulfilled'
+          : isExternalPayment && !isCash
+            ? 'Confirm & Arrange Refund'
+            : isCash
+              ? 'Confirm'
+              : 'Confirm & Refund Customer'}
+        variant={staleResolveDialog?.resolution === 'fulfilled' ? 'default' : 'danger'}
+        onConfirm={() => {
+          const resolution = staleResolveDialog?.resolution || 'fulfilled'
+          setStaleResolveDialog(null)
+          if (onResolveStaleOrder) {
+            onResolveStaleOrder(order.id, resolution, staleConfirmedItems.map(i => i.id))
+          }
+        }}
+        onCancel={() => setStaleResolveDialog(null)}
       />
     </div>
   )

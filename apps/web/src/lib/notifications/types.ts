@@ -39,6 +39,7 @@ export type NotificationType =
   | 'order_refunded'
   | 'order_expired'
   | 'pickup_missed'
+  | 'stale_confirmed_buyer'
   | 'market_box_skip'
   | 'issue_resolved'
   // Vendor-facing
@@ -57,6 +58,8 @@ export type NotificationType =
   | 'payout_processed'
   | 'payout_failed'
   | 'vendor_cancellation_warning'
+  | 'stale_confirmed_vendor'
+  | 'stale_confirmed_vendor_final'
   | 'vendor_quality_alert'
   // Admin-facing
   | 'new_vendor_application'
@@ -167,6 +170,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'buyer',
     title: () => `Pickup Not Confirmed`,
     message: (d) => `Your order #${d.orderNumber}${d.itemTitle ? ` (${d.itemTitle})` : ''} from ${d.vendorName} was not marked as picked up during the scheduled pickup window. If you did pick up your items, please mark it as received in the app now. If there was a miscommunication, please reach out to the vendor directly to clarify.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+  },
+
+  stale_confirmed_buyer: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'buyer',
+    title: () => `Order Update Needed`,
+    message: (d) => `Your order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''} was confirmed by ${d.vendorName} but doesn't appear to have been completed yet. We've reached out to the vendor to resolve this. You can also contact them directly.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -314,6 +326,24 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `Payout Failed`,
     message: (d) => `A payout${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} for order #${d.orderNumber} could not be processed. We'll retry automatically. If this persists, please check your Stripe account settings.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+  },
+
+  stale_confirmed_vendor: {
+    urgency: 'immediate',
+    severity: 'critical',
+    audience: 'vendor',
+    title: () => `Missed Order — Action Needed`,
+    message: (d) => `Order #${d.orderNumber}${d.itemTitle ? ` (${d.itemTitle})` : ''} was confirmed but never marked ready. The pickup date has passed. Please mark as fulfilled if the customer received their items, or report a problem.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard/orders`,
+  },
+
+  stale_confirmed_vendor_final: {
+    urgency: 'immediate',
+    severity: 'critical',
+    audience: 'vendor',
+    title: () => `Order Action Required — Service Interruption Possible`,
+    message: (d) => `Order #${d.orderNumber}${d.itemTitle ? ` (${d.itemTitle})` : ''} still needs resolution. Your order management will be restricted until you mark this order as fulfilled or report an issue. Open the app to resolve this now.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard/orders`,
   },
 
   vendor_cancellation_warning: {

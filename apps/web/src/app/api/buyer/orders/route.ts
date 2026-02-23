@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
           buyer_confirmed_at,
           schedule_id,
           pickup_date,
+          preferred_pickup_time,
           pickup_snapshot,
           market_id,
           markets!market_id(
@@ -296,6 +297,7 @@ export async function GET(request: NextRequest) {
         const expiresAt = item.expires_at as string | null
         const cancelledAt = item.cancelled_at as string | null
         const pickupDate = item.pickup_date as string | null
+        const preferredPickupTime = (item.preferred_pickup_time as string) || null
         const pickupSnapshot = item.pickup_snapshot as Record<string, unknown> | null
         // Get pickup times from snapshot (where they're stored)
         const pickupStartTime = (pickupSnapshot?.start_time as string) || null
@@ -326,6 +328,7 @@ export async function GET(request: NextRequest) {
           expires_at: expiresAt,
           is_expired: expiresAt && new Date(expiresAt) < new Date() && itemStatus === 'pending' && !cancelledAt,
           pickup_date: pickupDate,
+          preferred_pickup_time: preferredPickupTime || (pickupSnapshot?.preferred_pickup_time as string) || null,
           pickup_start_time: pickupStartTime,
           pickup_end_time: pickupEndTime,
           pickup_snapshot: pickupSnapshot,

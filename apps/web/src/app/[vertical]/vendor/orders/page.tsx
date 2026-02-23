@@ -269,6 +269,44 @@ export default function VendorOrdersPage() {
     }
   }
 
+  const handleResolveStaleOrder = async (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => {
+    if (resolution === 'fulfilled') {
+      let allOk = true
+      for (const itemId of itemIds) {
+        try {
+          const readyRes = await fetch(`/api/vendor/orders/${itemId}/ready`, { method: 'POST' })
+          if (!readyRes.ok) { allOk = false; break }
+          const fulfillRes = await fetch(`/api/vendor/orders/${itemId}/fulfill`, { method: 'POST' })
+          if (!fulfillRes.ok) { allOk = false; break }
+        } catch { allOk = false; break }
+      }
+      if (allOk) {
+        setToast({ message: 'Order marked as fulfilled.', type: 'success' })
+        fetchOrders()
+      } else {
+        setToast({ message: 'Failed to resolve order', type: 'error' })
+      }
+    } else {
+      let allOk = true
+      for (const itemId of itemIds) {
+        try {
+          const res = await fetch(`/api/vendor/orders/${itemId}/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'Order was not completed — reported as problem by vendor after pickup date passed.' })
+          })
+          if (!res.ok) { allOk = false; break }
+        } catch { allOk = false; break }
+      }
+      if (allOk) {
+        setToast({ message: 'Problem reported. Customer will be refunded.', type: 'success' })
+        fetchOrders()
+      } else {
+        setToast({ message: 'Failed to report problem', type: 'error' })
+      }
+    }
+  }
+
   const handleClearFilters = () => {
     setStatusFilter(null)
     setMarketFilter(null)
@@ -513,6 +551,7 @@ export default function VendorOrdersPage() {
                   onRejectItem={handleRejectItem}
                   onConfirmExternalPayment={handleConfirmExternalPayment}
                   onConfirmCashComplete={handleConfirmCashComplete}
+                  onResolveStaleOrder={handleResolveStaleOrder}
                 />
               </div>
             )

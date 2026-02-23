@@ -53,6 +53,7 @@ interface OrderItem {
   market_city?: string
   market_state?: string
   pickup_date?: string | null
+  confirmed_pickup_time?: string | null
   pickup_start_time?: string | null
   pickup_end_time?: string | null
 }
@@ -317,7 +318,10 @@ export default function CheckoutSuccessPage() {
                           <span>{item.market_type === 'event' ? '\u{1F3AA}' : item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
                           <span>
                             <strong>Pickup:</strong> {formatPickupDate(item.pickup_date) || 'Date TBD'}
-                            {formatPickupTime(item.pickup_start_time, item.pickup_end_time) && `, ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}`}
+                            {item.confirmed_pickup_time
+                              ? ` at ${formatPickupTime(item.confirmed_pickup_time, null)}`
+                              : formatPickupTime(item.pickup_start_time, item.pickup_end_time) ? `, ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}` : ''
+                            }
                             {item.market_name && ` at ${item.market_name}`}
                             {item.market_city && `, ${item.market_city}`}
                           </span>
@@ -647,6 +651,7 @@ function transformOrder(raw: Record<string, unknown>, rawMarketBoxSubs?: Array<R
       market_city: (pickupSnapshot?.city as string) || (market?.city as string) || undefined,
       market_state: (pickupSnapshot?.state as string) || (market?.state as string) || undefined,
       pickup_date: item.pickup_date as string | null | undefined,
+      confirmed_pickup_time: (item.preferred_pickup_time as string) || (pickupSnapshot?.preferred_pickup_time as string) || undefined,
       pickup_start_time: (pickupSnapshot?.start_time as string) || (item.pickup_start_time as string) || undefined,
       pickup_end_time: (pickupSnapshot?.end_time as string) || (item.pickup_end_time as string) || undefined,
     }

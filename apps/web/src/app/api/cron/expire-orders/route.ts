@@ -679,6 +679,140 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
+    // PHASE 4.5: Stale confirmed orders (vendor confirmed but never
+    // marked ready — pickup date has passed)
+    //
+    // Timeline (relative to pickup_date, midnight local to truck):
+    //   Day 0 midnight: First vendor notification (stale_confirmed_vendor)
+    //   Day 1 during:   Second vendor notification (stale_confirmed_vendor_final)
+    //                   + Buyer notification (stale_confirmed_buyer)
+    //   Day 1 midnight: Blocking banner activates in vendor UI
+    //                   (client-side: pickup_date < today - 1 day)
+    //
+    // Cron runs daily. Day calculation uses UTC dates.
+    // Blocking is enforced client-side using browser local time.
+    // ============================================================
+    let staleConfirmedCount = 0
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      // 3-day outer lookback (widest window — covers buyer notifications)
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+        .toISOString().split('T')[0]
+
+      const { data: staleItems, error: staleError } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          order_id,
+          pickup_date,
+          vendor_profile_id,
+          listing:listings (
+            title
+          ),
+          order:orders (
+            id,
+            order_number,
+            buyer_user_id,
+            vertical_id
+          ),
+          vendor:vendor_profiles (
+            id,
+            user_id,
+            profile_data
+          )
+        `)
+        .eq('status', 'confirmed')
+        .is('cancelled_at', null)
+        .lt('pickup_date', today)
+        .gte('pickup_date', threeDaysAgo)
+        .limit(50)
+
+      if (staleError) {
+        console.error('[Phase 4.5] Query error:', staleError.message)
+      } else if (staleItems && staleItems.length > 0) {
+        for (const item of staleItems) {
+          try {
+            const order = item.order as any
+            const listing = item.listing as any
+            const vendor = item.vendor as any
+            const vendorData = vendor?.profile_data as Record<string, unknown> | null
+            const vendorName = (vendorData?.business_name as string) ||
+              (vendorData?.farm_name as string) || 'Vendor'
+            const notifData = {
+              orderNumber: order?.order_number || item.order_id.slice(0, 8),
+              itemTitle: listing?.title || 'Item',
+              orderItemId: item.id,
+            }
+
+            // Calculate days since pickup (0 = pickup was yesterday, 1 = 2 days ago, etc.)
+            const pickupMs = new Date(item.pickup_date + 'T00:00:00Z').getTime()
+            const todayMs = new Date(today + 'T00:00:00Z').getTime()
+            const daysSincePickup = Math.floor((todayMs - pickupMs) / (24 * 60 * 60 * 1000))
+
+            if (vendor?.user_id) {
+              // Day 1 (pickup was yesterday): First vendor notification
+              if (daysSincePickup >= 1) {
+                const { data: existing1 } = await supabase
+                  .from('notifications')
+                  .select('id')
+                  .eq('user_id', vendor.user_id)
+                  .eq('type', 'stale_confirmed_vendor')
+                  .contains('data', { orderItemId: item.id })
+                  .limit(1)
+
+                if (!existing1 || existing1.length === 0) {
+                  await sendNotification(vendor.user_id, 'stale_confirmed_vendor', notifData, { vertical: order?.vertical_id })
+                  staleConfirmedCount++
+                }
+              }
+
+              // Day 2+ (blocking imminent/active): Final vendor notification
+              if (daysSincePickup >= 2) {
+                const { data: existing2 } = await supabase
+                  .from('notifications')
+                  .select('id')
+                  .eq('user_id', vendor.user_id)
+                  .eq('type', 'stale_confirmed_vendor_final')
+                  .contains('data', { orderItemId: item.id })
+                  .limit(1)
+
+                if (!existing2 || existing2.length === 0) {
+                  await sendNotification(vendor.user_id, 'stale_confirmed_vendor_final', notifData, { vertical: order?.vertical_id })
+                  staleConfirmedCount++
+                }
+              }
+            }
+
+            // Buyer notification: sent on day 1+ (within 3-day lookback)
+            if (daysSincePickup >= 1 && order?.buyer_user_id) {
+              const { data: existingBuyer } = await supabase
+                .from('notifications')
+                .select('id')
+                .eq('user_id', order.buyer_user_id)
+                .eq('type', 'stale_confirmed_buyer')
+                .contains('data', { orderItemId: item.id })
+                .limit(1)
+
+              if (!existingBuyer || existingBuyer.length === 0) {
+                await sendNotification(order.buyer_user_id, 'stale_confirmed_buyer', {
+                  ...notifData,
+                  vendorName,
+                }, { vertical: order.vertical_id })
+                staleConfirmedCount++
+              }
+            }
+          } catch (itemError) {
+            console.error('[Phase 4.5] Error processing stale confirmed item:',
+              itemError instanceof Error ? itemError.message : 'Unknown error')
+            totalErrors++
+          }
+        }
+      }
+    } catch (phase45Error) {
+      console.error('Phase 4.5 error:', phase45Error instanceof Error ? phase45Error.message : 'Unknown error')
+    }
+
+    // ============================================================
     // PHASE 5: Retry failed vendor payouts (Stripe transfers)
     // Picks up vendor_payouts with status='failed', retries transfer
     // After 7 days of failure, marks as cancelled + alerts admin
@@ -1148,6 +1282,7 @@ export async function GET(request: NextRequest) {
       payouts: { retried: payoutsRetried, succeeded: payoutsSucceeded, cancelled: payoutsCancelled },
       externalPayments: { reminders: externalReminders, autoConfirmed: externalAutoConfirmed },
       errorDigest: { reportsSummarized: errorReportsSummarized },
+      staleConfirmed: { notified: staleConfirmedCount },
       staleWindows: { fulfilled: staleWindowsFulfilled },
       tierExpirations: { vendors: vendorTiersExpired, buyers: buyerTiersExpired },
     })

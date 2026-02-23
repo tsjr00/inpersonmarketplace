@@ -58,6 +58,7 @@ interface Order {
     status: string
     cancelled_at: string | null
     pickup_date: string | null
+    preferred_pickup_time: string | null
     pickup_start_time: string | null
     pickup_end_time: string | null
     pickup_snapshot: Record<string, unknown> | null
@@ -106,6 +107,17 @@ function formatPickupTime(startTime: string | null | undefined, endTime: string 
   if (!endTime) return start
   const end = formatTime(endTime)
   return `${start} - ${end}`
+}
+
+// Format confirmed pickup time (HH:MM or HH:MM:SS) to 12h display
+// DB column is `preferred_pickup_time` but post-confirmation this is a vendor commitment
+function formatPickupTime12h(time: string | null | undefined): string | null {
+  if (!time) return null
+  const [h, m] = time.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return null
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const hour = h % 12 || 12
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
 }
 
 interface Market {
@@ -563,7 +575,12 @@ export default function BuyerOrdersPage() {
                                     color: '#1e40af',
                                   }}>
                                     Pickup: {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
-                                    {formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time) && ` • ${formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time)}`}
+                                    {formatPickupTime12h(item.preferred_pickup_time)
+                                      ? ` at ${formatPickupTime12h(item.preferred_pickup_time)}`
+                                      : formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time)
+                                        ? ` • ${formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time)}`
+                                        : ''
+                                    }
                                   </p>
                                 )}
                               </div>
