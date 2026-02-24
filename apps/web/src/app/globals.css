@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Shared spinner animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ============================================
    FASTWRKS DESIGN SYSTEM
    Responsive methodology based on professional website builders

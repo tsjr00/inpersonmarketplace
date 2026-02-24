@@ -4,6 +4,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from "@/li
 import { withErrorTracing } from '@/lib/errors';
 import { FOOD_TRUCK_PERMIT_REQUIREMENTS } from '@/lib/onboarding/category-requirements';
 import { sendNotification } from '@/lib/notifications';
+import { vendorSignupSchema } from '@/lib/validation/vendor-signup';
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/submit', 'POST', async () => {
@@ -20,6 +21,18 @@ export async function POST(request: NextRequest) {
 
     try {
       const body = await request.json();
+
+      // M-3: Validate vendor signup submissions with Zod
+      if (body.kind === "vendor_signup") {
+        const parsed = vendorSignupSchema.safeParse(body);
+        if (!parsed.success) {
+          return NextResponse.json(
+            { ok: false, error: "Invalid submission data", details: parsed.error.flatten().fieldErrors },
+            { status: 400 }
+          );
+        }
+      }
+
       const { kind, vertical, user_id, data } = body;
 
       if (kind === "vendor_signup") {

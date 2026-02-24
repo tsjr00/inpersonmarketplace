@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { colors } from '@/lib/design-tokens'
+import { Spinner } from '@/components/shared/Spinner'
 import { resizeImage, isValidImageType } from '@/lib/utils/image-resize'
 
 interface MarketBoxImageUploadProps {
@@ -131,14 +132,7 @@ export function MarketBoxImageUpload({
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <div style={{
-                width: 40,
-                height: 40,
-                border: '3px solid #e5e7eb',
-                borderTopColor: colors.primary,
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }} />
+              <Spinner size="lg" />
             </div>
           )}
           {!uploading && !disabled && (
@@ -218,11 +212,6 @@ export function MarketBoxImageUpload({
         Photo will be automatically optimized for fast loading.
       </p>
 
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   )
 }

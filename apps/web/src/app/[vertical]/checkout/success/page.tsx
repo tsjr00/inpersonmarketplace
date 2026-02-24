@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { FullPageLoading } from '@/components/shared/Spinner'
 import { formatQuantityDisplay } from '@/lib/constants'
 import { useCart } from '@/lib/hooks/useCart'
 import { getMapsUrl } from '@/lib/utils/maps-link'
@@ -139,29 +140,7 @@ export default function CheckoutSuccessPage() {
   }, [sessionId, orderId, refreshCart])
 
   if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceBase,
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: `4px solid ${colors.border}`,
-            borderTop: `4px solid ${colors.primary}`,
-            borderRadius: radius.full,
-            animation: 'spin 1s linear infinite',
-            margin: `0 auto ${spacing.sm}`,
-          }} />
-          <p style={{ color: colors.textSecondary }}>Processing your order...</p>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    )
+    return <FullPageLoading message="Processing your order..." />
   }
 
   return (

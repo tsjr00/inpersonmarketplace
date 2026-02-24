@@ -10,7 +10,6 @@ interface SearchFilterProps {
   currentCategory?: string
   currentSearch?: string
   currentZip?: string
-  currentHideAllergens?: boolean
   branding: VerticalBranding
 }
 
@@ -20,7 +19,6 @@ export default function SearchFilter({
   currentCategory,
   currentSearch,
   currentZip,
-  currentHideAllergens,
   branding
 }: SearchFilterProps) {
   const router = useRouter()
@@ -173,28 +171,8 @@ export default function SearchFilter({
         )}
       </div>
 
-      {/* Allergen Filter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#333' }}>
-          <input
-            type="checkbox"
-            checked={currentHideAllergens || false}
-            onChange={(e) => {
-              const params = new URLSearchParams()
-              if (currentSearch) params.set('search', currentSearch)
-              if (currentCategory) params.set('category', currentCategory)
-              if (currentZip) params.set('zip', currentZip)
-              if (e.target.checked) params.set('hideAllergens', '1')
-              router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
-            }}
-            style={{ width: 16, height: 16, cursor: 'pointer' }}
-          />
-          Hide allergen items
-        </label>
-      </div>
-
       {/* Clear Filters */}
-      {(currentSearch || currentCategory || currentZip || currentHideAllergens) && (
+      {(currentSearch || currentCategory || currentZip) && (
         <button
           onClick={clearFilters}
           style={{

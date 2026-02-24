@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { resizeImage, isValidImageType, formatFileSize } from '@/lib/utils/image-resize'
+import { Spinner } from '@/components/shared/Spinner'
 
 export interface ListingImage {
   id: string
@@ -288,7 +289,7 @@ export function ListingImageUpload({
               </div>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-12 h-12 rounded-full border-4 border-green-200 border-t-green-600 animate-spin" />
+                <Spinner size="lg" color="#16a34a" />
               </div>
             )}
           </div>

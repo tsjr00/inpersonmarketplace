@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import LocationSearchInline from '@/components/location/LocationSearchInline'
 import MarketCard from '@/components/markets/MarketCard'
 import { colors, spacing, typography, radius as radiusToken, shadows } from '@/lib/design-tokens'
+import { InlineLoading, Spinner } from '@/components/shared/Spinner'
 import { term } from '@/lib/vertical'
 
 const DEFAULT_RADIUS = 25
@@ -294,18 +295,7 @@ export default function MarketsWithLocation({
       }}>
         {loading && markets.length > 0 ? (
           // Show refining message when we have preliminary results
-          <>
-            <span style={{
-              display: 'inline-block',
-              width: 12,
-              height: 12,
-              border: '2px solid #e5e7eb',
-              borderTopColor: colors.primary,
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite'
-            }} />
-            <span>Finding markets near you...</span>
-          </>
+          <InlineLoading message="Finding markets near you..." />
         ) : hasLocationResults && hasLocation ? (
           // Show "Showing X of Y" when we have location results
           <span>
@@ -404,18 +394,7 @@ export default function MarketsWithLocation({
             }}
           >
             {loadingMore ? (
-              <>
-                <span style={{
-                  display: 'inline-block',
-                  width: 14,
-                  height: 14,
-                  border: '2px solid #9ca3af',
-                  borderTopColor: '#6b7280',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }} />
-                Loading...
-              </>
+              <InlineLoading message="Loading..." color="#6b7280" />
             ) : (
               `Load ${Math.min(PAGE_SIZE, totalMarkets - markets.length)} More Markets`
             )}
@@ -427,9 +406,6 @@ export default function MarketsWithLocation({
       <style>{`
         .markets-grid {
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

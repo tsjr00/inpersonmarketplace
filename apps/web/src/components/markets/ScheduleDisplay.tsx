@@ -1,5 +1,7 @@
 'use client'
 
+import { formatTimeWithTZ, getTimezoneAbbreviation } from '@/lib/utils/timezone'
+
 interface Schedule {
   id: string
   day_of_week: number
@@ -12,6 +14,7 @@ interface ScheduleDisplayProps {
   schedules: Schedule[]
   compact?: boolean
   grid?: boolean
+  timezone?: string | null
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -25,7 +28,7 @@ function formatTime(time: string): string {
   return `${hour12}:${minutes} ${ampm}`
 }
 
-export default function ScheduleDisplay({ schedules, compact = false, grid = false }: ScheduleDisplayProps) {
+export default function ScheduleDisplay({ schedules, compact = false, grid = false, timezone }: ScheduleDisplayProps) {
   const activeSchedules = schedules.filter(s => s.active)
 
   if (activeSchedules.length === 0) {
@@ -64,7 +67,7 @@ export default function ScheduleDisplay({ schedules, compact = false, grid = fal
           </div>
         ))}
         {/* Time values */}
-        {sortedSchedules.map(s => (
+        {sortedSchedules.map((s, i) => (
           <div key={`time-${s.day_of_week}`} style={{
             fontSize: 11,
             color: '#616161',
@@ -74,6 +77,9 @@ export default function ScheduleDisplay({ schedules, compact = false, grid = fal
             {formatTime(s.start_time)}
             <br />
             {formatTime(s.end_time)}
+            {i === sortedSchedules.length - 1 && timezone && (
+              <><br /><span style={{ fontSize: 10, color: '#9e9e9e' }}>{getTimezoneAbbreviation(timezone)}</span></>
+            )}
           </div>
         ))}
       </div>
@@ -91,6 +97,7 @@ export default function ScheduleDisplay({ schedules, compact = false, grid = fal
       timeGroups[timeKey].push(s.day_of_week)
     })
 
+    const tzAbbr = getTimezoneAbbreviation(timezone)
     const parts = Object.entries(timeGroups).map(([timeKey, days]) => {
       const [start, end] = timeKey.split('-')
       const dayNames = days.map(d => DAY_NAMES_SHORT[d]).join(', ')
@@ -99,15 +106,16 @@ export default function ScheduleDisplay({ schedules, compact = false, grid = fal
 
     return (
       <span style={{ color: '#333' }}>
-        {parts.join(' | ')}
+        {parts.join(' | ')}{tzAbbr ? ` ${tzAbbr}` : ''}
       </span>
     )
   }
 
   // Full display
+  const fullTzAbbr = getTimezoneAbbreviation(timezone)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {sortedSchedules.map(schedule => (
+      {sortedSchedules.map((schedule, i) => (
         <div
           key={schedule.id}
           style={{
@@ -123,6 +131,7 @@ export default function ScheduleDisplay({ schedules, compact = false, grid = fal
           </span>
           <span style={{ color: '#666' }}>
             {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+            {i === 0 && fullTzAbbr ? ` ${fullTzAbbr}` : ''}
           </span>
         </div>
       ))}

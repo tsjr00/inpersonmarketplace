@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { FullPageLoading } from '@/components/shared/Spinner'
 
 export default function StripeCompletePage() {
   const params = useParams()
@@ -30,29 +31,7 @@ export default function StripeCompletePage() {
   }
 
   if (checking) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f8f9fa'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: '4px solid #e0e0e0',
-            borderTop: '4px solid #333',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 15px'
-          }} />
-          <p>Checking your Stripe status...</p>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    )
+    return <FullPageLoading message="Checking your Stripe status..." />
   }
 
   return (

@@ -1,6 +1,7 @@
 'use client'
 
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { formatTimeRangeWithTZ, formatTimeWithTZ } from '@/lib/utils/timezone'
 
 interface Market {
   id: string
@@ -12,6 +13,7 @@ interface Market {
   zip: string | null
   contact_email: string | null
   contact_phone: string | null
+  timezone?: string | null
   schedules: {
     day_of_week: number
     start_time: string
@@ -28,6 +30,7 @@ interface PickupDisplay {
   address: string | null
   city: string | null
   state: string | null
+  timezone?: string | null
 }
 
 interface PickupDetailsProps {
@@ -71,6 +74,7 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
   const displayPickupDate = display?.pickup_date || pickupDate
   const displayStartTime = display?.start_time
   const displayEndTime = display?.end_time
+  const tz = display?.timezone || market.timezone
 
   return (
     <div style={{
@@ -115,7 +119,7 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
             {formatPickupDate(displayPickupDate)}
             {displayStartTime && (
               <span>
-                {' '}{formatTime(displayStartTime)}{displayEndTime && ` - ${formatTime(displayEndTime)}`}
+                {' '}{formatTimeRangeWithTZ(displayStartTime, displayEndTime, tz)}
               </span>
             )}
           </p>
@@ -130,7 +134,7 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
           </p>
           {market.schedules.map((schedule, idx) => (
             <p key={idx} style={{ margin: '2px 0', fontSize: 14, color: '#6b7280' }}>
-              {DAYS[schedule.day_of_week]}: {schedule.start_time} - {schedule.end_time}
+              {DAYS[schedule.day_of_week]}: {formatTimeRangeWithTZ(schedule.start_time, schedule.end_time, idx === 0 ? tz : null)}
             </p>
           ))}
         </div>

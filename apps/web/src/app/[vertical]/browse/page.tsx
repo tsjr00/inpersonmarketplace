@@ -22,7 +22,7 @@ export const revalidate = 300
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; hideAllergens?: string; page?: string }>
+  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; page?: string }>
 }
 
 interface MarketSchedule {
@@ -209,8 +209,7 @@ function groupListingsByCategory(listings: Listing[], vertical: string): Record<
 
 export default async function BrowsePage({ params, searchParams }: BrowsePageProps) {
   const { vertical } = await params
-  const { category, search, view, zip, hideAllergens, page } = await searchParams
-  const hideAllergenItems = hideAllergens === '1'
+  const { category, search, view, zip, page } = await searchParams
   const currentPage = Math.max(1, parseInt(page || '1', 10))
   const PAGE_SIZE = 50
   const supabase = await createClient()
@@ -512,6 +511,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     .eq('status', 'published')
     .eq('vendor_profiles.status', 'approved')
     .is('deleted_at', null)
+    .gt('quantity', 0)  // L-5: Hide out-of-stock items from browse
     .order('category', { ascending: true })
     .order('created_at', { ascending: false })
 
@@ -520,9 +520,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     query = query.eq('category', category)
   }
 
-  // Apply search filter
+  // Apply search filter — M-11: extended to include category, sanitized input
   if (search) {
-    query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
+    const sanitized = search.replace(/[%_]/g, '')
+    if (sanitized) {
+      query = query.or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`)
+    }
   }
 
   const { data: rawListings } = await query
@@ -629,10 +632,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     uniqueCategories = (categoryField?.options as string[]) || []
   }
 
-  // Filter out allergen items if requested
-  if (hideAllergenItems && listings) {
-    listings = listings.filter(l => !l.listing_data?.contains_allergens)
-  }
+  // L-3: Allergen filter removed from browse (kept on listing detail page for warnings)
 
   // Pagination — slice AFTER all filtering
   const totalListings = listings?.length || 0
@@ -720,7 +720,6 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           currentCategory={category}
           currentSearch={search}
           currentZip={zip}
-          currentHideAllergens={hideAllergenItems}
           branding={branding}
         />
 

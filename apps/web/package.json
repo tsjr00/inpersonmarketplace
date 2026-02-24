@@ -10,9 +10,11 @@
     "load-zip-codes": "npx tsx scripts/load-zip-codes.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "qa": "npx tsx ../../scripts/qa-checklist.ts"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.40.0",
     "@stripe/stripe-js": "^8.6.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
@@ -25,7 +27,8 @@
     "resend": "^6.9.1",
     "stripe": "^20.1.2",
     "twilio": "^5.12.1",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.1.6",

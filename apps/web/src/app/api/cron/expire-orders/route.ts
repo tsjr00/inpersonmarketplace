@@ -34,6 +34,7 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 6: Error report digest — email admin a summary of pending reports
  * Phase 7: Auto-fulfill stale confirmation windows (buyer confirmed, vendor didn't)
  * Phase 8: Expire vendor/buyer tier subscriptions past tier_expires_at
+ * Phase 9: Data retention — delete old error_logs (90d), read notifications (60d), activity_events (30d)
  *
  * Called by Vercel Cron daily at 6am UTC (configured in vercel.json)
  */
@@ -1274,6 +1275,45 @@ export async function GET(request: NextRequest) {
       console.error('Phase 8 error:', phase8Error instanceof Error ? phase8Error.message : 'Unknown error')
     }
 
+    // ─── Phase 9: Data Retention Cleanup ─────────────────────────────
+    // Delete old logs, read notifications, and activity events to keep tables lean
+    let errorLogsDeleted = 0
+    let notificationsDeleted = 0
+    let activityEventsDeleted = 0
+
+    try {
+      const now = new Date()
+
+      // Delete error_logs older than 90 days
+      const errorLogCutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString()
+      const { count: elCount } = await supabase
+        .from('error_logs')
+        .delete({ count: 'exact' })
+        .lt('created_at', errorLogCutoff)
+      errorLogsDeleted = elCount || 0
+
+      // Delete read notifications older than 60 days
+      const notifCutoff = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString()
+      const { count: nCount } = await supabase
+        .from('notifications')
+        .delete({ count: 'exact' })
+        .not('read_at', 'is', null)
+        .lt('created_at', notifCutoff)
+      notificationsDeleted = nCount || 0
+
+      // Delete activity_events older than 30 days
+      const activityCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const { count: aeCount } = await supabase
+        .from('public_activity_events')
+        .delete({ count: 'exact' })
+        .lt('created_at', activityCutoff)
+      activityEventsDeleted = aeCount || 0
+
+      totalProcessed += errorLogsDeleted + notificationsDeleted + activityEventsDeleted
+    } catch (phase9Error) {
+      console.error('Phase 9 error:', phase9Error instanceof Error ? phase9Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -1285,6 +1325,7 @@ export async function GET(request: NextRequest) {
       staleConfirmed: { notified: staleConfirmedCount },
       staleWindows: { fulfilled: staleWindowsFulfilled },
       tierExpirations: { vendors: vendorTiersExpired, buyers: buyerTiersExpired },
+      dataRetention: { errorLogs: errorLogsDeleted, notifications: notificationsDeleted, activityEvents: activityEventsDeleted },
     })
   })
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { colors } from '@/lib/design-tokens'
+import { Spinner } from '@/components/shared/Spinner'
 
 interface LocationPromptProps {
   onLocationSet?: (lat: number, lng: number, source: 'gps' | 'manual') => void
@@ -176,16 +177,7 @@ export default function LocationPrompt({
         padding: compact ? 16 : 24,
         textAlign: 'center'
       }}>
-        <div style={{
-          display: 'inline-block',
-          width: 24,
-          height: 24,
-          border: '3px solid #e2e8f0',
-          borderTopColor: '#3b82f6',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <Spinner size="sm" color="#3b82f6" />
         <p style={{ color: '#64748b', marginTop: 12, marginBottom: 0 }}>
           Getting your location...
         </p>

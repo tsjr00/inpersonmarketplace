@@ -8,6 +8,7 @@ import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { calculateDisplayPrice, formatPrice, FEES } from '@/lib/constants'
 import { calculateSmallOrderFee, getSmallOrderFeeConfig } from '@/lib/pricing'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { FullPageLoading } from '@/components/shared/Spinner'
 import { term } from '@/lib/vertical'
 import { TipSelector } from './TipSelector'
 import { CheckoutListingItem } from './CheckoutListingItem'
@@ -533,29 +534,7 @@ export default function CheckoutPage() {
   const marketBoxCheckoutItems = checkoutItems.filter(i => i.itemType === 'market_box')
 
   if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceBase,
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: `4px solid ${colors.border}`,
-            borderTop: `4px solid ${colors.primary}`,
-            borderRadius: radius.full,
-            animation: 'spin 1s linear infinite',
-            margin: `0 auto ${spacing.sm}`,
-          }} />
-          <p style={{ color: colors.textSecondary }}>Loading checkout...</p>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    )
+    return <FullPageLoading message="Loading checkout..." />
   }
 
   if (items.length === 0 && !processing) {

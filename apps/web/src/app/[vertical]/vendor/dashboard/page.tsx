@@ -11,6 +11,7 @@ import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import OnboardingChecklist from '@/components/vendor/OnboardingChecklist'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
+import { formatPrice } from '@/lib/pricing'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 import { getTierLimits, getFtTierExtras } from '@/lib/vendor-limits'
@@ -96,6 +97,9 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   let pendingOrdersToConfirm = 0
   let needsFulfillment = 0
   let upcomingPickups: UpcomingPickup[] = []
+  let monthlySalesCents = 0
+  let pendingPayoutsCents = 0
+  let completedPayoutsCents = 0
 
   // Run all dashboard queries in parallel for approved vendors
   if (vendorProfile.status === 'approved') {
@@ -113,7 +117,10 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       homeMarketResult,
       pendingResult,
       fulfillResult,
-      upcomingResult
+      upcomingResult,
+      monthlySalesResult,
+      pendingPayoutsResult,
+      completedPayoutsResult
     ] = await Promise.all([
       // Draft listings
       supabase
@@ -190,7 +197,28 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .gte('pickup_date', today.toISOString().split('T')[0])
         .lte('pickup_date', nextWeek.toISOString().split('T')[0])
         .not('status', 'in', '("fulfilled","cancelled")')
-        .is('cancelled_at', null)
+        .is('cancelled_at', null),
+      // M-5: Monthly sales (fulfilled order items this month)
+      supabase
+        .from('order_items')
+        .select('subtotal_cents')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'fulfilled')
+        .gte('created_at', new Date(today.getFullYear(), today.getMonth(), 1).toISOString())
+        .is('cancelled_at', null),
+      // M-5: Pending payouts
+      supabase
+        .from('vendor_payouts')
+        .select('amount_cents')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .in('status', ['pending', 'processing', 'pending_stripe_setup']),
+      // M-5: Completed payouts this month
+      supabase
+        .from('vendor_payouts')
+        .select('amount_cents')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'completed')
+        .gte('created_at', new Date(today.getFullYear(), today.getMonth(), 1).toISOString()),
     ])
 
     // Extract results
@@ -199,6 +227,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     lowStockCount = lowStockResult.count || 0
     pendingOrdersToConfirm = pendingResult.count || 0
     needsFulfillment = fulfillResult.count || 0
+
+    // M-5: Earnings totals
+    monthlySalesCents = (monthlySalesResult.data || []).reduce((sum: number, item: { subtotal_cents: number }) => sum + (item.subtotal_cents || 0), 0)
+    pendingPayoutsCents = (pendingPayoutsResult.data || []).reduce((sum: number, item: { amount_cents: number }) => sum + (item.amount_cents || 0), 0)
+    completedPayoutsCents = (completedPayoutsResult.data || []).reduce((sum: number, item: { amount_cents: number }) => sum + (item.amount_cents || 0), 0)
 
     // Build active markets from 3 sources (home market + private pickups + vendor schedules)
     const marketMap = new Map<string, ActiveMarket>()
@@ -734,6 +767,46 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             }}
           />
 
+          {/* Earnings Overview */}
+          <div style={{
+            padding: spacing.sm,
+            backgroundColor: colors.surfaceElevated,
+            color: colors.textPrimary,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radius.md,
+            boxShadow: shadows.sm
+          }}>
+            <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>💰</div>
+            <h3 style={{
+              color: colors.primary,
+              margin: `0 0 ${spacing.xs} 0`,
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.semibold
+            }}>
+              Earnings
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>This Month&apos;s Sales</span>
+                <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+                  {formatPrice(monthlySalesCents)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${colors.borderMuted}`, paddingTop: spacing['2xs'] }}>
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Pending Payouts</span>
+                <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: pendingPayoutsCents > 0 ? '#d97706' : colors.textPrimary }}>
+                  {formatPrice(pendingPayoutsCents)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${colors.borderMuted}`, paddingTop: spacing['2xs'] }}>
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Paid Out</span>
+                <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: completedPayoutsCents > 0 ? '#16a34a' : colors.textPrimary }}>
+                  {formatPrice(completedPayoutsCents)}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Analytics & Insights — consolidated card */}
           {(() => {
             const insightsLevel = vertical === 'food_trucks'
@@ -889,9 +962,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         }
         @media (min-width: 1024px) {
           .vendor-dashboard .row-1-grid,
-          .vendor-dashboard .row-2-grid,
-          .vendor-dashboard .row-3-grid {
+          .vendor-dashboard .row-2-grid {
             grid-template-columns: repeat(3, 1fr);
+          }
+          .vendor-dashboard .row-3-grid {
+            grid-template-columns: repeat(4, 1fr);
           }
         }
       `}</style>

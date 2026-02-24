@@ -6,6 +6,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { TracedError } from './traced-error'
 import { startBreadcrumbTrail, crumb } from './breadcrumbs'
 import { logError } from './logger'
@@ -55,6 +56,12 @@ export async function withErrorTracing<T>(
         // Log to console and database
         await logError(error)
 
+        // H-8: Report to Sentry (auto-disabled when DSN not set)
+        Sentry.captureException(error, {
+          tags: { route, method, errorCode: error.code },
+          extra: error.context,
+        })
+
         // Return standardized error response
         return NextResponse.json(
           error.toResponse(shouldShowErrorDetails()),
@@ -65,6 +72,12 @@ export async function withErrorTracing<T>(
       // Convert unknown errors to TracedError
       const traced = TracedError.fromUnknown(error, { route, method })
       await logError(traced)
+
+      // H-8: Report to Sentry
+      Sentry.captureException(error, {
+        tags: { route, method, errorCode: traced.code },
+        extra: traced.context,
+      })
 
       return NextResponse.json(
         traced.toResponse(shouldShowErrorDetails()),

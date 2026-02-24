@@ -5,8 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { FullPageLoading } from '@/components/shared/Spinner'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { term } from '@/lib/vertical'
+import ReviewPromptCard from '@/components/buyer/ReviewPromptCard'
 
 // Format payment method for display
 function formatPaymentMethodLabel(method: string | undefined): string | null {
@@ -198,29 +200,7 @@ export default function BuyerOrdersPage() {
   }
 
   if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceBase,
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: `4px solid ${colors.border}`,
-            borderTop: `4px solid ${colors.primary}`,
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: `0 auto ${spacing.sm}`,
-          }} />
-          <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>Loading orders...</p>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    )
+    return <FullPageLoading message="Loading orders..." />
   }
 
   return (
@@ -245,6 +225,11 @@ export default function BuyerOrdersPage() {
         <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
           View and track your purchases
         </p>
+
+        {/* H-4: Review prompt for unrated orders */}
+        <div style={{ marginTop: spacing.md }}>
+          <ReviewPromptCard vertical={vertical} />
+        </div>
 
         {/* Filters */}
         <div style={{ marginTop: spacing.md, display: 'flex', gap: spacing.sm, alignItems: 'center', flexWrap: 'wrap' }}>

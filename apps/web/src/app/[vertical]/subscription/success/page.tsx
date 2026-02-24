@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors } from '@/lib/design-tokens'
+import { FullPageLoading } from '@/components/shared/Spinner'
 import { getFtTierLabel, FT_TIER_LIMITS, type FoodTruckTier } from '@/lib/vendor-limits'
 import { term } from '@/lib/vertical'
 
@@ -44,34 +45,7 @@ export default function SubscriptionSuccessPage() {
   }, [sessionId])
 
   if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f9fafb'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 48,
-            height: 48,
-            border: '4px solid #e5e7eb',
-            borderTop: '4px solid #2563eb',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }} />
-          <p style={{ color: '#6b7280' }}>Confirming your subscription...</p>
-        </div>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    )
+    return <FullPageLoading message="Confirming your subscription..." />
   }
 
   const isFtVendor = subscriptionType === 'food_truck_vendor'

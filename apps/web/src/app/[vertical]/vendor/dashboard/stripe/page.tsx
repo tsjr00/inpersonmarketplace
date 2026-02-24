@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { FullPageLoading } from '@/components/shared/Spinner'
 
 interface StripeStatus {
   connected: boolean
@@ -59,29 +60,7 @@ export default function VendorStripePage() {
   }
 
   if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceBase
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: `4px solid ${colors.border}`,
-            borderTop: `4px solid ${colors.primary}`,
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 15px'
-          }} />
-          <p style={{ color: colors.textMuted }}>Loading...</p>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    )
+    return <FullPageLoading message="Loading..." />
   }
 
   return (
