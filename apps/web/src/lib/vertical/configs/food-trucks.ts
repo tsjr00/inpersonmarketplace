@@ -11,7 +11,7 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
 
   terminology: {
     // Vertical identity
-    display_name: 'Food Trucks',
+    display_name: "Food Truck'n",
 
     // Core nouns
     vendor: 'Food Truck',
@@ -71,8 +71,8 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
 
   content: {
     hero: {
-      headline_line1: 'Explore local food.',
-      headline_line2: 'Skip the line. Enjoy',
+      headline_line1: 'Explore local food',
+      headline_line2: 'Skip the line, enjoy!',
       subtitle: 'Find food trucks near you. Pre-order your favorites online and skip the line at pickup.',
     },
     how_it_works: {

@@ -1,8 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { spacing, typography, getVerticalColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { DottedSeparator } from './DottedSeparator'
 
 interface FooterProps {
   vertical: string
@@ -10,12 +12,16 @@ interface FooterProps {
 
 /**
  * Footer Section
- * Industry standard: Dark background for grounding/closure
- * Uses inverse text, primary color for brand accent
+ * FM: Dark green background, text-only brand column, 4-column layout
+ * FT: Dark charcoal background, logo+tagline side by side at top, link columns below
  */
 export function Footer({ vertical }: FooterProps) {
   const colors = getVerticalColors(vertical)
   const currentYear = new Date().getFullYear()
+  const isFT = vertical === 'food_trucks'
+
+  // FT uses dark charcoal (not pure black). FM uses textPrimary (dark green).
+  const footerBg = isFT ? '#333333' : colors.textPrimary
 
   const footerSections = [
     {
@@ -47,11 +53,127 @@ export function Footer({ vertical }: FooterProps) {
     }
   ]
 
+  // FT: Two-row layout — logo+tagline on top, link columns below
+  if (isFT) {
+    return (
+      <footer
+        className="flex justify-center"
+        style={{
+          backgroundColor: footerBg,
+          paddingTop: spacing.xl,
+          paddingBottom: spacing.md,
+        }}
+      >
+        <div className="landing-container">
+          {/* Row 1: Logo + Tagline side by side */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.md,
+              marginBottom: spacing.lg,
+            }}
+          >
+            {/* Logo with circular clip to hide white background */}
+            <div style={{
+              width: 70,
+              height: 70,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              flexShrink: 0,
+              backgroundColor: footerBg,
+            }}>
+              <Image
+                src="/logos/food-truckn-logo.png"
+                alt="Food Truck'n"
+                width={70}
+                height={70}
+                style={{ objectFit: 'cover' }}
+              />
+            </div>
+            {/* Tagline text — 3 lines, middle centered with logo */}
+            <div
+              style={{
+                fontSize: typography.sizes.sm,
+                color: colors.accentMuted,
+                lineHeight: typography.leading.relaxed,
+              }}
+            >
+              <div>Connecting neighbors</div>
+              <div>with local food truck</div>
+              <div>operators and chefs.</div>
+            </div>
+          </div>
+
+          {/* Row 2: Link columns — all 3 side by side */}
+          <div
+            className="grid grid-cols-3"
+            style={{ gap: spacing.md, marginBottom: spacing.lg }}
+          >
+            {footerSections.map((section, index) => (
+              <div key={index}>
+                <h4
+                  style={{
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    color: colors.surfaceSubtle,
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  {section.title}
+                </h4>
+                <ul style={{ listStyle: 'none' }}>
+                  {section.links.map((link, linkIndex) => (
+                    <li key={linkIndex} style={{ marginBottom: spacing['2xs'] }}>
+                      <Link
+                        href={link.href}
+                        className="transition-colors"
+                        style={{
+                          fontSize: typography.sizes.xs,
+                          color: colors.accentMuted,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = colors.primary
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = colors.accentMuted
+                        }}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {/* Dotted separator */}
+          <DottedSeparator color="rgba(255,255,255,0.2)" />
+
+          {/* Copyright */}
+          <div style={{ paddingTop: spacing.md }}>
+            <p
+              className="text-center"
+              style={{
+                fontSize: typography.sizes.sm,
+                color: colors.accentMuted,
+              }}
+            >
+              &copy; {currentYear} {term(vertical, 'display_name')}. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
+    )
+  }
+
+  // FM: Original 4-column layout (brand + 3 link columns)
   return (
     <footer
       className="flex justify-center"
       style={{
-        backgroundColor: colors.textPrimary,
+        backgroundColor: footerBg,
         paddingTop: spacing.xl,
         paddingBottom: spacing.md,
       }}
@@ -114,13 +236,10 @@ export function Footer({ vertical }: FooterProps) {
           ))}
         </div>
 
-        {/* Divider and Copyright */}
-        <div
-          style={{
-            borderTop: `1px solid ${colors.textSecondary}`,
-            paddingTop: spacing.md,
-          }}
-        >
+        <div style={{ borderTop: `1px solid ${colors.textSecondary}` }} />
+
+        {/* Copyright */}
+        <div style={{ paddingTop: spacing.md }}>
           <p
             className="text-center"
             style={{

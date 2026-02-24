@@ -147,11 +147,12 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: spacing.xs,
+          gap: '4px',
           fontWeight: typography.weights.medium,
+          whiteSpace: 'nowrap',
         }}
       >
-        <MapPin style={{ width: 16, height: 16, color: colors.primary }} />
+        <MapPin style={{ width: 16, height: 16, color: colors.primary, flexShrink: 0 }} />
         {`Enter your zip code to find local ${term(vertical, 'vendors').toLowerCase()} near you`}
       </p>
 
@@ -175,16 +176,17 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
           placeholder="Enter zip code"
           maxLength={10}
           style={{
-            padding: `${spacing.xs} ${spacing.md}`,
-            fontSize: typography.sizes.base,
+            padding: `${spacing.xs} ${spacing.sm}`,
+            fontSize: typography.sizes.sm,
             border: error ? `2px solid #ef4444` : `2px solid ${colors.border}`,
             borderRadius: radius.full,
             backgroundColor: colors.surfaceElevated,
             color: colors.textPrimary,
-            width: 180,
+            width: 160,
             outline: 'none',
             transition: 'border-color 0.2s, box-shadow 0.2s',
             boxSizing: 'border-box',
+            textAlign: 'center',
           }}
           onFocus={(e) => {
             if (!error) {
@@ -205,19 +207,20 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: spacing.xs,
-            padding: `${spacing.xs} ${spacing.md}`,
+            gap: '6px',
+            padding: `${spacing.xs} ${spacing.sm}`,
             backgroundColor: colors.primary,
             color: colors.textInverse,
             border: '2px solid transparent',
             borderRadius: radius.full,
-            fontSize: typography.sizes.base,
+            fontSize: typography.sizes.sm,
             fontWeight: typography.weights.semibold,
             cursor: 'pointer',
             transition: 'background-color 0.2s, transform 0.2s',
             boxShadow: shadows.sm,
-            width: 180,
+            width: 150,
             boxSizing: 'border-box',
+            whiteSpace: 'nowrap',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = colors.primaryDark
@@ -228,7 +231,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
             e.currentTarget.style.transform = 'translateY(0)'
           }}
         >
-          <Search style={{ width: 18, height: 18 }} />
+          <Search style={{ width: 16, height: 16, flexShrink: 0 }} />
           Find Local
         </button>
       </form>

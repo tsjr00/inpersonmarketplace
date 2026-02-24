@@ -1,15 +1,19 @@
 'use client'
 
+import { useState, useEffect, useCallback } from 'react'
 import {
   Shield,
   Smartphone,
   MapPin,
   Bell,
   CheckCircle,
-  Clock
+  Clock,
+  Truck
 } from 'lucide-react'
+import Image from 'next/image'
 import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
 import { getContent } from '@/lib/vertical'
+import { DottedSeparator } from './DottedSeparator'
 
 interface FeaturesProps {
   vertical: string
@@ -17,31 +21,213 @@ interface FeaturesProps {
 
 /**
  * Features Section
- * Industry standard: Subtle background, icons use accent color for warmth
- * Card pattern with hover effects
+ * FM: 2-column card grid with standalone icons
+ * FT: Single-column horizontal list (icon-left, text-right) with dotted separators
  */
 export function Features({ vertical }: FeaturesProps) {
   const colors = getVerticalColors(vertical)
   const shadows = getVerticalShadows(vertical)
   const { features: f, platform } = getContent(vertical)
+  const isFT = vertical === 'food_trucks'
 
-  // Cards organized by theme pairs:
-  // Row 1: Trust & Community (Verified Vendors + Local Focus)
-  // Row 2: Pre-order Benefits (No Sold-Out Items + Your Time, Your Way)
-  // Row 3: Technology & Access (Mobile Friendly + Order Updates)
+  // PWA install prompt (FT only)
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null)
+  const [showInstallHint, setShowInstallHint] = useState(false)
+
+  useEffect(() => {
+    if (!isFT) return
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [isFT])
+
+  const handleInstallClick = useCallback(async () => {
+    if (installPrompt && 'prompt' in installPrompt) {
+      (installPrompt as { prompt: () => Promise<void> }).prompt()
+      setInstallPrompt(null)
+    } else {
+      // No install prompt available — show hint
+      setShowInstallHint(true)
+      setTimeout(() => setShowInstallHint(false), 4000)
+    }
+  }, [installPrompt])
+
   const features = [
-    { icon: Shield, ...f.verified },
-    { icon: MapPin, ...f.local },
-    { icon: CheckCircle, ...f.no_soldout },
     { icon: Clock, ...f.schedule },
-    { icon: Smartphone, ...f.mobile },
     { icon: Bell, ...f.updates },
+    { icon: CheckCircle, ...f.no_soldout },
+    { icon: MapPin, ...f.local },
+    { icon: Shield, ...f.verified },
+    { icon: Smartphone, ...f.mobile },
   ]
 
+  // FT: Horizontal list layout matching mockup
+  if (isFT) {
+    return (
+      <section
+        className="landing-section"
+        style={{ backgroundColor: colors.surfaceElevated }}
+      >
+        <div className="landing-container">
+          {/* Feature list */}
+          <div style={{ maxWidth: 600, margin: '0 auto' }}>
+            {features.map((feature, index) => {
+              const Icon = feature.icon
+              return (
+                <div key={index}>
+                  {/* Dotted separator above each item (including first) */}
+                  <DottedSeparator />
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.md,
+                      padding: `${spacing.md} 0`,
+                    }}
+                  >
+                    {/* Icon in red circle — vertically centered */}
+                    <div
+                      className="flex-shrink-0 flex items-center justify-center rounded-full"
+                      style={{
+                        width: 52,
+                        height: 52,
+                        backgroundColor: colors.primary,
+                      }}
+                    >
+                      <Icon style={{ width: 26, height: 26, color: '#ffffff' }} />
+                    </div>
+                    {/* Text content */}
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: typography.sizes.lg,
+                          fontWeight: typography.weights.bold,
+                          color: colors.textPrimary,
+                          marginBottom: spacing['3xs'],
+                        }}
+                      >
+                        {feature.title}
+                      </h3>
+                      <p
+                        style={{
+                          fontSize: typography.sizes.sm,
+                          color: colors.textSecondary,
+                          lineHeight: typography.leading.relaxed,
+                          margin: 0,
+                        }}
+                      >
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {/* Final dotted separator after last item */}
+            <DottedSeparator />
+          </div>
+
+          {/* Simplified phone mockup + app icon (PWA install button) */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: spacing.lg,
+              marginTop: spacing.xl,
+              marginBottom: spacing.md,
+              position: 'relative',
+            }}
+          >
+            {/* Simple phone outline */}
+            <div style={{
+              width: 140,
+              height: 260,
+              border: '2px solid #d1d5db',
+              borderRadius: 24,
+              position: 'relative',
+              backgroundColor: '#ffffff',
+            }}>
+              {/* Notch */}
+              <div style={{
+                position: 'absolute',
+                top: 8,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 40,
+                height: 4,
+                backgroundColor: '#d1d5db',
+                borderRadius: 2,
+              }} />
+            </div>
+            {/* App icon — clickable PWA install button */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={handleInstallClick}
+                style={{
+                  width: 100,
+                  height: 100,
+                  borderRadius: 20,
+                  overflow: 'hidden',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  display: 'block',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)'
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.25)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)'
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+                aria-label="Add to Home Screen"
+                title="Add to Home Screen"
+              >
+                <Image
+                  src="/logos/food-truckn-logo.png"
+                  alt="Food Truck'n App"
+                  width={100}
+                  height={100}
+                  style={{ objectFit: 'cover', display: 'block' }}
+                />
+              </button>
+              {/* Install hint tooltip */}
+              {showInstallHint && (
+                <div style={{
+                  position: 'absolute',
+                  top: '110%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: '#1a1a1a',
+                  color: '#ffffff',
+                  padding: `${spacing['2xs']} ${spacing.sm}`,
+                  borderRadius: radius.md,
+                  fontSize: typography.sizes.xs,
+                  whiteSpace: 'nowrap',
+                  zIndex: 10,
+                }}>
+                  Use your browser&apos;s &quot;Add to Home Screen&quot; option
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // FM: Original 2-column card grid layout
   return (
     <section
       className="landing-section"
-      style={{ backgroundColor: vertical === 'food_trucks' ? colors.surfaceElevated : colors.surfaceSubtle }}
+      style={{ backgroundColor: colors.surfaceSubtle }}
     >
       <div className="landing-container">
         {/* Section Header */}
@@ -85,7 +271,7 @@ export function Features({ vertical }: FeaturesProps) {
                 className="landing-card"
                 style={{
                   padding: spacing.md,
-                  backgroundColor: vertical === 'food_trucks' ? colors.surfaceMuted : colors.surfaceElevated,
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: radius.lg,
                   boxShadow: shadows.sm,
                 }}
@@ -94,7 +280,7 @@ export function Features({ vertical }: FeaturesProps) {
                   style={{
                     width: 40,
                     height: 40,
-                    color: vertical === 'food_trucks' ? colors.primaryDark : colors.accentMuted,
+                    color: colors.accentMuted,
                     marginBottom: spacing.sm,
                   }}
                 />

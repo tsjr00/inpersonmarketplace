@@ -105,13 +105,15 @@ export function Header({
       <div style={{
         maxWidth: containers.xl,
         margin: '0 auto',
-        padding: `0 ${spacing.sm}`
+        padding: `0 ${spacing.sm}`,
+        paddingTop: isOnLandingPage ? spacing['2xs'] : 0,
       }}>
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          height: 56
+          height: isOnLandingPage ? 64 : 56,
+          position: 'relative',
         }}>
           {/* Logo */}
           <Link
@@ -143,11 +145,14 @@ export function Header({
             )}
           </Link>
 
-          {/* Desktop Navigation - hidden on mobile */}
+          {/* Desktop Navigation - hidden on mobile, centered on page */}
           <nav style={{
             display: 'flex',
             alignItems: 'center',
-            gap: spacing.md
+            gap: spacing.md,
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
           }}
           className="desktop-nav"
           >
@@ -156,6 +161,7 @@ export function Header({
               style={{
                 color: pathname?.includes('/browse') ? colors.primary : colors.textSecondary,
                 textDecoration: 'none',
+                borderBottom: 'none',
                 fontWeight: pathname?.includes('/browse') ? typography.weights.semibold : typography.weights.normal,
                 fontSize: typography.sizes.sm
               }}
@@ -168,6 +174,7 @@ export function Header({
               style={{
                 color: pathname?.includes('/markets') && !pathname?.includes('/market-box') ? colors.primary : colors.textSecondary,
                 textDecoration: 'none',
+                borderBottom: 'none',
                 fontWeight: pathname?.includes('/markets') && !pathname?.includes('/market-box') ? typography.weights.semibold : typography.weights.normal,
                 fontSize: typography.sizes.sm
               }}
@@ -180,6 +187,7 @@ export function Header({
               style={{
                 color: pathname?.includes('/vendors') && !pathname?.includes('/vendor/') ? colors.primary : colors.textSecondary,
                 textDecoration: 'none',
+                borderBottom: 'none',
                 fontWeight: pathname?.includes('/vendors') && !pathname?.includes('/vendor/') ? typography.weights.semibold : typography.weights.normal,
                 fontSize: typography.sizes.sm
               }}
@@ -467,12 +475,13 @@ export function Header({
                 minHeight: 44,
                 minWidth: 44,
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                color: '#1a1a1a',
               }}
               className="mobile-menu-btn"
               aria-label="Menu"
             >
-              <span style={{ fontSize: 24 }}>{mobileMenuOpen ? '✕' : '☰'}</span>
+              <span style={{ fontSize: 28, color: 'inherit' }}>{mobileMenuOpen ? '✕' : '☰'}</span>
             </button>
           </div>
         </div>

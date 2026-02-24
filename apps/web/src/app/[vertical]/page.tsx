@@ -11,7 +11,8 @@ import {
   Features,
   FinalCTA,
   Footer,
-  GetTheApp
+  GetTheApp,
+  DottedSeparator
 } from '@/components/landing'
 
 interface VerticalHomePageProps {
@@ -165,17 +166,23 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
       />
 
       <main>
-        {/* Hero Section */}
-        <Hero vertical={vertical} />
+        {/* Hero Section — FT gets stats inline */}
+        <Hero vertical={vertical} stats={stats} />
 
-        {/* Trust Statistics */}
-        <TrustStats vertical={vertical} stats={stats} />
+        {/* Trust Statistics — FM only (FT renders stats inline inside Hero) */}
+        {vertical !== 'food_trucks' && (
+          <TrustStats vertical={vertical} stats={stats} />
+        )}
 
-        {/* How It Works */}
-        <HowItWorks vertical={vertical} />
+        {vertical !== 'food_trucks' && (
+          <>
+            {/* How It Works — FM only (consolidated into Features for FT) */}
+            <HowItWorks vertical={vertical} />
 
-        {/* Featured Markets - Text only section, no database needed */}
-        <FeaturedMarkets vertical={vertical} />
+            {/* Featured Markets — FM only (consolidated for FT) */}
+            <FeaturedMarkets vertical={vertical} />
+          </>
+        )}
 
         {/* Platform Features */}
         <Features vertical={vertical} />
@@ -183,11 +190,15 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
         {/* Vendor Pitch */}
         <VendorPitch vertical={vertical} />
 
-        {/* Get The App */}
-        <GetTheApp vertical={vertical} />
+        {vertical !== 'food_trucks' && (
+          <>
+            {/* Get The App — FM only (simplified phone mockup is inside Features for FT) */}
+            <GetTheApp vertical={vertical} />
 
-        {/* Final CTA */}
-        <FinalCTA vertical={vertical} />
+            {/* Final CTA — FM only (consolidated for FT) */}
+            <FinalCTA vertical={vertical} />
+          </>
+        )}
 
         {/* Footer */}
         <Footer vertical={vertical} />
