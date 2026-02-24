@@ -224,11 +224,25 @@ export async function GET(request: NextRequest) {
 
             if (rpcError) {
               crumb.logic('Failed to create market box subscription', { error: rpcError.message, offeringId: mbItem.offeringId })
-              // M-8 FIX: Escalate RPC failure — buyer paid but subscription wasn't created
+              // C-3 FIX: Auto-refund on RPC failure — buyer paid but subscription wasn't created
               await logError(new TracedError('ERR_CHECKOUT_010', `Market box subscription RPC failed after payment: ${rpcError.message}`, {
                 route: '/api/checkout/success', method: 'GET',
                 offeringId: mbItem.offeringId, orderId, paymentIntentId,
               }))
+              try {
+                await createRefund(paymentIntentId, mbItem.priceCents)
+                crumb.logic('Auto-refund issued for failed market box RPC', {
+                  offeringId: mbItem.offeringId,
+                  refundCents: mbItem.priceCents,
+                })
+              } catch (refundErr) {
+                // Critical: refund also failed — needs manual intervention
+                await logError(new TracedError('ERR_CHECKOUT_011', `CRITICAL: Market box RPC failed AND refund failed — manual refund needed`, {
+                  route: '/api/checkout/success', method: 'GET',
+                  offeringId: mbItem.offeringId, orderId, paymentIntentId,
+                  refundError: refundErr instanceof Error ? refundErr.message : String(refundErr),
+                }))
+              }
             } else if (result && !result.success) {
               crumb.logic('Market box at capacity, subscription not created', { offeringId: mbItem.offeringId, ...result })
               // F6 FIX: Refund buyer for at-capacity market box

@@ -3,8 +3,9 @@
 All copy for every notification type across every channel.
 Variables use `{{variable_name}}` syntax. Review and approve before implementation.
 
-**Sender identity:**
-- Email from: `Farmers Marketing <noreply@mail.farmersmarketing.app>`
+**Sender identity (per-vertical):**
+- FM email from: `Fresh Market <noreply@mail.farmersmarketing.app>`
+- FT email from: `Food Truck'n <noreply@mail.foodtruckn.app>` (requires Resend DNS verification)
 - SMS from: Twilio number (no branding in body — carrier rules)
 - Push: Shows app name from manifest
 

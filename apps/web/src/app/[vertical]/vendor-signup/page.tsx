@@ -299,10 +299,9 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
         }
       }
 
-      // Auto-redirect to vendor dashboard after short delay
+      // H-1 FIX: Redirect to success page with celebration + next-step guidance
       setTimeout(() => {
-        router.push(`/${vertical}/vendor/dashboard`);
-        router.refresh();
+        router.push(`/${vertical}/vendor-signup/success`);
       }, 1500);
     } catch (err) {
       console.error("Submit error:", err);

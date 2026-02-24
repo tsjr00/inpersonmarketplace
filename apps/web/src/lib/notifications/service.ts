@@ -162,7 +162,17 @@ async function sendEmail(
     }
   }
 
-  const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
+  // H-3 FIX: Per-vertical email FROM address
+  // Each vertical gets its own FROM address using its verified domain.
+  // Requires Resend DNS verification for each domain's `mail.` subdomain.
+  // Falls back to FM domain if vertical domain not in the verified list.
+  const verifiedEmailDomains: Record<string, string> = {
+    farmers_market: 'noreply@mail.farmersmarketing.app',
+    food_trucks: 'noreply@mail.foodtruckn.app',
+    fire_works: 'noreply@mail.farmersmarketing.app', // Not yet verified — uses FM fallback
+  }
+  const fallbackFrom = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
+  const fromAddress = verifiedEmailDomains[vertical || 'farmers_market'] || fallbackFrom
   // Use vertical-aware branding for display name, domain, and header color
   const branding = defaultBranding[vertical || 'farmers_market']
   const brandName = branding?.brand_name || 'Farmers Marketing'

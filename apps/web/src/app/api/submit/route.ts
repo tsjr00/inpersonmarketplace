@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
             .from("vendor_profiles")
             .select("id")
             .eq("referral_code", body.referral_code)
+            .eq("vertical_id", vertical)
             .single();
 
           if (referrer) {

@@ -175,11 +175,22 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 
           if (rpcError) {
             crumb.stripe(`Market box RPC error for offering ${mbItem.offeringId}: ${rpcError.message}`)
-            // M-8 FIX: Escalate RPC failure — buyer paid but subscription wasn't created
+            // C-3 FIX: Auto-refund on RPC failure — buyer paid but subscription wasn't created
             await logError(new TracedError('ERR_WEBHOOK_010', `Market box subscription RPC failed in webhook: ${rpcError.message}`, {
               route: '/webhooks/stripe', method: 'POST',
               offeringId: mbItem.offeringId, orderId, paymentIntentId,
             }))
+            try {
+              await createRefund(paymentIntentId, mbItem.priceCents)
+              crumb.stripe(`Auto-refund issued for failed market box RPC: ${mbItem.offeringId}`)
+            } catch (refundErr) {
+              // Critical: refund also failed — needs manual intervention
+              await logError(new TracedError('ERR_WEBHOOK_011', `CRITICAL: Market box RPC failed AND refund failed — manual refund needed`, {
+                route: '/webhooks/stripe', method: 'POST',
+                offeringId: mbItem.offeringId, orderId, paymentIntentId,
+                refundError: refundErr instanceof Error ? refundErr.message : String(refundErr),
+              }))
+            }
           } else if (result && !result.success) {
             crumb.stripe(`Market box at capacity: ${mbItem.offeringId}`)
             // F6 FIX: Refund buyer for at-capacity market box
@@ -319,7 +330,17 @@ async function handleMarketBoxCheckoutComplete(session: Stripe.Checkout.Session)
     })
 
   if (rpcError) {
+    // C-3 FIX: Auto-refund on RPC failure — buyer paid but subscription wasn't created
     await logError(new TracedError('ERR_WEBHOOK_005', 'Failed to create market box subscription via RPC', { route: '/webhooks/stripe', method: 'POST', userId, error: rpcError.message }))
+    try {
+      await createRefund(paymentIntentId, priceCents)
+      crumb.stripe(`Auto-refund issued for failed standalone market box RPC: ${offeringId}`)
+    } catch (refundErr) {
+      await logError(new TracedError('ERR_WEBHOOK_011', `CRITICAL: Standalone market box RPC failed AND refund failed — manual refund needed`, {
+        route: '/webhooks/stripe', method: 'POST', userId, offeringId, paymentIntentId,
+        refundError: refundErr instanceof Error ? refundErr.message : String(refundErr),
+      }))
+    }
     return
   }
 
