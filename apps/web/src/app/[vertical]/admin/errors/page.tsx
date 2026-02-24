@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 interface ErrorReport {
   id: string
@@ -46,6 +47,7 @@ export default function VerticalAdminErrorsPage() {
   const [resolutionSummary, setResolutionSummary] = useState<ResolutionSummary | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [notes, setNotes] = useState('')
+  const { showBanner, StatusBanner } = useStatusBanner()
 
   useEffect(() => {
     fetchReports()
@@ -107,7 +109,7 @@ export default function VerticalAdminErrorsPage() {
       setSelectedReport(null)
       fetchReports()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Action failed')
+      showBanner('error', err instanceof Error ? err.message : 'Action failed')
     } finally {
       setActionLoading(false)
     }
@@ -636,6 +638,7 @@ export default function VerticalAdminErrorsPage() {
           </div>
         </div>
       )}
+      <StatusBanner />
     </div>
   )
 }

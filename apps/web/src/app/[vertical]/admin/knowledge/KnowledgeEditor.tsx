@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { colors } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface Article {
   id: string
@@ -26,6 +28,11 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
   const [isNew, setIsNew] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const { showBanner, StatusBanner } = useStatusBanner()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string; confirmLabel: string;
+    variant: 'default' | 'danger'; onConfirm: () => void
+  }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
   // Form state
   const [title, setTitle] = useState('')
@@ -89,7 +96,7 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
 
       if (!res.ok) {
         const data = await res.json()
-        alert(data.error || 'Failed to save')
+        showBanner('error', data.error || 'Failed to save')
         return
       }
 
@@ -101,27 +108,35 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
       }
       cancelEdit()
     } catch {
-      alert('Failed to save article')
+      showBanner('error', 'Failed to save article')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this article? This cannot be undone.')) return
-    setDeleting(id)
+  const handleDelete = (id: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Article',
+      message: 'Delete this article? This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        setDeleting(id)
 
-    try {
-      const res = await fetch(`/api/admin/knowledge?id=${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setArticles(prev => prev.filter(a => a.id !== id))
-        if (editing?.id === id) cancelEdit()
+        try {
+          const res = await fetch(`/api/admin/knowledge?id=${id}`, { method: 'DELETE' })
+          if (res.ok) {
+            setArticles(prev => prev.filter(a => a.id !== id))
+            if (editing?.id === id) cancelEdit()
+          }
+        } catch {
+          showBanner('error', 'Failed to delete')
+        } finally {
+          setDeleting(null)
+        }
       }
-    } catch {
-      alert('Failed to delete')
-    } finally {
-      setDeleting(null)
-    }
+    })
   }
 
   const handleTogglePublish = async (article: Article) => {
@@ -136,7 +151,7 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
         setArticles(prev => prev.map(a => a.id === data.article.id ? data.article : a))
       }
     } catch {
-      alert('Failed to update')
+      showBanner('error', 'Failed to update')
     }
   }
 
@@ -456,6 +471,16 @@ export default function KnowledgeEditor({ initialArticles, vertical }: Knowledge
           </div>
         ))
       )}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(prev => ({ ...prev, open: false })) }}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      <StatusBanner />
     </div>
   )
 }

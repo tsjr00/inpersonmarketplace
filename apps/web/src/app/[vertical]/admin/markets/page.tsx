@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 import { term } from '@/lib/vertical'
 import { formatState, formatZip } from '@/lib/validation'
 
@@ -80,6 +82,12 @@ export default function AdminMarketsPage() {
     status: 'active'
   })
   const [submitting, setSubmitting] = useState(false)
+  const { showBanner, StatusBanner } = useStatusBanner()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string; confirmLabel: string;
+    variant: 'default' | 'danger'; showInput?: boolean; inputLabel?: string;
+    onConfirm: (input?: string) => void
+  }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
   useEffect(() => {
     fetchMarkets()
@@ -146,7 +154,7 @@ export default function AdminMarketsPage() {
 
     // Validate lat/lng are required for traditional markets
     if (!formData.latitude || !formData.longitude) {
-      alert('Latitude and Longitude are required. Without coordinates, this market will not appear in buyer location searches.')
+      showBanner('warning', 'Latitude and Longitude are required. Without coordinates, this market will not appear in buyer location searches.')
       setSubmitting(false)
       return
     }
@@ -155,20 +163,20 @@ export default function AdminMarketsPage() {
     const lng = parseFloat(formData.longitude)
 
     if (isNaN(lat) || isNaN(lng)) {
-      alert('Please enter valid numeric values for Latitude and Longitude.')
+      showBanner('warning', 'Please enter valid numeric values for Latitude and Longitude.')
       setSubmitting(false)
       return
     }
 
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      alert('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.')
+      showBanner('warning', 'Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.')
       setSubmitting(false)
       return
     }
 
     // Validate schedules
     if (formData.schedules.length === 0) {
-      alert('At least one market day/time is required.')
+      showBanner('warning', 'At least one market day/time is required.')
       setSubmitting(false)
       return
     }
@@ -176,12 +184,12 @@ export default function AdminMarketsPage() {
     // Validate event dates
     if (formData.market_type === 'event') {
       if (!formData.event_start_date || !formData.event_end_date) {
-        alert('Event start and end dates are required for events.')
+        showBanner('warning', 'Event start and end dates are required for events.')
         setSubmitting(false)
         return
       }
       if (formData.event_end_date < formData.event_start_date) {
-        alert('Event end date must be on or after the start date.')
+        showBanner('warning', 'Event end date must be on or after the start date.')
         setSubmitting(false)
         return
       }
@@ -231,7 +239,7 @@ export default function AdminMarketsPage() {
           const errorMsg = error.details
             ? `${error.error}: ${error.details}`
             : (error.error || 'Failed to update market')
-          alert(errorMsg)
+          showBanner('error', errorMsg)
         }
       } else {
         // Create
@@ -249,12 +257,12 @@ export default function AdminMarketsPage() {
           const errorMsg = error.details
             ? `${error.error}: ${error.details}`
             : (error.error || 'Failed to create market')
-          alert(errorMsg)
+          showBanner('error', errorMsg)
         }
       }
     } catch (error) {
       console.error('Error saving market:', error)
-      alert('Failed to save market')
+      showBanner('error', 'Failed to save market')
     } finally {
       setSubmitting(false)
     }
@@ -292,11 +300,7 @@ export default function AdminMarketsPage() {
     setShowForm(true)
   }
 
-  const handleDelete = async (marketId: string, marketName: string) => {
-    if (!confirm(`Delete market "${marketName}"? This will affect all vendor listings at this market.`)) {
-      return
-    }
-
+  const handleDelete = async (marketId: string) => {
     try {
       const res = await fetch(`/api/admin/markets/${marketId}`, {
         method: 'DELETE'
@@ -306,11 +310,11 @@ export default function AdminMarketsPage() {
         await fetchMarkets()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to delete market')
+        showBanner('error', error.error || 'Failed to delete market')
       }
     } catch (error) {
       console.error('Error deleting market:', error)
-      alert('Failed to delete market')
+      showBanner('error', 'Failed to delete market')
     }
   }
 
@@ -347,7 +351,7 @@ export default function AdminMarketsPage() {
 
   const removeSchedule = (index: number) => {
     if (formData.schedules.length <= 1) {
-      alert('At least one market day/time is required.')
+      showBanner('warning', 'At least one market day/time is required.')
       return
     }
     setFormData({
@@ -374,17 +378,15 @@ export default function AdminMarketsPage() {
         await fetchMarkets()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to approve market')
+        showBanner('error', error.error || 'Failed to approve market')
       }
     } catch (error) {
       console.error('Error approving market:', error)
-      alert('Failed to approve market')
+      showBanner('error', 'Failed to approve market')
     }
   }
 
-  const handleReject = async (marketId: string) => {
-    const reason = prompt('Reason for rejection (optional):')
-
+  const executeReject = async (marketId: string, reason?: string) => {
     try {
       const res = await fetch(`/api/admin/markets/${marketId}`, {
         method: 'PUT',
@@ -396,25 +398,17 @@ export default function AdminMarketsPage() {
         await fetchMarkets()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to reject market')
+        showBanner('error', error.error || 'Failed to reject market')
       }
     } catch (error) {
       console.error('Error rejecting market:', error)
-      alert('Failed to reject market')
+      showBanner('error', 'Failed to reject market')
     }
   }
 
-  const handleSuspend = async (market: Market) => {
-    const isSuspended = market.status === 'suspended'
-    const action = isSuspended ? 'unsuspend' : 'suspend'
-    const newStatus = isSuspended ? 'active' : 'suspended'
-
-    if (!confirm(`Are you sure you want to ${action} "${market.name}"? ${!isSuspended ? 'This will prevent buyers from seeing this pickup location.' : ''}`)) {
-      return
-    }
-
+  const executeSuspend = async (marketId: string, action: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/admin/markets/${market.id}`, {
+      const res = await fetch(`/api/admin/markets/${marketId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -424,11 +418,11 @@ export default function AdminMarketsPage() {
         await fetchMarkets()
       } else {
         const error = await res.json()
-        alert(error.error || `Failed to ${action} market`)
+        showBanner('error', error.error || `Failed to ${action} market`)
       }
     } catch (error) {
       console.error(`Error ${action}ing market:`, error)
-      alert(`Failed to ${action} market`)
+      showBanner('error', `Failed to ${action} market`)
     }
   }
 
@@ -1381,7 +1375,12 @@ export default function AdminMarketsPage() {
                                   Approve
                                 </button>
                                 <button
-                                  onClick={() => handleReject(market.id)}
+                                  onClick={() => setConfirmDialog({
+                                    open: true, title: 'Reject Market', variant: 'danger', confirmLabel: 'Reject',
+                                    message: 'Are you sure you want to reject this market suggestion?',
+                                    showInput: true, inputLabel: 'Reason for rejection (optional)',
+                                    onConfirm: (reason) => executeReject(market.id, reason)
+                                  })}
                                   style={{
                                     padding: `${spacing['3xs']} ${spacing.xs}`,
                                     backgroundColor: '#ef4444',
@@ -1435,7 +1434,17 @@ export default function AdminMarketsPage() {
                             {/* Private pickup: show Suspend/Unsuspend button */}
                             {market.market_type === 'private_pickup' && (
                               <button
-                                onClick={() => handleSuspend(market)}
+                                onClick={() => {
+                                  const isSuspended = market.status === 'suspended'
+                                  const action = isSuspended ? 'unsuspend' : 'suspend'
+                                  const newStatus = isSuspended ? 'active' : 'suspended'
+                                  setConfirmDialog({
+                                    open: true, title: `${isSuspended ? 'Unsuspend' : 'Suspend'} Market`, variant: isSuspended ? 'default' : 'danger',
+                                    confirmLabel: isSuspended ? 'Unsuspend' : 'Suspend',
+                                    message: `Are you sure you want to ${action} "${market.name}"?${!isSuspended ? ' This will prevent buyers from seeing this pickup location.' : ''}`,
+                                    onConfirm: () => executeSuspend(market.id, action, newStatus)
+                                  })
+                                }}
                                 style={{
                                   padding: `${spacing['3xs']} ${spacing.xs}`,
                                   backgroundColor: market.status === 'suspended' ? colors.primary : '#f59e0b',
@@ -1451,7 +1460,11 @@ export default function AdminMarketsPage() {
                               </button>
                             )}
                             <button
-                              onClick={() => handleDelete(market.id, market.name)}
+                              onClick={() => setConfirmDialog({
+                                open: true, title: 'Delete Market', variant: 'danger', confirmLabel: 'Delete',
+                                message: `Delete market "${market.name}"? This will affect all vendor listings at this market.`,
+                                onConfirm: () => handleDelete(market.id)
+                              })}
                               style={{
                                 padding: `${spacing['3xs']} ${spacing.xs}`,
                                 backgroundColor: '#ef4444',
@@ -1475,6 +1488,21 @@ export default function AdminMarketsPage() {
           </>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        showInput={confirmDialog.showInput}
+        inputLabel={confirmDialog.inputLabel}
+        onConfirm={(input) => {
+          confirmDialog.onConfirm(input)
+          setConfirmDialog(prev => ({ ...prev, open: false }))
+        }}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      <StatusBanner />
     </div>
   )
 }

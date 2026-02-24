@@ -6,8 +6,10 @@ import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
 import VendorVerificationPanel from '@/components/admin/VendorVerificationPanel'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 interface Vendor {
   id: string
@@ -85,6 +87,11 @@ export default function VendorManagementClient({
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [expandedVendor, setExpandedVendor] = useState<string | null>(null)
+  const { showBanner, StatusBanner } = useStatusBanner()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string; confirmLabel: string;
+    variant: 'default' | 'danger'; onConfirm: () => void
+  }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
   // Debounce search input (300ms)
   const debouncedSearch = useDebounce(searchInput, 300)
@@ -139,34 +146,41 @@ export default function VendorManagementClient({
       router.refresh()
     } else {
       const data = await res.json()
-      alert(data.error || 'Failed to approve vendor')
+      showBanner('error', data.error || 'Failed to approve vendor')
     }
 
     setActionLoading(null)
   }
 
-  const handleReject = async (vendorId: string) => {
-    if (!confirm('Are you sure you want to reject this vendor?')) return
+  const handleReject = (vendorId: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Reject Vendor',
+      message: 'Are you sure you want to reject this vendor?',
+      confirmLabel: 'Reject',
+      variant: 'danger',
+      onConfirm: async () => {
+        setActionLoading(vendorId)
 
-    setActionLoading(vendorId)
+        const res = await fetch(`/api/admin/vendors/${vendorId}/reject`, {
+          method: 'POST'
+        })
 
-    const res = await fetch(`/api/admin/vendors/${vendorId}/reject`, {
-      method: 'POST'
+        if (res.ok) {
+          // Optimistic update
+          setVendors(prev => prev.map(v =>
+            v.id === vendorId ? { ...v, status: 'rejected' } : v
+          ))
+          // Refresh server data
+          router.refresh()
+        } else {
+          const data = await res.json()
+          showBanner('error', data.error || 'Failed to reject vendor')
+        }
+
+        setActionLoading(null)
+      }
     })
-
-    if (res.ok) {
-      // Optimistic update
-      setVendors(prev => prev.map(v =>
-        v.id === vendorId ? { ...v, status: 'rejected' } : v
-      ))
-      // Refresh server data
-      router.refresh()
-    } else {
-      const data = await res.json()
-      alert(data.error || 'Failed to reject vendor')
-    }
-
-    setActionLoading(null)
   }
 
   const handleExport = async () => {
@@ -400,6 +414,16 @@ export default function VendorManagementClient({
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}
       />
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(prev => ({ ...prev, open: false })) }}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      <StatusBanner />
     </div>
   )
 }

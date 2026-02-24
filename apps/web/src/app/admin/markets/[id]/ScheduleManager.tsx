@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface Schedule {
   id: string
@@ -23,6 +25,11 @@ export default function ScheduleManager({ marketId, schedules }: ScheduleManager
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { showBanner, StatusBanner } = useStatusBanner()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string; confirmLabel: string;
+    variant: 'default' | 'danger'; onConfirm: () => void
+  }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
   const [formData, setFormData] = useState({
     day_of_week: 0,
@@ -58,9 +65,18 @@ export default function ScheduleManager({ marketId, schedules }: ScheduleManager
     }
   }
 
-  const handleDelete = async (scheduleId: string) => {
-    if (!confirm('Delete this schedule?')) return
+  const handleDelete = (scheduleId: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Schedule',
+      message: 'Delete this schedule? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: () => executeDelete(scheduleId),
+    })
+  }
 
+  const executeDelete = async (scheduleId: string) => {
     try {
       const response = await fetch(`/api/markets/${marketId}/schedules/${scheduleId}`, {
         method: 'DELETE',
@@ -73,7 +89,7 @@ export default function ScheduleManager({ marketId, schedules }: ScheduleManager
 
       router.refresh()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete schedule')
+      showBanner('error', err instanceof Error ? err.message : 'Failed to delete schedule')
     }
   }
 
@@ -217,6 +233,16 @@ export default function ScheduleManager({ marketId, schedules }: ScheduleManager
           + Add Schedule
         </button>
       )}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(prev => ({ ...prev, open: false })) }}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      <StatusBanner />
     </div>
   )
 }

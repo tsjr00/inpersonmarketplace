@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, statusColors } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 import { term } from '@/lib/vertical'
 
 // Buffer time around market hours for polling (30 minutes before/after)
@@ -130,6 +131,7 @@ export default function VendorPickupPage() {
   const [windowExpiredError, setWindowExpiredError] = useState<string | null>(null)
   const [skipModalPickup, setSkipModalPickup] = useState<MarketBoxPickup | null>(null)
   const [skipReason, setSkipReason] = useState('')
+  const { showBanner, StatusBanner } = useStatusBanner()
   const mbPollRef = useRef<NodeJS.Timeout | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -337,12 +339,12 @@ export default function VendorPickupPage() {
           fetchOrders()
           fetchNeedsFulfillmentCallback()
         } else {
-          alert(errorMessage)
+          showBanner('error', errorMessage)
         }
       }
     } catch (error) {
       console.error('Error fulfilling item:', error)
-      alert('An error occurred')
+      showBanner('error', 'An error occurred')
     } finally {
       setProcessingItem(null)
     }
@@ -365,7 +367,7 @@ export default function VendorPickupPage() {
           setWindowExpiredError(data.error)
           fetchOrders()
         } else {
-          alert(data.error || 'Action failed')
+          showBanner('error', data.error || 'Action failed')
         }
         return
       }
@@ -377,7 +379,7 @@ export default function VendorPickupPage() {
 
       fetchOrders()
     } catch {
-      alert('An error occurred')
+      showBanner('error', 'An error occurred')
     } finally {
       setProcessingMBPickup(null)
     }
@@ -398,10 +400,10 @@ export default function VendorPickupPage() {
         fetchOrders()
       } else {
         const data = await res.json()
-        alert(data.error || 'Failed to skip')
+        showBanner('error', data.error || 'Failed to skip')
       }
     } catch {
-      alert('An error occurred')
+      showBanner('error', 'An error occurred')
     } finally {
       setProcessingMBPickup(null)
     }
@@ -1250,6 +1252,8 @@ export default function VendorPickupPage() {
           </div>
         </div>
       )}
+
+      <StatusBanner />
 
       {/* Pulse animation for confirmation indicators */}
       <style>{`

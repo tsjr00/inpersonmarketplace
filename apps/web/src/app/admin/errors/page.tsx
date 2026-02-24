@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 interface ErrorReport {
   id: string
@@ -40,6 +41,7 @@ export default function PlatformAdminErrorsPage() {
   const [errorCounts, setErrorCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { showBanner, StatusBanner } = useStatusBanner()
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [escalationFilter, setEscalationFilter] = useState<string>('platform_admin')
   const [selectedReport, setSelectedReport] = useState<ErrorReport | null>(null)
@@ -114,7 +116,7 @@ export default function PlatformAdminErrorsPage() {
       fetchReportDetails(reportId)
       fetchReports()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Action failed')
+      showBanner('error', err instanceof Error ? err.message : 'Action failed')
     } finally {
       setActionLoading(false)
     }
@@ -122,7 +124,7 @@ export default function PlatformAdminErrorsPage() {
 
   async function handleRecordResolution() {
     if (!selectedReport?.error_code) {
-      alert('No error code to record resolution for')
+      showBanner('warning', 'No error code to record resolution for')
       return
     }
 
@@ -130,11 +132,11 @@ export default function PlatformAdminErrorsPage() {
       setActionLoading(true)
       // This would call a new API endpoint to record the resolution
       // For now, we'll just show the data that would be sent
-      alert('Resolution recorded! Run the migration and verify the fix, then mark verified or failed.')
+      showBanner('success', 'Resolution recorded! Run the migration and verify the fix, then mark verified or failed.')
       setShowResolutionForm(false)
       setResolutionForm({ attemptedFix: '', migrationFile: '', codeChanges: '' })
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to record resolution')
+      showBanner('error', err instanceof Error ? err.message : 'Failed to record resolution')
     } finally {
       setActionLoading(false)
     }
@@ -211,7 +213,7 @@ export default function PlatformAdminErrorsPage() {
   function copyToClipboard() {
     const text = generateDeveloperContext()
     navigator.clipboard.writeText(text)
-    alert('Copied to clipboard!')
+    showBanner('info', 'Copied to clipboard!')
   }
 
   const statusColors: Record<string, { bg: string; text: string }> = {
@@ -745,6 +747,7 @@ export default function PlatformAdminErrorsPage() {
           </div>
         )}
       </div>
+      <StatusBanner />
     </div>
   )
 }

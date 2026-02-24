@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface VerticalAdmin {
   id: string
@@ -31,6 +33,11 @@ export default function VerticalAdminManagementPage() {
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [makeChief, setMakeChief] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const { showBanner, StatusBanner } = useStatusBanner()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string; confirmLabel: string;
+    variant: 'default' | 'danger'; onConfirm: () => void
+  }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
   const fetchAdmins = async () => {
     try {
@@ -88,24 +95,31 @@ export default function VerticalAdminManagementPage() {
     }
   }
 
-  const handleRemoveAdmin = async (adminId: string, email: string) => {
-    if (!confirm(`Remove admin access from ${email}?`)) return
+  const handleRemoveAdmin = (adminId: string, email: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Remove Admin',
+      message: `Remove admin access from ${email}?`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/verticals/${vertical}/admins/${adminId}`, {
+            method: 'DELETE'
+          })
 
-    try {
-      const res = await fetch(`/api/admin/verticals/${vertical}/admins/${adminId}`, {
-        method: 'DELETE'
-      })
-
-      if (res.ok) {
-        await fetchAdmins()
-      } else {
-        const errData = await res.json()
-        alert(errData.error || 'Failed to remove admin')
+          if (res.ok) {
+            await fetchAdmins()
+          } else {
+            const errData = await res.json()
+            showBanner('error', errData.error || 'Failed to remove admin')
+          }
+        } catch (err) {
+          console.error('Error removing admin:', err)
+          showBanner('error', 'Failed to remove admin')
+        }
       }
-    } catch (err) {
-      console.error('Error removing admin:', err)
-      alert('Failed to remove admin')
-    }
+    })
   }
 
   const canAddAdmins = isPlatformAdmin || isChiefVerticalAdmin
@@ -367,6 +381,16 @@ export default function VerticalAdminManagementPage() {
           <li>There must always be at least one chief admin for each vertical</li>
         </ul>
       </div>
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(prev => ({ ...prev, open: false })) }}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      <StatusBanner />
     </div>
   )
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows, statusColors } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 type TabType = 'csv' | 'quality'
 
@@ -172,6 +173,7 @@ export default function AdminReportsPage() {
   const vertical = params.vertical as string
 
   const [activeTab, setActiveTab] = useState<TabType>('csv')
+  const { showBanner, StatusBanner } = useStatusBanner()
 
   // CSV Reports state
   const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set())
@@ -236,7 +238,7 @@ export default function AdminReportsPage() {
 
   const runReports = async () => {
     if (selectedReports.size === 0) {
-      alert('Please select at least one report to run.')
+      showBanner('warning', 'Please select at least one report to run.')
       return
     }
 
@@ -860,6 +862,7 @@ export default function AdminReportsPage() {
           )}
         </>
       )}
+      <StatusBanner />
     </div>
   )
 }

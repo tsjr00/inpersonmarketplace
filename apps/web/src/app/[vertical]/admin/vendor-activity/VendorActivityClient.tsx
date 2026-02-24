@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 type TabType = 'activity' | 'referrals'
 
@@ -117,6 +118,7 @@ export default function VendorActivityClient({
 }: VendorActivityClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabType>(initialTab)
+  const { showBanner, StatusBanner } = useStatusBanner()
 
   // Activity Flags state
   const [flags, setFlags] = useState<FlaggedVendor[]>([])
@@ -208,11 +210,11 @@ export default function VendorActivityClient({
         setActionNotes('')
       } else {
         const data = await res.json()
-        alert(`Failed: ${data.error}`)
+        showBanner('error', `Failed: ${data.error}`)
       }
     } catch (err) {
       console.error('Failed to process action:', err)
-      alert('Failed to process action')
+      showBanner('error', 'Failed to process action')
     } finally {
       setProcessingId(null)
     }
@@ -935,6 +937,8 @@ export default function VendorActivityClient({
         </>
       )}
       </div>
+
+      <StatusBanner />
 
       {/* Notes Modal */}
       {showNotesModal && (

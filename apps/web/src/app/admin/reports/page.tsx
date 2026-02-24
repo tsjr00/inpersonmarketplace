@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 interface ReportOption {
   id: string
@@ -126,6 +127,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 export default function AdminReportsPage() {
+  const { showBanner, StatusBanner } = useStatusBanner()
   const [selectedReports, setSelectedReports] = useState<Set<string>>(new Set())
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date()
@@ -186,7 +188,7 @@ export default function AdminReportsPage() {
 
   const runReports = async () => {
     if (selectedReports.size === 0) {
-      alert('Please select at least one report to run.')
+      showBanner('warning', 'Please select at least one report to run.')
       return
     }
 
@@ -566,6 +568,7 @@ export default function AdminReportsPage() {
           </div>
         )}
       </div>
+      <StatusBanner />
     </div>
   )
 }

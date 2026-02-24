@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 interface DeleteListingButtonProps {
   listingId: string
@@ -11,12 +13,11 @@ interface DeleteListingButtonProps {
 export default function DeleteListingButton({ listingId, listingTitle }: DeleteListingButtonProps) {
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const { showBanner, StatusBanner } = useStatusBanner()
 
   async function handleDelete() {
-    if (!confirm(`Are you sure you want to delete "${listingTitle}"? This cannot be undone.`)) {
-      return
-    }
-
+    setShowConfirm(false)
     setDeleting(true)
 
     try {
@@ -26,7 +27,7 @@ export default function DeleteListingButton({ listingId, listingTitle }: DeleteL
 
       if (!res.ok) {
         const error = await res.json()
-        alert(error.error || 'Failed to delete listing')
+        showBanner('error', error.error || 'Failed to delete listing')
         return
       }
 
@@ -34,33 +35,45 @@ export default function DeleteListingButton({ listingId, listingTitle }: DeleteL
       router.refresh()
     } catch (error) {
       console.error('Error deleting listing:', error)
-      alert('Failed to delete listing')
+      showBanner('error', 'Failed to delete listing')
     } finally {
       setDeleting(false)
     }
   }
 
   return (
-    <button
-      onClick={handleDelete}
-      disabled={deleting}
-      style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '10px 12px',
-        backgroundColor: deleting ? '#ccc' : '#dc2626',
-        color: 'white',
-        border: 'none',
-        borderRadius: 4,
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: deleting ? 'not-allowed' : 'pointer',
-        minHeight: 44
-      }}
-    >
-      {deleting ? 'Deleting...' : 'Delete'}
-    </button>
+    <>
+      <button
+        onClick={() => setShowConfirm(true)}
+        disabled={deleting}
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '10px 12px',
+          backgroundColor: deleting ? '#ccc' : '#dc2626',
+          color: 'white',
+          border: 'none',
+          borderRadius: 4,
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: deleting ? 'not-allowed' : 'pointer',
+          minHeight: 44
+        }}
+      >
+        {deleting ? 'Deleting...' : 'Delete'}
+      </button>
+      <ConfirmDialog
+        open={showConfirm}
+        title="Delete Listing"
+        message={`Are you sure you want to delete "${listingTitle}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setShowConfirm(false)}
+      />
+      <StatusBanner />
+    </>
   )
 }

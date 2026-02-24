@@ -7,6 +7,7 @@ import MarketScheduleSelector from '@/components/vendor/MarketScheduleSelector'
 import ErrorDisplay from '@/components/shared/ErrorDisplay'
 import { term } from '@/lib/vertical'
 import { colors, statusColors, spacing, radius } from '@/lib/design-tokens'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { formatState, formatZip } from '@/lib/validation'
 
 type Schedule = {
@@ -122,6 +123,7 @@ export default function VendorMarketsPage() {
   const [submittingSuggestion, setSubmittingSuggestion] = useState(false)
   const [error, setError] = useState<{ error: string; code?: string; traceId?: string; details?: string } | null>(null)
   const [selectedMarketForSchedule, setSelectedMarketForSchedule] = useState<Market | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchMarkets()
@@ -321,10 +323,6 @@ export default function VendorMarketsPage() {
   }
 
   const handleDelete = async (marketId: string) => {
-    if (!confirm('Are you sure you want to delete this pickup location? This cannot be undone.')) {
-      return
-    }
-
     try {
       const res = await fetch(`/api/vendor/markets/${marketId}`, {
         method: 'DELETE'
@@ -2446,7 +2444,7 @@ export default function VendorMarketsPage() {
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(market.id)}
+                        onClick={() => setDeleteConfirmId(market.id)}
                         style={{
                           padding: '8px 16px',
                           backgroundColor: statusColors.danger,
@@ -2484,6 +2482,18 @@ export default function VendorMarketsPage() {
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={!!deleteConfirmId}
+        title="Delete Pickup Location"
+        message="Are you sure you want to delete this pickup location? This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteConfirmId) handleDelete(deleteConfirmId)
+          setDeleteConfirmId(null)
+        }}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
     </div>
   )
 }

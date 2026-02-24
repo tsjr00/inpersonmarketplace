@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding } from '@/lib/branding'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { formatQuantityDisplay } from '@/lib/constants'
 import { term } from '@/lib/vertical'
@@ -97,6 +98,7 @@ export default function VendorMarketBoxDetailPage() {
   const [skipping, setSkipping] = useState(false)
   const [waitingForBuyer, setWaitingForBuyer] = useState<string | null>(null)
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null)
+  const { showBanner, StatusBanner } = useStatusBanner()
 
   const fetchOffering = useCallback(async () => {
     try {
@@ -187,7 +189,7 @@ export default function VendorMarketBoxDetailPage() {
 
       fetchPickups()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update')
+      showBanner('error', err instanceof Error ? err.message : 'Failed to update')
     } finally {
       setUpdatingPickup(null)
     }
@@ -233,7 +235,7 @@ export default function VendorMarketBoxDetailPage() {
       setSkipReason('')
       fetchPickups()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to skip week')
+      showBanner('error', err instanceof Error ? err.message : 'Failed to skip week')
     } finally {
       setSkipping(false)
     }
@@ -824,6 +826,7 @@ export default function VendorMarketBoxDetailPage() {
           </div>
         )}
       </div>
+      <StatusBanner />
     </div>
   )
 }

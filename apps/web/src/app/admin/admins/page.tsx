@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface Admin {
   user_id: string
@@ -18,6 +20,11 @@ export default function AdminManagementPage() {
   const [error, setError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isChiefAdmin, setIsChiefAdmin] = useState(false)
+  const { showBanner, StatusBanner } = useStatusBanner()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string; confirmLabel: string;
+    variant: 'default' | 'danger'; onConfirm: () => void
+  }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
   // Add admin form
   const [showAddForm, setShowAddForm] = useState(false)
@@ -78,9 +85,18 @@ export default function AdminManagementPage() {
     }
   }
 
-  const handleRemoveAdmin = async (userId: string, email: string) => {
-    if (!confirm(`Remove admin access from ${email}?`)) return
+  const handleRemoveAdmin = (userId: string, email: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Remove Admin',
+      message: `Remove admin access from ${email}?`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+      onConfirm: () => executeRemoveAdmin(userId),
+    })
+  }
 
+  const executeRemoveAdmin = async (userId: string) => {
     try {
       const res = await fetch(`/api/admin/admins/${userId}`, {
         method: 'DELETE'
@@ -90,11 +106,11 @@ export default function AdminManagementPage() {
         await fetchAdmins()
       } else {
         const errData = await res.json()
-        alert(errData.error || 'Failed to remove admin')
+        showBanner('error', errData.error || 'Failed to remove admin')
       }
     } catch (err) {
       console.error('Error removing admin:', err)
-      alert('Failed to remove admin')
+      showBanner('error', 'Failed to remove admin')
     }
   }
 
@@ -351,6 +367,16 @@ export default function AdminManagementPage() {
           <li>There must always be at least one Chief Platform Admin</li>
         </ul>
       </div>
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(prev => ({ ...prev, open: false })) }}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      <StatusBanner />
     </div>
   )
 }

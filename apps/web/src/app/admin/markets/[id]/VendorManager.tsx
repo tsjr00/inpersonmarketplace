@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface Vendor {
   id: string
@@ -25,6 +27,12 @@ export default function VendorManager({ marketId, vendors, type }: VendorManager
   const [loading, setLoading] = useState<string | null>(null)
   const [editingBooth, setEditingBooth] = useState<string | null>(null)
   const [boothNumber, setBoothNumber] = useState('')
+  const { showBanner, StatusBanner } = useStatusBanner()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string; confirmLabel: string;
+    variant: 'default' | 'danger'; showInput?: boolean; inputLabel?: string;
+    inputPlaceholder?: string; onConfirm: (input?: string) => void
+  }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
   const handleApprove = async (vendorId: string, booth?: string) => {
     setLoading(vendorId)
@@ -46,16 +54,25 @@ export default function VendorManager({ marketId, vendors, type }: VendorManager
 
       router.refresh()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to approve vendor')
+      showBanner('error', err instanceof Error ? err.message : 'Failed to approve vendor')
     } finally {
       setLoading(null)
       setEditingBooth(null)
     }
   }
 
-  const handleReject = async (vendorId: string) => {
-    if (!confirm('Remove this vendor application?')) return
+  const handleReject = (vendorId: string) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Remove Vendor',
+      message: 'Remove this vendor application? This action cannot be undone.',
+      confirmLabel: 'Remove',
+      variant: 'danger',
+      onConfirm: () => executeReject(vendorId),
+    })
+  }
 
+  const executeReject = async (vendorId: string) => {
     setLoading(vendorId)
 
     try {
@@ -70,7 +87,7 @@ export default function VendorManager({ marketId, vendors, type }: VendorManager
 
       router.refresh()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to remove vendor')
+      showBanner('error', err instanceof Error ? err.message : 'Failed to remove vendor')
     } finally {
       setLoading(null)
     }
@@ -94,7 +111,7 @@ export default function VendorManager({ marketId, vendors, type }: VendorManager
       router.refresh()
       setEditingBooth(null)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update booth')
+      showBanner('error', err instanceof Error ? err.message : 'Failed to update booth')
     } finally {
       setLoading(null)
     }
@@ -204,10 +221,17 @@ export default function VendorManager({ marketId, vendors, type }: VendorManager
               <>
                 <button
                   onClick={() => {
-                    const booth = prompt('Assign booth number (optional):')
-                    if (booth !== null) {
-                      handleApprove(vendor.id, booth || undefined)
-                    }
+                    setConfirmDialog({
+                      open: true,
+                      title: 'Approve Vendor',
+                      message: 'Approve this vendor for the market?',
+                      confirmLabel: 'Approve',
+                      variant: 'default',
+                      showInput: true,
+                      inputLabel: 'Booth Number',
+                      inputPlaceholder: 'Optional booth number',
+                      onConfirm: (input) => handleApprove(vendor.id, input || undefined),
+                    })
                   }}
                   disabled={loading === vendor.id}
                   style={{
@@ -262,6 +286,19 @@ export default function VendorManager({ marketId, vendors, type }: VendorManager
           </div>
         </div>
       ))}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        showInput={confirmDialog.showInput}
+        inputLabel={confirmDialog.inputLabel}
+        inputPlaceholder={confirmDialog.inputPlaceholder}
+        onConfirm={(input) => { confirmDialog.onConfirm(input); setConfirmDialog(prev => ({ ...prev, open: false })) }}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      <StatusBanner />
     </div>
   )
 }

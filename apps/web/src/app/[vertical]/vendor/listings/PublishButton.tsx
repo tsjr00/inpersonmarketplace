@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 
 interface PublishButtonProps {
   listingId: string
@@ -13,6 +14,7 @@ export default function PublishButton({ listingId, currentStatus }: PublishButto
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { showBanner, StatusBanner } = useStatusBanner()
 
   // Only show for draft listings
   if (currentStatus !== 'draft') {
@@ -33,7 +35,7 @@ export default function PublishButton({ listingId, currentStatus }: PublishButto
       .eq('id', listingId)
 
     if (error) {
-      alert('Failed to publish listing: ' + error.message)
+      showBanner('error', 'Failed to publish listing: ' + error.message)
       setLoading(false)
       return
     }
@@ -44,22 +46,25 @@ export default function PublishButton({ listingId, currentStatus }: PublishButto
   }
 
   return (
-    <button
-      onClick={handlePublish}
-      disabled={loading}
-      style={{
-        flex: 1,
-        padding: '8px 12px',
-        backgroundColor: loading ? '#ccc' : '#10b981',
-        color: 'white',
-        border: 'none',
-        borderRadius: 4,
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: loading ? 'not-allowed' : 'pointer'
-      }}
-    >
-      {loading ? 'Publishing...' : 'Publish'}
-    </button>
+    <>
+      <button
+        onClick={handlePublish}
+        disabled={loading}
+        style={{
+          flex: 1,
+          padding: '8px 12px',
+          backgroundColor: loading ? '#ccc' : '#10b981',
+          color: 'white',
+          border: 'none',
+          borderRadius: 4,
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: loading ? 'not-allowed' : 'pointer'
+        }}
+      >
+        {loading ? 'Publishing...' : 'Publish'}
+      </button>
+      <StatusBanner />
+    </>
   )
 }

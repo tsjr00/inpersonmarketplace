@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 import {
   DOC_TYPE_LABELS,
   FOOD_TRUCK_DOC_TYPE_LABELS,
@@ -55,6 +56,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
   const [notes, setNotes] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [categoryNotes, setCategoryNotes] = useState<Record<string, string>>({})
+  const { showBanner, StatusBanner } = useStatusBanner()
 
   const isFoodTruck = vertical === 'food_trucks'
 
@@ -88,11 +90,11 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
       })
       if (!res.ok) {
         const data = await res.json()
-        alert(data.error || 'Action failed')
+        showBanner('error', data.error || 'Action failed')
       }
       onRefresh()
     } catch {
-      alert('Network error')
+      showBanner('error', 'Network error')
     } finally {
       setActionLoading(null)
     }
@@ -437,6 +439,7 @@ export default function VendorVerificationPanel({ vendorId, verification, onRefr
           </div>
         )}
       </div>
+      <StatusBanner />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { defaultBranding } from '@/lib/branding'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import ShareButton from '@/components/marketing/ShareButton'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
@@ -65,6 +66,7 @@ export default function VendorMarketBoxesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [baseUrl, setBaseUrl] = useState('')
+  const { showBanner, StatusBanner } = useStatusBanner()
 
   useEffect(() => {
     fetchOfferings()
@@ -110,7 +112,7 @@ export default function VendorMarketBoxesPage() {
 
       fetchOfferings()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update')
+      showBanner('error', err instanceof Error ? err.message : 'Failed to update')
     }
   }
 
@@ -420,6 +422,7 @@ export default function VendorMarketBoxesPage() {
           </div>
         )}
       </div>
+      <StatusBanner />
     </div>
   )
 }

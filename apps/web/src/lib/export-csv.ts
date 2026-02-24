@@ -11,7 +11,6 @@ export function exportToCSV<T>(
   columns?: { key: keyof T | string; header: string; getValue?: (row: T) => string | number }[]
 ) {
   if (data.length === 0) {
-    alert('No data to export')
     return
   }
 

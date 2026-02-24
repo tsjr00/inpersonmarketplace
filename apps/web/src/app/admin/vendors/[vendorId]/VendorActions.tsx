@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useStatusBanner } from '@/hooks/useStatusBanner'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface VendorActionsProps {
   vendorId: string
@@ -16,10 +18,21 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { showBanner, StatusBanner } = useStatusBanner()
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean; title: string; message: string; confirmLabel: string;
+    variant: 'default' | 'danger'; onConfirm: () => void
+  }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
   const hasValidCoordinates = vendorLatitude != null && vendorLongitude != null
 
-  const updateStatus = async (newStatus: string) => {
+  const confirmMessages: Record<string, string> = {
+    approved: 'Approve this vendor? Their listings will become visible to buyers.',
+    rejected: 'Reject this vendor? They will need to reapply.',
+    suspended: 'Suspend this vendor? Their listings will be hidden.'
+  }
+
+  const updateStatus = (newStatus: string) => {
     setError('')
 
     // Check coordinates before approving
@@ -28,16 +41,20 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
       return
     }
 
-    const confirmMessage: Record<string, string> = {
-      approved: 'Approve this vendor? Their listings will become visible to buyers.',
-      rejected: 'Reject this vendor? They will need to reapply.',
-      suspended: 'Suspend this vendor? Their listings will be hidden.'
-    }
+    const variant = (newStatus === 'rejected' || newStatus === 'suspended') ? 'danger' : 'default'
+    const confirmLabel = newStatus === 'approved' ? 'Approve' : newStatus === 'rejected' ? 'Reject' : 'Suspend'
 
-    if (!confirm(confirmMessage[newStatus] || `Change status to ${newStatus}?`)) {
-      return
-    }
+    setConfirmDialog({
+      open: true,
+      title: `${confirmLabel} Vendor`,
+      message: confirmMessages[newStatus] || `Change status to ${newStatus}?`,
+      confirmLabel,
+      variant,
+      onConfirm: () => executeUpdateStatus(newStatus),
+    })
+  }
 
+  const executeUpdateStatus = async (newStatus: string) => {
     setLoading(true)
 
     // Use id, not vendor_id
@@ -50,7 +67,7 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
       .eq('id', vendorId)
 
     if (error) {
-      alert('Failed to update status: ' + error.message)
+      showBanner('error', 'Failed to update status: ' + error.message)
       setLoading(false)
       return
     }
@@ -195,6 +212,16 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
         </button>
       )}
       </div>
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        variant={confirmDialog.variant}
+        onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(prev => ({ ...prev, open: false })) }}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+      />
+      <StatusBanner />
     </div>
   )
 }
