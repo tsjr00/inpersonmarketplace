@@ -4,6 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import SearchFilter from './SearchFilter'
 import BrowseToggle from './BrowseToggle'
+import BrowsePagination from './BrowsePagination'
+import BrowseLocationPrompt from './BrowseLocationPrompt'
 import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { getTierSortPriority } from '@/lib/vendor-limits'
@@ -13,13 +15,14 @@ import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
+import { getServerLocation } from '@/lib/location/server'
 
 // Cache page for 5 minutes - listings don't change every second
 export const revalidate = 300
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; hideAllergens?: string }>
+  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; hideAllergens?: string; page?: string }>
 }
 
 interface MarketSchedule {
@@ -206,8 +209,10 @@ function groupListingsByCategory(listings: Listing[], vertical: string): Record<
 
 export default async function BrowsePage({ params, searchParams }: BrowsePageProps) {
   const { vertical } = await params
-  const { category, search, view, zip, hideAllergens } = await searchParams
+  const { category, search, view, zip, hideAllergens, page } = await searchParams
   const hideAllergenItems = hideAllergens === '1'
+  const currentPage = Math.max(1, parseInt(page || '1', 10))
+  const PAGE_SIZE = 50
   const supabase = await createClient()
 
   // Get branding
@@ -544,10 +549,24 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     )
   }
 
-  // ZIP code proximity filtering
-  let zipCity: string | null = null
+  // Location-based proximity filtering
+  // Priority: 1) ?zip= URL param  2) user_location cookie  3) no filtering
+  let locationText: string | null = null
+  let hasLocationFilter = false
+
+  // Haversine distance calculation (reused for both sources)
+  const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2)
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
   if (zip && listings && listings.length > 0) {
-    // Look up ZIP coordinates
+    // Source 1: URL ?zip= param — look up in zip_codes table
     const { data: zipData } = await supabase
       .from('zip_codes')
       .select('latitude, longitude, city')
@@ -555,26 +574,34 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       .single()
 
     if (zipData?.latitude && zipData?.longitude) {
-      zipCity = zipData.city
-      const MAX_DISTANCE_KM = 40 // ~25 miles
-
-      // Haversine distance calculation
-      const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-        const R = 6371
-        const dLat = (lat2 - lat1) * Math.PI / 180
-        const dLng = (lng2 - lng1) * Math.PI / 180
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-          Math.sin(dLng / 2) * Math.sin(dLng / 2)
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-      }
+      locationText = zipData.city || zip
+      hasLocationFilter = true
+      const maxDistKm = 40 // ~25 miles default for URL param
 
       listings = listings.filter(listing => {
         const markets = listing.listing_markets || []
         return markets.some(lm => {
-          const m = lm.markets as any
+          const m = lm.markets as unknown as { latitude?: number; longitude?: number }
           if (!m?.latitude || !m?.longitude) return false
-          return distanceKm(zipData.latitude, zipData.longitude, Number(m.latitude), Number(m.longitude)) <= MAX_DISTANCE_KM
+          return distanceKm(zipData.latitude, zipData.longitude, Number(m.latitude), Number(m.longitude)) <= maxDistKm
+        })
+      })
+    }
+  } else if (!zip && listings && listings.length > 0) {
+    // Source 2: user_location cookie — lat/lng already geocoded (faster, no DB lookup)
+    const serverLocation = await getServerLocation(supabase)
+
+    if (serverLocation) {
+      locationText = serverLocation.locationText
+      hasLocationFilter = true
+      const maxDistKm = serverLocation.radius * 1.609 // convert miles to km
+
+      listings = listings.filter(listing => {
+        const markets = listing.listing_markets || []
+        return markets.some(lm => {
+          const m = lm.markets as unknown as { latitude?: number; longitude?: number }
+          if (!m?.latitude || !m?.longitude) return false
+          return distanceKm(serverLocation.latitude, serverLocation.longitude, Number(m.latitude), Number(m.longitude)) <= maxDistKm
         })
       })
     }
@@ -607,9 +634,15 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     listings = listings.filter(l => !l.listing_data?.contains_allergens)
   }
 
+  // Pagination — slice AFTER all filtering
+  const totalListings = listings?.length || 0
+  const totalPages = Math.max(1, Math.ceil(totalListings / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const paginatedListings = listings?.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE) || []
+
   // Group listings by category when no search/filter is applied
   const isFiltered = !!(search || category)
-  const groupedListings = !isFiltered && listings ? groupListingsByCategory(listings, vertical) : {}
+  const groupedListings = !isFiltered ? groupListingsByCategory(paginatedListings, vertical) : {}
   const sortedCategories = Object.keys(groupedListings).sort()
 
   return (
@@ -639,7 +672,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             }}>
               Browse
             </h1>
-            {zip && (
+            {hasLocationFilter && locationText && (
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -651,17 +684,19 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                 fontSize: typography.sizes.sm,
               }}>
                 <span>📍</span>
-                <span>Near {zipCity || zip}</span>
-                <Link
-                  href={`/${vertical}/browse${category ? `?category=${category}` : ''}${search ? `${category ? '&' : '?'}search=${search}` : ''}`}
-                  style={{
-                    color: colors.primaryDark,
-                    fontSize: typography.sizes.xs,
-                    marginLeft: spacing['2xs'],
-                  }}
-                >
-                  ✕
-                </Link>
+                <span>Near {locationText}</span>
+                {zip && (
+                  <Link
+                    href={`/${vertical}/browse${category ? `?category=${category}` : ''}${search ? `${category ? '&' : '?'}search=${search}` : ''}`}
+                    style={{
+                      color: colors.primaryDark,
+                      fontSize: typography.sizes.xs,
+                      marginLeft: spacing['2xs'],
+                    }}
+                  >
+                    ✕
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -672,6 +707,11 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
         {/* View Toggle */}
         <BrowseToggle vertical={vertical} currentView={currentView} branding={branding} />
+
+        {/* Location prompt — shown when no location data from any source */}
+        {!hasLocationFilter && !zip && (
+          <BrowseLocationPrompt vertical={vertical} />
+        )}
 
         {/* Search & Filter */}
         <SearchFilter
@@ -687,9 +727,10 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         {/* Results Count */}
         <div style={{ marginBottom: spacing.sm }}>
           <p style={{ color: colors.textSecondary, margin: 0 }}>
-            {listings?.length || 0} listing{listings?.length !== 1 ? 's' : ''} found
+            {totalListings} listing{totalListings !== 1 ? 's' : ''} found
             {category && ` in ${category}`}
             {search && ` matching "${search}"`}
+            {totalPages > 1 && ` · Page ${safePage} of ${totalPages}`}
           </p>
         </div>
 
@@ -733,7 +774,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         )}
 
         {/* Listings Display */}
-        {listings && listings.length > 0 ? (
+        {paginatedListings.length > 0 ? (
           <>
             {/* When NOT searching/filtering: Show grouped by category with headers */}
             {!isFiltered && (
@@ -796,7 +837,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                 display: 'grid',
                 gap: spacing.sm
               }}>
-                {sortListingsByPriority(listings, vertical).map((listing) => (
+                {sortListingsByPriority(paginatedListings, vertical).map((listing) => (
                   <ListingCard
                     key={listing.id}
                     listing={listing}
@@ -806,6 +847,15 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                 ))}
               </div>
             )}
+
+            {/* Pagination */}
+            <BrowsePagination
+              vertical={vertical}
+              currentPage={safePage}
+              totalPages={totalPages}
+              totalItems={totalListings}
+              pageSize={PAGE_SIZE}
+            />
           </>
         ) : (
           <div style={{
@@ -819,7 +869,9 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             <p style={{ color: colors.textMuted, marginBottom: spacing.sm }}>
               {search || category
                 ? 'Try adjusting your search or filters'
-                : `Be the first to list on ${branding.brand_name}!`
+                : hasLocationFilter
+                  ? `No ${term(vertical, 'vendors').toLowerCase()} found near ${locationText || 'your location'}. Try a different zip code or expand your search.`
+                  : `Be the first to list on ${branding.brand_name}!`
               }
             </p>
             {(search || category) && (

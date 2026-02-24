@@ -65,19 +65,49 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
       return
     }
 
-    // Save to localStorage
-    const locationData: StoredLocation = {
-      zipCode: trimmedZip,
-      timestamp: Date.now(),
-    }
-
-    // Optionally look up city/state (could add API call here)
+    // Save to localStorage (immediate — for pill display on this page)
+    // eslint-disable-next-line react-hooks/purity -- Date.now() is safe in event handler
+    const locationData: StoredLocation = { zipCode: trimmedZip, timestamp: Date.now() }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(locationData))
     setSavedLocation(locationData)
     setIsEditing(false)
 
     if (onLocationSet) {
       onLocationSet(trimmedZip)
+    }
+
+    // Set server-side cookie in background (for persistence across pages)
+    // This geocodes the zip and sets the httpOnly user_location cookie
+    setLocationCookie(trimmedZip)
+  }
+
+  /** Geocode zip → set httpOnly cookie so markets/vendors/browse pages pick it up */
+  const setLocationCookie = async (zip: string) => {
+    try {
+      // Step 1: Geocode zip to lat/lng
+      const geocodeRes = await fetch('/api/buyer/location/geocode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zipCode: zip }),
+      })
+      if (!geocodeRes.ok) return // Silent fail — URL param fallback still works
+
+      const { latitude, longitude, locationText } = await geocodeRes.json()
+
+      // Step 2: Set the cookie via location API
+      await fetch('/api/buyer/location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latitude,
+          longitude,
+          source: 'manual',
+          zipCode: zip,
+          locationText,
+        }),
+      })
+    } catch {
+      // Silent fail — the zip still works via URL params on CTA buttons
     }
   }
 
