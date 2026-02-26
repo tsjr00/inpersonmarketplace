@@ -18,7 +18,6 @@ export const STRIPE_CONFIG = {
   vendorFeePercent: FEES.vendorFeePercent,
   buyerFlatFeeCents: FEES.buyerFlatFeeCents,
   vendorFlatFeeCents: FEES.vendorFlatFeeCents,
-  minimumOrderCents: FEES.minimumOrderCents,
 }
 
 // Subscription pricing for premium tiers

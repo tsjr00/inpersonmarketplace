@@ -4,12 +4,12 @@ import {
   calculateBuyerPrice,
   calculateItemDisplayPrice,
   calculateVendorPayout,
-  meetsMinimumOrder,
-  getMinimumOrderCents,
   calculateSmallOrderFee,
+  getSmallOrderFeeConfig,
+  amountToAvoidSmallOrderFee,
   formatPrice,
   FEES,
-  VERTICAL_MINIMUM_DEFAULTS,
+  SMALL_ORDER_FEE_DEFAULTS,
 } from '@/lib/pricing'
 
 /**
@@ -69,11 +69,10 @@ describe('Order Pricing — Real-World Scenarios', () => {
       expect(pricing.buyerTotalCents).toBe(548)
     })
 
-    it('meets FT minimum ($5) but not FM minimum ($10)', () => {
-      const ftMin = getMinimumOrderCents('food_trucks')
-      const fmMin = getMinimumOrderCents('farmers_market')
-      expect(meetsMinimumOrder(500, ftMin)).toBe(true)
-      expect(meetsMinimumOrder(500, fmMin)).toBe(false)
+    it('avoids FT small order fee ($5) but not FM fee ($10)', () => {
+      // base 500 → display 533 → above FT threshold (500), below FM threshold (1000)
+      expect(calculateSmallOrderFee(500, 'food_trucks')).toBe(0)
+      expect(calculateSmallOrderFee(500, 'farmers_market')).toBe(100)
     })
   })
 
@@ -148,45 +147,53 @@ describe('Order Pricing — Real-World Scenarios', () => {
   })
 })
 
-describe('Per-Vertical Minimum Orders', () => {
-  it('FM minimum is $10 (1000 cents)', () => {
-    expect(getMinimumOrderCents('farmers_market')).toBe(1000)
+describe('Per-Vertical Small Order Fee Thresholds', () => {
+  it('FM threshold is $10 (1000 cents), fee is $1.00', () => {
+    const config = getSmallOrderFeeConfig('farmers_market')
+    expect(config.thresholdCents).toBe(1000)
+    expect(config.feeCents).toBe(100)
   })
 
-  it('FT minimum is $5 (500 cents)', () => {
-    expect(getMinimumOrderCents('food_trucks')).toBe(500)
+  it('FT threshold is $5 (500 cents), fee is $0.50', () => {
+    const config = getSmallOrderFeeConfig('food_trucks')
+    expect(config.thresholdCents).toBe(500)
+    expect(config.feeCents).toBe(50)
   })
 
-  it('fire_works minimum is $40 (4000 cents)', () => {
-    expect(getMinimumOrderCents('fire_works')).toBe(4000)
+  it('fire_works threshold is $40 (4000 cents), fee is $4.00', () => {
+    const config = getSmallOrderFeeConfig('fire_works')
+    expect(config.thresholdCents).toBe(4000)
+    expect(config.feeCents).toBe(400)
   })
 
-  it('unknown vertical gets FM default', () => {
-    expect(getMinimumOrderCents('unknown_vertical')).toBe(VERTICAL_MINIMUM_DEFAULTS.farmers_market)
+  it('unknown vertical gets FM default threshold', () => {
+    const config = getSmallOrderFeeConfig('unknown_vertical')
+    expect(config.thresholdCents).toBe(SMALL_ORDER_FEE_DEFAULTS.farmers_market.thresholdCents)
   })
 
-  it('meetsMinimumOrder boundary check — exactly at minimum passes', () => {
-    const fmMin = getMinimumOrderCents('farmers_market')
-    expect(meetsMinimumOrder(fmMin, fmMin)).toBe(true)
-    expect(meetsMinimumOrder(fmMin - 1, fmMin)).toBe(false)
+  it('amountToAvoidSmallOrderFee boundary check — exactly at threshold returns 0', () => {
+    // FM: base 940 → display 1001 → at/above 1000 → 0
+    expect(amountToAvoidSmallOrderFee(940, 'farmers_market')).toBe(0)
+    // FM: base 939 → display round(939×1.065) = 1000 → at threshold → 0
+    expect(amountToAvoidSmallOrderFee(939, 'farmers_market')).toBe(0)
+    // FM: base 938 → display round(938×1.065) = 999 → below → 1
+    expect(amountToAvoidSmallOrderFee(938, 'farmers_market')).toBe(1)
   })
 })
 
 describe('Small Order Fee', () => {
-  it('applies fee when subtotal below threshold', () => {
-    // Default threshold is 500 cents ($5), fee is 50 cents ($0.50)
-    const fee = calculateSmallOrderFee(300, 'farmers_market')
-    expect(fee).toBe(50)
+  it('FM: applies $1.00 fee when displayed subtotal below $10.00', () => {
+    // base 300 → display 320 → below 1000 → fee $1.00
+    expect(calculateSmallOrderFee(300, 'farmers_market')).toBe(100)
   })
 
-  it('no fee when at or above threshold', () => {
-    const fee = calculateSmallOrderFee(500, 'farmers_market')
-    expect(fee).toBe(0)
+  it('FM: no fee when displayed subtotal at or above threshold', () => {
+    // base 940 → display 1001 → above 1000 → no fee
+    expect(calculateSmallOrderFee(940, 'farmers_market')).toBe(0)
   })
 
-  it('no fee for large orders', () => {
-    const fee = calculateSmallOrderFee(5000, 'food_trucks')
-    expect(fee).toBe(0)
+  it('FT: no fee for large orders', () => {
+    expect(calculateSmallOrderFee(5000, 'food_trucks')).toBe(0)
   })
 })
 

@@ -16,7 +16,6 @@ export const FEES = {
   vendorFeePercent: 6.5,
   buyerFlatFeeCents: 15,    // $0.15 added to buyer total
   vendorFlatFeeCents: 15,   // $0.15 deducted from vendor payout
-  minimumOrderCents: 1000,  // $10.00 minimum order
 } as const
 
 // Subscription pricing amounts (cents) — single source of truth
@@ -31,35 +30,15 @@ export const SUBSCRIPTION_AMOUNTS = {
   buyer_annual_cents: 8150,       // $81.50/year
 } as const
 
-// Per-vertical minimum order defaults (cents)
-// These match the values in verticals.config.minimum_order_cents
-// Used as hardcoded fallbacks so client components don't need a DB call
-export const VERTICAL_MINIMUM_DEFAULTS: Record<string, number> = {
-  farmers_market: 1000,  // $10.00
-  food_trucks: 500,      // $5.00
-  fire_works: 4000,      // $40.00
-}
-
-/**
- * Get minimum order amount for a vertical (in cents)
- * Falls back to FEES.minimumOrderCents (1000) for unknown verticals
- */
-export function getMinimumOrderCents(vertical?: string): number {
-  if (vertical && vertical in VERTICAL_MINIMUM_DEFAULTS) {
-    return VERTICAL_MINIMUM_DEFAULTS[vertical]
-  }
-  return FEES.minimumOrderCents
-}
-
-// Small order fee defaults per vertical (applied when subtotal < threshold)
+// Small order fee defaults per vertical (applied when displayed subtotal < threshold)
 // These match the values stored in verticals.config JSONB
 export const SMALL_ORDER_FEE_DEFAULTS: Record<string, { thresholdCents: number; feeCents: number }> = {
-  farmers_market: { thresholdCents: 500, feeCents: 50 },
-  food_trucks: { thresholdCents: 500, feeCents: 50 },
-  fire_works: { thresholdCents: 500, feeCents: 50 },
+  farmers_market: { thresholdCents: 1000, feeCents: 100 },  // $10.00 threshold, $1.00 fee
+  food_trucks: { thresholdCents: 500, feeCents: 50 },       // $5.00 threshold, $0.50 fee
+  fire_works: { thresholdCents: 4000, feeCents: 400 },      // $40.00 threshold, $4.00 fee
 }
 
-export const DEFAULT_SMALL_ORDER_FEE = { thresholdCents: 500, feeCents: 50 }
+export const DEFAULT_SMALL_ORDER_FEE = { thresholdCents: 1000, feeCents: 100 }
 
 /**
  * Get small order fee config for a vertical
@@ -76,13 +55,17 @@ export function getSmallOrderFeeConfig(vertical?: string): { thresholdCents: num
  * Calculate the small order fee for a given subtotal
  * Returns fee in cents (50) if below threshold, else 0
  *
- * @param subtotalCents - Order subtotal before fees
+ * Threshold is compared against the displayed subtotal (base + buyer fee markup)
+ * because the buyer sees the marked-up price, not the base price.
+ *
+ * @param subtotalCents - Order subtotal before fees (base price)
  * @param vertical - Optional vertical slug for per-vertical config
  * @returns Fee amount in cents (0 or feeCents)
  */
 export function calculateSmallOrderFee(subtotalCents: number, vertical?: string): number {
   const config = getSmallOrderFeeConfig(vertical)
-  return subtotalCents < config.thresholdCents ? config.feeCents : 0
+  const displaySubtotalCents = Math.round(subtotalCents * (1 + FEES.buyerFeePercent / 100))
+  return displaySubtotalCents < config.thresholdCents ? config.feeCents : 0
 }
 
 export interface OrderItem {
@@ -209,25 +192,15 @@ export function formatDisplayPrice(basePriceCents: number): string {
 }
 
 /**
- * Check if order meets minimum
+ * Get the displayed amount (in cents) a buyer needs to add to avoid the small order fee.
+ * Uses the displayed subtotal (base + 6.5%) to match what the buyer sees.
  *
- * @param subtotalCents - Order subtotal before fees
- * @param minimumCents - Optional override (defaults to global FEES.minimumOrderCents)
- * @returns Whether order meets minimum
+ * @param subtotalCents - Current base subtotal (before fees)
+ * @param vertical - Optional vertical slug for per-vertical threshold
+ * @returns Displayed cents needed to reach threshold, or 0 if already above
  */
-export function meetsMinimumOrder(subtotalCents: number, minimumCents?: number): boolean {
-  const min = minimumCents ?? FEES.minimumOrderCents
-  return subtotalCents >= min
-}
-
-/**
- * Get amount needed to reach minimum order
- *
- * @param subtotalCents - Current subtotal
- * @param minimumCents - Optional override (defaults to global FEES.minimumOrderCents)
- * @returns Cents needed, or 0 if minimum met
- */
-export function amountToMinimum(subtotalCents: number, minimumCents?: number): number {
-  const min = minimumCents ?? FEES.minimumOrderCents
-  return Math.max(0, min - subtotalCents)
+export function amountToAvoidSmallOrderFee(subtotalCents: number, vertical?: string): number {
+  const config = getSmallOrderFeeConfig(vertical)
+  const displaySubtotalCents = Math.round(subtotalCents * (1 + FEES.buyerFeePercent / 100))
+  return Math.max(0, config.thresholdCents - displaySubtotalCents)
 }

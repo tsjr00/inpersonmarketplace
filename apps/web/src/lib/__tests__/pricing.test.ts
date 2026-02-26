@@ -4,14 +4,11 @@ import {
   calculateBuyerPrice,
   calculateVendorPayout,
   calculateItemDisplayPrice,
-  meetsMinimumOrder,
-  amountToMinimum,
+  amountToAvoidSmallOrderFee,
   formatPrice,
-  getMinimumOrderCents,
   calculateSmallOrderFee,
   getSmallOrderFeeConfig,
   FEES,
-  VERTICAL_MINIMUM_DEFAULTS,
   DEFAULT_SMALL_ORDER_FEE,
   SMALL_ORDER_FEE_DEFAULTS,
 } from '@/lib/pricing'
@@ -94,76 +91,51 @@ describe('calculateItemDisplayPrice', () => {
   })
 })
 
-describe('meetsMinimumOrder', () => {
-  it('returns false below minimum', () => {
-    expect(meetsMinimumOrder(999)).toBe(false)
+describe('amountToAvoidSmallOrderFee', () => {
+  it('food_trucks: returns displayed cents needed to reach $5.00 threshold', () => {
+    // base 300 → display 320 → need 500-320 = 180 more displayed cents
+    expect(amountToAvoidSmallOrderFee(300, 'food_trucks')).toBe(180)
   })
 
-  it('returns true at minimum', () => {
-    expect(meetsMinimumOrder(1000)).toBe(true)
+  it('food_trucks: returns 0 when already above threshold', () => {
+    // base 500 → display 533 → above 500 → 0
+    expect(amountToAvoidSmallOrderFee(500, 'food_trucks')).toBe(0)
   })
 
-  it('returns true above minimum', () => {
-    expect(meetsMinimumOrder(1001)).toBe(true)
+  it('farmers_market: returns displayed cents needed to reach $10.00 threshold', () => {
+    // base 600 → display 639 → need 1000-639 = 361 more
+    expect(amountToAvoidSmallOrderFee(600, 'farmers_market')).toBe(361)
   })
 
-  it('uses custom minimum when provided', () => {
-    // $5.00 minimum (food trucks)
-    expect(meetsMinimumOrder(499, 500)).toBe(false)
-    expect(meetsMinimumOrder(500, 500)).toBe(true)
-    expect(meetsMinimumOrder(501, 500)).toBe(true)
-    // $40.00 minimum (fireworks)
-    expect(meetsMinimumOrder(3999, 4000)).toBe(false)
-    expect(meetsMinimumOrder(4000, 4000)).toBe(true)
-  })
-})
-
-describe('amountToMinimum', () => {
-  it('returns difference when below minimum', () => {
-    expect(amountToMinimum(800)).toBe(200)
+  it('farmers_market: returns 0 when above threshold', () => {
+    // base 940 → display 1001 → above 1000 → 0
+    expect(amountToAvoidSmallOrderFee(940, 'farmers_market')).toBe(0)
   })
 
-  it('returns 0 when at or above minimum', () => {
-    expect(amountToMinimum(1000)).toBe(0)
-    expect(amountToMinimum(1500)).toBe(0)
+  it('fire_works: returns displayed cents needed to reach $40.00 threshold', () => {
+    // base 2000 → display 2130 → need 4000-2130 = 1870 more
+    expect(amountToAvoidSmallOrderFee(2000, 'fire_works')).toBe(1870)
   })
 
-  it('uses custom minimum when provided', () => {
-    // $5.00 minimum
-    expect(amountToMinimum(300, 500)).toBe(200)
-    expect(amountToMinimum(500, 500)).toBe(0)
-    // $40.00 minimum
-    expect(amountToMinimum(3000, 4000)).toBe(1000)
-    expect(amountToMinimum(4000, 4000)).toBe(0)
-  })
-})
-
-describe('getMinimumOrderCents', () => {
-  it('returns $10.00 for farmers_market', () => {
-    expect(getMinimumOrderCents('farmers_market')).toBe(1000)
+  it('fire_works: returns 0 when above threshold', () => {
+    // base 3756 → display 4000 → at threshold → 0
+    expect(amountToAvoidSmallOrderFee(3756, 'fire_works')).toBe(0)
   })
 
-  it('returns $5.00 for food_trucks', () => {
-    expect(getMinimumOrderCents('food_trucks')).toBe(500)
+  it('uses default threshold for unknown vertical', () => {
+    // default threshold is 1000 (FM), base 300 → display 320 → need 680
+    expect(amountToAvoidSmallOrderFee(300, 'unknown_vertical')).toBe(680)
   })
 
-  it('returns $40.00 for fire_works', () => {
-    expect(getMinimumOrderCents('fire_works')).toBe(4000)
+  it('uses default threshold when no vertical provided', () => {
+    expect(amountToAvoidSmallOrderFee(300)).toBe(680)
+    expect(amountToAvoidSmallOrderFee(940)).toBe(0)
   })
 
-  it('falls back to global minimum for unknown vertical', () => {
-    expect(getMinimumOrderCents('unknown_vertical')).toBe(FEES.minimumOrderCents)
-  })
-
-  it('falls back to global minimum when no vertical provided', () => {
-    expect(getMinimumOrderCents()).toBe(FEES.minimumOrderCents)
-    expect(getMinimumOrderCents(undefined)).toBe(FEES.minimumOrderCents)
-  })
-
-  it('matches VERTICAL_MINIMUM_DEFAULTS for all known verticals', () => {
-    for (const [vertical, expected] of Object.entries(VERTICAL_MINIMUM_DEFAULTS)) {
-      expect(getMinimumOrderCents(vertical)).toBe(expected)
-    }
+  it('returns full threshold for zero subtotal', () => {
+    expect(amountToAvoidSmallOrderFee(0, 'food_trucks')).toBe(500)
+    expect(amountToAvoidSmallOrderFee(0, 'farmers_market')).toBe(1000)
+    expect(amountToAvoidSmallOrderFee(0, 'fire_works')).toBe(4000)
   })
 })
 
@@ -182,36 +154,69 @@ describe('formatPrice', () => {
 })
 
 describe('calculateSmallOrderFee', () => {
-  it('returns fee when subtotal is below threshold', () => {
+  // Threshold compared against displayed subtotal (base + 6.5% buyer fee)
+  // Per-vertical: FT=$5/$0.50, FM=$10/$1.00, FW=$40/$4.00
+
+  it('food_trucks: returns $0.50 fee when displayed subtotal below $5.00', () => {
+    // base 300 → display round(300×1.065) = 320 → below 500 → fee $0.50
     expect(calculateSmallOrderFee(300, 'food_trucks')).toBe(50)
   })
 
-  it('returns 0 when subtotal is at threshold', () => {
+  it('food_trucks: returns 0 when display above threshold', () => {
+    // base 500 → display round(500×1.065) = 533 → above 500 → no fee
     expect(calculateSmallOrderFee(500, 'food_trucks')).toBe(0)
   })
 
-  it('returns 0 when subtotal is above threshold', () => {
-    expect(calculateSmallOrderFee(1000, 'food_trucks')).toBe(0)
+  it('food_trucks: edge case boundary — display just above threshold', () => {
+    // base 470 → display round(470×1.065) = 501 → above 500 → no fee
+    expect(calculateSmallOrderFee(470, 'food_trucks')).toBe(0)
   })
 
-  it('works per-vertical', () => {
-    expect(calculateSmallOrderFee(300, 'farmers_market')).toBe(50)
-    expect(calculateSmallOrderFee(300, 'fire_works')).toBe(50)
-    expect(calculateSmallOrderFee(600, 'farmers_market')).toBe(0)
+  it('food_trucks: edge case boundary — display just below threshold', () => {
+    // base 469 → display round(469×1.065) = 499 → below 500 → fee
+    expect(calculateSmallOrderFee(469, 'food_trucks')).toBe(50)
   })
 
-  it('falls back to default for unknown vertical', () => {
+  it('farmers_market: returns $1.00 fee when displayed subtotal below $10.00', () => {
+    // base 300 → display 320 → below 1000 → fee $1.00
+    expect(calculateSmallOrderFee(300, 'farmers_market')).toBe(100)
+    // base 600 → display 639 → below 1000 → fee $1.00
+    expect(calculateSmallOrderFee(600, 'farmers_market')).toBe(100)
+  })
+
+  it('farmers_market: returns 0 when display above $10.00 threshold', () => {
+    // base 940 → display round(940×1.065) = 1001 → above 1000 → no fee
+    expect(calculateSmallOrderFee(940, 'farmers_market')).toBe(0)
+  })
+
+  it('fire_works: returns $4.00 fee when displayed subtotal below $40.00', () => {
+    // base 300 → display 320 → below 4000 → fee $4.00
+    expect(calculateSmallOrderFee(300, 'fire_works')).toBe(400)
+    // base 2000 → display 2130 → below 4000 → fee $4.00
+    expect(calculateSmallOrderFee(2000, 'fire_works')).toBe(400)
+  })
+
+  it('fire_works: returns 0 when display above $40.00 threshold', () => {
+    // base 3756 → display round(3756×1.065) = 4000 → at threshold → no fee
+    expect(calculateSmallOrderFee(3756, 'fire_works')).toBe(0)
+  })
+
+  it('falls back to default ($10/$1.00) for unknown vertical', () => {
     expect(calculateSmallOrderFee(300, 'unknown_vertical')).toBe(DEFAULT_SMALL_ORDER_FEE.feeCents)
-    expect(calculateSmallOrderFee(600, 'unknown_vertical')).toBe(0)
+    // base 940 → display 1001 → above 1000 → no fee
+    expect(calculateSmallOrderFee(940, 'unknown_vertical')).toBe(0)
   })
 
-  it('falls back to default when no vertical provided', () => {
+  it('falls back to default ($10/$1.00) when no vertical provided', () => {
     expect(calculateSmallOrderFee(300)).toBe(DEFAULT_SMALL_ORDER_FEE.feeCents)
-    expect(calculateSmallOrderFee(500)).toBe(0)
+    // base 940 → display 1001 → above 1000 → no fee
+    expect(calculateSmallOrderFee(940)).toBe(0)
   })
 
   it('returns fee for zero subtotal', () => {
     expect(calculateSmallOrderFee(0, 'food_trucks')).toBe(50)
+    expect(calculateSmallOrderFee(0, 'farmers_market')).toBe(100)
+    expect(calculateSmallOrderFee(0, 'fire_works')).toBe(400)
   })
 })
 

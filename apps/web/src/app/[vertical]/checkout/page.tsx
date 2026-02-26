@@ -474,7 +474,7 @@ export default function CheckoutPage() {
     }
   }
 
-  // Calculate base subtotal (before fees) for minimum order check
+  // Calculate base subtotal (before fees) for small order fee check
   const baseSubtotal = checkoutItems.reduce((sum, item) => {
     if (item.itemType === 'market_box') {
       return sum + (item.termPriceCents || item.price_cents || 0)

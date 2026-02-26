@@ -571,6 +571,7 @@ export async function GET(request: NextRequest) {
             buyer_user_id,
             vertical_id,
             tip_amount,
+            tip_on_platform_fee_cents,
             stripe_checkout_session_id,
             order_items (id)
           ),
@@ -605,10 +606,13 @@ export async function GET(request: NextRequest) {
               .eq('id', item.id)
 
             // H19 FIX: Pay vendor for no-show items (vendor prepared the order)
-            // Calculate payout: vendor_payout_cents + prorated tip share
+            // Calculate payout: vendor_payout_cents + prorated vendor tip share
+            // Vendor gets tip on food cost only (excludes platform fee tip portion)
             const tipAmount = order?.tip_amount || 0
+            const tipOnPlatformFee = order?.tip_on_platform_fee_cents || 0
+            const vendorTipCents = tipAmount - tipOnPlatformFee
             const totalItemsInOrder = order?.order_items?.length || 1
-            const tipShareCents = totalItemsInOrder > 0 ? Math.round(tipAmount / totalItemsInOrder) : 0
+            const tipShareCents = totalItemsInOrder > 0 ? Math.round(vendorTipCents / totalItemsInOrder) : 0
             const actualPayoutCents = (item.vendor_payout_cents || 0) + tipShareCents
 
             if (actualPayoutCents > 0 && order?.stripe_checkout_session_id) {
