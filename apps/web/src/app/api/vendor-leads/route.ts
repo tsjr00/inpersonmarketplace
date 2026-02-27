@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       // Duplicate email — return success (don't reveal duplicates)
       if (insertError.code === '23505') {
-        await sendAdminEmail(business_name, first_name, last_name, email, phone, true)
+        await sendAdminEmail(vertical, business_name, first_name, last_name, email, phone, true)
         return NextResponse.json({
           ok: true,
           message: 'Thank you! We will be in touch.',
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send admin notification email
-    await sendAdminEmail(business_name, first_name, last_name, email, phone, false)
+    await sendAdminEmail(vertical, business_name, first_name, last_name, email, phone, false)
 
     return NextResponse.json({
       ok: true,
@@ -108,7 +108,23 @@ export async function POST(request: NextRequest) {
   })
 }
 
+const verticalEmail: Record<string, { name: string; from: string; color: string; label: string }> = {
+  food_trucks: {
+    name: "Food Truck'n",
+    from: 'noreply@mail.foodtruckn.app',
+    color: '#ff5757',
+    label: 'Food Truck Name',
+  },
+  farmers_market: {
+    name: 'Farmers Marketing',
+    from: 'noreply@mail.farmersmarketing.app',
+    color: '#e86452',
+    label: 'Business Name',
+  },
+}
+
 async function sendAdminEmail(
+  vertical: string,
   businessName: string,
   firstName: string,
   lastName: string,
@@ -120,27 +136,26 @@ async function sendAdminEmail(
   const apiKey = process.env.RESEND_API_KEY
   if (!adminEmail || !apiKey) return
 
+  const v = verticalEmail[vertical] || verticalEmail.food_trucks
+
   try {
     const { Resend } = await import('resend')
     const resend = new Resend(apiKey)
 
-    const fromAddress =
-      process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
-
     await resend.emails.send({
-      from: `Food Truck'n <${fromAddress}>`,
+      from: `${v.name} <${v.from}>`,
       to: adminEmail,
       subject: `${isDuplicate ? '[DUPLICATE] ' : ''}New Vendor Lead: ${businessName}`,
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
-          <h2 style="color:#ff5757;margin:0 0 16px">New Vendor Lead${isDuplicate ? ' (Duplicate Submission)' : ''}</h2>
+          <h2 style="color:${v.color};margin:0 0 16px">New Vendor Lead${isDuplicate ? ' (Duplicate Submission)' : ''}</h2>
           <table style="border-collapse:collapse;width:100%">
-            <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee;width:140px">Food Truck Name</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(businessName)}</td></tr>
+            <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee;width:140px">${v.label}</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(businessName)}</td></tr>
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Owner</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(firstName)} ${escapeHtml(lastName)}</td></tr>
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Email</td><td style="padding:8px 12px;border-bottom:1px solid #eee"><a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></td></tr>
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Phone</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(phone)}</td></tr>
           </table>
-          <p style="margin-top:16px;color:#737373;font-size:13px">This lead was submitted via the Coming Soon page.</p>
+          <p style="margin-top:16px;color:#737373;font-size:13px">This lead was submitted via the ${v.name} Coming Soon page.</p>
         </div>
       `,
     })
