@@ -8,6 +8,7 @@ import VendorAvatar from '@/components/shared/VendorAvatar'
 import TierBadge from '@/components/shared/TierBadge'
 import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
+import { getAppUrl } from '@/lib/environment'
 import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
@@ -399,7 +400,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
   const jsonLd = vendorProfileJsonLd({
     name: vendorName,
-    url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/vendor/${vendorId}/profile`,
+    url: `${getAppUrl(vertical)}/${vertical}/vendor/${vendorId}/profile`,
     description: vendorDescription,
     imageUrl: vendorImageUrl,
     averageRating,
@@ -466,7 +467,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             }}
           />
           <ShareButton
-            url={`${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/vendor/${vendorId}/profile`}
+            url={`${getAppUrl(vertical)}/${vertical}/vendor/${vendorId}/profile`}
             title={vendorName}
             text={`Check out ${vendorName} on ${branding.brand_name}`}
             variant="compact"

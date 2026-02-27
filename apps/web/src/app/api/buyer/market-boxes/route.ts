@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
     // Apply buyer fee (6.5% + $0.15) to match what's shown on the detail page
     crumb.stripe('create checkout session')
     const buyerTotalCents = calculateBuyerPrice(priceCents)
-    const baseUrl = getAppUrl()
+    const baseUrl = getAppUrl(verticalId)
     const session = await createMarketBoxCheckoutSession({
       offeringId: offering_id,
       offeringName: offering.name,

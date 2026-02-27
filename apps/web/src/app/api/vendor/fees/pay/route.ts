@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       // Create Stripe Checkout session
-      const baseUrl = getAppUrl()
+      const baseUrl = getAppUrl(vertical_id)
 
       // Use idempotency key to prevent duplicate fee payment sessions on network retry
       const idempotencyKey = `vendor-fee-${vendor_id}-${balanceCents}`

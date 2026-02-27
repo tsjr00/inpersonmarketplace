@@ -8,6 +8,7 @@ import PickupLocationsCard from '@/components/listings/PickupLocationsCard'
 import BackLink from '@/components/shared/BackLink'
 import ShareButton from '@/components/marketing/ShareButton'
 import { listingJsonLd } from '@/lib/marketing/json-ld'
+import { getAppUrl } from '@/lib/environment'
 import { formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
 import { isBuyerPremiumEnabled } from '@/lib/vertical'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -198,7 +199,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
     name: listing.title,
     description: listing.description,
     imageUrl: primaryImage?.url || null,
-    url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/listing/${listingId}`,
+    url: `${getAppUrl(vertical)}/${vertical}/listing/${listingId}`,
     priceCents: listing.price_cents || 0,
     quantity: listing.quantity,
     category: listing.category,
@@ -235,7 +236,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
             }}
           />
           <ShareButton
-            url={`${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/listing/${listingId}`}
+            url={`${getAppUrl(vertical)}/${vertical}/listing/${listingId}`}
             title={listing.title}
             text={`${listing.title} from ${vendorName}`}
             variant="compact"

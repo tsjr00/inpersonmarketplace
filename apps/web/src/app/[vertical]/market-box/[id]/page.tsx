@@ -3,6 +3,7 @@ import { defaultBranding } from '@/lib/branding'
 import { formatDisplayPrice } from '@/lib/constants'
 import { marketBoxJsonLd } from '@/lib/marketing/json-ld'
 import MarketBoxDetailClient from './MarketBoxDetailClient'
+import { getAppUrl } from '@/lib/environment'
 import type { Metadata } from 'next'
 
 interface MarketBoxPageProps {
@@ -106,7 +107,7 @@ export default async function MarketBoxDetailPage({ params }: MarketBoxPageProps
       name: offering.name,
       description: offering.description,
       imageUrl: imageUrls?.[0] || null,
-      url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/${vertical}/market-box/${offeringId}`,
+      url: `${getAppUrl(vertical)}/${vertical}/market-box/${offeringId}`,
       priceCents: priceCents || 0,
       vendorName,
     })

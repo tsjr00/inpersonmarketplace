@@ -1,12 +1,26 @@
 /**
+ * Per-vertical production domains.
+ * Used for OG meta tags, share links, and canonical URLs.
+ */
+const VERTICAL_DOMAINS: Record<string, string> = {
+  food_trucks: 'https://foodtruckn.app',
+  farmers_market: 'https://farmersmarketing.app',
+}
+
+/**
  * Returns the app's base URL for the current environment.
  *
  * Resolution order:
- * 1. NEXT_PUBLIC_APP_URL (explicitly set per environment)
- * 2. NEXT_PUBLIC_VERCEL_URL (auto-provided by Vercel — preview deployments)
- * 3. http://localhost:3002 (local dev fallback)
+ * 1. Vertical-specific domain (production only)
+ * 2. NEXT_PUBLIC_APP_URL (explicitly set per environment)
+ * 3. NEXT_PUBLIC_VERCEL_URL (auto-provided by Vercel — preview deployments)
+ * 4. http://localhost:3002 (local dev fallback)
  */
-export function getAppUrl(): string {
+export function getAppUrl(vertical?: string): string {
+  // In production, use the vertical's dedicated domain
+  if (vertical && process.env.NODE_ENV === 'production' && VERTICAL_DOMAINS[vertical]) {
+    return VERTICAL_DOMAINS[vertical]
+  }
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL
   }
