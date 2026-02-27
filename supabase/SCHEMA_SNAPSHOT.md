@@ -12,6 +12,8 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-02-27 | 20260227_056_vendor_leads | **New table:** `vendor_leads` (pre-launch vendor lead capture). Columns: id (UUID PK), vertical_id (TEXT FK→verticals, default 'food_trucks'), business_name, first_name, last_name, phone, email (all TEXT NOT NULL), social_link, website, questions, notes (TEXT nullable), interested_in_demo (BOOLEAN default false), status (TEXT CHECK: new/contacted/converted/rejected, default 'new'), created_at, updated_at (TIMESTAMPTZ). **UNIQUE INDEX** `idx_vendor_leads_email_vertical` on (email, vertical_id). **Indexes:** `idx_vendor_leads_status` (status), `idx_vendor_leads_created` (created_at DESC). **RLS:** admin-only SELECT/UPDATE (role='admin'). No public insert policy — service client writes. **Trigger:** `set_vendor_leads_updated_at` → `update_updated_at_column()`. Applied to Dev, Staging, & Prod. |
+| 2026-02-26 | 20260226_055_per_vertical_item_expiration | **Function rewrites:** `calculate_order_item_expiration(DATE, TEXT, TIMESTAMPTZ)` — now accepts vertical_id and created_at params. FT: 24hr from order creation. FM/default: 24hr after pickup window start (8am on pickup_date). No pickup_date fallback: 7 days. `set_order_item_expiration()` trigger function — now looks up vertical_id and created_at from parent order. Recalculates on pickup_date change if still pending. Trigger already exists from migration 005, not recreated. Applied to Dev, Staging, & Prod. |
 | 2026-02-23 | 20260223_054_fix_availability_timezone | **Function rewrite:** `get_available_pickup_dates()` — replaced all `CURRENT_DATE` (UTC) with `(NOW() AT TIME ZONE market_timezone)::DATE` to fix evening blackout bug. FT same-day filter, season checks, event date filter, and date series generation now all use market-local date. Prevents zero-row results when UTC date advances past local date (e.g., Sunday 6pm CT = Monday UTC). Applied to all 3 envs. |
 | 2026-02-22 | 20260222_053_add_small_order_fee_cents | **New column:** `orders.small_order_fee_cents` (INTEGER NOT NULL DEFAULT 0). Tracks small order surcharge applied when subtotal is below vertical minimum ($5). Applied to all 3 envs. |
 | 2026-02-22 | 20260221_045_small_order_fee | **Data update:** Added `small_order_fee_threshold_cents` (500) and `small_order_fee_cents` (50) to `verticals.config` JSONB for all 3 verticals. Code uses hardcoded defaults but this keeps DB config in sync. Applied to all 3 envs. |
@@ -74,7 +76,7 @@
 
 ---
 
-## Tables (49)
+## Tables (51)
 
 | Table Name |
 |------------|
@@ -115,7 +117,9 @@
 | vendor_activity_settings |
 | vendor_fee_balance |
 | vendor_fee_ledger |
+| vendor_favorites |
 | vendor_feedback |
+| vendor_leads |
 | vendor_location_cache |
 | vendor_market_schedules |
 | vendor_payouts |
@@ -942,6 +946,25 @@
 | created_at | timestamptz | YES | now() |
 | updated_at | timestamptz | YES | now() |
 
+### vendor_leads
+| Column | Type | Nullable | Default |
+|--------|------|----------|--------|
+| id | uuid | NO | gen_random_uuid() |
+| vertical_id | text | NO | 'food_trucks' |
+| business_name | text | NO | - |
+| first_name | text | NO | - |
+| last_name | text | NO | - |
+| phone | text | NO | - |
+| email | text | NO | - |
+| social_link | text | YES | - |
+| website | text | YES | - |
+| interested_in_demo | boolean | NO | false |
+| questions | text | YES | - |
+| status | text | NO | 'new' |
+| notes | text | YES | - |
+| created_at | timestamptz | NO | now() |
+| updated_at | timestamptz | NO | now() |
+
 ### vendor_location_cache
 | Column | Type | Nullable | Default |
 |--------|------|----------|--------|
@@ -1334,6 +1357,11 @@
 | Column | References |
 |--------|------------|
 | vendor_profile_id | vendor_profiles.id |
+| vertical_id | verticals.vertical_id |
+
+### vendor_leads
+| Column | References |
+|--------|------------|
 | vertical_id | verticals.vertical_id |
 
 ### vendor_location_cache
@@ -1771,6 +1799,14 @@
 | idx_vendor_feedback_status | btree (status) |
 | idx_vendor_feedback_created | btree (created_at DESC) |
 
+### vendor_leads
+| Index Name | Definition |
+|-----------|------------|
+| vendor_leads_pkey | UNIQUE btree (id) |
+| idx_vendor_leads_email_vertical | UNIQUE btree (email, vertical_id) |
+| idx_vendor_leads_status | btree (status) |
+| idx_vendor_leads_created | btree (created_at DESC) |
+
 ### vendor_location_cache
 | Index Name | Definition |
 |-----------|------------|
@@ -1981,7 +2017,7 @@
 | build_pickup_snapshot | p_schedule_id uuid, p_pickup_date date | jsonb | DEFINER |
 | bytea | geometry | bytea | INVOKER |
 | bytea | geography | bytea | INVOKER |
-| calculate_order_item_expiration | p_pickup_date date, p_buffer_hours integer DEFAULT 18 | timestamp with time zone | DEFINER |
+| calculate_order_item_expiration | p_pickup_date date, p_vertical_id text DEFAULT NULL, p_created_at timestamptz DEFAULT NOW() | timestamp with time zone | DEFINER |
 | can_access_pickup | p_subscription_id uuid | boolean | DEFINER |
 | can_access_subscription | sub_id uuid | boolean | DEFINER |
 | can_admin_market | p_market_id uuid | boolean | DEFINER |
@@ -2238,6 +2274,11 @@
 | Trigger | Event | Timing | Action |
 |---------|-------|--------|--------|
 | update_vendor_feedback_updated_at | UPDATE | BEFORE | update_updated_at_column() |
+
+### vendor_leads
+| Trigger | Event | Timing | Action |
+|---------|-------|--------|--------|
+| set_vendor_leads_updated_at | UPDATE | BEFORE | update_updated_at_column() |
 
 ### vendor_market_schedules
 | Trigger | Event | Timing | Action |
