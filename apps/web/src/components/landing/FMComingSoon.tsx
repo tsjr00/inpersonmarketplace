@@ -53,7 +53,7 @@ const featureIcons = {
 
 const features = [
   {
-    title: 'More Traffic to Your Food Booth or Farm Stand',
+    title: 'More Traffic to Your Market Booth or Farm Stand',
     description:
       'Customers can search from 10 to 100 miles to find what\'s nearest to them. Always focused on the local farmers and artisans first.',
     icon: featureIcons.location,
@@ -129,61 +129,17 @@ export function FMComingSoon({ vertical }: { vertical: string }) {
         </span>
       </header>
 
-      {/* ── Hero Section (code-built, no composite image) ─────── */}
-      <section
-        style={{
-          background: 'linear-gradient(135deg, #f0f7ec 0%, #e8f5e2 40%, #fdf6f0 100%)',
-          padding: '48px 24px',
-        }}
-      >
-        <div
-          style={{
-            maxWidth: '800px',
-            margin: '0 auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '32px',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-          }}
-        >
+      {/* ── Hero Section ────────────────────────────────────────── */}
+      <section style={{ backgroundColor: '#f0f0f0' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '1200px', margin: '0 auto' }}>
           <Image
-            src="/logos/farmersmarketing-full-logo.png"
-            alt="Farmers Marketing"
-            width={180}
-            height={180}
+            src="/images/comingsoon-hero-fm.png"
+            alt="Make Your Market Day Easier"
+            width={1200}
+            height={630}
+            style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px', objectFit: 'contain' }}
             priority
           />
-          <div style={{ textAlign: 'center', flex: '1 1 300px' }}>
-            <h1
-              style={{
-                margin: '0 0 20px',
-                fontSize: '36px',
-                fontWeight: 800,
-                color: '#1a1a1a',
-                lineHeight: 1.2,
-              }}
-            >
-              MAKE YOUR MARKET{'\n'}DAY EASIER!
-            </h1>
-            <a
-              href="#signup-form"
-              style={{
-                display: 'inline-block',
-                padding: '14px 32px',
-                backgroundColor: ACCENT,
-                color: '#fff',
-                borderRadius: '9999px',
-                fontSize: '14px',
-                fontWeight: 700,
-                textDecoration: 'none',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-              }}
-            >
-              Fill Out the Form Below for More Info
-            </a>
-          </div>
         </div>
       </section>
 
