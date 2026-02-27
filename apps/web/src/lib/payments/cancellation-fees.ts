@@ -10,14 +10,33 @@ import { STRIPE_CONFIG } from '@/lib/stripe/config'
 // Cancellation fee: 25% of what the buyer paid, retained and split between platform + vendor
 export const CANCELLATION_FEE_PERCENT = 25
 
-// Grace period: 1 hour after order creation — full refund, no questions asked
-export const GRACE_PERIOD_MS = 60 * 60 * 1000
+// Per-vertical early cancel windows — full refund within this window, no questions asked
+// FM = 1 hour, FT = 15 minutes
+export const GRACE_PERIOD_BY_VERTICAL: Record<string, number> = {
+  farmers_market: 60 * 60 * 1000,   // 1 hour
+  food_trucks: 15 * 60 * 1000,      // 15 minutes
+  fire_works: 60 * 60 * 1000,       // 1 hour (default — same as FM)
+}
+
+// Default grace period for unknown verticals
+export const DEFAULT_GRACE_PERIOD_MS = 60 * 60 * 1000  // 1 hour
+
+/** @deprecated Use GRACE_PERIOD_BY_VERTICAL — kept for backward compatibility */
+export const GRACE_PERIOD_MS = DEFAULT_GRACE_PERIOD_MS
+
+export function getGracePeriodMs(vertical?: string): number {
+  if (vertical && vertical in GRACE_PERIOD_BY_VERTICAL) {
+    return GRACE_PERIOD_BY_VERTICAL[vertical]
+  }
+  return DEFAULT_GRACE_PERIOD_MS
+}
 
 export interface CancellationInput {
   subtotalCents: number
   totalItemsInOrder: number
   orderStatus: string
   orderCreatedAt: Date
+  vertical?: string // per-vertical grace period
   now?: Date // injectable for testing
 }
 
@@ -34,9 +53,10 @@ export interface CancellationResult {
 /**
  * Calculate cancellation fee and refund amounts for a single order item.
  *
- * Layer 1: Within 1-hour grace period → full refund (always wins)
- * Layer 2: After grace period AND vendor has confirmed/prepared → 25% cancellation fee
- * Layer 3: After grace but vendor NOT confirmed → full refund
+ * Layer 1: Within per-vertical early cancel window → full refund (always wins)
+ *          FM = 1 hour, FT = 15 minutes
+ * Layer 2: After window AND vendor has confirmed/prepared → 25% cancellation fee
+ * Layer 3: After window but vendor NOT confirmed → full refund
  */
 export function calculateCancellationFee(input: CancellationInput): CancellationResult {
   const { subtotalCents, totalItemsInOrder, orderStatus, orderCreatedAt } = input
@@ -47,8 +67,9 @@ export function calculateCancellationFee(input: CancellationInput): Cancellation
   const buyerFeeOnItem = Math.round(subtotalCents * (STRIPE_CONFIG.buyerFeePercent / 100)) + flatFeePerItem
   const buyerPaidForItem = subtotalCents + buyerFeeOnItem
 
-  // Determine grace period and vendor confirmation status
-  const gracePeriodEndsAt = new Date(orderCreatedAt.getTime() + GRACE_PERIOD_MS)
+  // Determine grace period (per-vertical) and vendor confirmation status
+  const gracePeriodMs = getGracePeriodMs(input.vertical)
+  const gracePeriodEndsAt = new Date(orderCreatedAt.getTime() + gracePeriodMs)
   const withinGracePeriod = now < gracePeriodEndsAt
   const vendorHadConfirmed = ['confirmed', 'ready', 'fulfilled'].includes(orderStatus)
 

@@ -12,9 +12,9 @@ interface RouteContext {
 }
 
 // POST /api/buyer/orders/[id]/cancel - Buyer cancels an order item
-// Layer 1: Within 1-hour grace period → full refund (always wins)
-// Layer 2: After grace period AND vendor has confirmed/prepared → 25% cancellation fee
-// If within grace period, no penalty regardless of vendor confirmation status
+// Layer 1: Within per-vertical early cancel window → full refund (FM=1hr, FT=15min)
+// Layer 2: After window AND vendor has confirmed/prepared → 25% cancellation fee
+// Layer 3: After window but vendor NOT confirmed → full refund (pre-confirm override)
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderItemId } = await context.params
 
@@ -110,10 +110,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw traced.validation('ERR_ORDER_002', 'Item already cancelled')
     }
 
-    // Cannot cancel fulfilled/completed orders
+    // Only allow cancellation for pre-fulfillment statuses
     crumb.logic('Checking cancellability')
-    const nonCancellableStatuses = ['fulfilled', 'completed']
-    if (nonCancellableStatuses.includes(orderItem.status)) {
+    const cancellableStatuses = ['pending', 'confirmed', 'ready']
+    if (!cancellableStatuses.includes(orderItem.status)) {
       throw traced.validation('ERR_ORDER_002', 'Cannot cancel - this order has already been picked up.', { current_status: orderItem.status })
     }
 
@@ -135,6 +135,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       totalItemsInOrder,
       orderStatus: orderItem.status,
       orderCreatedAt,
+      vertical: order.vertical_id,
     })
 
     // Update the order item as cancelled
