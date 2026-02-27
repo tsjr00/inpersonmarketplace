@@ -190,9 +190,9 @@ Buyer selects tip % at checkout → tip applied to displayed subtotal (not base)
 
 | ID | Question | Status |
 |----|----------|--------|
-| MP-Q1 | Market box payout: is there a unique index on `market_box_pickup_id` similar to `order_item_id`? Session 46 flagged this as missing. | NEEDS VERIFICATION — order_item_id has idx_vendor_payouts_order_item_unique but no equivalent found for market_box_pickup_id |
-| MP-Q2 | External payment fee difference (13% Stripe vs 10% external) — confirmed intentional by user? | NEEDS USER CONFIRMATION — code confirms 6.5% buyer + 3.5% vendor = 10% for external |
-| MP-Q3 | Tip on platform fee portion — is this clearly communicated to the buyer in the UI? | NEEDS UX REVIEW |
+| MP-Q1 | Market box payout: is there a unique index on `market_box_pickup_id` similar to `order_item_id`? Session 46 flagged this as missing. | CODE VERIFIED — buyer and vendor percentage fees are always identical (6.5% each). Both use `FEES.buyerFeePercent` and `FEES.vendorFeePercent` from `pricing.ts`. No code path allows them to differ. The `as const` object makes them compile-time immutable. Still needs verification on market_box_pickup_id unique index. |
+| MP-Q2 | External payment fee difference (13% Stripe vs 10% external) — confirmed intentional by user? | CONFIRMED BY USER — External payments: Buyer fee = 6.5%, Vendor fee = 3.5% (10% total vs 13% for Stripe). Lower vendor fee because platform has no payment processing cost to pass along. |
+| MP-Q3 | Tip on platform fee portion — is this clearly communicated to the buyer in the UI? | CONFIRMED BY USER — NOT communicated to buyer at checkout by design. Must be disclosed in Terms & Conditions only. Not supposed to be visible to the buyer at checkout. |
 
 ---
 
@@ -284,13 +284,13 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 
 | OL-R15 | **Cron Phase 2: cancel abandoned Stripe checkouts**. Matches: `orders.status = 'pending'` AND `orders.stripe_checkout_session_id IS NOT NULL` AND `orders.created_at < NOW() - 10min`. Action: `orders.status` → `'cancelled'`, all associated `order_items.status` → `'cancelled'`, inventory restored for each item. | Order created 11min ago, `orders.status = 'pending'`, has `stripe_checkout_session_id` → after cron: `orders.status = 'cancelled'`, all `order_items.status = 'cancelled'`, `listings.quantity_available` restored per item. |
 
-| OL-R16 | **Cron Phase 3: cancel expired external payment orders**. Matches: `orders.status = 'pending'` AND `orders.payment_method = 'external'` AND all `order_items.pickup_date < TODAY`. Action: `orders.status` → `'cancelled'`, all `order_items.status` → `'cancelled'`, inventory restored. | External order, all items `pickup_date = yesterday`, `orders.status = 'pending'` → after cron: `orders.status = 'cancelled'`, all `order_items.status = 'cancelled'`, inventory restored. |
+| OL-R16 | **Cron Phase 3: cancel expired external payment orders (per-vertical timing)**. Matches: `orders.status = 'pending'` AND `orders.payment_method = 'external'` AND items past the vertical's cancel window. Per-vertical: **FT regular listings** = orders from yesterday (`order_items.pickup_date < TODAY`). **FM regular listings** = day after item pickup date (`order_items.pickup_date < TODAY - 1day`). Action: `orders.status` → `'cancelled'`, all `order_items.status` → `'cancelled'`, inventory restored. | FT external order, `pickup_date = yesterday` → after cron: cancelled + inventory restored. FM external order, `pickup_date = 2 days ago` → after cron: cancelled + inventory restored. FM external order, `pickup_date = yesterday` → NOT cancelled yet (FM gets 1 extra day). |
 
-| OL-R17 | **Cron Phase 3.5: reminder only, no status changes**. Matches: `orders.status = 'pending'` AND `orders.payment_method = 'external'` AND `orders.created_at < NOW() - 2hr`. Action: sends vendor notification `type = 'external_payment_reminder'`. Does NOT change `orders.status` or any `order_items.status`. | External order 3hr old, `orders.status = 'pending'` → after cron: `orders.status` still `'pending'`, all `order_items.status` unchanged, notification row with reminder type exists. |
+| OL-R17 | **Cron Phase 3.5: reminder only, no status changes (per-vertical timing)**. Matches: `orders.status = 'pending'` AND `orders.payment_method = 'external'`. Per-vertical reminder timing: **FT** = 15min after `orders.created_at`. **FM** = 12hrs after `orders.created_at`. Action: sends vendor notification `type = 'external_payment_reminder'`. Does NOT change `orders.status` or any `order_items.status`. | FT external order 20min old → reminder sent, no status changes. FM external order 13hrs old → reminder sent, no status changes. FT external order 10min old → no reminder yet. FM external order 6hrs old → no reminder yet. |
 
 | OL-R18 | **Cron Phase 3.6: auto-confirm digital external payments**. Matches: `orders.status = 'pending'` AND `orders.payment_method` IN (`'venmo'`, `'cashapp'`, `'paypal'`) — NOT `'cash'` — AND all `order_items.pickup_date <= TODAY - 24hr`. Action: `orders.status` → `'paid'`, `order_items.status` → `'confirmed'`, `orders.external_payment_confirmed_at = NOW()`, fees recorded in ledger. | Venmo order, pickup 24hr+ past → after cron: `orders.status = 'paid'`, `order_items.status = 'confirmed'`, `external_payment_confirmed_at IS NOT NULL`. Cash order same conditions → NO changes (cash excluded). |
 
-| OL-R19 | **Cron Phase 4: no-show buyer, vendor still paid**. Matches: `order_items.status = 'ready'` AND `order_items.pickup_date < TODAY`. Action: new `vendor_payouts` row with `vendor_payouts.status = 'pending'`, buyer notification sent. `order_items.status` does NOT change (stays `'ready'`? — NEEDS VERIFICATION whether it goes to `'fulfilled'`). | Item with `order_items.status = 'ready'`, `pickup_date = yesterday` → after cron: `vendor_payouts` row exists with `status = 'pending'`, buyer notification sent. |
+| OL-R19 | **Cron Phase 4: no-show buyer, vendor still paid (per-vertical timing needed)**. Current code: `order_items.status = 'ready'` AND `order_items.pickup_date < TODAY` — no per-vertical logic. Code verified: item status changes to `'fulfilled'`, payout created with `vendor_payouts.status = 'pending'`, buyer gets `pickup_missed` notification. **Per-vertical scenarios to decide:** **FT**: Buyer ordered for 5:00 PM slot. No-show should trigger after the time slot passes, not just after midnight. Current code only checks date, ignoring `preferred_pickup_time`. **FM**: Buyer's pickup was during Saturday market (8am-1pm). No-show detection at midnight Saturday → Sunday is reasonable since market is closed. **Decision needed**: Should FT no-show check `pickup_date + preferred_pickup_time < NOW` instead of just `pickup_date < TODAY`? | FT: item `status='ready'`, `pickup_date = today`, `preferred_pickup_time = 17:00`, current time = 18:00 → should this trigger no-show? (Currently: NO — pickup_date is today, not past). FM: item `status='ready'`, `pickup_date = yesterday` → after cron: `order_items.status = 'fulfilled'`, payout created, buyer notified. |
 
 | OL-R20 | **Cron Phase 4.5: vendor stale reminder, no status change**. Matches: `order_items.status = 'confirmed'` AND `order_items.pickup_date < TODAY` with 3-day lookback. Action: escalating vendor notifications. `order_items.status` stays `'confirmed'` — does NOT change. | Item `order_items.status = 'confirmed'`, `pickup_date = yesterday` → after cron: `order_items.status` still `'confirmed'`, vendor notification sent. |
 
@@ -304,8 +304,8 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 |-------|------------------------------|--------|---------------------|
 | 1 | `order_items.expires_at <= NOW()` AND `order_items.status = 'pending'` | 24hr | `order_items.status` → `'cancelled'`, `listings.quantity_available` += quantity, notification `'order_expired'` |
 | 2 | `orders.status = 'pending'` AND `orders.stripe_checkout_session_id IS NOT NULL` AND `orders.created_at < NOW() - 10min` | 10min | `orders.status` → `'cancelled'`, all `order_items.status` → `'cancelled'`, inventory restored |
-| 3 | `orders.status = 'pending'` AND `orders.payment_method = 'external'` AND all `order_items.pickup_date < TODAY` | Past pickup | `orders.status` → `'cancelled'`, all `order_items.status` → `'cancelled'`, inventory restored |
-| 3.5 | `orders.status = 'pending'` AND `orders.payment_method = 'external'` AND `orders.created_at < NOW() - 2hr` | 2hr | Notification only — NO status changes |
+| 3 | `orders.status = 'pending'` AND `orders.payment_method = 'external'` AND items past vertical cancel window | FT: orders from yesterday. FM: day after pickup date | `orders.status` → `'cancelled'`, all `order_items.status` → `'cancelled'`, inventory restored |
+| 3.5 | `orders.status = 'pending'` AND `orders.payment_method = 'external'` AND past vertical reminder time | FT: 15min after created. FM: 12hr after created | Notification only — NO status changes |
 | 3.6 | `orders.status = 'pending'` AND `orders.payment_method` IN (`'venmo'`,`'cashapp'`,`'paypal'`) AND `pickup_date <= TODAY - 24hr` | 24hr post-pickup | `orders.status` → `'paid'`, `order_items.status` → `'confirmed'`, `orders.external_payment_confirmed_at = NOW()` |
 | 4 | `order_items.status = 'ready'` AND `order_items.pickup_date < TODAY` | Past pickup | New `vendor_payouts` row (`status = 'pending'`), buyer notification |
 | 4.5 | `order_items.status = 'confirmed'` AND `order_items.pickup_date < TODAY` (3-day lookback) | Past pickup | Vendor notification only — `order_items.status` stays `'confirmed'` |
@@ -318,10 +318,14 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 
 | ID | Question | Status |
 |----|----------|--------|
-| OL-Q1 | Is there a check preventing vendor from confirming AFTER the cutoff time has passed? | NEEDS CODE VERIFICATION — confirm route checks item status but NOT cutoff time |
+| OL-Q1 | Is there a check preventing vendor from confirming AFTER the cutoff time has passed? | CODE VERIFIED — **NO.** Vendor confirm route (`src/app/api/vendor/orders/[id]/confirm/route.ts`) only checks: (a) auth, (b) vendor ownership, (c) Stripe setup, (d) `order_items.status = 'pending'`. It does NOT check `expires_at`, cutoff time, or any time-based condition. A vendor can confirm an item at any time, even days after it "expired." The cron (Phase 1) may cancel the item first, but if the cron hasn't run yet, the vendor can still confirm a stale item. **GAP**: Should the confirm route reject items where `expires_at < NOW()`? |
 | OL-Q2 | What happens if BOTH success route and webhook try to create market box subscriptions? | VERIFIED — RPC returns `already_existed` flag, safe to call twice |
-| OL-Q3 | Confirmation window — who sets `confirmation_window_expires_at` and when? Is 30s configurable? | VERIFIED — Set by buyer confirm route, 30s hardcoded, cron Phase 7 auto-fulfills stale >5min |
+| OL-Q3 | Confirmation window — who sets `confirmation_window_expires_at` and when? Is 30s configurable? | VERIFIED — Set by buyer confirm route, 30s hardcoded, NOT configurable. Cron Phase 7 auto-fulfills stale >5min |
 | OL-Q4 | External orders in pending sit until Phase 3 (past pickup) or Phase 3.5 (2hr reminder). Gap between 10min and pickup date? | CONFIRMED — design gap. External orders have no equivalent of Phase 2's 10min timeout |
+| OL-Q5 | Chef Box & Market Box corollary for OL-R16: Do subscription-based box orders follow the same external payment cancellation rules as regular listings? Or do they have separate timing? | NEEDS USER DECISION |
+| OL-Q6 | Chef Box & Market Box corollary for OL-R17: Do subscription-based box orders get the same vendor reminder timing (FT=15min, FM=12hr)? Or different? | NEEDS USER DECISION |
+| OL-Q7 | Cash order status progression: Cash orders are excluded from Phase 3.6 auto-confirm (only digital external auto-confirms). What is the full lifecycle for a cash order? Vendor must manually confirm payment — but what if they never do? Phase 3 cancels eventually (past pickup), but is there an intermediate reminder or escalation specific to cash? | NEEDS DOCUMENTATION — user referenced a prior conversation about cash status progression |
+| OL-Q8 | OL-R19 per-vertical no-show timing: Should FT no-show detection use `pickup_date + preferred_pickup_time < NOW` (time-aware) instead of just `pickup_date < TODAY` (date-only)? Current code ignores the time slot entirely. | NEEDS USER DECISION |
 
 ---
 
@@ -351,8 +355,8 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
 | VI-R1 | Only valid vertical slugs are routable: `farmers_market`, `food_trucks`, `fire_works`. All others → 404 | VI-W1 | Request to `/invalid_vertical/browse` → 404 |
-| VI-R2 | Every Supabase query on `listings`, `orders`, `vendor_profiles`, `markets` MUST include `.eq('vertical_id', vertical)` when in a vertical context | VI-W2 | FM browse page never shows FT listings; FT vendor dashboard never shows FM orders |
-| VI-R3 | Admin routes that return data across verticals MUST either require platform admin role OR filter by vertical | VI-W2 | Vertical admin for FM cannot see FT vendor data |
+| VI-R2 | Every Supabase query on `listings`, `orders`, `vendor_profiles`, `markets` MUST include `.eq('vertical_id', vertical)` when in a vertical context. No listing or profile data from any page crosses from one vertical to another except as necessary for platform admin management | VI-W2 | FM browse page never shows FT listings; FT vendor dashboard never shows FM orders; FT vendor profile page never shows FM listing data |
+| VI-R3 | ONLY platform admin sees data across verticals. A vertical-specific admin (e.g., someone who manages FM vendors) cannot filter for or see FT data. Cross-vertical data access requires platform admin role, not just any admin role | VI-W2 | FT vertical admin cannot see FM vendor data. FT vertical admin cannot filter for FM data. Platform admin CAN see all verticals. |
 | VI-R4 | Activity feed (`/api/marketing/activity-feed`) MUST filter by vertical_id | VI-W2 | FM activity feed shows only FM activity |
 | VI-R5 | Vendor profiles are scoped by vertical_id. A vendor on FM is a separate entity from the same person's vendor profile on FT | VI-W2 | Same user_id can have vendor_profile with vertical_id='farmers_market' AND separate one with vertical_id='food_trucks' |
 
@@ -360,7 +364,7 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| VI-R6 | Email FROM address: FM=`noreply@mail.farmersmarketing.app`, FT=`noreply@mail.foodtruckn.app` | VI-W4 | FT order notification sent from foodtruckn.app domain |
+| VI-R6 | Email FROM address for notifications: FM=`noreply@mail.farmersmarketing.app`, FT=`noreply@mail.foodtruckn.app`. These are notification-only addresses. Each vertical will also have separate email addresses for other purposes (support, marketing, etc.) | VI-W4 | FT order notification sent from foodtruckn.app domain |
 | VI-R7 | CSS primary color: FM=`#8BC34A` (green), FT=`#ff5757` (red) | VI-W4 | No green on FT pages; no red on FM pages (except semantic danger color) |
 | VI-R8 | `term()` returns vertical-specific strings: FM "Market" vs FT "Location", FM "Market Box" vs FT "Chef Box" | VI-W3 | `term('food_trucks', 'market')` returns "Location" not "Market" |
 | VI-R9 | Buyer premium is FM-only. `isBuyerPremiumEnabled('food_trucks')` returns false. FT never shows premium upgrade UI | VI-W5 | FT settings page has no tier upgrade section |
@@ -369,12 +373,12 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| VI-R10 | Tipping is FT-only. Checkout shows tip selector only when vertical='food_trucks' | VI-W5 | FM checkout has no tip UI; FT checkout shows preset buttons (15%, 18%, 20%) + custom |
+| VI-R10 | Tipping is FT-only. Checkout shows tip selector only when vertical='food_trucks'. Preset options: 'No Tip' (0%), 10%, 15%, 20%, + Custom | VI-W5 | FM checkout has no tip UI; FT checkout shows preset buttons: 'No Tip' (0%), 10%, 15%, 20%, + Custom input |
 | VI-R11 | Preferred pickup time is FT-only. Cart item shows time slot selector only for FT | VI-W5 | FM cart items have no time slot; FT cart items require time slot |
 | VI-R12 | Vendor tier names differ: FM has standard/premium/featured. FT has free/basic/pro/boss | VI-W5 | `getTierLimits('basic', 'farmers_market')` throws or returns null; `getTierLimits('basic', 'food_trucks')` returns valid limits |
 | VI-R13 | Chef Box types (weekly_dinner, family_kit, etc.) are FT-only. FM market box offerings have null box_type | VI-W5 | FT market box form requires box_type; FM form doesn't show box_type field |
-| VI-R14 | Cutoff hours defaults: FM=18hr, FT=0hr (same-day ordering). Configurable per market | VI-W5 | FT market with no cutoff_hours set → defaults to 0; FM defaults to 18 |
-| VI-R15 | FT same-day ordering: FT listings only show today's date (not 7-day window). FT accepts orders until market end_time | VI-W5 | FT browse shows "Order for today"; FM browse shows "Order for next 7 days" |
+| VI-R14 | **Per-vertical order cutoff rules.** **FT**: Truck must have 30min lead time — orders accepted until 31min before end of the available window for the location (e.g., if window ends at 5:00 PM, last order must be placed by 4:29 PM). **FM traditional market**: 18hr auto cutoff for listings associated with a traditional market. **FM private location**: 10hr auto cutoff for listings associated with private locations. Configurable per market via `markets.cutoff_hours` column override. | VI-W5 | FT location window ends 5:00 PM → order at 4:30 PM rejected (within 30min). Order at 4:29 PM accepted. FM traditional market → default cutoff 18hr. FM private location → default cutoff 10hr. |
+| VI-R15 | **Per-vertical browse visibility.** **FT**: Same-day ordering — FT browse shows listings for trucks available today only. Orders accepted until 31min before end of the available window (same rule as VI-R14). **FM**: Browse shows listings associated with markets & private locations that have hours set and will be available (in season) for the next 7 days. Listings drop off automatically if they are only at a location that does not have open hours for the upcoming week. | VI-W5 | FT browse shows "Order for today" — no future dates. FM browse shows listings available within the next 7 days. FM listing at a market with no hours next week → not shown. |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
@@ -430,6 +434,8 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 | VI-Q1 | Cross-vertical auth: FM credentials work on FT (same Supabase auth). Production TLDs are separate so cookies don't carry over. Is shared identity intentional? | NEEDS USER DECISION |
 | VI-Q2 | Root admin page (`/admin/page.tsx`) — are the unscoped queries intentional (platform-wide view) or a bug? | NEEDS USER DECISION — agent confirmed it IS unscoped, shows all-vertical data with vertical_id displayed per row |
 | VI-Q3 | Referral codes — are they vertical-scoped? Can an FM referral code be used during FT signup? | NEEDS CODE VERIFICATION — referral lookup in submit route does NOT appear to filter by vertical_id |
+| VI-Q4 | Are there other vertical-specific terms beyond the 85 keys in `term()` configs? User asked if there are other vertical-specific terms not yet mapped. | NEEDS REVIEW |
+| VI-Q5 | VI-R8 confirmed: `term()` handles Market/Location, Market Box/Chef Box, Product/Dish, Vendor/Food Truck. Are there terms that SHOULD differ by vertical but currently don't? | NEEDS REVIEW |
 
 ---
 

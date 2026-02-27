@@ -27,14 +27,16 @@ function minutesToTime(minutes: number): string {
  * @param startTime - Schedule start ("HH:MM:SS" or "HH:MM")
  * @param endTime - Schedule end ("HH:MM:SS" or "HH:MM")
  * @param pickupDate - "YYYY-MM-DD" — if today, filters out slots too close to now
- * @param minLeadMinutes - Minimum minutes from now for today's slots (default 30)
+ * @param minLeadMinutes - Minimum minutes from now for today's slots (default 31).
+ *   FT rule: orders accepted until 31min before end of available window.
+ *   e.g., window ends 5:00 PM → last order by 4:29 PM.
  * @returns Array of "HH:MM" time strings
  */
 export function generateTimeSlots(
   startTime: string,
   endTime: string,
   pickupDate?: string,
-  minLeadMinutes: number = 30
+  minLeadMinutes: number = 31
 ): string[] {
   const startMins = parseTimeToMinutes(startTime)
   const endMins = parseTimeToMinutes(endTime)

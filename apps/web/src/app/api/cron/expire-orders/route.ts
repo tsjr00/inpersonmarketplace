@@ -348,13 +348,21 @@ export async function GET(request: NextRequest) {
 
     // ============================================================
     // PHASE 3.5: Vendor reminder for unconfirmed external orders
-    // Nudge vendors who haven't confirmed external payment 2+ hours
-    // after order was placed (same day) or 24+ hours (events).
+    // Per-vertical timing: FT = 15min after order, FM = 12hr after order.
     // Does NOT auto-confirm — just sends a reminder notification.
     // ============================================================
+    const REMINDER_DELAY_MS: Record<string, number> = {
+      food_trucks: 15 * 60 * 1000,       // 15 minutes
+      farmers_market: 12 * 60 * 60 * 1000, // 12 hours
+      fire_works: 12 * 60 * 60 * 1000,    // 12 hours (same as FM)
+    }
+    const DEFAULT_REMINDER_DELAY_MS = 12 * 60 * 60 * 1000 // 12 hours default
+
     let externalReminders = 0
     try {
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+      // Use the shortest delay (FT=15min) to fetch all candidates, then filter per-vertical
+      const shortestDelay = Math.min(...Object.values(REMINDER_DELAY_MS))
+      const earliestCutoff = new Date(Date.now() - shortestDelay).toISOString()
 
       const { data: unreminderOrders, error: reminderError } = await supabase
         .from('orders')
@@ -365,6 +373,7 @@ export async function GET(request: NextRequest) {
           total_cents,
           buyer_user_id,
           vertical_id,
+          created_at,
           order_items (
             id,
             vendor_profile_id,
@@ -378,7 +387,7 @@ export async function GET(request: NextRequest) {
         .eq('status', 'pending')
         .in('payment_method', ['venmo', 'cashapp', 'paypal'])
         .is('external_payment_confirmed_at', null)
-        .lte('created_at', twoHoursAgo)
+        .lte('created_at', earliestCutoff)
         .limit(50)
 
       if (reminderError) {
@@ -386,7 +395,15 @@ export async function GET(request: NextRequest) {
       } else if (unreminderOrders && unreminderOrders.length > 0) {
         // Group by vendor to send one reminder per vendor
         const vendorOrders = new Map<string, { userId: string; orderCount: number; vertical: string }>()
+        const now = Date.now()
+
         for (const order of unreminderOrders) {
+          // Per-vertical: check if this order is old enough for its vertical's reminder delay
+          const vertical = order.vertical_id || 'farmers_market'
+          const delayMs = REMINDER_DELAY_MS[vertical] ?? DEFAULT_REMINDER_DELAY_MS
+          const orderAge = now - new Date(order.created_at).getTime()
+          if (orderAge < delayMs) continue // Not old enough for this vertical's delay
+
           const items = order.order_items as unknown as Array<{
             id: string
             vendor_profile_id: string
@@ -398,7 +415,7 @@ export async function GET(request: NextRequest) {
               vendorOrders.set(vp.user_id, {
                 userId: vp.user_id,
                 orderCount: 0,
-                vertical: order.vertical_id || 'farmers_market',
+                vertical,
               })
             }
             const entry = vendorOrders.get(vp?.user_id || '')
