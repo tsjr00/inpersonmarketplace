@@ -67,15 +67,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  async redirects() {
-    return [
-      {
-        source: '/:vertical/comingsoon',
-        destination: '/:vertical/comingsoon/',
-        permanent: true,
-      },
-    ];
-  },
+  skipTrailingSlashRedirect: true,
   async headers() {
     return [
       {
