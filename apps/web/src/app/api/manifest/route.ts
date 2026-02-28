@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
     headers: {
       'Content-Type': 'application/manifest+json',
       'Cache-Control': 'public, max-age=86400',
+      'Vary': 'Host',
     },
   })
 }

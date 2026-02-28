@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     status: 302,
     headers: {
       'Cache-Control': 'public, max-age=86400',
+      'Vary': 'Host',
     },
   })
 }
