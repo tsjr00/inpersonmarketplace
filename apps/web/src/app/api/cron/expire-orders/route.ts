@@ -1277,7 +1277,16 @@ export async function GET(request: NextRequest) {
             order_number,
             buyer_user_id,
             vertical_id,
-            payment_method
+            payment_method,
+            tip_amount,
+            tip_on_platform_fee_cents,
+            stripe_checkout_session_id,
+            order_items (id)
+          ),
+          vendor:vendor_profiles (
+            id,
+            stripe_account_id,
+            stripe_payouts_enabled
           )
         `)
         .not('buyer_confirmed_at', 'is', null)
@@ -1311,6 +1320,64 @@ export async function GET(request: NextRequest) {
             await supabase.rpc('atomic_complete_order_if_ready', {
               p_order_id: item.order_id
             })
+
+            // Create vendor payout (same logic as Phase 4)
+            const order = item.order as any
+            const vendor = item.vendor as any
+            const tipAmount = order?.tip_amount || 0
+            const tipOnPlatformFee = order?.tip_on_platform_fee_cents || 0
+            const vendorTipCents = tipAmount - tipOnPlatformFee
+            const totalItemsInOrder = order?.order_items?.length || 1
+            const tipShareCents = totalItemsInOrder > 0 ? Math.round(vendorTipCents / totalItemsInOrder) : 0
+            const actualPayoutCents = (item.vendor_payout_cents || 0) + tipShareCents
+
+            if (actualPayoutCents > 0 && order?.stripe_checkout_session_id) {
+              // Check for existing payout (prevent double payout)
+              const { data: existingPayout } = await supabase
+                .from('vendor_payouts')
+                .select('id')
+                .eq('order_item_id', item.id)
+                .neq('status', 'failed')
+                .maybeSingle()
+
+              if (!existingPayout && vendor?.stripe_account_id && vendor?.stripe_payouts_enabled) {
+                try {
+                  const transfer = await transferToVendor({
+                    amount: actualPayoutCents,
+                    destination: vendor.stripe_account_id,
+                    orderId: item.order_id,
+                    orderItemId: item.id,
+                  })
+
+                  await supabase.from('vendor_payouts').insert({
+                    order_item_id: item.id,
+                    vendor_profile_id: item.vendor_profile_id,
+                    amount_cents: actualPayoutCents,
+                    stripe_transfer_id: transfer.id,
+                    status: 'processing',
+                  })
+                } catch (transferError) {
+                  console.error('[Phase 7] Stripe transfer failed for auto-fulfill payout:', transferError)
+                  // Record failed payout for retry in Phase 5
+                  await supabase.from('vendor_payouts').insert({
+                    order_item_id: item.id,
+                    vendor_profile_id: item.vendor_profile_id,
+                    amount_cents: actualPayoutCents,
+                    stripe_transfer_id: null,
+                    status: 'failed',
+                  })
+                }
+              } else if (!existingPayout && !vendor?.stripe_payouts_enabled) {
+                // Vendor doesn't have Stripe ready — record as pending
+                await supabase.from('vendor_payouts').insert({
+                  order_item_id: item.id,
+                  vendor_profile_id: item.vendor_profile_id,
+                  amount_cents: actualPayoutCents,
+                  stripe_transfer_id: null,
+                  status: 'pending_stripe_setup',
+                })
+              }
+            }
 
             staleWindowsFulfilled++
             totalProcessed++

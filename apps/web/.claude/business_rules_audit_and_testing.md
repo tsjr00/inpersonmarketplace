@@ -74,8 +74,8 @@ Cart → fee calculation → order creation → inventory decrement → vendor n
 **MP-W3: Vendor Payout (Stripe Orders)**
 Order fulfilled → payout record created → Stripe transfer initiated → webhook confirms → vendor notified
 
-**MP-W4: Vendor Payout (Market Box Pickups)**
-Pickup fulfilled → payout record created → Stripe transfer → webhook confirms
+**MP-W4: Vendor Payout (Market Box / Chef Box Subscriptions)** ✅ UPDATED Session 48
+Buyer pays for subscription → full prepaid vendor payout created at checkout → Stripe transfer → webhook confirms. No per-pickup payout.
 
 **MP-W5: Refund Flow**
 Buyer cancels OR admin refunds → Stripe refund issued → inventory restored → vendor/buyer notified
@@ -112,8 +112,8 @@ Buyer selects tip % at checkout → tip applied to displayed subtotal (not base)
 | MP-R3 | Tip percentage applied to displayed subtotal (sum of per-item display prices), NOT base subtotal | MP-W1 | Tip on $19.18 displayed subtotal (2 × $9.59) not $18.00 base |
 | MP-R4 | Vendor receives tip on food cost only; platform fee portion tracked in `tip_on_platform_fee_cents` | MP-W1 | vendor_tip = tip_amount - tip_on_platform_fee_cents |
 | MP-R5 | Small order fee ($0.50) applies when displayed subtotal (base+6.5%) < $5.00 (configurable per vertical) | MP-W1, MP-W2 | Fee applied before tip calculation; threshold compared against displayed price |
-| MP-R6 | Double payout prevention: unique index on `vendor_payouts(order_item_id)` WHERE status NOT IN ('failed','cancelled') | MP-W3 | Cannot insert two non-failed payouts for same order_item |
-| MP-R7 | Stripe idempotency keys are deterministic: `checkout-{orderId}`, `transfer-{orderId}-{orderItemId}`, `refund-{paymentIntentId}-{amount}` | MP-W1, MP-W3, MP-W5 | Never use Date.now() or random values in idempotency keys |
+| MP-R6 | Double payout prevention: unique index on `vendor_payouts(order_item_id)` WHERE status NOT IN ('failed','cancelled'). ✅ Also `idx_vendor_payouts_mb_sub_unique` on `market_box_subscription_id` (Session 48, migration 059) | MP-W3, MP-W4 | Cannot insert two non-failed payouts for same order_item OR same market_box_subscription |
+| MP-R7 | Stripe idempotency keys are deterministic: `checkout-{orderId}`, `transfer-{orderId}-{orderItemId}`, `transfer-mb-sub-{subscriptionId}` ✅ (Session 48), `refund-{paymentIntentId}-{amount}`, `market-box-{offeringId}-{userId}-{startDate}` | MP-W1, MP-W3, MP-W4, MP-W5 | Never use Date.now() or random values in idempotency keys |
 | MP-R8 | Inventory decremented atomically via `atomic_decrement_inventory()` RPC at checkout time, restored on cancellation/expiration per order_item | MP-W1, MP-W2, MP-W5 | quantity never goes negative; restored items match decremented count for specific item |
 
 #### HIGH (Financial Accuracy)
@@ -190,7 +190,7 @@ Buyer selects tip % at checkout → tip applied to displayed subtotal (not base)
 
 | ID | Question | Status |
 |----|----------|--------|
-| MP-Q1 | Market box payout: is there a unique index on `market_box_pickup_id` similar to `order_item_id`? Session 46 flagged this as missing. | CODE VERIFIED — buyer and vendor percentage fees are always identical (6.5% each). Both use `FEES.buyerFeePercent` and `FEES.vendorFeePercent` from `pricing.ts`. No code path allows them to differ. The `as const` object makes them compile-time immutable. Still needs verification on market_box_pickup_id unique index. |
+| ✅ MP-Q1 | Market box payout: is there a unique index on `market_box_pickup_id` similar to `order_item_id`? Session 46 flagged this as missing. | **RESOLVED Session 48** — Per-pickup payouts removed entirely. New `market_box_subscription_id` column added to `vendor_payouts` with unique partial index `idx_vendor_payouts_mb_sub_unique` (WHERE NOT NULL AND status NOT IN ('failed','cancelled')). Migration 059. Payout now happens once at checkout for full prepaid amount. |
 | MP-Q2 | External payment fee difference (13% Stripe vs 10% external) — confirmed intentional by user? | CONFIRMED BY USER — External payments: Buyer fee = 6.5%, Vendor fee = 3.5% (10% total vs 13% for Stripe). Lower vendor fee because platform has no payment processing cost to pass along. |
 | MP-Q3 | Tip on platform fee portion — is this clearly communicated to the buyer in the UI? | CONFIRMED BY USER — NOT communicated to buyer at checkout by design. Must be disclosed in Terms & Conditions only. Not supposed to be visible to the buyer at checkout. |
 
@@ -259,8 +259,7 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 
 | OL-R3 | **`order_items.status` → `'cancelled'` triggers inventory restore**. When any item reaches `order_items.status = 'cancelled'` (by buyer, vendor, or cron), inventory MUST be restored for the exact `order_items.quantity` that was decremented at checkout. Uses `atomic_decrement_inventory` RPC (per-listing). | Given `order_items.quantity = 3` and `listings.quantity_available` was decremented by 3 at checkout → after `order_items.status` set to `'cancelled'` → `listings.quantity_available` MUST increase by exactly 3. |
 
-| OL-R4 | **`vendor_payouts` row created ONLY when `order_items.status = 'fulfilled'`**. No payout record exists for items at `'pending'`, `'confirmed'`, or `'ready'`. Payout row is inserted with `vendor_payouts.status = 'pending'` (queued for Stripe transfer). Later Stripe processes it to `vendor_payouts.status = 'completed'` (transfer succeeded). 
-| When `order_items.status = 'confirmed'` → `SELECT FROM vendor_payouts WHERE order_item_id = X` MUST return 0 rows. When `order_items.status` set to `'fulfilled'` → same query MUST return 1 row with `vendor_payouts.status = 'pending'`. |
+| OL-R4 | **Regular orders**: `vendor_payouts` row created when `order_items.status = 'fulfilled'`. **Market box subscriptions** ✅ (Session 48): `vendor_payouts` row created at checkout time (full prepaid amount), linked via `market_box_subscription_id` — NOT per-pickup. No payout record for regular items at `'pending'`, `'confirmed'`, or `'ready'`. | When `order_items.status = 'confirmed'` → `SELECT FROM vendor_payouts WHERE order_item_id = X` MUST return 0 rows. When `order_items.status` set to `'fulfilled'` → same query MUST return 1 row with `vendor_payouts.status = 'pending'`. For market boxes: payout exists as soon as subscription is created (checkout). |
 
 | OL-R5 | **Buyer can cancel items where `order_items.status` IN (`'pending'`, `'confirmed'`, `'ready'`)**. Once `order_items.status = 'fulfilled'`, cancel is blocked — vendor has been paid. A cancellation fee may apply (see OL-R7/R8), but the status path is valid for all three pre-fulfillment statuses. | Buyer cancel where `order_items.status = 'pending'` → `order_items.status` set to `'cancelled'`. Buyer cancel where `order_items.status = 'confirmed'` → `order_items.status` set to `'cancelled'`. Buyer cancel where `order_items.status = 'ready'` → `order_items.status` set to `'cancelled'`. Buyer cancel where `order_items.status = 'fulfilled'` → API returns error, `order_items.status` unchanged. |
 
@@ -290,13 +289,13 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 
 | OL-R18 | **Cron Phase 3.6: auto-confirm digital external payments**. Matches: `orders.status = 'pending'` AND `orders.payment_method` IN (`'venmo'`, `'cashapp'`, `'paypal'`) — NOT `'cash'` — AND all `order_items.pickup_date <= TODAY - 24hr`. Action: `orders.status` → `'paid'`, `order_items.status` → `'confirmed'`, `orders.external_payment_confirmed_at = NOW()`, fees recorded in ledger. | Venmo order, pickup 24hr+ past → after cron: `orders.status = 'paid'`, `order_items.status = 'confirmed'`, `external_payment_confirmed_at IS NOT NULL`. Cash order same conditions → NO changes (cash excluded). |
 
-| OL-R19 | **Cron Phase 4: no-show buyer, vendor still paid (per-vertical timing needed)**. Current code: `order_items.status = 'ready'` AND `order_items.pickup_date < TODAY` — no per-vertical logic. Code verified: item status changes to `'fulfilled'`, payout created with `vendor_payouts.status = 'pending'`, buyer gets `pickup_missed` notification. **Per-vertical scenarios to decide:** **FT**: Buyer ordered for 5:00 PM slot. No-show should trigger after the time slot passes, not just after midnight. Current code only checks date, ignoring `preferred_pickup_time`. **FM**: Buyer's pickup was during Saturday market (8am-1pm). No-show detection at midnight Saturday → Sunday is reasonable since market is closed. **Decision needed**: Should FT no-show check `pickup_date + preferred_pickup_time < NOW` instead of just `pickup_date < TODAY`? | FT: item `status='ready'`, `pickup_date = today`, `preferred_pickup_time = 17:00`, current time = 18:00 → should this trigger no-show? (Currently: NO — pickup_date is today, not past). FM: item `status='ready'`, `pickup_date = yesterday` → after cron: `order_items.status = 'fulfilled'`, payout created, buyer notified. |
+| 🔵❓ OL-R19 | **Cron Phase 4: no-show buyer, vendor still paid (per-vertical timing needed)**. Current code: `order_items.status = 'ready'` AND `order_items.pickup_date < TODAY` — no per-vertical logic. Code verified: item status changes to `'fulfilled'`, payout created with `vendor_payouts.status = 'pending'`, buyer gets `pickup_missed` notification. **Per-vertical scenarios to decide:** **FT**: Buyer ordered for 5:00 PM slot. No-show should trigger after the time slot passes, not just after midnight. Current code only checks date, ignoring `preferred_pickup_time`. **FM**: Buyer's pickup was during Saturday market (8am-1pm). No-show detection at midnight Saturday → Sunday is reasonable since market is closed. **Decision needed**: Should FT no-show check `pickup_date + preferred_pickup_time < NOW` instead of just `pickup_date < TODAY`? | FT: item `status='ready'`, `pickup_date = today`, `preferred_pickup_time = 17:00`, current time = 18:00 → should this trigger no-show? (Currently: NO — pickup_date is today, not past). FM: item `status='ready'`, `pickup_date = yesterday` → after cron: `order_items.status = 'fulfilled'`, payout created, buyer notified. |
 
-| OL-R20 | **Cron Phase 4.5: vendor stale reminder, no status change**. Matches: `order_items.status = 'confirmed'` AND `order_items.pickup_date < TODAY` with 3-day lookback. Action: escalating vendor notifications. `order_items.status` stays `'confirmed'` — does NOT change. | Item `order_items.status = 'confirmed'`, `pickup_date = yesterday` → after cron: `order_items.status` still `'confirmed'`, vendor notification sent. |
+| 🔵❓ OL-R20 | **Cron Phase 4.5: vendor stale reminder, no status change**. Matches: `order_items.status = 'confirmed'` AND `order_items.pickup_date < TODAY` with 3-day lookback. Action: escalating vendor notifications. `order_items.status` stays `'confirmed'` — does NOT change. | Item `order_items.status = 'confirmed'`, `pickup_date = yesterday` → after cron: `order_items.status` still `'confirmed'`, vendor notification sent. |
 
-| OL-R21 | **Cron Phase 5: retry failed payouts**. Matches: `vendor_payouts.status = 'failed'` AND `vendor_payouts.created_at < NOW() - 7days`. Action: retries Stripe transfer. Success → `vendor_payouts.status = 'completed'`. Second failure → `vendor_payouts.status = 'cancelled'`, admin alert notification sent. | Payout with `vendor_payouts.status = 'failed'`, created 8 days ago → after cron: either `vendor_payouts.status = 'completed'` (retry success) or `vendor_payouts.status = 'cancelled'` (retry failed) + admin alert. |
+| ✅ OL-R21 | **Cron Phase 5: retry failed payouts**. Matches: `vendor_payouts.status = 'failed'` AND within 7-day window. Retries BOTH `order_item_id` payouts (via `transferToVendor`) AND `market_box_subscription_id` payouts (via `transferMarketBoxPayout`). Also retries `pending_stripe_setup` payouts for both types. Success → `vendor_payouts.status = 'completed'`. After 7 days → `vendor_payouts.status = 'cancelled'`, admin alert. ✅ Updated Session 48 — market box subscription retry added. | Payout with `vendor_payouts.status = 'failed'`, created 8 days ago → after cron: either `vendor_payouts.status = 'completed'` (retry success) or `vendor_payouts.status = 'cancelled'` (retry failed) + admin alert. Works for both order_item and market_box_subscription payouts. |
 
-| OL-R22 | **Cron Phase 7: auto-fulfill stale confirmation windows**. Matches: `order_items.buyer_confirmed_at IS NOT NULL` AND `order_items.vendor_confirmed_at IS NULL` AND `order_items.confirmation_window_expires_at < NOW() - 5min`. Action: `order_items.status` → `'fulfilled'`, `order_items.vendor_confirmed_at = NOW()`, new `vendor_payouts` row with `vendor_payouts.status = 'pending'`. | Item with `buyer_confirmed_at` set, `vendor_confirmed_at = NULL`, window expired 6min ago → after cron: `order_items.status = 'fulfilled'`, `vendor_confirmed_at IS NOT NULL`, `vendor_payouts` row with `status = 'pending'`. |
+| ✅ OL-R22 | **Cron Phase 7: auto-fulfill stale confirmation windows**. Matches: `order_items.buyer_confirmed_at IS NOT NULL` AND `order_items.vendor_confirmed_at IS NULL` AND `order_items.confirmation_window_expires_at < NOW() - 5min`. Action: `order_items.status` → `'fulfilled'`, `order_items.vendor_confirmed_at = NOW()`. ✅ **FIXED Session 48**: Now also creates `vendor_payouts` record + Stripe transfer (same logic as Phase 4). Handles: vendor has Stripe → transfer + 'processing', transfer fails → 'failed' (Phase 5 retries), no Stripe → 'pending_stripe_setup'. | Item with `buyer_confirmed_at` set, `vendor_confirmed_at = NULL`, window expired 6min ago → after cron: `order_items.status = 'fulfilled'`, `vendor_confirmed_at IS NOT NULL`, `vendor_payouts` row with `status = 'processing'` (or 'failed'/'pending_stripe_setup'). |
 
 ### Cron Phases Reference
 
@@ -309,8 +308,8 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 | 3.6 | `orders.status = 'pending'` AND `orders.payment_method` IN (`'venmo'`,`'cashapp'`,`'paypal'`) AND `pickup_date <= TODAY - 24hr` | 24hr post-pickup | `orders.status` → `'paid'`, `order_items.status` → `'confirmed'`, `orders.external_payment_confirmed_at = NOW()` |
 | 4 | `order_items.status = 'ready'` AND `order_items.pickup_date < TODAY` | Past pickup | New `vendor_payouts` row (`status = 'pending'`), buyer notification |
 | 4.5 | `order_items.status = 'confirmed'` AND `order_items.pickup_date < TODAY` (3-day lookback) | Past pickup | Vendor notification only — `order_items.status` stays `'confirmed'` |
-| 5 | `vendor_payouts.status = 'failed'` AND `vendor_payouts.created_at < NOW() - 7days` | 7 days | Retry → `vendor_payouts.status` → `'completed'` or `'cancelled'` + admin alert |
-| 7 | `order_items.buyer_confirmed_at IS NOT NULL` AND `order_items.vendor_confirmed_at IS NULL` AND `confirmation_window_expires_at < NOW() - 5min` | 5min | `order_items.status` → `'fulfilled'`, `vendor_confirmed_at = NOW()`, new `vendor_payouts` row (`status = 'pending'`) |
+| 5 | `vendor_payouts.status = 'failed'` AND within 7-day window. Handles BOTH `order_item_id` AND `market_box_subscription_id` payouts ✅ | 7 days | Retry → `vendor_payouts.status` → `'completed'` or `'cancelled'` + admin alert |
+| 7 | `order_items.buyer_confirmed_at IS NOT NULL` AND `order_items.vendor_confirmed_at IS NULL` AND `confirmation_window_expires_at < NOW() - 5min` | 5min | `order_items.status` → `'fulfilled'`, `vendor_confirmed_at = NOW()`, ✅ new `vendor_payouts` row + Stripe transfer (Session 48 fix) |
 | 8 | `vendor_profiles.tier_expires_at <= NOW()` | Daily | Downgrade subscription tier |
 | 9 | Old logs/notifications/events past retention window | 90d/60d/30d | Delete old rows |
 
@@ -318,14 +317,14 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 
 | ID | Question | Status |
 |----|----------|--------|
-| OL-Q1 | Is there a check preventing vendor from confirming AFTER the cutoff time has passed? | CODE VERIFIED — **NO.** Vendor confirm route (`src/app/api/vendor/orders/[id]/confirm/route.ts`) only checks: (a) auth, (b) vendor ownership, (c) Stripe setup, (d) `order_items.status = 'pending'`. It does NOT check `expires_at`, cutoff time, or any time-based condition. A vendor can confirm an item at any time, even days after it "expired." The cron (Phase 1) may cancel the item first, but if the cron hasn't run yet, the vendor can still confirm a stale item. **GAP**: Should the confirm route reject items where `expires_at < NOW()`? |
+| 🔵❓ OL-Q1 | Is there a check preventing vendor from confirming AFTER the cutoff time has passed? | CODE VERIFIED — **NO.** Vendor confirm route (`src/app/api/vendor/orders/[id]/confirm/route.ts`) only checks: (a) auth, (b) vendor ownership, (c) Stripe setup, (d) `order_items.status = 'pending'`. It does NOT check `expires_at`, cutoff time, or any time-based condition. A vendor can confirm an item at any time, even days after it "expired." The cron (Phase 1) may cancel the item first, but if the cron hasn't run yet, the vendor can still confirm a stale item. **GAP**: Should the confirm route reject items where `expires_at < NOW()`? |
 | OL-Q2 | What happens if BOTH success route and webhook try to create market box subscriptions? | VERIFIED — RPC returns `already_existed` flag, safe to call twice |
 | OL-Q3 | Confirmation window — who sets `confirmation_window_expires_at` and when? Is 30s configurable? | VERIFIED — Set by buyer confirm route, 30s hardcoded, NOT configurable. Cron Phase 7 auto-fulfills stale >5min |
 | OL-Q4 | External orders in pending sit until Phase 3 (past pickup) or Phase 3.5 (2hr reminder). Gap between 10min and pickup date? | CONFIRMED — design gap. External orders have no equivalent of Phase 2's 10min timeout |
-| OL-Q5 | Chef Box & Market Box corollary for OL-R16: Do subscription-based box orders follow the same external payment cancellation rules as regular listings? Or do they have separate timing? | NEEDS USER DECISION |
-| OL-Q6 | Chef Box & Market Box corollary for OL-R17: Do subscription-based box orders get the same vendor reminder timing (FT=15min, FM=12hr)? Or different? | NEEDS USER DECISION |
-| OL-Q7 | Cash order status progression: Cash orders are excluded from Phase 3.6 auto-confirm (only digital external auto-confirms). What is the full lifecycle for a cash order? Vendor must manually confirm payment — but what if they never do? Phase 3 cancels eventually (past pickup), but is there an intermediate reminder or escalation specific to cash? | NEEDS DOCUMENTATION — user referenced a prior conversation about cash status progression |
-| OL-Q8 | OL-R19 per-vertical no-show timing: Should FT no-show detection use `pickup_date + preferred_pickup_time < NOW` (time-aware) instead of just `pickup_date < TODAY` (date-only)? Current code ignores the time slot entirely. | NEEDS USER DECISION |
+| 🔵❓ OL-Q5 | Chef Box & Market Box corollary for OL-R16: Do subscription-based box orders follow the same external payment cancellation rules as regular listings? Or do they have separate timing? | NEEDS USER DECISION |
+| 🔵❓ OL-Q6 | Chef Box & Market Box corollary for OL-R17: Do subscription-based box orders get the same vendor reminder timing (FT=15min, FM=12hr)? Or different? | NEEDS USER DECISION |
+| 🔵❓ OL-Q7 | Cash order status progression: Cash orders are excluded from Phase 3.6 auto-confirm (only digital external auto-confirms). What is the full lifecycle for a cash order? Vendor must manually confirm payment — but what if they never do? Phase 3 cancels eventually (past pickup), but is there an intermediate reminder or escalation specific to cash? | NEEDS DOCUMENTATION — user referenced a prior conversation about cash status progression |
+| 🔵❓ OL-Q8 | OL-R19 per-vertical no-show timing: Should FT no-show detection use `pickup_date + preferred_pickup_time < NOW` (time-aware) instead of just `pickup_date < TODAY` (date-only)? Current code ignores the time slot entirely. | NEEDS USER DECISION |
 
 ---
 
@@ -364,7 +363,7 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| VI-R6 | Email FROM address for notifications: FM=`noreply@mail.farmersmarketing.app`, FT=`noreply@mail.foodtruckn.app`. These are notification-only addresses. Each vertical will also have separate email addresses for other purposes (support, marketing, etc.) | VI-W4 | FT order notification sent from foodtruckn.app domain |
+| VI-R6 | Email FROM address for notifications: FM=`updates@mail.farmersmarketing.app`, FT=`updates@mail.foodtruckn.app`. FW falls back to FM address. These are notification-only addresses. Each vertical will also have separate email addresses for other purposes (support, marketing, etc.) | VI-W4 | FT order notification sent from foodtruckn.app domain |
 | VI-R7 | CSS primary color: FM=`#8BC34A` (green), FT=`#ff5757` (red) | VI-W4 | No green on FT pages; no red on FM pages (except semantic danger color) |
 | VI-R8 | `term()` returns vertical-specific strings: FM "Market" vs FT "Location", FM "Market Box" vs FT "Chef Box" | VI-W3 | `term('food_trucks', 'market')` returns "Location" not "Market" |
 | VI-R9 | Buyer premium is FM-only. `isBuyerPremiumEnabled('food_trucks')` returns false. FT never shows premium upgrade UI | VI-W5 | FT settings page has no tier upgrade section |
@@ -399,9 +398,10 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 - FM: domain=farmersmarketing.app, primary=#2d5016 (green), brand="Fresh Market"
 - FT: domain=foodtruckn.app, primary=#ff5757 (red), brand="Food Truck'n"
 
-**Email FROM (src/lib/notifications/service.ts line 175):**
-- FM: `noreply@mail.farmersmarketing.app` ✅
-- FT: `noreply@mail.foodtruckn.app` ✅ (requires Resend DNS verification)
+**Email FROM (src/lib/notifications/service.ts lines 169-175):**
+- FM: `updates@mail.farmersmarketing.app` ✅ (was `noreply@`, changed to `updates@`)
+- FT: `updates@mail.foodtruckn.app` ✅ (requires Resend DNS verification)
+- FW: Falls back to FM address
 
 **Feature gating configs (vertical config files lines 7-9):**
 - FM: `buyer_premium_enabled: true, premium_window_minutes: 120, show_upgrade_ui: true`
@@ -431,15 +431,15 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 
 | ID | Question | Status |
 |----|----------|--------|
-| VI-Q1 | Cross-vertical auth: FM credentials work on FT (same Supabase auth). Production TLDs are separate so cookies don't carry over. Is shared identity intentional? | NEEDS USER DECISION |
-| VI-Q2 | Root admin page (`/admin/page.tsx`) — are the unscoped queries intentional (platform-wide view) or a bug? | NEEDS USER DECISION — agent confirmed it IS unscoped, shows all-vertical data with vertical_id displayed per row |
-| VI-Q3 | Referral codes — are they vertical-scoped? Can an FM referral code be used during FT signup? | NEEDS CODE VERIFICATION — referral lookup in submit route does NOT appear to filter by vertical_id |
-| VI-Q4 | Are there other vertical-specific terms beyond the 85 keys in `term()` configs? User asked if there are other vertical-specific terms not yet mapped. | NEEDS REVIEW |
-| VI-Q5 | VI-R8 confirmed: `term()` handles Market/Location, Market Box/Chef Box, Product/Dish, Vendor/Food Truck. Are there terms that SHOULD differ by vertical but currently don't? | NEEDS REVIEW |
+| 🔵❓ VI-Q1 | Cross-vertical auth: FM credentials work on FT (same Supabase auth). Production TLDs are separate so cookies don't carry over. Is shared identity intentional? | NEEDS USER DECISION |
+| 🔵❓ VI-Q2 | Root admin page (`/admin/page.tsx`) — are the unscoped queries intentional (platform-wide view) or a bug? | NEEDS USER DECISION — agent confirmed it IS unscoped, shows all-vertical data with vertical_id displayed per row |
+| ✅ VI-Q3 | Referral codes — are they vertical-scoped? Can an FM referral code be used during FT signup? | **CODE VERIFIED Session 48** — YES, filtered by vertical. `src/app/api/submit/route.ts` line 107: `.eq("vertical_id", vertical)` on referral lookup. An FM referral code CANNOT be used for FT signup. |
+| 🔵❓ VI-Q4 | Are there other vertical-specific terms beyond the 85 keys in `term()` configs? User asked if there are other vertical-specific terms not yet mapped. | NEEDS REVIEW |
+| 🔵❓ VI-Q5 | VI-R8 confirmed: `term()` handles Market/Location, Market Box/Chef Box, Product/Dish, Vendor/Food Truck. Are there terms that SHOULD differ by vertical but currently don't? | NEEDS REVIEW |
 
 ---
 
-## DOMAIN 4: VENDOR JOURNEY
+## 🔵❓ DOMAIN 4: VENDOR JOURNEY (Entire domain not yet reviewed by user)
 
 ### Named Workflows
 
@@ -625,14 +625,14 @@ Market has `status='active'` while `approval_status='pending'`. Security depends
 
 | ID | Question | Status |
 |----|----------|--------|
-| VJ-Q1 | Can a vendor create listings while in 'pending' approval status? | RESOLVED — Yes, but client forces `status='draft'`. NO server-side enforcement — vendor could bypass via direct Supabase insert (Gap 1) |
-| VJ-Q2 | Is there server-side validation on listing writes? | RESOLVED — No server API for listings. Only DB constraints: CHECK (quantity required), TRIGGER (tier limits), RLS (ownership). No vendor-status or onboarding-gate check at DB level (Gap 1) |
-| VJ-Q3 | What happens to published listings when tier is downgraded? | RESOLVED — Nothing. Excess listings stay published. Only new publishes are blocked by trigger (Gap 2) |
-| VJ-Q4 | Vendor market suggestion → auto-join? | RESOLVED — Yes, vendor attendance records created at suggestion time (not approval time). Vendor is already "joined" before admin approves (Gap 5) |
+| 🔵❓ VJ-Q1 | Can a vendor create listings while in 'pending' approval status? | RESOLVED — Yes, but client forces `status='draft'`. NO server-side enforcement — vendor could bypass via direct Supabase insert (Gap 1) |
+| 🔵❓ VJ-Q2 | Is there server-side validation on listing writes? | RESOLVED — No server API for listings. Only DB constraints: CHECK (quantity required), TRIGGER (tier limits), RLS (ownership). No vendor-status or onboarding-gate check at DB level (Gap 1) |
+| 🔵❓ VJ-Q3 | What happens to published listings when tier is downgraded? | RESOLVED — Nothing. Excess listings stay published. Only new publishes are blocked by trigger (Gap 2) |
+| 🔵❓ VJ-Q4 | Vendor market suggestion → auto-join? | RESOLVED — Yes, vendor attendance records created at suggestion time (not approval time). Vendor is already "joined" before admin approves (Gap 5) |
 
 ---
 
-## DOMAIN 5: SUBSCRIPTION LIFECYCLE (Market Boxes / Chef Boxes)
+## 🔵❓ DOMAIN 5: SUBSCRIPTION LIFECYCLE (Market Boxes / Chef Boxes) (Entire domain not yet reviewed by user)
 
 ### Named Workflows
 
@@ -645,8 +645,8 @@ Buyer selects offering → capacity check → duplicate check → Stripe checkou
 **SL-W3: Buyer Subscription (Unified Cart)**
 Buyer adds market box to cart with listings → Stripe checkout → success handler/webhook creates subscription per item → DB trigger generates pickups
 
-**SL-W4: Pickup Lifecycle**
-scheduled → vendor marks ready → mutual confirmation (30s window) → picked_up → payout created
+**SL-W4: Pickup Lifecycle** ✅ UPDATED Session 48
+scheduled → vendor marks ready → mutual confirmation (30s window) → picked_up. Payout already created at checkout time (not per-pickup).
 
 **SL-W5: Vendor Skip-a-Week (FM Only)**
 Vendor skips pickup → original marked skipped → extension pickup created → subscription extended_weeks incremented
@@ -666,8 +666,8 @@ Scheduled/ready pickup past date → vendor marks missed OR cron Phase 4 auto-ha
 | SL-R1 | Subscription creation is atomic: `subscribe_to_market_box_if_capacity` RPC acquires FOR UPDATE lock on offering row, preventing race conditions | SL-W2, SL-W3 | Two concurrent subscription attempts when 1 slot remains → exactly 1 succeeds, other gets `at_capacity` |
 | SL-R2 | Triple-layer idempotency: RPC checks existing by offering_id+buyer_user_id+order_id, Stripe checkout has deterministic key `market-box-{offeringId}-{userId}-{startDate}`, UNIQUE index on `stripe_payment_intent_id` | SL-W2, SL-W3 | Webhook + success route both fire → only 1 subscription created |
 | SL-R3 | Auto-refund on RPC failure: if `subscribe_to_market_box_if_capacity` fails or returns `at_capacity`, Stripe refund issued automatically | SL-W2, SL-W3 | RPC failure → buyer gets refund, no subscription created |
-| SL-R4 | Payout per pickup must use per-week price (price_cents / term_weeks), NOT full term price | SL-W4 | 4-week $40 subscription: each pickup payout = $10 minus vendor fee, NOT $40 minus vendor fee |
-| SL-R5 | No unique index on `vendor_payouts(market_box_pickup_id)` — double payout risk if vendor and buyer confirm simultaneously | SL-W4 | Race condition between vendor and buyer confirmation APIs → must not create 2 payout records |
+| ✅ SL-R4 | **CORRECTED Session 48**: No per-pickup payout. Vendor receives full prepaid amount at checkout time via `processMarketBoxVendorPayout()` (webhooks) / `processMarketBoxPayout()` (success route). Amount = `calculateVendorPayout(basePriceCents)` where basePriceCents = `price_4week_cents` or `price_8week_cents`. Per-pickup F2 FIX code removed from both pickup confirmation routes. | SL-W2, SL-W3 | Buyer pays $42.70 for 4-week $40 subscription → vendor receives `calculateVendorPayout(4000)` = $37.25 once at checkout. No payout at pickup time. |
+| ✅ SL-R5 | **RESOLVED Session 48**: Unique partial index `idx_vendor_payouts_mb_sub_unique` on `vendor_payouts(market_box_subscription_id)` WHERE NOT NULL AND status NOT IN ('failed','cancelled'). Migration 059. Prevents duplicate payouts at DB level. App code also checks for existing payout before insert (idempotent). | SL-W2, SL-W3 | Webhook + success route both fire → unique index prevents second insert → exactly 1 payout record |
 
 #### HIGH (Lifecycle Correctness)
 
@@ -688,7 +688,7 @@ Scheduled/ready pickup past date → vendor marks missed OR cron Phase 4 auto-ha
 | SL-R13 | Vendor cannot change pickup location/time while active subscribers exist | SL-W1 | PATCH pickup_market_id with active subs → rejected |
 | SL-R14 | Reactivating an offering checks `canActivateMarketBox()` tier limit | SL-W1 | Vendor at active limit → reactivation rejected |
 | SL-R15 | `maxSubscribersPerOffering` enforced at purchase time (API check + RPC atomic check). Falls back to tier default if vendor hasn't set it | SL-W2 | Offering at capacity → new subscriber rejected |
-| SL-R16 | Cron Phase 7 auto-fulfills stale market box confirmation windows (buyer confirmed, vendor didn't, >5min) but does NOT trigger payout | SL-W4 | Auto-fulfilled pickup → status=picked_up but no vendor_payouts record |
+| ✅ SL-R16 | Cron Phase 7 auto-fulfills stale market box confirmation windows (buyer confirmed, vendor didn't, >5min) but does NOT trigger payout. **This is now CORRECT behavior** — payout happens at checkout time (Session 48 fix), so Phase 7 should NOT create a second payout. | SL-W4 | Auto-fulfilled pickup → status=picked_up, no new vendor_payouts record (payout already exists from checkout) |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
@@ -714,32 +714,34 @@ Scheduled/ready pickup past date → vendor marks missed OR cron Phase 4 auto-ha
 
 **Subscription completion trigger:** `trigger_check_subscription_completion` → `check_subscription_completion()` AFTER UPDATE on pickups. Counts resolved pickups >= term_weeks + extended_weeks → status=completed.
 
-**Payout code paths (BOTH can race):**
-- Vendor: `/api/vendor/market-boxes/pickups/[id]/route.ts` lines 279-326
-- Buyer: `/api/buyer/market-boxes/[id]/confirm-pickup/route.ts` lines 135-179
-- Both check existing payout via query (NOT atomic) then insert
+**Payout code paths:** ✅ UPDATED Session 48
+- ~~Vendor: `/api/vendor/market-boxes/pickups/[id]/route.ts` lines 279-326~~ — F2 FIX per-pickup payout REMOVED
+- ~~Buyer: `/api/buyer/market-boxes/[id]/confirm-pickup/route.ts` lines 135-179~~ — F2 FIX per-pickup payout REMOVED
+- **NEW**: Webhook `processMarketBoxVendorPayout()` in `webhooks.ts` — full prepaid payout at checkout
+- **NEW**: `processMarketBoxPayout()` in `checkout/success/route.ts` — idempotent duplicate path
+- Both paths check existing payout before insert + DB unique index prevents duplicates
 
-**Confirmed missing unique index:** `idx_payouts_market_box_pickup` is plain btree, NOT unique (Schema line 1803)
+**Unique index ADDED:** `idx_vendor_payouts_mb_sub_unique` on `market_box_subscription_id` (partial, excludes failed/cancelled). Migration 059.
 
 **No buyer cancellation route exists.** `cancelled` status in enum but no code path sets it.
 
 **No cron phase auto-misses past-due pickups.** Scheduled pickups remain in `scheduled` state indefinitely if nobody acts.
 
-**Phase 7 auto-fulfill does NOT create payouts** — only updates DB status. Payout logic is only in API route handlers.
+**Phase 7 auto-fulfill** ✅ **FIXED Session 48** — Now creates vendor payout + Stripe transfer for regular orders (same logic as Phase 4). For market boxes, payout happens at checkout so Phase 7 correctly skips payout creation.
 
 **Tier downgrade does NOT touch market box offerings or subscriptions.**
 
 ### CRITICAL GAPS FOUND
 
-**GAP 1 — Payout amount bug:** Both payout paths use `offering.price_cents` (full term price) as per-pickup amount. A $40/4-week subscription pays out ~$37.40/pickup (4 pickups = ~$149.60 to vendor on $40 order).
+**~~GAP 1~~ ✅ RESOLVED Session 48 — Payout amount bug:** Per-pickup payout logic removed entirely. Vendor now receives full prepaid amount once at checkout via `processMarketBoxVendorPayout()`. Amount = `calculateVendorPayout(basePriceCents)`.
 
-**GAP 2 — No unique index on market_box_pickup_id for payouts:** Application-level check is not atomic. Race condition between vendor and buyer confirm can create duplicate payouts.
+**~~GAP 2~~ ✅ RESOLVED Session 48 — No unique index:** `idx_vendor_payouts_mb_sub_unique` added on `market_box_subscription_id` (migration 059). Per-pickup payout code removed, so the pickup-level race condition no longer exists.
 
 **GAP 3 — No buyer cancellation mechanism:** The `cancelled` status exists but no API route sets it. Buyers cannot cancel, and there is no admin override.
 
 **GAP 4 — No auto-miss for past-due pickups:** No cron marks `scheduled` pickups as `missed` when date passes. They remain indefinitely.
 
-**GAP 5 — Phase 7 auto-fulfill creates no payout:** Stale confirmation windows get auto-fulfilled but the vendor never gets paid for those pickups.
+**~~GAP 5~~ ✅ RESOLVED Session 48 — Phase 7 auto-fulfill creates no payout:** This is now **correct behavior**. Vendor payout happens at checkout time (full prepaid amount), so Phase 7 should NOT create a second payout for pickups.
 
 **GAP 6 — No DB-level market box limit trigger:** Unlike listings (`enforce_listing_tier_limit`), market box creation has no DB guard. Direct Supabase writes bypass API limits.
 
@@ -749,13 +751,13 @@ Scheduled/ready pickup past date → vendor marks missed OR cron Phase 4 auto-ha
 
 | ID | Question | Status |
 |----|----------|--------|
-| SL-Q1 | Is the payout-per-pickup using full term price intentional or a bug? (Currently pays out ~4x what it should for a 4-week subscription) | CRITICAL — NEEDS USER CONFIRMATION |
-| SL-Q2 | Should buyers be able to cancel subscriptions? If so, what refund policy? | NEEDS USER DECISION |
-| SL-Q3 | Should past-due scheduled pickups be auto-missed by cron? After how many days? | NEEDS USER DECISION |
+| ✅ SL-Q1 | Is the payout-per-pickup using full term price intentional or a bug? | **RESOLVED Session 48** — It was a bug (F2 FIX code). Per-pickup payout removed entirely. Vendor now receives `calculateVendorPayout(basePriceCents)` once at checkout. Migration 059 + code changes in 9 files. Commit `433275f`. |
+| 🔵❓ SL-Q2 | Should buyers be able to cancel subscriptions? If so, what refund policy? | NEEDS USER DECISION |
+| 🔵❓ SL-Q3 | Should past-due scheduled pickups be auto-missed by cron? After how many days? | NEEDS USER DECISION |
 
 ---
 
-## DOMAIN 6: AUTH & ACCESS CONTROL
+## 🔵❓ DOMAIN 6: AUTH & ACCESS CONTROL (Entire domain not yet reviewed by user)
 
 ### Named Workflows
 
@@ -876,12 +878,12 @@ Per-instance state. Attacker hitting different Vercel instances bypasses limits.
 
 | ID | Question | Status |
 |----|----------|--------|
-| AC-Q1 | Should `/api/subscriptions/verify` require authentication? It currently uses service client without any user auth check | NEEDS USER DECISION — security vs UX tradeoff |
-| AC-Q2 | Should `createVerifiedServiceClient()` replace direct `createServiceClient()` calls in admin routes? | NEEDS USER DECISION — would add consistency |
+| 🔵❓ AC-Q1 | Should `/api/subscriptions/verify` require authentication? It currently uses service client without any user auth check | NEEDS USER DECISION — security vs UX tradeoff |
+| 🔵❓ AC-Q2 | Should `createVerifiedServiceClient()` replace direct `createServiceClient()` calls in admin routes? | NEEDS USER DECISION — would add consistency |
 
 ---
 
-## DOMAIN 7: NOTIFICATION INTEGRITY
+## 🔵❓ DOMAIN 7: NOTIFICATION INTEGRITY (Entire domain not yet reviewed by user)
 
 ### Named Workflows
 
@@ -919,7 +921,7 @@ Before sending → query notifications table for existing match (type + data key
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| NI-R6 | Email FROM address: FM=`noreply@mail.farmersmarketing.app`, FT=`noreply@mail.foodtruckn.app`. FW falls back to FM address | NI-W3 | FT order notification → FROM foodtruckn.app domain |
+| NI-R6 | Email FROM address: FM=`updates@mail.farmersmarketing.app`, FT=`updates@mail.foodtruckn.app`. FW falls back to FM address | NI-W3 | FT order notification → FROM foodtruckn.app domain |
 | NI-R7 | FT vendor notifications tier-gated: free=in_app only, basic=in_app+email, pro=+push, boss=+sms | NI-W2 | FT free vendor → only in_app notifications regardless of urgency |
 | NI-R8 | Push subscription auto-syncs `push_enabled` preference: subscribe → true, last unsubscribe → false | NI-W4 | User unsubscribes last device → `push_enabled` auto-set to false |
 | NI-R9 | Stale push endpoint cleanup: subscriptions returning 410 Gone or 404 auto-deleted | NI-W4 | Push to expired endpoint → `push_subscriptions` row deleted |
@@ -986,13 +988,13 @@ Exported but never called.
 
 | ID | Question | Status |
 |----|----------|--------|
-| NI-Q1 | Should `order_cancelled_by_vendor` urgency be changed from `immediate` (push) to `urgent` (SMS)? A buyer en route needs SMS as fallback | NEEDS USER DECISION |
-| NI-Q2 | Should we add email unsubscribe links for CAN-SPAM compliance? | NEEDS USER DECISION — may need per-type control |
-| NI-Q3 | Should a dedicated `subscription_expired` notification type replace the `payout_failed` misuse? | NEEDS USER DECISION |
+| 🔵❓ NI-Q1 | Should `order_cancelled_by_vendor` urgency be changed from `immediate` (push) to `urgent` (SMS)? A buyer en route needs SMS as fallback | NEEDS USER DECISION |
+| 🔵❓ NI-Q2 | Should we add email unsubscribe links for CAN-SPAM compliance? | NEEDS USER DECISION — may need per-type control |
+| 🔵❓ NI-Q3 | Should a dedicated `subscription_expired` notification type replace the `payout_failed` misuse? | NEEDS USER DECISION |
 
 ---
 
-## DOMAIN 8: INFRASTRUCTURE RELIABILITY
+## 🔵❓ DOMAIN 8: INFRASTRUCTURE RELIABILITY (Entire domain not yet reviewed by user)
 
 ### Named Workflows
 
@@ -1133,10 +1135,10 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 
 | ID | Question | Status |
 |----|----------|--------|
-| IR-Q1 | Should we implement a health check endpoint? (minimal: DB ping + Stripe reachability) | NEEDS USER DECISION |
-| IR-Q2 | Is Sentry configured in any environment? Should the env vars be added to `.env.example`? | NEEDS USER VERIFICATION |
-| IR-Q3 | Should `charge.dispute.created` webhook be handled? What action on chargeback? | NEEDS USER DECISION |
-| IR-Q4 | Should cron jobs ping an external monitoring service on completion? (e.g., BetterUptime, free tier) | NEEDS USER DECISION |
+| 🔵❓ IR-Q1 | Should we implement a health check endpoint? (minimal: DB ping + Stripe reachability) | NEEDS USER DECISION |
+| 🔵❓ IR-Q2 | Is Sentry configured in any environment? Should the env vars be added to `.env.example`? | NEEDS USER VERIFICATION |
+| 🔵❓ IR-Q3 | Should `charge.dispute.created` webhook be handled? What action on chargeback? | NEEDS USER DECISION |
+| 🔵❓ IR-Q4 | Should cron jobs ping an external monitoring service on completion? (e.g., BetterUptime, free tier) | NEEDS USER DECISION |
 
 ---
 
@@ -1145,21 +1147,21 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | ID | Question | Impact | Options |
 |----|----------|--------|---------|
 | MP-Q2 | External payment fee: 10% (6.5% buyer + 3.5% vendor) vs Stripe 13% (6.5%+6.5%). Intentional? | Revenue model | A) Intentional, lower fee incentivizes external. B) Bug, should be 13% everywhere |
-| VI-Q1 | Cross-vertical shared identity: Should FM/FT share user accounts? | Architecture | A) Shared (convenience). B) Separate (brand isolation) |
-| VI-Q2 | Root admin dashboard showing all-vertical data: intentional platform-wide view or scoping bug? | Admin UX | A) Intentional (platform admin sees everything). B) Should be vertical-scoped |
-| VI-Q3 | Referral code cross-vertical: Can FM referral work for FT signup? | Growth | A) Yes, cross-pollination is good. B) No, should be vertical-scoped |
-| SL-Q1 | Payout per pickup uses FULL TERM price instead of per-week price. Bug? (4-week $40 sub pays vendor ~$149) | **CRITICAL revenue** | A) Bug — divide by term_weeks. B) Intentional (unlikely) |
-| SL-Q2 | Should buyers be able to cancel market box subscriptions? What refund policy? | Feature | A) No cancellation (prepaid). B) Prorated refund. C) Cancel future pickups only |
-| SL-Q3 | Should past-due scheduled pickups be auto-missed by cron? After how many days? | Lifecycle | A) Auto-miss after 1 day. B) After 3 days. C) Leave indefinitely |
-| AC-Q1 | `/api/subscriptions/verify` uses service client without auth. Add auth requirement? | Security | A) Add auth. B) Accept risk (Stripe session_id is the guard) |
-| AC-Q2 | Should `createVerifiedServiceClient()` replace direct `createServiceClient()` in admin routes? | Security | A) Yes, standardize. B) Leave as-is (manual checks work) |
-| NI-Q1 | `order_cancelled_by_vendor` urgency: change from push to SMS? Buyer en route needs SMS fallback | Delivery | A) Change to urgent (SMS). B) Keep push (save SMS costs) |
-| NI-Q2 | Add email unsubscribe links for CAN-SPAM compliance? | Compliance | A) Yes, required for commercial email. B) Only for marketing emails |
-| NI-Q3 | Add `subscription_expired` notification type to replace `payout_failed` misuse? | UX | A) Yes, new type. B) Fix the message text only |
-| IR-Q1 | Add `/api/health` endpoint? (DB ping + Stripe check) | Monitoring | A) Yes, minimal. B) Not needed yet |
-| IR-Q2 | Is Sentry configured? Should env vars be in `.env.example`? | Monitoring | A) Configure + add vars. B) Skip for now |
-| IR-Q3 | Handle `charge.dispute.created` webhook? What action on chargeback? | Financial | A) Yes, auto-flag order. B) Skip (manual Stripe dashboard) |
-| IR-Q4 | Cron health monitoring: ping external service on completion? | Reliability | A) Yes, free tier (BetterUptime). B) Vercel monitoring sufficient |
+| 🔵❓ VI-Q1 | Cross-vertical shared identity: Should FM/FT share user accounts? | Architecture | A) Shared (convenience). B) Separate (brand isolation) |
+| 🔵❓ VI-Q2 | Root admin dashboard showing all-vertical data: intentional platform-wide view or scoping bug? | Admin UX | A) Intentional (platform admin sees everything). B) Should be vertical-scoped |
+| ✅ VI-Q3 | Referral code cross-vertical: Can FM referral work for FT signup? | Growth | **RESOLVED** — Code already filters by vertical_id (submit/route.ts line 107). FM code cannot be used for FT. |
+| ✅ SL-Q1 | Payout per pickup uses FULL TERM price instead of per-week price. Bug? | **RESOLVED Session 48** — Bug fixed. Per-pickup payout removed. Full prepaid amount paid once at checkout. Commit `433275f`. |
+| 🔵❓ SL-Q2 | Should buyers be able to cancel market box subscriptions? What refund policy? | Feature | A) No cancellation (prepaid). B) Prorated refund. C) Cancel future pickups only |
+| 🔵❓ SL-Q3 | Should past-due scheduled pickups be auto-missed by cron? After how many days? | Lifecycle | A) Auto-miss after 1 day. B) After 3 days. C) Leave indefinitely |
+| 🔵❓ AC-Q1 | `/api/subscriptions/verify` uses service client without auth. Add auth requirement? | Security | A) Add auth. B) Accept risk (Stripe session_id is the guard) |
+| 🔵❓ AC-Q2 | Should `createVerifiedServiceClient()` replace direct `createServiceClient()` in admin routes? | Security | A) Yes, standardize. B) Leave as-is (manual checks work) |
+| 🔵❓ NI-Q1 | `order_cancelled_by_vendor` urgency: change from push to SMS? Buyer en route needs SMS fallback | Delivery | A) Change to urgent (SMS). B) Keep push (save SMS costs) |
+| 🔵❓ NI-Q2 | Add email unsubscribe links for CAN-SPAM compliance? | Compliance | A) Yes, required for commercial email. B) Only for marketing emails |
+| 🔵❓ NI-Q3 | Add `subscription_expired` notification type to replace `payout_failed` misuse? | UX | A) Yes, new type. B) Fix the message text only |
+| 🔵❓ IR-Q1 | Add `/api/health` endpoint? (DB ping + Stripe check) | Monitoring | A) Yes, minimal. B) Not needed yet |
+| 🔵❓ IR-Q2 | Is Sentry configured? Should env vars be in `.env.example`? | Monitoring | A) Configure + add vars. B) Skip for now |
+| 🔵❓ IR-Q3 | Handle `charge.dispute.created` webhook? What action on chargeback? | Financial | A) Yes, auto-flag order. B) Skip (manual Stripe dashboard) |
+| 🔵❓ IR-Q4 | Cron health monitoring: ping external service on completion? | Reliability | A) Yes, free tier (BetterUptime). B) Vercel monitoring sufficient |
 
 ---
 
@@ -1213,6 +1215,7 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | 2026-02-25 | Domain 8 (Infrastructure Reliability) deep-dive: 11 cron phases, 12 webhook handlers, CI pipeline, error tracking architecture. 6 gaps incl. no chargeback handler, Sentry likely unconfigured. | Session 46 |
 | 2026-02-25 | **ALL 8 DOMAINS COMPLETE** — 62 named workflows, 97 business rules, 34 gaps found, 17 open questions for user. Ready for Phase 3: workflow interactions. | Session 46 |
 | 2026-02-26 | User validated MP-R1,R3,R4,R7 ✅. MP-R5 CORRECTED (threshold=displayed price not base). MP-R6,R8 qualified with edge cases. Added MP-W7 tip workflow + 10 tip rules (MP-R19–R28). FIXED Cron Phase 4 tip bug (was using full tip, now uses vendor tip only). | Session 47 |
+| 2026-02-28 | **Market box payout fix verified against code.** SL-Q1/SL-R4/SL-R5 RESOLVED (per-pickup payout removed, full prepaid at checkout). GAPs 1,2,5 in Domain 5 RESOLVED. MP-W4 updated. MP-Q1 RESOLVED (new `market_box_subscription_id` column + unique index). MP-R6/R7 updated with new index/key. OL-R21 updated (Phase 5 now handles both order_item and market_box_subscription payouts). VI-Q3 RESOLVED (referral codes verified filtered by vertical_id). VI-R6/NI-R6 corrected (`updates@` not `noreply@`). **Phase 7 payout gap FIXED** — auto-fulfilled regular orders now create vendor payout + Stripe transfer (OL-R22 resolved). | Session 48 |
 
 ---
 

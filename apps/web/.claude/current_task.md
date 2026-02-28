@@ -1,51 +1,39 @@
-# Current Task: Market Box / Chef Box Payout Implementation
+# Current Task: Market Box Payout + Business Rules Audit Update
 Started: 2026-02-28
 
 ## Goal
-Fix market box (FM) / chef box (FT) vendor payout flow. Buyers prepay for full term (4 or 8 weeks). Vendor should get paid the full amount when buyer prepays — NOT per-pickup.
+Fix market box payout flow + update business rules audit file with verified findings.
 
-## Status: COMPLETE — Migration applied, schema snapshot updated, needs final commit
+## Status: Phase 7 payout fix done, needs commit
 
-## What Was Done
+## What Was Done This Session
 
 ### Market Box Payout Fix — COMMITTED (`433275f`), PUSHED TO STAGING
-**Problem**: F2 FIX paid vendors per-pickup (each time a pickup was confirmed). Business rule: vendor gets full prepaid amount at checkout time.
+**Problem**: F2 FIX paid vendors per-pickup. Business rule: vendor gets full prepaid amount at checkout time.
+**9 files changed**. Migration 059 applied to ALL 3 environments.
 
-**Code changes committed in `433275f` (9 files)**:
-1. `supabase/migrations/20260228_059_market_box_subscription_payout.sql` — **New**. Adds `market_box_subscription_id` UUID column + FK + unique partial index + performance index to `vendor_payouts`
-2. `src/lib/stripe/payments.ts` — Added `transferMarketBoxPayout()` function + `basePriceCents` param to `createMarketBoxCheckoutSession()` + `base_price_cents` in Stripe metadata
-3. `src/lib/stripe/webhooks.ts` — Added `processMarketBoxVendorPayout()` helper called from `handleMarketBoxCheckoutComplete()`. Updated `handleTransferCreated`/`handleTransferFailed` for `market_box_subscription_id` metadata.
-4. `src/app/api/checkout/success/route.ts` — Added `processMarketBoxPayout()` helper for unified checkout path (idempotent)
-5. `src/app/api/buyer/market-boxes/route.ts` — Passes `basePriceCents` to Stripe session
-6. `src/app/api/vendor/market-boxes/pickups/[id]/route.ts` — **Removed** F2 FIX per-pickup payout block + unused imports
-7. `src/app/api/buyer/market-boxes/[id]/confirm-pickup/route.ts` — **Removed** F2 FIX per-pickup payout block + unused imports
-8. `src/app/api/cron/expire-orders/route.ts` — Added market box subscription payout retry to Phase 5
-9. `apps/web/.claude/current_task.md` — Context tracking
+### Schema Snapshot + Migration Move — COMMITTED (`78e9514`), PUSHED TO STAGING
+- SCHEMA_SNAPSHOT.md updated, migration moved to applied/, MIGRATION_LOG.md updated
 
-### Post-Commit Steps (IN PROGRESS when compaction hit)
-- Migration 059 applied to ALL 3 environments (Dev, Staging, Prod) ✅
-- SCHEMA_SNAPSHOT.md updated (changelog + columns + FKs + indexes) ✅
-- Migration file moved to `applied/` folder ✅
-- MIGRATION_LOG.md — NEEDS migration 059 entry added (was searching for last entry when interrupted)
-- **NEED TO COMMIT**: schema snapshot update + migration move + log update
-- **NEED TO PUSH**: this commit to staging (and possibly main if user approves)
+### Business Rules Audit File Update — UNCOMMITTED
+Ran 4 verification agents against actual code. Updated `business_rules_audit_and_testing.md`:
+- **✅ Resolved**: MP-Q1, MP-W4, MP-R6, MP-R7, OL-R4, OL-R21, OL-R22, SL-R4, SL-R5, SL-R16, SL-Q1, VI-Q3, Domain 5 GAPs 1/2/5
+- **Corrected**: VI-R6/NI-R6 (`updates@` not `noreply@`)
+- **Still 🔵❓**: All items needing user decisions (OL-R19/R20, OL-Q1/Q5-Q8, VI-Q1/Q2/Q4/Q5, SL-Q2/Q3, AC-Q1/Q2, NI-Q1-Q3, IR-Q1-Q4, VJ-Qs, Domains 4/6/7/8)
+
+### Phase 7 Payout Gap Fix — UNCOMMITTED
+**Problem**: Cron Phase 7 auto-fulfilled stale confirmation windows (buyer confirmed, vendor didn't respond >5min) but never created a payout record. Vendor item showed as "fulfilled" but they never got paid.
+**Fix**: Added payout creation logic to Phase 7 (modeled after Phase 4 no-show payout). Handles Stripe transfer, failed status for Phase 5 retry, and pending_stripe_setup.
+**File**: `src/app/api/cron/expire-orders/route.ts` — Phase 7 section
+**TypeScript check**: 0 errors
 
 ## Git State
-- Commit `433275f` on main, pushed to origin/staging
-- Main is 1 ahead of origin/main (commit `433275f` not pushed to prod yet)
-- Schema snapshot + migration move are UNSTAGED local changes
-
-## Earlier This Session (Pre-Compaction)
-- Resend Webhooks + Support Page — ALL COMPLETE, PUSHED TO PROD + STAGING
-- Resend Config — COMPLETE
-- noreply→updates Email Fix — COMMITTED + PUSHED
-- About/Terms Pages Moved Under [vertical] — COMMITTED + PUSHED
-- CI ESLint Fixes — COMMITTED + PUSHED
-- Favicon fix, PWA manifest fix, Vendor leads admin email
+- Commits `433275f` + `78e9514` on main, pushed to origin/staging
+- Main is 2 ahead of origin/main (not pushed to prod yet)
+- UNCOMMITTED: Phase 7 fix + business rules audit updates
 
 ## Open Items (Carried Over)
 - Instagram URLs still placeholder `#` in Coming Soon footers
-- Business rules audit questions pending user review
 - Events Phase 5 (reminders + conversion) — deferred
 - Dev DB may be out of sync on some migrations
 - Migrations 057+058 schema snapshot update still needed
