@@ -44,9 +44,8 @@ CREATE POLICY "Admin can view support tickets"
     EXISTS (
       SELECT 1 FROM user_profiles
       WHERE user_profiles.user_id = (SELECT auth.uid())
-        AND (user_profiles.role IN ('admin', 'platform_admin')
-             OR 'admin' = ANY(user_profiles.roles)
-             OR 'platform_admin' = ANY(user_profiles.roles))
+        AND (user_profiles.role = 'admin'
+             OR 'admin' = ANY(user_profiles.roles))
     )
   );
 
@@ -56,8 +55,7 @@ CREATE POLICY "Admin can update support tickets"
     EXISTS (
       SELECT 1 FROM user_profiles
       WHERE user_profiles.user_id = (SELECT auth.uid())
-        AND (user_profiles.role IN ('admin', 'platform_admin')
-             OR 'admin' = ANY(user_profiles.roles)
-             OR 'platform_admin' = ANY(user_profiles.roles))
+        AND (user_profiles.role = 'admin'
+             OR 'admin' = ANY(user_profiles.roles))
     )
   );
