@@ -18,6 +18,7 @@
 | 2026-02-22 | 20260222_053_add_small_order_fee_cents | **New column:** `orders.small_order_fee_cents` (INTEGER NOT NULL DEFAULT 0). Tracks small order surcharge applied when subtotal is below vertical minimum ($5). Applied to all 3 envs. |
 | 2026-02-22 | 20260221_045_small_order_fee | **Data update:** Added `small_order_fee_threshold_cents` (500) and `small_order_fee_cents` (50) to `verticals.config` JSONB for all 3 verticals. Code uses hardcoded defaults but this keeps DB config in sync. Applied to all 3 envs. |
 | 2026-02-22 | 20260222_052_update_ft_tier_listing_limits | **Function update:** `enforce_listing_tier_limit()` — updated FT listing limits: free 4→5, basic 8→10. Pro (20) and Boss (45) unchanged. FM limits unchanged (standard=5, premium/featured=15). No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
+| 2026-02-28 | 20260228_059_market_box_subscription_payout | Added `market_box_subscription_id` (UUID, nullable, FK→market_box_subscriptions.id) to `vendor_payouts`. For full prepaid vendor payout at checkout (replaces per-pickup F2 FIX). **Unique partial index:** `idx_vendor_payouts_mb_sub_unique` on (market_box_subscription_id) WHERE NOT NULL AND status NOT IN ('failed','cancelled'). **Performance index:** `idx_payouts_mb_subscription` on (market_box_subscription_id) WHERE NOT NULL. Applied to Dev, Staging, & Prod. |
 | 2026-02-22 | 20260222_051_fix_ft_seed_onboarding_gates | **Data fix (seed only):** Updated `vendor_verifications.category_verifications` for 3 FT seed vendors — replaced cuisine category keys (`'Asian'`, `'BBQ & Smoked'`, etc.) with correct permit doc type keys (`mfu_permit`, `cfm_certificate`, `food_handler_card`, `fire_safety_certificate`), all status `'approved'`. Set `vendor_profiles.stripe_payouts_enabled = true` and placeholder `stripe_account_id` for same 3 vendors. Fixes gates 2 & 4 so `canPublishListings` returns true and edit page no longer shows "Draft" for published listings. No schema changes. Applied to Dev & Staging. |
 | 2026-02-22 | 20260222_050_fix_notifications_user_id_fk | **FK fix:** Changed `notifications.user_id` FK from `user_profiles(id)` → `auth.users(id)`. Existing rows translated via `user_profiles.user_id`. Orphaned rows deleted. **Function rewrite:** `notify_transaction_status_change()` now resolves buyer auth.uid via `user_profiles` JOIN (since `transactions.buyer_user_id` references `user_profiles.id`). Vendor path unchanged (`vendor_profiles.user_id` is already auth.uid). Includes `NOTIFY pgrst, 'reload schema'`. Applied to Dev, Staging, & Prod. |
 | 2026-02-22 | 20260222_049_scan_vendor_activity_validation | **Function update:** `scan_vendor_activity(p_vertical_id TEXT)` now validates `p_vertical_id` against the `verticals` table when non-NULL. Raises exception `'Invalid vertical_id: %. Must be a valid vertical.'` if the value doesn't exist. NULL remains valid (scans all verticals). No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
@@ -996,6 +997,7 @@
 | id | uuid | NO | uuid_generate_v4() |
 | order_item_id | uuid | YES | - |
 | market_box_pickup_id | uuid | YES | - |
+| market_box_subscription_id | uuid | YES | - |
 | vendor_profile_id | uuid | NO | - |
 | amount_cents | int4 | NO | - |
 | stripe_transfer_id | text | YES | - |
@@ -1382,6 +1384,7 @@
 |--------|------------|
 | order_item_id | order_items.id |
 | market_box_pickup_id | market_box_pickups.id |
+| market_box_subscription_id | market_box_subscriptions.id |
 | vendor_profile_id | vendor_profiles.id |
 
 ### vendor_quality_findings
@@ -1838,6 +1841,8 @@
 | idx_payouts_order_item | btree (order_item_id) |
 | idx_payouts_market_box_pickup | btree (market_box_pickup_id) WHERE market_box_pickup_id IS NOT NULL |
 | idx_vendor_payouts_order_item_unique | UNIQUE btree (order_item_id) WHERE status NOT IN ('failed', 'cancelled') |
+| idx_vendor_payouts_mb_sub_unique | UNIQUE btree (market_box_subscription_id) WHERE market_box_subscription_id IS NOT NULL AND status NOT IN ('failed', 'cancelled') |
+| idx_payouts_mb_subscription | btree (market_box_subscription_id) WHERE market_box_subscription_id IS NOT NULL |
 | idx_payouts_status | btree (status) |
 
 ### vendor_quality_findings
