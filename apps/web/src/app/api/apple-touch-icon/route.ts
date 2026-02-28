@@ -19,6 +19,7 @@ const ICON_PREFIXES: Record<string, string> = {
 const domainToVertical: Record<string, string> = {}
 for (const [verticalId, branding] of Object.entries(defaultBranding)) {
   domainToVertical[branding.domain] = verticalId
+  domainToVertical[`www.${branding.domain}`] = verticalId
 }
 
 export async function GET(request: NextRequest) {

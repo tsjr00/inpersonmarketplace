@@ -11,10 +11,11 @@ import { defaultBranding } from '@/lib/branding/defaults'
  * - Unknown/staging → defaults to Farmers Marketing
  */
 
-// Build hostname → verticalId lookup from branding config
+// Build hostname → verticalId lookup from branding config (include www variants)
 const domainToVertical: Record<string, string> = {}
 for (const [verticalId, branding] of Object.entries(defaultBranding)) {
   domainToVertical[branding.domain] = verticalId
+  domainToVertical[`www.${branding.domain}`] = verticalId
 }
 
 interface ManifestConfig {
