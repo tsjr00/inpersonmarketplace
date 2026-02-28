@@ -64,6 +64,7 @@ export default function VerticalAdminManagementPage() {
     if (vertical) {
       fetchAdmins()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vertical])
 
   const handleAddAdmin = async (e: React.FormEvent) => {

@@ -14,20 +14,6 @@ import { createClient } from '@supabase/supabase-js';
 // Configuration
 const VERTICAL_ID = 'farmers_market';
 
-// Categories from lib/constants.ts
-const CATEGORIES = [
-  'Produce',
-  'Meat & Poultry',
-  'Dairy & Eggs',
-  'Baked Goods',
-  'Pantry',
-  'Prepared Foods',
-  'Plants & Flowers',
-  'Health & Wellness',
-  'Art & Decor',
-  'Home & Functional'
-] as const;
-
 // Supabase client with service role (bypasses RLS)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -213,10 +199,6 @@ const MARKET_BOXES = [
 // =============================================================================
 // Helper Functions
 // =============================================================================
-
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
 
 async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));

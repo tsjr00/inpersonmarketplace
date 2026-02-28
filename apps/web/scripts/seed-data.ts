@@ -207,7 +207,7 @@ async function createTestUsers(): Promise<CreatedUser[]> {
     let retries = 3;
 
     while (retries > 0 && !profileData) {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('user_profiles')
         .select('id')
         .eq('user_id', authData.user.id)
@@ -261,7 +261,6 @@ async function createVendorProfiles(users: CreatedUser[]): Promise<CreatedVendor
 
   const vendors: CreatedVendor[] = [];
   const vendorUsers = users.filter(u => u.role === 'vendor');
-  const tiers = ['free', 'basic', 'premium'];
   const statuses: Array<'draft' | 'submitted' | 'approved'> = ['draft', 'submitted', 'approved'];
 
   for (let i = 0; i < vendorUsers.length; i++) {

@@ -91,6 +91,7 @@ export default function AdminMarketsPage() {
 
   useEffect(() => {
     fetchMarkets()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vertical])
 
   const fetchMarkets = async () => {

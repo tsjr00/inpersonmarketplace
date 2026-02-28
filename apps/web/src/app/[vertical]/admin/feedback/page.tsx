@@ -113,6 +113,7 @@ export default function AdminFeedbackPage() {
     } else {
       fetchFeedback()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vertical, feedbackSource])
 
   const fetchFeedback = async () => {

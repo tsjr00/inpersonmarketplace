@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
-import { hasPlatformAdminRole } from '@/lib/auth/admin'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 
@@ -33,9 +32,6 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
   if (!isAdmin) {
     redirect(`/${vertical}/dashboard`)
   }
-
-  // Check if user has platform admin privileges (can access global admin)
-  const isPlatformAdmin = hasPlatformAdminRole(userProfile || {})
 
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market

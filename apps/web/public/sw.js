@@ -12,7 +12,7 @@ self.addEventListener('push', function(event) {
   var data
   try {
     data = event.data.json()
-  } catch (e) {
+  } catch (_e) {
     data = { title: 'New Notification', body: event.data.text() }
   }
 

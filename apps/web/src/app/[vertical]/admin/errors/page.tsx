@@ -51,6 +51,7 @@ export default function VerticalAdminErrorsPage() {
 
   useEffect(() => {
     fetchReports()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, vertical])
 
   async function fetchReports() {
