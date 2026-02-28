@@ -249,9 +249,9 @@ export default function SettingsForm({
               status alerts, pickup notifications, and cancellation notices. Message frequency varies
               (typically 1-5 per week during active orders). Message and data rates may apply.
               Reply STOP to opt out, HELP for help. See our{' '}
-              <a href="/terms#sms-terms" target="_blank" style={{ color: primaryColor }}>Terms of Service</a>
+              <a href={`/${vertical}/terms#sms-terms`} target="_blank" style={{ color: primaryColor }}>Terms of Service</a>
               {' '}and{' '}
-              <a href="/terms#privacy-policy" target="_blank" style={{ color: primaryColor }}>Privacy Policy</a>.
+              <a href={`/${vertical}/terms#privacy-policy`} target="_blank" style={{ color: primaryColor }}>Privacy Policy</a>.
             </span>
           </label>
         </div>

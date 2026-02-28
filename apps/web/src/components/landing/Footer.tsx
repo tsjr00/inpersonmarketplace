@@ -39,16 +39,16 @@ export function Footer({ vertical }: FooterProps) {
       links: [
         { label: 'Become a Vendor', href: `/${vertical}/vendor-signup` },
         { label: 'Why Sell With Us', href: `/${vertical}/features#vendors` },
-        { label: 'Vendor FAQ', href: `/about#vendor-faq` },
+        { label: 'Vendor FAQ', href: `/${vertical}/about#vendor-faq` },
       ]
     },
     {
       title: 'Company',
       links: [
-        { label: 'About Us', href: '/about' },
-        { label: 'Contact Us', href: '/about#contact' },
-        { label: 'Privacy Policy', href: '/terms#privacy-policy' },
-        { label: 'Terms of Service', href: '/terms' },
+        { label: 'About Us', href: `/${vertical}/about` },
+        { label: 'Contact Us', href: `/${vertical}/about#contact` },
+        { label: 'Privacy Policy', href: `/${vertical}/terms#privacy-policy` },
+        { label: 'Terms of Service', href: `/${vertical}/terms` },
       ]
     }
   ]

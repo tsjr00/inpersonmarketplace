@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
-export default function PrivacyPage() {
-  redirect('/terms#privacy-policy')
+export default function PrivacyRedirect() {
+  redirect('/farmers_market/terms#privacy-policy')
 }
