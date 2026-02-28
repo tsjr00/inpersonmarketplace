@@ -111,13 +111,13 @@ export async function POST(request: NextRequest) {
 const verticalEmail: Record<string, { name: string; from: string; color: string; label: string }> = {
   food_trucks: {
     name: "Food Truck'n",
-    from: 'noreply@mail.foodtruckn.app',
+    from: 'updates@mail.foodtruckn.app',
     color: '#ff5757',
     label: 'Food Truck Name',
   },
   farmers_market: {
     name: 'Farmers Marketing',
-    from: 'noreply@mail.farmersmarketing.app',
+    from: 'updates@mail.farmersmarketing.app',
     color: '#e86452',
     label: 'Business Name',
   },

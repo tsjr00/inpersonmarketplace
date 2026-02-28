@@ -1,84 +1,100 @@
-# Current Task: Session 46/47/48/49 — Business Rules Audit & Testing Protocol
-Started: 2026-02-25 | Updated: 2026-02-26
+# Current Task: Resend Webhooks + API Key Separation + Support Page
+Started: 2026-02-28
 
 ## Goal
-Build a business rules test suite to replace recurring broad audits. Create named workflows + testable rules for 8 domains, then map their interactions.
+Three infrastructure improvements:
+1. Resend webhook endpoint to track bounces/complaints/deliveries
+2. Separate Resend API keys for prod vs dev/staging (config only)
+3. Public support page with contact form at `/{vertical}/support`
 
-## Status: Domains 1-3 Under Validation — Code Changes In Progress
+## Status: PLAN APPROVED — Implementation Not Started
 
-## Key Context
-- **Reference file**: `apps/web/.claude/business_rules_audit_and_testing.md` — THE persistent document
-- **RULE**: Ask user before making any code changes (user reminded us of this rule during this session)
+## Plan File
+`C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md` — full implementation plan
 
-## Code Changes Made (All Sessions)
+## What's Been Completed This Session (Pre-Task)
 
-### Committed: `cd702f0`
-1. **Cron Phase 4 tip fix** (`src/app/api/cron/expire-orders/route.ts`)
-2. **MP-R5 fix** — `calculateSmallOrderFee` uses displayed subtotal
-3. **MP-R13 fix** — per-vertical small order fee config (FM=$10/$1.00, FT=$5/$0.50, FW=$40/$4.00)
-4. **Minimum order removal** — removed dead code, added `amountToAvoidSmallOrderFee()`
+### Email FROM Address Change — COMMITTED + PUSHED TO BOTH
+- Changed `noreply@mail.` → `updates@mail.` across all 6 source files
+- Added "do not reply" footer to `formatEmailHtml()` in `service.ts`
+- Updated `.env.local` and `.env.example`
+- **User needs to update** `RESEND_FROM_EMAIL` in Vercel prod env vars to `updates@mail.farmersmarketing.app`
+- Commit: `d760973`
 
-### Committed: `ed20081`
-5. **OL-R5** — Cancel route: blocklist → allowlist (`pending`, `confirmed`, `ready`)
-6. **OL-R7/R8** — Per-vertical early cancel windows (FM=1hr, FT=15min)
-7. **OL-R14** — Migration 055: per-vertical item expiration (FT=24hr from creation, FM=24hr after pickup window)
+### Favicon Fix — COMMITTED + PUSHED TO BOTH
+- Deleted `src/app/favicon.ico` and `src/app/icon.svg` (root-level files were overriding per-vertical metadata icons)
+- Per-vertical favicons now working via `generateMetadata()` in `[vertical]/layout.tsx`
+- Commit: `18bc0ff`
 
-### Uncommitted (this session)
-8. **OL-R17 / Phase 3.5** — Per-vertical external payment reminder (FT=15min, FM=12hr). Was hardcoded 2hr.
-9. **VI-R14** — FT lead time 30→31 minutes in `time-slots.ts`
+### PWA Manifest Fix — COMMITTED + PUSHED TO BOTH
+- Added `Vary: Host` header to manifest + apple-touch-icon routes
+- Added `www.` domain variants to hostname lookup (Vercel redirects bare → www)
+- FT "Save as webapp" now shows correct FT logo
+- Commits: `ed1bf77`, `7e4cf47`
 
-## Domain Validation Progress
+### Vendor Leads Admin Email — COMMITTED + PUSHED TO BOTH
+- Made admin email vertical-aware (sender name, FROM address, label, color, footer)
+- Commit: `d760973`
 
-### Domain 1 Money Path — All Rules Validated ✅
-- MP-R1 through MP-R28: ALL confirmed by user
-- MP-Q1: CODE VERIFIED — fees always identical
-- MP-Q2: CONFIRMED — External: Buyer 6.5%, Vendor 3.5%
-- MP-Q3: CONFIRMED — Not shown to buyer. T&C only.
+### Resend DNS — COMPLETE
+- `mail.foodtruckn.app` verified in Resend (DKIM + SPF + MX all verified)
+- `mail.farmersmarketing.app` was already verified
 
-### Domain 2 Order Lifecycle — Partially Validated
-- OL-R1 through OL-R15: CONFIRMED ✅
-- OL-R16: CONFIRMED with per-vertical timing (code already correct)
-- OL-R17: CONFIRMED with per-vertical timing → CODE CHANGED (FT=15min, FM=12hr)
-- OL-R18: CONFIRMED + need to document cash status progression (OL-Q7)
-- OL-R19: NEEDS USER DECISION on FT time-aware no-show (OL-Q8)
-- OL-R20 through OL-R22: NOT YET REVIEWED by user
-- New questions: OL-Q5 (Chef/Market Box Phase 3), OL-Q6 (Chef/Market Box Phase 3.5), OL-Q7 (cash progression), OL-Q8 (FT no-show timing)
+### Coming Soon Pages — COMPLETE (prior session, already in prod)
+### DNS + getAppUrl() + Metadata — COMPLETE (prior session, already in prod)
 
-### Domain 3 Vertical Isolation — Partially Validated
-- VI-R1: CONFIRMED ✅
-- VI-R2: CONFIRMED + strengthened (no data crosses verticals except platform admin)
-- VI-R3: CONFIRMED + corrected (ONLY platform admin sees cross-vertical)
-- VI-R4: CONFIRMED ✅
-- VI-R5: CONFIRMED ✅
-- VI-R6: CONFIRMED + clarified (notification-only emails)
-- VI-R7: CONFIRMED ✅
-- VI-R8: CONFIRMED + question about other vertical terms (VI-Q4/Q5)
-- VI-R9: CONFIRMED ✅
-- VI-R10: CONFIRMED ✅ (code already correct: No Tip, 10%, 15%, 20%, Custom)
-- VI-R11: CONFIRMED ✅
-- VI-R12: CONFIRMED ✅
-- VI-R13: CONFIRMED ✅
-- VI-R14: CORRECTED → CODE CHANGED (FT 31min lead time, FM 18hr/10hr cutoffs)
-- VI-R15: CORRECTED (FT same-day + 31min lead, FM 7-day window with auto-drop)
-- New questions: VI-Q4 (other vertical terms), VI-Q5 (missing term differences)
+## What's Remaining (Approved Plan)
 
-### Domains 4-8: NOT YET REVIEWED by user
+### Part 1: Resend Webhook Endpoint
+- [ ] Install `svix` npm package
+- [ ] Create migration `20260228_057_email_events.sql` — email_events table
+- [ ] Create `src/app/api/webhooks/resend/route.ts` — webhook handler
+- [ ] Add `RESEND_WEBHOOK_SECRET` to `.env.local`
 
-## Open Questions Awaiting User Input
-- OL-Q1 GAP: Vendor confirm route has no time check — should it reject expired items?
-- OL-Q5: Chef Box / Market Box corollary for Phase 3 cancellation timing?
-- OL-Q6: Chef Box / Market Box corollary for Phase 3.5 reminder timing?
-- OL-Q7: Cash order full status progression — user referenced prior conversation
-- OL-Q8: FT no-show detection — should it use pickup_date + preferred_pickup_time?
-- VI-Q1: Cross-vertical auth — shared identity intentional?
-- VI-Q2: Root admin unscoped queries — intentional?
-- VI-Q3: Referral codes — vertical-scoped?
-- VI-Q4/Q5: Other vertical-specific terms?
+### Part 2: Separate API Keys (Config Only — No Code)
+- [ ] User creates new API key in Resend dashboard (Production)
+- [ ] User updates Vercel prod `RESEND_API_KEY` with new key
+- [ ] .env.local keeps existing key for dev/staging
 
-## Key Files
-- `apps/web/.claude/business_rules_audit_and_testing.md` — PRIMARY reference
-- `apps/web/.claude/current_task.md` — THIS FILE
-- `src/lib/payments/cancellation-fees.ts` — Per-vertical grace periods
-- `src/app/api/cron/expire-orders/route.ts` — Phase 3.5 per-vertical reminders
-- `src/lib/utils/time-slots.ts` — FT 31min lead time
-- `supabase/migrations/20260226_055_per_vertical_item_expiration.sql` — Pending migration
+### Part 3: Support Page + Form
+- [ ] Create migration `20260228_058_support_tickets.sql` — support_tickets table
+- [ ] Create `src/app/[vertical]/support/page.tsx` — support page
+- [ ] Create `src/components/support/SupportForm.tsx` — contact form
+- [ ] Create `src/app/api/support/route.ts` — POST handler
+- [ ] Edit `src/lib/notifications/service.ts` — update email footer link to include vertical
+- [ ] Edit `src/app/[vertical]/help/page.tsx` — add link to support page
+
+### Verification
+- [ ] Run tsc --noEmit
+- [ ] Apply migrations to dev
+- [ ] Test webhook (after Resend dashboard config)
+- [ ] Test support form submission
+- [ ] Commit + push to staging
+
+## Key Files Modified This Session
+- `src/lib/notifications/service.ts` — noreply→updates, added do-not-reply footer
+- `src/app/api/vendor-leads/route.ts` — noreply→updates, vertical-aware admin email
+- `src/lib/errors/logger.ts` — noreply→updates
+- `src/app/api/errors/report/route.ts` — noreply→updates
+- `src/app/api/cron/expire-orders/route.ts` — noreply→updates
+- `src/app/api/manifest/route.ts` — Vary:Host + www domain variants
+- `src/app/api/apple-touch-icon/route.ts` — Vary:Host + www domain variants
+- `.env.example` — noreply→updates
+- `.env.local` — noreply→updates
+- Deleted: `src/app/favicon.ico`, `src/app/icon.svg`
+
+## Git State
+- Main and staging are in sync at origin
+- All changes from this session have been committed and pushed to both
+
+## Architecture Decisions
+- Support page is NOT an overlay (unlike Coming Soon) — renders in normal vertical layout with header
+- Support form is public (no auth required) — uses service client pattern from vendor-leads
+- Email events table stores only bounces/complaints/delays (not deliveries — too much volume)
+- Webhook signature verification uses `svix` package (Resend's recommended approach)
+- Support tickets in new table (not reusing error_reports or feedback tables)
+
+## Open Items
+- User needs to update `RESEND_FROM_EMAIL` in Vercel prod to `updates@mail.farmersmarketing.app`
+- Instagram URLs still placeholder `#` in both Coming Soon footers
+- Business rules audit questions pending user review (see `.claude/business_rules_audit_and_testing.md`)

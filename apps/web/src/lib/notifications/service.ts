@@ -167,11 +167,11 @@ async function sendEmail(
   // Requires Resend DNS verification for each domain's `mail.` subdomain.
   // Falls back to FM domain if vertical domain not in the verified list.
   const verifiedEmailDomains: Record<string, string> = {
-    farmers_market: 'noreply@mail.farmersmarketing.app',
-    food_trucks: 'noreply@mail.foodtruckn.app',
-    fire_works: 'noreply@mail.farmersmarketing.app', // Not yet verified — uses FM fallback
+    farmers_market: 'updates@mail.farmersmarketing.app',
+    food_trucks: 'updates@mail.foodtruckn.app',
+    fire_works: 'updates@mail.farmersmarketing.app', // Not yet verified — uses FM fallback
   }
-  const fallbackFrom = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
+  const fallbackFrom = process.env.RESEND_FROM_EMAIL || 'updates@mail.farmersmarketing.app'
   const fromAddress = verifiedEmailDomains[vertical || 'farmers_market'] || fallbackFrom
   // Use vertical-aware branding for display name, domain, and header color
   const branding = defaultBranding[vertical || 'farmers_market']
@@ -184,7 +184,7 @@ async function sendEmail(
       from: `${brandName} <${fromAddress}>`,
       to: userEmail,
       subject,
-      html: formatEmailHtml(subject, body, brandName, brandDomain, brandColor),
+      html: formatEmailHtml(subject, body, brandName, brandDomain, brandColor, vertical),
       text: body,
     })
 
@@ -208,7 +208,8 @@ function formatEmailHtml(
   body: string,
   brandName: string = 'Farmers Marketing',
   brandDomain: string = 'farmersmarketing.app',
-  brandColor: string = '#2d5016'
+  brandColor: string = '#2d5016',
+  vertical?: string
 ): string {
   const htmlBody = body
     .replace(/&/g, '&amp;')
@@ -217,6 +218,8 @@ function formatEmailHtml(
     .replace(/─+/g, '<hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0">')
     .replace(/\n\n/g, '</p><p style="margin:0 0 12px">')
     .replace(/\n/g, '<br>')
+
+  const supportPath = vertical ? `/${vertical}/support` : '/support'
 
   return `<!DOCTYPE html>
 <html>
@@ -231,6 +234,9 @@ function formatEmailHtml(
     </div>
     <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:16px">
       ${brandName} &middot; <a href="https://${brandDomain}" style="color:#9ca3af">${brandDomain}</a>
+    </p>
+    <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:8px">
+      This is an automated message. Please do not reply to this email. If you need help, contact us at <a href="https://${brandDomain}${supportPath}" style="color:#9ca3af">${brandDomain}${supportPath}</a>.
     </p>
   </div>
 </body>

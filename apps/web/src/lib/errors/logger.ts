@@ -84,7 +84,7 @@ async function sendAdminAlert(error: TracedError): Promise<void> {
     const { Resend } = await import('resend')
     const resend = new Resend(apiKey)
 
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'updates@mail.farmersmarketing.app'
     await resend.emails.send({
       from: `Platform Alerts <${fromAddress}>`,
       to: adminEmail,

@@ -63,6 +63,34 @@ export default async function HelpPage({ params }: HelpPageProps) {
         </p>
       </div>
 
+      {/* Support link */}
+      <div
+        style={{
+          marginBottom: spacing.lg,
+          padding: spacing.sm,
+          backgroundColor: statusColors.neutral50,
+          border: `1px solid ${statusColors.neutral200}`,
+          borderRadius: radius.md,
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontSize: typography.sizes.sm,
+            color: statusColors.neutral600,
+          }}
+        >
+          Can&apos;t find what you&apos;re looking for?{' '}
+          <Link
+            href={`/${vertical}/support`}
+            style={{ color: statusColors.infoDark, fontWeight: 600 }}
+          >
+            Contact Support
+          </Link>{' '}
+          and we&apos;ll get back to you within 24-48 hours.
+        </p>
+      </div>
+
       {categoryNames.length === 0 ? (
         <div style={{
           padding: spacing.xl,

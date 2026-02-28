@@ -123,7 +123,7 @@ async function checkForSpike(errorCode: string): Promise<void> {
     const resend = new Resend(apiKey)
 
     await resend.emails.send({
-      from: `Platform Alerts <${process.env.RESEND_FROM_EMAIL || 'noreply@mail.farmersmarketing.app'}>`,
+      from: `Platform Alerts <${process.env.RESEND_FROM_EMAIL || 'updates@mail.farmersmarketing.app'}>`,
       to: adminEmail,
       subject: `[SPIKE] ${errorCode} — ${count} reports in the last hour`,
       html: `
