@@ -312,6 +312,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       termWeeks: term_weeks,
       priceCents: buyerTotalCents,
+      basePriceCents: priceCents,
       startDate: subscriptionStartDate,
       successUrl: `${baseUrl}/${verticalId}/buyer/subscriptions?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${baseUrl}/${verticalId}/market-box/${offering_id}?cancelled=true`,

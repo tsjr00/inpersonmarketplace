@@ -1,100 +1,50 @@
-# Current Task: Resend Webhooks + API Key Separation + Support Page
+# Current Task: Market Box / Chef Box Payout Implementation
 Started: 2026-02-28
 
 ## Goal
-Three infrastructure improvements:
-1. Resend webhook endpoint to track bounces/complaints/deliveries
-2. Separate Resend API keys for prod vs dev/staging (config only)
-3. Public support page with contact form at `/{vertical}/support`
+Fix market box (FM) / chef box (FT) vendor payout flow. Buyers prepay for full term (4 or 8 weeks). Vendor should get paid the full amount when buyer prepays — NOT per-pickup.
 
-## Status: PLAN APPROVED — Implementation Not Started
+## Status: IMPLEMENTATION COMPLETE — Awaiting migration apply + commit
 
-## Plan File
-`C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md` — full implementation plan
+## What Was Changed
 
-## What's Been Completed This Session (Pre-Task)
+### Market Box Payout Fix — COMPLETE, READY TO COMMIT
+**Problem**: F2 FIX paid vendors per-pickup (each time a pickup was confirmed). Business rule: vendor gets full prepaid amount at checkout time.
 
-### Email FROM Address Change — COMMITTED + PUSHED TO BOTH
-- Changed `noreply@mail.` → `updates@mail.` across all 6 source files
-- Added "do not reply" footer to `formatEmailHtml()` in `service.ts`
-- Updated `.env.local` and `.env.example`
-- **User needs to update** `RESEND_FROM_EMAIL` in Vercel prod env vars to `updates@mail.farmersmarketing.app`
-- Commit: `d760973`
+**Files changed (8)**:
+1. `supabase/migrations/20260228_059_market_box_subscription_payout.sql` — **New**. Adds `market_box_subscription_id` UUID column + FK + unique partial index + performance index to `vendor_payouts`
+2. `src/lib/stripe/payments.ts` — **Edit**. Added `transferMarketBoxPayout()` function + `basePriceCents` param to `createMarketBoxCheckoutSession()` + `base_price_cents` in Stripe metadata
+3. `src/lib/stripe/webhooks.ts` — **Edit**. Added `processMarketBoxVendorPayout()` helper called from `handleMarketBoxCheckoutComplete()`. Updated `handleTransferCreated`/`handleTransferFailed` to handle `market_box_subscription_id` metadata. Added `calculateVendorPayout` + `transferMarketBoxPayout` imports.
+4. `src/app/api/checkout/success/route.ts` — **Edit**. Added `processMarketBoxPayout()` helper called after unified checkout market box RPC success. Idempotent.
+5. `src/app/api/buyer/market-boxes/route.ts` — **Edit**. Passes `basePriceCents: priceCents` to `createMarketBoxCheckoutSession()`
+6. `src/app/api/vendor/market-boxes/pickups/[id]/route.ts` — **Edit**. Removed F2 FIX per-pickup payout block (lines 278-326). Removed unused imports (`FEES`, `transferToVendor`, `createServiceClient`).
+7. `src/app/api/buyer/market-boxes/[id]/confirm-pickup/route.ts` — **Edit**. Removed F2 FIX per-pickup payout block (lines 135-179). Removed unused imports.
+8. `src/app/api/cron/expire-orders/route.ts` — **Edit**. Added market box subscription payout retry to Phase 5 (failed + pending_stripe_setup).
 
-### Favicon Fix — COMMITTED + PUSHED TO BOTH
-- Deleted `src/app/favicon.ico` and `src/app/icon.svg` (root-level files were overriding per-vertical metadata icons)
-- Per-vertical favicons now working via `generateMetadata()` in `[vertical]/layout.tsx`
-- Commit: `18bc0ff`
+**TypeScript**: 0 errors
 
-### PWA Manifest Fix — COMMITTED + PUSHED TO BOTH
-- Added `Vary: Host` header to manifest + apple-touch-icon routes
-- Added `www.` domain variants to hostname lookup (Vercel redirects bare → www)
-- FT "Save as webapp" now shows correct FT logo
-- Commits: `ed1bf77`, `7e4cf47`
-
-### Vendor Leads Admin Email — COMMITTED + PUSHED TO BOTH
-- Made admin email vertical-aware (sender name, FROM address, label, color, footer)
-- Commit: `d760973`
-
-### Resend DNS — COMPLETE
-- `mail.foodtruckn.app` verified in Resend (DKIM + SPF + MX all verified)
-- `mail.farmersmarketing.app` was already verified
-
-### Coming Soon Pages — COMPLETE (prior session, already in prod)
-### DNS + getAppUrl() + Metadata — COMPLETE (prior session, already in prod)
-
-## What's Remaining (Approved Plan)
-
-### Part 1: Resend Webhook Endpoint
-- [ ] Install `svix` npm package
-- [ ] Create migration `20260228_057_email_events.sql` — email_events table
-- [ ] Create `src/app/api/webhooks/resend/route.ts` — webhook handler
-- [ ] Add `RESEND_WEBHOOK_SECRET` to `.env.local`
-
-### Part 2: Separate API Keys (Config Only — No Code)
-- [ ] User creates new API key in Resend dashboard (Production)
-- [ ] User updates Vercel prod `RESEND_API_KEY` with new key
-- [ ] .env.local keeps existing key for dev/staging
-
-### Part 3: Support Page + Form
-- [ ] Create migration `20260228_058_support_tickets.sql` — support_tickets table
-- [ ] Create `src/app/[vertical]/support/page.tsx` — support page
-- [ ] Create `src/components/support/SupportForm.tsx` — contact form
-- [ ] Create `src/app/api/support/route.ts` — POST handler
-- [ ] Edit `src/lib/notifications/service.ts` — update email footer link to include vertical
-- [ ] Edit `src/app/[vertical]/help/page.tsx` — add link to support page
-
-### Verification
-- [ ] Run tsc --noEmit
-- [ ] Apply migrations to dev
-- [ ] Test webhook (after Resend dashboard config)
-- [ ] Test support form submission
-- [ ] Commit + push to staging
-
-## Key Files Modified This Session
-- `src/lib/notifications/service.ts` — noreply→updates, added do-not-reply footer
-- `src/app/api/vendor-leads/route.ts` — noreply→updates, vertical-aware admin email
-- `src/lib/errors/logger.ts` — noreply→updates
-- `src/app/api/errors/report/route.ts` — noreply→updates
-- `src/app/api/cron/expire-orders/route.ts` — noreply→updates
-- `src/app/api/manifest/route.ts` — Vary:Host + www domain variants
-- `src/app/api/apple-touch-icon/route.ts` — Vary:Host + www domain variants
-- `.env.example` — noreply→updates
-- `.env.local` — noreply→updates
-- Deleted: `src/app/favicon.ico`, `src/app/icon.svg`
+### Earlier This Session (Pre-Compaction)
+- Resend Webhooks + Support Page — ALL COMPLETE, PUSHED TO PROD + STAGING
+- Resend Config — COMPLETE
+- noreply→updates Email Fix — COMMITTED + PUSHED
+- About/Terms Pages Moved Under [vertical] — COMMITTED + PUSHED
+- CI ESLint Fixes — COMMITTED + PUSHED
+- Favicon fix, PWA manifest fix, Vendor leads admin email
 
 ## Git State
-- Main and staging are in sync at origin
-- All changes from this session have been committed and pushed to both
+- Main and staging fully synced at `1286784`
+- Market box payout changes are LOCAL ONLY (not committed yet)
+- Migration 059 needs to be applied to all 3 environments
 
-## Architecture Decisions
-- Support page is NOT an overlay (unlike Coming Soon) — renders in normal vertical layout with header
-- Support form is public (no auth required) — uses service client pattern from vendor-leads
-- Email events table stores only bounces/complaints/delays (not deliveries — too much volume)
-- Webhook signature verification uses `svix` package (Resend's recommended approach)
-- Support tickets in new table (not reusing error_reports or feedback tables)
+## What's Next
+1. Commit the market box payout changes
+2. Apply migration 059 to Dev, Staging, and Prod
+3. Update SCHEMA_SNAPSHOT.md with new column + index
+4. Push to staging for testing
 
-## Open Items
-- User needs to update `RESEND_FROM_EMAIL` in Vercel prod to `updates@mail.farmersmarketing.app`
-- Instagram URLs still placeholder `#` in both Coming Soon footers
-- Business rules audit questions pending user review (see `.claude/business_rules_audit_and_testing.md`)
+## Open Items (Carried Over)
+- Instagram URLs still placeholder `#` in Coming Soon footers
+- Business rules audit questions pending user review
+- Events Phase 5 (reminders + conversion) — deferred
+- Dev DB may be out of sync on some migrations
+- Migrations 057+058 schema snapshot update needed

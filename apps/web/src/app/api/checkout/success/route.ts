@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
-import { createRefund } from '@/lib/stripe/payments'
+import { createRefund, transferMarketBoxPayout } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb, TracedError, logError } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { sendNotification } from '@/lib/notifications'
 import { logPublicActivityEvent } from '@/lib/marketing/activity-events'
+import { calculateVendorPayout } from '@/lib/pricing'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/checkout/success', 'GET', async () => {
@@ -261,8 +262,14 @@ export async function GET(request: NextRequest) {
               }
             } else if (result?.already_existed) {
               crumb.logic('Market box subscription already exists (idempotent)', { offeringId: mbItem.offeringId })
+              // Still process payout if it hasn't been created yet
+              await processMarketBoxPayout(serviceClient, result.id, mbItem.offeringId, mbItem.termWeeks)
             } else {
               crumb.logic('Market box subscription created', { offeringId: mbItem.offeringId, id: result?.id })
+              // Pay vendor the full prepaid amount
+              if (result?.id) {
+                await processMarketBoxPayout(serviceClient, result.id, mbItem.offeringId, mbItem.termWeeks)
+              }
             }
           }
         } catch (parseErr) {
@@ -427,4 +434,101 @@ export async function GET(request: NextRequest) {
       marketBoxSubscriptions: marketBoxSubscriptions || [],
     })
   })
+}
+
+/**
+ * Process vendor payout for a market box subscription (full prepaid amount).
+ * Idempotent: checks for existing payout before creating.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function processMarketBoxPayout(serviceClient: any, subscriptionId: string, offeringId: string, termWeeks: number) {
+  try {
+    // Check for existing payout (idempotency)
+    const { data: existingPayout } = await serviceClient
+      .from('vendor_payouts')
+      .select('id')
+      .eq('market_box_subscription_id', subscriptionId)
+      .not('status', 'in', '("failed","cancelled")')
+      .maybeSingle()
+
+    if (existingPayout) {
+      crumb.logic(`Market box payout already exists for subscription ${subscriptionId}`)
+      return
+    }
+
+    // Get offering base price and vendor
+    const { data: offering, error: offeringError } = await serviceClient
+      .from('market_box_offerings')
+      .select('price_cents, price_4week_cents, price_8week_cents, vendor_profile_id')
+      .eq('id', offeringId)
+      .single()
+
+    if (offeringError || !offering) {
+      crumb.logic(`Failed to fetch offering for market box payout: ${offeringError?.message}`)
+      return
+    }
+
+    const basePriceCents = termWeeks === 8
+      ? (offering.price_8week_cents || offering.price_4week_cents || offering.price_cents)
+      : (offering.price_4week_cents || offering.price_cents)
+
+    if (basePriceCents <= 0) return
+
+    const vendorPayoutCents = calculateVendorPayout(basePriceCents)
+
+    // Get vendor Stripe info
+    const { data: vendor } = await serviceClient
+      .from('vendor_profiles')
+      .select('id, stripe_account_id, stripe_payouts_enabled, user_id')
+      .eq('id', offering.vendor_profile_id)
+      .single()
+
+    if (!vendor) return
+
+    if (vendor.stripe_account_id && vendor.stripe_payouts_enabled) {
+      try {
+        const transfer = await transferMarketBoxPayout({
+          amount: vendorPayoutCents,
+          destination: vendor.stripe_account_id,
+          subscriptionId,
+        })
+
+        await serviceClient.from('vendor_payouts').insert({
+          market_box_subscription_id: subscriptionId,
+          vendor_profile_id: vendor.id,
+          amount_cents: vendorPayoutCents,
+          stripe_transfer_id: transfer.id,
+          status: 'processing',
+        })
+
+        crumb.logic(`Market box payout initiated: ${vendorPayoutCents}c for subscription ${subscriptionId}`)
+      } catch (transferErr) {
+        console.error('[MARKET_BOX_PAYOUT] Transfer failed in checkout success:', transferErr)
+        await serviceClient.from('vendor_payouts').insert({
+          market_box_subscription_id: subscriptionId,
+          vendor_profile_id: vendor.id,
+          amount_cents: vendorPayoutCents,
+          stripe_transfer_id: null,
+          status: 'failed',
+        })
+      }
+    } else {
+      await serviceClient.from('vendor_payouts').insert({
+        market_box_subscription_id: subscriptionId,
+        vendor_profile_id: vendor.id,
+        amount_cents: vendorPayoutCents,
+        stripe_transfer_id: null,
+        status: 'pending_stripe_setup',
+      })
+    }
+
+    // Notify vendor
+    if (vendor.user_id) {
+      await sendNotification(vendor.user_id, 'payout_processed', {
+        amountCents: vendorPayoutCents,
+      })
+    }
+  } catch (err) {
+    console.error('[MARKET_BOX_PAYOUT] Error in checkout success payout:', err)
+  }
 }

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { transferToVendor } from '@/lib/stripe/payments'
-import { FEES } from '@/lib/pricing'
+import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
@@ -275,55 +273,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const mbVendorName = sub?.offering?.vendor_profiles?.profile_data?.business_name || 'Vendor'
     const completed = updated?.status === 'picked_up'
 
-    // F2 FIX: Transfer payout to vendor for completed market box pickup
-    if (completed) {
-      const mbOffering = (pickup.subscription as any)?.offering
-      const perPickupPriceCents = mbOffering?.price_cents || 0
-
-      if (perPickupPriceCents > 0) {
-        // Per-pickup vendor payout = base price minus vendor percentage fee
-        // Flat fee was already deducted once at subscription checkout
-        const vendorPayoutCents = perPickupPriceCents - Math.round(perPickupPriceCents * (FEES.vendorFeePercent / 100))
-        const mbServiceClient = createServiceClient()
-
-        // Check for existing payout (prevent double payout)
-        const { data: existingMbPayout } = await mbServiceClient
-          .from('vendor_payouts')
-          .select('id')
-          .eq('market_box_pickup_id', pickupId)
-          .neq('status', 'failed')
-          .maybeSingle()
-
-        if (!existingMbPayout && vendor.stripe_account_id && vendor.stripe_payouts_enabled) {
-          const sub = pickup.subscription as any
-          try {
-            const transfer = await transferToVendor({
-              amount: vendorPayoutCents,
-              destination: vendor.stripe_account_id,
-              orderId: sub?.id || pickupId,
-              orderItemId: pickupId,
-            })
-
-            await mbServiceClient.from('vendor_payouts').insert({
-              market_box_pickup_id: pickupId,
-              vendor_profile_id: vendor.id,
-              amount_cents: vendorPayoutCents,
-              stripe_transfer_id: transfer.id,
-              status: 'processing',
-            })
-          } catch (transferErr) {
-            console.error('[MARKET_BOX_PAYOUT] Transfer failed:', transferErr)
-            await mbServiceClient.from('vendor_payouts').insert({
-              market_box_pickup_id: pickupId,
-              vendor_profile_id: vendor.id,
-              amount_cents: vendorPayoutCents,
-              stripe_transfer_id: null,
-              status: 'failed',
-            })
-          }
-        }
-      }
-    }
+    // Vendor payout for market box is handled at checkout time (full prepaid amount).
+    // No per-pickup payout — see handleMarketBoxCheckoutComplete() in webhooks.ts.
 
     if (buyerUserId) {
       if (action === 'ready') {

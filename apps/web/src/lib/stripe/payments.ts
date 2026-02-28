@@ -122,6 +122,7 @@ export async function createMarketBoxCheckoutSession({
   userId,
   termWeeks,
   priceCents,
+  basePriceCents,
   startDate,
   successUrl,
   cancelUrl,
@@ -132,6 +133,7 @@ export async function createMarketBoxCheckoutSession({
   userId: string
   termWeeks: number
   priceCents: number
+  basePriceCents?: number
   startDate: string
   successUrl: string
   cancelUrl: string
@@ -170,6 +172,7 @@ export async function createMarketBoxCheckoutSession({
         term_weeks: termWeeks.toString(),
         start_date: startDate,
         price_cents: priceCents.toString(),
+        ...(basePriceCents !== undefined ? { base_price_cents: basePriceCents.toString() } : {}),
       },
     },
     {
@@ -178,6 +181,37 @@ export async function createMarketBoxCheckoutSession({
   )
 
   return session
+}
+
+/**
+ * Create transfer to vendor for market box subscription payout
+ * Full prepaid amount transferred when buyer pays (not per-pickup)
+ * Uses subscription-specific idempotency key to prevent duplicate transfers
+ */
+export async function transferMarketBoxPayout({
+  amount,
+  destination,
+  subscriptionId,
+}: {
+  amount: number // cents
+  destination: string // Stripe account ID
+  subscriptionId: string // market_box_subscriptions.id
+}) {
+  const transfer = await stripe.transfers.create(
+    {
+      amount,
+      currency: 'usd',
+      destination,
+      metadata: {
+        market_box_subscription_id: subscriptionId,
+      },
+    },
+    {
+      idempotencyKey: `transfer-mb-sub-${subscriptionId}`,
+    }
+  )
+
+  return transfer
 }
 
 /**

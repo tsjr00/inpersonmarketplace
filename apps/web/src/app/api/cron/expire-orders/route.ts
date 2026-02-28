@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyOrderExpired, sendNotification } from '@/lib/notifications'
-import { createRefund, transferToVendor } from '@/lib/stripe/payments'
+import { createRefund, transferToVendor, transferMarketBoxPayout } from '@/lib/stripe/payments'
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
@@ -977,6 +977,130 @@ export async function GET(request: NextRequest) {
             totalProcessed++
           } catch {
             // Move to failed status so regular retry logic handles it
+            await supabase
+              .from('vendor_payouts')
+              .update({
+                status: 'failed',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', payout.id)
+
+            totalErrors++
+          }
+        }
+      }
+
+      // Retry failed market box subscription payouts (same logic as order payouts)
+      const { data: failedMbPayouts } = await supabase
+        .from('vendor_payouts')
+        .select(`
+          id,
+          market_box_subscription_id,
+          vendor_profile_id,
+          amount_cents,
+          created_at,
+          vendor_profiles!inner (
+            stripe_account_id,
+            stripe_payouts_enabled,
+            user_id
+          )
+        `)
+        .eq('status', 'failed')
+        .not('market_box_subscription_id', 'is', null)
+        .gte('created_at', cutoffDate.toISOString())
+        .order('created_at', { ascending: true })
+        .limit(MAX_PAYOUTS_PER_RUN)
+
+      if (failedMbPayouts && failedMbPayouts.length > 0) {
+        for (const payout of failedMbPayouts) {
+          const vp = payout.vendor_profiles as unknown as {
+            stripe_account_id: string | null
+            stripe_payouts_enabled: boolean
+            user_id: string
+          }
+
+          if (!vp?.stripe_account_id || !vp.stripe_payouts_enabled) continue
+
+          payoutsRetried++
+          try {
+            const transfer = await transferMarketBoxPayout({
+              amount: payout.amount_cents,
+              destination: vp.stripe_account_id,
+              subscriptionId: payout.market_box_subscription_id!,
+            })
+
+            await supabase
+              .from('vendor_payouts')
+              .update({
+                status: 'processing',
+                stripe_transfer_id: transfer.id,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', payout.id)
+
+            payoutsSucceeded++
+            totalProcessed++
+          } catch {
+            await supabase
+              .from('vendor_payouts')
+              .update({ updated_at: new Date().toISOString() })
+              .eq('id', payout.id)
+
+            totalErrors++
+          }
+        }
+      }
+
+      // Retry pending_stripe_setup market box payouts where vendor now has Stripe
+      const { data: pendingMbPayouts } = await supabase
+        .from('vendor_payouts')
+        .select(`
+          id,
+          market_box_subscription_id,
+          vendor_profile_id,
+          amount_cents,
+          created_at,
+          vendor_profiles!inner (
+            stripe_account_id,
+            stripe_payouts_enabled,
+            user_id
+          )
+        `)
+        .eq('status', 'pending_stripe_setup')
+        .not('market_box_subscription_id', 'is', null)
+        .order('created_at', { ascending: true })
+        .limit(MAX_PAYOUTS_PER_RUN)
+
+      if (pendingMbPayouts && pendingMbPayouts.length > 0) {
+        for (const payout of pendingMbPayouts) {
+          const vp = payout.vendor_profiles as unknown as {
+            stripe_account_id: string | null
+            stripe_payouts_enabled: boolean
+            user_id: string
+          }
+
+          if (!vp?.stripe_account_id || !vp.stripe_payouts_enabled) continue
+
+          payoutsRetried++
+          try {
+            const transfer = await transferMarketBoxPayout({
+              amount: payout.amount_cents,
+              destination: vp.stripe_account_id,
+              subscriptionId: payout.market_box_subscription_id!,
+            })
+
+            await supabase
+              .from('vendor_payouts')
+              .update({
+                status: 'processing',
+                stripe_transfer_id: transfer.id,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', payout.id)
+
+            payoutsSucceeded++
+            totalProcessed++
+          } catch {
             await supabase
               .from('vendor_payouts')
               .update({
