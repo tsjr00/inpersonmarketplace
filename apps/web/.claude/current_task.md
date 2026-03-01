@@ -94,10 +94,10 @@ Started: 2026-02-28
 - ~24 additional files with `|| 'standard'` → `|| 'free'` fallback changes
 - 4 admin table files with `<option value="free">Free</option>` added
 
-## User Action Required (after commit)
+## User Action Required
 - Create FM Standard Price in Stripe Dashboard ($9.99/mo recurring)
 - Set `STRIPE_FM_STANDARD_MONTHLY_PRICE_ID` env var in all environments
-- Apply migration 061 to Dev, Staging, and Prod
+- ~~Apply migration 061 to Dev, Staging, and Prod~~ ✅ Applied to all 3 envs (2026-02-28)
 
 ## Key Decisions
 - FM Standard pricing: $9.99/mo (user chose)

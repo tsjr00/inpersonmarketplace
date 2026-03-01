@@ -442,8 +442,8 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
 const FM_TIERS: { key: VendorTier; price: number; popular?: boolean }[] = [
   { key: 'free', price: 0 },
   { key: 'standard', price: SUBSCRIPTION_AMOUNTS.fm_standard_monthly_cents / 100 },
-  { key: 'premium', price: SUBSCRIPTION_AMOUNTS.vendor_monthly_cents / 100, popular: true },
-  { key: 'featured', price: SUBSCRIPTION_AMOUNTS.vendor_monthly_cents / 100 },
+  { key: 'premium', price: SUBSCRIPTION_AMOUNTS.fm_premium_monthly_cents / 100, popular: true },
+  { key: 'featured', price: SUBSCRIPTION_AMOUNTS.fm_featured_monthly_cents / 100 },
 ]
 
 const FM_TIER_LABELS: Record<string, string> = {

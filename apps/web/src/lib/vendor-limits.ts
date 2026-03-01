@@ -3,7 +3,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
 /**
  * Vendor Tier Limits - Centralized limit definitions and enforcement
  *
- * FM Tiers: free → standard ($9.99/mo) → premium ($24.99/mo) → featured
+ * FM Tiers: free → standard ($10/mo) → premium ($24.99/mo) → featured
  * FT Tiers: free → basic ($10/mo) → pro ($30/mo) → boss ($50/mo)
  *
  * Note: Product listings are counted per-account (total), not per-market.

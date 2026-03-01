@@ -21,9 +21,12 @@ export const FEES = {
 // Subscription pricing amounts (cents) — single source of truth
 // stripe/config.ts SUBSCRIPTION_PRICES should match these values
 export const SUBSCRIPTION_AMOUNTS = {
-  vendor_monthly_cents: 2499,         // FM Premium: $24.99/month
-  vendor_annual_cents: 20815,         // FM Premium: $208.15/year
-  fm_standard_monthly_cents: 999,     // FM Standard: $9.99/month
+  fm_premium_monthly_cents: 2499,     // FM Premium: $24.99/month
+  fm_premium_annual_cents: 20815,     // FM Premium: $208.15/year
+  fm_standard_monthly_cents: 1000,    // FM Standard: $10/month
+  fm_standard_annual_cents: 8150,    // FM Standard: $81.50/year (saves ~32%)
+  fm_featured_monthly_cents: 5000,   // FM Featured: $50/month
+  fm_featured_annual_cents: 48150,   // FM Featured: $481.50/year (saves ~20%)
   ft_basic_monthly_cents: 1000,       // FT Basic: $10/month
   ft_pro_monthly_cents: 3000,         // FT Pro: $30/month
   ft_boss_monthly_cents: 5000,        // FT Boss: $50/month

@@ -81,6 +81,7 @@
 | 20260220_043_vendor_payout_unique_constraint.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Partial unique index on vendor_payouts(order_item_id). Applied to all 3 envs. |
 | 20260221_046_supabase_linter_fixes.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Merged 9 overlapping permissive policies, dropped 4 duplicate indexes, added 18 FK indexes, dropped 4 legacy indexes. Applied to all 3 envs. |
 | 20260222_047_vendor_quality_checks.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Vendor quality checks tables + cron. Applied to all 3 envs. |
+| 20260228_061_fm_free_tier.sql | ✅ | 2026-02-28 | ✅ | 2026-02-28 | FM free tier + updated listing limits. Renamed set_ft_default_tier → set_default_vendor_tier (both verticals get 'free'). Applied to all 3 envs. |
 | 20260228_060_vendor_trial_system.sql | ✅ | 2026-02-28 | ✅ | 2026-02-28 | Add trial_started_at, trial_ends_at, trial_grace_ends_at to vendor_profiles. 90-day Basic trial for FT vendors. Applied to all 3 envs (Dev, Staging, Prod). |
 | 20260228_059_market_box_subscription_payout.sql | ✅ | 2026-02-28 | ✅ | 2026-02-28 | Add market_box_subscription_id to vendor_payouts. Full prepaid vendor payout at checkout. Applied to all 3 envs. |
 | 20260222_048_buyer_search_log.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Buyer search log table for geographic intelligence. Applied to all 3 envs. |

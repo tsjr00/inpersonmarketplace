@@ -891,7 +891,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     }}>
                       {vertical === 'food_trucks'
                         ? <>Upgrade to Basic for just <strong>${(SUBSCRIPTION_PRICES.food_truck_vendor.basic_monthly.amountCents / 100).toFixed(0)}/month</strong></>
-                        : <>Upgrade to Premium for just <strong>${(SUBSCRIPTION_PRICES.vendor.monthly.amountCents / 100).toFixed(2)}/month</strong></>
+                        : <>Upgrade to Premium for just <strong>${(SUBSCRIPTION_PRICES.fm_premium.monthly.amountCents / 100).toFixed(2)}/month</strong></>
                       }
                     </p>
 

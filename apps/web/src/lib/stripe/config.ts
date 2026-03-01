@@ -23,13 +23,14 @@ export const STRIPE_CONFIG = {
 // Subscription pricing for premium tiers
 // Price IDs must be created in Stripe Dashboard and added to environment variables
 export const SUBSCRIPTION_PRICES = {
-  vendor: {
+  // FM Premium vendor subscription
+  fm_premium: {
     monthly: {
-      priceId: process.env.STRIPE_VENDOR_MONTHLY_PRICE_ID || '',
+      priceId: process.env.STRIPE_FM_PREMIUM_MONTHLY_PRICE_ID || '',
       amountCents: 2499, // $24.99/month
     },
     annual: {
-      priceId: process.env.STRIPE_VENDOR_ANNUAL_PRICE_ID || '',
+      priceId: process.env.STRIPE_FM_PREMIUM_ANNUAL_PRICE_ID || '',
       amountCents: 20815, // $208.15/year (saves 30%)
     },
   },
@@ -43,11 +44,23 @@ export const SUBSCRIPTION_PRICES = {
       amountCents: 8150, // $81.50/year (saves 32%)
     },
   },
-  // FM vendor tiers (standard is below premium)
+  // FM vendor tiers
   fm_vendor: {
     standard_monthly: {
       priceId: process.env.STRIPE_FM_STANDARD_MONTHLY_PRICE_ID || '',
-      amountCents: 999, // $9.99/month
+      amountCents: 1000, // $10/month
+    },
+    standard_annual: {
+      priceId: process.env.STRIPE_FM_STANDARD_ANNUAL_PRICE_ID || '',
+      amountCents: 8150, // $81.50/year (saves ~32%)
+    },
+    featured_monthly: {
+      priceId: process.env.STRIPE_FM_FEATURED_MONTHLY_PRICE_ID || '',
+      amountCents: 5000, // $50/month
+    },
+    featured_annual: {
+      priceId: process.env.STRIPE_FM_FEATURED_ANNUAL_PRICE_ID || '',
+      amountCents: 48150, // $481.50/year (saves ~20%)
     },
   },
   // Food truck vendor tiers (monthly only for launch)
@@ -70,8 +83,8 @@ export const SUBSCRIPTION_PRICES = {
 // Helper to check if subscription prices are configured (FM vendor + buyer)
 export function areSubscriptionPricesConfigured(): boolean {
   return !!(
-    SUBSCRIPTION_PRICES.vendor.monthly.priceId &&
-    SUBSCRIPTION_PRICES.vendor.annual.priceId &&
+    SUBSCRIPTION_PRICES.fm_premium.monthly.priceId &&
+    SUBSCRIPTION_PRICES.fm_premium.annual.priceId &&
     SUBSCRIPTION_PRICES.buyer.monthly.priceId &&
     SUBSCRIPTION_PRICES.buyer.annual.priceId
   )
@@ -101,10 +114,10 @@ export function getFtPriceConfig(tier: string): { priceId: string; amountCents: 
   return SUBSCRIPTION_PRICES.food_truck_vendor[key] || null
 }
 
-// Get FM price config by tier name
-export function getFmPriceConfig(tier: string): { priceId: string; amountCents: number } | null {
-  if (tier === 'standard') return SUBSCRIPTION_PRICES.fm_vendor.standard_monthly
-  if (tier === 'premium') return SUBSCRIPTION_PRICES.vendor.monthly
-  if (tier === 'featured') return SUBSCRIPTION_PRICES.vendor.monthly // featured uses premium pricing
+// Get FM price config by tier name and billing cycle
+export function getFmPriceConfig(tier: string, cycle?: 'monthly' | 'annual'): { priceId: string; amountCents: number } | null {
+  if (tier === 'standard') return SUBSCRIPTION_PRICES.fm_vendor[cycle === 'annual' ? 'standard_annual' : 'standard_monthly']
+  if (tier === 'premium') return SUBSCRIPTION_PRICES.fm_premium[cycle === 'annual' ? 'annual' : 'monthly']
+  if (tier === 'featured') return SUBSCRIPTION_PRICES.fm_vendor[cycle === 'annual' ? 'featured_annual' : 'featured_monthly']
   return null // free tier has no price
 }

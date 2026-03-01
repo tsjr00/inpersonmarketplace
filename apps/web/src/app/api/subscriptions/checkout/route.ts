@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         priceId = ftPrice.priceId
       } else if (type === 'vendor' && requestedTier) {
         // FM vendor with specific tier (standard/premium/featured)
-        const fmPrice = getFmPriceConfig(requestedTier)
+        const fmPrice = getFmPriceConfig(requestedTier, cycle)
         if (!fmPrice || !fmPrice.priceId) {
           return NextResponse.json(
             { error: `${requestedTier} subscription is not available.` },
@@ -113,12 +113,22 @@ export async function POST(request: NextRequest) {
           )
         }
         priceId = fmPrice.priceId
+      } else if (type === 'vendor') {
+        // FM vendor without tier (legacy premium path)
+        const fmPrice = getFmPriceConfig('premium', cycle)
+        if (!fmPrice || !fmPrice.priceId) {
+          return NextResponse.json(
+            { error: `Premium ${cycle} subscription is not available.` },
+            { status: 400 }
+          )
+        }
+        priceId = fmPrice.priceId
       } else {
-        // FM vendor without tier (legacy premium path) or buyer
-        const priceConfig = SUBSCRIPTION_PRICES[type][cycle]
+        // Buyer subscription
+        const priceConfig = SUBSCRIPTION_PRICES.buyer[cycle]
         if (!priceConfig.priceId) {
           return NextResponse.json(
-            { error: `${type} ${cycle} subscription is not available.` },
+            { error: `Buyer ${cycle} subscription is not available.` },
             { status: 400 }
           )
         }

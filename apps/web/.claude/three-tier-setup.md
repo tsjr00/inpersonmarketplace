@@ -73,8 +73,15 @@ For each variable below, set it with the correct **scope**:
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_live_...` | `pk_test_...` |
 | `STRIPE_SECRET_KEY` | `sk_live_...` | `sk_test_...` |
 | `STRIPE_WEBHOOK_SECRET` | [prod webhook secret] | [test webhook secret] |
-| `STRIPE_VENDOR_MONTHLY_PRICE_ID` | [live price ID] | [test price ID] |
-| `STRIPE_VENDOR_ANNUAL_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FM_STANDARD_MONTHLY_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FM_STANDARD_ANNUAL_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FM_PREMIUM_MONTHLY_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FM_PREMIUM_ANNUAL_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FM_FEATURED_MONTHLY_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FM_FEATURED_ANNUAL_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FT_BASIC_MONTHLY_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FT_PRO_MONTHLY_PRICE_ID` | [live price ID] | [test price ID] |
+| `STRIPE_FT_BOSS_MONTHLY_PRICE_ID` | [live price ID] | [test price ID] |
 | `STRIPE_BUYER_MONTHLY_PRICE_ID` | [live price ID] | [test price ID] |
 | `STRIPE_BUYER_ANNUAL_PRICE_ID` | [live price ID] | [test price ID] |
 
