@@ -439,11 +439,11 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
 
 // ── Farmers Market 4-Tier Upgrade Page ──────────────────────────────────
 
-const FM_TIERS: { key: VendorTier; price: number; popular?: boolean }[] = [
-  { key: 'free', price: 0 },
-  { key: 'standard', price: SUBSCRIPTION_AMOUNTS.fm_standard_monthly_cents / 100 },
-  { key: 'premium', price: SUBSCRIPTION_AMOUNTS.fm_premium_monthly_cents / 100, popular: true },
-  { key: 'featured', price: SUBSCRIPTION_AMOUNTS.fm_featured_monthly_cents / 100 },
+const FM_TIERS: { key: VendorTier; monthlyPrice: number; annualPrice: number; popular?: boolean }[] = [
+  { key: 'free', monthlyPrice: 0, annualPrice: 0 },
+  { key: 'standard', monthlyPrice: SUBSCRIPTION_AMOUNTS.fm_standard_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.fm_standard_annual_cents / 100 },
+  { key: 'premium', monthlyPrice: SUBSCRIPTION_AMOUNTS.fm_premium_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.fm_premium_annual_cents / 100, popular: true },
+  { key: 'featured', monthlyPrice: SUBSCRIPTION_AMOUNTS.fm_featured_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.fm_featured_annual_cents / 100 },
 ]
 
 const FM_TIER_LABELS: Record<string, string> = {
@@ -471,6 +471,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
   const [isProcessing, setIsProcessing] = useState<string | null>(null)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<string | null>(null)
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
 
   useEffect(() => {
     async function checkSubscription() {
@@ -527,7 +528,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
       const res = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'vendor', cycle: 'monthly', vertical, tier }),
+        body: JSON.stringify({ type: 'vendor', cycle: billingCycle, vertical, tier }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -581,6 +582,62 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
           </p>
         </div>
 
+        {/* Billing Cycle Toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-flex',
+            backgroundColor: '#f3f4f6',
+            borderRadius: 10,
+            padding: 4,
+          }}>
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              style={{
+                padding: '10px 24px',
+                fontSize: 14,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: billingCycle === 'monthly' ? 'white' : 'transparent',
+                color: billingCycle === 'monthly' ? '#333' : '#666',
+                boxShadow: billingCycle === 'monthly' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('annual')}
+              style={{
+                padding: '10px 24px',
+                fontSize: 14,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: billingCycle === 'annual' ? 'white' : 'transparent',
+                color: billingCycle === 'annual' ? '#333' : '#666',
+                boxShadow: billingCycle === 'annual' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              Annual
+              <span style={{
+                backgroundColor: '#166534',
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: 12,
+                fontSize: 11,
+                fontWeight: 700,
+              }}>
+                Save up to 32%
+              </span>
+            </button>
+          </div>
+        </div>
+
         {/* Error */}
         {error && (
           <div style={{ marginBottom: 16 }}>
@@ -595,13 +652,19 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
           gap: 20,
           marginBottom: 40,
         }}>
-          {FM_TIERS.map(({ key, price, popular }) => {
+          {FM_TIERS.map(({ key, monthlyPrice, annualPrice, popular }) => {
             const limits = TIER_LIMITS[key]
             const isCurrent = currentTier === key
             const tierOrder: Record<string, number> = { free: 0, standard: 1, premium: 2, featured: 3 }
             const isUpgrade = (tierOrder[key] || 0) > (tierOrder[currentTier || 'free'] || 0)
             const isDowngrade = (tierOrder[key] || 0) < (tierOrder[currentTier || 'free'] || 0)
             const processing = isProcessing === key
+
+            const isAnnual = billingCycle === 'annual'
+            const displayPrice = isAnnual ? annualPrice : monthlyPrice
+            const monthlySavings = monthlyPrice > 0 && isAnnual
+              ? Math.round((1 - annualPrice / (monthlyPrice * 12)) * 100)
+              : 0
 
             const borderColor = popular ? '#166534' : isCurrent ? '#4A4A4A' : key === 'featured' ? '#f59e0b' : '#e5e7eb'
             const shadowStyle = popular ? '0 8px 24px rgba(22, 101, 52, 0.15)' : '0 1px 3px rgba(0,0,0,0.1)'
@@ -649,11 +712,35 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
 
                 {/* Price */}
                 <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  {price === 0 ? (
+                  {displayPrice === 0 ? (
                     <span style={{ fontSize: 28, fontWeight: 'bold', color: '#333' }}>Free forever</span>
+                  ) : isAnnual ? (
+                    <div>
+                      <div>
+                        <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${displayPrice.toFixed(2)}</span>
+                        <span style={{ color: '#666', fontSize: 16 }}>/yr</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
+                        ${(displayPrice / 12).toFixed(2)}/mo
+                      </div>
+                      {monthlySavings > 0 && (
+                        <div style={{
+                          display: 'inline-block',
+                          marginTop: 4,
+                          padding: '2px 8px',
+                          backgroundColor: '#f0fdf4',
+                          color: '#166534',
+                          borderRadius: 12,
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}>
+                          Save {monthlySavings}%
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <>
-                      <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${price.toFixed(2)}</span>
+                      <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${displayPrice.toFixed(2)}</span>
                       <span style={{ color: '#666', fontSize: 16 }}>/mo</span>
                     </>
                   )}
@@ -789,14 +876,14 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
                 What&apos;s the difference between Premium and Featured?
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Featured vendors get more listings, more markets, more {term(vertical, 'market_box')} offerings, and higher subscriber caps. Same monthly price as Premium.
+                Featured vendors get more listings, more markets, more {term(vertical, 'market_box')} offerings, and higher subscriber caps. It&apos;s our top-tier plan for established vendors.
               </p>
             </div>
           </div>
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: '#666' }}>
-          Secure payment powered by Stripe. All paid plans billed monthly.
+          Secure payment powered by Stripe. {billingCycle === 'annual' ? 'Annual plans billed once per year.' : 'Cancel or change plans anytime.'}
         </p>
       </div>
     </div>
