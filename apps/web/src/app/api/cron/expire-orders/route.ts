@@ -6,6 +6,7 @@ import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
 import { FEES } from '@/lib/pricing'
+import { getTierLimits } from '@/lib/vendor-limits'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 
 /**
@@ -1426,7 +1427,7 @@ export async function GET(request: NextRequest) {
     // ============================================================
     // PHASE 8: Expire vendor/buyer tier subscriptions
     // Downgrade vendors and buyers whose tier_expires_at has passed.
-    // FT vendors → 'free', FM vendors → 'standard', Buyers → 'standard'
+    // All vendors → 'free', Buyers → 'standard'
     // ============================================================
     let vendorTiersExpired = 0
     let buyerTiersExpired = 0
@@ -1436,12 +1437,12 @@ export async function GET(request: NextRequest) {
         .from('vendor_profiles')
         .select('id, tier, vertical_id, user_id')
         .lt('tier_expires_at', new Date().toISOString())
-        .not('tier', 'in', '("standard","free")')
+        .neq('tier', 'free')
         .limit(100)
 
       if (expiredVendors && expiredVendors.length > 0) {
         for (const vendor of expiredVendors) {
-          const newTier = vendor.vertical_id === 'food_trucks' ? 'free' : 'standard'
+          const newTier = 'free' // Both verticals expire to free tier
           const { error: updateErr } = await supabase
             .from('vendor_profiles')
             .update({
@@ -1569,8 +1570,9 @@ export async function GET(request: NextRequest) {
               .gte('created_at', dayAgo)
 
             if (!count || count === 0) {
+              const trialTierLabel = vendor.vertical_id === 'food_trucks' ? 'Basic' : 'Standard'
               await sendNotification(vendor.user_id, notificationType as Parameters<typeof sendNotification>[1], {
-                trialTier: 'Basic',
+                trialTier: trialTierLabel,
                 trialDays: daysRemaining,
               }, { vertical: vendor.vertical_id })
               trialReminders++
@@ -1604,8 +1606,9 @@ export async function GET(request: NextRequest) {
             ? new Date(vendor.trial_grace_ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
             : undefined
 
+          const expiredTierLabel = vendor.vertical_id === 'food_trucks' ? 'Basic' : 'Standard'
           await sendNotification(vendor.user_id, 'trial_expired', {
-            trialTier: 'Basic',
+            trialTier: expiredTierLabel,
             trialEndsAt: graceEnd,
           }, { vertical: vendor.vertical_id })
 
@@ -1625,8 +1628,10 @@ export async function GET(request: NextRequest) {
 
       if (graceExpired) {
         for (const vendor of graceExpired) {
-          // FT free tier limits: 5 published listings, 0 active market boxes
-          const freeListingLimit = 5
+          // Use vertical-aware free tier limits
+          const freeLimits = getTierLimits('free', vendor.vertical_id)
+          const freeListingLimit = freeLimits.productListings
+          const freeActiveBoxLimit = freeLimits.activeMarketBoxes
           let unpublishedCount = 0
           let deactivatedBoxCount = 0
 
@@ -1649,19 +1654,21 @@ export async function GET(request: NextRequest) {
             unpublishedCount = toUnpublish.length
           }
 
-          // Deactivate all active market boxes (FT free tier = 0 market boxes)
+          // Deactivate excess active market boxes beyond free tier limit
           const { data: activeBoxes } = await supabase
             .from('market_box_offerings')
             .select('id')
             .eq('vendor_profile_id', vendor.id)
             .eq('active', true)
+            .order('created_at', { ascending: true })
 
-          if (activeBoxes && activeBoxes.length > 0) {
+          if (activeBoxes && activeBoxes.length > freeActiveBoxLimit) {
+            const toDeactivate = activeBoxes.slice(freeActiveBoxLimit).map(b => b.id)
             await supabase
               .from('market_box_offerings')
               .update({ active: false })
-              .in('id', activeBoxes.map(b => b.id))
-            deactivatedBoxCount = activeBoxes.length
+              .in('id', toDeactivate)
+            deactivatedBoxCount = toDeactivate.length
           }
 
           // Clear grace period so this doesn't re-run

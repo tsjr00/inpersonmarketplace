@@ -98,7 +98,7 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
           .neq('status', 'rejected');
 
         const existingProfiles = profiles || [];
-        const tier = (existingProfiles[0]?.tier as string) || 'standard';
+        const tier = (existingProfiles[0]?.tier as string) || 'free';
         const limit = getMarketLimit(tier, vertical);
         const alreadyInMarket = existingProfiles.some(p => p.vertical_id === vertical);
         const atLimit = existingProfiles.length >= limit && !alreadyInMarket;
@@ -438,11 +438,11 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                   <>
                     Upgrade your plan to join additional {term(vertical, 'markets').toLowerCase()}.
                   </>
-                ) : marketLimitInfo.tier === 'standard' ? (
+                ) : (marketLimitInfo.tier === 'free' || marketLimitInfo.tier === 'standard') ? (
                   <>
-                    Standard vendors can participate in 1 traditional market.
+                    {marketLimitInfo.tier === 'free' ? 'Free' : 'Standard'} vendors can participate in {marketLimitInfo.tier === 'free' ? '1' : '2'} traditional market{marketLimitInfo.tier === 'standard' ? 's' : ''}.
                     <br /><br />
-                    <strong>Upgrade to Premium</strong> to join up to 3 markets.
+                    <strong>Upgrade your plan</strong> to join more markets.
                   </>
                 ) : (
                   <>

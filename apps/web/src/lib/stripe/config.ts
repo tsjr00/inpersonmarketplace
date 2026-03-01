@@ -43,6 +43,13 @@ export const SUBSCRIPTION_PRICES = {
       amountCents: 8150, // $81.50/year (saves 32%)
     },
   },
+  // FM vendor tiers (standard is below premium)
+  fm_vendor: {
+    standard_monthly: {
+      priceId: process.env.STRIPE_FM_STANDARD_MONTHLY_PRICE_ID || '',
+      amountCents: 999, // $9.99/month
+    },
+  },
   // Food truck vendor tiers (monthly only for launch)
   food_truck_vendor: {
     basic_monthly: {
@@ -92,4 +99,12 @@ export function areVerticalPricesConfigured(vertical: string): boolean {
 export function getFtPriceConfig(tier: string): { priceId: string; amountCents: number } | null {
   const key = `${tier}_monthly` as keyof typeof SUBSCRIPTION_PRICES.food_truck_vendor
   return SUBSCRIPTION_PRICES.food_truck_vendor[key] || null
+}
+
+// Get FM price config by tier name
+export function getFmPriceConfig(tier: string): { priceId: string; amountCents: number } | null {
+  if (tier === 'standard') return SUBSCRIPTION_PRICES.fm_vendor.standard_monthly
+  if (tier === 'premium') return SUBSCRIPTION_PRICES.vendor.monthly
+  if (tier === 'featured') return SUBSCRIPTION_PRICES.vendor.monthly // featured uses premium pricing
+  return null // free tier has no price
 }

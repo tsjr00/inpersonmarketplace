@@ -597,8 +597,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
   // Downgrade tier on subscription deletion
   if (subscriptionType === 'vendor' || subscriptionType === 'food_truck_vendor') {
-    // FT vendors downgrade to 'free' (no subscription = free tier), FM to 'standard' (free)
-    const downgradeTier = subscriptionType === 'food_truck_vendor' ? 'free' : 'standard'
+    // Both verticals downgrade to 'free' when subscription is deleted
+    const downgradeTier = 'free'
     const vertical = subData.metadata?.vertical || ''
 
     let vpQuery = supabase

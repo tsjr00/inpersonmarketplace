@@ -39,7 +39,7 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
   const isPendingVendor = vendorProfile.status === 'submitted'
 
   // Check listing limit
-  const tier = (vendorProfile as Record<string, unknown>).tier as string || 'standard'
+  const tier = (vendorProfile as Record<string, unknown>).tier as string || 'free'
   const limit = getListingLimit(tier, vertical)
 
   const { count: listingCount } = await supabase
@@ -78,9 +78,14 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
               You&apos;ve reached your limit of {limit} total listings.
             </p>
             <p style={{ marginBottom: 0 }}>
-              {tier === 'standard' ? (
+              {tier === 'free' ? (
                 <>
-                  <strong>Upgrade to Premium</strong> to create up to 15 listings,
+                  <strong>Upgrade your plan</strong> to create more listings,
+                  or delete an existing listing to create a new one.
+                </>
+              ) : tier === 'standard' ? (
+                <>
+                  <strong>Upgrade to Premium</strong> to create up to 20 listings,
                   or delete an existing listing to create a new one.
                 </>
               ) : (

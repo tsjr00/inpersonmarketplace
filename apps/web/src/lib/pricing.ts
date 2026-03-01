@@ -21,13 +21,14 @@ export const FEES = {
 // Subscription pricing amounts (cents) — single source of truth
 // stripe/config.ts SUBSCRIPTION_PRICES should match these values
 export const SUBSCRIPTION_AMOUNTS = {
-  vendor_monthly_cents: 2499,     // $24.99/month
-  vendor_annual_cents: 20815,     // $208.15/year
-  ft_basic_monthly_cents: 1000,   // $10/month
-  ft_pro_monthly_cents: 3000,     // $30/month
-  ft_boss_monthly_cents: 5000,    // $50/month
-  buyer_monthly_cents: 999,       // $9.99/month
-  buyer_annual_cents: 8150,       // $81.50/year
+  vendor_monthly_cents: 2499,         // FM Premium: $24.99/month
+  vendor_annual_cents: 20815,         // FM Premium: $208.15/year
+  fm_standard_monthly_cents: 999,     // FM Standard: $9.99/month
+  ft_basic_monthly_cents: 1000,       // FT Basic: $10/month
+  ft_pro_monthly_cents: 3000,         // FT Pro: $30/month
+  ft_boss_monthly_cents: 5000,        // FT Boss: $50/month
+  buyer_monthly_cents: 999,           // Buyer Premium: $9.99/month
+  buyer_annual_cents: 8150,           // Buyer Premium: $81.50/year
 } as const
 
 // Small order fee defaults per vertical (applied when displayed subtotal < threshold)

@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { vertical } = body as { vertical?: string }
 
-    if (vertical !== 'food_trucks') {
-      return NextResponse.json({ error: 'Free tier is only available for food truck vendors.' }, { status: 400 })
+    if (!vertical) {
+      return NextResponse.json({ error: 'Vertical is required.' }, { status: 400 })
     }
 
     // Get vendor profile
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       .from('vendor_profiles')
       .select('id, tier, stripe_subscription_id')
       .eq('user_id', user.id)
-      .eq('vertical_id', 'food_trucks')
+      .eq('vertical_id', vertical)
       .single()
 
     if (vendorError || !vendorProfile) {

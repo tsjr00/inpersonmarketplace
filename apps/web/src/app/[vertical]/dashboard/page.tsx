@@ -855,11 +855,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
               {/* Upgrade Prompt - Show for non-premium vendors */}
               {(() => {
-                const tier = vendorProfile.tier || (vertical === 'food_trucks' ? 'free' : 'standard')
-                const isFT = vertical === 'food_trucks'
-                const showUpgrade = isFT
-                  ? tier === 'free'
-                  : tier === 'standard'
+                const tier = vendorProfile.tier || 'free'
+                const showUpgrade = tier === 'free'
                 if (!showUpgrade) return null
                 return (
                   <div style={{
@@ -892,7 +889,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       color: '#78350f',
                       fontWeight: typography.weights.medium
                     }}>
-                      {isFT
+                      {vertical === 'food_trucks'
                         ? <>Upgrade to Basic for just <strong>${(SUBSCRIPTION_PRICES.food_truck_vendor.basic_monthly.amountCents / 100).toFixed(0)}/month</strong></>
                         : <>Upgrade to Premium for just <strong>${(SUBSCRIPTION_PRICES.vendor.monthly.amountCents / 100).toFixed(2)}/month</strong></>
                       }
@@ -905,7 +902,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       color: '#78350f',
                       lineHeight: 1.6
                     }}>
-                      {isFT ? (
+                      {vertical === 'food_trucks' ? (
                         <>
                           <li><strong>8 menu items</strong> (vs 4)</li>
                           <li><strong>3 locations + 3 service locations</strong></li>

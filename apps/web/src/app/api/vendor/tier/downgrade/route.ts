@@ -40,9 +40,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
       }
 
-      // Check if already standard
-      if (!vendorProfile.tier || vendorProfile.tier === 'standard') {
-        return NextResponse.json({ error: 'Already on Standard tier' }, { status: 400 })
+      // Check if already on the lowest tier (free)
+      if (!vendorProfile.tier || vendorProfile.tier === 'free') {
+        return NextResponse.json({ error: 'Already on Free tier' }, { status: 400 })
       }
 
       // Cancel Stripe subscription if active

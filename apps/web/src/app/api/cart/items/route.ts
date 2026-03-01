@@ -342,7 +342,7 @@ async function handleMarketBoxAdd(
     throw traced.fromSupabase(countError, { table: 'market_box_subscriptions', operation: 'select' })
   }
 
-  const vendorTier = (offering.vendor as any)?.tier || 'standard'
+  const vendorTier = (offering.vendor as any)?.tier || 'free'
   const effectiveMaxSubscribers = offering.max_subscribers ?? getSubscriberDefault(vendorTier)
   if (effectiveMaxSubscribers !== null && (activeCount || 0) >= effectiveMaxSubscribers) {
     throw traced.validation('ERR_CART_007', 'This market box is at capacity. Please try again later.')

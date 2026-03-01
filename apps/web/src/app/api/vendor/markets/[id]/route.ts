@@ -88,12 +88,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
 
       // Check tier-based window limit
-      const tier = vendorProfile.tier || 'standard'
+      const tier = vendorProfile.tier || 'free'
       const tierLimits = getTierLimits(tier, market.vertical_id)
       const maxWindows = tierLimits.pickupWindowsPerLocation
 
       if (pickup_windows.length > maxWindows) {
-        throw traced.validation('ERR_VALIDATION_001', `Maximum of ${maxWindows} pickup windows allowed for ${tier} tier vendors.${tier === 'standard' ? ' Upgrade to premium for more windows.' : ''}`)
+        throw traced.validation('ERR_VALIDATION_001', `Maximum of ${maxWindows} pickup windows allowed for ${tier} tier vendors.${(tier === 'free' || tier === 'standard') ? ' Upgrade your plan for more windows.' : ''}`)
       }
 
       // Validate each pickup window

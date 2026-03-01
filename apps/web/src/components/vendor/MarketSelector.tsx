@@ -91,7 +91,7 @@ export default function MarketSelector({
 
       // Call onMetadataLoaded callback if provided
       if (onMetadataLoaded) {
-        onMetadataLoaded(data.vendorTier || 'standard', data.homeMarketId || null)
+        onMetadataLoaded(data.vendorTier || 'free', data.homeMarketId || null)
       }
 
       // Set initial selection if editing and we haven't done initial load

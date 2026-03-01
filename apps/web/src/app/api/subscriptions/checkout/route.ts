@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { stripe, SUBSCRIPTION_PRICES, areSubscriptionPricesConfigured, getFtPriceConfig, areFtPricesConfigured } from '@/lib/stripe/config'
+import { stripe, SUBSCRIPTION_PRICES, areSubscriptionPricesConfigured, getFtPriceConfig, getFmPriceConfig, areFtPricesConfigured } from '@/lib/stripe/config'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { isFoodTruckTier } from '@/lib/vendor-limits'
@@ -54,14 +54,16 @@ export async function POST(request: NextRequest) {
       // Determine if this is a food truck vendor subscription
       const isFtVendor = type === 'vendor' && vertical === 'food_trucks'
 
+      // Free tier: use downgrade endpoint, not checkout
+      if (requestedTier === 'free') {
+        return NextResponse.json(
+          { error: 'Free tier does not require checkout. Use the downgrade endpoint.' },
+          { status: 400 }
+        )
+      }
+
       // FT vendors must specify a tier
       if (isFtVendor) {
-        if (requestedTier === 'free') {
-          return NextResponse.json(
-            { error: 'Free tier does not require checkout. Use the downgrade endpoint.' },
-            { status: 400 }
-          )
-        }
         if (!requestedTier || !isFoodTruckTier(requestedTier)) {
           return NextResponse.json(
             { error: 'Food truck vendors must specify a tier: basic, pro, or boss.' },
@@ -101,7 +103,18 @@ export async function POST(request: NextRequest) {
           )
         }
         priceId = ftPrice.priceId
+      } else if (type === 'vendor' && requestedTier) {
+        // FM vendor with specific tier (standard/premium/featured)
+        const fmPrice = getFmPriceConfig(requestedTier)
+        if (!fmPrice || !fmPrice.priceId) {
+          return NextResponse.json(
+            { error: `${requestedTier} subscription is not available.` },
+            { status: 400 }
+          )
+        }
+        priceId = fmPrice.priceId
       } else {
+        // FM vendor without tier (legacy premium path) or buyer
         const priceConfig = SUBSCRIPTION_PRICES[type][cycle]
         if (!priceConfig.priceId) {
           return NextResponse.json(
@@ -162,12 +175,30 @@ export async function POST(request: NextRequest) {
             }
           }
         } else {
-          // FM: check if already premium
-          if (vendorProfile.tier === 'premium') {
+          // FM: check if already at requested tier
+          if (requestedTier && vendorProfile.tier === requestedTier) {
             return NextResponse.json(
-              { error: 'You already have a premium subscription.' },
+              { error: `You are already on the ${requestedTier} plan.` },
               { status: 400 }
             )
+          }
+          // If upgrading/changing tier and has existing subscription, cancel it first
+          if (requestedTier && vendorProfile.stripe_subscription_id) {
+            try {
+              await stripe.subscriptions.cancel(vendorProfile.stripe_subscription_id)
+            } catch (cancelErr) {
+              try {
+                const sub = await stripe.subscriptions.retrieve(vendorProfile.stripe_subscription_id)
+                if (sub.status !== 'canceled') {
+                  return NextResponse.json(
+                    { error: 'Failed to cancel your existing subscription. Please try again or contact support.' },
+                    { status: 500 }
+                  )
+                }
+              } catch {
+                // Subscription doesn't exist in Stripe — safe to proceed
+              }
+            }
           }
         }
 

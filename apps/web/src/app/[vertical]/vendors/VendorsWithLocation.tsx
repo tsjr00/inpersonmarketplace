@@ -263,7 +263,7 @@ export default function VendorsWithLocation({
       if (data.vendors) {
         const mappedVendors = data.vendors.map((v: Record<string, unknown>) => ({
           ...v,
-          tier: (v.tier || 'standard') as VendorTierType
+          tier: (v.tier || 'free') as VendorTierType
         }))
 
         if (append) {

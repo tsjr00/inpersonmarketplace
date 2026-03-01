@@ -155,7 +155,7 @@ export default function UsersTableClient({
         {
           key: 'vendor_profiles',
           header: 'Vendor Tier',
-          getValue: (row) => row.vendor_profiles?.map(vp => `${vp.vertical_id}:${vp.tier || 'standard'}`).join('; ') || ''
+          getValue: (row) => row.vendor_profiles?.map(vp => `${vp.vertical_id}:${vp.tier || 'free'}`).join('; ') || ''
         },
         {
           key: 'created_at',
@@ -265,6 +265,7 @@ export default function UsersTableClient({
           style={selectStyle}
         >
           <option value="">Vendor Tier</option>
+          <option value="free">Free</option>
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
           <option value="featured">Featured</option>
@@ -439,7 +440,7 @@ export default function UsersTableClient({
                                 display: 'inline-block'
                               }}
                             >
-                              {vp.tier || 'standard'}
+                              {vp.tier || 'free'}
                             </span>
                           ))}
                         </div>

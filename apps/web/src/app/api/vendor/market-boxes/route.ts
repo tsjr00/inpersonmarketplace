@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get tier for limits calculation
-    const tier = vendor.tier || 'standard'
+    const tier = vendor.tier || 'free'
 
     // Build response with counts from the map
     const offeringsWithCounts = (offerings || []).map((offering) => {
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
       throw new TracedError('ERR_AUTH_003', 'Vendor not found', { userId: user.id })
     }
 
-    const tier = vendor.tier || 'standard'
+    const tier = vendor.tier || 'free'
 
     // Check total market box limit (can create any new box)
     const createCheck = await canCreateMarketBox(supabase, vendor.id, tier, vertical || undefined)

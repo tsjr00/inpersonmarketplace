@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       homeMarketId: vendor.home_market_id,
       homeMarket,
-      tier: vendor.tier || 'standard',
-      isPremium: isPremiumTier(vendor.tier || 'standard'),
+      tier: vendor.tier || 'free',
+      isPremium: isPremiumTier(vendor.tier || 'free'),
       canChange: canChange.allowed,
       changeBlockedReason: canChange.reason
     })
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Premium vendors don't need a home market restriction
-    if (isPremiumTier(vendor.tier || 'standard')) {
+    if (isPremiumTier(vendor.tier || 'free')) {
       return NextResponse.json({
         success: true,
         message: 'Premium vendors can use any market',

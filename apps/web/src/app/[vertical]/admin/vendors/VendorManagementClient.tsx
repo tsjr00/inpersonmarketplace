@@ -215,7 +215,7 @@ export default function VendorManagementClient({
         {
           key: 'tier',
           header: 'Tier',
-          getValue: (row) => row.tier || 'standard'
+          getValue: (row) => row.tier || 'free'
         },
         {
           key: 'markets',
@@ -301,6 +301,7 @@ export default function VendorManagementClient({
           style={selectStyle}
         >
           <option value="">All Tiers</option>
+          <option value="free">Free</option>
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
           <option value="featured">Featured</option>
@@ -520,7 +521,7 @@ function VendorRow({
               vendor.tier === 'premium' ? '#1e40af' :
               vendor.tier === 'featured' ? '#92400e' : '#6b7280'
           }}>
-            {vendor.tier || 'standard'}
+            {vendor.tier || 'free'}
           </span>
         </td>
         <td style={tdStyle}>

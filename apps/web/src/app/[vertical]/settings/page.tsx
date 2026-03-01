@@ -228,7 +228,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           <VendorTierManager
             vertical={vertical}
             vendorId={vendorProfile.id}
-            currentTier={vendorProfile.tier || 'standard'}
+            currentTier={vendorProfile.tier || 'free'}
             stripeSubscriptionId={vendorProfile.stripe_subscription_id}
             primaryColor={branding.colors.primary}
           />

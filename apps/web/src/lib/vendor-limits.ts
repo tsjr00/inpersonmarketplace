@@ -3,34 +3,19 @@ import { SupabaseClient } from '@supabase/supabase-js'
 /**
  * Vendor Tier Limits - Centralized limit definitions and enforcement
  *
- * Standard Vendors:
- * - Traditional markets: 1 (home market)
- * - Private pickup locations: 1
- * - Pickup windows per location: 2
- * - Total Market Boxes: 2 (active + inactive)
- * - Active Market Boxes: 1
- * - Max subscribers per offering: 5
- * - Product listings: 5 (total across all markets)
- *
- * Premium Vendors:
- * - Traditional markets: 4
- * - Private pickup locations: 5
- * - Pickup windows per location: 6
- * - Total Market Boxes: 6 (active + inactive)
- * - Active Market Boxes: 4
- * - Max subscribers per offering: 20 (default 10)
- * - Product listings: 15 (total across all markets)
+ * FM Tiers: free → standard ($9.99/mo) → premium ($24.99/mo) → featured
+ * FT Tiers: free → basic ($10/mo) → pro ($30/mo) → boss ($50/mo)
  *
  * Note: Product listings are counted per-account (total), not per-market.
  * A listing at multiple markets counts as 1 listing.
  */
 
-export type VendorTier = 'standard' | 'premium' | 'featured'
+export type VendorTier = 'free' | 'standard' | 'premium' | 'featured'
 export type FoodTruckTier = 'free' | 'basic' | 'pro' | 'boss'
 
 // ── Farmers Market Tiers ─────────────────────────────────────────────
 export const TIER_LIMITS = {
-  standard: {
+  free: {
     traditionalMarkets: 1,
     privatePickupLocations: 1,
     pickupWindowsPerLocation: 2,
@@ -40,26 +25,35 @@ export const TIER_LIMITS = {
     defaultSubscribersPerOffering: 5,
     productListings: 5,
   },
-  premium: {
-    traditionalMarkets: 4,
-    privatePickupLocations: 5,
-    pickupWindowsPerLocation: 6,
-    totalMarketBoxes: 6,
-    activeMarketBoxes: 4,
-    maxSubscribersPerOffering: 20,
+  standard: {
+    traditionalMarkets: 2,
+    privatePickupLocations: 2,
+    pickupWindowsPerLocation: 2,
+    totalMarketBoxes: 3,
+    activeMarketBoxes: 2,
+    maxSubscribersPerOffering: 10,
     defaultSubscribersPerOffering: 10,
-    productListings: 15,
+    productListings: 10,
   },
-  // Featured tier has same limits as premium
-  featured: {
-    traditionalMarkets: 4,
-    privatePickupLocations: 5,
+  premium: {
+    traditionalMarkets: 3,
+    privatePickupLocations: 3,
     pickupWindowsPerLocation: 6,
     totalMarketBoxes: 6,
     activeMarketBoxes: 4,
     maxSubscribersPerOffering: 20,
-    defaultSubscribersPerOffering: 10,
-    productListings: 15,
+    defaultSubscribersPerOffering: 20,
+    productListings: 20,
+  },
+  featured: {
+    traditionalMarkets: 5,
+    privatePickupLocations: 5,
+    pickupWindowsPerLocation: 12,
+    totalMarketBoxes: 10,
+    activeMarketBoxes: 8,
+    maxSubscribersPerOffering: 30,
+    defaultSubscribersPerOffering: 30,
+    productListings: 30,
   },
 } as const
 
@@ -96,7 +90,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     privatePickupLocations: 3,
     pickupWindowsPerLocation: 5,
     maxSubscribersPerOffering: 10,
-    defaultSubscribersPerOffering: 5,
+    defaultSubscribersPerOffering: 10,
     analyticsDays: 30,
     analyticsExport: false,
     priorityPlacement: 0,
@@ -111,7 +105,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     privatePickupLocations: 5,
     pickupWindowsPerLocation: 6,
     maxSubscribersPerOffering: 20,
-    defaultSubscribersPerOffering: 10,
+    defaultSubscribersPerOffering: 20,
     analyticsDays: 60,
     analyticsExport: false,
     priorityPlacement: 1,
@@ -126,7 +120,7 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     privatePickupLocations: 15,
     pickupWindowsPerLocation: 7,
     maxSubscribersPerOffering: 50,
-    defaultSubscribersPerOffering: 20,
+    defaultSubscribersPerOffering: 50,
     analyticsDays: 90,
     analyticsExport: true,
     priorityPlacement: 2,
@@ -165,11 +159,13 @@ export function getTierSortPriority(tier: string | undefined, vertical: string):
     if (t === 'pro') return 1
     if (t === 'basic') return 2
     if (t === 'free') return 3
-    return 4 // unknown/standard
+    return 4 // unknown
   }
   // Farmers market / other
-  if (t === 'premium' || t === 'featured') return 0
-  return 1 // standard
+  if (t === 'featured') return 0
+  if (t === 'premium') return 1
+  if (t === 'standard') return 2
+  return 3 // free
 }
 
 /**
@@ -183,7 +179,7 @@ export function getSubscriberDefault(tier: string, vertical?: string): number {
 }
 
 export function getTierLimits(tier: string, vertical?: string) {
-  const normalized = (tier || 'standard').toLowerCase()
+  const normalized = (tier || 'free').toLowerCase()
   // Food truck tiers
   if (vertical === 'food_trucks') {
     if (isFoodTruckTier(normalized)) return FT_TIER_LIMITS[normalized as FoodTruckTier]
@@ -191,11 +187,11 @@ export function getTierLimits(tier: string, vertical?: string) {
   }
   // Farmers market / other verticals
   const fmTier = normalized as VendorTier
-  return TIER_LIMITS[fmTier] || TIER_LIMITS.standard
+  return TIER_LIMITS[fmTier] || TIER_LIMITS.free
 }
 
 export function isPremiumTier(tier: string, vertical?: string): boolean {
-  const normalized = (tier || 'standard').toLowerCase()
+  const normalized = (tier || 'free').toLowerCase()
   // Food trucks: pro and boss are "premium" (basic is the lowest paid tier)
   if (vertical === 'food_trucks') {
     return normalized === 'pro' || normalized === 'boss'
@@ -578,7 +574,7 @@ export async function canUseTraditionalMarket(
 
   return {
     allowed: false,
-    reason: 'Standard vendors can only use their home market. Upgrade to join multiple markets.',
+    reason: 'Your current plan only allows one traditional market. Upgrade to join multiple markets.',
     isHomeMarket: false,
     shouldSetAsHome: false,
   }

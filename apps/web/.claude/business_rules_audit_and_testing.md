@@ -374,7 +374,7 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 |----|------|----------|-------------|
 | ✅ VI-R10 | Tipping is FT-only. Checkout shows tip selector only when vertical='food_trucks'. Preset options: 'No Tip' (0%), 10%, 15%, 20%, + Custom | VI-W5 | FM checkout has no tip UI; FT checkout shows preset buttons: 'No Tip' (0%), 10%, 15%, 20%, + Custom input |
 | ✅ VI-R11 | Preferred pickup time is FT-only. Cart item shows time slot selector only for FT | VI-W5 | FM cart items have no time slot; FT cart items require time slot |
-| ✅ VI-R12 | Vendor tier names differ: FM has standard/premium/featured. FT has free/basic/pro/boss | VI-W5 | `getTierLimits('basic', 'farmers_market')` throws or returns null; `getTierLimits('basic', 'food_trucks')` returns valid limits |
+| ✅ VI-R12 | Vendor tier names differ: FM has free/standard/premium/featured. FT has free/basic/pro/boss. Both share 'free' as lowest tier (Session 49 update). | VI-W5 | `getTierLimits('basic', 'farmers_market')` returns free-tier limits; `getTierLimits('basic', 'food_trucks')` returns basic-tier limits |
 | ✅ VI-R13 | Chef Box types (weekly_dinner, family_kit, etc.) are FT-only. FM market box offerings have null box_type | VI-W5 | FT market box form requires box_type; FM form doesn't show box_type field |
 | ✅ VI-R14 | **Per-vertical order cutoff rules.** **FT**: Truck must have 30min lead time — orders accepted until 31min before end of the available window for the location (e.g., if window ends at 5:00 PM, last order must be placed by 4:29 PM). **FM traditional market**: 18hr auto cutoff for listings associated with a traditional market. **FM private location**: 10hr auto cutoff for listings associated with private locations. Configurable per market via `markets.cutoff_hours` column override. | VI-W5 | FT location window ends 5:00 PM → order at 4:30 PM rejected (within 30min). Order at 4:29 PM accepted. FM traditional market → default cutoff 18hr. FM private location → default cutoff 10hr. |
 | ✅ VI-R15 | **Per-vertical browse visibility.** **FT**: Same-day ordering — FT browse shows listings for trucks available today only. Orders accepted until 31min before end of the available window (same rule as VI-R14). **FM**: Browse shows listings associated with markets & private locations that have hours set and will be available (in season) for the next 7 days. Listings drop off automatically if they are only at a location that does not have open hours for the upcoming week. | VI-W5 | FT browse shows "Order for today" — no future dates. FM browse shows listings available within the next 7 days. FM listing at a market with no hours next week → not shown. |
@@ -475,17 +475,17 @@ Vendor suggests new market → admin reviews → approved/rejected → vendor jo
 |----|------|----------|-------------|
 | VJ-R1 | Vendor cannot publish listings until ALL 3 gates pass: category verification approved, COI approved, prohibited items acknowledged | VJ-W3, VJ-W6 | `canPublishListings()` returns false if any gate incomplete |
 | VJ-R2 | Vendor cannot receive Stripe payouts without `stripe_account_id` set and `stripe_payouts_enabled=true` | VJ-W4 | Payout cron skips vendors without Stripe (status='pending_stripe_setup') |
-| VJ-R3 | Tier limits enforced: vendor cannot publish more listings than their tier allows. Both app code AND DB trigger `enforce_listing_tier_limit` must agree | VJ-W6 | FM standard vendor with 5 published listings → 6th publish attempt rejected |
-| VJ-R4 | Tier limit values per vertical per tier must match between `vendor-limits.ts` and DB trigger function | VJ-W6 | FM: standard=5, premium=15, featured=15. FT: free=5, basic=10, pro=25, boss=50. (Values from code AND DB function match) |
+| 🔵❓ VJ-R3 | Tier limits enforced: vendor cannot publish more listings than their tier allows. Both app code AND DB trigger `enforce_listing_tier_limit` must agree. **Session 49: values updated, audit found+fixed 'active'→'published' regression in migration 061. Awaiting user reconfirmation after migration applied.** | VJ-W6 | FM free vendor with 5 published listings → 6th publish attempt rejected |
+| 🔵❓ VJ-R4 | Tier limit values per vertical per tier must match between `vendor-limits.ts` and DB trigger function (migration 061). **Session 49 updated:** FM: free=5, standard=10, premium=20, featured=30. FT: free=5, basic=10, pro=20, boss=45. **Awaiting user reconfirmation.** | VJ-W6 | Code and DB trigger listing limits match for all 8 tier/vertical combinations |
 
 #### HIGH (Onboarding Integrity)
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
 | VJ-R5 | New vendor profile auto-creates `vendor_verifications` record (DB trigger `auto_create_vendor_verification`) | VJ-W1 | Insert into vendor_profiles → vendor_verifications row exists |
-| VJ-R6 | FT vendors auto-assigned `tier='free'` on creation (DB trigger `set_ft_default_tier`) | VJ-W1 | New FT vendor_profile has tier='free'; new FM vendor_profile has tier='standard' |
+| 🔵❓ VJ-R6 | ALL vendors auto-assigned `tier='free'` on creation (DB trigger `set_default_vendor_tier`, renamed from `set_ft_default_tier` in Session 49). Trial system grants first paid tier (FM→standard, FT→basic) for 90 days on admin approval. **Awaiting user reconfirmation.** | VJ-W1 | New FM vendor_profile has tier='free'; new FT vendor_profile has tier='free'. After admin approval with trial: FM gets tier='standard', FT gets tier='basic'. |
 | VJ-R7 | Vendor signup validates all required acknowledgments before submission (5 checkboxes) | VJ-W1 | Submission without all 5 → rejected |
-| VJ-R8 | Market limit per tier enforced: FM standard=1 traditional, FM premium=4 traditional. FT free=1 location, FT basic=3, etc. | VJ-W7 | FM standard vendor already at 1 market → join attempt rejected |
+| 🔵❓ VJ-R8 | Market limit per tier enforced (Session 49 updated): FM free=1, standard=2, premium=3, featured=5 traditional markets. FT free=1, basic=3, pro=5, boss=8. **Awaiting user reconfirmation.** | VJ-W7 | FM free vendor already at 1 market → join attempt rejected |
 
 #### MEDIUM (Listing Quality)
 
@@ -542,16 +542,17 @@ canPublishListings = verification.status === 'approved'      // Gate 1: Business
 - Creates `vendor_verifications` row with ON CONFLICT DO NOTHING
 - Confirmed working — every new vendor_profile automatically gets a verification record
 
-**Complete Tier Limits Table (vendor-limits.ts):**
+**Complete Tier Limits Table (vendor-limits.ts):** ✅ UPDATED Session 49
 
-FM Tiers (lines 32-64):
+FM Tiers (free/standard/premium/featured — `free` tier added Session 49):
 | Tier | Listings | Trad. Markets | Private Pickups | Windows/Loc | Total MBox | Active MBox | Max Subs/Offering |
 |------|----------|---------------|-----------------|-------------|------------|-------------|-------------------|
-| standard | 5 | 1 | 1 | 2 | 2 | 1 | 5 |
-| premium | 15 | 4 | 5 | 6 | 6 | 4 | 20 |
-| featured | 15 | 4 | 5 | 6 | 6 | 4 | 20 |
+| free | 5 | 1 | 1 | 2 | 2 | 1 | 5 |
+| standard | 10 | 2 | 2 | 2 | 3 | 2 | 10 |
+| premium | 20 | 3 | 3 | 6 | 6 | 4 | 20 |
+| featured | 30 | 5 | 5 | 12 | 10 | 8 | 30 |
 
-FT Tiers (lines 75-136):
+FT Tiers (free/basic/pro/boss — values updated Session 49):
 | Tier | Listings | Trad. Markets | Private Pickups | Windows/Loc | Total MBox | Active MBox | Max Subs/Offering | Analytics Days |
 |------|----------|---------------|-----------------|-------------|------------|-------------|-------------------|----------------|
 | free | 5 | 1 | 2 | 4 | 0 | 0 | 0 | 0 |
@@ -559,9 +560,10 @@ FT Tiers (lines 75-136):
 | pro | 20 | 5 | 5 | 6 | 4 | 4 | 20 | 60 |
 | boss | 45 | 8 | 15 | 7 | 8 | 8 | 50 | 90 |
 
-**DB Trigger `enforce_listing_tier_limit` (migration 052 lines 34-47):**
-- ALL values match app code ✅ (free=5, basic=10, pro=20, boss=45, standard=5, premium=15, featured=15)
+**DB Trigger `enforce_listing_tier_limit` (migration 061, replacing 052):**
+- Listing limits match app code ✅: FM free=5, standard=10, premium=20, featured=30. FT free=5, basic=10, pro=20, boss=45
 - Only enforces `productListings` count — other limits (markets, market boxes, pickups) enforced only in app code
+- Default for unknown tiers: COALESCE to 'free', ELSE = 5 listings
 - Only fires when `NEW.status = 'published'`
 
 **Vendor Status Enum:** `draft → submitted → approved → rejected → suspended`
@@ -1215,6 +1217,7 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | 2026-02-25 | Domain 8 (Infrastructure Reliability) deep-dive: 11 cron phases, 12 webhook handlers, CI pipeline, error tracking architecture. 6 gaps incl. no chargeback handler, Sentry likely unconfigured. | Session 46 |
 | 2026-02-25 | **ALL 8 DOMAINS COMPLETE** — 62 named workflows, 97 business rules, 34 gaps found, 17 open questions for user. Ready for Phase 3: workflow interactions. | Session 46 |
 | 2026-02-26 | User validated MP-R1,R3,R4,R7 ✅. MP-R5 CORRECTED (threshold=displayed price not base). MP-R6,R8 qualified with edge cases. Added MP-W7 tip workflow + 10 tip rules (MP-R19–R28). FIXED Cron Phase 4 tip bug (was using full tip, now uses vendor tip only). | Session 47 |
+| 2026-02-28 | **FM Free Tier Restructure** — VI-R12 updated (FM now has free/standard/premium/featured). VJ-R4 tier limits updated for both verticals. VJ-R6 updated (all vendors default to 'free', trigger renamed `set_default_vendor_tier`). VJ-R8 market limits updated. Tier limits tables regenerated. 38-check business rules audit: 35 pass, 3 fails found+fixed (migration 061 status regression 'active'→'published', getTierLimits fallback standard→free, admin dropdown missing tiers). | Session 49 |
 | 2026-02-28 | **Market box payout fix verified against code.** SL-Q1/SL-R4/SL-R5 RESOLVED (per-pickup payout removed, full prepaid at checkout). GAPs 1,2,5 in Domain 5 RESOLVED. MP-W4 updated. MP-Q1 RESOLVED (new `market_box_subscription_id` column + unique index). MP-R6/R7 updated with new index/key. OL-R21 updated (Phase 5 now handles both order_item and market_box_subscription payouts). VI-Q3 RESOLVED (referral codes verified filtered by vertical_id). VI-R6/NI-R6 corrected (`updates@` not `noreply@`). **Phase 7 payout gap FIXED** — auto-fulfilled regular orders now create vendor payout + Stripe transfer (OL-R22 resolved). | Session 48 |
 
 ---

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FT_TIER_LIMITS, getFtTierLabel, isFoodTruckTier, type FoodTruckTier } from '@/lib/vendor-limits'
+import { FT_TIER_LIMITS, TIER_LIMITS, getFtTierLabel, isFoodTruckTier, type FoodTruckTier, type VendorTier } from '@/lib/vendor-limits'
 import { term } from '@/lib/vertical'
 
 interface VendorTierManagerProps {
@@ -38,16 +38,17 @@ export default function VendorTierManager({
 // ── Food Truck Tier Manager ─────────────────────────────────────────────
 
 function FtTierManager({ vertical, currentTier }: { vertical: string; currentTier: string }) {
-  const tier = isFoodTruckTier(currentTier) ? currentTier as FoodTruckTier : 'basic'
+  const tier = isFoodTruckTier(currentTier) ? currentTier as FoodTruckTier : 'free'
   const limits = FT_TIER_LIMITS[tier]
   const label = getFtTierLabel(tier)
 
   const tierColors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+    free:   { bg: '#f9fafb', border: '#e5e7eb', text: '#545454', badge: '#9ca3af' },
     basic:  { bg: '#f9fafb', border: '#e5e7eb', text: '#545454', badge: '#737373' },
     pro:    { bg: '#fff5f5', border: '#ff8f8f', text: '#545454', badge: '#ff3131' },
     boss:   { bg: '#fffbeb', border: '#ffd54f', text: '#545454', badge: '#545454' },
   }
-  const c = tierColors[tier] || tierColors.basic
+  const c = tierColors[tier] || tierColors.free
 
   return (
     <div style={{ marginTop: 16, padding: 20, backgroundColor: c.bg, borderRadius: 8, border: `1px solid ${c.border}` }}>
@@ -97,7 +98,7 @@ function FtTierManager({ vertical, currentTier }: { vertical: string; currentTie
             Upgrade Plan
           </Link>
         )}
-        {tier !== 'basic' && (
+        {tier !== 'free' && (
           <Link
             href={`/${vertical}/vendor/dashboard/upgrade`}
             style={{
@@ -122,6 +123,13 @@ function FtTierManager({ vertical, currentTier }: { vertical: string; currentTie
 
 // ── Farmers Market Tier Manager ─────────────────────────────────────────
 
+const FM_TIER_LABELS: Record<string, string> = {
+  free: 'Free',
+  standard: 'Standard',
+  premium: 'Premium',
+  featured: 'Featured',
+}
+
 function FmTierManager({
   vertical,
   vendorId,
@@ -138,8 +146,18 @@ function FmTierManager({
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState('')
 
-  const isPremium = currentTier === 'premium' || currentTier === 'featured'
+  const tier = (['free', 'standard', 'premium', 'featured'].includes(currentTier) ? currentTier : 'free') as VendorTier
+  const limits = TIER_LIMITS[tier]
+  const label = FM_TIER_LABELS[tier] || 'Free'
   const hasActiveSubscription = !!stripeSubscriptionId
+
+  const tierColors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+    free:     { bg: '#f9fafb', border: '#e5e7eb', text: '#545454', badge: '#9ca3af' },
+    standard: { bg: '#f0fdf4', border: '#86efac', text: '#166534', badge: '#166534' },
+    premium:  { bg: '#eff6ff', border: '#93c5fd', text: '#1e40af', badge: '#3b82f6' },
+    featured: { bg: '#fffbeb', border: '#fcd34d', text: '#92400e', badge: '#f59e0b' },
+  }
+  const c = tierColors[tier] || tierColors.free
 
   const handleDowngrade = async () => {
     setIsProcessing(true)
@@ -166,99 +184,79 @@ function FmTierManager({
     }
   }
 
-  if (!isPremium) {
-    return (
-      <div style={{
-        marginTop: 16, padding: 20,
-        background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
-        borderRadius: 8, border: '1px solid #fcd34d'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <span style={{ fontSize: 20 }}>🏆</span>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#92400e' }}>Upgrade to Premium Vendor</h3>
-        </div>
-        <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#78350f' }}>
-          Grow your business with more listings, multiple markets, and priority visibility for just{' '}
-          <strong>$24.99/month</strong> or <strong>$208.15/year</strong>.
-        </p>
-        <ul style={{ margin: '0 0 16px 0', paddingLeft: 20, fontSize: 13, color: '#78350f', lineHeight: 1.6 }}>
-          <li><strong>10 product listings</strong> (Standard: 5)</li>
-          <li><strong>4 traditional markets</strong> (Standard: 1)</li>
-          <li><strong>5 private pickup locations</strong> (Standard: 1)</li>
-          <li><strong>6 pickup windows/location</strong> (Standard: 2)</li>
-          <li><strong>6 {term(vertical, 'market_box')} offerings, unlimited subscribers</strong></li>
-          <li><strong>Priority placement</strong> in search results</li>
-          <li><strong>Featured</strong> on homepage, browse, and market pages</li>
-          <li><strong>Premium badge</strong> and <strong>advanced analytics</strong></li>
-        </ul>
-        <Link
-          href={`/${vertical}/vendor/dashboard/upgrade`}
-          style={{ display: 'inline-block', padding: '10px 20px', backgroundColor: '#d97706', color: 'white', textDecoration: 'none', borderRadius: 6, fontWeight: 600, fontSize: 14 }}
-        >
-          Upgrade Now
-        </Link>
-      </div>
-    )
-  }
-
   return (
     <>
-      <div style={{ marginTop: 16, padding: 16, backgroundColor: '#fef3c7', borderRadius: 8, border: '1px solid #fcd34d' }}>
-        <p style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: '#92400e' }}>Premium Benefits Active</p>
-        <ul style={{ margin: '0 0 16px 0', paddingLeft: 20, fontSize: 13, color: '#92400e', lineHeight: 1.6 }}>
-          <li><strong>10 product listings</strong> (Standard: 5)</li>
-          <li><strong>4 traditional markets + 5 private pickup locations</strong></li>
-          <li><strong>6 pickup windows per location</strong> (Standard: 2)</li>
-          <li><strong>6 {term(vertical, 'market_boxes')}, unlimited subscribers</strong> (Standard: 2 boxes, 2 max)</li>
-          <li><strong>Priority placement</strong> in search results</li>
-          <li><strong>Featured</strong> on homepage, browse, and market pages</li>
-          <li><strong>Premium badge</strong> on profile and all listings</li>
-          <li><strong>Advanced analytics</strong> - sales trends, top products, customer insights</li>
+      <div style={{ marginTop: 16, padding: 20, backgroundColor: c.bg, borderRadius: 8, border: `1px solid ${c.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{
+            padding: '3px 10px',
+            backgroundColor: c.badge,
+            color: 'white',
+            borderRadius: 4,
+            fontSize: 12,
+            fontWeight: 700,
+          }}>
+            {label.toUpperCase()}
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: c.text }}>
+            {label} Plan Active
+          </span>
+        </div>
+
+        <ul style={{ margin: '0 0 16px 0', paddingLeft: 20, fontSize: 13, color: c.text, lineHeight: 1.8 }}>
+          <li><strong>{limits.productListings}</strong> product listings</li>
+          <li><strong>{limits.traditionalMarkets}</strong> traditional market{limits.traditionalMarkets > 1 ? 's' : ''}</li>
+          <li><strong>{limits.privatePickupLocations}</strong> private pickup location{limits.privatePickupLocations > 1 ? 's' : ''}</li>
+          <li><strong>{limits.pickupWindowsPerLocation}</strong> pickup windows per location</li>
+          <li><strong>{limits.totalMarketBoxes}</strong> {term(vertical, 'market_box')} offerings ({limits.activeMarketBoxes} active)</li>
+          <li><strong>{limits.maxSubscribersPerOffering}</strong> max subscribers per offering</li>
         </ul>
-        <button
-          onClick={() => setShowDowngradeModal(true)}
-          style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#92400e', border: '1px solid #92400e', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}
-        >
-          Downgrade to Standard
-        </button>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          {tier !== 'featured' && (
+            <Link
+              href={`/${vertical}/vendor/dashboard/upgrade`}
+              style={{
+                display: 'inline-block',
+                padding: '10px 20px',
+                backgroundColor: '#166534',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontWeight: 600,
+                fontSize: 14,
+              }}
+            >
+              Upgrade Plan
+            </Link>
+          )}
+          {tier !== 'free' && hasActiveSubscription && (
+            <button
+              onClick={() => setShowDowngradeModal(true)}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: 'transparent',
+                color: '#666',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontWeight: 500,
+                fontSize: 14,
+                cursor: 'pointer',
+              }}
+            >
+              Change Plan
+            </button>
+          )}
+        </div>
       </div>
 
       {showDowngradeModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
           <div style={{ backgroundColor: 'white', borderRadius: 12, padding: 24, maxWidth: 480, width: '100%', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: 20, fontWeight: 600, color: '#111827' }}>Downgrade to Standard?</h3>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: 20, fontWeight: 600, color: '#111827' }}>Cancel Subscription?</h3>
             <p style={{ margin: '0 0 16px 0', fontSize: 14, color: '#4b5563' }}>
-              Are you sure you want to downgrade your vendor account to the Standard tier? You will lose the following benefits:
+              Your subscription will be cancelled at the end of your billing period. You&apos;ll keep your current {label} tier benefits until then, after which your account will be downgraded to Free.
             </p>
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>Listing & Location Limits:</p>
-              <ul style={{ margin: '0 0 12px 0', paddingLeft: 20, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-                <li>Product listings reduced to <strong>5</strong> (excess unpublished)</li>
-                <li>Traditional markets reduced to <strong>1</strong> (must select home market)</li>
-                <li>Private pickup locations reduced to <strong>1</strong></li>
-                <li>Pickup windows reduced to <strong>2 per location</strong></li>
-              </ul>
-              <p style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>{term(vertical, 'market_box')} Restrictions:</p>
-              <ul style={{ margin: '0 0 12px 0', paddingLeft: 20, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-                <li>{term(vertical, 'market_boxes')} reduced to <strong>2 total, 1 active</strong></li>
-                <li>Subscriber limit drops to <strong>2 per box</strong></li>
-                <li>Existing subscribers over limit cannot renew</li>
-              </ul>
-              <p style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>Visibility & Analytics:</p>
-              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>
-                <li>Priority search placement removed</li>
-                <li>Removed from featured sections</li>
-                <li>Premium badge removed</li>
-                <li>Advanced analytics no longer accessible</li>
-              </ul>
-            </div>
-            {hasActiveSubscription && (
-              <div style={{ padding: 12, backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, marginBottom: 16 }}>
-                <p style={{ margin: 0, fontSize: 13, color: '#991b1b', fontWeight: 500 }}>
-                  Important: No refunds will be issued for unused subscription time. If you have an annual subscription, the remaining balance will not be refunded.
-                </p>
-              </div>
-            )}
             {error && (
               <div style={{ padding: 12, backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, marginBottom: 16 }}>
                 <p style={{ margin: 0, fontSize: 13, color: '#991b1b' }}>{error}</p>
@@ -269,7 +267,7 @@ function FmTierManager({
                 Cancel
               </button>
               <button onClick={handleDowngrade} disabled={isProcessing} style={{ padding: '10px 20px', backgroundColor: isProcessing ? '#9ca3af' : '#dc2626', color: 'white', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 600, cursor: isProcessing ? 'not-allowed' : 'pointer' }}>
-                {isProcessing ? 'Processing...' : 'Confirm Downgrade'}
+                {isProcessing ? 'Processing...' : 'Confirm Cancellation'}
               </button>
             </div>
           </div>

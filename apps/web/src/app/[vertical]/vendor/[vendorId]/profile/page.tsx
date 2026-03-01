@@ -128,7 +128,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
   const profileData = vendor.profile_data as Record<string, unknown>
   const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
-  const vendorTier = (vendor.tier || 'standard') as VendorTierType
+  const vendorTier = (vendor.tier || 'free') as VendorTierType
   const vendorDescription = vendor.description as string | null
   const vendorImageUrl = vendor.profile_image_url as string | null
   const socialLinks = vendor.social_links as Record<string, string> | null

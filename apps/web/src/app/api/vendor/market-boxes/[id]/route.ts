@@ -205,7 +205,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const activationCheck = await canActivateMarketBox(
         supabase,
         vendor.id,
-        vendor.tier || 'standard',
+        vendor.tier || 'free',
         undefined,
         vendor.vertical_id || undefined
       )

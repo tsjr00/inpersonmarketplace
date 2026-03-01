@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       )
 
       // Check vendor tier for home market restrictions
-      const vendorTier = vendorProfile.tier || 'standard'
+      const vendorTier = vendorProfile.tier || 'free'
       const isVendorPremium = isPremiumTier(vendorTier, vertical)
       const tierLimits = getTierLimits(vendorTier, vertical)
 

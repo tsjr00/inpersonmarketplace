@@ -76,13 +76,14 @@ export async function POST(
       updated_at: new Date().toISOString(),
     }
 
-    // Auto-grant Basic trial for food truck vendors (new vendors only — skip if already had a trial)
-    const isFtTrial = existingVendor?.vertical_id === 'food_trucks' && !existingVendor?.trial_started_at
-    if (isFtTrial) {
+    // Auto-grant trial for new vendors (FT → basic, FM → standard) for 90 days
+    const isTrialEligible = !existingVendor?.trial_started_at
+    if (isTrialEligible) {
       const now = new Date()
       const trialEnd = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
       const graceEnd = new Date(trialEnd.getTime() + 14 * 24 * 60 * 60 * 1000)
-      updateData.tier = 'basic'
+      const trialTier = existingVendor?.vertical_id === 'food_trucks' ? 'basic' : 'standard'
+      updateData.tier = trialTier
       updateData.subscription_status = 'trialing'
       updateData.trial_started_at = now.toISOString()
       updateData.trial_ends_at = trialEnd.toISOString()
@@ -112,11 +113,12 @@ export async function POST(
     const vendorEmail = profileData?.email as string
 
     // C9 FIX: Use sendNotification() for multi-channel delivery (email + push + in-app)
-    if (isFtTrial) {
+    if (isTrialEligible) {
+      const trialTierLabel = existingVendor?.vertical_id === 'food_trucks' ? 'Basic' : 'Standard'
       await sendNotification(data.user_id, 'vendor_approved_trial', {
         vendorName: businessName,
         vendorId: vendorId,
-        trialTier: 'Basic',
+        trialTier: trialTierLabel,
         trialDays: 90,
       }, { vertical: data.vertical_id, userEmail: vendorEmail || undefined })
     } else {

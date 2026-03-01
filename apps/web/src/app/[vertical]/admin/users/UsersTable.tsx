@@ -102,7 +102,7 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
       if (vendorTierFilter !== 'all') {
         const vp = user.vendor_profiles?.find(v => v.vertical_id === vertical)
         if (!vp) return false
-        const vendorTier = vp.tier || 'standard'
+        const vendorTier = vp.tier || 'free'
         if (vendorTier !== vendorTierFilter) return false
       }
 
@@ -206,6 +206,7 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
           }}
         >
           <option value="all">Vendor Tier</option>
+          <option value="free">Free</option>
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
           <option value="featured">Featured</option>
@@ -400,7 +401,7 @@ export default function UsersTable({ users, vertical }: UsersTableProps) {
                               display: 'inline-block'
                             }}
                           >
-                            {vp.tier || 'standard'}
+                            {vp.tier || 'free'}
                           </span>
                         ))}
                       </div>

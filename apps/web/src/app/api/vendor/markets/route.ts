@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       }))
 
     // Get traditional markets with home market info
-    const tier = vendorProfile.tier || 'standard'
+    const tier = vendorProfile.tier || 'free'
     const tierLimits = getTierLimits(tier, vertical)
     const isVendorPremium = isPremiumTier(tier, vertical)
 
@@ -284,13 +284,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
-    const tier = vendorProfileForTier.tier || 'standard'
+    const tier = vendorProfileForTier.tier || 'free'
     const tierLimits = getTierLimits(tier, vertical)
     const maxWindows = tierLimits.pickupWindowsPerLocation
 
     if (pickup_windows.length > maxWindows) {
       return NextResponse.json({
-        error: `Maximum of ${maxWindows} pickup windows allowed for ${tier} tier vendors.${tier === 'standard' ? ' Upgrade to premium for more windows.' : ''}`
+        error: `Maximum of ${maxWindows} pickup windows allowed for ${tier} tier vendors.${(tier === 'free' || tier === 'standard') ? ' Upgrade your plan for more windows.' : ''}`
       }, { status: 400 })
     }
 

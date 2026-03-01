@@ -119,7 +119,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
       name: vendorName,
       description: vendor.description as string | null,
       imageUrl: vendor.profile_image_url as string | null,
-      tier: (vendor.tier || 'standard') as VendorTierType,
+      tier: (vendor.tier || 'free') as VendorTierType,
       createdAt: vendor.created_at,
       averageRating: vendor.average_rating as number | null,
       ratingCount: vendor.rating_count as number | null,

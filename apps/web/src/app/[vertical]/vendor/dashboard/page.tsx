@@ -625,7 +625,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
           {/* Market Boxes */}
           {(() => {
-            const mbLimit = getTierLimits(vendorProfile.tier || 'standard', vertical).totalMarketBoxes
+            const mbLimit = getTierLimits(vendorProfile.tier || 'free', vertical).totalMarketBoxes
             const isLocked = mbLimit === 0
             return (
               <Link
@@ -735,7 +735,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               color: (vendorProfile.tier && vendorProfile.tier !== 'standard' && vendorProfile.tier !== 'basic') ? colors.accent : colors.textMuted
             }}>
               {(() => {
-                const tier = vendorProfile.tier || 'standard'
+                const tier = vendorProfile.tier || 'free'
                 const labels: Record<string, string> = {
                   boss: 'Boss',
                   pro: 'Pro',

@@ -130,7 +130,7 @@ export default async function UsersPage({ searchParams }: AdminUsersPageProps) {
             return false
           }
         }
-        if (vendorTier && (vp.tier || 'standard') !== vendorTier) return false
+        if (vendorTier && (vp.tier || 'free') !== vendorTier) return false
         return true
       })
 

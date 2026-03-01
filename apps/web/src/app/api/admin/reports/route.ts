@@ -717,7 +717,7 @@ async function generateVendorPerformance(supabase: ReturnType<typeof createServi
     if (!vendorStats.has(vendorId)) {
       vendorStats.set(vendorId, {
         name: profileData?.business_name || profileData?.farm_name || 'Unknown',
-        tier: vendor.tier || 'standard',
+        tier: vendor.tier || 'free',
         totalSales: 0,
         orderCount: 0,
         cancelledCount: 0,
@@ -858,7 +858,7 @@ async function generateVendorRoster(supabase: ReturnType<typeof createServiceCli
 
     return {
       vendor_name: profile?.business_name || profile?.farm_name || 'Unknown',
-      tier: vendor.tier || 'standard',
+      tier: vendor.tier || 'free',
       status: vendor.status || 'active',
       vertical: vendor.vertical_id,
       email: user?.email || profile?.email || '',
@@ -1153,7 +1153,7 @@ async function generateListingInventory(supabase: ReturnType<typeof createServic
       price: formatCents(listing.price_cents),
       stock: listing.stock_quantity ?? 'Unlimited',
       vendor: vendor?.business_name || vendor?.farm_name || 'Unknown',
-      vendor_tier: listing.vendor_profiles?.tier || 'standard',
+      vendor_tier: listing.vendor_profiles?.tier || 'free',
       markets: markets || 'None',
       created: formatDate(listing.created_at),
       last_updated: formatDate(listing.updated_at)

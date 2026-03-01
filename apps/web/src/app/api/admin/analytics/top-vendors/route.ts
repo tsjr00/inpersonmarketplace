@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         vendor_id: row.vendor_profile_id,
         name: profileData?.business_name || profileData?.farm_name || 'Unknown Vendor',
         vertical_id: profile?.vertical_id || null,
-        tier: profile?.tier || 'standard',
+        tier: profile?.tier || 'free',
         total_sales: Number(row.total_sales),
         revenue: Number(row.revenue)
       }

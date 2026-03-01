@@ -1087,7 +1087,7 @@ function ListingCard({
         gap: spacing['3xs']
       }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
-        {listing.vendor_profiles.tier && listing.vendor_profiles.tier !== 'standard' && listing.vendor_profiles.tier !== 'basic' && (
+        {listing.vendor_profiles.tier && listing.vendor_profiles.tier !== 'free' && listing.vendor_profiles.tier !== 'standard' && listing.vendor_profiles.tier !== 'basic' && (
           <TierBadge tier={listing.vendor_profiles.tier as VendorTierType} size="sm" />
         )}
       </div>
@@ -1297,7 +1297,7 @@ function MarketBoxCard({
         gap: spacing['3xs']
       }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>by {vendorName}</span>
-        {offering.vendor_profiles.tier && offering.vendor_profiles.tier !== 'standard' && offering.vendor_profiles.tier !== 'basic' && (
+        {offering.vendor_profiles.tier && offering.vendor_profiles.tier !== 'free' && offering.vendor_profiles.tier !== 'standard' && offering.vendor_profiles.tier !== 'basic' && (
           <TierBadge tier={offering.vendor_profiles.tier as VendorTierType} size="sm" />
         )}
       </div>

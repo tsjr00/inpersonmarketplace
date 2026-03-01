@@ -124,7 +124,7 @@ export default function VendorsTableClient({
         {
           key: 'tier',
           header: 'Tier',
-          getValue: (row) => row.tier || 'standard'
+          getValue: (row) => row.tier || 'free'
         },
         {
           key: 'created_at',
@@ -219,6 +219,7 @@ export default function VendorsTableClient({
           style={selectStyle}
         >
           <option value="">All Tiers</option>
+          <option value="free">Free</option>
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
           <option value="featured">Featured</option>
@@ -290,7 +291,7 @@ export default function VendorsTableClient({
                 const profileData = vendor.profile_data
                 const businessName = profileData?.business_name || profileData?.legal_name || 'Unknown'
                 const vendorStatus = vendor.status
-                const vendorTier = vendor.tier || 'standard'
+                const vendorTier = vendor.tier || 'free'
 
                 return (
                   <tr key={vendor.id} style={{ borderBottom: `1px solid ${colors.border}` }}>

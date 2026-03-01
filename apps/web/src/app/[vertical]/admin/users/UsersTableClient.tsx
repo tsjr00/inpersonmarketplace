@@ -231,8 +231,10 @@ export default function UsersTableClient({
           style={selectStyle}
         >
           <option value="">Vendor Tier</option>
+          <option value="free">Free</option>
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
+          <option value="featured">Featured</option>
         </select>
 
         <select

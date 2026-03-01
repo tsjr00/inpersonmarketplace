@@ -340,8 +340,8 @@ export default function ListingForm({
       }
     }
 
-    // Auto-set home market for standard vendors if needed (FEATURE 2.1)
-    if (!homeMarketId && vendorTier === 'standard' && selectedMarketIds.length > 0) {
+    // Auto-set home market for free/standard vendors if needed (FEATURE 2.1)
+    if (!homeMarketId && (vendorTier === 'free' || vendorTier === 'standard') && selectedMarketIds.length > 0) {
       // Find the first traditional market in selection
       const traditionalMarketId = selectedMarketIds.find(id => {
         const market = marketData.find(m => m.id === id)
@@ -531,14 +531,14 @@ export default function ListingForm({
                 listingId={listing.id as string}
                 images={images}
                 onImagesChange={setImages}
-                maxImages={vendorTier === 'standard' ? 1 : 3}
+                maxImages={(vendorTier === 'free' || vendorTier === 'standard') ? 1 : 3}
                 disabled={loading}
               />
-              {vendorTier === 'standard' && (
+              {(vendorTier === 'free' || vendorTier === 'standard') && (
                 <p style={{ fontSize: 13, color: '#6b7280', marginTop: 8 }}>
-                  Standard vendors can add 1 image per listing.{' '}
+                  {vendorTier === 'free' ? 'Free' : 'Standard'} vendors can add 1 image per listing.{' '}
                   <Link href={`/${vertical}/vendor/upgrade`} style={{ color: branding.colors.primary }}>
-                    Upgrade to Premium
+                    Upgrade your plan
                   </Link>{' '}
                   for up to 3 images.
                 </p>

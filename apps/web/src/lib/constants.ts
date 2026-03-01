@@ -106,6 +106,13 @@ export function formatQuantityDisplay(amount: number | null, unit: string | null
 import { statusColors } from './design-tokens'
 
 export const TIER_BADGES = {
+  free: {
+    label: 'Free',
+    icon: '',
+    color: statusColors.neutral500,
+    bgColor: statusColors.neutral100,
+    borderColor: statusColors.neutral300
+  },
   premium: {
     label: 'Premium',
     icon: '⭐',

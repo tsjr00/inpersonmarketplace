@@ -96,7 +96,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const vendor = offering.vendor as any
-    const tier = (vendor?.tier || 'standard')
+    const tier = (vendor?.tier || 'free')
     const maxSubscribers = offering.max_subscribers ?? getSubscriberDefault(tier)
     const activeSubscribers = count || 0
     const isAvailable = maxSubscribers === null || activeSubscribers < maxSubscribers

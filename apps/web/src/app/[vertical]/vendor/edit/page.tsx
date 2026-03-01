@@ -113,7 +113,7 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
             description: vendorProfile.description,
             social_links: vendorProfile.social_links
           }}
-          tier={(vendorProfile.tier || 'standard') as VendorTierType}
+          tier={(vendorProfile.tier || 'free') as VendorTierType}
         />
       </div>
 

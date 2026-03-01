@@ -140,7 +140,7 @@ export default function VendorMarketsPage() {
         setMarketSuggestions(data.marketSuggestions || [])
         setLimits(data.limits)
         setHomeMarketId(data.homeMarketId || null)
-        setVendorTier(data.vendorTier || 'standard')
+        setVendorTier(data.vendorTier || 'free')
         setVendorStatus(data.vendorStatus || 'pending')
         setIsPremium(data.isPremium || false)
       } else if (res.status === 404) {

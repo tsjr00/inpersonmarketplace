@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
 
     // Check capacity
     const vendor = offering.vendor as any
-    const tier = (vendor?.tier || 'standard')
+    const tier = (vendor?.tier || 'free')
     const maxSubscribers = offering.max_subscribers ?? getSubscriberDefault(tier)
 
     crumb.supabase('select', 'market_box_subscriptions (count)')
