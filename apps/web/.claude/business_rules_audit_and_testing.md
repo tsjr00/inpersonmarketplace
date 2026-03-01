@@ -431,15 +431,15 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 
 | ID | Question | Status |
 |----|----------|--------|
-| 🔵❓ VI-Q1 | Cross-vertical auth: FM credentials work on FT (same Supabase auth). Production TLDs are separate so cookies don't carry over. Is shared identity intentional? | NEEDS USER DECISION |
-| 🔵❓ VI-Q2 | Root admin page (`/admin/page.tsx`) — are the unscoped queries intentional (platform-wide view) or a bug? | NEEDS USER DECISION — agent confirmed it IS unscoped, shows all-vertical data with vertical_id displayed per row |
-| ✅ VI-Q3 | Referral codes — are they vertical-scoped? Can an FM referral code be used during FT signup? | **CODE VERIFIED Session 48** — YES, filtered by vertical. `src/app/api/submit/route.ts` line 107: `.eq("vertical_id", vertical)` on referral lookup. An FM referral code CANNOT be used for FT signup. |
-| 🔵❓ VI-Q4 | Are there other vertical-specific terms beyond the 85 keys in `term()` configs? User asked if there are other vertical-specific terms not yet mapped. | NEEDS REVIEW |
-| 🔵❓ VI-Q5 | VI-R8 confirmed: `term()` handles Market/Location, Market Box/Chef Box, Product/Dish, Vendor/Food Truck. Are there terms that SHOULD differ by vertical but currently don't? | NEEDS REVIEW |
+| ✅ VI-Q1 | Cross-vertical auth: FM credentials work on FT (same Supabase auth). Production TLDs are separate so cookies don't carry over. Is shared identity intentional? | **USER DECISION Session 49**: Shared identity is NOT intentional or desired. Each vertical should be separate. Production TLDs already isolate cookies, but same Supabase auth project means a user who signs up on FM could technically log in on FT (if they know the URL). **ACTION NEEDED**: Consider separate auth or cross-vertical guard. |
+| ✅ VI-Q2 | Root admin page (`/admin/page.tsx`) — are the unscoped queries intentional (platform-wide view) or a bug? | **USER DECISION Session 49**: Platform admin visibility across verticals IS desired behavior. Protect from outside attack but keep platform-wide visibility for this role. No code change needed. |
+| ✅ VI-Q3 | Referral codes — are they vertical-scoped? Can an FM referral code be used during FT signup? | **CODE VERIFIED Session 48** — YES, filtered by vertical. `src/app/api/submit/route.ts` line 107: `.eq("vertical_id", vertical)` on referral lookup. An FM referral code CANNOT be used for FT signup. **USER CONFIRMED Session 49**: This is correct — referral codes should only work in the vertical the referrer is a vendor at. |
+| 🔵❓ VI-Q4 | Are there other vertical-specific terms beyond the 85 keys in `term()` configs? User asked if there are other vertical-specific terms not yet mapped. | DEFERRED — User needs more info, will review more fully later |
+| 🔵❓ VI-Q5 | VI-R8 confirmed: `term()` handles Market/Location, Market Box/Chef Box, Product/Dish, Vendor/Food Truck. Are there terms that SHOULD differ by vertical but currently don't? | DEFERRED — User confirms terms listed SHOULD differ by vertical but doesn't know if they currently do. Needs code review. |
 
 ---
 
-## 🔵❓ DOMAIN 4: VENDOR JOURNEY (Entire domain not yet reviewed by user)
+## ✅ DOMAIN 4: VENDOR JOURNEY (User reviewed Session 49 — all 13 rules confirmed)
 
 ### Named Workflows
 
@@ -473,29 +473,29 @@ Vendor suggests new market → admin reviews → approved/rejected → vendor jo
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| VJ-R1 | Vendor cannot publish listings until ALL 3 gates pass: category verification approved, COI approved, prohibited items acknowledged | VJ-W3, VJ-W6 | `canPublishListings()` returns false if any gate incomplete |
-| VJ-R2 | Vendor cannot receive Stripe payouts without `stripe_account_id` set and `stripe_payouts_enabled=true` | VJ-W4 | Payout cron skips vendors without Stripe (status='pending_stripe_setup') |
-| 🔵❓ VJ-R3 | Tier limits enforced: vendor cannot publish more listings than their tier allows. Both app code AND DB trigger `enforce_listing_tier_limit` must agree. **Session 49: values updated, audit found+fixed 'active'→'published' regression in migration 061. Awaiting user reconfirmation after migration applied.** | VJ-W6 | FM free vendor with 5 published listings → 6th publish attempt rejected |
-| 🔵❓ VJ-R4 | Tier limit values per vertical per tier must match between `vendor-limits.ts` and DB trigger function (migration 061). **Session 49 updated:** FM: free=5, standard=10, premium=20, featured=30. FT: free=5, basic=10, pro=20, boss=45. **Awaiting user reconfirmation.** | VJ-W6 | Code and DB trigger listing limits match for all 8 tier/vertical combinations |
+| ✅ VJ-R1 | **USER CORRECTED Session 49**: Vendor cannot publish listings until ALL 4 onboarding gates are met: 1) Prohibited items acknowledgment, 2) Business documents, 3) Vertical-specific documents (FM: category-specific docs unlock different categories; FT: state health/food safety requirements), 4) Stripe Connect account setup complete. **COI is OPTIONAL** — not a required gate for publishing. | VJ-W3, VJ-W6 | `canPublishListings()` returns false if any of the 4 required gates incomplete. COI status does not block publishing. |
+| ✅ VJ-R2 | Vendor cannot receive Stripe payouts without `stripe_account_id` set and `stripe_payouts_enabled=true` | VJ-W4 | Payout cron skips vendors without Stripe (status='pending_stripe_setup') |
+| ✅ VJ-R3 | Tier limits enforced: vendor cannot publish more listings than their tier allows. Both app code AND DB trigger `enforce_listing_tier_limit` must agree. **Session 49: values updated, audit found+fixed 'active'→'published' regression in migration 061. User confirmed Session 49.** | VJ-W6 | FM free vendor with 5 published listings → 6th publish attempt rejected |
+| ✅ VJ-R4 | Tier limit values per vertical per tier must match between `vendor-limits.ts` and DB trigger function (migration 061). **Session 49 updated, user confirmed:** FM: free=5, standard=10, premium=20, featured=30. FT: free=5, basic=10, pro=20, boss=45. | VJ-W6 | Code and DB trigger listing limits match for all 8 tier/vertical combinations |
 
 #### HIGH (Onboarding Integrity)
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| VJ-R5 | New vendor profile auto-creates `vendor_verifications` record (DB trigger `auto_create_vendor_verification`) | VJ-W1 | Insert into vendor_profiles → vendor_verifications row exists |
-| 🔵❓ VJ-R6 | ALL vendors auto-assigned `tier='free'` on creation (DB trigger `set_default_vendor_tier`, renamed from `set_ft_default_tier` in Session 49). Trial system grants first paid tier (FM→standard, FT→basic) for 90 days on admin approval. **Awaiting user reconfirmation.** | VJ-W1 | New FM vendor_profile has tier='free'; new FT vendor_profile has tier='free'. After admin approval with trial: FM gets tier='standard', FT gets tier='basic'. |
-| VJ-R7 | Vendor signup validates all required acknowledgments before submission (5 checkboxes) | VJ-W1 | Submission without all 5 → rejected |
-| 🔵❓ VJ-R8 | Market limit per tier enforced (Session 49 updated): FM free=1, standard=2, premium=3, featured=5 traditional markets. FT free=1, basic=3, pro=5, boss=8. **Awaiting user reconfirmation.** | VJ-W7 | FM free vendor already at 1 market → join attempt rejected |
+| ✅ VJ-R5 | New vendor profile auto-creates `vendor_verifications` record (DB trigger `auto_create_vendor_verification`) | VJ-W1 | Insert into vendor_profiles → vendor_verifications row exists |
+| ✅ VJ-R6 | ALL vendors auto-assigned `tier='free'` on creation (DB trigger `set_default_vendor_tier`, renamed from `set_ft_default_tier` in Session 49). Trial system grants first paid tier (FM→standard, FT→basic) for 90 days on admin approval. **User confirmed Session 49.** | VJ-W1 | New FM vendor_profile has tier='free'; new FT vendor_profile has tier='free'. After admin approval with trial: FM gets tier='standard', FT gets tier='basic'. |
+| ✅ VJ-R7 | Vendor signup validates all required acknowledgments before submission (5 checkboxes) | VJ-W1 | Submission without all 5 → rejected |
+| ✅ VJ-R8 | Market limit per tier enforced (Session 49 updated, user confirmed): FM free=1, standard=2, premium=3, featured=5 traditional markets. FT free=1, basic=3, pro=5, boss=8. | VJ-W7 | FM free vendor already at 1 market → join attempt rejected |
 
 #### MEDIUM (Listing Quality)
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| VJ-R9 | Published listings MUST have `quantity_amount` and `quantity_unit` set (DB CHECK constraint) | VJ-W6 | Listing with null quantity_amount cannot be set to status='published' |
-| VJ-R10 | Listing images compressed client-side before upload: 1200px max dimension, 80% JPEG quality | VJ-W5 | Upload component calls image-resize before Supabase storage upload |
-| VJ-R11 | FT listings: `preferred_pickup_time` field visible in cart. FM listings: field hidden | VJ-W5 | FT listing detail shows pickup time selector; FM does not |
-| VJ-R12 | Listing availability calculated from market schedules + cutoff hours + vendor attendance (FT requires attendance record) | VJ-W6 | FT listing at market with no vendor_market_schedule attendance → not available |
-| VJ-R13 | Vendor can pause listing (status='paused') without deleting. Paused listings hidden from browse but preserve order history | VJ-W6 | Status change to 'paused' → listing disappears from browse → existing orders unaffected |
+| ✅ VJ-R9 | Published listings MUST have `quantity_amount` and `quantity_unit` set (DB CHECK constraint) | VJ-W6 | Listing with null quantity_amount cannot be set to status='published' |
+| ✅ VJ-R10 | Listing images compressed client-side before upload: 1200px max dimension, 80% JPEG quality | VJ-W5 | Upload component calls image-resize before Supabase storage upload |
+| ✅ VJ-R11 | FT listings: `preferred_pickup_time` field visible in cart. FM listings: field hidden | VJ-W5 | FT listing detail shows pickup time selector; FM does not |
+| ✅ VJ-R12 | Listing availability calculated from market schedules + cutoff hours + vendor attendance (FT requires attendance record) | VJ-W6 | FT listing at market with no vendor_market_schedule attendance → not available |
+| ✅ VJ-R13 | Vendor can pause listing (status='paused') without deleting. Paused listings hidden from browse but preserve order history | VJ-W6 | Status change to 'paused' → listing disappears from browse → existing orders unaffected |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
@@ -634,7 +634,7 @@ Market has `status='active'` while `approval_status='pending'`. Security depends
 
 ---
 
-## 🔵❓ DOMAIN 5: SUBSCRIPTION LIFECYCLE (Market Boxes / Chef Boxes) (Entire domain not yet reviewed by user)
+## ✅ DOMAIN 5: SUBSCRIPTION LIFECYCLE (Market Boxes / Chef Boxes) (User reviewed Session 49 — all correct with clarifications)
 
 ### Named Workflows
 
@@ -646,6 +646,7 @@ Buyer selects offering → capacity check → duplicate check → Stripe checkou
 
 **SL-W3: Buyer Subscription (Unified Cart)**
 Buyer adds market box to cart with listings → Stripe checkout → success handler/webhook creates subscription per item → DB trigger generates pickups
+> **USER NOTE Session 49**: The 'subscription' is more accurately a **pre-purchase with staggered fulfillment**, not a recurring payment. The buyer pays once upfront for all weeks. Code retains 'subscription' terminology but human-facing documentation should use the more accurate description.
 
 **SL-W4: Pickup Lifecycle** ✅ UPDATED Session 48
 scheduled → vendor marks ready → mutual confirmation (30s window) → picked_up. Payout already created at checkout time (not per-pickup).
@@ -665,9 +666,9 @@ Scheduled/ready pickup past date → vendor marks missed OR cron Phase 4 auto-ha
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| SL-R1 | Subscription creation is atomic: `subscribe_to_market_box_if_capacity` RPC acquires FOR UPDATE lock on offering row, preventing race conditions | SL-W2, SL-W3 | Two concurrent subscription attempts when 1 slot remains → exactly 1 succeeds, other gets `at_capacity` |
-| SL-R2 | Triple-layer idempotency: RPC checks existing by offering_id+buyer_user_id+order_id, Stripe checkout has deterministic key `market-box-{offeringId}-{userId}-{startDate}`, UNIQUE index on `stripe_payment_intent_id` | SL-W2, SL-W3 | Webhook + success route both fire → only 1 subscription created |
-| SL-R3 | Auto-refund on RPC failure: if `subscribe_to_market_box_if_capacity` fails or returns `at_capacity`, Stripe refund issued automatically | SL-W2, SL-W3 | RPC failure → buyer gets refund, no subscription created |
+| ✅ SL-R1 | Subscription creation is atomic: `subscribe_to_market_box_if_capacity` RPC acquires FOR UPDATE lock on offering row, preventing race conditions | SL-W2, SL-W3 | Two concurrent subscription attempts when 1 slot remains → exactly 1 succeeds, other gets `at_capacity` |
+| ✅ SL-R2 | Triple-layer idempotency: RPC checks existing by offering_id+buyer_user_id+order_id, Stripe checkout has deterministic key `market-box-{offeringId}-{userId}-{startDate}`, UNIQUE index on `stripe_payment_intent_id`. **User confirmed: same for Chef Boxes in FT vertical.** | SL-W2, SL-W3 | Webhook + success route both fire → only 1 subscription created |
+| ✅ SL-R3 | Auto-refund on RPC failure: if `subscribe_to_market_box_if_capacity` fails or returns `at_capacity`, Stripe refund issued automatically. **Confirmed Session 49**: Pre-checkout capacity check rejects if full before Stripe session created. Auto-refund only fires on race condition (two buyers checkout simultaneously for last slot). Standard e-commerce pattern. User approved. | SL-W2, SL-W3 | RPC failure → buyer gets refund, no subscription created |
 | ✅ SL-R4 | **CORRECTED Session 48**: No per-pickup payout. Vendor receives full prepaid amount at checkout time via `processMarketBoxVendorPayout()` (webhooks) / `processMarketBoxPayout()` (success route). Amount = `calculateVendorPayout(basePriceCents)` where basePriceCents = `price_4week_cents` or `price_8week_cents`. Per-pickup F2 FIX code removed from both pickup confirmation routes. | SL-W2, SL-W3 | Buyer pays $42.70 for 4-week $40 subscription → vendor receives `calculateVendorPayout(4000)` = $37.25 once at checkout. No payout at pickup time. |
 | ✅ SL-R5 | **RESOLVED Session 48**: Unique partial index `idx_vendor_payouts_mb_sub_unique` on `vendor_payouts(market_box_subscription_id)` WHERE NOT NULL AND status NOT IN ('failed','cancelled'). Migration 059. Prevents duplicate payouts at DB level. App code also checks for existing payout before insert (idempotent). | SL-W2, SL-W3 | Webhook + success route both fire → unique index prevents second insert → exactly 1 payout record |
 
@@ -675,21 +676,21 @@ Scheduled/ready pickup past date → vendor marks missed OR cron Phase 4 auto-ha
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| SL-R6 | Pickups auto-generated by DB trigger on subscription insert: `term_weeks` records, each 7 days apart, all start as `scheduled` | SL-W2, SL-W3 | 4-week subscription → exactly 4 pickup records, dates 7 days apart |
-| SL-R7 | Subscription auto-completes when all pickups resolved: trigger counts picked_up+missed+skipped+rescheduled >= term_weeks+extended_weeks | SL-W6 | All 4 pickups picked_up → subscription status=completed, completed_at set |
-| SL-R8 | Skip-a-week creates extension pickup with is_extension=true, increments extended_weeks. Cannot skip extension pickups. FT disabled. | SL-W5 | FM vendor skips week 2 → new week 5 pickup, extended_weeks=1. FT vendor skip attempt → rejected |
-| SL-R9 | Market boxes require Stripe payment — external payment explicitly prohibited | SL-W2, SL-W3 | Cart with market box → only Stripe payment option shown, no Venmo/CashApp/cash |
-| SL-R10 | `term_weeks` must be 4 or 8 (DB CHECK constraint). FT restricted to 4-week only | SL-W2 | FT buyer selects 8-week → rejected. FM buyer selects 8-week → allowed |
-| SL-R11 | Buyer cannot have duplicate active subscription to same offering | SL-W2 | Buyer already subscribed → second subscription attempt rejected |
+| ✅ SL-R6 | Pickups auto-generated by DB trigger on subscription insert: `term_weeks` records, each 7 days apart, all start as `scheduled`. **User clarification Session 49**: 4 OR 8 weeks depending on duration options offered by vendor and duration chosen by buyer. | SL-W2, SL-W3 | 4-week subscription → exactly 4 pickup records, dates 7 days apart |
+| ✅ SL-R7 | Subscription auto-completes when all pickups resolved: trigger counts picked_up+missed+skipped+rescheduled >= term_weeks+extended_weeks. **User clarification Session 49**: 4 OR 8 weeks depending on vendor offering and buyer choice. | SL-W6 | All 4 pickups picked_up → subscription status=completed, completed_at set |
+| ✅ SL-R8 | Skip-a-week creates extension pickup with is_extension=true, increments extended_weeks. Cannot skip extension pickups. FT disabled. **User clarification Session 49**: FT vendors should NOT see the skip-a-week option in Chef Box management screen. | SL-W5 | FM vendor skips week 2 → new week 5 pickup, extended_weeks=1. FT vendor skip attempt → rejected. FT management screen hides skip option. |
+| ✅ SL-R9 | Market boxes require Stripe payment — external payment explicitly prohibited. **User confirmed: same for Chef Boxes.** | SL-W2, SL-W3 | Cart with market box → only Stripe payment option shown, no Venmo/CashApp/cash |
+| ✅ SL-R10 | `term_weeks` must be 4 or 8 (DB CHECK constraint). FT restricted to 4-week only. **User clarification Session 49**: FT buyer should NOT see 8-week option (because of SL-R8 — FT has no skip-a-week, so 8 weeks is too long without flexibility). | SL-W2 | FT buyer selects 8-week → rejected. FM buyer selects 8-week → allowed. FT UI hides 8-week option. |
+| ✅ SL-R11 | **User clarification Session 49**: This rule prevents duplicate ACTIVE subscriptions from a CHECKOUT perspective (can't re-checkout for same offering while one is active). However, a buyer SHOULD be able to buy 2 of the same market box (using 2 subscriber slots) in a single purchase — similar to buying 2 of a regular listing. The pre-purchase is like any other item. If it means "after a Stripe checkout completes, the buyer can't add another one" — then yes. But buying multiples in one transaction is desired behavior. | SL-W2 | Buyer already subscribed → second subscription attempt rejected. BUT: buyer should be able to purchase 2 boxes in one checkout (using 2 slots). |
 
 #### MEDIUM (Operational)
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| SL-R12 | Vendor cannot deactivate offering while active subscribers exist (returns 400) | SL-W1 | DELETE with active subs → 400 error |
-| SL-R13 | Vendor cannot change pickup location/time while active subscribers exist | SL-W1 | PATCH pickup_market_id with active subs → rejected |
-| SL-R14 | Reactivating an offering checks `canActivateMarketBox()` tier limit | SL-W1 | Vendor at active limit → reactivation rejected |
-| SL-R15 | `maxSubscribersPerOffering` enforced at purchase time (API check + RPC atomic check). Falls back to tier default if vendor hasn't set it | SL-W2 | Offering at capacity → new subscriber rejected |
+| ✅ SL-R12 | Vendor cannot deactivate offering while active subscribers exist (returns 400) | SL-W1 | DELETE with active subs → 400 error |
+| ✅ SL-R13 | Vendor cannot change pickup location/time while active subscribers exist | SL-W1 | PATCH pickup_market_id with active subs → rejected |
+| ✅ SL-R14 | Reactivating an offering checks `canActivateMarketBox()` tier limit | SL-W1 | Vendor at active limit → reactivation rejected |
+| ✅ SL-R15 | `maxSubscribersPerOffering` enforced at purchase time (API check + RPC atomic check). Falls back to tier default if vendor hasn't set it. **User clarification Session 49**: Should include a message to buyer: "The seller is at capacity at this time — please check back next week." | SL-W2 | Offering at capacity → new subscriber rejected with capacity message |
 | ✅ SL-R16 | Cron Phase 7 auto-fulfills stale market box confirmation windows (buyer confirmed, vendor didn't, >5min) but does NOT trigger payout. **This is now CORRECT behavior** — payout happens at checkout time (Session 48 fix), so Phase 7 should NOT create a second payout. | SL-W4 | Auto-fulfilled pickup → status=picked_up, no new vendor_payouts record (payout already exists from checkout) |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
@@ -1149,8 +1150,8 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | ID | Question | Impact | Options |
 |----|----------|--------|---------|
 | ✅ MP-Q2 | External payment fee: 10% (6.5% buyer + 3.5% vendor) vs Stripe 13% (6.5%+6.5%). Intentional? | Revenue model | **CONFIRMED BY USER** — Intentional. Lower vendor fee because no processing cost. |
-| 🔵❓ VI-Q1 | Cross-vertical shared identity: Should FM/FT share user accounts? | Architecture | A) Shared (convenience). B) Separate (brand isolation) |
-| 🔵❓ VI-Q2 | Root admin dashboard showing all-vertical data: intentional platform-wide view or scoping bug? | Admin UX | A) Intentional (platform admin sees everything). B) Should be vertical-scoped |
+| ✅ VI-Q1 | Cross-vertical shared identity: Should FM/FT share user accounts? | Architecture | **DECIDED Session 49**: B) Separate. Shared identity NOT desired. Each vertical should be separate. |
+| ✅ VI-Q2 | Root admin dashboard showing all-vertical data: intentional platform-wide view or scoping bug? | Admin UX | **DECIDED Session 49**: A) Intentional. Platform admin sees everything. Protect from outside attack but keep visibility. |
 | ✅ VI-Q3 | Referral code cross-vertical: Can FM referral work for FT signup? | Growth | **RESOLVED** — Code already filters by vertical_id (submit/route.ts line 107). FM code cannot be used for FT. |
 | ✅ SL-Q1 | Payout per pickup uses FULL TERM price instead of per-week price. Bug? | **RESOLVED Session 48** — Bug fixed. Per-pickup payout removed. Full prepaid amount paid once at checkout. Commit `433275f`. |
 | 🔵❓ SL-Q2 | Should buyers be able to cancel market box subscriptions? What refund policy? | Feature | A) No cancellation (prepaid). B) Prorated refund. C) Cancel future pickups only |
