@@ -18,6 +18,7 @@
 | 2026-02-22 | 20260222_053_add_small_order_fee_cents | **New column:** `orders.small_order_fee_cents` (INTEGER NOT NULL DEFAULT 0). Tracks small order surcharge applied when subtotal is below vertical minimum ($5). Applied to all 3 envs. |
 | 2026-02-22 | 20260221_045_small_order_fee | **Data update:** Added `small_order_fee_threshold_cents` (500) and `small_order_fee_cents` (50) to `verticals.config` JSONB for all 3 verticals. Code uses hardcoded defaults but this keeps DB config in sync. Applied to all 3 envs. |
 | 2026-02-22 | 20260222_052_update_ft_tier_listing_limits | **Function update:** `enforce_listing_tier_limit()` — updated FT listing limits: free 4→5, basic 8→10. Pro (20) and Boss (45) unchanged. FM limits unchanged (standard=5, premium/featured=15). No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
+| 2026-02-28 | 20260228_060_vendor_trial_system | **New columns on `vendor_profiles`:** `trial_started_at` (TIMESTAMPTZ), `trial_ends_at` (TIMESTAMPTZ), `trial_grace_ends_at` (TIMESTAMPTZ). Tracks 90-day free Basic tier trial for FT vendors — auto-granted on admin approval. Cron Phase 10 handles reminders, expiry (downgrade to free), and grace period auto-unpublish (excess listings → draft, market boxes → inactive). **Partial index:** `idx_vendor_profiles_trial_active` on (trial_ends_at) WHERE trial_ends_at IS NOT NULL AND subscription_status = 'trialing'. Applied to Dev, Staging, & Prod. |
 | 2026-02-28 | 20260228_059_market_box_subscription_payout | Added `market_box_subscription_id` (UUID, nullable, FK→market_box_subscriptions.id) to `vendor_payouts`. For full prepaid vendor payout at checkout (replaces per-pickup F2 FIX). **Unique partial index:** `idx_vendor_payouts_mb_sub_unique` on (market_box_subscription_id) WHERE NOT NULL AND status NOT IN ('failed','cancelled'). **Performance index:** `idx_payouts_mb_subscription` on (market_box_subscription_id) WHERE NOT NULL. Applied to Dev, Staging, & Prod. |
 | 2026-02-22 | 20260222_051_fix_ft_seed_onboarding_gates | **Data fix (seed only):** Updated `vendor_verifications.category_verifications` for 3 FT seed vendors — replaced cuisine category keys (`'Asian'`, `'BBQ & Smoked'`, etc.) with correct permit doc type keys (`mfu_permit`, `cfm_certificate`, `food_handler_card`, `fire_safety_certificate`), all status `'approved'`. Set `vendor_profiles.stripe_payouts_enabled = true` and placeholder `stripe_account_id` for same 3 vendors. Fixes gates 2 & 4 so `canPublishListings` returns true and edit page no longer shows "Draft" for published listings. No schema changes. Applied to Dev & Staging. |
 | 2026-02-22 | 20260222_050_fix_notifications_user_id_fk | **FK fix:** Changed `notifications.user_id` FK from `user_profiles(id)` → `auth.users(id)`. Existing rows translated via `user_profiles.user_id`. Orphaned rows deleted. **Function rewrite:** `notify_transaction_status_change()` now resolves buyer auth.uid via `user_profiles` JOIN (since `transactions.buyer_user_id` references `user_profiles.id`). Vendor path unchanged (`vendor_profiles.user_id` is already auth.uid). Includes `NOTIFY pgrst, 'reload schema'`. Applied to Dev, Staging, & Prod. |
@@ -1084,6 +1085,9 @@
 | orders_cancelled_after_confirm_count | int4 | NO | 0 |
 | cancellation_warning_sent_at | timestamptz | YES | - |
 | stripe_subscription_id | text | YES | - |
+| trial_started_at | timestamptz | YES | - |
+| trial_ends_at | timestamptz | YES | - |
+| trial_grace_ends_at | timestamptz | YES | - |
 
 ### vendor_referral_credits
 | Column | Type | Nullable | Default |
@@ -1881,6 +1885,7 @@
 | idx_vendor_stripe_customer | btree (stripe_customer_id) WHERE (stripe_customer_id IS NOT NULL) |
 | idx_vendor_subscription_status | btree (subscription_status) WHERE (subscription_status IS NOT NULL) |
 | idx_vendor_profiles_certifications | gin (certifications) |
+| idx_vendor_profiles_trial_active | btree (trial_ends_at) WHERE (trial_ends_at IS NOT NULL AND subscription_status = 'trialing') |
 
 ### vendor_referral_credits
 | Index Name | Definition |
