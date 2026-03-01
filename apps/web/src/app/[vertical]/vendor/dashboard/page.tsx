@@ -18,6 +18,7 @@ import { getTierLimits, getFtTierExtras } from '@/lib/vendor-limits'
 import UpcomingPickupItem from './UpcomingPickupItem'
 import ExternalPaymentBanner from '@/components/vendor/ExternalPaymentBanner'
 import QualityAlertBanner from '@/components/vendor/QualityAlertBanner'
+import TrialStatusBanner from '@/components/vendor/TrialStatusBanner'
 
 interface VendorDashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -312,6 +313,16 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         {/* External Payment Banner — pending orders needing vendor confirmation */}
         {vendorProfile.status === 'approved' && (
           <ExternalPaymentBanner vertical={vertical} />
+        )}
+
+        {/* Trial Status Banner — free trial countdown */}
+        {vendorProfile.status === 'approved' && (
+          <TrialStatusBanner
+            vertical={vertical}
+            subscriptionStatus={vendorProfile.subscription_status}
+            trialEndsAt={vendorProfile.trial_ends_at}
+            trialGraceEndsAt={vendorProfile.trial_grace_ends_at}
+          />
         )}
 
         {/* Quality Alert Banner — nightly scan findings */}

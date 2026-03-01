@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const vertical = request.nextUrl.searchParams.get('vertical')
     let vpQuery = supabase
       .from('vendor_profiles')
-      .select('id, tier, subscription_status, subscription_cycle, tier_expires_at, vertical_id')
+      .select('id, tier, subscription_status, subscription_cycle, tier_expires_at, vertical_id, trial_started_at, trial_ends_at, trial_grace_ends_at')
       .eq('user_id', user.id)
     if (vertical) {
       vpQuery = vpQuery.eq('vertical_id', vertical)
@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
       subscriptionCycle: vendorProfile.subscription_cycle,
       expiresAt: vendorProfile.tier_expires_at,
       verticalId: vendorProfile.vertical_id || null,
+      trialStartedAt: vendorProfile.trial_started_at || null,
+      trialEndsAt: vendorProfile.trial_ends_at || null,
+      trialGraceEndsAt: vendorProfile.trial_grace_ends_at || null,
     })
   })
 }

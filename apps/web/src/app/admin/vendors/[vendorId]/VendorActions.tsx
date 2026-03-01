@@ -57,19 +57,36 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
   const executeUpdateStatus = async (newStatus: string) => {
     setLoading(true)
 
-    // Use id, not vendor_id
-    const { error } = await supabase
-      .from('vendor_profiles')
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', vendorId)
+    if (newStatus === 'approved') {
+      // Use API route for approve — handles trial auto-grant + notification
+      try {
+        const res = await fetch(`/api/admin/vendors/${vendorId}/approve`, { method: 'POST' })
+        const result = await res.json()
+        if (!res.ok) {
+          showBanner('error', 'Failed to approve: ' + (result.error || 'Unknown error'))
+          setLoading(false)
+          return
+        }
+      } catch (err) {
+        showBanner('error', 'Failed to approve vendor')
+        setLoading(false)
+        return
+      }
+    } else {
+      // Direct DB update for reject/suspend (no trial logic needed)
+      const { error } = await supabase
+        .from('vendor_profiles')
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', vendorId)
 
-    if (error) {
-      showBanner('error', 'Failed to update status: ' + error.message)
-      setLoading(false)
-      return
+      if (error) {
+        showBanner('error', 'Failed to update status: ' + error.message)
+        setLoading(false)
+        return
+      }
     }
 
     router.refresh()

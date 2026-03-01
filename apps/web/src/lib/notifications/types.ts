@@ -61,6 +61,13 @@ export type NotificationType =
   | 'stale_confirmed_vendor'
   | 'stale_confirmed_vendor_final'
   | 'vendor_quality_alert'
+  // Vendor trial lifecycle
+  | 'vendor_approved_trial'
+  | 'trial_reminder_14d'
+  | 'trial_reminder_7d'
+  | 'trial_reminder_3d'
+  | 'trial_expired'
+  | 'trial_grace_expired'
   // Admin-facing
   | 'new_vendor_application'
   | 'issue_disputed'
@@ -91,6 +98,11 @@ export interface NotificationTemplateData {
   pendingOrderCount?: number
   findingsCount?: number
   findingsSummary?: string
+  trialDays?: number
+  trialTier?: string
+  trialEndsAt?: string
+  unpublishedCount?: number
+  deactivatedBoxCount?: number
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -362,6 +374,68 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => `Quality Check: ${d.findingsCount || 0} item${(d.findingsCount || 0) !== 1 ? 's' : ''} need attention`,
     message: (d) => d.findingsSummary || `We found ${d.findingsCount || 0} potential issue${(d.findingsCount || 0) !== 1 ? 's' : ''} with your listings or schedule. Please review.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/quality`,
+  },
+
+  // ── Vendor Trial Lifecycle ───────────────────────────────────────
+
+  vendor_approved_trial: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => `Welcome! Your Free Trial Has Started`,
+    message: (d) => `Congratulations! Your vendor application has been approved with a free 90-day ${d.trialTier || 'Basic'} plan trial. You have full access to all ${d.trialTier || 'Basic'} tier features. Upgrade anytime to keep these features after your trial.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+
+  trial_reminder_14d: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => `Trial Ending in 14 Days`,
+    message: (d) => `Your free ${d.trialTier || 'Basic'} trial ends in 14 days. After that, your account will switch to the Free plan with reduced limits. Upgrade now to keep all your features.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard/upgrade`,
+  },
+
+  trial_reminder_7d: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => `Trial Ending in 7 Days`,
+    message: (d) => `Your free ${d.trialTier || 'Basic'} trial ends in 7 days. If you have more items or Chef Boxes than the Free plan allows, they will be paused after a 2-week grace period. Upgrade to keep them.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard/upgrade`,
+  },
+
+  trial_reminder_3d: {
+    urgency: 'immediate',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => `Trial Ending in 3 Days`,
+    message: (d) => `Your free ${d.trialTier || 'Basic'} trial ends in 3 days! Upgrade now to keep access to all your menu items, locations, and Chef Boxes.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard/upgrade`,
+  },
+
+  trial_expired: {
+    urgency: 'immediate',
+    severity: 'critical',
+    audience: 'vendor',
+    title: () => `Free Trial Ended`,
+    message: (d) => `Your free ${d.trialTier || 'Basic'} trial has ended. You have a 14-day grace period to upgrade or manage your listings. After ${d.trialEndsAt || '14 days'}, items beyond Free tier limits will be automatically paused.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard/upgrade`,
+  },
+
+  trial_grace_expired: {
+    urgency: 'immediate',
+    severity: 'critical',
+    audience: 'vendor',
+    title: () => `Grace Period Ended`,
+    message: (d) => {
+      const parts: string[] = []
+      if (d.unpublishedCount) parts.push(`${d.unpublishedCount} listing${d.unpublishedCount > 1 ? 's' : ''} set to draft`)
+      if (d.deactivatedBoxCount) parts.push(`${d.deactivatedBoxCount} Chef Box${d.deactivatedBoxCount > 1 ? 'es' : ''} deactivated`)
+      const summary = parts.length > 0 ? parts.join(' and ') + '.' : 'Some items may have been paused.'
+      return `Your grace period has ended. ${summary} Upgrade to reactivate them, or manage your listings to stay within Free tier limits.`
+    },
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard/upgrade`,
   },
 
   // ── Admin-facing ─────────────────────────────────────────────────

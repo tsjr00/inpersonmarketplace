@@ -50,13 +50,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update vendor profile to free tier
+    // Update vendor profile to free tier (clear trial fields if active)
     const { error: updateError } = await supabase
       .from('vendor_profiles')
       .update({
         tier: 'free',
         stripe_subscription_id: null,
         subscription_status: 'canceled',
+        trial_ends_at: null,
+        trial_grace_ends_at: null,
       })
       .eq('id', vendorProfile.id)
 

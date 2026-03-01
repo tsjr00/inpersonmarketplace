@@ -35,6 +35,7 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 7: Auto-fulfill stale confirmation windows (buyer confirmed, vendor didn't)
  * Phase 8: Expire vendor/buyer tier subscriptions past tier_expires_at
  * Phase 9: Data retention — delete old error_logs (90d), read notifications (60d), activity_events (30d)
+ * Phase 10: Vendor trial lifecycle — reminders, trial expiry, grace period auto-unpublish
  *
  * Called by Vercel Cron daily at 6am UTC (configured in vercel.json)
  */
@@ -1526,6 +1527,165 @@ export async function GET(request: NextRequest) {
       console.error('Phase 9 error:', phase9Error instanceof Error ? phase9Error.message : 'Unknown error')
     }
 
+    // ─── Phase 10: Vendor Trial Lifecycle ──────────────────────────────
+    // 10a: Send trial reminder notifications (14d, 7d, 3d before expiry)
+    // 10b: Expire trials past trial_ends_at → downgrade to free tier
+    // 10c: Auto-unpublish excess resources after grace period ends
+    let trialReminders = 0
+    let trialExpired = 0
+    let trialGraceProcessed = 0
+
+    try {
+      const now = new Date()
+      const nowISO = now.toISOString()
+
+      // ── Phase 10a: Trial Reminders ──
+      const { data: trialVendors } = await supabase
+        .from('vendor_profiles')
+        .select('id, user_id, trial_ends_at, vertical_id')
+        .eq('subscription_status', 'trialing')
+        .not('trial_ends_at', 'is', null)
+        .gt('trial_ends_at', nowISO)
+        .limit(200)
+
+      if (trialVendors) {
+        for (const vendor of trialVendors) {
+          const trialEnd = new Date(vendor.trial_ends_at)
+          const daysRemaining = Math.ceil((trialEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+
+          let notificationType: string | null = null
+          if (daysRemaining <= 3) notificationType = 'trial_reminder_3d'
+          else if (daysRemaining <= 7) notificationType = 'trial_reminder_7d'
+          else if (daysRemaining <= 14) notificationType = 'trial_reminder_14d'
+
+          if (notificationType) {
+            // Check if already sent this reminder type today
+            const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+            const { count } = await supabase
+              .from('notifications')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', vendor.user_id)
+              .eq('type', notificationType)
+              .gte('created_at', dayAgo)
+
+            if (!count || count === 0) {
+              await sendNotification(vendor.user_id, notificationType as Parameters<typeof sendNotification>[1], {
+                trialTier: 'Basic',
+                trialDays: daysRemaining,
+              }, { vertical: vendor.vertical_id })
+              trialReminders++
+            }
+          }
+        }
+      }
+
+      // ── Phase 10b: Trial Expiration ──
+      const { data: expiredTrials } = await supabase
+        .from('vendor_profiles')
+        .select('id, user_id, trial_ends_at, trial_grace_ends_at, vertical_id')
+        .eq('subscription_status', 'trialing')
+        .not('trial_ends_at', 'is', null)
+        .lt('trial_ends_at', nowISO)
+        .limit(100)
+
+      if (expiredTrials) {
+        for (const vendor of expiredTrials) {
+          // Downgrade to free tier
+          await supabase
+            .from('vendor_profiles')
+            .update({
+              tier: 'free',
+              subscription_status: null,
+            })
+            .eq('id', vendor.id)
+
+          // Format grace end date for notification
+          const graceEnd = vendor.trial_grace_ends_at
+            ? new Date(vendor.trial_grace_ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : undefined
+
+          await sendNotification(vendor.user_id, 'trial_expired', {
+            trialTier: 'Basic',
+            trialEndsAt: graceEnd,
+          }, { vertical: vendor.vertical_id })
+
+          trialExpired++
+          totalProcessed++
+        }
+      }
+
+      // ── Phase 10c: Grace Period Expiration — Auto-Unpublish Excess ──
+      const { data: graceExpired } = await supabase
+        .from('vendor_profiles')
+        .select('id, user_id, vertical_id')
+        .eq('tier', 'free')
+        .not('trial_grace_ends_at', 'is', null)
+        .lt('trial_grace_ends_at', nowISO)
+        .limit(100)
+
+      if (graceExpired) {
+        for (const vendor of graceExpired) {
+          // FT free tier limits: 5 published listings, 0 active market boxes
+          const freeListingLimit = 5
+          let unpublishedCount = 0
+          let deactivatedBoxCount = 0
+
+          // Get published listings ordered oldest first — keep oldest, unpublish newest
+          const { data: listings } = await supabase
+            .from('listings')
+            .select('id')
+            .eq('vendor_profile_id', vendor.id)
+            .eq('status', 'published')
+            .is('deleted_at', null)
+            .order('created_at', { ascending: true })
+
+          if (listings && listings.length > freeListingLimit) {
+            // Keep the oldest N listings (established ones), unpublish the rest
+            const toUnpublish = listings.slice(freeListingLimit).map(l => l.id)
+            await supabase
+              .from('listings')
+              .update({ status: 'draft' })
+              .in('id', toUnpublish)
+            unpublishedCount = toUnpublish.length
+          }
+
+          // Deactivate all active market boxes (FT free tier = 0 market boxes)
+          const { data: activeBoxes } = await supabase
+            .from('market_box_offerings')
+            .select('id')
+            .eq('vendor_profile_id', vendor.id)
+            .eq('active', true)
+
+          if (activeBoxes && activeBoxes.length > 0) {
+            await supabase
+              .from('market_box_offerings')
+              .update({ active: false })
+              .in('id', activeBoxes.map(b => b.id))
+            deactivatedBoxCount = activeBoxes.length
+          }
+
+          // Clear grace period so this doesn't re-run
+          await supabase
+            .from('vendor_profiles')
+            .update({ trial_grace_ends_at: null })
+            .eq('id', vendor.id)
+
+          // Notify vendor if anything was changed
+          if (unpublishedCount > 0 || deactivatedBoxCount > 0) {
+            await sendNotification(vendor.user_id, 'trial_grace_expired', {
+              unpublishedCount,
+              deactivatedBoxCount,
+            }, { vertical: vendor.vertical_id })
+          }
+
+          trialGraceProcessed++
+          totalProcessed++
+        }
+      }
+    } catch (phase10Error) {
+      console.error('Phase 10 error:', phase10Error instanceof Error ? phase10Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -1538,6 +1698,7 @@ export async function GET(request: NextRequest) {
       staleWindows: { fulfilled: staleWindowsFulfilled },
       tierExpirations: { vendors: vendorTiersExpired, buyers: buyerTiersExpired },
       dataRetention: { errorLogs: errorLogsDeleted, notifications: notificationsDeleted, activityEvents: activityEventsDeleted },
+      trialLifecycle: { reminders: trialReminders, expired: trialExpired, graceProcessed: trialGraceProcessed },
     })
   })
 }

@@ -240,7 +240,7 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
     const targetTier = session.metadata?.tier || 'premium'
     const vertical = session.metadata?.vertical || ''
 
-    // Update vendor profile
+    // Update vendor profile (clear trial fields if upgrading from trial)
     let vpQuery = supabase
       .from('vendor_profiles')
       .update({
@@ -250,6 +250,8 @@ async function handleSubscriptionCheckoutComplete(session: Stripe.Checkout.Sessi
         subscription_cycle: cycle,
         tier_started_at: new Date().toISOString(),
         tier_expires_at: currentPeriodEnd,
+        trial_ends_at: null,
+        trial_grace_ends_at: null,
       })
       .eq('user_id', userId)
     if (vertical) {
