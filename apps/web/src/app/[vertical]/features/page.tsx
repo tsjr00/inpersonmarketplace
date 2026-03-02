@@ -28,55 +28,6 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
-      {/* Navigation */}
-      <nav style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: `${spacing.md} ${spacing.xl}`,
-        backgroundColor: colors.surfaceElevated,
-        borderBottom: `1px solid ${colors.border}`,
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <Link href={`/${vertical}`} style={{ textDecoration: 'none' }}>
-          <span style={{
-            fontSize: typography.sizes.xl,
-            fontWeight: typography.weights.bold,
-            color: colors.primary
-          }}>
-            {branding.brand_name}
-          </span>
-        </Link>
-        <div style={{ display: 'flex', gap: spacing.md, alignItems: 'center' }}>
-          <Link
-            href={`/${vertical}/browse`}
-            style={{
-              color: colors.textSecondary,
-              textDecoration: 'none',
-              fontWeight: typography.weights.medium
-            }}
-          >
-            Browse
-          </Link>
-          <Link
-            href={`/${vertical}/login`}
-            style={{
-              padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: 'transparent',
-              color: colors.primary,
-              textDecoration: 'none',
-              borderRadius: radius.md,
-              fontWeight: typography.weights.semibold,
-              border: `2px solid ${colors.primary}`
-            }}
-          >
-            Get Started
-          </Link>
-        </div>
-      </nav>
-
       {/* Hero Section */}
       <section style={{
         padding: `${spacing['3xl']} ${spacing.xl}`,
@@ -245,11 +196,11 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 desc: `Save your favorite ${term(vertical, 'vendors').toLowerCase()} and quickly find them when you\'re ready to order again.`,
                 icon: '❤️'
               },
-              {
+              ...(vertical === 'food_trucks' ? [{
                 title: 'Tips at Checkout',
                 desc: `Show your appreciation with optional tips at checkout. 100% of the food cost tip goes to the ${term(vertical, 'vendor').toLowerCase()}.`,
                 icon: '💝'
-              },
+              }] : []),
               {
                 title: 'Buyer Premium',
                 desc: `Upgrade to Premium for early access to new ${term(vertical, 'products').toLowerCase()} before they\'re available to everyone.`,
