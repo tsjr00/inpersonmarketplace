@@ -26,6 +26,7 @@ export const TIER_LIMITS = {
     productListings: 5,
     analyticsDays: 0,
     analyticsExport: false,
+    notificationChannels: ['in_app'] as readonly string[],
   },
   standard: {
     traditionalMarkets: 2,
@@ -38,6 +39,7 @@ export const TIER_LIMITS = {
     productListings: 10,
     analyticsDays: 30,
     analyticsExport: false,
+    notificationChannels: ['in_app', 'email'] as readonly string[],
   },
   premium: {
     traditionalMarkets: 3,
@@ -50,6 +52,7 @@ export const TIER_LIMITS = {
     productListings: 20,
     analyticsDays: 60,
     analyticsExport: false,
+    notificationChannels: ['in_app', 'email', 'push'] as readonly string[],
   },
   featured: {
     traditionalMarkets: 5,
@@ -62,6 +65,7 @@ export const TIER_LIMITS = {
     productListings: 30,
     analyticsDays: 90,
     analyticsExport: true,
+    notificationChannels: ['in_app', 'email', 'push', 'sms'] as readonly string[],
   },
 } as const
 
@@ -154,6 +158,12 @@ export function getFtTierLabel(tier: string): string {
 export function getFtTierExtras(tier: string): FtTierExtras {
   const normalized = tier?.toLowerCase() as FoodTruckTier
   return FT_TIER_LIMITS[normalized] || FT_TIER_LIMITS.free
+}
+
+/** Get notification channels allowed for a vendor tier (both verticals) */
+export function getTierNotificationChannels(tier: string, vertical?: string): readonly string[] {
+  const limits = getTierLimits(tier, vertical)
+  return (limits as Record<string, unknown>).notificationChannels as readonly string[] || ['in_app']
 }
 
 /** Get analytics limits for any vendor tier (both verticals) */

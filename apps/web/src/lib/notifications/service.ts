@@ -19,6 +19,7 @@ import {
   type NotificationType,
   type NotificationTemplateData,
   type NotificationChannel,
+  type NotificationUrgency,
   NOTIFICATION_REGISTRY,
   URGENCY_CHANNELS,
 } from './types'
@@ -85,6 +86,7 @@ interface UserPreferences {
   sms_order_updates: boolean
   sms_marketing: boolean
   push_enabled?: boolean
+  sound_enabled?: boolean
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -93,6 +95,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   sms_order_updates: false,
   sms_marketing: false,
   push_enabled: false,
+  sound_enabled: true,
 }
 
 function shouldSendChannel(
@@ -288,7 +291,9 @@ async function sendPush(
   userId: string,
   title: string,
   body: string,
-  actionUrl: string
+  actionUrl: string,
+  urgency: NotificationUrgency = 'standard',
+  soundEnabled: boolean = true
 ): Promise<ChannelResult> {
   if (!configureWebPush()) {
     return {
@@ -320,6 +325,8 @@ async function sendPush(
       body,
       url: actionUrl,
       tag: 'notification',
+      urgency,
+      soundEnabled,
     })
 
     const results = await Promise.allSettled(
@@ -426,26 +433,21 @@ export async function sendNotification(
       userPhone = profile.phone
     }
 
-    // FT tier-based channel gating: restrict channels based on vendor's tier
-    if (options?.vertical === 'food_trucks' && profile?.user_id) {
+    // Tier-based channel gating: restrict channels based on vendor's tier (both verticals)
+    // Critical bypass: immediate/urgent notifications skip tier gating entirely
+    const isCritical = config.urgency === 'immediate' || config.urgency === 'urgent'
+    if (!isCritical && options?.vertical && profile?.user_id) {
       const { data: vendor } = await supabase
         .from('vendor_profiles')
         .select('tier')
         .eq('user_id', profile.user_id)
-        .eq('vertical_id', 'food_trucks')
+        .eq('vertical_id', options.vertical)
         .single()
 
       if (vendor?.tier) {
-        const { getFtTierExtras } = await import('@/lib/vendor-limits')
-        const extras = getFtTierExtras(vendor.tier)
-        // Map channel names: 'push' and 'in_app' are always allowed if in tier list
-        // 'sms' requires 'sms' in tier, 'email' requires 'email' in tier
-        const allowed = extras.notificationChannels
-        channels = channels.filter(ch => {
-          if (ch === 'in_app') return allowed.includes('in_app')
-          if (ch === 'push') return allowed.includes('push')
-          return allowed.includes(ch)
-        })
+        const { getTierNotificationChannels } = await import('@/lib/vendor-limits')
+        const allowed = getTierNotificationChannels(vendor.tier, options.vertical)
+        channels = channels.filter(ch => allowed.includes(ch))
       }
     }
   } catch (prefError) {
@@ -515,7 +517,8 @@ export async function sendNotification(
         break
       }
       case 'push': {
-        results.push(await sendPush(userId, title, message, actionUrl))
+        const soundOn = preferences.sound_enabled !== false
+        results.push(await sendPush(userId, title, message, actionUrl, config.urgency, soundOn))
         break
       }
     }

@@ -16,6 +16,7 @@ interface Preferences {
   sms_order_updates: boolean
   sms_marketing: boolean
   push_enabled: boolean
+  sound_enabled: boolean
 }
 
 const DEFAULT_PREFS: Preferences = {
@@ -24,6 +25,7 @@ const DEFAULT_PREFS: Preferences = {
   sms_order_updates: false,
   sms_marketing: false,
   push_enabled: false,
+  sound_enabled: true,
 }
 
 export default function NotificationPreferences({ primaryColor, smsEnabled = false }: NotificationPreferencesProps) {
@@ -260,6 +262,27 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
               checked={preferences.push_enabled}
               onChange={handlePushToggle}
               disabled={pushDisabled}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Sound & Vibration */}
+      <div>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: '0 0 12px 0' }}>
+          Sound & Vibration
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Notification Sounds</p>
+              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                Play a sound when new notifications arrive. Vibration is always on.
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={preferences.sound_enabled}
+              onChange={() => handleToggle('sound_enabled')}
             />
           </div>
         </div>

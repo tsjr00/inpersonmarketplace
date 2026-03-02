@@ -73,9 +73,18 @@ Process user's business rules audit responses from Session 49, implement 3 appro
 - [x] Implement GAP 4 cron phase (auto-miss pickups) — Phase 4.7 in expire-orders/route.ts
 - [x] Implement GAP 6 migration (market box trigger) — 20260302_064_market_box_tier_trigger.sql
 - [x] Added market_box_pickup_missed notification type
-- [ ] Commit all changes
-- [ ] Push to staging for testing
-- [ ] User applies migrations 063+064 to Dev/Staging databases
+- [x] Commit 78c2715: Business rules audit 3 fixes (pushed staging+prod)
+- [x] Migrations 063+064 applied to all 3 environments
+- [x] Notification sound system:
+  - FM notificationChannels added to tier limits (matching FT pattern)
+  - Channel gating now works for BOTH verticals (was FT-only)
+  - Critical bypass: immediate/urgent skip tier gating
+  - Service worker: sound (silent:false) + vibrate on all push notifications
+  - In-app: Web Audio API tone per urgency + navigator.vibrate() on active tab
+  - sound_enabled preference (default true) — toggle in Settings
+  - Vibrate always fires; sound is the toggle
+- [ ] Commit notification sound changes
+- [ ] Push to staging
 
 ## Key Context (DO NOT FORGET)
 - 3 migrations approved: GAP 7, GAP 4/SL-Q3, GAP 6

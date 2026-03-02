@@ -6,6 +6,9 @@ var isFoodTrucks = self.location.hostname === 'foodtruckn.app'
 var notifIcon = isFoodTrucks ? '/icons/ft-icon-192.png' : '/icons/fm-icon-192.png'
 var defaultTitle = isFoodTrucks ? "Food Truck'n" : 'Farmers Marketing'
 
+// Vibrate pattern: consistent across all urgencies
+var VIBRATE_PATTERN = [200, 100, 200]
+
 self.addEventListener('push', function(event) {
   if (!event.data) return
 
@@ -16,12 +19,18 @@ self.addEventListener('push', function(event) {
     data = { title: 'New Notification', body: event.data.text() }
   }
 
+  // Sound: play OS sound unless user has sound disabled
+  // Vibrate: always on (fallback when sound is off)
+  var soundEnabled = data.soundEnabled !== false
+
   var options = {
     body: data.body || '',
     icon: data.icon || notifIcon,
     badge: notifIcon,
-    data: { url: data.url || '/' },
+    data: { url: data.url || '/', urgency: data.urgency || 'standard' },
     tag: data.tag || 'default',
+    silent: !soundEnabled,
+    vibrate: VIBRATE_PATTERN,
   }
 
   event.waitUntil(

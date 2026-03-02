@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
-import { getNotificationConfig, type NotificationSeverity } from '@/lib/notifications/types'
+import { getNotificationConfig, type NotificationSeverity, type NotificationUrgency } from '@/lib/notifications/types'
 
 interface Notification {
   id: string
@@ -20,6 +20,53 @@ interface NotificationBellProps {
   vertical: string
 }
 
+// ── Web Audio API tone generator ────────────────────────────────────
+// Different frequencies per urgency for distinct tones
+const URGENCY_TONES: Record<NotificationUrgency, { freq: number; duration: number; gain: number }> = {
+  immediate: { freq: 880, duration: 0.3, gain: 0.4 },   // A5 — sharp, attention-grabbing
+  urgent:    { freq: 660, duration: 0.25, gain: 0.35 },  // E5 — moderately sharp
+  standard:  { freq: 523, duration: 0.2, gain: 0.3 },    // C5 — neutral chime
+  info:      { freq: 440, duration: 0.15, gain: 0.2 },   // A4 — soft, subtle
+}
+
+const VIBRATE_PATTERN = [200, 100, 200]
+
+function playNotificationTone(urgency: NotificationUrgency): void {
+  try {
+    const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext
+    if (!AudioContext) return
+    const ctx = new AudioContext()
+    const tone = URGENCY_TONES[urgency] || URGENCY_TONES.standard
+
+    // Main tone
+    const osc = ctx.createOscillator()
+    const gainNode = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = tone.freq
+    gainNode.gain.setValueAtTime(tone.gain, ctx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + tone.duration)
+    osc.connect(gainNode)
+    gainNode.connect(ctx.destination)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + tone.duration)
+
+    // Cleanup
+    osc.onended = () => ctx.close()
+  } catch {
+    // Silently fail — audio not critical
+  }
+}
+
+function vibrateDevice(): void {
+  try {
+    if (navigator.vibrate) {
+      navigator.vibrate(VIBRATE_PATTERN)
+    }
+  } catch {
+    // Vibration API not available
+  }
+}
+
 function getNotificationSeverity(type: string): NotificationSeverity {
   const config = getNotificationConfig(type)
   return config?.severity || 'info'
@@ -31,30 +78,87 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const prevUnreadCountRef = useRef<number>(0)
+  const hasInteractedRef = useRef(false)
   const router = useRouter()
   const pathname = usePathname()
 
-  // Fetch unread count + check for critical severity
+  // Fetch user sound preference on mount
+  useEffect(() => {
+    async function loadSoundPref() {
+      try {
+        const res = await fetch('/api/user/notifications')
+        if (res.ok) {
+          const { preferences } = await res.json()
+          if (preferences && typeof preferences.sound_enabled === 'boolean') {
+            setSoundEnabled(preferences.sound_enabled)
+          }
+        }
+      } catch {
+        // Default to sound on
+      }
+    }
+    loadSoundPref()
+  }, [])
+
+  // Track user interaction (required for Web Audio API autoplay policy)
+  useEffect(() => {
+    function markInteracted() { hasInteractedRef.current = true }
+    document.addEventListener('click', markInteracted, { once: true })
+    document.addEventListener('keydown', markInteracted, { once: true })
+    return () => {
+      document.removeEventListener('click', markInteracted)
+      document.removeEventListener('keydown', markInteracted)
+    }
+  }, [])
+
+  // Fetch unread count + check for critical severity + trigger sound/vibrate
   const fetchCount = useCallback(async () => {
     try {
       const res = await fetch('/api/notifications?limit=10&unread_only=true')
       if (res.ok) {
         const { notifications: unread, pagination } = await res.json()
-        setUnreadCount(pagination?.total ?? unread?.length ?? 0)
-        // Determine highest severity among unread notifications
+        const newCount = pagination?.total ?? unread?.length ?? 0
+        setUnreadCount(newCount)
+
+        // Determine highest severity/urgency among unread notifications
         let highest: NotificationSeverity = 'info'
+        let highestUrgency: NotificationUrgency = 'info'
         for (const n of (unread || []) as Notification[]) {
           const sev = getNotificationSeverity(n.type)
-          if (sev === 'critical') { highest = 'critical'; break }
-          if (sev === 'warning') highest = 'warning'
+          if (sev === 'critical') { highest = 'critical' }
+          else if (sev === 'warning' && highest !== 'critical') { highest = 'warning' }
+
+          const config = getNotificationConfig(n.type)
+          if (config) {
+            const u = config.urgency
+            if (u === 'immediate') highestUrgency = 'immediate'
+            else if (u === 'urgent' && highestUrgency !== 'immediate') highestUrgency = 'urgent'
+            else if (u === 'standard' && highestUrgency === 'info') highestUrgency = 'standard'
+          }
         }
         setHighestUnreadSeverity(highest)
+
+        // Play sound + vibrate when NEW notifications arrive on active tab
+        if (
+          newCount > prevUnreadCountRef.current &&
+          prevUnreadCountRef.current >= 0 &&
+          document.visibilityState === 'visible' &&
+          hasInteractedRef.current
+        ) {
+          if (soundEnabled) {
+            playNotificationTone(highestUrgency)
+          }
+          vibrateDevice()
+        }
+        prevUnreadCountRef.current = newCount
       }
     } catch {
       // Silently fail - count badge is non-critical
     }
-  }, [])
+  }, [soundEnabled])
 
   // Fetch recent notifications for dropdown
   const fetchNotifications = useCallback(async () => {

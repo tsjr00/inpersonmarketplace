@@ -908,6 +908,9 @@ Twilio → phone from user_profiles → `sms_order_updates` preference check (in
 **NI-W6: Deduplication Check**
 Before sending → query notifications table for existing match (type + data key) → skip if already sent
 
+**NI-W7: Sound & Vibration**
+New notification arrives → NotificationBell detects increased unread count → if tab is visible + user has interacted: play Web Audio tone (frequency by urgency) if sound_enabled, always vibrate via navigator.vibrate(). Push notifications: service worker receives urgency + soundEnabled in payload → sets silent flag + vibrate pattern.
+
 ### Business Rules (Prioritized)
 
 #### CRITICAL (Delivery Integrity)
@@ -925,7 +928,7 @@ Before sending → query notifications table for existing match (type + data key
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
 | NI-R6 | Email FROM address: FM=`updates@mail.farmersmarketing.app`, FT=`updates@mail.foodtruckn.app`. FW falls back to FM address | NI-W3 | FT order notification → FROM foodtruckn.app domain |
-| NI-R7 | FT vendor notifications tier-gated: free=in_app only, basic=in_app+email, pro=+push, boss=+sms | NI-W2 | FT free vendor → only in_app notifications regardless of urgency |
+| NI-R7 | 🔵❓ **UNCONFIRMED — RESTATED.** Vendor notifications are tier-gated for BOTH verticals (FM + FT). FM: free=in_app, standard=+email, premium=+push, featured=+sms. FT: free=in_app, basic=+email, pro=+push, boss=+sms. **Currently implemented with critical bypass**: immediate/urgent notifications skip tier gating so all vendors receive them on all enabled channels regardless of tier. Critical bypass is UNCONFIRMED — code is in place but user has not approved the bypass behavior. | NI-W2 | (1) FT free vendor, standard notification → only in_app. (2) FM free vendor, standard notification → only in_app. (3) FT free vendor, immediate notification → all enabled channels (if bypass confirmed) OR only in_app (if bypass removed) |
 | NI-R8 | Push subscription auto-syncs `push_enabled` preference: subscribe → true, last unsubscribe → false | NI-W4 | User unsubscribes last device → `push_enabled` auto-set to false |
 | NI-R9 | Stale push endpoint cleanup: subscriptions returning 410 Gone or 404 auto-deleted | NI-W4 | Push to expired endpoint → `push_subscriptions` row deleted |
 | NI-R10 | Stale confirmed notifications (Phase 4.5) deduplicated: checks existing notification by type + orderItemId | NI-W6 | Cron runs twice → only 1 stale notification per item |
@@ -938,6 +941,10 @@ Before sending → query notifications table for existing match (type + data key
 | NI-R12 | Read notifications older than 60 days deleted by cron Phase 9. Unread preserved indefinitely | NI-W1 | 90-day-old read notification → deleted. 90-day-old unread → preserved |
 | NI-R13 | `sendNotificationBatch()` exists but is never called — dead code | NI-W1 | Function exported but 0 call sites in application code |
 | NI-R14 | Vertical param goes in `options` (4th arg), NOT in `templateData` (3rd arg) | NI-W1 | `sendNotification(userId, type, data, { vertical })` — vertical in options |
+| NI-R15 | Push notifications always vibrate (`[200, 100, 200]` pattern). Sound plays unless user has `sound_enabled=false`, in which case push is `silent: true` + vibrate only | NI-W7 | User with sound_enabled=false → push arrives with vibrate, no sound. User with sound_enabled=true → push arrives with OS sound + vibrate |
+| NI-R16 | In-app notifications play a Web Audio API tone when new unreads are detected AND the tab is the active visible tab AND user has interacted with the page. Different tone frequency per urgency: immediate=880Hz, urgent=660Hz, standard=523Hz, info=440Hz | NI-W7 | New notification arrives while tab is active → tone plays. Tab is background → no tone. User hasn't clicked anything yet → no tone (browser autoplay policy) |
+| NI-R17 | In-app notifications always trigger `navigator.vibrate()` on new unreads (active tab), regardless of `sound_enabled` setting. Vibrate is not toggleable by user | NI-W7 | New notification on active tab with sound_enabled=false → vibrate fires, no tone. sound_enabled=true → vibrate + tone |
+| NI-R18 | `sound_enabled` preference stored in `user_profiles.notification_preferences` JSONB. Default: `true`. Controlled via Settings → Sound & Vibration toggle | NI-W4 | New user → sound_enabled defaults to true. User toggles off → push goes silent, in-app tone stops, vibrate continues |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
@@ -956,10 +963,13 @@ Before sending → query notifications table for existing match (type + data key
 
 **Single HTML email template** for ALL notification types. `MESSAGE_TEMPLATES.md` rich templates are aspirational design docs, NOT implemented.
 
-**FT tier channel gating (service.ts lines 424-443):**
-- Only applies to vendor notifications (queries `vendor_profiles`)
-- Buyer notifications in FT vertical are NOT tier-gated (correct behavior)
-- free: `['in_app']`, basic: `['in_app', 'email']`, pro: `['in_app', 'email', 'push']`, boss: all channels
+**Tier channel gating (service.ts) — UPDATED 2026-03-02:**
+- Now applies to BOTH verticals (was FT-only). Queries `vendor_profiles` by vertical_id.
+- Buyer notifications are NOT tier-gated (correct — buyers don't have tiers)
+- FM: free=`['in_app']`, standard=`['in_app', 'email']`, premium=`['in_app', 'email', 'push']`, featured=all channels
+- FT: free=`['in_app']`, basic=`['in_app', 'email']`, pro=`['in_app', 'email', 'push']`, boss=all channels
+- 🔵❓ **Critical bypass (UNCONFIRMED):** immediate/urgent urgency notifications currently skip tier gating entirely
+- Helper: `getTierNotificationChannels(tier, vertical)` in vendor-limits.ts
 
 **Explicit deduplication implemented in 2 places:**
 1. Checkout success: checks `notifications` table for `new_paid_order` + matching `orderNumber` (success/route.ts lines 279-284)
@@ -994,6 +1004,8 @@ Exported but never called.
 | 🔵❓ NI-Q1 | Should `order_cancelled_by_vendor` urgency be changed from `immediate` (push) to `urgent` (SMS)? A buyer en route needs SMS as fallback | NEEDS USER DECISION |
 | 🔵❓ NI-Q2 | Should we add email unsubscribe links for CAN-SPAM compliance? | NEEDS USER DECISION — may need per-type control |
 | 🔵❓ NI-Q3 | Should a dedicated `subscription_expired` notification type replace the `payout_failed` misuse? | NEEDS USER DECISION |
+| 🔵❓ NI-Q4 | **Critical bypass**: Should immediate/urgent notifications (order cancelled, pickup issues, payout failed) skip tier channel gating so ALL vendors get them on all enabled channels regardless of tier? Code is implemented but needs explicit approval. | NEEDS USER DECISION |
+| 🔵❓ NI-Q5 | **FM channel gating**: FM vendors now have the same tier-based channel ladder as FT (free=in_app, standard=+email, premium=+push, featured=+sms). This is new — FM vendors previously had no channel restrictions. Confirm this is desired? | NEEDS USER DECISION |
 
 ---
 

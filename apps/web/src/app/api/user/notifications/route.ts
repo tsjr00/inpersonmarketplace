@@ -10,6 +10,7 @@ const DEFAULT_PREFERENCES = {
   sms_order_updates: false,
   sms_marketing: false,
   push_enabled: false,
+  sound_enabled: true,
 }
 
 export async function GET(request: NextRequest) {
@@ -67,6 +68,7 @@ export async function PUT(request: NextRequest) {
         sms_order_updates: Boolean(preferences.sms_order_updates),
         sms_marketing: Boolean(preferences.sms_marketing),
         push_enabled: Boolean(preferences.push_enabled),
+        sound_enabled: preferences.sound_enabled !== false, // default true
       }
 
       // Update user profile with notification preferences
