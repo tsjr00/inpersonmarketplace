@@ -99,7 +99,7 @@ export default function AdminLoginPage() {
           color: '#666',
           fontSize: 14
         }}>
-          815 Enterprises Administration
+          Platform Administration
         </p>
 
         {error && (
@@ -199,7 +199,7 @@ export default function AdminLoginPage() {
               fontSize: 14
             }}
           >
-            ← Back to 815enterprises.com
+            ← Back to Home
           </Link>
         </div>
       </div>

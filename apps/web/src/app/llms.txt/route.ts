@@ -6,13 +6,13 @@ import { NextRequest, NextResponse } from 'next/server'
  * See https://llmstxt.org for the specification.
  */
 
-const FM_CONTENT = `# Fresh Market — Farmers Market Online Ordering Platform
+const FM_CONTENT = `# Local Market — Farmers Market Online Ordering Platform
 
-> Fresh Market (farmersmarketing.app) is a local marketplace platform that connects farmers market shoppers with verified local vendors. Pre-order fresh produce, baked goods, and artisan products online and pick up at your neighborhood farmers market. A modern alternative to traditional CSA subscriptions.
+> Local Market (farmersmarketing.app) is a local marketplace platform that connects farmers market shoppers with verified local vendors. Pre-order fresh produce, baked goods, and artisan products online and pick up at your neighborhood farmers market. A modern alternative to traditional CSA subscriptions.
 
-## About Fresh Market
+## About Local Market
 
-Fresh Market was created to solve a common problem: shoppers miss out on their favorite farmers market products because they sell out early or can't arrive at opening time. Our platform lets shoppers pre-order online and pick up on their schedule — no more racing to the market at dawn.
+Local Market was created to solve a common problem: shoppers miss out on their favorite farmers market products because they sell out early or can't arrive at opening time. Our platform lets shoppers pre-order online and pick up on their schedule — no more racing to the market at dawn.
 
 Every vendor on the platform is verified before joining. Shoppers can browse products, read vendor stories, and place orders with confidence. Vendors get a complete business management toolkit — inventory, orders, analytics, and customer relationships — all from their phone.
 
@@ -83,11 +83,11 @@ Market Boxes are 4-week subscription bundles curated by local vendors. They offe
 
 ## For Cottage Food Producers & Home-Based Sellers
 
-Fresh Market is the ideal online selling platform for cottage food producers operating under state cottage food laws, including the Texas Cottage Food Law. If you make and sell homemade food products, our platform gives you a professional online storefront to reach more customers at farmers markets.
+Local Market is the ideal online selling platform for cottage food producers operating under state cottage food laws, including the Texas Cottage Food Law. If you make and sell homemade food products, our platform gives you a professional online storefront to reach more customers at farmers markets.
 
 Cottage food sellers can list and sell products including homemade baked goods, jams, jellies, preserves, honey, dried herbs, candy, roasted coffee, dried pasta, fruit butter, pickled vegetables, and other items allowed under their state's cottage food exemption.
 
-The platform handles online orders, payments, and pickup coordination so cottage producers can focus on what they do best — making their products. Fresh Market works for sellers at any scale, from a home kitchen selling at one local market to producers operating at multiple markets across a region.
+The platform handles online orders, payments, and pickup coordination so cottage producers can focus on what they do best — making their products. Local Market works for sellers at any scale, from a home kitchen selling at one local market to producers operating at multiple markets across a region.
 
 Whether you're selling under the Texas Cottage Food Law, California's AB 1616, or any state's cottage food exemption, our platform gives you a professional online storefront.
 
@@ -363,7 +363,7 @@ Food Truck'n helps food truck operators grow their business by:
 
 ## Sister Platform
 
-Our sister platform, Fresh Market (farmersmarketing.app), serves the farmers market industry with the same online ordering and business management tools.
+Our sister platform, Local Market (farmersmarketing.app), serves the farmers market industry with the same online ordering and business management tools.
 `
 
 export async function GET(request: NextRequest) {

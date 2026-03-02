@@ -32,7 +32,7 @@ export default function Footer() {
               fontWeight: typography.weights.semibold,
               color: colors.textPrimary
             }}>
-              815 Enterprises
+              Local Market
             </h4>
             <p style={{
               color: colors.textSecondary,
@@ -130,7 +130,7 @@ export default function Footer() {
           }}
         >
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: 0 }}>
-            © {currentYear} 815 Enterprises. All rights reserved.
+            © {currentYear} Local Market. All rights reserved.
           </p>
         </div>
       </div>

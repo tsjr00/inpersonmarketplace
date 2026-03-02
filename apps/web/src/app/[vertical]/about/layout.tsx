@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: AboutLayoutProps): Promise<Me
     title: `About Us | ${branding.brand_name}`,
     description: isFT
       ? 'About Food Truck\'n — connecting communities with local food trucks and street food vendors. Order online, skip the line, and support local food truck operators and chefs.'
-      : 'About Fresh Market — connecting communities with local farmers, bakers, and artisans. Order from farmers markets online and support local producers in your neighborhood.',
+      : 'About Local Market — connecting communities with local farmers, bakers, and artisans. Order from farmers markets online and support local producers in your neighborhood.',
   }
 }
 

@@ -35,7 +35,7 @@ const verticalMeta: Record<string, { title: string; description: string; icon: s
 }
 
 const defaultMeta = {
-  title: '815 Enterprises',
+  title: 'Local Market',
   description: 'Local marketplace platform.',
   icon: '/logos/logo-icon-color.png',
 }

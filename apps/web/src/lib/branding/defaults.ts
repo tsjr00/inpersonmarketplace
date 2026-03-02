@@ -43,7 +43,7 @@ export const defaultBranding: Record<string, VerticalBranding> = {
   },
   farmers_market: {
     domain: 'farmersmarketing.app',
-    brand_name: 'Fresh Market',
+    brand_name: 'Farmers Marketing',
     tagline: 'Farm Fresh, Locally Grown',
     logo_path: '/logos/logo-full-color.png',
     favicon: '/branding/farmers-favicon.ico',
@@ -55,7 +55,7 @@ export const defaultBranding: Record<string, VerticalBranding> = {
       text: '#2d2d2d'
     },
     meta: {
-      title: 'Fresh Market | Order from Farmers Markets Near You Online',
+      title: 'Farmers Marketing | Order from Farmers Markets Near You Online',
       description: 'Order from farmers markets near you online. Pre-order fresh produce, baked goods, and artisan products from verified local vendors. Market Box subscriptions, farm to table marketplace, and local pickup. A modern CSA alternative.',
       keywords: 'farmers market near me, order from farmers market online, pre-order farmers market, buy local produce online, farm to table marketplace, market box subscription, CSA alternative, local farm produce, farmers market pickup, support local farmers, fresh produce delivery, farmers market online ordering, local vendors near me, artisan food marketplace, cottage food, cottage food law, texas cottage food, cottage food seller, homemade goods, farmers market sunday, farmers market today, farmers market dallas, farmers market houston, farmers market austin, local honey, handmade products, cottage food license, home baked goods'
     }

@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: '815 Enterprises - Local Marketplace Platform',
+  title: 'Local Market - Local Marketplace Platform',
   description: 'Specialized marketplace platforms for in-person businesses. Join our verified vendor network and grow your local customer base.',
   keywords: 'marketplace, vendors, local business, food trucks, farmers market',
   openGraph: {
-    title: '815 Enterprises',
+    title: 'Local Market',
     description: 'Local Marketplace Platform',
     type: 'website',
   },
