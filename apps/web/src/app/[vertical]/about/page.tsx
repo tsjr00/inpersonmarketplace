@@ -5,9 +5,27 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { defaultBranding } from '@/lib/branding/defaults'
+import { organizationJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 
 export default function AboutPage() {
   const { vertical } = useParams<{ vertical: string }>()
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const baseUrl = `https://${branding.domain}`
+
+  const isFT = vertical === 'food_trucks'
+  const orgSchema = organizationJsonLd({
+    name: branding.brand_name,
+    url: baseUrl,
+    description: isFT
+      ? 'Mobile food ordering platform connecting customers with local food trucks. Pre-order online, skip the line, and pick up hot and ready.'
+      : 'Online ordering platform connecting shoppers with local farmers market vendors. Pre-order fresh produce, baked goods, and artisan products for market pickup.',
+  })
+
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: 'Home', url: `${baseUrl}/${vertical}` },
+    { name: 'About Us', url: `${baseUrl}/${vertical}/about` },
+  ])
 
   // Handle scroll to hash on page load
   useEffect(() => {
@@ -24,8 +42,16 @@ export default function AboutPage() {
 
   return (
     <main style={{ maxWidth: 800, margin: '40px auto', padding: '0 20px' }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+      />
       <h1 style={{ fontSize: typography.sizes['3xl'], fontWeight: typography.weights.bold, marginBottom: spacing.lg, color: colors.textPrimary }}>
-        About Us
+        About {branding.brand_name}
       </h1>
 
       <div style={{ color: colors.textSecondary, fontSize: typography.sizes.base, lineHeight: typography.leading.relaxed }}>
@@ -37,11 +63,15 @@ export default function AboutPage() {
           <p style={{ marginBottom: spacing.md }}>
             We believe in the power of local communities and the importance of connecting people
             with the {term(vertical, 'vendor_people')} that serve them right in their own neighborhoods.
+            {branding.brand_name} is a farm to table marketplace and local food platform that bridges
+            the gap between {term(vertical, 'vendors').toLowerCase()} and their community.
           </p>
           <p style={{ marginBottom: spacing.md }}>
-            {term(vertical, 'display_name')} was created to make it easier for customers to discover and pre-order
-            from their favorite local {term(vertical, 'vendors').toLowerCase()}, while helping {term(vertical, 'vendors').toLowerCase()} manage their business more efficiently
-            and reach more customers.
+            {term(vertical, 'display_name')} was created to make it easier for customers to discover, pre-order
+            online, and pick up from their favorite local {term(vertical, 'vendors').toLowerCase()} — while
+            helping {term(vertical, 'vendors').toLowerCase()} manage their business more efficiently
+            and reach more customers. Whether you&apos;re looking for {term(vertical, 'product_examples')},
+            our platform connects you with verified local {term(vertical, 'vendors').toLowerCase()} near you.
           </p>
         </section>
 
@@ -52,12 +82,13 @@ export default function AboutPage() {
           </h2>
           <p style={{ marginBottom: spacing.md }}>
             We connect local {term(vertical, 'vendors').toLowerCase()} with customers at {term(vertical, 'markets').toLowerCase()},
-            events, and community venues. We make it easy to:
+            events, and community venues. Our online ordering platform makes it easy to:
           </p>
           <ul style={{ marginBottom: spacing.md, paddingLeft: spacing.lg }}>
-            <li style={{ marginBottom: spacing.xs }}>Discover local {term(vertical, 'vendors').toLowerCase()} and {term(vertical, 'markets').toLowerCase()} in your area</li>
+            <li style={{ marginBottom: spacing.xs }}>Find {term(vertical, 'vendors').toLowerCase()} and {term(vertical, 'markets').toLowerCase()} near you</li>
             <li style={{ marginBottom: spacing.xs }}>Pre-order {term(vertical, 'products').toLowerCase()} online with guaranteed availability</li>
-            <li style={{ marginBottom: spacing.xs }}>Pick up your order at the {term(vertical, 'market').toLowerCase()} or event</li>
+            <li style={{ marginBottom: spacing.xs }}>Pick up your order at the {term(vertical, 'market').toLowerCase()} — skip the line on arrival</li>
+            <li style={{ marginBottom: spacing.xs }}>Subscribe to {term(vertical, 'market_boxes')} for curated weekly bundles</li>
             <li style={{ marginBottom: spacing.xs }}>Support small businesses and local {term(vertical, 'vendors').toLowerCase()} directly</li>
           </ul>
         </section>

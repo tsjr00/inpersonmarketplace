@@ -8,6 +8,7 @@ const VALID_VERTICALS = new Set(['farmers_market', 'food_trucks', 'fire_works'])
 const NON_VERTICAL_PREFIXES = new Set([
   'api', 'admin', '_next', 'about', 'browse', 'contact', 'dashboard',
   'login', 'privacy', 'signup', 'terms', 'vendor-signup', 'test-components',
+  'robots.txt', 'sitemap.xml', 'llms.txt',
 ])
 
 // Paths that contain sensitive user data — prevent caching by proxies/CDNs/browser

@@ -130,3 +130,113 @@ export function marketBoxJsonLd(params: MarketBoxJsonLdParams): Record<string, u
     },
   }
 }
+
+// --- SEO Structured Data for Informational Pages ---
+
+/** FAQPage schema — expandable Q&A in Google search results */
+export function faqPageJsonLd(
+  questions: Array<{ question: string; answer: string }>
+): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: questions.map(q => ({
+      '@type': 'Question',
+      name: q.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: q.answer,
+      },
+    })),
+  }
+}
+
+/** HowTo schema — numbered step cards in Google search results */
+export function howToJsonLd(params: {
+  name: string
+  description: string
+  steps: Array<{ name: string; text: string }>
+}): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: params.name,
+    description: params.description,
+    step: params.steps.map((s, i) => ({
+      '@type': 'HowToStep',
+      position: i + 1,
+      name: s.name,
+      text: s.text,
+    })),
+  }
+}
+
+/** Organization schema — brand identity in Knowledge Panel */
+export function organizationJsonLd(params: {
+  name: string
+  url: string
+  logo?: string
+  description?: string
+  sameAs?: string[]
+}): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: params.name,
+    url: params.url,
+    ...(params.logo && { logo: params.logo }),
+    ...(params.description && { description: params.description }),
+    ...(params.sameAs && params.sameAs.length > 0 && { sameAs: params.sameAs }),
+  }
+}
+
+/** WebSite schema — tells Google this is a searchable website */
+export function webSiteJsonLd(params: {
+  name: string
+  url: string
+  description?: string
+}): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: params.name,
+    url: params.url,
+    ...(params.description && { description: params.description }),
+  }
+}
+
+/** BreadcrumbList schema — site hierarchy in search results */
+export function breadcrumbJsonLd(
+  items: Array<{ name: string; url: string }>
+): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  }
+}
+
+/** ItemList schema — list of features/items in search results */
+export function itemListJsonLd(params: {
+  name: string
+  description?: string
+  items: Array<{ name: string; description?: string }>
+}): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: params.name,
+    ...(params.description && { description: params.description }),
+    itemListElement: params.items.map((item, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: item.name,
+      ...(item.description && { description: item.description }),
+    })),
+  }
+}

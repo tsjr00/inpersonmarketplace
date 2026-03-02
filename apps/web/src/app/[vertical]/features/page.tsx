@@ -4,6 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, getVerticalColors } from '@/lib/design-tokens'
 import { Footer } from '@/components/landing'
 import { term, getContent } from '@/lib/vertical'
+import { breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 
 interface FeaturesPageProps {
   params: Promise<{ vertical: string }>
@@ -12,10 +13,15 @@ interface FeaturesPageProps {
 export async function generateMetadata({ params }: FeaturesPageProps): Promise<Metadata> {
   const { vertical } = await params
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const isFT = vertical === 'food_trucks'
 
   return {
-    title: `Features & Benefits | ${branding.brand_name}`,
-    description: `Discover how ${branding.brand_name} makes shopping local simple. Pre-order from verified vendors, pick up at your convenience, and support your community.`,
+    title: isFT
+      ? `Food Truck Ordering Features | ${branding.brand_name}`
+      : `Farmers Market Online Ordering Features | ${branding.brand_name}`,
+    description: isFT
+      ? 'Order from food trucks online with pre-orders, skip-the-line pickup, Chef Box meal subscriptions, and real-time order updates. Features for food truck customers and operators.'
+      : 'Order from farmers markets online with pre-orders, local pickup, Market Box subscriptions, and verified vendor profiles. Features for shoppers and vendors.',
   }
 }
 
@@ -26,8 +32,20 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
   // Actual hex values needed for hex+alpha concatenation (CSS var() can't be concatenated)
   const hexColors = getVerticalColors(vertical)
 
+  const isFT = vertical === 'food_trucks'
+  const baseUrl = `https://${branding.domain}`
+
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: 'Home', url: `${baseUrl}/${vertical}` },
+    { name: 'Features', url: `${baseUrl}/${vertical}/features` },
+  ])
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+      />
       {/* Hero Section */}
       <section style={{
         padding: `${spacing['3xl']} ${spacing.xl}`,
@@ -43,7 +61,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
           marginLeft: 'auto',
           marginRight: 'auto'
         }}>
-          Simple. Local. Connected.
+          {isFT ? 'Order from Food Trucks Online' : 'Order from Farmers Markets Online'}
         </h1>
         <p style={{
           fontSize: typography.sizes.xl,
@@ -74,7 +92,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             color: colors.textPrimary,
             marginBottom: spacing.sm
           }}>
-            Built for Simplicity
+            {isFT ? 'Mobile Food Ordering Made Simple' : 'Local Food Pre-Ordering Made Simple'}
           </h2>
           <p style={{
             fontSize: typography.sizes.lg,
@@ -83,7 +101,9 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             marginLeft: 'auto',
             marginRight: 'auto'
           }}>
-            No complicated apps. No confusing interfaces. Just straightforward shopping and selling.
+            {isFT
+              ? 'No complicated apps to download. Browse menus, pre-order online, and skip the line at your favorite food trucks.'
+              : 'No complicated apps to download. Browse products, pre-order from your local farmers market online, and pick up on your schedule.'}
           </p>
         </div>
 
@@ -303,7 +323,9 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             marginBottom: spacing.xl,
             maxWidth: 700
           }}>
-            Run the online side of your business without the complexity. We handle the technology so you can focus on what you do best.
+            {isFT
+              ? 'Run the online side of your food truck business without the complexity. Accept pre-orders, manage your menu, and grow your customer base — we handle the technology.'
+              : 'Run the online side of your farmers market business without the complexity. Accept pre-orders, manage your listings, and grow your customer base — we handle the technology.'}
           </p>
 
           <div style={{
@@ -450,7 +472,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             fontWeight: typography.weights.bold,
             marginBottom: spacing.xl
           }}>
-            Ready to Get Started?
+            {isFT ? 'Ready to Skip the Line?' : 'Ready to Shop Local?'}
           </h2>
 
           <div style={{

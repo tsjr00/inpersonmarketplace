@@ -1,6 +1,9 @@
+import { Metadata } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { colors, statusColors, spacing, typography, radius } from '@/lib/design-tokens'
+import { defaultBranding } from '@/lib/branding'
+import { faqPageJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 
 export const revalidate = 300 // 5 min cache — content changes infrequently
 
@@ -15,6 +18,19 @@ interface Article {
   title: string
   body: string
   sort_order: number
+}
+
+export async function generateMetadata({ params }: HelpPageProps): Promise<Metadata> {
+  const { vertical } = await params
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const isFT = vertical === 'food_trucks'
+
+  return {
+    title: `Help & FAQ | ${branding.brand_name}`,
+    description: isFT
+      ? 'Get answers about ordering from food trucks online, skip-the-line pickup, Chef Box subscriptions, and food truck operator support. Frequently asked questions for food truck customers and vendors.'
+      : 'Get answers about ordering from farmers markets online, market pickup, Market Box subscriptions, and vendor support. Frequently asked questions for farmers market shoppers and vendors.',
+  }
 }
 
 export default async function HelpPage({ params }: HelpPageProps) {
@@ -38,9 +54,32 @@ export default async function HelpPage({ params }: HelpPageProps) {
   }, {})
 
   const categoryNames = Object.keys(grouped).sort()
+  const allArticles = articles || []
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const baseUrl = `https://${branding.domain}`
+
+  // Build FAQ structured data from articles
+  const faqSchema = allArticles.length > 0
+    ? faqPageJsonLd(allArticles.map(a => ({ question: a.title, answer: a.body })))
+    : null
+
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: 'Home', url: `${baseUrl}/${vertical}` },
+    { name: 'Help & FAQ', url: `${baseUrl}/${vertical}/help` },
+  ])
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px' }}>
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+      />
       <div style={{ marginBottom: spacing.lg }}>
         <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center' }}>
           <Link

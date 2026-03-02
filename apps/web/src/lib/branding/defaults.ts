@@ -36,9 +36,9 @@ export const defaultBranding: Record<string, VerticalBranding> = {
       text: '#1a1a1a'
     },
     meta: {
-      title: "Food Truck'n | Local Food Trucks Near You",
-      description: 'Find food trucks near you. Pre-order your favorites online, skip the line, and pick up hot and ready. Support local food truck operators and chefs.',
-      keywords: 'food trucks, food truck near me, street food, order ahead, food truck park, local food trucks, pre-order food, food truck menu'
+      title: "Food Truck'n | Order from Food Trucks Near You",
+      description: 'Find food trucks near you and order online. Skip the line with pre-orders, browse menus, and pick up hot and ready. Chef Box meal subscriptions, food truck catering, and mobile food ordering made simple.',
+      keywords: 'food truck near me, order from food truck online, food truck ordering app, skip the line food truck, food truck pre-order, food truck menu online, chef box meal subscription, food truck catering, street food ordering, food truck park near me, mobile food ordering, local food trucks, support local food trucks'
     }
   },
   farmers_market: {
@@ -55,9 +55,9 @@ export const defaultBranding: Record<string, VerticalBranding> = {
       text: '#2d2d2d'
     },
     meta: {
-      title: 'Fresh Market | Local Farmers Markets & Farm Fresh Food',
-      description: 'Discover fresh, local food from farmers markets near you. Browse products from verified vendors, pre-order online, and pick up at your neighborhood market. Support local farmers and artisans.',
-      keywords: 'farmers market, local food, fresh produce, farm fresh, local vendors, organic food, farmers market near me, local farmers, artisan food, farm to table, buy local, fresh vegetables, local meat, local bakery'
+      title: 'Fresh Market | Order from Farmers Markets Near You Online',
+      description: 'Order from farmers markets near you online. Pre-order fresh produce, baked goods, and artisan products from verified local vendors. Market Box subscriptions, farm to table marketplace, and local pickup. A modern CSA alternative.',
+      keywords: 'farmers market near me, order from farmers market online, pre-order farmers market, buy local produce online, farm to table marketplace, market box subscription, CSA alternative, local farm produce, farmers market pickup, support local farmers, fresh produce delivery, farmers market online ordering, local vendors near me, artisan food marketplace'
     }
   }
 }

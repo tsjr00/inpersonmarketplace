@@ -6,17 +6,53 @@ import Image from 'next/image'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 import { defaultBranding } from '@/lib/branding/defaults'
+import { howToJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 
 export default function HowItWorksPage() {
   const params = useParams()
   const vertical = params.vertical as string
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const isFT = vertical === 'food_trucks'
+  const baseUrl = `https://${branding.domain}`
+
+  const buyerHowTo = howToJsonLd({
+    name: isFT
+      ? 'How to Order from Food Trucks Online'
+      : 'How to Order from Farmers Markets Online',
+    description: isFT
+      ? 'Pre-order from local food trucks, skip the line, and pick up your food hot and ready.'
+      : 'Pre-order fresh produce and local goods from farmers market vendors and pick up at the market.',
+    steps: isFT ? [
+      { name: 'Find Food Trucks Near You', text: 'Browse food trucks in your area and explore their menus online.' },
+      { name: 'Add Dishes to Your Cart', text: 'Select your favorite menu items and add them to your cart.' },
+      { name: 'Complete Checkout', text: 'Pay securely online. Your order is confirmed instantly.' },
+      { name: 'Skip the Line at Pickup', text: 'Head to the truck — your food is hot and ready when you arrive. No waiting in line.' },
+    ] : [
+      { name: 'Browse Local Farmers Markets', text: 'Find farmers markets and vendors near you. Browse fresh produce, baked goods, and artisan products.' },
+      { name: 'Pre-Order Online', text: 'Add items to your cart and complete your order with secure checkout.' },
+      { name: 'Pick Up at the Market', text: 'Visit the market on pickup day. Your pre-ordered items are reserved and waiting.' },
+      { name: 'Enjoy Fresh, Local Food', text: 'Take your time browsing other vendors and enjoy being part of your local community.' },
+    ],
+  })
+
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: 'Home', url: `${baseUrl}/${vertical}` },
+    { name: 'How It Works', url: `${baseUrl}/${vertical}/how-it-works` },
+  ])
 
   return (
     <div style={{
       minHeight: '100vh',
       backgroundColor: colors.surfaceBase,
     }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buyerHowTo) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+      />
       {/* Hero */}
       <div style={{
         background: `linear-gradient(135deg, ${colors.primaryDark || '#689F38'} 0%, ${colors.primary} 100%)`,
@@ -36,7 +72,7 @@ export default function HowItWorksPage() {
           fontWeight: typography.weights.bold,
           margin: `0 0 ${spacing.xs} 0`,
         }}>
-          How It Works
+          {isFT ? 'How to Order from Food Trucks Online' : 'How to Order from Farmers Markets Online'}
         </h1>
         <p style={{
           fontSize: typography.sizes.lg,
@@ -46,7 +82,9 @@ export default function HowItWorksPage() {
           marginLeft: 'auto',
           marginRight: 'auto',
         }}>
-          A simple guide to ordering, pickup, and confirmation
+          {isFT
+            ? 'Pre-order your favorites, skip the line, and pick up hot and ready'
+            : 'Pre-order local produce and artisan goods, then pick up at your neighborhood market'}
         </p>
       </div>
 
