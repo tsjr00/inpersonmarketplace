@@ -167,30 +167,30 @@ export default function HowItWorksPage() {
               <h3 style={{ margin: `0 0 ${spacing.sm} 0`, color: colors.primary, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>
                 Buyers
               </h3>
-              <ol style={{ paddingLeft: '1.2rem', margin: 0, lineHeight: typography.leading.relaxed }}>
-                <li>Open your order details</li>
-                <li>Present your order information to the vendor</li>
-                <li>Verify you received all items</li>
-                <li>Tap &quot;Acknowledge Receipt&quot;</li>
-                <li>Wait for vendor to confirm (30 seconds)</li>
-                <li>Green screen = you&apos;re done!</li>
-                <li><strong>Don&apos;t leave until you see the green screen</strong></li>
-              </ol>
+              <PickupStepList color={colors.primary} steps={[
+                'Open your order details',
+                'Present your order information to the vendor',
+                'Verify you received all items',
+                'Tap "Acknowledge Receipt"',
+                'Wait for vendor to confirm (30 seconds)',
+                'Green screen = you\'re done!',
+                'Don\'t leave until you see the green screen',
+              ]} />
             </div>
 
             <div style={cardStyle}>
               <h3 style={{ margin: `0 0 ${spacing.sm} 0`, color: colors.primaryDark || '#689F38', fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>
                 Vendors
               </h3>
-              <ol style={{ paddingLeft: '1.2rem', margin: 0, lineHeight: typography.leading.relaxed }}>
-                <li>Check your dashboard for ready orders</li>
-                <li>When buyer arrives, verify the buyer and the order number</li>
-                <li>Hand over all items</li>
-                <li>Wait for buyer to confirm</li>
-                <li>When notified, tap &quot;Yes, I Handed It Off&quot;</li>
-                <li>Green screen = payment transfer is initiated</li>
-                <li><strong>Never let buyer leave without both confirming</strong></li>
-              </ol>
+              <PickupStepList color={colors.primaryDark || '#689F38'} steps={[
+                'Check your dashboard for ready orders',
+                'When buyer arrives, verify the buyer and the order number',
+                'Hand over all items',
+                'Wait for buyer to confirm',
+                'When notified, tap "Yes, I Handed It Off"',
+                'Green screen = payment transfer is initiated',
+                'Never let buyer leave without both confirming',
+              ]} />
             </div>
           </div>
         </section>
@@ -371,6 +371,34 @@ function InfoCard({ title, variant, children }: {
         {children}
       </div>
     </div>
+  )
+}
+
+function PickupStepList({ steps, color }: { steps: string[]; color: string }) {
+  return (
+    <ol style={{ paddingLeft: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+      {steps.map((step, i) => (
+        <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs, fontSize: typography.sizes.sm, lineHeight: typography.leading.relaxed, color: colors.textSecondary }}>
+          <span style={{
+            flexShrink: 0,
+            width: '22px',
+            height: '22px',
+            borderRadius: radius.full,
+            backgroundColor: color,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: typography.sizes.xs,
+            fontWeight: typography.weights.bold,
+            marginTop: '2px',
+          }}>
+            {i + 1}
+          </span>
+          <span style={{ fontWeight: i === steps.length - 1 ? typography.weights.bold : undefined }}>{step}</span>
+        </li>
+      ))}
+    </ol>
   )
 }
 

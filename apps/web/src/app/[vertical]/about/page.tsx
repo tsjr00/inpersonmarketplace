@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical'
 
 export default function AboutPage() {
   const { vertical } = useParams<{ vertical: string }>()
@@ -35,11 +36,11 @@ export default function AboutPage() {
           </h2>
           <p style={{ marginBottom: spacing.md }}>
             We believe in the power of local communities and the importance of connecting people
-            with the vendors and businesses that serve them right in their own neighborhoods.
+            with the {term(vertical, 'vendor_people')} that serve them right in their own neighborhoods.
           </p>
           <p style={{ marginBottom: spacing.md }}>
-            Our marketplace platforms were created to make it easier for customers to discover and pre-order
-            from their favorite local vendors, while helping vendors manage their business more efficiently
+            {term(vertical, 'display_name')} was created to make it easier for customers to discover and pre-order
+            from their favorite local {term(vertical, 'vendors').toLowerCase()}, while helping {term(vertical, 'vendors').toLowerCase()} manage their business more efficiently
             and reach more customers.
           </p>
         </section>
@@ -50,33 +51,33 @@ export default function AboutPage() {
             What We Do
           </h2>
           <p style={{ marginBottom: spacing.md }}>
-            Our platforms connect local vendors and businesses with customers at markets,
+            We connect local {term(vertical, 'vendors').toLowerCase()} with customers at {term(vertical, 'markets').toLowerCase()},
             events, and community venues. We make it easy to:
           </p>
           <ul style={{ marginBottom: spacing.md, paddingLeft: spacing.lg }}>
-            <li style={{ marginBottom: spacing.xs }}>Discover local vendors and markets in your area</li>
-            <li style={{ marginBottom: spacing.xs }}>Pre-order online with guaranteed availability</li>
-            <li style={{ marginBottom: spacing.xs }}>Pick up your order at the market or event</li>
-            <li style={{ marginBottom: spacing.xs }}>Support small businesses and local vendors directly</li>
+            <li style={{ marginBottom: spacing.xs }}>Discover local {term(vertical, 'vendors').toLowerCase()} and {term(vertical, 'markets').toLowerCase()} in your area</li>
+            <li style={{ marginBottom: spacing.xs }}>Pre-order {term(vertical, 'products').toLowerCase()} online with guaranteed availability</li>
+            <li style={{ marginBottom: spacing.xs }}>Pick up your order at the {term(vertical, 'market').toLowerCase()} or event</li>
+            <li style={{ marginBottom: spacing.xs }}>Support small businesses and local {term(vertical, 'vendors').toLowerCase()} directly</li>
           </ul>
         </section>
 
         {/* For Vendors Section */}
         <section id="vendor-faq" style={{ marginBottom: spacing.xl }}>
           <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, marginBottom: spacing.md, color: colors.textPrimary }}>
-            For Vendors
+            For {term(vertical, 'vendors')}
           </h2>
           <p style={{ marginBottom: spacing.md }}>
-            We help vendors streamline their market day operations:
+            We help {term(vertical, 'vendors').toLowerCase()} streamline their {term(vertical, 'market_day').toLowerCase()} operations:
           </p>
           <ul style={{ marginBottom: spacing.md, paddingLeft: spacing.lg }}>
-            <li style={{ marginBottom: spacing.xs }}>Pre-sell products to know exactly what to bring</li>
+            <li style={{ marginBottom: spacing.xs }}>Pre-sell {term(vertical, 'products').toLowerCase()} to know exactly what to bring</li>
             <li style={{ marginBottom: spacing.xs }}>Accept credit cards with fees already built in</li>
             <li style={{ marginBottom: spacing.xs }}>Build a loyal following of repeat customers</li>
             <li style={{ marginBottom: spacing.xs }}>Get discovered by new shoppers in your area</li>
           </ul>
           <p style={{ marginBottom: spacing.md }}>
-            Interested in becoming a vendor?{' '}
+            Interested in becoming a {term(vertical, 'vendor').toLowerCase()}?{' '}
             <Link href={`/${vertical}/vendor-signup`} style={{ color: colors.primary }}>
               Sign up here
             </Link>

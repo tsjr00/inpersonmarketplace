@@ -73,6 +73,10 @@ export interface VerticalContent {
     shopper_skip_lines_desc: string
     vendor_pickup_desc: string
     get_started_step1: string
+    subscription_feature_desc: string
+    analytics_feature_desc: string
+    tiers_feature_desc: string
+    trial_feature_desc: string
   }
   featured_section: {
     headline: string

@@ -234,6 +234,26 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 title: 'Support Local',
                 desc: 'Every purchase goes directly to local vendors and makers in your community. Know exactly where your money goes.',
                 icon: '❤️'
+              },
+              {
+                title: `${term(vertical, 'market_boxes')}`,
+                desc: content.features_page.subscription_feature_desc,
+                icon: '📦'
+              },
+              {
+                title: 'Favorite Vendors',
+                desc: `Save your favorite ${term(vertical, 'vendors').toLowerCase()} and quickly find them when you\'re ready to order again.`,
+                icon: '❤️'
+              },
+              {
+                title: 'Tips at Checkout',
+                desc: `Show your appreciation with optional tips at checkout. 100% of the food cost tip goes to the ${term(vertical, 'vendor').toLowerCase()}.`,
+                icon: '💝'
+              },
+              {
+                title: 'Buyer Premium',
+                desc: `Upgrade to Premium for early access to new ${term(vertical, 'products').toLowerCase()} before they\'re available to everyone.`,
+                icon: '⭐'
               }
             ].map((item, i) => (
               <div key={i} style={{
@@ -379,6 +399,36 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
               {
                 title: 'Real-Time Order Management',
                 desc: 'View orders, confirm them with one tap, and mark as ready for pickup. Everything in one simple dashboard.',
+                icon: '✅'
+              },
+              {
+                title: 'Analytics Dashboard',
+                desc: content.features_page.analytics_feature_desc,
+                icon: '📊'
+              },
+              {
+                title: 'Flexible Plans & Tiers',
+                desc: content.features_page.tiers_feature_desc,
+                icon: '🏷️'
+              },
+              {
+                title: 'Free Trial Period',
+                desc: content.features_page.trial_feature_desc,
+                icon: '🎁'
+              },
+              {
+                title: 'Events & Special Markets',
+                desc: `List your ${term(vertical, 'products').toLowerCase()} at special events, pop-ups, and seasonal ${term(vertical, 'markets').toLowerCase()}.`,
+                icon: '🎪'
+              },
+              {
+                title: 'Instant Notifications',
+                desc: 'Get push notifications for new orders, confirmations, and important updates. Never miss an order.',
+                icon: '🔔'
+              },
+              {
+                title: 'Quality Standards',
+                desc: 'Our platform quality checks help maintain high standards and build trust with your customers.',
                 icon: '✅'
               }
             ].map((item, i) => (

@@ -135,6 +135,10 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
       shopper_skip_lines_desc: 'Walk past the line and head straight to the pickup window. Your order is ready when you arrive.',
       vendor_pickup_desc: 'Set your own pickup locations and times. Customers choose what works for them.',
       get_started_step1: 'Find food trucks near you',
+      subscription_feature_desc: 'Subscribe to Chef Boxes for weekly meal bundles — dinner kits, family packs, mystery boxes, and more from your favorite trucks.',
+      analytics_feature_desc: 'Track your sales trends, top menu items, and customer insights with a built-in analytics dashboard.',
+      tiers_feature_desc: 'Choose from Free, Basic, Pro, or Boss plans to match your business needs and unlock more features as you grow.',
+      trial_feature_desc: 'Get started with a promotional period on a paid plan — no commitment required. Downgrade anytime.',
     },
     featured_section: {
       headline: 'Find Food Trucks in Your Area',

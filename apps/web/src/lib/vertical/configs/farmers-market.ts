@@ -135,6 +135,10 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
       shopper_skip_lines_desc: 'Walk past the crowds and head straight to pickup. Spend your market time enjoying the atmosphere, not waiting.',
       vendor_pickup_desc: 'Offer pickup at farmers markets or set up private pickup locations. Flexibility for you and your customers.',
       get_started_step1: 'Browse local farmers markets',
+      subscription_feature_desc: 'Subscribe to Market Boxes for curated weekly bundles of fresh produce, baked goods, and more from your favorite vendors.',
+      analytics_feature_desc: 'Track your sales trends, top products, and customer insights with a built-in analytics dashboard.',
+      tiers_feature_desc: 'Choose from Free, Standard, Premium, or Featured plans to match your business needs and grow at your own pace.',
+      trial_feature_desc: 'Get started with a promotional period on a paid plan — no commitment required. Downgrade anytime.',
     },
     featured_section: {
       headline: 'Discover Markets in Your Community',
