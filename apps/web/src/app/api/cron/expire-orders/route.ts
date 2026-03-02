@@ -31,6 +31,8 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 3.5: Vendor reminder for unconfirmed external orders (2+ hours old)
  * Phase 3.6: Auto-confirm digital external orders (24h after pickup date)
  * Phase 4: Notify buyers about missed pickups
+ * Phase 4.5: Stale confirmed orders (vendor confirmed but never marked ready)
+ * Phase 4.7: Auto-miss past-due market box pickups (2+ days overdue)
  * Phase 5: Retry failed vendor payouts (Stripe transfers)
  * Phase 6: Error report digest — email admin a summary of pending reports
  * Phase 7: Auto-fulfill stale confirmation windows (buyer confirmed, vendor didn't)
@@ -834,6 +836,98 @@ export async function GET(request: NextRequest) {
       }
     } catch (phase45Error) {
       console.error('Phase 4.5 error:', phase45Error instanceof Error ? phase45Error.message : 'Unknown error')
+    }
+
+    // ============================================================
+    // PHASE 4.7: Auto-miss past-due market box pickups
+    // Market box pickups that are still 'scheduled' more than 2 days
+    // after their scheduled_date are automatically marked 'missed'.
+    // This allows the subscription completion trigger to fire naturally
+    // when all weeks are accounted for.
+    // ============================================================
+    let marketBoxPickupsMissed = 0
+    try {
+      const twoDaysAgo = new Date()
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+      const cutoffDateStr = twoDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
+
+      const { data: overduePickups, error: overdueError } = await supabase
+        .from('market_box_pickups')
+        .select(`
+          id,
+          subscription_id,
+          scheduled_date,
+          week_number,
+          market_box_subscriptions!inner (
+            buyer_user_id,
+            offering_id,
+            market_box_offerings!inner (
+              name,
+              vendor_profile_id,
+              vertical_id,
+              vendor_profiles!inner (
+                profile_data
+              )
+            )
+          )
+        `)
+        .eq('status', 'scheduled')
+        .lt('scheduled_date', cutoffDateStr)
+        .limit(50)
+
+      if (overdueError) {
+        console.error('[Phase 4.7] Query error:', overdueError)
+      } else if (overduePickups && overduePickups.length > 0) {
+        for (const pickup of overduePickups) {
+          try {
+            // Mark as missed
+            const { error: updateError } = await supabase
+              .from('market_box_pickups')
+              .update({
+                status: 'missed',
+                missed_at: new Date().toISOString(),
+              })
+              .eq('id', pickup.id)
+
+            if (updateError) {
+              console.error('[Phase 4.7] Update error for pickup', pickup.id, updateError)
+              totalErrors++
+              continue
+            }
+
+            // Extract notification data from the nested join
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sub = pickup.market_box_subscriptions as any
+            const offering = sub?.market_box_offerings
+            const vendor = offering?.vendor_profiles
+            const profileData = vendor?.profile_data
+            const vendorName = (profileData?.business_name as string) || 'Your vendor'
+            const offeringName = (offering?.name as string) || 'Market Box'
+            const verticalId = (offering?.vertical_id as string) || 'farmers_market'
+            const buyerUserId = sub?.buyer_user_id as string
+
+            // Notify buyer
+            if (buyerUserId) {
+              await sendNotification(buyerUserId, 'market_box_pickup_missed', {
+                vendorName,
+                offeringName,
+                pickupDate: new Date(pickup.scheduled_date).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'short',
+                  day: 'numeric',
+                }),
+              }, { vertical: verticalId })
+            }
+
+            marketBoxPickupsMissed++
+          } catch (pickupError) {
+            console.error('[Phase 4.7] Error processing overdue pickup:', pickupError instanceof Error ? pickupError.message : 'Unknown error')
+            totalErrors++
+          }
+        }
+      }
+    } catch (phase47Error) {
+      console.error('Phase 4.7 error:', phase47Error instanceof Error ? phase47Error.message : 'Unknown error')
     }
 
     // ============================================================
@@ -1702,6 +1796,7 @@ export async function GET(request: NextRequest) {
       externalPayments: { reminders: externalReminders, autoConfirmed: externalAutoConfirmed },
       errorDigest: { reportsSummarized: errorReportsSummarized },
       staleConfirmed: { notified: staleConfirmedCount },
+      marketBoxPickups: { missed: marketBoxPickupsMissed },
       staleWindows: { fulfilled: staleWindowsFulfilled },
       tierExpirations: { vendors: vendorTiersExpired, buyers: buyerTiersExpired },
       dataRetention: { errorLogs: errorLogsDeleted, notifications: notificationsDeleted, activityEvents: activityEventsDeleted },

@@ -41,6 +41,7 @@ export type NotificationType =
   | 'pickup_missed'
   | 'stale_confirmed_buyer'
   | 'market_box_skip'
+  | 'market_box_pickup_missed'
   | 'issue_resolved'
   // Vendor-facing
   | 'new_paid_order'
@@ -200,6 +201,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'buyer',
     title: () => `Market Box Week Skipped`,
     message: (d) => `${d.vendorName} has skipped your ${d.offeringName || 'Market Box'} pickup scheduled for ${d.pickupDate}. An extension week has been added to your subscription.${d.reason ? ` Reason: ${d.reason}` : ''}`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/subscriptions`,
+  },
+
+  market_box_pickup_missed: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'buyer',
+    title: () => `Market Box Pickup Missed`,
+    message: (d) => `Your ${d.offeringName || 'Market Box'} pickup from ${d.vendorName} scheduled for ${d.pickupDate} was not picked up and has been marked as missed. If you believe this is an error, please contact the vendor.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/subscriptions`,
   },
 

@@ -1,101 +1,88 @@
-# Current Task: FAQ/Help Expansion + Terms & Privacy Policy Update
-Started: 2026-03-01
+# Current Task: Business Rules Audit Responses + Migrations
+Started: 2026-03-02
 
 ## Goal
-Expand FAQ/Help content (seed 52 database articles), expand Terms of Service (add 5 new sections), expand Privacy Policy (add 6 new subsections), add Help links to footers. Reduce need for support tickets before onboarding.
+Process user's business rules audit responses from Session 49, implement 3 approved migrations, answer remaining questions.
 
-## Plan File
-Full plan at: `C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md`
+## Session Context — SEO Work (COMPLETED EARLIER TODAY)
+- Commit `71775c3`: SEO keyword expansion (cuisines, Texas cities, cottage food, days of week)
+- Commit `f26b99e`: Fix branding (Fresh Market → Local Market, remove 815 from public pages)
+- Both pushed to staging AND prod. All branches in sync at `f26b99e`.
 
-## What's Been Completed (This Session Before This Task)
-- FM analytics tier limits COMPLETE: `analyticsDays` + `analyticsExport` added to all 4 FM tiers in TIER_LIMITS
-- Unified `getAnalyticsLimits(tier, vertical)` and `getVendorTierLabel(tier, vertical)` functions added to vendor-limits.ts
-- Analytics page updated: gates BOTH verticals (was FT-only)
-- 4 analytics API routes updated: overview, trends, top-products, customers all use unified function
-- FM upgrade page: analytics bullet + comparison table row added
-- TypeScript: 0 errors
-- NOT YET COMMITTED — all analytics changes are unstaged
+## Branding Rules (CONFIRMED THIS SESSION)
+- **"Farmers Marketing"** = actual app brand name (brand_name in defaults.ts)
+- **"Local Market"** = generic descriptor replacing "Fresh Market" in non-brand contexts
+- **"815 Enterprises"** = ONLY in Terms of Service + umbrella domain config + 815enterprises.com page
+- **"Food Truck'n"** = FT brand name (unchanged)
 
-## What's Been Completed (This Task) — ALL 5 STEPS DONE
-- [x] Step 1: Created migration `20260301_062_seed_knowledge_articles.sql` — 52 FAQ articles across 10 categories
-- [x] Step 2: Expanded Terms of Service in `src/app/[vertical]/terms/page.tsx` — 472→801 lines, 5 new sections + table of contents
-- [x] Step 3: Expanded Privacy Policy (embedded in terms page) — data retention, breach notification, CCPA, BIPA, data portability, geographic scope
-- [x] Step 4: Added Help links to footers — landing Footer.tsx (For Shoppers + Vendor FAQ href fixed) + shared Footer.tsx
-- [x] Step 5: Help page navigation fix — added browse link alongside dashboard link
-- TypeScript: 0 errors
-- NOT YET COMMITTED — all changes unstaged
+## APPROVED MIGRATIONS (implement now):
 
-## What's Remaining
-- Ready to commit (analytics work + FAQ/Terms/Privacy work)
+### Migration 1: GAP 7 — Fix original_end_date
+- Table: `market_box_subscriptions.original_end_date` (DATE, nullable)
+- Problem: `create_market_box_pickups()` trigger was rewritten in migration 20260130 and the UPDATE that sets original_end_date was dropped
+- Fix: Add `UPDATE market_box_subscriptions SET original_end_date = NEW.start_date + ((NEW.term_weeks - 1) * 7) WHERE id = NEW.id;` back into trigger
+- Also: Backfill existing NULLs with same formula
+- File: `supabase/migrations/20260302_063_fix_original_end_date.sql`
 
-## Key Files
-- `supabase/migrations/20260301_062_seed_knowledge_articles.sql` — NEW (to create)
-- `src/app/[vertical]/terms/page.tsx` — EDIT (major, ~470 lines → ~900+ lines)
-- `src/components/landing/Footer.tsx` — EDIT (minor, add Help link line 29-34, fix Vendor FAQ line 42)
-- `src/components/shared/Footer.tsx` — EDIT (minor, add Help link to Company section)
-- `src/app/[vertical]/help/page.tsx` — EDIT (minor, navigation)
+### Migration 2: GAP 4 + SL-Q3 — Cron auto-miss past-due pickups
+- Add new cron phase (Phase 4.7 or similar) in expire-orders route
+- Logic: `market_box_pickups.status = 'scheduled' AND market_box_pickups.scheduled_date < TODAY - 2 days`
+- Action: Set status → 'missed', send notification to buyer
+- This allows subscription completion trigger to fire naturally
+- File: Code change in `src/app/api/cron/expire-orders/route.ts`
 
-## Article Categories (52 total)
-1. Getting Started (Global, 5) — platform overview, account creation, finding vendors
-2. Orders & Pickup (Global, 8) — ordering flow, statuses, pickup, cancellation, issues
-3. Payments & Fees (Global, 5) — payment methods, fees, tips, refunds
-4. Market Boxes (FM-only, 4) — what they are, pickup, fulfillment, cancellation
-5. Chef Boxes (FT-only, 4) — what they are, types, pickup, cancellation
-6. Account & Settings (Global, 5) — profile, notifications, deletion, support
-7. Vendor Onboarding (Global, 5) — signup, permits, approval, prohibited items, trial
-8. Vendor Plans & Subscriptions (FM+FT split, 6) — plan tiers, upgrade, downgrade, billing
-9. Vendor Operations (Global, 6) — listings, orders, payouts, locations, analytics, quality checks
-10. Privacy & Security (Global, 4) — payment security, data collection, location, privacy link
+### Migration 3: GAP 6 — Market box offering DB trigger
+- Create `enforce_market_box_tier_limit` trigger on `market_box_offerings`
+- Pattern: match `enforce_listing_tier_limit` trigger
+- Check active offerings count vs tier limit from `vendor-limits.ts`
+- Fire on INSERT or UPDATE when status becomes 'active'
+- File: `supabase/migrations/20260302_064_market_box_tier_trigger.sql`
 
-## Terms Expansion (New Sections)
-- Section 5: Subscription Services (vendor plans, prepaid offerings, buyer premium)
-- Section 6: Intellectual Property (platform content, user content, trademarks, feedback)
-- Section 7.5: Indemnification
-- Section 7.6: Force Majeure
-- Section 9.4: Third-Party Links
-- Section 10: Multi-Vertical Platform
-- Table of Contents at top
-- Update "Last updated" to March 2026
+## CONFIRMED BUSINESS RULES (no changes needed):
+- GAP 3 (cancellation): FM=1hr grace, FT=15min grace. Full refund if unconfirmed, 75% if confirmed after grace. CODE IS CORRECT.
+- AC-R1 through AC-R5, AC-R8 through AC-R11: All confirmed as desired behavior
+- AC-R14: Admin management UI EXISTS at /admin/admins (verified)
+- NI-R1, NI-R3, NI-R4, NI-R5, NI-R6, NI-R10: All confirmed
 
-## Privacy Policy Expansion (New Subsections)
-- 1.6 Device & Usage Info, 1.7 Push Notification Data
-- 3.5 Aggregated Data (providers by category not brand)
-- Section 5: Data Retention (reasonable period, not specific days)
-- 6.2 Data Breach Notification
-- 7.3 Data Portability, 7.5 CCPA, 7.6 Illinois/BIPA
-- 8.1-8.3 Cookies restructured (essential/functional/analytics)
-- Section 9: Geographic Scope (US only)
-- Section 12: Changes to Privacy Policy
+## QUESTIONS STILL NEED ANSWERS (provide to user):
+- **AC-R6**: Dual role system — works fine, no risk, keep redundancy for now
+- **AC-R7**: Rate limits — per IP, industry standard ranges, explain which are lenient/conservative
 
-## Confidentiality Rules for Legal Docs
-- "Promotional periods may be offered" (NOT "90-day trial")
-- "Service fees as displayed at time of transaction"
-- Don't expose: tier sort algorithms, quality scoring, placement logic
-- Payout timing: "after order completion and mutual confirmation"
-- Approval criteria: just "admin review"
-- Third-party providers by CATEGORY not brand name ("payment processors" not "Stripe")
-- No infrastructure names ("cloud hosting providers" not "Vercel/Supabase")
-- Data retention: "reasonable period" not specific days
+## FUTURE FIX LIST (approved but not this session):
+1. Build buyer cancellation route for Market Box/Chef Box subscriptions (GAP 3 SL)
+2. NI-R2: Notification sound (configurable by urgency)
+3. NI-R7: Critical notifications at ALL tiers. SMS/push configurable per vendor preference. NEEDS DESIGN for preference UI.
+4. NI-R8/R9: Push notification settings UI with re-enroll option
+5. NI-R11: Show user full list of 30 notification types for confirmation (later)
+6. NI-R12: User delete button + 120-day retention (keep in DB longer, clean from UI)
+7. NI-R13: Keep sendNotificationBatch() dead code, reevaluate later
+8. NI-R14: Verify all notification elements are vertical-specific
+9. Console: apple-mobile-web-app-capable deprecation, analytics/vitals 405
 
-## Unstaged Changes (From Earlier Analytics Work)
-Files modified but not committed:
-- `src/lib/vendor-limits.ts` — added getAnalyticsLimits(), getVendorTierLabel(), analyticsDays/analyticsExport to FM TIER_LIMITS
-- `src/app/[vertical]/vendor/analytics/page.tsx` — unified analytics gating for both verticals
-- `src/app/api/vendor/analytics/overview/route.ts` — unified gating
-- `src/app/api/vendor/analytics/trends/route.ts` — unified gating
-- `src/app/api/vendor/analytics/top-products/route.ts` — unified gating
-- `src/app/api/vendor/analytics/customers/route.ts` — unified gating
-- `src/app/[vertical]/vendor/dashboard/upgrade/page.tsx` — analytics bullet + comparison row for FM
+## What's Been Done This Session
+- [x] SEO keyword expansion (commit 71775c3, pushed prod+staging)
+- [x] Branding fixes (commit f26b99e, pushed prod+staging)
+- [x] Read full business rules audit (1168 lines, 8 domains)
+- [x] Researched FT cancellation logic (confirmed correct)
+- [x] Researched original_end_date gap (confirmed trigger missing UPDATE)
+- [x] Verified admin management UI at /admin/admins
+- [x] Provided plain-English AC-R1-R14 and NI-R1-R14 explanations
+- [x] Saved progress to current_task.md
+- [x] Answer AC-R6 and AC-R7
+- [x] Implement GAP 7 migration (original_end_date) — 20260302_063_fix_original_end_date.sql
+- [x] Implement GAP 4 cron phase (auto-miss pickups) — Phase 4.7 in expire-orders/route.ts
+- [x] Implement GAP 6 migration (market box trigger) — 20260302_064_market_box_tier_trigger.sql
+- [x] Added market_box_pickup_missed notification type
+- [ ] Commit all changes
+- [ ] Push to staging for testing
+- [ ] User applies migrations 063+064 to Dev/Staging databases
 
-## Key Commits This Session (Prior Tasks)
-- `fe15ddb` — FM free tier + tier restructure
-- `90d8d1e` — FM pricing + env var rename
-- `19c0782` — Annual billing toggle
-- `b63a762` — Business rules audit domains 4+5
-
-## Open Items (Carried Over)
-- Business rules audit: Domains 6-8 not yet reviewed by user
-- Open questions: OL-Q5-Q8, SL-Q2-Q3, AC-Q1-Q2, NI-Q1-Q3, IR-Q1-Q4
-- Instagram URLs placeholder in Coming Soon footers
-- Events Phase 5 deferred
-- Migrations 057+058 schema snapshot update still needed
+## Key Context (DO NOT FORGET)
+- 3 migrations approved: GAP 7, GAP 4/SL-Q3, GAP 6
+- Cancellation rules ALREADY correctly implemented (no fix needed)
+- User wants plain English explanations, not technical jargon
+- brand_name = "Farmers Marketing" (not Fresh Market, not Local Market)
+- All git branches in sync at f26b99e
+- Business rules audit file: `.claude/business_rules_audit_and_testing.md` (1168 lines)
+- Tier limits reference: FM free=5/standard=10/premium=20/featured=30. FT free=5/basic=10/pro=20/boss=45
+- Market box tier limits in vendor-limits.ts: totalMarketBoxes and activeMarketBoxes per tier
