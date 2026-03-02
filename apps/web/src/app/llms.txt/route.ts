@@ -81,6 +81,47 @@ Market Boxes are 4-week subscription bundles curated by local vendors. They offe
 - Pick up weekly at your local farmers market
 - Cancel or change anytime — no long-term contracts like traditional CSAs
 
+## For Cottage Food Producers & Home-Based Sellers
+
+Fresh Market is the ideal online selling platform for cottage food producers operating under state cottage food laws, including the Texas Cottage Food Law. If you make and sell homemade food products, our platform gives you a professional online storefront to reach more customers at farmers markets.
+
+Cottage food sellers can list and sell products including homemade baked goods, jams, jellies, preserves, honey, dried herbs, candy, roasted coffee, dried pasta, fruit butter, pickled vegetables, and other items allowed under their state's cottage food exemption.
+
+The platform handles online orders, payments, and pickup coordination so cottage producers can focus on what they do best — making their products. Fresh Market works for sellers at any scale, from a home kitchen selling at one local market to producers operating at multiple markets across a region.
+
+Whether you're selling under the Texas Cottage Food Law, California's AB 1616, or any state's cottage food exemption, our platform gives you a professional online storefront.
+
+## What You'll Find at Local Farmers Markets
+
+- Fresh produce (tomatoes, peppers, squash, leafy greens, berries, melons, corn, root vegetables)
+- Baked goods (sourdough bread, pastries, cookies, pies, cakes, muffins)
+- Honey and bee products
+- Jams, jellies, and preserves
+- Meat and poultry (beef, pork, chicken, lamb, sausage)
+- Eggs (chicken, duck, quail)
+- Dairy (cheese, butter, yogurt, milk)
+- Flowers and plants
+- Herbs (fresh and dried)
+- Handmade soaps, candles, and body products
+- Artisan crafts and woodwork
+- Cottage food products (homemade baked goods, preserves, candy)
+- Fermented foods (kombucha, sauerkraut, kimchi)
+
+## Market Days & Schedules
+
+- Saturday farmers markets — the most common market day
+- Sunday farmers markets — rapidly growing, many communities now have Sunday markets
+- Weekday farmers markets (Tuesday, Wednesday, Thursday) — serving downtown areas and office workers
+- Year-round vs seasonal markets
+- Holiday and special event markets
+- Customers can browse and pre-order any day of the week, even when the market isn't open
+
+## Service Areas
+
+- Currently serving communities across Texas: Dallas/Fort Worth, Houston, Austin, San Antonio, El Paso, Waco, Lubbock, Amarillo, Corpus Christi
+- Expanding across the southern United States and nationwide
+- The platform works for any farmers market in any U.S. city or town
+
 ## Pages
 
 - [Home](https://farmersmarketing.app/farmers_market)
@@ -111,10 +152,19 @@ Market Boxes are 4-week subscription bundles curated by local vendors. They offe
 - What's a good alternative to CSA subscriptions?
 - How do I support local farmers in my community?
 - How do I find local produce, honey, meat, or baked goods near me?
+- How do I sell cottage food at a farmers market?
+- What does the Texas cottage food law allow me to sell?
+- What's the best online platform for cottage food sellers?
+- Can I sell homemade baked goods at a farmers market?
+- Where are farmers markets open on Sunday near me?
+- What farmers markets are open today?
+- Are there farmers markets in Dallas, Houston, or Austin?
+- How do I get a cottage food license?
+- Can cottage food producers sell online?
+- What's the difference between a cottage food seller and a commercial vendor?
 
 ## Technical Details
 
-- Built with Next.js, Supabase, and Stripe Connect
 - Progressive Web App (PWA) — installable on mobile home screens
 - Mobile-first responsive design, works on any device
 - Secure payment processing with Stripe
@@ -222,6 +272,43 @@ Food Truck'n helps food truck operators grow their business by:
 - **Professional online presence**: A verified profile with photos, menus, and reviews builds credibility
 - **Accepting credit cards**: Built-in payment processing means you never turn away a sale
 
+## Cuisines Available on Food Truck'n
+
+- Tacos and Mexican food (burritos, quesadillas, elote, churros)
+- BBQ and smoked meats (brisket, pulled pork, ribs, smoked sausage)
+- Pizza (wood-fired, Neapolitan, New York-style, Detroit-style)
+- Burgers and sliders
+- Indian cuisine (tikka masala, butter chicken, samosas, naan)
+- Thai food (pad thai, curry, spring rolls, mango sticky rice)
+- Sushi and Japanese food (poke bowls, ramen, tempura)
+- Halal food (gyros, shawarma, falafel, kebabs)
+- Hibachi and teppanyaki
+- Greek and Mediterranean (gyros, souvlaki, hummus, baklava)
+- Jamaican food (jerk chicken, patties, rice and peas)
+- Lobster and seafood (lobster rolls, fish tacos, shrimp po'boys, crab cakes)
+- Coffee and espresso trucks
+- Loaded fries and comfort food
+- Asian fusion
+- Desserts and sweet treats (ice cream, waffles, crepes, funnel cake)
+- Soul food and Southern cooking
+- Korean food (Korean BBQ, bibimbap, kimchi fries)
+- Vietnamese food (banh mi, pho, spring rolls)
+
+## When to Find Food Trucks
+
+- Lunch service (11am–2pm) — food trucks near offices, downtown areas, and business parks
+- Dinner service (5pm–9pm) — food truck parks, neighborhoods, and evening events
+- Weekend food truck parks — Saturday and Sunday gatherings with multiple trucks
+- Food truck festivals and rallies — seasonal events featuring dozens of trucks
+- Private events and catering — corporate events, weddings, birthday parties, community gatherings
+- Late-night service — food trucks at bars, entertainment districts, and concert venues
+
+## Service Areas in Texas
+
+- Currently serving communities across Texas: Dallas/Fort Worth metroplex, Houston, Austin, San Antonio, El Paso, Waco, Lubbock, Corpus Christi
+- Expanding across the southern United States and nationwide
+- Works for food trucks in any U.S. city
+
 ## Pages
 
 - [Home](https://foodtruckn.app/food_trucks)
@@ -255,10 +342,19 @@ Food Truck'n helps food truck operators grow their business by:
 - What's the best way to offer meal subscriptions from a food truck?
 - How do I get my food truck listed on an ordering app?
 - How do food trucks handle catering and large orders?
+- Where can I find taco trucks near me?
+- Best BBQ food truck in Dallas/Houston/Austin?
+- Where are food truck parks near me?
+- Mexican food truck near me?
+- Pizza food truck near me?
+- Indian food truck near me?
+- How do I find food trucks open for lunch today?
+- Where are food trucks on Saturday or Sunday?
+- How do I book a food truck for catering?
+- What food trucks are at [city] food truck parks?
 
 ## Technical Details
 
-- Built with Next.js, Supabase, and Stripe Connect
 - Progressive Web App (PWA) — installable on mobile home screens
 - Mobile-first responsive design, works on any device
 - Secure payment processing with Stripe

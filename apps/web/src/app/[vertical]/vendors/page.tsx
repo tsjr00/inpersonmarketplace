@@ -1,3 +1,4 @@
+import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import VendorFilters from './VendorFilters'
@@ -10,6 +11,21 @@ import { getServerLocation } from '@/lib/location/server'
 
 // Cache page for 10 minutes - vendor data changes infrequently
 export const revalidate = 600
+
+export async function generateMetadata({ params }: { params: Promise<{ vertical: string }> }): Promise<Metadata> {
+  const { vertical } = await params
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const isFT = vertical === 'food_trucks'
+
+  return {
+    title: isFT
+      ? `Find Local Food Trucks | ${branding.brand_name}`
+      : `Local Vendors & Cottage Food Sellers | ${branding.brand_name}`,
+    description: isFT
+      ? 'Find food trucks near you — tacos, BBQ, pizza, burgers, Thai, sushi, and more from verified local operators. Pre-order online and skip the line.'
+      : 'Discover verified farmers, cottage food producers, home bakers, and artisans selling at farmers markets near you. Pre-order online for market pickup.',
+  }
+}
 
 interface VendorsPageProps {
   params: Promise<{ vertical: string }>

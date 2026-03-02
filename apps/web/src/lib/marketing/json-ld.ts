@@ -178,6 +178,7 @@ export function organizationJsonLd(params: {
   logo?: string
   description?: string
   sameAs?: string[]
+  areaServed?: string[]
 }): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
@@ -187,6 +188,12 @@ export function organizationJsonLd(params: {
     ...(params.logo && { logo: params.logo }),
     ...(params.description && { description: params.description }),
     ...(params.sameAs && params.sameAs.length > 0 && { sameAs: params.sameAs }),
+    ...(params.areaServed && params.areaServed.length > 0 && {
+      areaServed: params.areaServed.map(area => ({
+        '@type': 'City',
+        name: area,
+      })),
+    }),
   }
 }
 

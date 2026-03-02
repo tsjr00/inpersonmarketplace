@@ -37,7 +37,7 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     event_icon_emoji: '🎪',
 
     // Descriptive phrases
-    product_examples: 'tacos, BBQ, and street food',
+    product_examples: 'tacos, BBQ, pizza, burgers, and street food from cuisines around the world',
     vendor_location: 'kitchen or commissary',
 
     // Page-level text
@@ -97,7 +97,7 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
         'Get discovered by hungry locals nearby',
       ],
       cta: 'List Your Food Truck',
-      description: 'Everything you need in one place — manage your menu, track orders, and grow your customer base. Designed to support food trucks of all sizes.',
+      description: 'Everything you need in one place — manage your menu, track orders, and grow your customer base. Whether you serve tacos, pizza, burgers, or fusion cuisine, our platform is designed for food trucks of all sizes.',
     },
     features: {
       verified: {
@@ -142,7 +142,7 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     },
     featured_section: {
       headline: 'Find Food Trucks in Your Area',
-      paragraph1: "Food trucks bring neighborhoods together. Whether it\u2019s a food truck park buzzing on a Friday night or your favorite taco truck on the lunch corner, these mobile kitchens bring the best street food right to you.",
+      paragraph1: "Food trucks bring neighborhoods together. Whether it\u2019s tacos, BBQ, Thai, sushi, pizza, or loaded fries at a food truck park buzzing on a Friday night, these mobile kitchens bring the best street food right to you.",
       paragraph2: "Every order supports an independent operator building something with their own hands. We\u2019re here to make finding and ordering from your favorite trucks effortless.",
       link_text: 'Find food trucks near you',
     },

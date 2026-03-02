@@ -1,3 +1,4 @@
+import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
@@ -10,6 +11,21 @@ import { getServerLocation } from '@/lib/location/server'
 
 // Cache page for 10 minutes - markets change infrequently
 export const revalidate = 600
+
+export async function generateMetadata({ params }: { params: Promise<{ vertical: string }> }): Promise<Metadata> {
+  const { vertical } = await params
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const isFT = vertical === 'food_trucks'
+
+  return {
+    title: isFT
+      ? `Find Food Truck Locations & Parks | ${branding.brand_name}`
+      : `Find Farmers Markets Near You | ${branding.brand_name}`,
+    description: isFT
+      ? 'Find food truck parks and locations near you in Dallas, Houston, Austin, San Antonio, and across Texas. Discover trucks serving tacos, BBQ, pizza, and more.'
+      : 'Find farmers markets open Saturday, Sunday, and weekdays near you in Dallas, Houston, Austin, and across Texas. Browse local produce, cottage food, and artisan goods.',
+  }
+}
 
 interface MarketsPageProps {
   params: Promise<{ vertical: string }>

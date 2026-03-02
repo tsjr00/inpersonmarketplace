@@ -37,7 +37,7 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
     event_icon_emoji: '🎪',
 
     // Descriptive phrases
-    product_examples: 'fresh produce, baked goods, and artisan products',
+    product_examples: 'fresh produce, baked goods, honey, jams, and artisan products — including cottage food and homemade goods',
     vendor_location: 'farm or shop',
 
     // Page-level text
@@ -87,7 +87,7 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
     },
     vendor_pitch: {
       headline: 'Grow Your Business',
-      subtitle: 'Join local farmers, bakers, and artisans already selling through our platform.',
+      subtitle: 'Join local farmers, bakers, cottage food producers, and artisans already selling through our platform.',
       benefits: [
         'Pre-sell products before market day',
         'Know what to bring, reduce waste',
@@ -97,7 +97,7 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
         'Get discovered by local shoppers',
       ],
       cta: 'Become a Vendor',
-      description: 'Everything you need in one place — manage listings, track orders, and grow your customer base. Designed to support vendors of all sizes, from weekend market stands to full-time operations.',
+      description: 'Everything you need in one place — manage listings, track orders, and grow your customer base. From cottage food operations and home bakers to full-time market vendors, our platform supports sellers of all sizes.',
     },
     features: {
       verified: {
@@ -142,7 +142,7 @@ export const farmersMarketConfig: VerticalTerminologyConfig = {
     },
     featured_section: {
       headline: 'Discover Markets in Your Community',
-      paragraph1: "Farmers markets are more than shopping \u2014 they\u2019re the heartbeat of local communities. For many family farms and small businesses, a weekly market stand is essential revenue that keeps their operations alive.",
+      paragraph1: "Farmers markets are more than shopping \u2014 they\u2019re the heartbeat of local communities. For family farms, cottage food producers, home bakers, and small-batch artisans, a weekly market stand is essential revenue that keeps their operations alive.",
       paragraph2: "Every dollar spent locally circulates back into your neighborhood, supporting the growers, makers, and families who make your community vibrant. We\u2019re here to make that connection easier.",
       link_text: 'Find markets near you',
     },

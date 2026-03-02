@@ -403,7 +403,12 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 title: 'Quality Standards',
                 desc: 'Our platform quality checks help maintain high standards and build trust with your customers.',
                 icon: '✅'
-              }
+              },
+              ...(vertical !== 'food_trucks' ? [{
+                title: 'Perfect for Cottage Food Sellers',
+                desc: 'Sell homemade baked goods, jams, preserves, and cottage food products at local markets. Built-in tools for home-based food producers operating under cottage food law.',
+                icon: '🏠'
+              }] : [])
             ].map((item, i) => (
               <div key={i} style={{
                 padding: spacing.lg,

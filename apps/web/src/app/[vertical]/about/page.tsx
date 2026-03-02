@@ -14,12 +14,14 @@ export default function AboutPage() {
   const baseUrl = `https://${branding.domain}`
 
   const isFT = vertical === 'food_trucks'
+  const texasCities = ['Dallas', 'Fort Worth', 'Houston', 'Austin', 'San Antonio', 'El Paso']
   const orgSchema = organizationJsonLd({
     name: branding.brand_name,
     url: baseUrl,
     description: isFT
-      ? 'Mobile food ordering platform connecting customers with local food trucks. Pre-order online, skip the line, and pick up hot and ready.'
-      : 'Online ordering platform connecting shoppers with local farmers market vendors. Pre-order fresh produce, baked goods, and artisan products for market pickup.',
+      ? 'Mobile food ordering platform connecting customers with local food trucks. Pre-order tacos, BBQ, pizza, burgers, and more — skip the line and pick up hot and ready.'
+      : 'Online ordering platform connecting shoppers with local farmers market vendors and cottage food producers. Pre-order fresh produce, baked goods, honey, jams, and artisan products for market pickup.',
+    areaServed: texasCities.map(city => `${city}, Texas`),
   })
 
   const breadcrumbs = breadcrumbJsonLd([
@@ -73,6 +75,14 @@ export default function AboutPage() {
             and reach more customers. Whether you&apos;re looking for {term(vertical, 'product_examples')},
             our platform connects you with verified local {term(vertical, 'vendors').toLowerCase()} near you.
           </p>
+          {!isFT && (
+            <p style={{ marginBottom: spacing.md }}>
+              We&apos;re especially proud to support cottage food producers, home bakers, and small-batch
+              artisans selling under cottage food law. Our platform gives home-based food sellers the same
+              professional online ordering tools that larger operations use — making it easy to list products,
+              accept pre-orders, and connect with local buyers.
+            </p>
+          )}
         </section>
 
         {/* How It Works Section */}
