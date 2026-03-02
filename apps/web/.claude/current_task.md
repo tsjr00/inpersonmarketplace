@@ -1,72 +1,101 @@
-# Current Task: Tier Restructure COMPLETE + Business Rules Audit IN PROGRESS
-Started: 2026-02-28
+# Current Task: FAQ/Help Expansion + Terms & Privacy Policy Update
+Started: 2026-03-01
 
-## Tier Restructure — FULLY COMPLETE
-All 6 phases done. Migration 061 applied to all 3 envs. Annual billing toggle added. Env vars renamed. Pushed to staging AND production.
+## Goal
+Expand FAQ/Help content (seed 52 database articles), expand Terms of Service (add 5 new sections), expand Privacy Policy (add 6 new subsections), add Help links to footers. Reduce need for support tickets before onboarding.
 
-### Key Commits (all pushed to prod + staging)
-- `fe15ddb` — FM free tier + tier restructure: 48 files, migration 061, business rules audit
-- `90d8d1e` — FM pricing: $10 standard, $50 featured, rename env vars for consistency
-- `19c0782` — FM upgrade page: add monthly/annual billing toggle
+## Plan File
+Full plan at: `C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md`
 
-### Pricing (FINAL)
-| Tier | Monthly | Annual |
-|------|---------|--------|
-| FM Standard | $10/mo | $81.50/yr (32% savings) |
-| FM Premium | $24.99/mo | $208.15/yr (30% savings) |
-| FM Featured | $50/mo | $481.50/yr (20% savings) |
-| FT Basic | $10/mo | — |
-| FT Pro | $30/mo | — |
-| FT Boss | $50/mo | — |
+## What's Been Completed (This Session Before This Task)
+- FM analytics tier limits COMPLETE: `analyticsDays` + `analyticsExport` added to all 4 FM tiers in TIER_LIMITS
+- Unified `getAnalyticsLimits(tier, vertical)` and `getVendorTierLabel(tier, vertical)` functions added to vendor-limits.ts
+- Analytics page updated: gates BOTH verticals (was FT-only)
+- 4 analytics API routes updated: overview, trends, top-products, customers all use unified function
+- FM upgrade page: analytics bullet + comparison table row added
+- TypeScript: 0 errors
+- NOT YET COMMITTED — all analytics changes are unstaged
 
-### Stripe Env Vars (RENAMED)
-- Old `STRIPE_VENDOR_MONTHLY_PRICE_ID` → `STRIPE_FM_PREMIUM_MONTHLY_PRICE_ID`
-- Old `STRIPE_VENDOR_ANNUAL_PRICE_ID` → `STRIPE_FM_PREMIUM_ANNUAL_PRICE_ID`
-- New: `STRIPE_FM_STANDARD_MONTHLY_PRICE_ID`, `STRIPE_FM_STANDARD_ANNUAL_PRICE_ID`
-- New: `STRIPE_FM_FEATURED_MONTHLY_PRICE_ID`, `STRIPE_FM_FEATURED_ANNUAL_PRICE_ID`
-- User confirmed all env vars set in Vercel
+## What's Been Completed (This Task) — ALL 5 STEPS DONE
+- [x] Step 1: Created migration `20260301_062_seed_knowledge_articles.sql` — 52 FAQ articles across 10 categories
+- [x] Step 2: Expanded Terms of Service in `src/app/[vertical]/terms/page.tsx` — 472→801 lines, 5 new sections + table of contents
+- [x] Step 3: Expanded Privacy Policy (embedded in terms page) — data retention, breach notification, CCPA, BIPA, data portability, geographic scope
+- [x] Step 4: Added Help links to footers — landing Footer.tsx (For Shoppers + Vendor FAQ href fixed) + shared Footer.tsx
+- [x] Step 5: Help page navigation fix — added browse link alongside dashboard link
+- TypeScript: 0 errors
+- NOT YET COMMITTED — all changes unstaged
 
----
+## What's Remaining
+- Ready to commit (analytics work + FAQ/Terms/Privacy work)
 
-## Business Rules Audit — IN PROGRESS (Session 49)
+## Key Files
+- `supabase/migrations/20260301_062_seed_knowledge_articles.sql` — NEW (to create)
+- `src/app/[vertical]/terms/page.tsx` — EDIT (major, ~470 lines → ~900+ lines)
+- `src/components/landing/Footer.tsx` — EDIT (minor, add Help link line 29-34, fix Vendor FAQ line 42)
+- `src/components/shared/Footer.tsx` — EDIT (minor, add Help link to Company section)
+- `src/app/[vertical]/help/page.tsx` — EDIT (minor, navigation)
 
-### Domain Status
-| Domain | Status | Notes |
-|--------|--------|-------|
-| 1. Money Path | ✅ Complete | 28 rules validated |
-| 2. Order Lifecycle | ✅ Mostly done | 2 rules + 4 questions still 🔵❓ (OL-R20, OL-Q5-Q8) |
-| 3. Vertical Isolation | ✅ Mostly done | VI-Q4, VI-Q5 deferred. VI-Q1: shared identity NOT desired. VI-Q2: platform admin cross-vertical IS desired. |
-| 4. Vendor Journey | ✅ Complete | All 13 rules confirmed. VJ-R1 corrected: COI is optional gate. |
-| 5. Subscription Lifecycle | ✅ Complete | All rules confirmed with clarifications (see below) |
-| 6. Auth & Access Control | 🔵❓ Not yet reviewed | |
-| 7. Notification Integrity | 🔵❓ Not yet reviewed | |
-| 8. Infrastructure | 🔵❓ Not yet reviewed | |
+## Article Categories (52 total)
+1. Getting Started (Global, 5) — platform overview, account creation, finding vendors
+2. Orders & Pickup (Global, 8) — ordering flow, statuses, pickup, cancellation, issues
+3. Payments & Fees (Global, 5) — payment methods, fees, tips, refunds
+4. Market Boxes (FM-only, 4) — what they are, pickup, fulfillment, cancellation
+5. Chef Boxes (FT-only, 4) — what they are, types, pickup, cancellation
+6. Account & Settings (Global, 5) — profile, notifications, deletion, support
+7. Vendor Onboarding (Global, 5) — signup, permits, approval, prohibited items, trial
+8. Vendor Plans & Subscriptions (FM+FT split, 6) — plan tiers, upgrade, downgrade, billing
+9. Vendor Operations (Global, 6) — listings, orders, payouts, locations, analytics, quality checks
+10. Privacy & Security (Global, 4) — payment security, data collection, location, privacy link
 
-### Key User Decisions This Session
-- **VI-Q1**: Shared identity NOT desired — each vertical should be separate
-- **VI-Q2**: Platform admin cross-vertical visibility IS desired — protect from attack but keep visibility
-- **VI-Q3**: Referral codes scoped to vendor's vertical (already working correctly)
-- **VJ-R1 CORRECTION**: COI is OPTIONAL gate. 4 required gates: 1) Prohibited items, 2) Business docs, 3) Vertical-specific docs (FM=category docs, FT=health/food safety), 4) Stripe setup
-- **SL-W3**: "Subscription" = pre-purchase with staggered fulfillment, not recurring payment. Keep code terminology, use accurate description in human-facing docs.
-- **SL-R3**: User asked about charge-then-refund order of operations. ANSWER: Pre-checkout capacity check exists (rejects if full). Charge-then-refund only on race condition. No transient retry — just refund on failure.
-- **SL-R6/R7**: 4 OR 8 weeks depending on vendor offering + buyer choice
-- **SL-R8**: FT vendors should NOT see skip-a-week option in Chef Box management
-- **SL-R10**: FT buyer should NOT see 8-week option (because no skip-a-week)
-- **SL-R11 CLARIFICATION**: Prevents duplicate active subscriptions after checkout, BUT buyer SHOULD be able to buy 2 of the same box (using 2 slots) in one purchase
-- **SL-R15**: Should include "seller at capacity" message to buyer
+## Terms Expansion (New Sections)
+- Section 5: Subscription Services (vendor plans, prepaid offerings, buyer premium)
+- Section 6: Intellectual Property (platform content, user content, trademarks, feedback)
+- Section 7.5: Indemnification
+- Section 7.6: Force Majeure
+- Section 9.4: Third-Party Links
+- Section 10: Multi-Vertical Platform
+- Table of Contents at top
+- Update "Last updated" to March 2026
 
-### What's Left to Do
-1. **Review Domains 6, 7, 8** with user (Auth, Notifications, Infrastructure)
-2. **Open questions** still needing user decisions: OL-Q5-Q8, SL-Q2-Q3, AC-Q1-Q2, NI-Q1-Q3, IR-Q1-Q4
-3. **Write Vitest tests** for all validated rules (after user finishes reviewing all domains)
-4. **Commit** audit doc updates (uncommitted changes in business_rules_audit_and_testing.md)
+## Privacy Policy Expansion (New Subsections)
+- 1.6 Device & Usage Info, 1.7 Push Notification Data
+- 3.5 Aggregated Data (providers by category not brand)
+- Section 5: Data Retention (reasonable period, not specific days)
+- 6.2 Data Breach Notification
+- 7.3 Data Portability, 7.5 CCPA, 7.6 Illinois/BIPA
+- 8.1-8.3 Cookies restructured (essential/functional/analytics)
+- Section 9: Geographic Scope (US only)
+- Section 12: Changes to Privacy Policy
 
-### Files Modified (uncommitted)
-- `apps/web/.claude/business_rules_audit_and_testing.md` — Domain 4+5 updates, VI-Q1/Q2 resolved
-- `apps/web/.claude/current_task.md` — This file
+## Confidentiality Rules for Legal Docs
+- "Promotional periods may be offered" (NOT "90-day trial")
+- "Service fees as displayed at time of transaction"
+- Don't expose: tier sort algorithms, quality scoring, placement logic
+- Payout timing: "after order completion and mutual confirmation"
+- Approval criteria: just "admin review"
+- Third-party providers by CATEGORY not brand name ("payment processors" not "Stripe")
+- No infrastructure names ("cloud hosting providers" not "Vercel/Supabase")
+- Data retention: "reasonable period" not specific days
+
+## Unstaged Changes (From Earlier Analytics Work)
+Files modified but not committed:
+- `src/lib/vendor-limits.ts` — added getAnalyticsLimits(), getVendorTierLabel(), analyticsDays/analyticsExport to FM TIER_LIMITS
+- `src/app/[vertical]/vendor/analytics/page.tsx` — unified analytics gating for both verticals
+- `src/app/api/vendor/analytics/overview/route.ts` — unified gating
+- `src/app/api/vendor/analytics/trends/route.ts` — unified gating
+- `src/app/api/vendor/analytics/top-products/route.ts` — unified gating
+- `src/app/api/vendor/analytics/customers/route.ts` — unified gating
+- `src/app/[vertical]/vendor/dashboard/upgrade/page.tsx` — analytics bullet + comparison row for FM
+
+## Key Commits This Session (Prior Tasks)
+- `fe15ddb` — FM free tier + tier restructure
+- `90d8d1e` — FM pricing + env var rename
+- `19c0782` — Annual billing toggle
+- `b63a762` — Business rules audit domains 4+5
 
 ## Open Items (Carried Over)
-- Instagram URLs still placeholder `#` in Coming Soon footers
-- Events Phase 5 (reminders + conversion) — deferred
-- Dev DB may be out of sync on some migrations
+- Business rules audit: Domains 6-8 not yet reviewed by user
+- Open questions: OL-Q5-Q8, SL-Q2-Q3, AC-Q1-Q2, NI-Q1-Q3, IR-Q1-Q4
+- Instagram URLs placeholder in Coming Soon footers
+- Events Phase 5 deferred
 - Migrations 057+058 schema snapshot update still needed

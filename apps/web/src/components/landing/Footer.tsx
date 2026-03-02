@@ -31,6 +31,7 @@ export function Footer({ vertical }: FooterProps) {
         { label: term(vertical, 'browse_products_cta'), href: `/${vertical}/browse` },
         { label: 'Features & Benefits', href: `/${vertical}/features` },
         { label: 'How It Works', href: `/${vertical}/how-it-works` },
+        { label: 'Help & FAQ', href: `/${vertical}/help` },
         { label: 'Sign Up', href: `/${vertical}/signup` },
       ]
     },
@@ -39,7 +40,7 @@ export function Footer({ vertical }: FooterProps) {
       links: [
         { label: 'Become a Vendor', href: `/${vertical}/vendor-signup` },
         { label: 'Why Sell With Us', href: `/${vertical}/features#vendors` },
-        { label: 'Vendor FAQ', href: `/${vertical}/about#vendor-faq` },
+        { label: 'Vendor FAQ', href: `/${vertical}/help` },
       ]
     },
     {

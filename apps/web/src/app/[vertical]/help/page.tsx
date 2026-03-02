@@ -42,19 +42,35 @@ export default async function HelpPage({ params }: HelpPageProps) {
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px' }}>
       <div style={{ marginBottom: spacing.lg }}>
-        <Link
-          href={`/${vertical}/dashboard`}
-          style={{
-            color: statusColors.neutral500,
-            textDecoration: 'none',
-            fontSize: typography.sizes.sm,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-          ← Back to Dashboard
-        </Link>
+        <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center' }}>
+          <Link
+            href={`/${vertical}/dashboard`}
+            style={{
+              color: statusColors.neutral500,
+              textDecoration: 'none',
+              fontSize: typography.sizes.sm,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            ← Back to Dashboard
+          </Link>
+          <span style={{ color: statusColors.neutral300 }}>|</span>
+          <Link
+            href={`/${vertical}/browse`}
+            style={{
+              color: statusColors.neutral500,
+              textDecoration: 'none',
+              fontSize: typography.sizes.sm,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            ← Browse
+          </Link>
+        </div>
         <h1 style={{ color: statusColors.neutral900, marginBottom: spacing['2xs'], marginTop: spacing.xs, fontSize: typography.sizes['2xl'] }}>
           Help & FAQ
         </h1>

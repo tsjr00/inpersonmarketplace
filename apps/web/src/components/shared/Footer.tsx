@@ -67,6 +67,18 @@ export default function Footer() {
                   About Us
                 </Link>
               </li>
+              <li style={{ marginBottom: spacing.xs }}>
+                <Link
+                  href="/farmers_market/help"
+                  style={{
+                    color: colors.textSecondary,
+                    textDecoration: 'none',
+                    fontSize: typography.sizes.sm
+                  }}
+                >
+                  Help &amp; FAQ
+                </Link>
+              </li>
             </ul>
           </div>
 
