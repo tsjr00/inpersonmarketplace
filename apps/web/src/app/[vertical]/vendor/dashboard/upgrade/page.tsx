@@ -753,6 +753,11 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
                   <li><strong>{limits.privatePickupLocations}</strong> private pickup{limits.privatePickupLocations > 1 ? 's' : ''}</li>
                   <li><strong>{limits.totalMarketBoxes}</strong> {term(vertical, 'market_box')} offering{limits.totalMarketBoxes > 1 ? 's' : ''}</li>
                   <li><strong>{limits.maxSubscribersPerOffering}</strong> max subscribers</li>
+                  {limits.analyticsDays > 0 ? (
+                    <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' + export' : ''}</li>
+                  ) : (
+                    <li style={{ color: '#9ca3af' }}>No analytics</li>
+                  )}
                 </ul>
 
                 {/* Action button */}
@@ -835,6 +840,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
             <FmFeatureRow label={`${term(vertical, 'market_box')} Offerings`} free={String(fr.totalMarketBoxes)} standard={String(st.totalMarketBoxes)} premium={String(pr.totalMarketBoxes)} featured={String(fe.totalMarketBoxes)} />
             <FmFeatureRow label="Active Offerings" free={String(fr.activeMarketBoxes)} standard={String(st.activeMarketBoxes)} premium={String(pr.activeMarketBoxes)} featured={String(fe.activeMarketBoxes)} />
             <FmFeatureRow label="Max Subscribers" free={String(fr.maxSubscribersPerOffering)} standard={String(st.maxSubscribersPerOffering)} premium={String(pr.maxSubscribersPerOffering)} featured={String(fe.maxSubscribersPerOffering)} />
+            <FmFeatureRow label="Analytics" free="—" standard="30-day" premium="60-day" featured="90-day + Export" />
           </div>
         </div>
 

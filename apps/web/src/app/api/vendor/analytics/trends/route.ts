@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { getFtTierExtras } from '@/lib/vendor-limits'
+import { getAnalyticsLimits } from '@/lib/vendor-limits'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/analytics/trends', 'GET', async () => {
@@ -40,15 +40,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized to view this vendor analytics' }, { status: 403 })
     }
 
-    // FT tier-based analytics day clamping
-    if (vendorProfile.vertical_id === 'food_trucks') {
-      const extras = getFtTierExtras(vendorProfile.tier || 'free')
-      if (extras.analyticsDays === 0) {
-        return NextResponse.json([])
-      }
-      const earliest = new Date(Date.now() - extras.analyticsDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-      if (startDate < earliest) startDate = earliest
+    // Tier-based analytics day clamping (both verticals)
+    const analyticsLimits = getAnalyticsLimits(vendorProfile.tier || 'free', vendorProfile.vertical_id)
+    if (analyticsLimits.analyticsDays === 0) {
+      return NextResponse.json([])
     }
+    const earliest = new Date(Date.now() - analyticsLimits.analyticsDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    if (startDate < earliest) startDate = earliest
 
     // C7 FIX: Query order_items directly instead of legacy RPC on transactions table
     const { data: orderItems, error } = await supabase

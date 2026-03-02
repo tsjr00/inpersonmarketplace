@@ -24,6 +24,8 @@ export const TIER_LIMITS = {
     maxSubscribersPerOffering: 5,
     defaultSubscribersPerOffering: 5,
     productListings: 5,
+    analyticsDays: 0,
+    analyticsExport: false,
   },
   standard: {
     traditionalMarkets: 2,
@@ -34,6 +36,8 @@ export const TIER_LIMITS = {
     maxSubscribersPerOffering: 10,
     defaultSubscribersPerOffering: 10,
     productListings: 10,
+    analyticsDays: 30,
+    analyticsExport: false,
   },
   premium: {
     traditionalMarkets: 3,
@@ -44,6 +48,8 @@ export const TIER_LIMITS = {
     maxSubscribersPerOffering: 20,
     defaultSubscribersPerOffering: 20,
     productListings: 20,
+    analyticsDays: 60,
+    analyticsExport: false,
   },
   featured: {
     traditionalMarkets: 5,
@@ -54,6 +60,8 @@ export const TIER_LIMITS = {
     maxSubscribersPerOffering: 30,
     defaultSubscribersPerOffering: 30,
     productListings: 30,
+    analyticsDays: 90,
+    analyticsExport: true,
   },
 } as const
 
@@ -146,6 +154,24 @@ export function getFtTierLabel(tier: string): string {
 export function getFtTierExtras(tier: string): FtTierExtras {
   const normalized = tier?.toLowerCase() as FoodTruckTier
   return FT_TIER_LIMITS[normalized] || FT_TIER_LIMITS.free
+}
+
+/** Get analytics limits for any vendor tier (both verticals) */
+export function getAnalyticsLimits(tier: string, vertical?: string): { analyticsDays: number; analyticsExport: boolean } {
+  if (vertical === 'food_trucks') {
+    const extras = getFtTierExtras(tier)
+    return { analyticsDays: extras.analyticsDays, analyticsExport: extras.analyticsExport }
+  }
+  const fmTier = (tier || 'free').toLowerCase() as VendorTier
+  const limits = TIER_LIMITS[fmTier] || TIER_LIMITS.free
+  return { analyticsDays: limits.analyticsDays, analyticsExport: limits.analyticsExport }
+}
+
+/** Get display label for a vendor tier (both verticals) */
+export function getVendorTierLabel(tier: string, vertical?: string): string {
+  if (vertical === 'food_trucks') return getFtTierLabel(tier)
+  const labels: Record<string, string> = { free: 'Free', standard: 'Standard', premium: 'Premium', featured: 'Featured' }
+  return labels[tier?.toLowerCase()] || 'Free'
 }
 
 /**

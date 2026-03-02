@@ -10,7 +10,7 @@ import SalesChart from '@/components/analytics/SalesChart'
 import TopProductsTable from '@/components/analytics/TopProductsTable'
 import DateRangePicker from '@/components/analytics/DateRangePicker'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
-import { getFtTierExtras, getFtTierLabel } from '@/lib/vendor-limits'
+import { getAnalyticsLimits, getVendorTierLabel } from '@/lib/vendor-limits'
 
 interface OverviewData {
   totalRevenue: number
@@ -190,12 +190,12 @@ export default function VendorAnalyticsPage() {
     }
   }, [vendorId, fetchAnalytics])
 
-  // FT tier-based analytics limits
-  const isFtVendor = vertical === 'food_trucks'
-  const maxDays = isFtVendor && vendorTier ? getFtTierExtras(vendorTier).analyticsDays : undefined
-  const canExport = isFtVendor ? vendorTier === 'boss' : true
-  const tierLabel = isFtVendor && vendorTier ? getFtTierLabel(vendorTier) : null
-  const analyticsBlocked = isFtVendor && maxDays === 0
+  // Tier-based analytics limits (both verticals)
+  const analyticsConfig = getAnalyticsLimits(vendorTier || 'free', vertical)
+  const maxDays = analyticsConfig.analyticsDays
+  const canExport = analyticsConfig.analyticsExport
+  const tierLabel = getVendorTierLabel(vendorTier || 'free', vertical)
+  const analyticsBlocked = maxDays === 0
 
   if (analyticsBlocked) {
     return (
@@ -435,9 +435,9 @@ export default function VendorAnalyticsPage() {
             value={dateRange}
             onChange={setDateRange}
             maxDays={maxDays}
-            customEnabled={!isFtVendor || vendorTier === 'pro' || vendorTier === 'boss'}
+            customEnabled={maxDays >= 60}
           />
-          {isFtVendor && maxDays && maxDays < 90 && (
+          {maxDays > 0 && maxDays < 90 && (
             <div style={{
               marginTop: spacing.xs,
               padding: `${spacing['2xs']} ${spacing.sm}`,
