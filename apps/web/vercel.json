@@ -3,15 +3,15 @@
   "crons": [
     {
       "path": "/api/cron/expire-orders",
-      "schedule": "0 6 * * *"
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/vendor-activity-scan",
-      "schedule": "0 3 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/vendor-quality-checks",
-      "schedule": "0 10 * * *"
+      "schedule": "0 14 * * *"
     }
   ]
 }

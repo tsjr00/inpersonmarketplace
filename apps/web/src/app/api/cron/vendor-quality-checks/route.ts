@@ -27,10 +27,15 @@ function safeCompare(a: string, b: string): boolean {
  * Runs 5 checks against vendor data, creates findings, and sends
  * one grouped notification per vendor.
  *
- * Schedule: 0 10 * * * (10am UTC = 4am CT)
+ * Schedule: 0 14 * * * (2pm UTC = ~8am CT)
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cron/vendor-quality-checks', 'GET', async () => {
+    // Skip cron on non-production Vercel environments (staging/preview waste DB resources)
+    if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production') {
+      return NextResponse.json({ skipped: true, reason: 'Non-production environment' })
+    }
+
     // Verify cron secret
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
@@ -54,6 +59,14 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Quick check: skip if no vendors exist (nothing to check)
+    const { count: vendorCount } = await supabase
+      .from('vendor_profiles')
+      .select('*', { count: 'exact', head: true })
+    if (!vendorCount || vendorCount === 0) {
+      return NextResponse.json({ success: true, skipped: true, findings: 0, message: 'No vendors to check' })
+    }
 
     // Step 1: Create scan log entry
     const { data: scanLog, error: scanError } = await supabase

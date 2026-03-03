@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { POLLING_INTERVALS, getPollingInterval } from '@/lib/polling-config'
 import OrderCard from '@/components/vendor/OrderCard'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import Toast, { type ToastType } from '@/components/shared/Toast'
@@ -111,7 +112,11 @@ export default function VendorDashboardOrdersPage() {
 
     const startPolling = () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
-      pollIntervalRef.current = setInterval(fetchOrders, 30000)
+      const pollMs = getPollingInterval(
+        POLLING_INTERVALS.vendorOrders,
+        POLLING_INTERVALS.vendorOrdersOffPeak
+      )
+      pollIntervalRef.current = setInterval(fetchOrders, pollMs)
     }
 
     const handleVisibilityChange = () => {

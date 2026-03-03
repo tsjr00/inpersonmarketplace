@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { getNotificationConfig, type NotificationSeverity, type NotificationUrgency } from '@/lib/notifications/types'
+import { POLLING_INTERVALS, getPollingInterval } from '@/lib/polling-config'
 
 interface Notification {
   id: string
@@ -181,9 +182,14 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
     fetchCount()
   }, [pathname, fetchCount])
 
-  // 60-second polling interval for count
+  // Polling interval for count — 5min active, 15min off-peak (10pm-6am)
+  // Tab focus + page navigation give instant updates; this is a background safety net
   useEffect(() => {
-    const interval = setInterval(fetchCount, 60000)
+    const pollMs = getPollingInterval(
+      POLLING_INTERVALS.notificationCount,
+      POLLING_INTERVALS.notificationCountOffPeak
+    )
+    const interval = setInterval(fetchCount, pollMs)
     return () => clearInterval(interval)
   }, [fetchCount])
 

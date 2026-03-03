@@ -1,84 +1,82 @@
-# Current Task: Convert Category 1+2 .todo() Tests to Active Tests
+# Current Task: Supabase Cost Optimization (Pre-Launch)
 
-Started: 2026-03-03 (Session 51)
+Started: 2026-03-03 (Session 51, continued)
 
 ## Goal
-Convert .todo() placeholder tests to real 🟣V active tests where pure logic functions are already available. User emphasized accuracy — these protect real vendors' livelihoods and buyers' trust.
+Reduce Supabase costs to near-zero for pre-launch app with 0 live users. User got unexpected $7.16 charge. 5-batch plan approved.
 
-## What's Been Completed This Session
-1. ✅ Cleaned test suite (removed unconfirmed rule IDs) — commit `6d915c8`
-2. ✅ Added vitest to pre-commit hook — commit `6fe13c2`
-3. ✅ Built per-vertical notification urgency (9 FT/FM overrides) — commit `c5615ec`
-4. ✅ Cross-referenced all 159 rules with vitest indicators — commit `f889a23`
-5. ✅ All 4 commits pushed to staging
+## What's Been Completed
 
-## What's In Progress NOW
-Converting .todo() tests to active assertions in `business-rules-coverage.test.ts`.
+### Batch 1: Cron Environment Gating ✅ DONE
+Added `VERCEL_ENV` production guard to all 3 cron routes. Staging/preview deployments now return immediately.
+- `src/app/api/cron/expire-orders/route.ts` — guard added after withErrorTracing, before secret check
+- `src/app/api/cron/vendor-activity-scan/route.ts` — same pattern
+- `src/app/api/cron/vendor-quality-checks/route.ts` — same pattern
 
-### Category 1: Tip rules (MP-R19-R28) — add explicit assertions
-tip-math.test.ts has 25 tests covering R3/R4/R20/R21/R23/R24/R25/R28.
-Currently lines 165-167 in business-rules-coverage.test.ts just say "// COVERED: tip-math.test.ts" with NO actual assertions or .todo() entries.
-**Action**: Add explicit test assertions for each rule using the imported functions.
-**Key**: MP-R19-R28 are COMMENTS not .todo(), so won't reduce the 61 todo count, but adds 🟣V coverage.
+### Batch 2: Business-Hours-Aware Polling ✅ DONE
+Created centralized polling config with off-peak awareness (10pm-6am = reduced polling).
+- NEW `src/lib/polling-config.ts` — exports `isOffPeak()`, `getPollingInterval()`, `POLLING_INTERVALS`
+- `src/components/notifications/NotificationBell.tsx` — 60s → 5min active / 15min off-peak (line 187)
+- `src/app/[vertical]/vendor/dashboard/orders/page.tsx` — 30s → 2min active / 10min off-peak (line 114)
+- `src/components/listings/CutoffStatusBanner.tsx` — 60s → 5min + visibility check + off-peak skip (line 55)
 
-### Category 2: Pure logic convertible .todo() items
-These ARE .todo() entries that can become real tests:
+### Batch 3: Cron Timing + Early Exits ✅ DONE
+- `vercel.json` — shifted cron times to business hours:
+  - expire-orders: `0 12 * * *` (12pm UTC / ~6am CT, was midnight CT)
+  - vendor-activity-scan: `0 8 * * *` (8am UTC / ~2am CT)
+  - vendor-quality-checks: `0 14 * * *` (2pm UTC / ~8am CT)
+- `expire-orders/route.ts` — added 4 parallel count queries as quick-check. If no pending work, returns immediately.
+- `expire-orders/route.ts` — Phase 9 data retention now runs Sundays only (`isCleanupDay`)
+- `vendor-quality-checks/route.ts` — added vendor count early exit (0 vendors = skip all 5 checks)
 
-| Rule | What to test | How |
-|------|-------------|-----|
-| VI-R14 | Cutoff hours per vertical | `DEFAULT_CUTOFF_HOURS` from `@/lib/constants` — exported! Values: traditional=18, private_pickup=10, food_trucks=0, event=24 |
-| VI-R1 | Valid vertical slugs | VALID_VERTICALS in middleware.ts is NOT exported. Can hardcode expected values and test conceptually |
+### Batch 4: N+1 Query Fixes — PARTIALLY DONE
+- ✅ Phase 4.5 stale confirmed dedup — DONE. Replaced 3 per-item notification dedup queries with 1 batch query + Set lookup. File: `expire-orders/route.ts` (~line 789-860)
+- ❌ Phase 10a trial notification dedup — NOT YET DONE
+- ❌ Quality checks vendor_profiles full-table scan fix — NOT YET DONE
 
-### Source files already read (DO NOT re-read):
-- `tip-math.ts` — 3 pure functions: calculateTipShare, calculateVendorTip, calculatePlatformFeeTip
-- `cancellation-fees.ts` — exports CANCELLATION_FEE_PERCENT=25, GRACE_PERIOD_BY_VERTICAL, getGracePeriodMs
-- `constants.ts` — exports DEFAULT_CUTOFF_HOURS
-- `middleware.ts` — VALID_VERTICALS = Set(['farmers_market','food_trucks','fire_works']) — NOT exported
-- `pricing.ts`, `vendor-fees.ts`, `vendor-limits.ts` — already imported in test file
-- `business-rules-coverage.test.ts` — full file read, 440 lines
+## What's Remaining
 
-### Idempotency key patterns verified by grep (MP-R7):
-- Checkout: `checkout-${orderId}`
-- Transfer: `transfer-${orderId}-${orderItemId}`
-- Market box: `market-box-${offeringId}-${userId}-${startDate}`
-- MB transfer: `transfer-mb-sub-${subscriptionId}`
-- Refund: `refund-${paymentIntentId}-${amount ?? 'full'}`
-- All deterministic (no Date.now(), no random values)
+### Batch 4 (continued):
+1. **Phase 10a trial notification dedup** — `expire-orders/route.ts` ~line 1676
+   - Currently: 1 dedup query per trial vendor checking notifications table
+   - Fix: Batch query all recent trial notifications before the loop, build Set for O(1) lookup
+   - Pattern: Same as Phase 4.5 fix above
 
-### Tip cap (MP-R21):
-- MAX_TIP_CENTS = 5000 — inline in checkout/session/route.ts line 71, NOT exported
-- Can test min() behavior in calculatePlatformFeeTip but not the cap constant itself
+2. **Quality checks vendor_profiles scan** — `src/lib/quality-checks.ts` line 56
+   - Currently: Loads ALL vendor_profiles then filters in JS for multiple_trucks
+   - Fix: Only load vendor_profiles whose IDs appear in the schedules query
+   - Need to read the file first to understand exact code
 
-## Exact Edits to Make in business-rules-coverage.test.ts
+### After Batch 4:
+3. Run vitest to confirm all pass
+4. Run tsc --noEmit to confirm no type errors
+5. Commit all changes (Batches 1-4 together)
+6. Push to staging
+7. Batch 5 is a user decision (pause Dev Supabase project) — no code changes
 
-### 1. Add imports (after existing imports ~line 57):
-```typescript
-import { calculateTipShare, calculateVendorTip, calculatePlatformFeeTip } from '@/lib/payments/tip-math'
-import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
-```
+## Key Context
+- Vitest: 337 passing, 59 todo, 0 failures (confirmed after Batches 1-3)
+- TypeScript: 0 errors (confirmed after Batches 1-3)
+- Plan file: `C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md`
+- Git: main branch, 6 commits ahead of origin/main (from earlier session work)
+- Task IDs: #58 (Batch 1, done), #59 (Batch 2, done), #60 (Batch 3, done), #61 (Batch 4, in_progress)
 
-### 2. Replace MP-R19-R28 comment block (lines 165-167) with real assertions:
-- MP-R20: calculatePlatformFeeTip(192, 1800, 10) = 12 (proves tip on displayed, not base)
-- MP-R21: Tip cap — calculatePlatformFeeTip(5000, 100000, 10) = 0 (min() caps vendor portion)
-- MP-R22: Math.round behavior — can't test directly (inline in route), document as code-verified
-- MP-R23: vendorTip = min(totalTip, round(base×%/100)) — tested via calculatePlatformFeeTip
-- MP-R24: platformFeeTip = totalTip - vendorTip — calculatePlatformFeeTip returns this
-- MP-R25: calculateTipShare(500, 2) = 250 (even split), calculateTipShare(100, 3) = 33 (rounds)
-- MP-R28: All payout paths use same calculateTipShare function — deterministic
+## Files Modified This Session (uncommitted)
+- `src/app/api/cron/expire-orders/route.ts` — env guard + early exit + Phase 9 weekly + Phase 4.5 batch dedup
+- `src/app/api/cron/vendor-activity-scan/route.ts` — env guard
+- `src/app/api/cron/vendor-quality-checks/route.ts` — env guard + vendor count early exit + schedule comment
+- `src/lib/polling-config.ts` — NEW file (centralized polling intervals + isOffPeak)
+- `src/components/notifications/NotificationBell.tsx` — import polling-config, 5min/15min intervals
+- `src/app/[vertical]/vendor/dashboard/orders/page.tsx` — import polling-config, 2min/10min intervals
+- `src/components/listings/CutoffStatusBanner.tsx` — import polling-config, 5min + visibility + off-peak
+- `vercel.json` — shifted cron schedules to business hours
 
-### 3. Convert VI-R14 .todo() to real test:
-Import DEFAULT_CUTOFF_HOURS, assert: traditional=18, private_pickup=10, food_trucks=0, event=24
+## Batch 5: Third Supabase Project (User Decision Needed)
+Supabase free tier = 2 active projects. User has 3 (Dev, Staging, Prod). Options:
+- A. Pause Dev project (recommended) — ~$7-10/mo savings
+- B. Use local Supabase via Docker
+- C. Keep all 3 and accept cost
 
-### 4. Convert VI-R1 conceptually:
-Can't import VALID_VERTICALS but can document the expected values match middleware
-
-## What's Remaining After Code Changes
-1. Run vitest to confirm all pass
-2. Update business_rules_audit_and_testing.md — change indicators from 📋T to 🟣V for converted rules
-3. Commit + push to staging
-
-## Git State
-- Branch: main, 5 commits ahead of origin/main
-- Staging: synced through f889a23
-- Latest commit: f889a23 (business rules vitest cross-reference)
-- Vitest: 329 passing, 61 todo, 0 failures
+## Earlier This Session (already committed)
+- Commit `7990d76` — Category 1+2 test conversions (8 rules, tip math + cutoff hours + vertical config)
+- 337 passing, 59 todo, 0 failures. Pushed to staging.

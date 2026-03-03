@@ -40,10 +40,15 @@ function safeCompare(a: string, b: string): boolean {
  * Phase 9: Data retention — delete old error_logs (90d), read notifications (60d), activity_events (30d)
  * Phase 10: Vendor trial lifecycle — reminders, trial expiry, grace period auto-unpublish
  *
- * Called by Vercel Cron daily at 6am UTC (configured in vercel.json)
+ * Called by Vercel Cron daily at 12pm UTC / ~6am CT (configured in vercel.json)
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cron/expire-orders', 'GET', async () => {
+    // Skip cron on non-production Vercel environments (staging/preview waste DB resources)
+    if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production') {
+      return NextResponse.json({ skipped: true, reason: 'Non-production environment' })
+    }
+
     // Verify cron secret (Vercel sets this automatically for cron jobs)
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
@@ -72,6 +77,32 @@ export async function GET(request: NextRequest) {
 
     let totalProcessed = 0
     let totalErrors = 0
+
+    // ── Quick-check: skip all phases if no work exists ──────────
+    // 4 lightweight count queries (head: true = no data transfer)
+    const [activeItems, pendingOrders, failedPayouts, trialVendors] = await Promise.all([
+      supabase.from('order_items').select('*', { count: 'exact', head: true })
+        .in('status', ['pending', 'confirmed', 'ready']),
+      supabase.from('orders').select('*', { count: 'exact', head: true })
+        .eq('status', 'pending'),
+      supabase.from('vendor_payouts').select('*', { count: 'exact', head: true })
+        .in('status', ['failed', 'pending_stripe_setup']),
+      supabase.from('vendor_profiles').select('*', { count: 'exact', head: true })
+        .eq('subscription_status', 'trialing'),
+    ])
+
+    const workCount = (activeItems.count ?? 0) + (pendingOrders.count ?? 0)
+      + (failedPayouts.count ?? 0) + (trialVendors.count ?? 0)
+
+    if (workCount === 0) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        message: 'No active orders, payouts, or trials to process',
+        processed: 0,
+        errors: 0,
+      })
+    }
 
     // ============================================================
     // PHASE 1: Expire order items past their expires_at time
@@ -756,6 +787,20 @@ export async function GET(request: NextRequest) {
       if (staleError) {
         console.error('[Phase 4.5] Query error:', staleError.message)
       } else if (staleItems && staleItems.length > 0) {
+        // Batch dedup: 1 query for all recent stale notifications (replaces 3 queries per item)
+        const { data: recentStaleNotifs } = await supabase
+          .from('notifications')
+          .select('user_id, type, data')
+          .in('type', ['stale_confirmed_vendor', 'stale_confirmed_vendor_final', 'stale_confirmed_buyer'])
+          .gte('created_at', new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString())
+
+        const sentStaleNotifs = new Set(
+          (recentStaleNotifs || []).map(n => {
+            const orderItemId = (n.data as Record<string, unknown>)?.orderItemId
+            return `${n.user_id}:${n.type}:${orderItemId}`
+          })
+        )
+
         for (const item of staleItems) {
           try {
             const order = item.order as any
@@ -777,55 +822,25 @@ export async function GET(request: NextRequest) {
 
             if (vendor?.user_id) {
               // Day 1 (pickup was yesterday): First vendor notification
-              if (daysSincePickup >= 1) {
-                const { data: existing1 } = await supabase
-                  .from('notifications')
-                  .select('id')
-                  .eq('user_id', vendor.user_id)
-                  .eq('type', 'stale_confirmed_vendor')
-                  .contains('data', { orderItemId: item.id })
-                  .limit(1)
-
-                if (!existing1 || existing1.length === 0) {
-                  await sendNotification(vendor.user_id, 'stale_confirmed_vendor', notifData, { vertical: order?.vertical_id })
-                  staleConfirmedCount++
-                }
+              if (daysSincePickup >= 1 && !sentStaleNotifs.has(`${vendor.user_id}:stale_confirmed_vendor:${item.id}`)) {
+                await sendNotification(vendor.user_id, 'stale_confirmed_vendor', notifData, { vertical: order?.vertical_id })
+                staleConfirmedCount++
               }
 
               // Day 2+ (blocking imminent/active): Final vendor notification
-              if (daysSincePickup >= 2) {
-                const { data: existing2 } = await supabase
-                  .from('notifications')
-                  .select('id')
-                  .eq('user_id', vendor.user_id)
-                  .eq('type', 'stale_confirmed_vendor_final')
-                  .contains('data', { orderItemId: item.id })
-                  .limit(1)
-
-                if (!existing2 || existing2.length === 0) {
-                  await sendNotification(vendor.user_id, 'stale_confirmed_vendor_final', notifData, { vertical: order?.vertical_id })
-                  staleConfirmedCount++
-                }
+              if (daysSincePickup >= 2 && !sentStaleNotifs.has(`${vendor.user_id}:stale_confirmed_vendor_final:${item.id}`)) {
+                await sendNotification(vendor.user_id, 'stale_confirmed_vendor_final', notifData, { vertical: order?.vertical_id })
+                staleConfirmedCount++
               }
             }
 
             // Buyer notification: sent on day 1+ (within 3-day lookback)
-            if (daysSincePickup >= 1 && order?.buyer_user_id) {
-              const { data: existingBuyer } = await supabase
-                .from('notifications')
-                .select('id')
-                .eq('user_id', order.buyer_user_id)
-                .eq('type', 'stale_confirmed_buyer')
-                .contains('data', { orderItemId: item.id })
-                .limit(1)
-
-              if (!existingBuyer || existingBuyer.length === 0) {
-                await sendNotification(order.buyer_user_id, 'stale_confirmed_buyer', {
-                  ...notifData,
-                  vendorName,
-                }, { vertical: order.vertical_id })
-                staleConfirmedCount++
-              }
+            if (daysSincePickup >= 1 && order?.buyer_user_id && !sentStaleNotifs.has(`${order.buyer_user_id}:stale_confirmed_buyer:${item.id}`)) {
+              await sendNotification(order.buyer_user_id, 'stale_confirmed_buyer', {
+                ...notifData,
+                vendorName,
+              }, { vertical: order.vertical_id })
+              staleConfirmedCount++
             }
           } catch (itemError) {
             console.error('[Phase 4.5] Error processing stale confirmed item:',
@@ -1583,13 +1598,15 @@ export async function GET(request: NextRequest) {
       console.error('Phase 8 error:', phase8Error instanceof Error ? phase8Error.message : 'Unknown error')
     }
 
-    // ─── Phase 9: Data Retention Cleanup ─────────────────────────────
-    // Delete old logs, read notifications, and activity events to keep tables lean
+    // ─── Phase 9: Data Retention Cleanup (Sundays only) ────────────────
+    // Delete old logs, read notifications, and activity events to keep tables lean.
+    // Runs weekly (Sundays) instead of daily — cleanup is not time-sensitive.
     let errorLogsDeleted = 0
     let notificationsDeleted = 0
     let activityEventsDeleted = 0
+    const isCleanupDay = new Date().getUTCDay() === 0 // Sunday
 
-    try {
+    if (isCleanupDay) try {
       const now = new Date()
 
       // Delete error_logs older than 90 days
@@ -1643,7 +1660,19 @@ export async function GET(request: NextRequest) {
         .gt('trial_ends_at', nowISO)
         .limit(200)
 
-      if (trialVendors) {
+      if (trialVendors && trialVendors.length > 0) {
+        // Batch dedup: 1 query for all recent trial reminders (replaces 1 query per vendor)
+        const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+        const { data: recentTrialNotifs } = await supabase
+          .from('notifications')
+          .select('user_id, type')
+          .in('type', ['trial_reminder_14d', 'trial_reminder_7d', 'trial_reminder_3d'])
+          .gte('created_at', dayAgo)
+
+        const sentTrialReminders = new Set(
+          (recentTrialNotifs || []).map(n => `${n.user_id}:${n.type}`)
+        )
+
         for (const vendor of trialVendors) {
           const trialEnd = new Date(vendor.trial_ends_at)
           const daysRemaining = Math.ceil((trialEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
@@ -1653,24 +1682,13 @@ export async function GET(request: NextRequest) {
           else if (daysRemaining <= 7) notificationType = 'trial_reminder_7d'
           else if (daysRemaining <= 14) notificationType = 'trial_reminder_14d'
 
-          if (notificationType) {
-            // Check if already sent this reminder type today
-            const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
-            const { count } = await supabase
-              .from('notifications')
-              .select('*', { count: 'exact', head: true })
-              .eq('user_id', vendor.user_id)
-              .eq('type', notificationType)
-              .gte('created_at', dayAgo)
-
-            if (!count || count === 0) {
-              const trialTierLabel = vendor.vertical_id === 'food_trucks' ? 'Basic' : 'Standard'
-              await sendNotification(vendor.user_id, notificationType as Parameters<typeof sendNotification>[1], {
-                trialTier: trialTierLabel,
-                trialDays: daysRemaining,
-              }, { vertical: vendor.vertical_id })
-              trialReminders++
-            }
+          if (notificationType && !sentTrialReminders.has(`${vendor.user_id}:${notificationType}`)) {
+            const trialTierLabel = vendor.vertical_id === 'food_trucks' ? 'Basic' : 'Standard'
+            await sendNotification(vendor.user_id, notificationType as Parameters<typeof sendNotification>[1], {
+              trialTier: trialTierLabel,
+              trialDays: daysRemaining,
+            }, { vertical: vendor.vertical_id })
+            trialReminders++
           }
         }
       }

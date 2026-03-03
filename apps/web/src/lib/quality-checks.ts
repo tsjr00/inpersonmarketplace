@@ -53,9 +53,14 @@ export async function checkScheduleConflicts(
     .eq('is_active', true)
 
   // Look up which vendors have multiple_trucks enabled (skip conflicts for them)
-  const { data: multiTruckVendors } = await supabase
-    .from('vendor_profiles')
-    .select('id, profile_data')
+  // Scoped to vendors that have active schedules (avoids full table scan)
+  const vendorIdsFromSchedules = [...new Set((schedules || []).map(s => s.vendor_profile_id))]
+  const { data: multiTruckVendors } = vendorIdsFromSchedules.length > 0
+    ? await supabase
+        .from('vendor_profiles')
+        .select('id, profile_data')
+        .in('id', vendorIdsFromSchedules)
+    : { data: [] }
   const multiTruckIds = new Set(
     (multiTruckVendors || [])
       .filter(vp => (vp.profile_data as Record<string, unknown>)?.multiple_trucks === true)

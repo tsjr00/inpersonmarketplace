@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { POLLING_INTERVALS, isOffPeak } from '@/lib/polling-config'
 
 interface MarketAvailability {
   market_id: string
@@ -51,8 +52,13 @@ export default function CutoffStatusBanner({ listingId, onStatusChange, forceSho
 
     fetchAvailability()
 
-    // Refresh every minute to keep cutoff status accurate
-    const interval = setInterval(fetchAvailability, 60 * 1000)
+    // Refresh every 5 min — cutoffs are measured in hours, 5 min catches all boundaries.
+    // Skip polling during off-peak (10pm-6am) and when tab is hidden.
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && !isOffPeak()) {
+        fetchAvailability()
+      }
+    }, POLLING_INTERVALS.cutoffStatus)
     return () => clearInterval(interval)
   }, [listingId, onStatusChange])
 

@@ -32,6 +32,11 @@ function safeCompare(a: string, b: string): boolean {
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cron/vendor-activity-scan', 'GET', async () => {
+    // Skip cron on non-production Vercel environments (staging/preview waste DB resources)
+    if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production') {
+      return NextResponse.json({ skipped: true, reason: 'Non-production environment' })
+    }
+
     // Verify cron secret
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
