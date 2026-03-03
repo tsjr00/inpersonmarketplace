@@ -1097,6 +1097,9 @@ Cron Phase 9: error_logs 90d, read notifications 60d, activity_events 30d → DE
 **IR-W6: Error Resolution Tracking**
 Error occurs → query `error_resolutions` for similar → attempt fix → record outcome → verified/failed/partial
 
+**IR-W7: Cost Optimization (Polling + Business Hours)**
+Off-peak detection (10pm-6am local) → `getPollingInterval()` selects active vs off-peak interval → components skip fetch when tab hidden → per-vertical intervals for vendor orders (FT faster, FM slower)
+
 ### Business Rules (Prioritized)
 
 #### CRITICAL (System Integrity)
@@ -1128,14 +1131,33 @@ Error occurs → query `error_resolutions` for similar → attempt fix → recor
 | IR-R13 | Cache strategy: public data routes (vendors, markets, activity feed) use s-maxage + stale-while-revalidate. Sensitive paths use no-store | IR-W4 | `/api/vendors/nearby` → `s-maxage=300`. `/admin/*` → `no-store` |
 | IR-R14 | All cron routes log per-phase counts in JSON response summary for Vercel function logs | IR-W1 | Cron completion → JSON with processed/error counts per phase |
 
+#### COST OPTIMIZATION (Confirmed — Session 49)
+
+These rules prevent wasteful API calls, DB queries, and polling that skyrocket costs with zero user benefit. FM/FT are daytime businesses with predictable hours — no need for 24/7 aggressive polling.
+
+| ID | Rule | Workflow | What to Test |
+|----|------|----------|-------------|
+| IR-R15 | 🟣V All 3 crons skip execution when `VERCEL_ENV` is set but !== `'production'`. Staging/preview deployments produce zero cron DB queries | IR-W1 | `VERCEL_ENV='preview'` → cron returns `{skipped:true}`, no DB queries |
+| IR-R16 | 🟣V Off-peak hours = 10pm-6am local time. `isOffPeak()` returns true during this window. All polling intervals increase during off-peak | IR-W7 | 11pm → `isOffPeak()=true`. 8am → `isOffPeak()=false` |
+| IR-R17 | 🟣V NotificationBell polls at 15min (active) / 30min (off-peak). Skips when tab hidden. Push + tab-focus + navigation provide instant updates; polling is safety net only | IR-W7 | `POLLING_INTERVALS.notificationCount === 900000` (15min) |
+| IR-R18 | 🟣V Vendor order polling is per-vertical: FT=2min/10min off-peak (same-day food), FM=60min/180min off-peak (orders days ahead). All skip when tab hidden | IR-W7 | FT page → 2min interval. FM page → 60min interval |
+| IR-R19 | 📋T CutoffStatusBanner fetches on page-load only — no `setInterval`. Cutoff changes are measured in hours/days, not seconds | IR-W7 | Component has no setInterval calls |
+| IR-R20 | 📋T expire-orders runs 4 parallel count queries before processing. If no active order_items + no pending orders + no failed payouts + no trial vendors → skip all phases | IR-W1 | Empty DB → cron returns `{skipped:true, message:'No work to process'}` |
+| IR-R21 | 📋T vendor-quality-checks counts vendor_profiles first. If 0 vendors → skip all 5 quality checks, return `{skipped:true, findings:0}` | IR-W1 | 0 vendors → cron returns early with no quality check queries |
+| IR-R22 | 📋T Phase 9 data retention (error_logs 90d, notifications 60d, activity_events 30d) runs only on Sundays, not daily | IR-W1 | Monday cron run → Phase 9 skipped. Sunday → Phase 9 executes |
+| IR-R23 | 🟣V `getPollingInterval(active, offPeak)` returns off-peak value when `isOffPeak()=true`, active value otherwise. All polling components use this function | IR-W7 | 3am → returns offPeak param. noon → returns active param |
+| IR-R24 | 📋T Phase 4.5 stale-confirmed notification dedup uses 1 batch query + `Set<string>` for O(1) lookups, not 3 DB queries per stale item | IR-W1 | 10 stale items → 1 dedup query total (not 30) |
+| IR-R25 | 📋T Phase 10a trial reminder dedup uses 1 batch query + `Set<string>`, not 1 DB query per trial vendor | IR-W1 | 5 trial vendors → 1 dedup query total (not 5) |
+| IR-R26 | 📋T quality-checks.ts only loads vendor_profiles for IDs found in active schedules (scoped `.in()` query), not `SELECT *` from all vendors | IR-W1 | 3 vendors in schedules, 100 total → only 3 profiles loaded |
+
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
-**Cron configuration (vercel.json):**
-| Cron | Schedule | UTC Time |
-|------|----------|----------|
-| expire-orders | `0 6 * * *` | 6 AM daily |
-| vendor-activity-scan | `0 3 * * *` | 3 AM daily |
-| vendor-quality-checks | `0 10 * * *` | 10 AM daily (4 AM CT) |
+**Cron configuration (vercel.json) — updated Session 49 for business hours:**
+| Cron | Schedule | UTC Time | CT Equivalent |
+|------|----------|----------|---------------|
+| expire-orders | `0 12 * * *` | 12 PM daily | ~6 AM CT (dawn, before vendors start) |
+| vendor-activity-scan | `0 8 * * *` | 8 AM daily | ~2 AM CT (low-impact overnight) |
+| vendor-quality-checks | `0 14 * * *` | 2 PM daily | ~8 AM CT (vendors see findings in morning) |
 
 **11 cron phases in expire-orders (1337 lines total):**
 Phase 1 (73-214): Expire unconfirmed items >24hr
@@ -1248,7 +1270,7 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 
 ## VITEST COVERAGE SUMMARY (2026-03-03)
 
-**8 test files**, 337 passing, 59 `.todo()`, 0 failures. Pre-commit hook runs all tests on every commit.
+**8 test files**, 342 passing, 66 `.todo()`, 0 failures. Pre-commit hook runs all tests on every commit.
 
 ### Coverage by Domain
 
@@ -1261,8 +1283,8 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | 5. Subscriptions | 16 (SL-R1–R16) | 1 | 15 | 0 | 6% active |
 | 6. Auth & Access | 14 (AC-R1–R14) | 0 | 0 | 14 | 0% (unconfirmed) |
 | 7. Notifications | 37 (NI-R1–R37) | 18 | 1 | 18 | 49% active |
-| 8. Infrastructure | 14 (IR-R1–R14) | 0 | 0 | 14 | 0% (unconfirmed) |
-| **Totals** | **159** | **50** | **63** | **46** | **31% active** |
+| 8. Infrastructure | 26 (IR-R1–R26) | 5 | 7 | 14 | 19% (R1-R14 unconfirmed, R15-R26 confirmed) |
+| **Totals** | **171** | **55** | **70** | **46** | **32% active** |
 
 ### Test Files → Domains
 
@@ -1273,7 +1295,7 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | `notification-types.test.ts` | ~85 active | NI-R19–R36, NI-Q5 + registry structure + audience |
 | `vendor-tier-limits.test.ts` | ~47 active | VJ-R3, R4, R6, R8, VI-R12 |
 | `vertical-isolation.test.ts` | ~23 active | VI-R6, R7, R8, R9 |
-| `business-rules-coverage.test.ts` | ~23 active + 59 todo | MP-R10–R16, R20–R25, R28, OL-R5/R7/R8, SL-R4, VI-R1, R14 + cross-domain |
+| `business-rules-coverage.test.ts` | ~28 active + 66 todo | MP-R10–R16, R20–R25, R28, OL-R5/R7/R8, SL-R4, VI-R1, R14, IR-R15–R26 + cross-domain |
 | `rate-limit.test.ts` | 7 active | Rate limiting infra (maps to AC-R7 concept) |
 | `errors.test.ts` | 10 active | Error tracing infra (maps to IR-R6 concept) |
 

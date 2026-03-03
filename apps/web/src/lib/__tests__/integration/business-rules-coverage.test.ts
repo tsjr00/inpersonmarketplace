@@ -14,14 +14,17 @@
  *   SL  = Subscription Lifecycle (16 rules) — confirmed Session 49
  *   NI  = Notifications R19-R37 (19 rules) — confirmed Session 50
  *
+ * Partially confirmed:
+ *   IR  = Infrastructure R15-R26 (Cost Optimization) — confirmed by user
+ *
  * NOT included (unconfirmed — do NOT add tests until user reviews):
  *   AC  = Auth & Access Control — entire domain unreviewed
  *   NI  = Notifications R1-R18 — Claude observations, not confirmed
- *   IR  = Infrastructure Reliability — entire domain unreviewed
+ *   IR  = Infrastructure R1-R14 — unreviewed (R15-R26 confirmed above)
  *
  * Run: npx vitest run src/lib/__tests__/integration/business-rules-coverage.test.ts
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   FEES,
   calculateOrderPricing,
@@ -61,6 +64,11 @@ import {
   isPremiumTier,
 } from '@/lib/vendor-limits'
 import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
+import {
+  POLLING_INTERVALS,
+  isOffPeak,
+  getPollingInterval,
+} from '@/lib/polling-config'
 
 // ══════════════════════════════════════════════════════════════════════
 // DOMAIN 1: MONEY PATH (MP)
@@ -541,4 +549,126 @@ describe('Cross-domain: per-vertical configuration consistency', () => {
     expect(isPremiumTier('basic', 'food_trucks')).toBe(false)
     expect(isPremiumTier('free', 'food_trucks')).toBe(false)
   })
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// DOMAIN 8: INFRASTRUCTURE RELIABILITY — COST OPTIMIZATION (IR-R15–R26)
+// These rules prevent wasteful API calls, DB queries, and polling that
+// would skyrocket costs with zero user benefit. Confirmed by user.
+// ══════════════════════════════════════════════════════════════════════
+describe('IR: Infrastructure Reliability — Cost Optimization', () => {
+
+  // ── IR-R15: Cron environment gating ──────────────────────────────
+  // All 3 crons (expire-orders, vendor-activity-scan, vendor-quality-checks)
+  // skip execution when VERCEL_ENV is set but !== 'production'.
+  // This prevents staging/preview deployments from doubling DB queries.
+  it.todo('IR-R15: crons return {skipped:true} on non-production VERCEL_ENV (requires API test)')
+
+  // ── IR-R16: Off-peak hours definition ────────────────────────────
+  // FM/FT are daytime businesses. 10pm-6am local time = off-peak.
+  // Polling intervals increase during off-peak to save queries.
+  it('IR-R16: isOffPeak() returns true for 10pm-6am local time', () => {
+    vi.useFakeTimers()
+    try {
+      // Off-peak boundaries
+      vi.setSystemTime(new Date(2026, 2, 3, 22, 0, 0)) // 10:00pm = off-peak start
+      expect(isOffPeak()).toBe(true)
+      vi.setSystemTime(new Date(2026, 2, 3, 23, 59, 0)) // 11:59pm
+      expect(isOffPeak()).toBe(true)
+      vi.setSystemTime(new Date(2026, 2, 3, 0, 0, 0))   // midnight
+      expect(isOffPeak()).toBe(true)
+      vi.setSystemTime(new Date(2026, 2, 3, 3, 30, 0))   // 3:30am
+      expect(isOffPeak()).toBe(true)
+      vi.setSystemTime(new Date(2026, 2, 3, 5, 59, 0))   // 5:59am = last off-peak minute
+      expect(isOffPeak()).toBe(true)
+
+      // Active hours boundaries
+      vi.setSystemTime(new Date(2026, 2, 3, 6, 0, 0))    // 6:00am = active starts
+      expect(isOffPeak()).toBe(false)
+      vi.setSystemTime(new Date(2026, 2, 3, 12, 0, 0))   // noon
+      expect(isOffPeak()).toBe(false)
+      vi.setSystemTime(new Date(2026, 2, 3, 21, 59, 0))  // 9:59pm = last active minute
+      expect(isOffPeak()).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // ── IR-R17: NotificationBell polling intervals ───────────────────
+  // Push notifications alert users; tab-focus + page navigation refresh instantly.
+  // Polling is a slow safety net for badge count accuracy only.
+  it('IR-R17: notification polling is 15min active / 30min off-peak', () => {
+    expect(POLLING_INTERVALS.notificationCount).toBe(15 * 60 * 1000)
+    expect(POLLING_INTERVALS.notificationCountOffPeak).toBe(30 * 60 * 1000)
+  })
+
+  // ── IR-R18: Per-vertical vendor order polling ────────────────────
+  // FT = same-day food orders → faster polling needed.
+  // FM = orders placed days in advance → minimal polling sufficient.
+  it('IR-R18a: FT vendor orders poll at 2min active / 10min off-peak', () => {
+    expect(POLLING_INTERVALS.vendorOrdersFT).toBe(2 * 60 * 1000)
+    expect(POLLING_INTERVALS.vendorOrdersFTOffPeak).toBe(10 * 60 * 1000)
+  })
+
+  it('IR-R18b: FM vendor orders poll at 60min active / 180min off-peak', () => {
+    expect(POLLING_INTERVALS.vendorOrdersFM).toBe(60 * 60 * 1000)
+    expect(POLLING_INTERVALS.vendorOrdersFMOffPeak).toBe(180 * 60 * 1000)
+  })
+
+  // ── IR-R19: CutoffStatusBanner — no polling ─────────────────────
+  // Cutoff status changes over hours/days, not seconds.
+  // Page-load fetch only; no setInterval.
+  it.todo('IR-R19: CutoffStatusBanner has no setInterval — page-load fetch only (requires component test)')
+
+  // ── IR-R20: Cron early exit on empty DB ──────────────────────────
+  // expire-orders runs 4 parallel count queries before processing.
+  // If no active order_items, pending orders, failed payouts, or trial vendors → skip all phases.
+  it.todo('IR-R20: expire-orders returns {skipped:true} when no active work exists (requires API test)')
+
+  // ── IR-R21: Quality checks early exit ────────────────────────────
+  // vendor-quality-checks counts vendor_profiles first.
+  // If 0 vendors → skip all 5 quality checks entirely.
+  it.todo('IR-R21: vendor-quality-checks returns {skipped:true} when 0 vendors (requires API test)')
+
+  // ── IR-R22: Phase 9 runs weekly, not daily ───────────────────────
+  // Data retention (delete old error_logs, read notifications, activity_events)
+  // only runs on Sundays to reduce daily query load.
+  it.todo('IR-R22: Phase 9 data retention runs only on Sundays (requires cron test)')
+
+  // ── IR-R23: getPollingInterval off-peak awareness ────────────────
+  // All polling uses getPollingInterval() to select the right interval
+  // based on time of day. Returns off-peak value during 10pm-6am.
+  it('IR-R23: getPollingInterval returns off-peak value during off-peak hours', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 2, 3, 23, 0, 0)) // 11pm = off-peak
+      expect(getPollingInterval(1000, 5000)).toBe(5000)
+
+      vi.setSystemTime(new Date(2026, 2, 3, 3, 0, 0))  // 3am = off-peak
+      expect(getPollingInterval(2000, 8000)).toBe(8000)
+
+      vi.setSystemTime(new Date(2026, 2, 3, 12, 0, 0)) // noon = active
+      expect(getPollingInterval(1000, 5000)).toBe(1000)
+
+      vi.setSystemTime(new Date(2026, 2, 3, 8, 0, 0))  // 8am = active
+      expect(getPollingInterval(2000, 8000)).toBe(2000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // ── IR-R24: Phase 4.5 batch notification dedup ───────────────────
+  // Stale-confirmed notifications use 1 batch query + Set<string> for
+  // O(1) dedup lookups, instead of 3 separate DB queries per stale item.
+  it.todo('IR-R24: Phase 4.5 uses batch query + Set for notification dedup (requires cron test)')
+
+  // ── IR-R25: Phase 10a batch trial reminder dedup ─────────────────
+  // Trial reminder notifications use 1 batch query + Set<string>,
+  // instead of 1 DB query per trial vendor.
+  it.todo('IR-R25: Phase 10a uses batch query + Set for trial reminder dedup (requires cron test)')
+
+  // ── IR-R26: Quality checks scoped vendor query ───────────────────
+  // quality-checks.ts only loads vendor_profiles for IDs found in
+  // active schedules, not SELECT * from all vendor_profiles.
+  it.todo('IR-R26: quality checks only loads vendor_profiles for IDs in active schedules (requires integration test)')
 })
