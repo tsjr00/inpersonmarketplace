@@ -1,3 +1,13 @@
+/**
+ * Vendor fee calculation tests.
+ *
+ * Business Rules Covered:
+ * MP-R1: Buyer fee = 6.5% + $0.15 flat fee
+ * MP-R2: Vendor fee = 6.5% of base subtotal
+ * MP-R10: External vendor fee = 3.5% (no Stripe processing)
+ * MP-R11: External buyer fee = 6.5%, NO flat fee
+ * MP-R16: Auto-deduct capped at 50% of payout
+ */
 import { describe, it, expect } from 'vitest'
 import {
   calculateAutoDeductAmount,

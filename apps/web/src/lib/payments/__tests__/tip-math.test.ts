@@ -1,3 +1,16 @@
+/**
+ * Tip math calculation tests.
+ *
+ * Business Rules Covered:
+ * MP-R3: Tip % applied to displayed subtotal, NOT base subtotal
+ * MP-R4: Vendor receives tip on food cost only; platform fee portion in tip_on_platform_fee_cents
+ * MP-R20: Tip % applied to displayed subtotal (sum of per-item display prices)
+ * MP-R21: Tip capped at $50 (5000 cents)
+ * MP-R23: Vendor tip = min(totalTip, round(baseSubtotal × tipPercentage / 100))
+ * MP-R24: tip_on_platform_fee_cents = totalTip - vendorTip
+ * MP-R25: Vendor tip prorated evenly across items
+ * MP-R28: All payout paths calculate tip share identically
+ */
 import { describe, it, expect } from 'vitest'
 import { calculateTipShare, calculateVendorTip, calculatePlatformFeeTip } from '@/lib/payments/tip-math'
 

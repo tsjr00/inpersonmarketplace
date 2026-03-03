@@ -1,3 +1,15 @@
+/**
+ * Vendor tier limit tests.
+ *
+ * Business Rules Covered:
+ * VJ-R3: Tier limits enforced (vendor cannot publish more listings than tier allows)
+ * VJ-R4: Tier limit values match per-vertical per-tier (confirmed Session 49)
+ *         FM: free=5, standard=10, premium=20, featured=30
+ *         FT: free=5, basic=10, pro=20, boss=45
+ * VJ-R6: All vendors auto-assigned tier='free' on creation (fallback tested)
+ * VJ-R8: Market limit per tier enforced
+ * VI-R12: Vendor tier names differ per vertical
+ */
 import { describe, it, expect } from 'vitest'
 import {
   getTierLimits,
@@ -9,25 +21,21 @@ import {
   FT_TIER_LIMITS,
 } from '@/lib/vendor-limits'
 
-/**
- * Integration tests for vendor tier limits across verticals.
- * Ensures FM and FT tiers are properly isolated and correctly configured.
- */
-
-describe('Vendor Tier Limits — Cross-Vertical Isolation', () => {
+// ── VJ-R4/VI-R12: Cross-Vertical Isolation ──────────────────────────
+describe('VJ-R4/VI-R12: Vendor Tier Limits — Cross-Vertical Isolation', () => {
   describe('FM tiers should never return FT limits', () => {
     it('standard FM tier returns FM limits, not FT free', () => {
       const limits = getTierLimits('standard', 'farmers_market')
-      expect(limits.productListings).toBe(5)
-      expect(limits.traditionalMarkets).toBe(1)
-      // FM standard gets 2 total market boxes, FT free gets 0
-      expect(limits.totalMarketBoxes).toBe(2)
+      expect(limits.productListings).toBe(10) // Updated Session 49
+      expect(limits.traditionalMarkets).toBe(2) // Updated Session 49
+      // FM standard gets 3 total market boxes, FT free gets 0
+      expect(limits.totalMarketBoxes).toBe(3) // Updated Session 49
     })
 
     it('premium FM tier returns FM limits', () => {
       const limits = getTierLimits('premium', 'farmers_market')
-      expect(limits.productListings).toBe(15)
-      expect(limits.traditionalMarkets).toBe(4)
+      expect(limits.productListings).toBe(20) // Updated Session 49
+      expect(limits.traditionalMarkets).toBe(3) // Updated Session 49
     })
 
     it('FM tier names do not resolve as FT tiers', () => {
@@ -62,9 +70,9 @@ describe('Vendor Tier Limits — Cross-Vertical Isolation', () => {
   })
 
   describe('Unknown tiers fall back safely', () => {
-    it('unknown FM tier falls back to standard', () => {
+    it('unknown FM tier falls back to free', () => {
       const limits = getTierLimits('invalid_tier', 'farmers_market')
-      expect(limits.productListings).toBe(TIER_LIMITS.standard.productListings)
+      expect(limits.productListings).toBe(TIER_LIMITS.free.productListings) // VJ-R6: defaults to free
     })
 
     it('unknown FT tier falls back to free', () => {
@@ -85,7 +93,8 @@ describe('Vendor Tier Limits — Cross-Vertical Isolation', () => {
   })
 })
 
-describe('Vendor Tier Limits — Monotonic Progression', () => {
+// ── VJ-R3: Monotonic Progression ────────────────────────────────────
+describe('VJ-R3: Vendor Tier Limits — Monotonic Progression', () => {
   describe('FM tiers increase monotonically', () => {
     const tiers = ['standard', 'premium'] as const
 
@@ -151,15 +160,15 @@ describe('Tier Sort Priority', () => {
     expect(getTierSortPriority('free', 'food_trucks')).toBe(3)
   })
 
-  it('FM premium/featured have highest priority', () => {
-    expect(getTierSortPriority('premium', 'farmers_market')).toBe(0)
+  it('FM featured has highest priority, premium second', () => {
     expect(getTierSortPriority('featured', 'farmers_market')).toBe(0)
-    expect(getTierSortPriority('standard', 'farmers_market')).toBe(1)
+    expect(getTierSortPriority('premium', 'farmers_market')).toBe(1)
+    expect(getTierSortPriority('standard', 'farmers_market')).toBe(2)
   })
 
-  it('undefined tier gets lowest priority', () => {
+  it('undefined tier gets lowest priority (free fallback)', () => {
     expect(getTierSortPriority(undefined, 'food_trucks')).toBe(4)
-    expect(getTierSortPriority(undefined, 'farmers_market')).toBe(1)
+    expect(getTierSortPriority(undefined, 'farmers_market')).toBe(3) // falls to free
   })
 })
 
@@ -194,7 +203,8 @@ describe('FT Tier Extras', () => {
   })
 })
 
-describe('Subscriber Defaults', () => {
+// ── VJ-R4: Subscriber defaults ──────────────────────────────────────
+describe('VJ-R4: Subscriber Defaults', () => {
   it('FM standard gets lower default than premium', () => {
     const standard = getSubscriberDefault('standard', 'farmers_market')
     const premium = getSubscriberDefault('premium', 'farmers_market')
@@ -209,5 +219,140 @@ describe('Subscriber Defaults', () => {
     const boss = getSubscriberDefault('boss', 'food_trucks')
     const pro = getSubscriberDefault('pro', 'food_trucks')
     expect(boss).toBeGreaterThan(pro)
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// VJ-R4: EXACT TIER LIMIT VALUES (confirmed Session 49)
+// These tests lock down the exact values from the business rules audit.
+// If any limit changes, these tests will catch it.
+// ══════════════════════════════════════════════════════════════════════
+
+describe('VJ-R4: FM tier listing limits (confirmed values)', () => {
+  it('free = 5 listings', () => {
+    expect(TIER_LIMITS.free.productListings).toBe(5)
+  })
+  it('standard = 10 listings', () => {
+    expect(TIER_LIMITS.standard.productListings).toBe(10)
+  })
+  it('premium = 20 listings', () => {
+    expect(TIER_LIMITS.premium.productListings).toBe(20)
+  })
+  it('featured = 30 listings', () => {
+    expect(TIER_LIMITS.featured.productListings).toBe(30)
+  })
+})
+
+describe('VJ-R4: FT tier listing limits (confirmed values)', () => {
+  it('free = 5 listings', () => {
+    expect(FT_TIER_LIMITS.free.productListings).toBe(5)
+  })
+  it('basic = 10 listings', () => {
+    expect(FT_TIER_LIMITS.basic.productListings).toBe(10)
+  })
+  it('pro = 20 listings', () => {
+    expect(FT_TIER_LIMITS.pro.productListings).toBe(20)
+  })
+  it('boss = 45 listings', () => {
+    expect(FT_TIER_LIMITS.boss.productListings).toBe(45)
+  })
+})
+
+describe('VJ-R8: FM traditional market limits (confirmed values)', () => {
+  it('free = 1 market', () => {
+    expect(TIER_LIMITS.free.traditionalMarkets).toBe(1)
+  })
+  it('standard = 2 markets', () => {
+    expect(TIER_LIMITS.standard.traditionalMarkets).toBe(2)
+  })
+  it('premium = 3 markets', () => {
+    expect(TIER_LIMITS.premium.traditionalMarkets).toBe(3)
+  })
+  it('featured = 5 markets', () => {
+    expect(TIER_LIMITS.featured.traditionalMarkets).toBe(5)
+  })
+})
+
+describe('VJ-R8: FT traditional market limits (confirmed values)', () => {
+  it('free = 1 market', () => {
+    expect(FT_TIER_LIMITS.free.traditionalMarkets).toBe(1)
+  })
+  it('basic = 3 markets', () => {
+    expect(FT_TIER_LIMITS.basic.traditionalMarkets).toBe(3)
+  })
+  it('pro = 5 markets', () => {
+    expect(FT_TIER_LIMITS.pro.traditionalMarkets).toBe(5)
+  })
+  it('boss = 8 markets', () => {
+    expect(FT_TIER_LIMITS.boss.traditionalMarkets).toBe(8)
+  })
+})
+
+describe('VJ-R4: Market box limits (confirmed values)', () => {
+  it('FT free = 0 chef boxes (no access)', () => {
+    expect(FT_TIER_LIMITS.free.totalMarketBoxes).toBe(0)
+    expect(FT_TIER_LIMITS.free.activeMarketBoxes).toBe(0)
+  })
+  it('FT basic = 2 total, 2 active chef boxes', () => {
+    expect(FT_TIER_LIMITS.basic.totalMarketBoxes).toBe(2)
+    expect(FT_TIER_LIMITS.basic.activeMarketBoxes).toBe(2)
+  })
+  it('FT pro = 4 total, 4 active chef boxes', () => {
+    expect(FT_TIER_LIMITS.pro.totalMarketBoxes).toBe(4)
+    expect(FT_TIER_LIMITS.pro.activeMarketBoxes).toBe(4)
+  })
+  it('FT boss = 8 total, 8 active chef boxes', () => {
+    expect(FT_TIER_LIMITS.boss.totalMarketBoxes).toBe(8)
+    expect(FT_TIER_LIMITS.boss.activeMarketBoxes).toBe(8)
+  })
+  it('FM free = 2 total, 1 active market boxes', () => {
+    expect(TIER_LIMITS.free.totalMarketBoxes).toBe(2)
+    expect(TIER_LIMITS.free.activeMarketBoxes).toBe(1)
+  })
+  it('FM standard = 3 total, 2 active market boxes', () => {
+    expect(TIER_LIMITS.standard.totalMarketBoxes).toBe(3)
+    expect(TIER_LIMITS.standard.activeMarketBoxes).toBe(2)
+  })
+})
+
+describe('VJ-R4: Subscriber caps (confirmed values)', () => {
+  it('FT free = 0 subscribers/offering', () => {
+    expect(FT_TIER_LIMITS.free.maxSubscribersPerOffering).toBe(0)
+  })
+  it('FT basic = 10 subscribers/offering', () => {
+    expect(FT_TIER_LIMITS.basic.maxSubscribersPerOffering).toBe(10)
+  })
+  it('FT pro = 20 subscribers/offering', () => {
+    expect(FT_TIER_LIMITS.pro.maxSubscribersPerOffering).toBe(20)
+  })
+  it('FT boss = 50 subscribers/offering', () => {
+    expect(FT_TIER_LIMITS.boss.maxSubscribersPerOffering).toBe(50)
+  })
+  it('FM free = 5 subscribers/offering', () => {
+    expect(TIER_LIMITS.free.maxSubscribersPerOffering).toBe(5)
+  })
+  it('FM standard = 10 subscribers/offering', () => {
+    expect(TIER_LIMITS.standard.maxSubscribersPerOffering).toBe(10)
+  })
+  it('FM premium = 20 subscribers/offering', () => {
+    expect(TIER_LIMITS.premium.maxSubscribersPerOffering).toBe(20)
+  })
+  it('FM featured = 30 subscribers/offering', () => {
+    expect(TIER_LIMITS.featured.maxSubscribersPerOffering).toBe(30)
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// VJ-R6: Default tier fallback
+// ══════════════════════════════════════════════════════════════════════
+
+describe('VJ-R6: Unknown/new vendors fall back to free tier', () => {
+  it('FM unknown tier gets free limits (5 listings)', () => {
+    const limits = getTierLimits('nonexistent', 'farmers_market')
+    expect(limits.productListings).toBe(TIER_LIMITS.free.productListings)
+  })
+  it('FT unknown tier gets free limits (5 listings)', () => {
+    const limits = getTierLimits('nonexistent', 'food_trucks')
+    expect(limits.productListings).toBe(FT_TIER_LIMITS.free.productListings)
   })
 })

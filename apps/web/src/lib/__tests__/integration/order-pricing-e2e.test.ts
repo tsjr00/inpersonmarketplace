@@ -16,6 +16,15 @@ import {
  * End-to-end order pricing tests.
  * Validates complete pricing scenarios that a real order would encounter,
  * including multi-item orders, tip calculations, and per-vertical minimums.
+ *
+ * Business Rules Covered:
+ * MP-R1: Buyer fee = 6.5% + $0.15 flat (Stripe)
+ * MP-R2: Vendor fee = 6.5%, prorated per item
+ * MP-R5: Small order fee when displayed subtotal < threshold
+ * MP-R9: Per-item rounding (display subtotal = sum of per-item prices)
+ * MP-R11: External buyer fee = 6.5%, NO flat fee
+ * MP-R12: Flat fee prorated across items
+ * MP-R13: No minimum rejection, small order fee instead
  */
 
 describe('Order Pricing — Real-World Scenarios', () => {

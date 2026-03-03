@@ -1,3 +1,15 @@
+/**
+ * Pricing module unit tests.
+ *
+ * Business Rules Covered:
+ * MP-R1: Buyer fee = 6.5% + $0.15 flat fee (Stripe only)
+ * MP-R2: Vendor fee = 6.5% of base subtotal, prorated per item
+ * MP-R5: Small order fee when displayed subtotal < threshold (per-vertical)
+ * MP-R9: Per-item rounding (display subtotal = sum of per-item prices)
+ * MP-R11: External buyer fee = 6.5%, NO flat fee
+ * MP-R12: Flat fee prorated across items
+ * MP-R13: No minimum rejection, small order fee instead
+ */
 import { describe, it, expect } from 'vitest'
 import {
   calculateOrderPricing,
@@ -12,6 +24,25 @@ import {
   DEFAULT_SMALL_ORDER_FEE,
   SMALL_ORDER_FEE_DEFAULTS,
 } from '@/lib/pricing'
+
+// ── MP-R1: Buyer fee constants ──────────────────────────────────────
+describe('MP-R1: Fee configuration', () => {
+  it('buyer percentage fee is 6.5%', () => {
+    expect(FEES.buyerFeePercent).toBe(6.5)
+  })
+
+  it('buyer flat fee is $0.15 (15 cents)', () => {
+    expect(FEES.buyerFlatFeeCents).toBe(15)
+  })
+
+  it('vendor percentage fee is 6.5%', () => {
+    expect(FEES.vendorFeePercent).toBe(6.5)
+  })
+
+  it('vendor flat fee is $0.15 (15 cents)', () => {
+    expect(FEES.vendorFlatFeeCents).toBe(15)
+  })
+})
 
 describe('calculateOrderPricing', () => {
   it('calculates correctly for a single $10 item', () => {
@@ -68,6 +99,7 @@ describe('calculateOrderPricing', () => {
   })
 })
 
+// ── MP-R1: calculateBuyerPrice ──────────────────────────────────────
 describe('calculateBuyerPrice', () => {
   it('matches calculateOrderPricing buyer total', () => {
     const subtotal = 2500
@@ -77,6 +109,7 @@ describe('calculateBuyerPrice', () => {
   })
 })
 
+// ── MP-R2: calculateVendorPayout ────────────────────────────────────
 describe('calculateVendorPayout', () => {
   it('calculates vendor payout correctly', () => {
     // $10 subtotal: 1000 - round(1000*0.065) - 15 = 1000 - 65 - 15 = 920
@@ -84,14 +117,16 @@ describe('calculateVendorPayout', () => {
   })
 })
 
-describe('calculateItemDisplayPrice', () => {
+// ── MP-R9: Per-item display price (percentage only, no flat fee) ────
+describe('MP-R9: calculateItemDisplayPrice', () => {
   it('adds percentage fee without flat fee', () => {
     // $10 item: 1000 + round(1000*0.065) = 1065
     expect(calculateItemDisplayPrice(1000)).toBe(1065)
   })
 })
 
-describe('amountToAvoidSmallOrderFee', () => {
+// ── MP-R13: Amount needed to avoid fee ──────────────────────────────
+describe('MP-R13: amountToAvoidSmallOrderFee', () => {
   it('food_trucks: returns displayed cents needed to reach $5.00 threshold', () => {
     // base 300 → display 320 → need 500-320 = 180 more displayed cents
     expect(amountToAvoidSmallOrderFee(300, 'food_trucks')).toBe(180)
@@ -153,7 +188,8 @@ describe('formatPrice', () => {
   })
 })
 
-describe('calculateSmallOrderFee', () => {
+// ── MP-R5/MP-R13: Small order fee ───────────────────────────────────
+describe('MP-R5/MP-R13: calculateSmallOrderFee', () => {
   // Threshold compared against displayed subtotal (base + 6.5% buyer fee)
   // Per-vertical: FT=$5/$0.50, FM=$10/$1.00, FW=$40/$4.00
 
@@ -220,7 +256,8 @@ describe('calculateSmallOrderFee', () => {
   })
 })
 
-describe('getSmallOrderFeeConfig', () => {
+// ── MP-R13: Per-vertical thresholds ─────────────────────────────────
+describe('MP-R13: getSmallOrderFeeConfig', () => {
   it('returns config for known verticals', () => {
     for (const [vertical, expected] of Object.entries(SMALL_ORDER_FEE_DEFAULTS)) {
       const config = getSmallOrderFeeConfig(vertical)

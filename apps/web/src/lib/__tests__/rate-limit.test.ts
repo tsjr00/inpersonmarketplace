@@ -1,3 +1,6 @@
+/**
+ * Rate limiting tests.
+ */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { checkRateLimit, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 

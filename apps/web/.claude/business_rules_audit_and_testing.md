@@ -4,6 +4,20 @@
 
 ---
 
+> **⚠️ STOP — READ THIS BEFORE DOING ANYTHING WITH THIS FILE**
+>
+> This file documents business rules for a real marketplace that handles real vendors' money and real buyers' food orders. Getting a rule wrong isn't an abstract test failure — it's a vendor getting shorted on a payout, a buyer charged the wrong fee, or a notification that never arrives for a time-sensitive pickup.
+>
+> **Rules in this file have two statuses:**
+> - **✅ = User confirmed.** The business owner reviewed this rule and said "yes, this is how it should work." You may write tests and code for these.
+> - **🔵❓ = Not confirmed.** Claude observed this behavior in code, but the user has NOT reviewed or approved it as a business decision. **Do NOT write tests, code, or treat these as requirements.** They are observations awaiting review.
+>
+> **The workflow is: user confirms → then tests → then code. Never skip the first step.**
+>
+> If you find yourself processing a long list of rules and optimizing for speed or volume, STOP. Accuracy matters more than output. One correct test for a confirmed rule is worth more than fifty tests for rules nobody approved.
+
+---
+
 ## THE PROBLEM WE'RE SOLVING
 
 ### Observed Pattern (Sessions 43-46)
@@ -60,6 +74,8 @@ Instead of "audit everything," the codebase is divided into 8 focused domains. E
 | 8 | **Infrastructure Reliability** | Operational health | Crons, error system, CI pipeline, service worker |
 
 ---
+
+> **Context reminder:** Domain 1 covers every calculation that touches money — buyer fees, vendor payouts, tips, refunds, small order fees. A bug here means someone gets charged wrong or a vendor's payout is incorrect. Every rule marked ✅ was verified against the actual code AND confirmed by the user. Rules marked 🔵❓ are code observations only — do not treat as confirmed.
 
 ## DOMAIN 1: MONEY PATH
 
@@ -196,6 +212,8 @@ Buyer selects tip % at checkout → tip applied to displayed subtotal (not base)
 
 ---
 
+> **Context reminder:** Domain 2 covers the full life of an order from creation to fulfillment or cancellation. Status transitions, refund logic, cron automation, and the 30-second mutual pickup confirmation window. Wrong behavior here means orders stuck in limbo, missed pickups, or incorrect refunds. Check ✅ vs 🔵❓ before acting on any rule.
+
 ## DOMAIN 2: ORDER LIFECYCLE
 
 **Four separate status systems exist — same words mean different things in each:**
@@ -328,6 +346,8 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 
 ---
 
+> **Context reminder:** Domain 3 ensures the two verticals (Farmers Marketing and Food Truck'n) stay completely separate — different branding, colors, terminology, tier structures, and data. A leak here means a food truck vendor sees farmers market data, or FM branding appears on FT pages. Check ✅ vs 🔵❓ before acting on any rule.
+
 ## DOMAIN 3: VERTICAL ISOLATION
 
 ### Named Workflows
@@ -438,6 +458,8 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 | 🔵❓ VI-Q5 | VI-R8 confirmed: `term()` handles Market/Location, Market Box/Chef Box, Product/Dish, Vendor/Food Truck. Are there terms that SHOULD differ by vertical but currently don't? | DEFERRED — User confirms terms listed SHOULD differ by vertical but doesn't know if they currently do. Needs code review. |
 
 ---
+
+> **Context reminder:** Domain 4 covers the vendor's path from signup to selling — onboarding gates, tier limits, listing rules, Stripe Connect. These rules directly control who can sell and how much. All 13 rules confirmed by user in Session 49. Tests for exact tier values are valid.
 
 ## ✅ DOMAIN 4: VENDOR JOURNEY (User reviewed Session 49 — all 13 rules confirmed)
 
@@ -634,6 +656,8 @@ Market has `status='active'` while `approval_status='pending'`. Security depends
 
 ---
 
+> **Context reminder:** Domain 5 covers Market Box (FM) and Chef Box (FT) subscriptions — prepaid multi-week offerings. Payout happens once at checkout (not per-pickup). Confirmed Session 49 with user clarifications on FT restrictions (no skip-a-week, 4-week only). All 16 rules confirmed.
+
 ## ✅ DOMAIN 5: SUBSCRIPTION LIFECYCLE (Market Boxes / Chef Boxes) (User reviewed Session 49 — all correct with clarifications)
 
 ### Named Workflows
@@ -759,6 +783,9 @@ Scheduled/ready pickup past date → vendor marks missed OR cron Phase 4 auto-ha
 | 🔵❓ SL-Q3 | Should past-due scheduled pickups be auto-missed by cron? After how many days? | NEEDS USER DECISION |
 
 ---
+
+> **⚠️ STOP — THIS DOMAIN HAS NOT BEEN REVIEWED BY THE USER.**
+> Everything below in Domain 6 is Claude's observation from reading code, NOT a confirmed business decision. Do NOT write tests, make code changes, or treat any rule here as approved. The user must review each rule and mark it ✅ before any action is taken. Skipping this step is how Session 50 wasted hours writing tests for unconfirmed rules.
 
 ## 🔵❓ DOMAIN 6: AUTH & ACCESS CONTROL (Entire domain not yet reviewed by user)
 
@@ -886,6 +913,9 @@ Per-instance state. Attacker hitting different Vercel instances bypasses limits.
 
 ---
 
+> **⚠️ STOP — THIS DOMAIN IS PARTIALLY REVIEWED.**
+> NI-R19 through NI-R37 were confirmed by the user in Session 50 (per-vertical urgency decisions). NI-R1 through NI-R18 are Claude's code observations and have NOT been reviewed. Do NOT write tests or code for NI-R1 through NI-R18 until the user confirms them. Check each rule's ✅ vs 🔵❓ status individually.
+
 ## 🔵❓ DOMAIN 7: NOTIFICATION INTEGRITY (Entire domain not yet reviewed by user)
 
 ### Named Workflows
@@ -910,6 +940,16 @@ Before sending → query notifications table for existing match (type + data key
 
 **NI-W7: Sound & Vibration**
 New notification arrives → NotificationBell detects increased unread count → if tab is visible + user has interacted: play Web Audio tone (frequency by urgency) if sound_enabled, always vibrate via navigator.vibrate(). Push notifications: service worker receives urgency + soundEnabled in payload → sets silent flag + vibrate pattern.
+
+**NI-W8: Per-Vertical Urgency Verification**
+Verify that `getNotificationUrgency(type, vertical)` returns correct per-vertical urgency:
+- `getNotificationUrgency('order_ready', 'food_trucks')` → `immediate` (FT: food is hot, buyer waiting)
+- `getNotificationUrgency('order_ready', 'farmers_market')` → `standard` (FM: order placed days in advance)
+- `getNotificationUrgency('order_confirmed', 'food_trucks')` → `standard` (unchanged, falls through to registry default)
+- `getNotificationUrgency('order_refunded', undefined)` → `urgent` (updated registry default, no vertical needed)
+- `getNotificationUrgency('order_cancelled_by_vendor', 'farmers_market')` → `urgent` (FM buyers get SMS fallback)
+- `getNotificationUrgency('pickup_missed', 'food_trucks')` → `immediate` (FT: food truck may have left)
+- `getNotificationUrgency('pickup_missed', 'farmers_market')` → `urgent` (FM: still important but less time-critical)
 
 ### Business Rules (Prioritized)
 
@@ -945,6 +985,25 @@ New notification arrives → NotificationBell detects increased unread count →
 | NI-R16 | In-app notifications play a Web Audio API tone when new unreads are detected AND the tab is the active visible tab AND user has interacted with the page. Different tone frequency per urgency: immediate=880Hz, urgent=660Hz, standard=523Hz, info=440Hz | NI-W7 | New notification arrives while tab is active → tone plays. Tab is background → no tone. User hasn't clicked anything yet → no tone (browser autoplay policy) |
 | NI-R17 | In-app notifications always trigger `navigator.vibrate()` on new unreads (active tab), regardless of `sound_enabled` setting. Vibrate is not toggleable by user | NI-W7 | New notification on active tab with sound_enabled=false → vibrate fires, no tone. sound_enabled=true → vibrate + tone |
 | NI-R18 | `sound_enabled` preference stored in `user_profiles.notification_preferences` JSONB. Default: `true`. Controlled via Settings → Sound & Vibration toggle | NI-W4 | New user → sound_enabled defaults to true. User toggles off → push goes silent, in-app tone stops, vibrate continues |
+| NI-R19 | `order_ready` urgency: FT=immediate (food is hot, buyer waiting NOW), FM=standard (pickup could be days away) | NI-W8 | FT order_ready → push+in_app. FM order_ready → email+in_app |
+| NI-R20 | `order_cancelled_by_vendor` urgency: FT=immediate (push), FM=urgent (SMS). FM buyers en route get SMS fallback for vendor cancellations | NI-W8 | FT cancellation → push+in_app. FM cancellation → sms+in_app |
+| NI-R21 | `order_cancelled_by_buyer` urgency: FT=immediate (push), FM=urgent (SMS). FM vendors get SMS for buyer cancellations | NI-W8 | FT buyer cancel → push+in_app. FM buyer cancel → sms+in_app |
+| NI-R22 | `new_paid_order` urgency: FT=immediate (food truck needs to start cooking NOW), FM=standard (order placed days in advance) | NI-W8 | FT new order → push+in_app. FM new order → email+in_app |
+| NI-R23 | `new_external_order` urgency: FT=immediate (food truck needs to prep NOW), FM=standard (advance order) | NI-W8 | FT external order → push+in_app. FM external order → email+in_app |
+| NI-R24 | `stale_confirmed_vendor` urgency: FT=immediate (time-critical, food perishable), FM=standard (more lead time to resolve) | NI-W8 | FT stale confirmed → push+in_app. FM stale confirmed → email+in_app |
+| NI-R25 | `external_payment_reminder` urgency: FT=immediate (15-min reminder window), FM=standard (12-hr reminder window) | NI-W8 | FT ext payment reminder → push+in_app. FM ext payment reminder → email+in_app |
+| NI-R26 | `pickup_missed` urgency: FT=immediate (food truck may leave, perishable), FM=urgent (still important, SMS fallback) | NI-W8 | FT pickup missed → push+in_app. FM pickup missed → sms+in_app |
+| NI-R27 | `market_box_pickup_missed` urgency: FT=immediate (perishable), FM=standard (less time-critical) | NI-W8 | FT market box missed → push+in_app. FM market box missed → email+in_app |
+| NI-R28 | `stale_confirmed_vendor_final` urgency: standard for BOTH verticals (changed from immediate). Second notice, vendor already got first alert | NI-W8 | FT+FM stale final → email+in_app |
+| NI-R29 | `trial_reminder_3d` urgency: standard for BOTH verticals (changed from immediate). 3-day advance notice, not time-critical | NI-W8 | FT+FM trial 3d reminder → email+in_app |
+| NI-R30 | `trial_expired` urgency: standard for BOTH verticals (changed from immediate). Account already downgraded, informational | NI-W8 | FT+FM trial expired → email+in_app |
+| NI-R31 | `order_refunded` urgency: urgent for BOTH verticals (changed from standard). Buyer needs to know money is coming back, vendor needs SMS record | NI-W8 | FT+FM refund → sms+in_app |
+| NI-R32 | `trial_grace_expired` urgency: immediate for BOTH verticals (confirmed correct, no change). Listings going to draft, service disruption | NI-W8 | FT+FM grace expired → push+in_app |
+| NI-R33 | `pickup_issue_reported` urgency: urgent for BOTH verticals (confirmed correct, no change). Vendor needs SMS alert for buyer-reported problems | NI-W8 | FT+FM issue reported → sms+in_app |
+| NI-R34 | `payout_failed` urgency: urgent for BOTH verticals (confirmed correct, no change). Platform→vendor Stripe transfer failure (NOT buyer payment). Failed transfer reverts item to `ready`, Phase 5 retries hourly for 7 days | NI-W8 | FT+FM payout failed → sms+in_app |
+| NI-R35 | `market_box_skip` urgency: standard for BOTH verticals (confirmed correct, no change) | NI-W8 | FT+FM market box skip → email+in_app |
+| NI-R36 | `pickup_confirmation_needed` should only fire when one party misses the 30-second mutual confirmation window — NOT at the start of the window. Current code fires immediately when buyer confirms (before vendor has a chance to respond). Urgency: immediate for both verticals. Requires sequence/protocol redesign for the missed-window scenario | NI-W8 | Buyer confirms + vendor confirms within 30s → NO notification. Buyer confirms + vendor misses 30s → immediate notification fires. Vendor fulfills first + buyer misses 30s → immediate notification fires |
+| NI-R37 | External payment reminder timing is per-vertical: FT = 15 minutes, FM = 12 hours, default = 12 hours. Hardcoded in cron Phase 3.5 (`REMINDER_DELAY_MS` in expire-orders route) | NI-W1 | FT external order at 16 min old → reminder sent. FM external order at 16 min old → no reminder (12hr threshold) |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
@@ -991,8 +1050,8 @@ Cron Phase 8 sends `payout_failed` with `orderNumber: 'subscription'`, `amountCe
 **GAP 3 — Stripe webhook notifications not deduplicated:**
 `payout_processed`, `payout_failed`, `order_refunded` from webhooks have no "already sent" check. Webhook redeliveries cause duplicate notifications.
 
-**GAP 4 — `order_cancelled_by_vendor` urgency mismatch:**
-`MESSAGE_TEMPLATES.md` says "Urgent (SMS + In-app)" but actual urgency is `immediate` (push + in_app). Buyer en route with push disabled but SMS enabled would NOT get cancellation notice.
+**GAP 4 — `order_cancelled_by_vendor` urgency mismatch: ✅ RESOLVED**
+`MESSAGE_TEMPLATES.md` says "Urgent (SMS + In-app)" but actual urgency is `immediate` (push + in_app). Resolved by per-vertical approach: FT stays immediate (push — vendor is right there), FM changes to urgent (SMS — buyer may be en route, needs SMS fallback).
 
 **GAP 5 — `sendNotificationBatch()` is dead code:**
 Exported but never called.
@@ -1001,13 +1060,16 @@ Exported but never called.
 
 | ID | Question | Status |
 |----|----------|--------|
-| 🔵❓ NI-Q1 | Should `order_cancelled_by_vendor` urgency be changed from `immediate` (push) to `urgent` (SMS)? A buyer en route needs SMS as fallback | NEEDS USER DECISION |
+| ✅ NI-Q1 | Should `order_cancelled_by_vendor` urgency be changed from `immediate` (push) to `urgent` (SMS)? A buyer en route needs SMS as fallback | **RESOLVED** — Per-vertical approach: FT=immediate (push), FM=urgent (SMS). FM buyers get SMS fallback for cancellations. |
 | 🔵❓ NI-Q2 | Should we add email unsubscribe links for CAN-SPAM compliance? | NEEDS USER DECISION — may need per-type control |
 | 🔵❓ NI-Q3 | Should a dedicated `subscription_expired` notification type replace the `payout_failed` misuse? | NEEDS USER DECISION |
 | 🔵❓ NI-Q4 | **Critical bypass**: Should immediate/urgent notifications (order cancelled, pickup issues, payout failed) skip tier channel gating so ALL vendors get them on all enabled channels regardless of tier? Code is implemented but needs explicit approval. | NEEDS USER DECISION |
-| 🔵❓ NI-Q5 | **FM channel gating**: FM vendors now have the same tier-based channel ladder as FT (free=in_app, standard=+email, premium=+push, featured=+sms). This is new — FM vendors previously had no channel restrictions. Confirm this is desired? | NEEDS USER DECISION |
+| ✅ NI-Q5 | **FM channel gating**: FM vendors now have the same tier-based channel ladder as FT (free=in_app, standard=+email, premium=+push, featured=+sms). This is new — FM vendors previously had no channel restrictions. Confirm this is desired? | **CONFIRMED** — FM vendors have same channel ladder as FT. |
 
 ---
+
+> **⚠️ STOP — THIS DOMAIN HAS NOT BEEN REVIEWED BY THE USER.**
+> Everything below in Domain 8 is Claude's observation from reading code, NOT a confirmed business decision. Do NOT write tests, make code changes, or treat any rule here as approved. The user must review each rule and mark it ✅ before any action is taken.
 
 ## 🔵❓ DOMAIN 8: INFRASTRUCTURE RELIABILITY (Entire domain not yet reviewed by user)
 
@@ -1170,7 +1232,7 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | 🔵❓ SL-Q3 | Should past-due scheduled pickups be auto-missed by cron? After how many days? | Lifecycle | A) Auto-miss after 1 day. B) After 3 days. C) Leave indefinitely |
 | 🔵❓ AC-Q1 | `/api/subscriptions/verify` uses service client without auth. Add auth requirement? | Security | A) Add auth. B) Accept risk (Stripe session_id is the guard) |
 | 🔵❓ AC-Q2 | Should `createVerifiedServiceClient()` replace direct `createServiceClient()` in admin routes? | Security | A) Yes, standardize. B) Leave as-is (manual checks work) |
-| 🔵❓ NI-Q1 | `order_cancelled_by_vendor` urgency: change from push to SMS? Buyer en route needs SMS fallback | Delivery | A) Change to urgent (SMS). B) Keep push (save SMS costs) |
+| ✅ NI-Q1 | `order_cancelled_by_vendor` urgency: change from push to SMS? Buyer en route needs SMS fallback | Delivery | **RESOLVED** — Per-vertical: FT=immediate (push), FM=urgent (SMS) |
 | 🔵❓ NI-Q2 | Add email unsubscribe links for CAN-SPAM compliance? | Compliance | A) Yes, required for commercial email. B) Only for marketing emails |
 | 🔵❓ NI-Q3 | Add `subscription_expired` notification type to replace `payout_failed` misuse? | UX | A) Yes, new type. B) Fix the message text only |
 | 🔵❓ IR-Q1 | Add `/api/health` endpoint? (DB ping + Stripe check) | Monitoring | A) Yes, minimal. B) Not needed yet |

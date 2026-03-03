@@ -1,15 +1,21 @@
+/**
+ * Vertical isolation tests.
+ *
+ * Business Rules Covered:
+ * VI-R1: Only valid vertical slugs routable (farmers_market, food_trucks, fire_works)
+ * VI-R6: Email FROM address per vertical (FM=farmersmarketing.app, FT=foodtruckn.app)
+ * VI-R7: CSS primary color isolation (FM=green, FT=red)
+ * VI-R8: term() returns vertical-specific strings
+ * VI-R9: Buyer premium FM-only (FT disabled)
+ * VI-R12: Vendor tier names differ per vertical
+ */
 import { describe, it, expect } from 'vitest'
 import { term, hasTerminologyConfig, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { getVerticalColors, getVerticalCSSVars, getVerticalShadows } from '@/lib/design-tokens'
 import { defaultBranding } from '@/lib/branding/defaults'
 
-/**
- * Vertical isolation tests.
- * Ensures FM and FT verticals produce distinct branding, terminology,
- * and configuration — and that unknown verticals fall back safely.
- */
-
-describe('Vertical Terminology Isolation', () => {
+// ── VI-R8: Vertical Terminology ─────────────────────────────────────
+describe('VI-R8: Vertical Terminology Isolation', () => {
   it('FM and FT have different vendor terms', () => {
     const fmVendor = term('farmers_market', 'vendor')
     const ftVendor = term('food_trucks', 'vendor')
@@ -44,7 +50,8 @@ describe('Vertical Terminology Isolation', () => {
   })
 })
 
-describe('Vertical Color Isolation', () => {
+// ── VI-R7: Color Isolation ───────────────────────────────────────────
+describe('VI-R7: Vertical Color Isolation', () => {
   it('FM primary color is green', () => {
     const colors = getVerticalColors('farmers_market')
     expect(colors.primary).toBe('#8BC34A')
@@ -74,7 +81,8 @@ describe('Vertical Color Isolation', () => {
   })
 })
 
-describe('Vertical CSS Variable Isolation', () => {
+// ── VI-R7: CSS Variables ─────────────────────────────────────────────
+describe('VI-R7: Vertical CSS Variable Isolation', () => {
   it('FM returns empty CSS vars (uses globals.css defaults)', () => {
     const vars = getVerticalCSSVars('farmers_market')
     expect(Object.keys(vars).length).toBe(0)
@@ -92,7 +100,8 @@ describe('Vertical CSS Variable Isolation', () => {
   })
 })
 
-describe('Vertical Shadow Isolation', () => {
+// ── VI-R7: Shadow Isolation ──────────────────────────────────────────
+describe('VI-R7: Vertical Shadow Isolation', () => {
   it('FM and FT have different primary shadow colors', () => {
     const fm = getVerticalShadows('farmers_market')
     const ft = getVerticalShadows('food_trucks')
@@ -105,7 +114,8 @@ describe('Vertical Shadow Isolation', () => {
   })
 })
 
-describe('Vertical Branding Isolation', () => {
+// ── VI-R6: Branding + Domain Isolation ──────────────────────────────
+describe('VI-R6: Vertical Branding Isolation', () => {
   it('each vertical has a unique domain', () => {
     const domains = Object.values(defaultBranding).map(b => b.domain)
     const unique = new Set(domains)
@@ -136,7 +146,8 @@ describe('Vertical Branding Isolation', () => {
   })
 })
 
-describe('Vertical Feature Flags', () => {
+// ── VI-R9: Feature Gating ────────────────────────────────────────────
+describe('VI-R9: Vertical Feature Flags', () => {
   it('buyer premium is enabled for FM (2-hour early-access window)', () => {
     expect(isBuyerPremiumEnabled('farmers_market')).toBe(true)
   })
@@ -145,3 +156,6 @@ describe('Vertical Feature Flags', () => {
     expect(isBuyerPremiumEnabled('food_trucks')).toBe(false)
   })
 })
+
+// ── VI-R12: Tier Names Differ Per Vertical ──────────────────────────
+// Tested in vendor-tier-limits.test.ts (VJ-R4)

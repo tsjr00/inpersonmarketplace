@@ -1,3 +1,12 @@
+/**
+ * Cancellation fee calculation tests.
+ *
+ * Business Rules Covered:
+ * OL-R5: Cancel route uses allowlist (pending/confirmed/ready)
+ * OL-R7: Per-vertical early cancel window — FM=1hr, FT=15min
+ * OL-R8: Full refund within window OR if vendor hasn't confirmed
+ * OL-R9: 25% cancellation fee after window when vendor confirmed
+ */
 import { describe, it, expect } from 'vitest'
 import {
   calculateCancellationFee,
