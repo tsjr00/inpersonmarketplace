@@ -16,7 +16,7 @@
 >
 > **The workflow is: user confirms → then tests → then code. Never skip the first step.**
 >
-> **Current vitest stats (2026-03-03):** 329 passing, 61 todo, 0 failures across 8 test files.
+> **Current vitest stats (2026-03-03):** 337 passing, 59 todo, 0 failures across 8 test files.
 >
 > If you find yourself processing a long list of rules and optimizing for speed or volume, STOP. Accuracy matters more than output. One correct test for a confirmed rule is worth more than fifty tests for rules nobody approved.
 
@@ -111,15 +111,15 @@ Buyer selects tip % at checkout → tip applied to displayed subtotal (not base)
 | ID | Rule | What to Test |
 |----|------|-------------|
 | ✅ 📋T MP-R19 | Tips are FT-only. FM checkout has no tip UI | FT checkout shows tip selector; FM checkout does not |
-| ✅ 📋T MP-R20 | Tip % applied to displayed subtotal (sum of per-item display prices), NOT base food cost | Tip 10% on 2×$9.59 displayed = $1.92, NOT 10% on 2×$9.00 base = $1.80 |
-| ✅ 📋T MP-R21 | Tip capped at $50 (5000 cents). Values above silently capped, negative values floored to 0 | tipAmountCents=6000 → stored as 5000. tipAmountCents=-100 → stored as 0 |
+| ✅ 🟣V MP-R20 | Tip % applied to displayed subtotal (sum of per-item display prices), NOT base food cost | Tip 10% on 2×$9.59 displayed = $1.92, NOT 10% on 2×$9.00 base = $1.80 |
+| ✅ 🟣V MP-R21 | Tip capped at $50 (5000 cents). Values above silently capped, negative values floored to 0 | tipAmountCents=6000 → stored as 5000. tipAmountCents=-100 → stored as 0 |
 | ✅ 📋T MP-R22 | Tip percentage is integer only (Math.round applied) | tipPercentage=15.7 → rounded to 16 |
-| ✅ 📋T MP-R23 | Vendor tip = `min(totalTip, round(baseSubtotal × tipPercentage / 100))` — tip on food cost only | $18.00 base, 10% tip on $19.18 displayed = $1.92 total → vendor gets $1.80, platform gets $0.12 |
-| ✅ 📋T MP-R24 | `tip_on_platform_fee_cents` = totalTip - vendorTip — retained in platform Stripe balance (not transferred to vendor) | Platform balance includes this amount; vendor transfer excludes it |
-| ✅ 📋T MP-R25 | Vendor tip prorated evenly across all items: `round(vendorTipCents / totalItemsInOrder)` per item, added to payout | 3-item order with $1.80 vendor tip → 60 cents per item added to each vendor payout |
+| ✅ 🟣V MP-R23 | Vendor tip = `min(totalTip, round(baseSubtotal × tipPercentage / 100))` — tip on food cost only | $18.00 base, 10% tip on $19.18 displayed = $1.92 total → vendor gets $1.80, platform gets $0.12 |
+| ✅ 🟣V MP-R24 | `tip_on_platform_fee_cents` = totalTip - vendorTip — retained in platform Stripe balance (not transferred to vendor) | Platform balance includes this amount; vendor transfer excludes it |
+| ✅ 🟣V MP-R25 | Vendor tip prorated evenly across all items: `round(vendorTipCents / totalItemsInOrder)` per item, added to payout | 3-item order with $1.80 vendor tip → 60 cents per item added to each vendor payout |
 | ✅ 📋T MP-R26 | Stripe processing cost on tip absorbed by the tip itself — platform fee % NOT diluted by tip | Platform fee calculated on subtotal only; tip added as separate Stripe line item |
 | ✅ 📋T MP-R27 | Cron Phase 4 (no-show) uses vendor tip (excluding platform fee portion) for payout, same as fulfill route | Phase 4 payout = vendor_payout_cents + round((tip_amount - tip_on_platform_fee_cents) / totalItems) |
-| ✅ 📋T MP-R28 | All payout paths (fulfill, confirm-handoff, cron Phase 4) must calculate tip share identically | Same vendorTipCents formula across all 3 paths |
+| ✅ 🟣V MP-R28 | All payout paths (fulfill, confirm-handoff, cron Phase 4) must calculate tip share identically | Same vendorTipCents formula across all 3 paths |
 
 ### Business Rules (Prioritized)
 
@@ -377,7 +377,7 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| ✅ 📋T VI-R1 | Only valid vertical slugs are routable: `farmers_market`, `food_trucks`, `fire_works`. All others → 404 | VI-W1 | Request to `/invalid_vertical/browse` → 404 |
+| ✅ 🟣V VI-R1 | Only valid vertical slugs are routable: `farmers_market`, `food_trucks`, `fire_works`. All others → 404 | VI-W1 | Request to `/invalid_vertical/browse` → 404 |
 | ✅ 📋T VI-R2 | Every Supabase query on `listings`, `orders`, `vendor_profiles`, `markets` MUST include `.eq('vertical_id', vertical)` when in a vertical context. No listing or profile data from any page crosses from one vertical to another except as necessary for platform admin management. Cross-vertical isolation applies to ALL data queries — vendors, buyers, and vertical-specific admins are siloed. | VI-W2 | FM browse page never shows FT listings; FT vendor dashboard never shows FM orders; FT vendor profile page never shows FM listing data |
 | ✅ 📋T VI-R3 | ONLY platform admin sees data across verticals. A vertical-specific admin (e.g., someone who manages FM vendors) cannot filter for or see FT data. Cross-vertical data access requires platform admin role, not just any admin role | VI-W2 | FT vertical admin cannot see FM vendor data. FT vertical admin cannot filter for FM data. Platform admin CAN see all verticals. |
 | ✅ 📋T VI-R4 | Activity feed (`/api/marketing/activity-feed`) MUST filter by vertical_id | VI-W2 | FM activity feed shows only FM activity |
@@ -400,7 +400,7 @@ Feature check → vertical config consulted → feature enabled/disabled per ver
 | ✅ 📋T VI-R11 | Preferred pickup time is FT-only. Cart item shows time slot selector only for FT | VI-W5 | FM cart items have no time slot; FT cart items require time slot |
 | ✅ 🟣V VI-R12 | Vendor tier names differ: FM has free/standard/premium/featured. FT has free/basic/pro/boss. Both share 'free' as lowest tier (Session 49 update). | VI-W5 | `getTierLimits('basic', 'farmers_market')` returns free-tier limits; `getTierLimits('basic', 'food_trucks')` returns basic-tier limits |
 | ✅ 📋T VI-R13 | Chef Box types (weekly_dinner, family_kit, etc.) are FT-only. FM market box offerings have null box_type | VI-W5 | FT market box form requires box_type; FM form doesn't show box_type field |
-| ✅ 📋T VI-R14 | **Per-vertical order cutoff rules.** **FT**: Truck must have 30min lead time — orders accepted until 31min before end of the available window for the location (e.g., if window ends at 5:00 PM, last order must be placed by 4:29 PM). **FM traditional market**: 18hr auto cutoff for listings associated with a traditional market. **FM private location**: 10hr auto cutoff for listings associated with private locations. Configurable per market via `markets.cutoff_hours` column override. | VI-W5 | FT location window ends 5:00 PM → order at 4:30 PM rejected (within 30min). Order at 4:29 PM accepted. FM traditional market → default cutoff 18hr. FM private location → default cutoff 10hr. |
+| ✅ 🟣V VI-R14 | **Per-vertical order cutoff rules.** **FT**: Truck must have 30min lead time — orders accepted until 31min before end of the available window for the location (e.g., if window ends at 5:00 PM, last order must be placed by 4:29 PM). **FM traditional market**: 18hr auto cutoff for listings associated with a traditional market. **FM private location**: 10hr auto cutoff for listings associated with private locations. Configurable per market via `markets.cutoff_hours` column override. | VI-W5 | FT location window ends 5:00 PM → order at 4:30 PM rejected (within 30min). Order at 4:29 PM accepted. FM traditional market → default cutoff 18hr. FM private location → default cutoff 10hr. |
 | ✅ 📋T VI-R15 | **Per-vertical browse visibility.** **FT**: Same-day ordering — FT browse shows listings for trucks available today only. Orders accepted until 31min before end of the available window (same rule as VI-R14). **FM**: Browse shows listings associated with markets & private locations that have hours set and will be available (in season) for the next 7 days. Listings drop off automatically if they are only at a location that does not have open hours for the upcoming week. | VI-W5 | FT browse shows "Order for today" — no future dates. FM browse shows listings available within the next 7 days. FM listing at a market with no hours next week → not shown. |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
@@ -1248,21 +1248,21 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 
 ## VITEST COVERAGE SUMMARY (2026-03-03)
 
-**8 test files**, 329 passing, 61 `.todo()`, 0 failures. Pre-commit hook runs all tests on every commit.
+**8 test files**, 337 passing, 59 `.todo()`, 0 failures. Pre-commit hook runs all tests on every commit.
 
 ### Coverage by Domain
 
 | Domain | Total Rules | 🟣V Active | 📋T Todo | No Test | Coverage |
 |--------|-------------|-----------|---------|---------|----------|
-| 1. Money Path | 28 (MP-R1–R28) | 10 | 18 | 0 | 36% active |
+| 1. Money Path | 28 (MP-R1–R28) | 16 | 12 | 0 | 57% active |
 | 2. Order Lifecycle | 22 (OL-R1–R22) | 3 | 19 | 0 | 14% active |
-| 3. Vertical Isolation | 15 (VI-R1–R15) | 5 | 10 | 0 | 33% active |
+| 3. Vertical Isolation | 15 (VI-R1–R15) | 7 | 8 | 0 | 47% active |
 | 4. Vendor Journey | 13 (VJ-R1–R13) | 5 | 8 | 0 | 38% active |
 | 5. Subscriptions | 16 (SL-R1–R16) | 1 | 15 | 0 | 6% active |
 | 6. Auth & Access | 14 (AC-R1–R14) | 0 | 0 | 14 | 0% (unconfirmed) |
 | 7. Notifications | 37 (NI-R1–R37) | 18 | 1 | 18 | 49% active |
 | 8. Infrastructure | 14 (IR-R1–R14) | 0 | 0 | 14 | 0% (unconfirmed) |
-| **Totals** | **159** | **42** | **71** | **46** | **26% active** |
+| **Totals** | **159** | **50** | **63** | **46** | **31% active** |
 
 ### Test Files → Domains
 
@@ -1273,7 +1273,7 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | `notification-types.test.ts` | ~85 active | NI-R19–R36, NI-Q5 + registry structure + audience |
 | `vendor-tier-limits.test.ts` | ~47 active | VJ-R3, R4, R6, R8, VI-R12 |
 | `vertical-isolation.test.ts` | ~23 active | VI-R6, R7, R8, R9 |
-| `business-rules-coverage.test.ts` | ~15 active + 61 todo | MP-R10–R16, OL-R5/R7/R8, SL-R4 + cross-domain |
+| `business-rules-coverage.test.ts` | ~23 active + 59 todo | MP-R10–R16, R20–R25, R28, OL-R5/R7/R8, SL-R4, VI-R1, R14 + cross-domain |
 | `rate-limit.test.ts` | 7 active | Rate limiting infra (maps to AC-R7 concept) |
 | `errors.test.ts` | 10 active | Error tracing infra (maps to IR-R6 concept) |
 

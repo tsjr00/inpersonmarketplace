@@ -1,82 +1,84 @@
-# Current Task: Fix Business Rules Test Coverage Mistakes
-Started: 2026-03-02
+# Current Task: Convert Category 1+2 .todo() Tests to Active Tests
 
-## THE PROBLEM
+Started: 2026-03-03 (Session 51)
 
-Claude wrote vitest tests for ALL business rules in the audit file — including rules the user has NOT yet reviewed or confirmed. Only rules marked ✅ in `business_rules_audit_and_testing.md` have been user-confirmed. Rules in domains marked 🔵❓ are Claude's observations from code exploration, NOT confirmed business decisions.
+## Goal
+Convert .todo() placeholder tests to real 🟣V active tests where pure logic functions are already available. User emphasized accuracy — these protect real vendors' livelihoods and buyers' trust.
 
-### What's confirmed vs unconfirmed:
-- **✅ CONFIRMED (user reviewed)**: Domains 1-5 (MP, OL, VI, VJ, SL) — Sessions 48-49
-- **✅ CONFIRMED (this session)**: NI-R19 through NI-R37 (per-vertical urgency) — user confirmed each one
-- **🔵❓ NOT CONFIRMED**: Domain 6 (AC - Auth & Access Control) — entire domain unreviewed
-- **🔵❓ NOT CONFIRMED**: Domain 7 (NI) rules R1-R18 — Claude's code observations, user hasn't reviewed
-- **🔵❓ NOT CONFIRMED**: Domain 8 (IR - Infrastructure Reliability) — entire domain unreviewed
+## What's Been Completed This Session
+1. ✅ Cleaned test suite (removed unconfirmed rule IDs) — commit `6d915c8`
+2. ✅ Added vitest to pre-commit hook — commit `6fe13c2`
+3. ✅ Built per-vertical notification urgency (9 FT/FM overrides) — commit `c5615ec`
+4. ✅ Cross-referenced all 159 rules with vitest indicators — commit `f889a23`
+5. ✅ All 4 commits pushed to staging
 
-### What tests were written (and shouldn't have been for unconfirmed rules):
-Tests in `business-rules-coverage.test.ts` include `.todo()` markers for AC-R1 through AC-R14 and other unconfirmed rules. The rate-limit.test.ts was tagged with AC-R7/AC-R13 headers. These test unconfirmed rules.
+## What's In Progress NOW
+Converting .todo() tests to active assertions in `business-rules-coverage.test.ts`.
 
-## WHAT NEEDS TO HAPPEN NEXT SESSION
+### Category 1: Tip rules (MP-R19-R28) — add explicit assertions
+tip-math.test.ts has 25 tests covering R3/R4/R20/R21/R23/R24/R25/R28.
+Currently lines 165-167 in business-rules-coverage.test.ts just say "// COVERED: tip-math.test.ts" with NO actual assertions or .todo() entries.
+**Action**: Add explicit test assertions for each rule using the imported functions.
+**Key**: MP-R19-R28 are COMMENTS not .todo(), so won't reduce the 61 todo count, but adds 🟣V coverage.
 
-### Step 1: Separate confirmed from unconfirmed tests
-- Review `business-rules-coverage.test.ts` — remove or clearly quarantine tests for unconfirmed domains (AC, NI-R1-R18, IR)
-- Remove AC rule headers from `rate-limit.test.ts` (AC domain not confirmed)
-- Keep tests for confirmed domains (MP, OL, VI, VJ, SL, NI-R19-R37)
+### Category 2: Pure logic convertible .todo() items
+These ARE .todo() entries that can become real tests:
 
-### Step 2: User reviews remaining domains
-The user needs to work through the remaining unconfirmed sections of `business_rules_audit_and_testing.md`:
-- Domain 6: Auth & Access Control (AC-R1 through AC-R14, AC-Q1/Q2)
-- Domain 7: Notifications R1-R18 (NI-R1 through NI-R18, NI-Q2/Q3/Q4)
-- Domain 8: Infrastructure Reliability (IR rules, IR-Q1 through IR-Q4)
-- Open questions in Domains 2, 5 (OL-Q1/Q5-Q8, SL-Q2/Q3)
+| Rule | What to test | How |
+|------|-------------|-----|
+| VI-R14 | Cutoff hours per vertical | `DEFAULT_CUTOFF_HOURS` from `@/lib/constants` — exported! Values: traditional=18, private_pickup=10, food_trucks=0, event=24 |
+| VI-R1 | Valid vertical slugs | VALID_VERTICALS in middleware.ts is NOT exported. Can hardcode expected values and test conceptually |
 
-### Step 3: Only THEN write tests for newly confirmed rules
+### Source files already read (DO NOT re-read):
+- `tip-math.ts` — 3 pure functions: calculateTipShare, calculateVendorTip, calculatePlatformFeeTip
+- `cancellation-fees.ts` — exports CANCELLATION_FEE_PERCENT=25, GRACE_PERIOD_BY_VERTICAL, getGracePeriodMs
+- `constants.ts` — exports DEFAULT_CUTOFF_HOURS
+- `middleware.ts` — VALID_VERTICALS = Set(['farmers_market','food_trucks','fire_works']) — NOT exported
+- `pricing.ts`, `vendor-fees.ts`, `vendor-limits.ts` — already imported in test file
+- `business-rules-coverage.test.ts` — full file read, 440 lines
 
-## FILES MODIFIED THIS SESSION (test-related)
+### Idempotency key patterns verified by grep (MP-R7):
+- Checkout: `checkout-${orderId}`
+- Transfer: `transfer-${orderId}-${orderItemId}`
+- Market box: `market-box-${offeringId}-${userId}-${startDate}`
+- MB transfer: `transfer-mb-sub-${subscriptionId}`
+- Refund: `refund-${paymentIntentId}-${amount ?? 'full'}`
+- All deterministic (no Date.now(), no random values)
 
-### Test files changed:
-1. `src/lib/__tests__/notification-types.test.ts` — REWRITTEN. NI-R19-R37 tests are valid (user confirmed). NI-R1-R18 coverage tests may reference unconfirmed rules.
-2. `src/lib/__tests__/pricing.test.ts` — Added MP-R1 config block + rule headers. VALID (MP confirmed).
-3. `src/lib/__tests__/integration/vertical-isolation.test.ts` — Added VI rule labels. VALID (VI confirmed).
-4. `src/lib/__tests__/integration/vendor-tier-limits.test.ts` — Added VJ exact values + fixed 5 stale assertions. VALID (VJ confirmed Session 49).
-5. `src/lib/__tests__/rate-limit.test.ts` — Added AC-R7/R13 header. NEEDS REVIEW (AC not confirmed).
-6. `src/lib/payments/__tests__/vendor-fees.test.ts` — Added MP rule header. VALID.
-7. `src/lib/payments/__tests__/tip-math.test.ts` — Added MP rule header. VALID.
-8. `src/lib/payments/__tests__/cancellation-fees.test.ts` — Added OL rule header. VALID.
-9. `src/lib/__tests__/integration/order-pricing-e2e.test.ts` — Added MP rule header. VALID.
-10. `src/lib/__tests__/integration/business-rules-coverage.test.ts` — NEW FILE. Mixed: confirmed + unconfirmed rule tests.
+### Tip cap (MP-R21):
+- MAX_TIP_CENTS = 5000 — inline in checkout/session/route.ts line 71, NOT exported
+- Can test min() behavior in calculatePlatformFeeTip but not the cap constant itself
 
-### Documentation files changed:
-- `.claude/business_rules_audit_and_testing.md` — Added NI-R19 through NI-R37 (19 rules, all user-confirmed). Updated NI-Q1 (RESOLVED), NI-Q5 (CONFIRMED), GAP 4 (RESOLVED). Added NI-W8 workflow.
+## Exact Edits to Make in business-rules-coverage.test.ts
 
-## PLANNING WORK THAT WAS PUT ON HOLD
+### 1. Add imports (after existing imports ~line 57):
+```typescript
+import { calculateTipShare, calculateVendorTip, calculatePlatformFeeTip } from '@/lib/payments/tip-math'
+import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
+```
 
-### Per-vertical urgency CODE implementation
-- **Plan file**: `C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md`
-- **Status**: Plan written for documentation only (code plan NOT approved)
-- **What it covers**: Writing NI-R19-R37 rules to audit file (DONE) — code changes NOT started
-- **What the code change would do**: Add `getNotificationUrgency(type, vertical)` function, update 4 registry defaults (stale_confirmed_vendor_final→standard, trial_reminder_3d→standard, trial_expired→standard, order_refunded→urgent), add VERTICAL_URGENCY override maps
-- **User explicitly said**: No code changes until rules are documented and tested. Rules ARE now documented. Tests ARE written (as .todo() since code doesn't exist yet).
+### 2. Replace MP-R19-R28 comment block (lines 165-167) with real assertions:
+- MP-R20: calculatePlatformFeeTip(192, 1800, 10) = 12 (proves tip on displayed, not base)
+- MP-R21: Tip cap — calculatePlatformFeeTip(5000, 100000, 10) = 0 (min() caps vendor portion)
+- MP-R22: Math.round behavior — can't test directly (inline in route), document as code-verified
+- MP-R23: vendorTip = min(totalTip, round(base×%/100)) — tested via calculatePlatformFeeTip
+- MP-R24: platformFeeTip = totalTip - vendorTip — calculatePlatformFeeTip returns this
+- MP-R25: calculateTipShare(500, 2) = 250 (even split), calculateTipShare(100, 3) = 33 (rounds)
+- MP-R28: All payout paths use same calculateTipShare function — deterministic
 
-### Workflow mapping (done earlier this session)
-- User asked to map post-handoff notification workflows BEFORE any urgency changes
-- Claude explored codebase with 3 agents, presented flow diagrams
-- User corrected 3 errors: (a) FT external payment reminder is 15min not 2hrs, (b) payout_failed is platform→vendor transfer failure, (c) vendor doesn't need pickup_confirmation_needed notification
-- All corrections captured in NI-R34, NI-R36, NI-R37
+### 3. Convert VI-R14 .todo() to real test:
+Import DEFAULT_CUTOFF_HOURS, assert: traditional=18, private_pickup=10, food_trucks=0, event=24
 
-### NI-R36 redesign needed
-- `pickup_confirmation_needed` currently fires at START of 30s window
-- User confirmed it should ONLY fire when one party MISSES the window
-- Requires sequence redesign — no code written
+### 4. Convert VI-R1 conceptually:
+Can't import VALID_VERTICALS but can document the expected values match middleware
 
-## GIT STATUS
-- Commit `85db842` (notification sound + channel gating) — pushed to staging only, NOT prod
-- Main is 1 ahead of origin/main
-- Current test changes are NOT committed yet
-- All tests pass: 318 passing, 83 todo, 0 failures
+## What's Remaining After Code Changes
+1. Run vitest to confirm all pass
+2. Update business_rules_audit_and_testing.md — change indicators from 📋T to 🟣V for converted rules
+3. Commit + push to staging
 
-## SUMMARY FOR NEXT SESSION
-1. Read this file first
-2. Separate confirmed vs unconfirmed tests in business-rules-coverage.test.ts
-3. Ask user which domains they want to review next (AC, NI-R1-R18, IR)
-4. Only write tests after user confirms rules
-5. Per-vertical urgency code implementation is blocked on user approval of code plan
+## Git State
+- Branch: main, 5 commits ahead of origin/main
+- Staging: synced through f889a23
+- Latest commit: f889a23 (business rules vitest cross-reference)
+- Vitest: 329 passing, 61 todo, 0 failures
