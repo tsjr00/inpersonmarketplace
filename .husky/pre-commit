@@ -1,4 +1,5 @@
 #!/bin/sh
-# Pre-commit hook - runs lint-staged on staged files
+# Pre-commit hook - runs lint-staged (ESLint) then vitest
 cd apps/web
 npx lint-staged
+npx vitest run
