@@ -22,6 +22,7 @@ import {
   type NotificationUrgency,
   NOTIFICATION_REGISTRY,
   URGENCY_CHANNELS,
+  getNotificationUrgency,
 } from './types'
 import { defaultBranding } from '@/lib/branding/defaults'
 import { TracedError, logError } from '@/lib/errors'
@@ -407,8 +408,9 @@ export async function sendNotification(
   const message = config.message(templateData)
   const actionUrl = config.actionUrl({ ...templateData, vertical: options?.vertical })
 
-  // Determine channels based on urgency
-  let channels = URGENCY_CHANNELS[config.urgency]
+  // Determine channels based on per-vertical urgency (NI-R19)
+  const urgency = getNotificationUrgency(type, options?.vertical)
+  let channels = URGENCY_CHANNELS[urgency]
 
   // Fetch user preferences and email (for email channel)
   let preferences = DEFAULT_PREFERENCES
@@ -435,7 +437,7 @@ export async function sendNotification(
 
     // Tier-based channel gating: restrict channels based on vendor's tier (both verticals)
     // Critical bypass: immediate/urgent notifications skip tier gating entirely
-    const isCritical = config.urgency === 'immediate' || config.urgency === 'urgent'
+    const isCritical = urgency === 'immediate' || urgency === 'urgent'
     if (!isCritical && options?.vertical && profile?.user_id) {
       const { data: vendor } = await supabase
         .from('vendor_profiles')
@@ -518,7 +520,7 @@ export async function sendNotification(
       }
       case 'push': {
         const soundOn = preferences.sound_enabled !== false
-        results.push(await sendPush(userId, title, message, actionUrl, config.urgency, soundOn))
+        results.push(await sendPush(userId, title, message, actionUrl, urgency, soundOn))
         break
       }
     }

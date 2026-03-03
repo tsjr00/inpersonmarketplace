@@ -3,6 +3,7 @@ import {
   NOTIFICATION_REGISTRY,
   URGENCY_CHANNELS,
   getNotificationConfig,
+  getNotificationUrgency,
   type NotificationType,
   type NotificationUrgency,
 } from '@/lib/notifications/types'
@@ -134,34 +135,34 @@ describe('actionUrl uses vertical parameter', () => {
 // ══════════════════════════════════════════════════════════════════════
 
 describe('NI-R28: stale_confirmed_vendor_final urgency', () => {
-  // RULE: standard for BOTH verticals (changed from immediate)
-  // NOTE: Registry still says 'immediate' — update pending code change
-  it('current registry value is immediate (pending change to standard)', () => {
-    expect(NOTIFICATION_REGISTRY.stale_confirmed_vendor_final.urgency).toBe('immediate')
+  it('is standard for both verticals', () => {
+    expect(NOTIFICATION_REGISTRY.stale_confirmed_vendor_final.urgency).toBe('standard')
+    expect(getNotificationUrgency('stale_confirmed_vendor_final', 'food_trucks')).toBe('standard')
+    expect(getNotificationUrgency('stale_confirmed_vendor_final', 'farmers_market')).toBe('standard')
   })
 })
 
 describe('NI-R29: trial_reminder_3d urgency', () => {
-  // RULE: standard for BOTH verticals (changed from immediate)
-  // NOTE: Registry still says 'immediate' — update pending code change
-  it('current registry value is immediate (pending change to standard)', () => {
-    expect(NOTIFICATION_REGISTRY.trial_reminder_3d.urgency).toBe('immediate')
+  it('is standard for both verticals', () => {
+    expect(NOTIFICATION_REGISTRY.trial_reminder_3d.urgency).toBe('standard')
+    expect(getNotificationUrgency('trial_reminder_3d', 'food_trucks')).toBe('standard')
+    expect(getNotificationUrgency('trial_reminder_3d', 'farmers_market')).toBe('standard')
   })
 })
 
 describe('NI-R30: trial_expired urgency', () => {
-  // RULE: standard for BOTH verticals (changed from immediate)
-  // NOTE: Registry still says 'immediate' — update pending code change
-  it('current registry value is immediate (pending change to standard)', () => {
-    expect(NOTIFICATION_REGISTRY.trial_expired.urgency).toBe('immediate')
+  it('is standard for both verticals', () => {
+    expect(NOTIFICATION_REGISTRY.trial_expired.urgency).toBe('standard')
+    expect(getNotificationUrgency('trial_expired', 'food_trucks')).toBe('standard')
+    expect(getNotificationUrgency('trial_expired', 'farmers_market')).toBe('standard')
   })
 })
 
 describe('NI-R31: order_refunded urgency', () => {
-  // RULE: urgent for BOTH verticals (changed from standard)
-  // NOTE: Registry still says 'standard' — update pending code change
-  it('current registry value is standard (pending change to urgent)', () => {
-    expect(NOTIFICATION_REGISTRY.order_refunded.urgency).toBe('standard')
+  it('is urgent for both verticals', () => {
+    expect(NOTIFICATION_REGISTRY.order_refunded.urgency).toBe('urgent')
+    expect(getNotificationUrgency('order_refunded', 'food_trucks')).toBe('urgent')
+    expect(getNotificationUrgency('order_refunded', 'farmers_market')).toBe('urgent')
   })
 })
 
@@ -206,20 +207,63 @@ describe('NI-R36: pickup_confirmation_needed', () => {
 })
 
 // ── NI-R19 through NI-R27: Per-Vertical Urgency ─────────────────────
-// These rules require getNotificationUrgency() which does not exist yet.
-// Tests will be activated when the per-vertical urgency code is built.
+// FT = food is perishable, buyer is waiting → higher urgency (push)
+// FM = orders placed days ahead → lower urgency (email/SMS)
 
-describe('NI-R19-R27: Per-vertical urgency (pending implementation)', () => {
-  // Documenting expected values — these become real tests after code change
-  it.todo('NI-R19: order_ready FT=immediate, FM=standard')
-  it.todo('NI-R20: order_cancelled_by_vendor FT=immediate, FM=urgent')
-  it.todo('NI-R21: order_cancelled_by_buyer FT=immediate, FM=urgent')
-  it.todo('NI-R22: new_paid_order FT=immediate, FM=standard')
-  it.todo('NI-R23: new_external_order FT=immediate, FM=standard')
-  it.todo('NI-R24: stale_confirmed_vendor FT=immediate, FM=standard')
-  it.todo('NI-R25: external_payment_reminder FT=immediate, FM=standard')
-  it.todo('NI-R26: pickup_missed FT=immediate, FM=urgent')
-  it.todo('NI-R27: market_box_pickup_missed FT=immediate, FM=standard')
+describe('NI-R19-R27: Per-vertical urgency', () => {
+  it('NI-R19: order_ready FT=immediate, FM=standard', () => {
+    expect(getNotificationUrgency('order_ready', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('order_ready', 'farmers_market')).toBe('standard')
+  })
+
+  it('NI-R20: order_cancelled_by_vendor FT=immediate, FM=urgent', () => {
+    expect(getNotificationUrgency('order_cancelled_by_vendor', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('order_cancelled_by_vendor', 'farmers_market')).toBe('urgent')
+  })
+
+  it('NI-R21: order_cancelled_by_buyer FT=immediate, FM=urgent', () => {
+    expect(getNotificationUrgency('order_cancelled_by_buyer', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('order_cancelled_by_buyer', 'farmers_market')).toBe('urgent')
+  })
+
+  it('NI-R22: new_paid_order FT=immediate, FM=standard', () => {
+    expect(getNotificationUrgency('new_paid_order', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('new_paid_order', 'farmers_market')).toBe('standard')
+  })
+
+  it('NI-R23: new_external_order FT=immediate, FM=standard', () => {
+    expect(getNotificationUrgency('new_external_order', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('new_external_order', 'farmers_market')).toBe('standard')
+  })
+
+  it('NI-R24: stale_confirmed_vendor FT=immediate, FM=standard', () => {
+    expect(getNotificationUrgency('stale_confirmed_vendor', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('stale_confirmed_vendor', 'farmers_market')).toBe('standard')
+  })
+
+  it('NI-R25: external_payment_reminder FT=immediate, FM=standard', () => {
+    expect(getNotificationUrgency('external_payment_reminder', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('external_payment_reminder', 'farmers_market')).toBe('standard')
+  })
+
+  it('NI-R26: pickup_missed FT=immediate, FM=urgent', () => {
+    expect(getNotificationUrgency('pickup_missed', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('pickup_missed', 'farmers_market')).toBe('urgent')
+  })
+
+  it('NI-R27: market_box_pickup_missed FT=immediate, FM=standard', () => {
+    expect(getNotificationUrgency('market_box_pickup_missed', 'food_trucks')).toBe('immediate')
+    expect(getNotificationUrgency('market_box_pickup_missed', 'farmers_market')).toBe('standard')
+  })
+
+  it('no vertical defaults to registry value (FT-level urgency)', () => {
+    expect(getNotificationUrgency('order_ready')).toBe('immediate')
+    expect(getNotificationUrgency('new_paid_order')).toBe('immediate')
+  })
+
+  it('unknown type returns standard as safe fallback', () => {
+    expect(getNotificationUrgency('nonexistent_type' as any)).toBe('standard')
+  })
 })
 
 // ── NI-R37: External payment reminder timing ─────────────────────────

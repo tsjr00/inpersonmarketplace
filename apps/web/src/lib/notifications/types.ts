@@ -160,7 +160,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   order_refunded: {
-    urgency: 'standard',
+    urgency: 'urgent',
     severity: 'info',
     audience: 'buyer',
     title: () => `Order Refunded`,
@@ -178,7 +178,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   pickup_missed: {
-    urgency: 'standard',
+    urgency: 'immediate',
     severity: 'info',
     audience: 'buyer',
     title: () => `Pickup Not Confirmed`,
@@ -205,7 +205,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   market_box_pickup_missed: {
-    urgency: 'standard',
+    urgency: 'immediate',
     severity: 'warning',
     audience: 'buyer',
     title: () => `Market Box Pickup Missed`,
@@ -360,7 +360,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   stale_confirmed_vendor_final: {
-    urgency: 'immediate',
+    urgency: 'standard',
     severity: 'critical',
     audience: 'vendor',
     title: () => `Order Action Required — Service Interruption Possible`,
@@ -416,7 +416,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   trial_reminder_3d: {
-    urgency: 'immediate',
+    urgency: 'standard',
     severity: 'warning',
     audience: 'vendor',
     title: () => `Trial Ending in 3 Days`,
@@ -425,7 +425,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
   },
 
   trial_expired: {
-    urgency: 'immediate',
+    urgency: 'standard',
     severity: 'critical',
     audience: 'vendor',
     title: () => `Free Trial Ended`,
@@ -475,4 +475,61 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
  */
 export function getNotificationConfig(type: string): NotificationTypeConfig | undefined {
   return NOTIFICATION_REGISTRY[type as NotificationType]
+}
+
+// ── Per-Vertical Urgency (NI-R19) ───────────────────────────────────
+//
+// FT = food is perishable, buyers are waiting NOW → higher urgency
+// FM = orders placed days ahead, more lead time → lower urgency
+//
+// Registry defaults are set to FT values (the more urgent vertical).
+// FM overrides are listed here where FM needs a different urgency.
+// If no vertical is provided, the registry default (FT-level) applies.
+
+const VERTICAL_URGENCY_OVERRIDES: Partial<Record<NotificationType, Partial<Record<string, NotificationUrgency>>>> = {
+  // NI-R19: order_ready — FT=immediate (food is waiting), FM=standard (days away)
+  order_ready: { farmers_market: 'standard' },
+  // NI-R20: order_cancelled_by_vendor — FT=immediate, FM=urgent (still needs SMS)
+  order_cancelled_by_vendor: { farmers_market: 'urgent' },
+  // NI-R21: order_cancelled_by_buyer — FT=immediate, FM=urgent
+  order_cancelled_by_buyer: { farmers_market: 'urgent' },
+  // NI-R22: new_paid_order — FT=immediate (prep now), FM=standard (prep later)
+  new_paid_order: { farmers_market: 'standard' },
+  // NI-R23: new_external_order — FT=immediate, FM=standard
+  new_external_order: { farmers_market: 'standard' },
+  // NI-R24: stale_confirmed_vendor — FT=immediate, FM=standard
+  stale_confirmed_vendor: { farmers_market: 'standard' },
+  // NI-R25: external_payment_reminder — FT=immediate, FM=standard
+  external_payment_reminder: { farmers_market: 'standard' },
+  // NI-R26: pickup_missed — FT=immediate (food spoils), FM=urgent (still needs SMS)
+  pickup_missed: { farmers_market: 'urgent' },
+  // NI-R27: market_box_pickup_missed — FT=immediate, FM=standard
+  market_box_pickup_missed: { farmers_market: 'standard' },
+}
+
+/**
+ * Get the effective urgency for a notification type, accounting for per-vertical overrides.
+ *
+ * NI-R19: "Notification urgency is per-vertical. FT has higher urgency for most order
+ * events (food is time-sensitive). FM uses lower urgency (orders placed days in advance)."
+ *
+ * @param type - The notification type
+ * @param vertical - Optional vertical slug (food_trucks, farmers_market)
+ * @returns The effective urgency level
+ */
+export function getNotificationUrgency(
+  type: NotificationType,
+  vertical?: string,
+): NotificationUrgency {
+  const config = NOTIFICATION_REGISTRY[type]
+  if (!config) return 'standard' // safe fallback
+
+  // Check for per-vertical override
+  if (vertical) {
+    const override = VERTICAL_URGENCY_OVERRIDES[type]?.[vertical]
+    if (override) return override
+  }
+
+  // Default: registry value (set to FT-level urgency)
+  return config.urgency
 }
