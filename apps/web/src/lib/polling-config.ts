@@ -16,16 +16,19 @@ export function isOffPeak(): boolean {
 }
 
 export const POLLING_INTERVALS = {
-  /** NotificationBell unread count */
-  notificationCount: 5 * 60 * 1000,        // 5 min active hours (was 60s)
-  notificationCountOffPeak: 15 * 60 * 1000, // 15 min off-peak
+  /** NotificationBell — slow safety net only.
+   *  Push notifications alert users, tab-focus + page navigation give instant badge updates.
+   *  This polling is just a fallback for badge count accuracy. */
+  notificationCount: 15 * 60 * 1000,        // 15 min active hours
+  notificationCountOffPeak: 30 * 60 * 1000, // 30 min off-peak
 
-  /** Vendor dashboard orders list */
-  vendorOrders: 2 * 60 * 1000,              // 2 min active hours (was 30s)
-  vendorOrdersOffPeak: 10 * 60 * 1000,      // 10 min off-peak
+  /** Vendor orders — FT (same-day food orders, vendors need timely updates) */
+  vendorOrdersFT: 2 * 60 * 1000,              // 2 min active hours
+  vendorOrdersFTOffPeak: 10 * 60 * 1000,       // 10 min off-peak
 
-  /** CutoffStatusBanner availability check */
-  cutoffStatus: 5 * 60 * 1000,              // 5 min (was 60s) — cutoffs measured in hours
+  /** Vendor orders — FM (orders placed days in advance, low urgency) */
+  vendorOrdersFM: 60 * 60 * 1000,             // 60 min active hours
+  vendorOrdersFMOffPeak: 180 * 60 * 1000,     // 180 min (3 hr) off-peak
 } as const
 
 /** Get the appropriate polling interval based on time of day */

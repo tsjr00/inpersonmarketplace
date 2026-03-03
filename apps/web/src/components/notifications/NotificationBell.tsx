@@ -182,14 +182,17 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
     fetchCount()
   }, [pathname, fetchCount])
 
-  // Polling interval for count — 5min active, 15min off-peak (10pm-6am)
-  // Tab focus + page navigation give instant updates; this is a background safety net
+  // Slow safety net polling — 15min active, 30min off-peak.
+  // Push notifications alert users; tab-focus + page navigation give instant badge updates.
+  // This just catches edge cases where badge count drifts.
   useEffect(() => {
     const pollMs = getPollingInterval(
       POLLING_INTERVALS.notificationCount,
       POLLING_INTERVALS.notificationCountOffPeak
     )
-    const interval = setInterval(fetchCount, pollMs)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchCount()
+    }, pollMs)
     return () => clearInterval(interval)
   }, [fetchCount])
 

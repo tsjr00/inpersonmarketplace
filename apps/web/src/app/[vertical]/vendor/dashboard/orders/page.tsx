@@ -112,11 +112,15 @@ export default function VendorDashboardOrdersPage() {
 
     const startPolling = () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+      // Per-vertical: FT=2min/10min (same-day orders), FM=60min/180min (orders days ahead)
+      const isFT = vertical === 'food-trucks'
       const pollMs = getPollingInterval(
-        POLLING_INTERVALS.vendorOrders,
-        POLLING_INTERVALS.vendorOrdersOffPeak
+        isFT ? POLLING_INTERVALS.vendorOrdersFT : POLLING_INTERVALS.vendorOrdersFM,
+        isFT ? POLLING_INTERVALS.vendorOrdersFTOffPeak : POLLING_INTERVALS.vendorOrdersFMOffPeak
       )
-      pollIntervalRef.current = setInterval(fetchOrders, pollMs)
+      pollIntervalRef.current = setInterval(() => {
+        if (document.visibilityState === 'visible') fetchOrders()
+      }, pollMs)
     }
 
     const handleVisibilityChange = () => {
