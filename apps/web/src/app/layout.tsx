@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { EnvironmentBanner } from "@/components/layout/EnvironmentBanner";
 import { WebVitals } from "@/components/layout/WebVitals";
-import "../../sentry.client.config";
+import { SentryInit } from "@/components/layout/SentryInit";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,6 +46,7 @@ export default function RootLayout({
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}`,
           }}
         />
+        <SentryInit />
         <EnvironmentBanner />
         <WebVitals />
         {children}
