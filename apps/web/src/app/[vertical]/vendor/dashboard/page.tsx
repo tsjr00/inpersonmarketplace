@@ -116,7 +116,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       outOfStockResult,
       lowStockResult,
       privatePickupsResult,
-      vendorSchedulesResult,
+      vendorListingMarketsResult,
       homeMarketResult,
       pendingResult,
       fulfillResult,
@@ -156,17 +156,18 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .eq('vendor_profile_id', vendorProfile.id)
         .eq('market_type', 'private_pickup')
         .eq('status', 'active'),
-      // Vendor market schedules (traditional markets)
+      // Markets where vendor has listings (only show where they actually sell)
       supabase
-        .from('vendor_market_schedules')
+        .from('listing_markets')
         .select(`
           market_id,
           markets (
             id, name, market_type, address, city, state, day_of_week, start_time, end_time
-          )
+          ),
+          listings!inner (id)
         `)
-        .eq('vendor_profile_id', vendorProfile.id)
-        .eq('is_active', true),
+        .eq('listings.vendor_profile_id', vendorProfile.id)
+        .is('listings.deleted_at', null),
       // Home market (conditional — returns null data if no home_market_id)
       vendorProfile.home_market_id
         ? supabase
@@ -236,15 +237,16 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     pendingPayoutsCents = (pendingPayoutsResult.data || []).reduce((sum: number, item: { amount_cents: number }) => sum + (item.amount_cents || 0), 0)
     completedPayoutsCents = (completedPayoutsResult.data || []).reduce((sum: number, item: { amount_cents: number }) => sum + (item.amount_cents || 0), 0)
 
-    // Build active markets from 3 sources (home market + private pickups + vendor schedules)
+    // Build active markets: home market + private pickups + markets with listings
+    // Only shows locations where vendor actually sells (not auto-enrolled empty markets)
     const marketMap = new Map<string, ActiveMarket>()
     const homeMarket = homeMarketResult.data as ActiveMarket | null
     if (homeMarket) marketMap.set(homeMarket.id, homeMarket)
     privatePickupsResult.data?.forEach(market => {
       if (!marketMap.has(market.id)) marketMap.set(market.id, market)
     })
-    vendorSchedulesResult.data?.forEach(vms => {
-      const market = vms.markets as unknown as ActiveMarket | null
+    vendorListingMarketsResult.data?.forEach((lm: { market_id: string; markets: unknown }) => {
+      const market = lm.markets as ActiveMarket | null
       if (market && !marketMap.has(market.id)) marketMap.set(market.id, market)
     })
     activeMarkets = Array.from(marketMap.values())
