@@ -73,7 +73,7 @@ export default function MarketFilters({
     <div style={{
       backgroundColor: colors.surfaceElevated,
       borderRadius: radius.lg,
-      padding: spacing.md,
+      padding: spacing.sm,
       marginBottom: spacing.md,
       boxShadow: shadows.sm,
       border: `1px solid ${colors.border}`
@@ -81,21 +81,21 @@ export default function MarketFilters({
       <div style={{
         display: 'flex',
         flexWrap: 'wrap',
-        gap: spacing.sm,
+        gap: spacing.xs,
         alignItems: 'flex-end',
       }}>
         {/* Search */}
-        <form onSubmit={handleSearchSubmit} style={{ flex: '1 1 250px', minWidth: 200 }}>
+        <form onSubmit={handleSearchSubmit} style={{ flex: '1 1 240px' }}>
           <label style={{
             display: 'block',
-            marginBottom: spacing['2xs'],
+            marginBottom: spacing['3xs'],
             fontSize: typography.sizes.sm,
             fontWeight: typography.weights.medium,
             color: colors.textSecondary
           }}>
             Search {vertical ? term(vertical, 'traditional_markets') : 'Markets'}
           </label>
-          <div style={{ display: 'flex', gap: spacing.xs }}>
+          <div style={{ display: 'flex', gap: spacing['2xs'] }}>
             <input
               type="text"
               value={search}
@@ -103,26 +103,26 @@ export default function MarketFilters({
               placeholder="Search by name..."
               style={{
                 flex: 1,
-                padding: `${spacing.xs} ${spacing.sm}`,
+                padding: `${spacing['2xs']} ${spacing.xs}`,
                 border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
+                borderRadius: radius.sm,
                 fontSize: typography.sizes.base,
-                minHeight: 44,
+                minHeight: 38,
                 backgroundColor: colors.surfaceBase
               }}
             />
             <button
               type="submit"
               style={{
-                padding: `${spacing.xs} ${spacing.md}`,
+                padding: `${spacing['2xs']} ${spacing.sm}`,
                 backgroundColor: 'transparent',
                 color: colors.primary,
                 border: `2px solid ${colors.primary}`,
-                borderRadius: radius.md,
+                borderRadius: radius.sm,
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,
                 cursor: 'pointer',
-                minHeight: 44,
+                minHeight: 38,
                 whiteSpace: 'nowrap'
               }}
             >
@@ -133,10 +133,10 @@ export default function MarketFilters({
 
         {/* State filter */}
         {states.length > 0 && (
-          <div style={{ flex: '0 0 140px' }}>
+          <div style={{ flex: '1 1 90px', maxWidth: 160 }}>
             <label style={{
               display: 'block',
-              marginBottom: spacing['2xs'],
+              marginBottom: spacing['3xs'],
               fontSize: typography.sizes.sm,
               fontWeight: typography.weights.medium,
               color: colors.textSecondary
@@ -148,12 +148,12 @@ export default function MarketFilters({
               onChange={(e) => updateFilter('state', e.target.value || undefined)}
               style={{
                 width: '100%',
-                padding: `${spacing.xs} ${spacing.sm}`,
+                padding: `${spacing['2xs']} ${spacing.xs}`,
                 border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                fontSize: typography.sizes.base,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
                 backgroundColor: colors.surfaceBase,
-                minHeight: 44,
+                minHeight: 38,
                 cursor: 'pointer'
               }}
             >
@@ -167,10 +167,10 @@ export default function MarketFilters({
 
         {/* City filter */}
         {cities.length > 0 && (
-          <div style={{ flex: '0 0 180px' }}>
+          <div style={{ flex: '1 1 120px', maxWidth: 200 }}>
             <label style={{
               display: 'block',
-              marginBottom: spacing['2xs'],
+              marginBottom: spacing['3xs'],
               fontSize: typography.sizes.sm,
               fontWeight: typography.weights.medium,
               color: colors.textSecondary
@@ -182,12 +182,12 @@ export default function MarketFilters({
               onChange={(e) => updateFilter('city', e.target.value || undefined)}
               style={{
                 width: '100%',
-                padding: `${spacing.xs} ${spacing.sm}`,
+                padding: `${spacing['2xs']} ${spacing.xs}`,
                 border: `1px solid ${colors.border}`,
-                borderRadius: radius.md,
-                fontSize: typography.sizes.base,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
                 backgroundColor: colors.surfaceBase,
-                minHeight: 44,
+                minHeight: 38,
                 cursor: 'pointer'
               }}
             >
@@ -200,27 +200,27 @@ export default function MarketFilters({
         )}
 
         {/* Location Type filter */}
-        <div style={{ flex: '0 0 170px' }}>
+        <div style={{ flex: '1 1 120px', maxWidth: 180 }}>
           <label style={{
             display: 'block',
-            marginBottom: spacing['2xs'],
+            marginBottom: spacing['3xs'],
             fontSize: typography.sizes.sm,
             fontWeight: typography.weights.medium,
             color: colors.textSecondary
           }}>
-            Location Type
+            Type
           </label>
           <select
             value={currentType || ''}
             onChange={(e) => updateFilter('type', e.target.value || undefined)}
             style={{
               width: '100%',
-              padding: `${spacing.xs} ${spacing.sm}`,
+              padding: `${spacing['2xs']} ${spacing.xs}`,
               border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              fontSize: typography.sizes.base,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
               backgroundColor: colors.surfaceBase,
-              minHeight: 44,
+              minHeight: 38,
               cursor: 'pointer'
             }}
           >
@@ -234,23 +234,25 @@ export default function MarketFilters({
 
         {/* Clear filters */}
         {hasFilters && (
-          <button
-            onClick={clearFilters}
-            style={{
-              padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: colors.surfaceMuted,
-              color: colors.textSecondary,
-              border: 'none',
-              borderRadius: radius.md,
-              fontSize: typography.sizes.sm,
-              fontWeight: typography.weights.medium,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              minHeight: 44
-            }}
-          >
-            Clear Filters
-          </button>
+          <div style={{ flex: '0 0 auto', alignSelf: 'flex-end' }}>
+            <button
+              onClick={clearFilters}
+              style={{
+                padding: `${spacing['2xs']} ${spacing.xs}`,
+                backgroundColor: colors.surfaceMuted,
+                color: colors.textSecondary,
+                border: 'none',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.medium,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                minHeight: 38
+              }}
+            >
+              Clear
+            </button>
+          </div>
         )}
       </div>
     </div>
