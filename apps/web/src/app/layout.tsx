@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { EnvironmentBanner } from "@/components/layout/EnvironmentBanner";
 import { WebVitals } from "@/components/layout/WebVitals";
+import "../../sentry.client.config";
 import "./globals.css";
 
 const geistSans = Geist({
