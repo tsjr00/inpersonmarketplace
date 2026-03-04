@@ -58,6 +58,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No verification record found' }, { status: 404 })
     }
 
+    // Check for Vendor Partner Agreement acceptance (Tier 3)
+    const { data: partnerAcceptance } = await supabase
+      .from('user_agreement_acceptances')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('agreement_type', 'vendor_partner')
+      .limit(1)
+      .maybeSingle()
+
+    const partnerAgreementAccepted = !!partnerAcceptance
+
     const isFoodTruck = vendor.vertical_id === 'food_trucks'
 
     // Gate 1: Vendor Approved (business docs reviewed by admin)
@@ -201,11 +212,13 @@ export async function GET(request: NextRequest) {
       stripePayoutsEnabled: !!vendor.stripe_payouts_enabled,
     }
 
+    const isGrandfathered = !!verification.onboarding_completed_at
     const canPublishListings =
       verification.status === 'approved' &&
       allAuthorized &&
       verification.coi_status === 'approved' &&
-      gate4.stripePayoutsEnabled
+      gate4.stripePayoutsEnabled &&
+      (isGrandfathered || partnerAgreementAccepted)
 
     // Overall progress (0-100)
     let steps = 0
@@ -260,6 +273,7 @@ export async function GET(request: NextRequest) {
       canPublishListings,
       overallProgress,
       onboardingCompletedAt: verification.onboarding_completed_at,
+      partnerAgreementAccepted,
     })
   })
 }

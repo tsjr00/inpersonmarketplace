@@ -912,6 +912,64 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             />
           </div>
         )}
+
+        {/* ============================================= */}
+        {/* Legal Agreements Section */}
+        {/* ============================================= */}
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: colors.surfaceElevated,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.md,
+          boxShadow: shadows.sm,
+          marginBottom: spacing.md,
+        }}>
+          <h3 style={{
+            color: colors.textPrimary,
+            margin: `0 0 ${spacing.xs} 0`,
+            fontSize: typography.sizes.base,
+            fontWeight: typography.weights.semibold,
+          }}>
+            Legal Agreements
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <Link
+              href={`/${vertical}/terms`}
+              target="_blank"
+              style={{
+                color: colors.primary,
+                fontSize: typography.sizes.sm,
+                textDecoration: 'none',
+              }}
+            >
+              Platform User Agreement & Privacy Policy
+            </Link>
+            <Link
+              href={`/${vertical}/terms/vendor`}
+              target="_blank"
+              style={{
+                color: colors.primary,
+                fontSize: typography.sizes.sm,
+                textDecoration: 'none',
+              }}
+            >
+              Vendor Service Agreement
+            </Link>
+            {vendorProfile.status === 'approved' && (
+              <Link
+                href={`/${vertical}/terms/partner`}
+                target="_blank"
+                style={{
+                  color: colors.primary,
+                  fontSize: typography.sizes.sm,
+                  textDecoration: 'none',
+                }}
+              >
+                Vendor Partner Agreement
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Responsive Styles */}

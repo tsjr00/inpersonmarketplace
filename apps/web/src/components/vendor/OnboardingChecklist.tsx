@@ -7,6 +7,7 @@ import FoodTruckPermitUpload from './FoodTruckPermitUpload'
 import COIUpload from './COIUpload'
 import ProhibitedItemsModal from './ProhibitedItemsModal'
 import type { Category } from '@/lib/constants'
+import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal'
 
 interface OnboardingStatus {
   gate1: {
@@ -38,6 +39,8 @@ interface OnboardingStatus {
   canSubmitForApproval: boolean
   canPublishListings: boolean
   overallProgress: number
+  partnerAgreementAccepted?: boolean
+  onboardingCompletedAt?: string | null
 }
 
 interface Props {
@@ -52,6 +55,8 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
   const [showProhibitedItems, setShowProhibitedItems] = useState(false)
   const [uploadingBusinessDoc, setUploadingBusinessDoc] = useState(false)
   const [businessDocError, setBusinessDocError] = useState<string | null>(null)
+  const [partnerAgreementChecked, setPartnerAgreementChecked] = useState(false)
+  const [acceptingPartner, setAcceptingPartner] = useState(false)
 
   const isFoodTruck = vertical === 'food_trucks'
 
@@ -177,6 +182,28 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
       }
     } catch {
       // Silent
+    }
+  }
+
+  const handleAcceptPartnerAgreement = async () => {
+    setAcceptingPartner(true)
+    try {
+      const res = await fetch('/api/user/accept-agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agreement_type: 'vendor_partner',
+          agreement_version: CURRENT_AGREEMENT_VERSION,
+          vertical_id: vertical,
+        }),
+      })
+      if (res.ok) {
+        await fetchStatus()
+      }
+    } catch {
+      // Silent
+    } finally {
+      setAcceptingPartner(false)
     }
   }
 
@@ -366,6 +393,97 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
           )}
         </div>
       ))}
+
+      {/* Tier 3: Vendor Partner Agreement acceptance */}
+      {vendorStatus === 'approved' &&
+        !status.partnerAgreementAccepted &&
+        !status.onboardingCompletedAt &&
+        gates.every(g => g.complete) && (
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: '#fffbeb',
+          borderBottom: `1px solid ${colors.border}`,
+        }}>
+          <div style={{
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.semibold,
+            color: '#92400e',
+            marginBottom: spacing.xs,
+          }}>
+            Final Step: Vendor Partner Agreement
+          </div>
+          <div style={{
+            fontSize: typography.sizes.xs,
+            color: '#78350f',
+            marginBottom: spacing.xs,
+          }}>
+            Review and accept the Vendor Partner Agreement to complete your onboarding and publish listings.
+            This agreement contains confidentiality, non-disclosure, and non-competition provisions.
+          </div>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: spacing.xs,
+          }}>
+            <a
+              href={`/${vertical}/terms/partner`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: typography.sizes.xs,
+                color: '#92400e',
+                fontWeight: typography.weights.medium,
+                textDecoration: 'underline',
+              }}
+            >
+              Read the Vendor Partner Agreement &rarr;
+            </a>
+            <label style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: spacing.xs,
+              fontSize: typography.sizes.xs,
+              color: '#78350f',
+              cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={partnerAgreementChecked}
+                onChange={(e) => setPartnerAgreementChecked(e.target.checked)}
+                style={{ marginTop: 2 }}
+              />
+              <span>
+                I have read and agree to the{' '}
+                <a
+                  href={`/${vertical}/terms/partner`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#92400e', fontWeight: typography.weights.medium }}
+                >
+                  Vendor Partner Agreement
+                </a>
+              </span>
+            </label>
+            <button
+              onClick={handleAcceptPartnerAgreement}
+              disabled={!partnerAgreementChecked || acceptingPartner}
+              style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: partnerAgreementChecked ? '#d97706' : colors.surfaceMuted,
+                color: partnerAgreementChecked ? 'white' : colors.textMuted,
+                border: 'none',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.medium,
+                cursor: partnerAgreementChecked && !acceptingPartner ? 'pointer' : 'not-allowed',
+                alignSelf: 'flex-start',
+              }}
+            >
+              {acceptingPartner ? 'Accepting...' : 'Accept Agreement'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Submit for approval button */}
       {vendorStatus !== 'approved' && status.gate1.status === 'pending' && status.canSubmitForApproval && (

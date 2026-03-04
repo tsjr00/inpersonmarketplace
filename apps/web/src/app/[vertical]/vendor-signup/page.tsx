@@ -49,7 +49,8 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     legalCompliance: false,
     productSafety: false,
     platformTerms: false,
-    accurateInfo: false
+    accurateInfo: false,
+    vendorServiceAgreement: false
   });
   const [marketLimitInfo, setMarketLimitInfo] = useState<{
     atLimit: boolean;
@@ -277,6 +278,17 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       }
 
       setSubmitted({ ...payload, vendor_id: result.vendor_id });
+
+      // Record Tier 2 agreement acceptance
+      fetch('/api/user/accept-agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agreement_type: 'vendor_service',
+          agreement_version: '2026-03-v1',
+          vertical_id: vertical,
+        }),
+      }).catch(() => {}) // Non-blocking — acceptance is recorded but signup doesn't fail
 
       // Upload any file fields to onboarding documents API
       const fileKeys = Object.keys(fileObjectsRef.current);
@@ -921,6 +933,29 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                 />
                 <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
                   <strong style={{ color: colors.textPrimary }}>Honesty, Legality & Transparency:</strong> I commit to operating honestly, transparently, and within the bounds of all applicable local, state, and federal laws. All information I provide is true and accurate. I understand this platform relies on vendor integrity, and that misrepresentation or illegal activity may result in account termination.
+                </span>
+              </label>
+
+              {/* Vendor Service Agreement */}
+              <label style={{
+                display: 'flex',
+                gap: spacing.sm,
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+                padding: spacing.sm,
+                backgroundColor: acknowledgments.vendorServiceAgreement ? colors.primaryLight : colors.surfaceMuted,
+                border: `1px solid ${acknowledgments.vendorServiceAgreement ? colors.primary : colors.border}`,
+                borderRadius: radius.md,
+                transition: 'all 0.2s ease',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={acknowledgments.vendorServiceAgreement}
+                  onChange={(e) => setAcknowledgments(prev => ({ ...prev, vendorServiceAgreement: e.target.checked }))}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
+                />
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                  <strong style={{ color: colors.textPrimary }}><Link href={`/${vertical}/terms/vendor`} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>Vendor Service Agreement</Link>:</strong> I have read and agree to the Vendor Service Agreement, which governs my relationship with the platform as a vendor.
                 </span>
               </label>
             </div>
