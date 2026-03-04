@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-03-03 | 20260303_066_schedule_conflict_trigger | **New function:** `check_vendor_schedule_conflict()` (SECURITY DEFINER, search_path=public) — BEFORE INSERT OR UPDATE trigger on `vendor_market_schedules`. Prevents single-truck vendors from activating overlapping schedules at different markets on the same day. Skips if `NOT NEW.is_active` or vendor has `profile_data->>'multiple_trucks' = 'true'`. Resolves effective times (vendor overrides or market defaults), checks overlap with `COALESCE(vms.vendor_start_time, ms.start_time) < v_end AND v_start < COALESCE(vms.vendor_end_time, ms.end_time)`. RAISE EXCEPTION on conflict. **New trigger:** `trg_check_vendor_schedule_conflict` on `vendor_market_schedules`. Applied to Dev, Staging, & Prod. |
 | 2026-03-03 | 20260303_065_add_notification_vertical_id | **New column:** `notifications.vertical_id` (TEXT, nullable, FK→verticals.vertical_id). Scopes notifications to the vertical they were created in. Existing rows keep NULL (visible on all verticals). **New index:** `idx_notifications_user_vertical` on (user_id, vertical_id). Applied to Dev, Staging, & Prod. |
 | 2026-02-27 | 20260227_056_vendor_leads | **New table:** `vendor_leads` (pre-launch vendor lead capture). Columns: id (UUID PK), vertical_id (TEXT FK→verticals, default 'food_trucks'), business_name, first_name, last_name, phone, email (all TEXT NOT NULL), social_link, website, questions, notes (TEXT nullable), interested_in_demo (BOOLEAN default false), status (TEXT CHECK: new/contacted/converted/rejected, default 'new'), created_at, updated_at (TIMESTAMPTZ). **UNIQUE INDEX** `idx_vendor_leads_email_vertical` on (email, vertical_id). **Indexes:** `idx_vendor_leads_status` (status), `idx_vendor_leads_created` (created_at DESC). **RLS:** admin-only SELECT/UPDATE (role='admin'). No public insert policy — service client writes. **Trigger:** `set_vendor_leads_updated_at` → `update_updated_at_column()`. Applied to Dev, Staging, & Prod. |
 | 2026-02-26 | 20260226_055_per_vertical_item_expiration | **Function rewrites:** `calculate_order_item_expiration(DATE, TEXT, TIMESTAMPTZ)` — now accepts vertical_id and created_at params. FT: 24hr from order creation. FM/default: 24hr after pickup window start (8am on pickup_date). No pickup_date fallback: 7 days. `set_order_item_expiration()` trigger function — now looks up vertical_id and created_at from parent order. Recalculates on pickup_date change if still pending. Trigger already exists from migration 005, not recreated. Applied to Dev, Staging, & Prod. |
@@ -2043,6 +2044,7 @@
 | can_vendor_add_listing_to_market | p_vendor_profile_id uuid, p_market_id uuid, p_listing_id uuid DEFAULT NULL::uuid | boolean | DEFINER |
 | can_vendor_publish | p_vendor_profile_id uuid, p_category text | boolean | DEFINER |
 | check_subscription_completion | - | trigger | INVOKER |
+| check_vendor_schedule_conflict | - | trigger | DEFINER | BEFORE INSERT/UPDATE on vendor_market_schedules. Prevents single-truck vendors from having overlapping active schedules at different markets on same day. Skips if is_active=false or multiple_trucks=true. Resolves effective times (vendor overrides or market defaults). RAISE EXCEPTION on conflict. |
 | cleanup_cart_items_invalid_schedules | - | TABLE(cart_item_id uuid, user_id uuid, listing_title text... | DEFINER |
 | create_market_box_pickups | - | trigger | DEFINER |
 | create_profile_for_user | - | trigger | DEFINER |
@@ -2299,6 +2301,8 @@
 | Trigger | Event | Timing | Action |
 |---------|-------|--------|--------|
 | update_vms_updated_at | UPDATE | BEFORE | update_updated_at_column() |
+| trg_check_vendor_schedule_conflict | INSERT | BEFORE | check_vendor_schedule_conflict() |
+| trg_check_vendor_schedule_conflict | UPDATE | BEFORE | check_vendor_schedule_conflict() |
 
 ### vendor_payouts
 | Trigger | Event | Timing | Action |
