@@ -565,7 +565,7 @@ export function getPlatformUserAgreement(): LegalDocument {
             title: '13.1 Operating Entity.',
             level: 'section',
             content: [
-              'The Platform is operated by 815 Enterprises, a Texas-based company doing business as [PLATFORM_NAME]. The Company\'s registered legal entity name, formation details, and registered agent information are available upon written request to the Company\'s support page.',
+              'The Platform is operated by VIIIXV LLC, a Texas limited liability company doing business as 815 Enterprises and [PLATFORM_NAME]. All references to "815 Enterprises" or "the Company" in this Agreement refer to VIIIXV LLC, d/b/a 815 Enterprises. Any legal disputes arising under this Agreement shall be subject to the exclusive jurisdiction of the courts located in Potter County, Texas.',
             ],
           },
           {

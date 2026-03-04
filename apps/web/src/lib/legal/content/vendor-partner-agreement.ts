@@ -279,7 +279,7 @@ export function getVendorPartnerAgreement(): LegalDocument {
             title: '7.8 Company Information',
             level: 'section',
             content: [
-              '815 Enterprises is a Texas-based company operating as [PLATFORM_NAME]. The Company\'s registered legal entity is [ATTORNEY TO INSERT LLC NAME], a Texas limited liability company. All references to "815 Enterprises" or "the Company" in this Partner Agreement and the Prior Agreements refer to [ATTORNEY TO INSERT LLC NAME] doing business as 815 Enterprises and [PLATFORM_NAME].',
+              '815 Enterprises is operated by VIIIXV LLC, a Texas limited liability company doing business as 815 Enterprises and [PLATFORM_NAME]. All references to "815 Enterprises" or "the Company" in this Partner Agreement and the Prior Agreements refer to VIIIXV LLC, d/b/a 815 Enterprises. Any legal disputes arising under this Partner Agreement shall be subject to the exclusive jurisdiction of the courts located in Potter County, Texas.',
             ],
           },
         ],
