@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-03-03 | 20260303_065_add_notification_vertical_id | **New column:** `notifications.vertical_id` (TEXT, nullable, FK→verticals.vertical_id). Scopes notifications to the vertical they were created in. Existing rows keep NULL (visible on all verticals). **New index:** `idx_notifications_user_vertical` on (user_id, vertical_id). Applied to Dev, Staging, & Prod. |
 | 2026-02-27 | 20260227_056_vendor_leads | **New table:** `vendor_leads` (pre-launch vendor lead capture). Columns: id (UUID PK), vertical_id (TEXT FK→verticals, default 'food_trucks'), business_name, first_name, last_name, phone, email (all TEXT NOT NULL), social_link, website, questions, notes (TEXT nullable), interested_in_demo (BOOLEAN default false), status (TEXT CHECK: new/contacted/converted/rejected, default 'new'), created_at, updated_at (TIMESTAMPTZ). **UNIQUE INDEX** `idx_vendor_leads_email_vertical` on (email, vertical_id). **Indexes:** `idx_vendor_leads_status` (status), `idx_vendor_leads_created` (created_at DESC). **RLS:** admin-only SELECT/UPDATE (role='admin'). No public insert policy — service client writes. **Trigger:** `set_vendor_leads_updated_at` → `update_updated_at_column()`. Applied to Dev, Staging, & Prod. |
 | 2026-02-26 | 20260226_055_per_vertical_item_expiration | **Function rewrites:** `calculate_order_item_expiration(DATE, TEXT, TIMESTAMPTZ)` — now accepts vertical_id and created_at params. FT: 24hr from order creation. FM/default: 24hr after pickup window start (8am on pickup_date). No pickup_date fallback: 7 days. `set_order_item_expiration()` trigger function — now looks up vertical_id and created_at from parent order. Recalculates on pickup_date change if still pending. Trigger already exists from migration 005, not recreated. Applied to Dev, Staging, & Prod. |
 | 2026-02-23 | 20260223_054_fix_availability_timezone | **Function rewrite:** `get_available_pickup_dates()` — replaced all `CURRENT_DATE` (UTC) with `(NOW() AT TIME ZONE market_timezone)::DATE` to fix evening blackout bug. FT same-day filter, season checks, event date filter, and date series generation now all use market-local date. Prevents zero-row results when UTC date advances past local date (e.g., Sunday 6pm CT = Monday UTC). Applied to all 3 envs. |
@@ -555,6 +556,7 @@
 | data | jsonb | YES | '{}'::jsonb |
 | read_at | timestamptz | YES | - |
 | created_at | timestamptz | YES | now() |
+| vertical_id | text | YES | - |
 
 ### order_items
 | Column | Type | Nullable | Default |
@@ -1294,6 +1296,7 @@
 | Column | References |
 |--------|------------|
 | user_id | auth.users.id |
+| vertical_id | verticals.vertical_id |
 
 ### order_items
 | Column | References |
@@ -1634,6 +1637,7 @@
 | idx_notifications_unread | btree (user_id) WHERE (read_at IS NULL) |
 | idx_notifications_user_unread | btree (user_id, read_at, created_at DESC) WHERE (read_at IS NULL) |
 | idx_notifications_user_created | btree (user_id, created_at DESC) |
+| idx_notifications_user_vertical | btree (user_id, vertical_id) |
 
 ### order_items
 | Index Name | Definition |
