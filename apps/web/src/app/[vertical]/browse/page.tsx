@@ -14,7 +14,8 @@ import TierBadge from '@/components/shared/TierBadge'
 import type { VendorTierType } from '@/lib/constants'
 import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
-import { calculateMarketAvailability, type MarketWithSchedules } from '@/lib/utils/listing-availability'
+// listing-availability.ts utility is deprecated for availability checks.
+// Availability now uses get_listings_accepting_status() RPC (single SQL source of truth).
 import SocialProofToast from '@/components/marketing/SocialProofToast'
 import { getServerLocation } from '@/lib/location/server'
 
@@ -98,51 +99,18 @@ interface Listing {
   }[]
 }
 
-// Calculate availability status for a listing based on its markets
-function calculateListingAvailability(listing: Listing): {
+// Derive badge status from RPC availability data
+function deriveAvailabilityStatus(avail: { is_accepting: boolean; hours_until_cutoff: number | null; cutoff_hours: number | null } | undefined): {
   status: 'open' | 'closing-soon' | 'closed'
   hoursUntilCutoff: number | null
 } {
-  const markets = listing.listing_markets || []
-  if (markets.length === 0) {
+  if (!avail || !avail.is_accepting) {
     return { status: 'closed', hoursUntilCutoff: null }
   }
-
-  let hasOpenMarket = false
-  let earliestCutoff: Date | null = null
-  let earliestCutoffHours: number | null = null
-
-  for (const lm of markets) {
-    if (!lm.markets || !lm.markets.active) continue
-
-    const processed = calculateMarketAvailability(lm.markets as MarketWithSchedules)
-    if (!processed) continue
-
-    if (processed.is_accepting) {
-      hasOpenMarket = true
-      if (processed.cutoff_at) {
-        const cutoffDate = new Date(processed.cutoff_at)
-        if (!earliestCutoff || cutoffDate < earliestCutoff) {
-          earliestCutoff = cutoffDate
-          earliestCutoffHours = processed.cutoff_hours
-        }
-      }
-    }
+  if (avail.hours_until_cutoff !== null && avail.cutoff_hours !== null
+      && avail.hours_until_cutoff <= avail.cutoff_hours && avail.hours_until_cutoff > 0) {
+    return { status: 'closing-soon', hoursUntilCutoff: Math.round(avail.hours_until_cutoff * 10) / 10 }
   }
-
-  if (!hasOpenMarket) {
-    return { status: 'closed', hoursUntilCutoff: null }
-  }
-
-  // Check if closing soon (using market's actual cutoff policy, not hardcoded 24)
-  if (earliestCutoff && earliestCutoffHours !== null) {
-    const hoursLeft = (earliestCutoff.getTime() - Date.now()) / (1000 * 60 * 60)
-    // Only show "closing soon" when within the market's cutoff window
-    if (hoursLeft <= earliestCutoffHours && hoursLeft > 0) {
-      return { status: 'closing-soon', hoursUntilCutoff: Math.round(hoursLeft * 10) / 10 }
-    }
-  }
-
   return { status: 'open', hoursUntilCutoff: null }
 }
 
@@ -656,6 +624,20 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   const safePage = Math.min(currentPage, totalPages)
   const paginatedListings = listings?.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE) || []
 
+  // Fetch availability status from SQL source of truth (uses get_available_pickup_dates internally)
+  // This checks vendor attendance, vendor-specific hours, timezone-aware cutoffs — all in one RPC call
+  const availabilityMap = new Map<string, { is_accepting: boolean; hours_until_cutoff: number | null; cutoff_hours: number | null }>()
+  if (paginatedListings.length > 0) {
+    const { data: availData } = await supabase.rpc('get_listings_accepting_status', {
+      p_listing_ids: paginatedListings.map(l => l.id)
+    })
+    if (availData) {
+      for (const a of availData) {
+        availabilityMap.set(a.listing_id, a)
+      }
+    }
+  }
+
   // Group listings by category when no search/filter is applied
   const isFiltered = !!(search || category)
   const groupedListings = !isFiltered ? groupListingsByCategory(paginatedListings, vertical) : {}
@@ -838,6 +820,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                           listing={listing}
                           vertical={vertical}
                           branding={branding}
+                          availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id))}
                         />
                       ))}
                     </div>
@@ -858,6 +841,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                     listing={listing}
                     vertical={vertical}
                     branding={branding}
+                    availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id))}
                   />
                 ))}
               </div>
@@ -928,10 +912,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 function ListingCard({
   listing,
   vertical,
+  availabilityStatus,
 }: {
   listing: Listing
   vertical: string
   branding?: { colors: { primary: string; secondary: string } }
+  availabilityStatus: { status: 'open' | 'closing-soon' | 'closed'; hoursUntilCutoff: number | null }
 }) {
   const vendorData = listing.vendor_profiles?.profile_data
   const vendorName = (vendorData?.business_name as string) ||
@@ -942,8 +928,7 @@ function ListingCard({
   const primaryImage = listing.listing_images?.find(img => img.is_primary)
     || listing.listing_images?.[0]
 
-  // Calculate availability status server-side
-  const availability = calculateListingAvailability(listing)
+  const availability = availabilityStatus
 
   return (
     <Link

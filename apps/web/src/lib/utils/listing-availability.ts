@@ -1,6 +1,15 @@
 /**
  * Shared utility for calculating listing market availability.
- * Used both server-side (listing page) and in API routes.
+ *
+ * DEPRECATION NOTE: calculateMarketAvailability() is deprecated for determining
+ * open/closed status. Use the get_listings_accepting_status() RPC instead, which
+ * calls get_available_pickup_dates() internally and checks vendor attendance,
+ * vendor-specific hours, and timezone-aware cutoffs — all in one SQL source of truth.
+ *
+ * This file is retained for processListingMarkets() used by api/listings/[id]/markets/route.ts
+ * for market data display (not availability status).
+ *
+ * See VJ-R15 in business-rules-coverage.test.ts for the sync guarantee.
  */
 import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 

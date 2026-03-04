@@ -10,7 +10,7 @@
  *   MP  = Money Path (28 rules) — confirmed Session 48
  *   OL  = Order Lifecycle (22 rules) — confirmed Session 48
  *   VI  = Vertical Isolation (19 rules) — confirmed Session 48, R16-R19 added Session 50
- *   VJ  = Vendor Journey (14 rules) — confirmed Session 49, R14 added Session 50
+ *   VJ  = Vendor Journey (15 rules) — confirmed Session 49, R14-R15 added Session 50
  *   SL  = Subscription Lifecycle (16 rules) — confirmed Session 49
  *   NI  = Notifications R19-R37 (19 rules) — confirmed Session 50
  *
@@ -479,6 +479,21 @@ describe('VJ: Vendor Journey — coverage check', () => {
   it.todo('VJ-R14c: DB trigger raises exception on conflicting INSERT (DB test)')
   it.todo('VJ-R14d: multiple_trucks=true bypasses conflict check (API + DB test)')
 })
+
+  // ── VJ-R15: Listing availability uses single SQL source of truth ────
+  // Added Session 50: All surfaces (browse page, cart validate, vendor listings)
+  // use get_listings_accepting_status() RPC which internally calls
+  // get_available_pickup_dates() via LEFT JOIN LATERAL. This guarantees:
+  // - Vendor attendance is checked (vendor_market_schedules.is_active)
+  // - Vendor-specific hours are used (vendor_start_time/vendor_end_time)
+  // - Timezone-aware cutoff calculation (market timezone, not UTC)
+  // - Consistent "Closed" pill across all surfaces
+  // SYNC GUARANTEE: If get_available_pickup_dates() changes, all surfaces
+  // automatically pick up the changes — no duplicated JS logic.
+  it.todo('VJ-R15a: browse page uses get_listings_accepting_status RPC (integration test)')
+  it.todo('VJ-R15b: cart validate uses get_listings_accepting_status RPC (integration test)')
+  it.todo('VJ-R15c: vendor listings page uses get_listings_accepting_status RPC (integration test)')
+  it.todo('VJ-R15d: get_listings_accepting_status returns false when vendor not attending (DB test)')
 
 // ══════════════════════════════════════════════════════════════════════
 // DOMAIN 5: SUBSCRIPTION LIFECYCLE (SL)

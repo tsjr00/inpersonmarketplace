@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
-import { processListingMarkets, type MarketWithSchedules } from '@/lib/utils/listing-availability'
+// Availability checked via get_listings_accepting_status() RPC (single SQL source of truth)
 
 interface CartItem {
   listingId: string
@@ -90,36 +90,17 @@ export async function GET(request: NextRequest) {
       itemsForCutoffCheck.push({ id: listing.id, title: listing.title, marketType: market.market_type })
     }
 
-    // C5 FIX: Use JS availability calculation instead of missing RPC
+    // Check availability via SQL source of truth (handles vendor attendance, timezone, cutoffs)
     if (itemsForCutoffCheck.length > 0) {
-      // Fetch market data with schedules for all listings that need cutoff checks
       const listingIds = itemsForCutoffCheck.map(i => i.id)
-      const { data: listingMarkets } = await supabase
-        .from('listing_markets')
-        .select(`
-          listing_id,
-          market_id,
-          markets (
-            id, name, market_type, address, city, state,
-            vertical_id, cutoff_hours, timezone, active,
-            market_schedules (id, day_of_week, start_time, end_time, active)
-          )
-        `)
-        .in('listing_id', listingIds)
+      const { data: availData } = await supabase.rpc('get_listings_accepting_status', {
+        p_listing_ids: listingIds
+      })
+      const availMap = new Map((availData || []).map((a: { listing_id: string; is_accepting: boolean }) => [a.listing_id, a]))
 
-      // Group by listing_id and check availability
       for (const item of itemsForCutoffCheck) {
-        const itemMarkets = (listingMarkets || [])
-          .filter(lm => lm.listing_id === item.id)
-          .map(lm => ({
-            market_id: lm.market_id,
-            markets: lm.markets as unknown as MarketWithSchedules
-          }))
-
-        const processed = processListingMarkets(itemMarkets)
-        const anyAccepting = processed.some(m => m.is_accepting)
-
-        if (!anyAccepting && processed.length > 0) {
+        const avail = availMap.get(item.id) as { is_accepting: boolean } | undefined
+        if (avail && !avail.is_accepting) {
           const prepMessage = item.marketType === 'private_pickup'
             ? 'Vendor needs time to prepare for pickup'
             : 'Vendors are preparing for market day'
@@ -202,8 +183,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to validate cart' }, { status: 500 })
       }
 
-      // Build response with availability info (need to use async for cutoff checks)
-      const validatedItems = await Promise.all(items.map(async (cartItem) => {
+      // Batch availability check via SQL source of truth (handles vendor attendance, timezone, cutoffs)
+      const { data: availData } = await supabase.rpc('get_listings_accepting_status', {
+        p_listing_ids: listingIds
+      })
+      const availMap = new Map((availData || []).map((a: { listing_id: string; is_accepting: boolean }) => [a.listing_id, a]))
+
+      // Build response with availability info
+      const validatedItems = items.map((cartItem) => {
         const listing = listings?.find(l => l.id === cartItem.listingId)
 
         if (!listing) {
@@ -224,26 +211,8 @@ export async function POST(request: NextRequest) {
         const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
         const isVendorApproved = vendorProfile?.status === 'approved'
 
-        // C5 FIX: Check cutoff using JS calculation instead of missing RPC
-        const { data: itemListingMarkets } = await supabase
-          .from('listing_markets')
-          .select(`
-            market_id,
-            markets (
-              id, name, market_type, address, city, state,
-              vertical_id, cutoff_hours, timezone, active,
-              market_schedules (id, day_of_week, start_time, end_time, active)
-            )
-          `)
-          .eq('listing_id', listing.id)
-
-        const processedMarkets = processListingMarkets(
-          (itemListingMarkets || []).map(lm => ({
-            market_id: lm.market_id,
-            markets: lm.markets as unknown as MarketWithSchedules
-          }))
-        )
-        const cutoffPassed = processedMarkets.length > 0 && !processedMarkets.some(m => m.is_accepting)
+        const avail = availMap.get(listing.id) as { is_accepting: boolean } | undefined
+        const cutoffPassed = avail ? !avail.is_accepting : false
 
         // Check availability
         const availableQty = listing.quantity === null ? 999 : listing.quantity
@@ -260,7 +229,7 @@ export async function POST(request: NextRequest) {
           available_quantity: listing.quantity,
           cutoff_passed: cutoffPassed,
         }
-      }))
+      })
 
       return NextResponse.json({ items: validatedItems })
     } catch {
