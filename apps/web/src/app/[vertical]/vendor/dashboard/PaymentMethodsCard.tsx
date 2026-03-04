@@ -15,13 +15,23 @@ interface PaymentMethodsCardProps {
     paypal_username: string | null
     accepts_cash_at_pickup: boolean
   }
+  earnings: {
+    monthlySalesCents: number
+    pendingPayoutsCents: number
+    completedPayoutsCents: number
+  }
+}
+
+function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`
 }
 
 export default function PaymentMethodsCard({
   vendorId,
   vertical,
   stripeConnected,
-  initialValues
+  initialValues,
+  earnings
 }: PaymentMethodsCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -154,24 +164,58 @@ export default function PaymentMethodsCard({
         alignItems: 'flex-start',
         marginBottom: spacing.xs
       }}>
-        <div>
-          <h3 style={{
-            color: colors.primary,
-            margin: 0,
-            fontSize: typography.sizes.base,
-            fontWeight: typography.weights.semibold
-          }}>
-            Payments
-          </h3>
-          <p style={{
-            margin: `${spacing['3xs']} 0 0 0`,
-            fontSize: typography.sizes.xs,
-            color: colors.textMuted
-          }}>
-            {methodCount} method{methodCount !== 1 ? 's' : ''} enabled
-          </p>
-        </div>
+        <h3 style={{
+          color: colors.primary,
+          margin: 0,
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold
+        }}>
+          Payments &amp; Earnings
+        </h3>
+      </div>
 
+      {/* Earnings Section */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing['2xs'],
+        marginBottom: spacing.xs,
+        paddingBottom: spacing.xs,
+        borderBottom: `1px solid ${colors.borderMuted}`
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>This Month&apos;s Sales</span>
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
+            {formatPrice(earnings.monthlySalesCents)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Pending Payouts</span>
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: earnings.pendingPayoutsCents > 0 ? '#d97706' : colors.textPrimary }}>
+            {formatPrice(earnings.pendingPayoutsCents)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Paid Out</span>
+          <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: earnings.completedPayoutsCents > 0 ? '#16a34a' : colors.textPrimary }}>
+            {formatPrice(earnings.completedPayoutsCents)}
+          </span>
+        </div>
+      </div>
+
+      {/* Payment Methods Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs
+      }}>
+        <span style={{
+          fontSize: typography.sizes.xs,
+          color: colors.textMuted
+        }}>
+          {methodCount} payment method{methodCount !== 1 ? 's' : ''} enabled
+        </span>
         {!isEditing && (
           <button
             onClick={() => setIsEditing(true)}

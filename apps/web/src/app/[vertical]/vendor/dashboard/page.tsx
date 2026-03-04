@@ -592,7 +592,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               minHeight: 120,
               boxShadow: shadows.sm
             }}>
-              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>🏷️</div>
+              <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📋</div>
               <h3 style={{
                 color: colors.primary,
                 margin: `0 0 ${spacing['2xs']} 0`,
@@ -645,7 +645,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                   minHeight: 120,
                   boxShadow: shadows.sm
                 }}>
-                  <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>{term(vertical, 'market_icon_emoji')}</div>
+                  <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>📦</div>
                   <h3 style={{
                     color: isLocked ? colors.textSecondary : colors.primary,
                     margin: `0 0 ${spacing['2xs']} 0`,
@@ -670,7 +670,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         </div>
 
         {/* ============================================= */}
-        {/* ROW 3: Business - Business Profile, Payment Methods, Analytics */}
+        {/* ROW 3: Business - Business Profile, Payments & Earnings, Analytics */}
         {/* ============================================= */}
         <div className="row-3-grid" style={{
           display: 'grid',
@@ -767,7 +767,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             )}
           </div>
 
-          {/* Payment Methods (with fee balance collapsed in) */}
+          {/* Payments & Earnings (combined card) */}
           <PaymentMethodsCard
             vendorId={vendorProfile.id}
             vertical={vertical}
@@ -778,47 +778,12 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               paypal_username: vendorProfile.paypal_username,
               accepts_cash_at_pickup: vendorProfile.accepts_cash_at_pickup || false
             }}
+            earnings={{
+              monthlySalesCents,
+              pendingPayoutsCents,
+              completedPayoutsCents
+            }}
           />
-
-          {/* Earnings Overview */}
-          <div style={{
-            padding: spacing.sm,
-            backgroundColor: colors.surfaceElevated,
-            color: colors.textPrimary,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.md,
-            boxShadow: shadows.sm
-          }}>
-            <div style={{ fontSize: typography.sizes['2xl'], marginBottom: spacing['2xs'] }}>💰</div>
-            <h3 style={{
-              color: colors.primary,
-              margin: `0 0 ${spacing.xs} 0`,
-              fontSize: typography.sizes.base,
-              fontWeight: typography.weights.semibold
-            }}>
-              Earnings
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>This Month&apos;s Sales</span>
-                <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                  {formatPrice(monthlySalesCents)}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${colors.borderMuted}`, paddingTop: spacing['2xs'] }}>
-                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Pending Payouts</span>
-                <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: pendingPayoutsCents > 0 ? '#d97706' : colors.textPrimary }}>
-                  {formatPrice(pendingPayoutsCents)}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `1px solid ${colors.borderMuted}`, paddingTop: spacing['2xs'] }}>
-                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Paid Out</span>
-                <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: completedPayoutsCents > 0 ? '#16a34a' : colors.textPrimary }}>
-                  {formatPrice(completedPayoutsCents)}
-                </span>
-              </div>
-            </div>
-          </div>
 
           {/* Analytics & Insights — consolidated card */}
           {(() => {
@@ -979,7 +944,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             grid-template-columns: repeat(3, 1fr);
           }
           .vendor-dashboard .row-3-grid {
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
           }
         }
       `}</style>

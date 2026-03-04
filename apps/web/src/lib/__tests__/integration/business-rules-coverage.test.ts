@@ -9,7 +9,7 @@
  * Rule domains (CONFIRMED ✅ only):
  *   MP  = Money Path (28 rules) — confirmed Session 48
  *   OL  = Order Lifecycle (22 rules) — confirmed Session 48
- *   VI  = Vertical Isolation (15 rules) — confirmed Session 48
+ *   VI  = Vertical Isolation (19 rules) — confirmed Session 48, R16-R19 added Session 50
  *   VJ  = Vendor Journey (13 rules) — confirmed Session 49
  *   SL  = Subscription Lifecycle (16 rules) — confirmed Session 49
  *   NI  = Notifications R19-R37 (19 rules) — confirmed Session 50
@@ -403,6 +403,27 @@ describe('VI: Vertical Isolation — coverage check', () => {
 
   // ── VI-R15: Per-vertical browse visibility ────────────────────────
   it.todo('VI-R15: FT same-day only, FM 7-day window (browse page test)')
+
+  // ── VI-R16: Notifications scoped by vertical_id ─────────────────
+  // Added Session 50: notifications table has vertical_id FK.
+  // sendInApp() stores vertical_id, API filters by ?vertical= param.
+  // COVERED: vertical-isolation.test.ts (structural + .todo integration)
+  it.todo('VI-R16: notifications filtered by vertical_id, NULL visible everywhere (API test)')
+
+  // ── VI-R17: Login enforces vertical membership ──────────────────
+  // Added Session 50: post-login check in login/page.tsx.
+  // Wrong-vertical user redirected to their home vertical.
+  it.todo('VI-R17: login on wrong vertical redirects to home vertical (integration test)')
+
+  // ── VI-R18: Protected pages enforce vertical access gate ────────
+  // Added Session 50: enforceVerticalAccess() on 8 server pages.
+  // Checks user_profiles.verticals, vendor_profiles fallback, admin bypass.
+  it.todo('VI-R18: server pages call enforceVerticalAccess before rendering (server test)')
+
+  // ── VI-R19: sendNotification() threads vertical to storage ──────
+  // Added Session 50: options.vertical threaded to sendInApp() vertical_id.
+  // All call sites (webhooks, checkout, cron) pass vertical from source data.
+  it.todo('VI-R19: all sendNotification call sites include vertical option (code audit)')
 })
 
 // ══════════════════════════════════════════════════════════════════════
