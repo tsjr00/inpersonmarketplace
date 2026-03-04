@@ -10,7 +10,7 @@ export async function GET(
 ) {
   return withErrorTracing('/api/markets/[id]/vendors', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-vendors-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-vendors-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -91,7 +91,7 @@ export async function POST(
 ) {
   return withErrorTracing('/api/markets/[id]/vendors', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-vendors-post:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-vendors-post:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

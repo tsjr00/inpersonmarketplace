@@ -23,7 +23,7 @@ interface AvailablePaymentMethod {
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/checkout/payment-methods', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`checkout-payment-methods:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`checkout-payment-methods:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

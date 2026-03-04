@@ -15,7 +15,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/onboarding/documents', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`onboarding-docs:${clientIp}`, { limit: 20, windowSeconds: 60 })
+    const rateLimitResult = await checkRateLimit(`onboarding-docs:${clientIp}`, { limit: 20, windowSeconds: 60 })
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

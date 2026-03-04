@@ -24,7 +24,7 @@ const CONFIRMATION_WINDOW_SECONDS = 30
 export async function POST(request: NextRequest, context: RouteContext) {
   // Rate limit buyer confirmation requests
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`buyer-confirm:${clientIp}`, { limit: 30, windowSeconds: 60 })
+  const rateLimitResult = await checkRateLimit(`buyer-confirm:${clientIp}`, { limit: 30, windowSeconds: 60 })
 
   if (!rateLimitResult.success) {
     return rateLimitResponse(rateLimitResult)

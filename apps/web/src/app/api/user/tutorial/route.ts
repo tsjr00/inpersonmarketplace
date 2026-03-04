@@ -14,7 +14,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/user/tutorial', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`user-tutorial:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`user-tutorial:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

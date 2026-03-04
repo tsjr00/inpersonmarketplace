@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { id: pickupId } = await context.params
   return withErrorTracing(`/api/vendor/market-boxes/pickups/${pickupId}/skip`, 'POST', async () => {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`vendor-skip-pickup:${clientIp}`, rateLimits.submit)
+  const rateLimitResult = await checkRateLimit(`vendor-skip-pickup:${clientIp}`, rateLimits.submit)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   const supabase = await createClient()

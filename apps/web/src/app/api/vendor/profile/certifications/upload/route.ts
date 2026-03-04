@@ -16,7 +16,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf']
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile/certifications/upload', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-cert-upload:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-cert-upload:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

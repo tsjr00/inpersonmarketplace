@@ -20,7 +20,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/location-insights', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-location-insights:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendor-location-insights:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

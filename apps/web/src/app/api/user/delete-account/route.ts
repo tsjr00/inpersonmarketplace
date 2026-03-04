@@ -8,7 +8,7 @@ export async function DELETE(request: NextRequest) {
     try {
       // Rate limit: 3 requests per hour for account deletion
       const clientIp = getClientIp(request)
-      const rateLimitResult = checkRateLimit(`delete-account:${clientIp}`, {
+      const rateLimitResult = await checkRateLimit(`delete-account:${clientIp}`, {
         limit: 3,
         windowSeconds: 3600 // 1 hour
       })

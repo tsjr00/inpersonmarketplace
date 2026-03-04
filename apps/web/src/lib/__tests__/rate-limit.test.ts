@@ -9,50 +9,50 @@ describe('checkRateLimit', () => {
   let testId = 0
   beforeEach(() => { testId++ })
 
-  it('allows requests under the limit', () => {
+  it('allows requests under the limit', async () => {
     const id = `test-under-${testId}`
-    const result = checkRateLimit(id, { limit: 5, windowSeconds: 60 })
+    const result = await checkRateLimit(id, { limit: 5, windowSeconds: 60 })
 
     expect(result.success).toBe(true)
     expect(result.remaining).toBe(4)
   })
 
-  it('tracks remaining count accurately', () => {
+  it('tracks remaining count accurately', async () => {
     const id = `test-remaining-${testId}`
     const config = { limit: 3, windowSeconds: 60 }
 
-    const r1 = checkRateLimit(id, config)
+    const r1 = await checkRateLimit(id, config)
     expect(r1.remaining).toBe(2)
 
-    const r2 = checkRateLimit(id, config)
+    const r2 = await checkRateLimit(id, config)
     expect(r2.remaining).toBe(1)
 
-    const r3 = checkRateLimit(id, config)
+    const r3 = await checkRateLimit(id, config)
     expect(r3.remaining).toBe(0)
   })
 
-  it('blocks requests at the limit', () => {
+  it('blocks requests at the limit', async () => {
     const id = `test-block-${testId}`
     const config = { limit: 2, windowSeconds: 60 }
 
-    checkRateLimit(id, config) // 1
-    checkRateLimit(id, config) // 2
+    await checkRateLimit(id, config) // 1
+    await checkRateLimit(id, config) // 2
 
-    const blocked = checkRateLimit(id, config) // 3 - should be blocked
+    const blocked = await checkRateLimit(id, config) // 3 - should be blocked
     expect(blocked.success).toBe(false)
     expect(blocked.remaining).toBe(0)
   })
 
-  it('different identifiers are tracked independently', () => {
+  it('different identifiers are tracked independently', async () => {
     const config = { limit: 1, windowSeconds: 60 }
 
-    const r1 = checkRateLimit(`user-a-${testId}`, config)
-    const r2 = checkRateLimit(`user-b-${testId}`, config)
+    const r1 = await checkRateLimit(`user-a-${testId}`, config)
+    const r2 = await checkRateLimit(`user-b-${testId}`, config)
 
     expect(r1.success).toBe(true)
     expect(r2.success).toBe(true)
 
-    const r3 = checkRateLimit(`user-a-${testId}`, config)
+    const r3 = await checkRateLimit(`user-a-${testId}`, config)
     expect(r3.success).toBe(false)
   })
 })

@@ -13,7 +13,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/notifications', 'GET', async () => {
-    const rateResult = checkRateLimit(`notifications:${getClientIp(request)}`, rateLimits.api)
+    const rateResult = await checkRateLimit(`notifications:${getClientIp(request)}`, rateLimits.api)
     if (!rateResult.success) return rateLimitResponse(rateResult)
 
     crumb.auth('Checking user')

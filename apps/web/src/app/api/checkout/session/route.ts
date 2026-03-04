@@ -50,7 +50,7 @@ interface CartItemFromDB {
 export async function POST(request: NextRequest) {
   // Rate limit checkout requests - stricter limit to prevent abuse
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`checkout:${clientIp}`, { limit: 5, windowSeconds: 60 })
+  const rateLimitResult = await checkRateLimit(`checkout:${clientIp}`, { limit: 5, windowSeconds: 60 })
 
   if (!rateLimitResult.success) {
     return rateLimitResponse(rateLimitResult)

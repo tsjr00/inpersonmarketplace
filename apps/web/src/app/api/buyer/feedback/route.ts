@@ -7,7 +7,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/feedback', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-feedback-post:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`buyer-feedback-post:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/feedback', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-feedback-get:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`buyer-feedback-get:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

@@ -6,7 +6,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/subscription/status', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-subscription-status:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`buyer-subscription-status:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

@@ -10,7 +10,7 @@ import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 // GET - Get vendor's markets
 export async function GET(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`vendor-markets-get:${clientIp}`, rateLimits.api)
+  const rateLimitResult = await checkRateLimit(`vendor-markets-get:${clientIp}`, rateLimits.api)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   try {
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
 // POST - Create new private pickup market
 export async function POST(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`vendor-markets-post:${clientIp}`, rateLimits.api)
+  const rateLimitResult = await checkRateLimit(`vendor-markets-post:${clientIp}`, rateLimits.api)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   try {

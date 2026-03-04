@@ -16,7 +16,7 @@ import { hasAdminRole } from '@/lib/auth/admin'
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/vendor-activity/referrals', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
     }

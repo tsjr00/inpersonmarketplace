@@ -10,7 +10,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  */
 export async function GET(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`market-boxes:${clientIp}`, rateLimits.api)
+  const rateLimitResult = await checkRateLimit(`market-boxes:${clientIp}`, rateLimits.api)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   return withErrorTracing('/api/market-boxes', 'GET', async () => {

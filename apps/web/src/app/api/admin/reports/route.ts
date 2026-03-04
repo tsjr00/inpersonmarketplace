@@ -51,7 +51,7 @@ function formatDate(date: string | null): string {
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/admin/reports', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
     }

@@ -19,7 +19,7 @@ export async function POST(
 ) {
   return withErrorTracing('/api/admin/vendors/[id]/verify-category', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

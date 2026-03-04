@@ -11,7 +11,7 @@ export async function GET(
 ) {
   return withErrorTracing('/api/markets/[id]/schedules', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-schedules-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-schedules-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -50,7 +50,7 @@ export async function POST(
 ) {
   return withErrorTracing('/api/markets/[id]/schedules', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-schedules-post:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-schedules-post:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

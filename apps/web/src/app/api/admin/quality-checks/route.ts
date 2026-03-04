@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
   return withErrorTracing('/api/admin/quality-checks', 'POST', async () => {
     // Rate limit
     const ip = getClientIp(request)
-    const rateCheck = checkRateLimit(`admin-quality-run:${ip}`, rateLimits.admin)
+    const rateCheck = await checkRateLimit(`admin-quality-run:${ip}`, rateLimits.admin)
     if (!rateCheck.success) return rateLimitResponse(rateCheck)
 
     const supabase = await createClient()

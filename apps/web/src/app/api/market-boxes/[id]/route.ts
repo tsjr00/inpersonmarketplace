@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   return withErrorTracing('/api/market-boxes/[id]', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-boxes-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-boxes-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

@@ -12,7 +12,7 @@ export async function PATCH(
 ) {
   return withErrorTracing('/api/markets/[id]/vendors/[vendorId]', 'PATCH', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-vendor-patch:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-vendor-patch:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -97,7 +97,7 @@ export async function DELETE(
 ) {
   return withErrorTracing('/api/markets/[id]/vendors/[vendorId]', 'DELETE', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-vendor-delete:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-vendor-delete:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

@@ -6,7 +6,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile-image', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-profile-image:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-profile-image:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

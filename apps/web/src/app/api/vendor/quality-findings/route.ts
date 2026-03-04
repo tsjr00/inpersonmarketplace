@@ -13,7 +13,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  */
 export async function GET(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rl = checkRateLimit(`vendor-quality-findings-get:${clientIp}`, rateLimits.api)
+  const rl = await checkRateLimit(`vendor-quality-findings-get:${clientIp}`, rateLimits.api)
   if (!rl.success) return rateLimitResponse(rl)
 
   return withErrorTracing('/api/vendor/quality-findings', 'GET', async () => {
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rl = checkRateLimit(`vendor-quality-findings-patch:${clientIp}`, rateLimits.submit)
+  const rl = await checkRateLimit(`vendor-quality-findings-patch:${clientIp}`, rateLimits.submit)
   if (!rl.success) return rateLimitResponse(rl)
 
   return withErrorTracing('/api/vendor/quality-findings', 'PATCH', async () => {

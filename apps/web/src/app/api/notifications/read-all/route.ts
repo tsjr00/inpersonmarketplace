@@ -8,7 +8,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  */
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/notifications/read-all', 'POST', async () => {
-    const rateResult = checkRateLimit(`notif-read-all:${getClientIp(request)}`, rateLimits.submit)
+    const rateResult = await checkRateLimit(`notif-read-all:${getClientIp(request)}`, rateLimits.submit)
     if (!rateResult.success) return rateLimitResponse(rateResult)
 
     crumb.auth('Checking user')

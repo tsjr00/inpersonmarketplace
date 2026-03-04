@@ -8,7 +8,7 @@ const VALID_AGREEMENT_TYPES = ['platform_user', 'vendor_service', 'vendor_partne
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/user/accept-agreement', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`accept-agreement:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`accept-agreement:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

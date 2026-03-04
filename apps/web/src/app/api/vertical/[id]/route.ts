@@ -9,7 +9,7 @@ export async function GET(
 ) {
   return withErrorTracing('/api/vertical/[id]', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vertical:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vertical:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     // C6 FIX: Create client per-request (not module-level)

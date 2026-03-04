@@ -11,7 +11,7 @@ const VALID_RADIUS_OPTIONS = [2, 5, 10, 25, 50, 100]
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/location', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-location-post:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`buyer-location-post:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/location', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-location-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`buyer-location-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/buyer/location', 'PATCH', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-location-patch:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`buyer-location-patch:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

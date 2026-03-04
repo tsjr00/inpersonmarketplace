@@ -8,7 +8,7 @@ import { withErrorTracing } from '@/lib/errors'
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/admin/login', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin-login:${clientIp}`, rateLimits.auth)
+    const rateLimitResult = await checkRateLimit(`admin-login:${clientIp}`, rateLimits.auth)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { email, password } = await request.json()

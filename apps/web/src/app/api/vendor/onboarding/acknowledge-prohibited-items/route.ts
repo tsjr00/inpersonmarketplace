@@ -10,7 +10,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  */
 export async function POST(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`onboarding:${clientIp}`, rateLimits.api)
+  const rateLimitResult = await checkRateLimit(`onboarding:${clientIp}`, rateLimits.api)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   return withErrorTracing('/api/vendor/onboarding/acknowledge-prohibited-items', 'POST', async () => {

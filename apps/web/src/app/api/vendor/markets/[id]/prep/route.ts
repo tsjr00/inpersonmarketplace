@@ -10,7 +10,7 @@ interface RouteContext {
 export async function GET(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/markets/[id]/prep', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-prep:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-prep:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

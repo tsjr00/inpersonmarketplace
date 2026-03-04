@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   return withErrorTracing('/api/buyer/orders/[id]/cancel', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-order-cancel:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`buyer-order-cancel:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

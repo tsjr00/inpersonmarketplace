@@ -15,7 +15,7 @@ function getCacheKey(lat: number, lng: number): string {
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/buyer/location/reverse-geocode', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-location-reverse-geocode:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`buyer-location-reverse-geocode:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

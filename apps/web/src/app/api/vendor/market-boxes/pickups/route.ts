@@ -10,7 +10,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/market-boxes/pickups', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-mb-pickups-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendor-mb-pickups-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

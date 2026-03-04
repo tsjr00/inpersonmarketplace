@@ -12,7 +12,7 @@ export async function POST(
   return withErrorTracing(`/api/vendor/orders/${orderItemId}/confirm`, 'POST', async () => {
   // Rate limit order confirmation requests
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`vendor-confirm:${clientIp}`, { limit: 30, windowSeconds: 60 })
+  const rateLimitResult = await checkRateLimit(`vendor-confirm:${clientIp}`, { limit: 30, windowSeconds: 60 })
 
   if (!rateLimitResult.success) {
     return rateLimitResponse(rateLimitResult)

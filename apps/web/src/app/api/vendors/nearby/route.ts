@@ -24,7 +24,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendors/nearby', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendors-nearby:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendors-nearby:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

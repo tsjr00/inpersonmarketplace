@@ -8,7 +8,7 @@ import { hasAdminRole } from '@/lib/auth/admin'
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/admins', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
     }
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/admin/admins', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
     }

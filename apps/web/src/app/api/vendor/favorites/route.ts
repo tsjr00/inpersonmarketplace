@@ -10,7 +10,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/favorites', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-favorites-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendor-favorites-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/favorites', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-favorites-post:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendor-favorites-post:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   return withErrorTracing('/api/vendor/favorites', 'DELETE', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-favorites-del:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendor-favorites-del:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

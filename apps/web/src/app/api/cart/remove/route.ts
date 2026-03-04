@@ -5,7 +5,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/cart/remove', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`cart-remove:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`cart-remove:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { listingId } = await request.json()

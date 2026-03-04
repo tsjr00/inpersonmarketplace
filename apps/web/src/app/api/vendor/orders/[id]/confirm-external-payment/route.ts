@@ -17,7 +17,7 @@ export async function POST(
 ) {
   return withErrorTracing('/api/vendor/orders/[id]/confirm-external-payment', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-confirm-external-payment:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-confirm-external-payment:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { id: orderId } = await params

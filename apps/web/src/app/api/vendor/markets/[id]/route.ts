@@ -15,7 +15,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   return withErrorTracing(`/api/vendor/markets/${marketId}`, 'PUT', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-put:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-put:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -215,7 +215,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   return withErrorTracing(`/api/vendor/markets/${marketId}`, 'DELETE', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-delete:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-delete:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

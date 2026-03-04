@@ -17,7 +17,7 @@ interface Certification {
 export async function PUT(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile/certifications', 'PUT', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-certifications-put:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-certifications-put:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -107,7 +107,7 @@ export async function PUT(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile/certifications', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-certifications-get:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-certifications-get:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

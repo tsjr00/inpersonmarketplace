@@ -7,7 +7,7 @@ import { getAnalyticsLimits } from '@/lib/vendor-limits'
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/analytics/top-products', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-analytics-top-products:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendor-analytics-top-products:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

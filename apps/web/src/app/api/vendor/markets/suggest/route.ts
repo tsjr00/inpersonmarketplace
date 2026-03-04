@@ -8,7 +8,7 @@ import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/markets/suggest', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-suggest:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-suggest:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

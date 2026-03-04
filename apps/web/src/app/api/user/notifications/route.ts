@@ -16,7 +16,7 @@ const DEFAULT_PREFERENCES = {
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/user/notifications', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`user-notifications-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`user-notifications-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   return withErrorTracing('/api/user/notifications', 'PUT', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`user-notifications-put:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`user-notifications-put:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

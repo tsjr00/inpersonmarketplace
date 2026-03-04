@@ -16,7 +16,7 @@ interface RouteContext {
 export async function POST(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/orders/[id]/reject', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-order-reject:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-order-reject:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { id: orderItemId } = await context.params

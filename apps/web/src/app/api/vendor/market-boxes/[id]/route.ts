@@ -15,7 +15,7 @@ interface RouteContext {
 export async function GET(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/market-boxes/[id]', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-boxes-get:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-boxes-get:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { id: offeringId } = await context.params
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 export async function PATCH(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/market-boxes/[id]', 'PATCH', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-boxes-patch:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-boxes-patch:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { id: offeringId } = await context.params
@@ -271,7 +271,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/market-boxes/[id]', 'DELETE', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-boxes-delete:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-boxes-delete:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { id: offeringId } = await context.params

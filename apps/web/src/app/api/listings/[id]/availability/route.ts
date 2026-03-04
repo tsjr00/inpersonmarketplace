@@ -21,7 +21,7 @@ export async function GET(
 ) {
   return withErrorTracing('/api/listings/[id]/availability', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`listing-availability:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`listing-availability:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { id: listingId } = await params

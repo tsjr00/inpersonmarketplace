@@ -7,7 +7,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/listings', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`listings:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`listings:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const searchParams = request.nextUrl.searchParams

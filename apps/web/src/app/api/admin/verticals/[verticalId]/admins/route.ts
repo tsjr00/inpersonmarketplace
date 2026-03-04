@@ -12,7 +12,7 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/admin/verticals/[verticalId]/admins', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
     }
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/admin/verticals/[verticalId]/admins', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
     }

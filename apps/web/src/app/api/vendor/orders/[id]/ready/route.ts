@@ -10,7 +10,7 @@ export async function POST(
 ) {
   return withErrorTracing('/api/vendor/orders/[id]/ready', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-order-ready:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-order-ready:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

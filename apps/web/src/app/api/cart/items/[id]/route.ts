@@ -18,7 +18,7 @@ export async function PUT(
 ) {
   return withErrorTracing('/api/cart/items/[id]', 'PUT', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`cart-items-put:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`cart-items-put:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -93,7 +93,7 @@ export async function DELETE(
 ) {
   return withErrorTracing('/api/cart/items/[id]', 'DELETE', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`cart-items-delete:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`cart-items-delete:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

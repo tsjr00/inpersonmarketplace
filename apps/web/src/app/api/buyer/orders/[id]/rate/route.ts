@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderId } = await context.params
   return withErrorTracing(`/api/buyer/orders/${orderId}/rate`, 'POST', async () => {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`buyer-order-rate-post:${clientIp}`, rateLimits.submit)
+  const rateLimitResult = await checkRateLimit(`buyer-order-rate-post:${clientIp}`, rateLimits.submit)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   const supabase = await createClient()
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { id: orderId } = await context.params
   return withErrorTracing(`/api/buyer/orders/${orderId}/rate`, 'GET', async () => {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`buyer-order-rate-get:${clientIp}`, rateLimits.submit)
+  const rateLimitResult = await checkRateLimit(`buyer-order-rate-get:${clientIp}`, rateLimits.submit)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   const supabase = await createClient()

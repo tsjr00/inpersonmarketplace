@@ -15,7 +15,7 @@ export async function GET(
 ) {
   return withErrorTracing('/api/vendor/listings/[listingId]/images', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-listing-images-get:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-listing-images-get:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -51,7 +51,7 @@ export async function POST(
 ) {
   return withErrorTracing('/api/vendor/listings/[listingId]/images', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-listing-images-post:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-listing-images-post:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -186,7 +186,7 @@ export async function DELETE(
 ) {
   return withErrorTracing('/api/vendor/listings/[listingId]/images', 'DELETE', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-listing-images-delete:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-listing-images-delete:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -289,7 +289,7 @@ export async function PATCH(
 ) {
   return withErrorTracing('/api/vendor/listings/[listingId]/images', 'PATCH', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-listing-images-patch:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-listing-images-patch:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

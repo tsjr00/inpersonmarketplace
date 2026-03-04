@@ -8,7 +8,7 @@ export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/vendor/profile', 'PATCH', async () => {
     // Rate limit vendor profile updates
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-profile:${clientIp}`, { limit: 20, windowSeconds: 60 })
+    const rateLimitResult = await checkRateLimit(`vendor-profile:${clientIp}`, { limit: 20, windowSeconds: 60 })
 
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)

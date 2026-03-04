@@ -6,7 +6,7 @@ import { ZIP_LOOKUP } from '@/lib/geocode'
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/buyer/location/geocode', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-location-geocode:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`buyer-location-geocode:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

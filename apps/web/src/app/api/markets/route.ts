@@ -9,7 +9,7 @@ import { hasAdminRole } from '@/lib/auth/admin'
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/markets', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`markets-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`markets-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/markets', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`markets-post:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`markets-post:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

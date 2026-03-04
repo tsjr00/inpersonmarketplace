@@ -10,7 +10,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  */
 export async function GET(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   return withErrorTracing('/api/admin/knowledge', 'GET', async () => {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   return withErrorTracing('/api/admin/knowledge', 'POST', async () => {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   return withErrorTracing('/api/admin/knowledge', 'PATCH', async () => {
@@ -132,7 +132,7 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+  const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   return withErrorTracing('/api/admin/knowledge', 'DELETE', async () => {

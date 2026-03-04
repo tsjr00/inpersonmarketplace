@@ -27,7 +27,7 @@ function getBoundingBox(lat: number, lng: number, radiusMiles: number) {
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/markets/nearby', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`markets-nearby:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`markets-nearby:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

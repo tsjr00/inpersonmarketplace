@@ -8,7 +8,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  */
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/notifications/push/subscribe', 'POST', async () => {
-    const rateResult = checkRateLimit(`push-sub:${getClientIp(request)}`, rateLimits.submit)
+    const rateResult = await checkRateLimit(`push-sub:${getClientIp(request)}`, rateLimits.submit)
     if (!rateResult.success) return rateLimitResponse(rateResult)
 
     crumb.auth('Checking user')
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   return withErrorTracing('/api/notifications/push/subscribe', 'DELETE', async () => {
-    const rateResult = checkRateLimit(`push-unsub:${getClientIp(request)}`, rateLimits.submit)
+    const rateResult = await checkRateLimit(`push-unsub:${getClientIp(request)}`, rateLimits.submit)
     if (!rateResult.success) return rateLimitResponse(rateResult)
 
     crumb.auth('Checking user')

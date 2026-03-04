@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withErrorTracing('/api/notifications/[id]/read', 'PATCH', async () => {
-    const rateResult = checkRateLimit(`notif-read:${getClientIp(request)}`, rateLimits.api)
+    const rateResult = await checkRateLimit(`notif-read:${getClientIp(request)}`, rateLimits.api)
     if (!rateResult.success) return rateLimitResponse(rateResult)
 
     crumb.auth('Checking user')

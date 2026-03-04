@@ -17,7 +17,7 @@ const SPIKE_WINDOW_MS = 60 * 60 * 1000 // 1 hour
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/errors/report', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`errors-report:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`errors-report:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

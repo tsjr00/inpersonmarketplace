@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   return withErrorTracing('/api/submit', 'POST', async () => {
     // Rate limit by IP address
     const clientIp = getClientIp(request);
-    const rateLimitResult = checkRateLimit(`submit:${clientIp}`, rateLimits.submit);
+    const rateLimitResult = await checkRateLimit(`submit:${clientIp}`, rateLimits.submit);
 
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult);

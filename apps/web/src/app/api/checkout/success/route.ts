@@ -12,7 +12,7 @@ import { calculateVendorPayout } from '@/lib/pricing'
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/checkout/success', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`checkout-success:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`checkout-success:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

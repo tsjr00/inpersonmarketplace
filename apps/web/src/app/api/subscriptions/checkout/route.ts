@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   return withErrorTracing('/api/subscriptions/checkout', 'POST', async () => {
     // Rate limit subscription checkout requests
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`subscription-checkout:${clientIp}`, { limit: 5, windowSeconds: 60 })
+    const rateLimitResult = await checkRateLimit(`subscription-checkout:${clientIp}`, { limit: 5, windowSeconds: 60 })
 
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)

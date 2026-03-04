@@ -11,7 +11,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  */
 export async function GET(request: NextRequest) {
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`activity-feed:${clientIp}`, rateLimits.api)
+  const rateLimitResult = await checkRateLimit(`activity-feed:${clientIp}`, rateLimits.api)
   if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
   return withErrorTracing('/api/marketing/activity-feed', 'GET', async () => {

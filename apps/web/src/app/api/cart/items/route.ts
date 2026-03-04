@@ -18,7 +18,7 @@ import { getSubscriberDefault } from '@/lib/vendor-limits'
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/cart/items', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`cart-items-post:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`cart-items-post:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

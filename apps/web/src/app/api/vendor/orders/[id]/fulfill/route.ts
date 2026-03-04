@@ -19,7 +19,7 @@ export async function POST(
 ) {
   // Rate limit order fulfillment requests
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`vendor-fulfill:${clientIp}`, { limit: 30, windowSeconds: 60 })
+  const rateLimitResult = await checkRateLimit(`vendor-fulfill:${clientIp}`, { limit: 30, windowSeconds: 60 })
 
   if (!rateLimitResult.success) {
     return rateLimitResponse(rateLimitResult)

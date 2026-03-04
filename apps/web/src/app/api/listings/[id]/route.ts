@@ -10,7 +10,7 @@ export async function DELETE(
 ) {
   return withErrorTracing('/api/listings/[id]', 'DELETE', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`listing-delete:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`listing-delete:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

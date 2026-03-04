@@ -7,7 +7,7 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/subscriptions/verify', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`subscriptions-verify:${clientIp}`, rateLimits.auth)
+    const rateLimitResult = await checkRateLimit(`subscriptions-verify:${clientIp}`, rateLimits.auth)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     if (!stripe) {

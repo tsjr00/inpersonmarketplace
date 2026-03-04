@@ -13,7 +13,7 @@ interface CartItem {
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cart/validate', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`cart-validate-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`cart-validate-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/cart/validate', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`cart-validate-post:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`cart-validate-post:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

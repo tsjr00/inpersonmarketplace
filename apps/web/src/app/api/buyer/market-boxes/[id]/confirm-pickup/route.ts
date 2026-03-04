@@ -15,7 +15,7 @@ interface RouteContext {
 export async function POST(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/buyer/market-boxes/[id]/confirm-pickup', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`buyer-market-box-confirm-pickup:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`buyer-market-box-confirm-pickup:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const { id: subscriptionId } = await context.params

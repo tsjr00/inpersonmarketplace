@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   return withErrorTracing('/api/vendor/orders/[id]/confirm-handoff', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-confirm-handoff:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-confirm-handoff:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

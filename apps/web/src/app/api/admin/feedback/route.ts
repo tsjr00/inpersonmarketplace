@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/feedback', 'GET', async () => {
     // Rate limit admin feedback requests
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin-feedback:${clientIp}`, { limit: 60, windowSeconds: 60 })
+    const rateLimitResult = await checkRateLimit(`admin-feedback:${clientIp}`, { limit: 60, windowSeconds: 60 })
 
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
@@ -143,7 +143,7 @@ export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/admin/feedback', 'PATCH', async () => {
     // Rate limit admin feedback updates
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin-feedback-update:${clientIp}`, { limit: 30, windowSeconds: 60 })
+    const rateLimitResult = await checkRateLimit(`admin-feedback-update:${clientIp}`, { limit: 30, windowSeconds: 60 })
 
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)

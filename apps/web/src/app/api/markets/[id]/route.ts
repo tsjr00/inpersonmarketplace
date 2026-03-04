@@ -11,7 +11,7 @@ export async function GET(
 ) {
   return withErrorTracing('/api/markets/[id]', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -89,7 +89,7 @@ export async function PATCH(
 ) {
   return withErrorTracing('/api/markets/[id]', 'PATCH', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-patch:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-patch:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -174,7 +174,7 @@ export async function DELETE(
 ) {
   return withErrorTracing('/api/markets/[id]', 'DELETE', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-delete:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-delete:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

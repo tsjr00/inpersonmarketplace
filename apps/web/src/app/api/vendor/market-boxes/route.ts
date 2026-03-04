@@ -19,7 +19,7 @@ import { getSubscriberDefault } from '@/lib/vendor-limits'
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/market-boxes', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-boxes-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendor-market-boxes-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/market-boxes', 'POST', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-boxes-post:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`vendor-market-boxes-post:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

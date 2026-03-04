@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor-leads', 'POST', async () => {
     // Rate limit: submit preset (10/60s per IP)
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(
+    const rateLimitResult = await checkRateLimit(
       `vendor-leads:${clientIp}`,
       rateLimits.submit
     )

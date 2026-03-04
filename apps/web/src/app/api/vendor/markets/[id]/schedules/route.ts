@@ -63,7 +63,7 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/vendor/markets/[id]/schedules', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-schedules-get:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-schedules-get:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/vendor/markets/[id]/schedules', 'PUT', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-schedules-put:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-schedules-put:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {
@@ -374,7 +374,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   return withErrorTracing('/api/vendor/markets/[id]/schedules', 'PATCH', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`vendor-market-schedules-patch:${clientIp}`, rateLimits.submit)
+    const rateLimitResult = await checkRateLimit(`vendor-market-schedules-patch:${clientIp}`, rateLimits.submit)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     try {

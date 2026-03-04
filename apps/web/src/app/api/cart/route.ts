@@ -82,7 +82,7 @@ interface CartItemResult {
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cart', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`cart-get:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`cart-get:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

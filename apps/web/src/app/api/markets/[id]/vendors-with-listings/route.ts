@@ -35,7 +35,7 @@ export async function GET(
 ) {
   return withErrorTracing('/api/markets/[id]/vendors-with-listings', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`market-vendors-listings:${clientIp}`, rateLimits.api)
+    const rateLimitResult = await checkRateLimit(`market-vendors-listings:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
 
     const supabase = await createClient()

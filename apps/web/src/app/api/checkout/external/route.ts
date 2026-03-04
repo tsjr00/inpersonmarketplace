@@ -25,7 +25,7 @@ import { calculateSmallOrderFee } from '@/lib/pricing'
 export async function POST(request: NextRequest) {
   // Rate limit
   const clientIp = getClientIp(request)
-  const rateLimitResult = checkRateLimit(`checkout:${clientIp}`, { limit: 5, windowSeconds: 60 })
+  const rateLimitResult = await checkRateLimit(`checkout:${clientIp}`, { limit: 5, windowSeconds: 60 })
 
   if (!rateLimitResult.success) {
     return rateLimitResponse(rateLimitResult)

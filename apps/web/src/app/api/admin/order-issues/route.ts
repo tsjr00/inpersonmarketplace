@@ -9,7 +9,7 @@ import { sendNotification } from '@/lib/notifications'
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/order-issues', 'GET', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
     }
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   return withErrorTracing('/api/admin/order-issues', 'PATCH', async () => {
     const clientIp = getClientIp(request)
-    const rateLimitResult = checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
     if (!rateLimitResult.success) {
       return rateLimitResponse(rateLimitResult)
     }
