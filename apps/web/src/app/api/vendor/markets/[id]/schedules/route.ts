@@ -2,6 +2,58 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { findScheduleConflicts, padTime, dayOfWeekName, formatTimeDisplay, type ScheduleSlot } from '@/lib/utils/schedule-overlap'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+/**
+ * Check if a vendor has multiple_trucks enabled in their profile_data.
+ * Returns true if so (conflict checks are skipped for multi-truck vendors).
+ */
+async function isMultiTruckVendor(supabase: SupabaseClient, vendorProfileId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('vendor_profiles')
+    .select('profile_data')
+    .eq('id', vendorProfileId)
+    .single()
+  return (data?.profile_data as Record<string, unknown>)?.multiple_trucks === true
+}
+
+/**
+ * Get all active schedule slots for a vendor at OTHER markets (excludes the given marketId).
+ * Used for cross-market conflict detection.
+ */
+async function getOtherActiveSlots(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  excludeMarketId: string
+): Promise<ScheduleSlot[]> {
+  const { data: otherSchedules } = await supabase
+    .from('vendor_market_schedules')
+    .select(`
+      market_id,
+      vendor_start_time,
+      vendor_end_time,
+      schedule_id,
+      markets!inner ( id, name ),
+      market_schedules!inner ( day_of_week, start_time, end_time )
+    `)
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('is_active', true)
+    .neq('market_id', excludeMarketId)
+
+  return (otherSchedules || []).map(s => {
+    const m = s.markets as any
+    const ms = s.market_schedules as any
+    return {
+      marketId: s.market_id,
+      marketName: m.name,
+      scheduleId: s.schedule_id,
+      dayOfWeek: ms.day_of_week,
+      startTime: padTime(s.vendor_start_time || ms.start_time),
+      endTime: padTime(s.vendor_end_time || ms.end_time),
+    }
+  })
+}
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -169,6 +221,55 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       for (const scheduleId of scheduleIds) {
         if (!validScheduleIds.has(scheduleId)) {
           return NextResponse.json({ error: `Invalid schedule ID: ${scheduleId}` }, { status: 400 })
+        }
+      }
+
+      // Schedule conflict check: block single-truck vendors from overlapping at different markets
+      if (scheduleIds.length > 0) {
+        const multiTruck = await isMultiTruckVendor(supabase, vendorProfile.id)
+        if (!multiTruck) {
+          // Get day_of_week + times for each schedule being activated
+          const { data: scheduleDetails } = await supabase
+            .from('market_schedules')
+            .select('id, day_of_week, start_time, end_time')
+            .in('id', scheduleIds)
+
+          if (scheduleDetails && scheduleDetails.length > 0) {
+            const otherSlots = await getOtherActiveSlots(supabase, vendorProfile.id, marketId)
+            const allConflicts: Array<{ marketName: string; dayOfWeek: number; startTime: string; endTime: string }> = []
+
+            for (const sd of scheduleDetails) {
+              const candidate: ScheduleSlot = {
+                marketId,
+                marketName: '',
+                scheduleId: sd.id,
+                dayOfWeek: sd.day_of_week,
+                startTime: padTime(sd.start_time),
+                endTime: padTime(sd.end_time),
+              }
+              const conflicts = findScheduleConflicts(candidate, otherSlots)
+              for (const cf of conflicts) {
+                // Deduplicate by market+day
+                if (!allConflicts.some(c => c.marketName === cf.existing.marketName && c.dayOfWeek === cf.existing.dayOfWeek)) {
+                  allConflicts.push({
+                    marketName: cf.existing.marketName,
+                    dayOfWeek: cf.existing.dayOfWeek,
+                    startTime: cf.existing.startTime,
+                    endTime: cf.existing.endTime,
+                  })
+                }
+              }
+            }
+
+            if (allConflicts.length > 0) {
+              const c = allConflicts[0]
+              return NextResponse.json({
+                error: `Schedule conflict: you're already at "${c.marketName}" on ${dayOfWeekName(c.dayOfWeek)}s from ${formatTimeDisplay(c.startTime)} - ${formatTimeDisplay(c.endTime)}. Deactivate that schedule first, or enable "Multiple Trucks" in your profile.`,
+                code: 'ERR_SCHEDULE_CONFLICT',
+                conflicts: allConflicts
+              }, { status: 409 })
+            }
+          }
         }
       }
 
@@ -350,6 +451,48 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
         if (et && met && et > met) {
           return NextResponse.json({ error: 'Vendor end time cannot be after market closes' }, { status: 400 })
+        }
+      }
+
+      // Schedule conflict check: block single-truck vendors from overlapping at different markets
+      if (isActive) {
+        const multiTruck = await isMultiTruckVendor(supabase, vendorProfile.id)
+        if (!multiTruck) {
+          // Get the day_of_week for this schedule
+          const { data: scheduleDetails } = await supabase
+            .from('market_schedules')
+            .select('day_of_week')
+            .eq('id', scheduleId)
+            .single()
+
+          if (scheduleDetails) {
+            const effectiveStart = padTime(startTime || schedule.start_time)
+            const effectiveEnd = padTime(endTime || schedule.end_time)
+            const candidate: ScheduleSlot = {
+              marketId,
+              marketName: '', // not needed for candidate
+              scheduleId,
+              dayOfWeek: scheduleDetails.day_of_week,
+              startTime: effectiveStart,
+              endTime: effectiveEnd,
+            }
+
+            const otherSlots = await getOtherActiveSlots(supabase, vendorProfile.id, marketId)
+            const conflicts = findScheduleConflicts(candidate, otherSlots)
+            if (conflicts.length > 0) {
+              const c = conflicts[0].existing
+              return NextResponse.json({
+                error: `Schedule conflict: you're already at "${c.marketName}" on ${dayOfWeekName(c.dayOfWeek)}s from ${formatTimeDisplay(c.startTime)} - ${formatTimeDisplay(c.endTime)}. Deactivate that schedule first, or enable "Multiple Trucks" in your profile.`,
+                code: 'ERR_SCHEDULE_CONFLICT',
+                conflicts: conflicts.map(cf => ({
+                  marketName: cf.existing.marketName,
+                  dayOfWeek: cf.existing.dayOfWeek,
+                  startTime: cf.existing.startTime,
+                  endTime: cf.existing.endTime,
+                }))
+              }, { status: 409 })
+            }
+          }
         }
       }
 

@@ -128,7 +128,7 @@ export default function MarketScheduleSelector({
           setError(data.warning)
         }
       } else {
-        if (data.code === 'ERR_SCHEDULE_HAS_ORDERS') {
+        if (data.code === 'ERR_SCHEDULE_HAS_ORDERS' || data.code === 'ERR_SCHEDULE_CONFLICT') {
           setErrorType('blocking')
         } else {
           setErrorType('warning')
@@ -161,7 +161,7 @@ export default function MarketScheduleSelector({
 
       const data = await res.json()
       if (!res.ok) {
-        setErrorType('warning')
+        setErrorType(data.code === 'ERR_SCHEDULE_CONFLICT' ? 'blocking' : 'warning')
         setError(data.error || 'Failed to update time')
       } else {
         setSaved(scheduleId)
@@ -277,7 +277,9 @@ export default function MarketScheduleSelector({
           color: errorType === 'blocking' ? '#991b1b' : '#92400e'
         }}>
           {errorType === 'blocking' && (
-            <strong style={{ display: 'block', marginBottom: 4 }}>Cannot deactivate</strong>
+            <strong style={{ display: 'block', marginBottom: 4 }}>
+              {error.includes('Schedule conflict') ? 'Schedule Conflict' : 'Cannot deactivate'}
+            </strong>
           )}
           {error}
         </div>

@@ -10,7 +10,7 @@
  *   MP  = Money Path (28 rules) — confirmed Session 48
  *   OL  = Order Lifecycle (22 rules) — confirmed Session 48
  *   VI  = Vertical Isolation (19 rules) — confirmed Session 48, R16-R19 added Session 50
- *   VJ  = Vendor Journey (13 rules) — confirmed Session 49
+ *   VJ  = Vendor Journey (14 rules) — confirmed Session 49, R14 added Session 50
  *   SL  = Subscription Lifecycle (16 rules) — confirmed Session 49
  *   NI  = Notifications R19-R37 (19 rules) — confirmed Session 50
  *
@@ -69,6 +69,7 @@ import {
   isOffPeak,
   getPollingInterval,
 } from '@/lib/polling-config'
+import { timesOverlap } from '@/lib/utils/schedule-overlap'
 
 // ══════════════════════════════════════════════════════════════════════
 // DOMAIN 1: MONEY PATH (MP)
@@ -460,6 +461,23 @@ describe('VJ: Vendor Journey — coverage check', () => {
   it.todo('VJ-R11: FT shows pickup time selector, FM does not (component test)')
   it.todo('VJ-R12: FT requires vendor attendance for availability (API test)')
   it.todo('VJ-R13: paused listings hidden from browse but keep order history (API test)')
+
+  // ── VJ-R14: Schedule conflict prevention ────────────────────────
+  // Added Session 50: Single-truck vendors cannot have overlapping schedules
+  // at different markets on the same day. Enforced at 2 levels:
+  // 1. API validation (PATCH/PUT return 409 ERR_SCHEDULE_CONFLICT)
+  // 2. DB trigger safety net (check_vendor_schedule_conflict RAISE EXCEPTION)
+  // Vendors with multiple_trucks=true bypass both checks.
+  // COVERED: schedule-overlap.test.ts (24 unit tests)
+  it('VJ-R14: overlap detection works for same day, different markets', () => {
+    // Detailed tests in schedule-overlap.test.ts (24 tests) — this is the rule marker
+    expect(timesOverlap('10:00', '14:00', '12:00', '16:00')).toBe(true) // overlap
+    expect(timesOverlap('10:00', '14:00', '14:00', '18:00')).toBe(false) // adjacent = OK
+  })
+  it.todo('VJ-R14a: PATCH returns 409 for conflicting schedule activation (API test)')
+  it.todo('VJ-R14b: PUT returns 409 for bulk update with conflicts (API test)')
+  it.todo('VJ-R14c: DB trigger raises exception on conflicting INSERT (DB test)')
+  it.todo('VJ-R14d: multiple_trucks=true bypasses conflict check (API + DB test)')
 })
 
 // ══════════════════════════════════════════════════════════════════════
