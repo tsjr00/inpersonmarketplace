@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { colors } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 
 type Market = {
@@ -125,7 +125,7 @@ export default function MarketSelector({
 
   if (loading) {
     return (
-      <div style={{ padding: 16, color: '#6b7280' }}>
+      <div style={{ padding: spacing.sm, color: '#6b7280' }}>
         Loading markets...
       </div>
     )
@@ -133,7 +133,7 @@ export default function MarketSelector({
 
   if (error) {
     return (
-      <div style={{ padding: 16, color: '#dc2626' }}>
+      <div style={{ padding: spacing.sm, color: '#dc2626' }}>
         {error}
       </div>
     )
@@ -142,15 +142,15 @@ export default function MarketSelector({
   if (markets.length === 0) {
     return (
       <div style={{
-        padding: 16,
+        padding: spacing.sm,
         backgroundColor: '#fef3c7',
         border: '1px solid #fcd34d',
-        borderRadius: 8
+        borderRadius: radius.md
       }}>
         <p style={{ margin: 0, fontWeight: 600, marginBottom: 8, color: '#92400e' }}>
           No Markets Available
         </p>
-        <p style={{ margin: 0, fontSize: 14, color: '#92400e' }}>
+        <p style={{ margin: 0, fontSize: typography.sizes.sm, color: '#92400e' }}>
           You need to set up your markets before creating listings.
           <Link
             href={`/${vertical}/vendor/markets`}
@@ -176,14 +176,14 @@ export default function MarketSelector({
   const isAtLimit = effectiveCount >= listingLimit
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
       {/* Account Listing Count */}
       <div style={{
-        padding: 12,
+        padding: spacing.xs,
         backgroundColor: isAtLimit ? '#fef2f2' : colors.primaryLight,
         border: `1px solid ${isAtLimit ? '#fecaca' : colors.primary}`,
-        borderRadius: 8,
-        fontSize: 14
+        borderRadius: radius.md,
+        fontSize: typography.sizes.sm
       }}>
         <div style={{
           fontWeight: 600,
@@ -203,10 +203,10 @@ export default function MarketSelector({
       {/* Traditional Markets */}
       {fixedMarkets.length > 0 && (
         <div>
-          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, marginTop: 0, color: '#374151' }}>
+          <h4 style={{ fontSize: typography.sizes.sm, fontWeight: 600, marginBottom: spacing.xs, marginTop: 0, color: '#374151' }}>
             Traditional Markets
           </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
             {fixedMarkets.map(market => {
               const isSelected = selectedMarketIds.includes(market.id)
               const canSelect = market.canAdd || isSelected
@@ -217,10 +217,10 @@ export default function MarketSelector({
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    padding: 12,
+                    padding: spacing.xs,
                     border: '1px solid',
                     borderColor: isSelected ? primaryColor : market.homeMarketRestricted ? '#f3f4f6' : '#d1d5db',
-                    borderRadius: 8,
+                    borderRadius: radius.md,
                     cursor: canSelect && !disabled ? 'pointer' : 'not-allowed',
                     backgroundColor: isSelected ? `${primaryColor}10` : market.homeMarketRestricted ? '#f9fafb' : '#fff',
                     opacity: canSelect ? 1 : 0.5
@@ -233,7 +233,7 @@ export default function MarketSelector({
                     onChange={() => handleToggle(market.id, canSelect)}
                     disabled={!canSelect || disabled}
                     style={{
-                      marginRight: 12,
+                      marginRight: spacing.xs,
                       marginTop: 2,
                       minWidth: 18,
                       minHeight: 18,
@@ -289,10 +289,10 @@ export default function MarketSelector({
       {/* Event Markets */}
       {eventMarkets.length > 0 && (
         <div>
-          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, marginTop: 0, color: '#374151' }}>
+          <h4 style={{ fontSize: typography.sizes.sm, fontWeight: 600, marginBottom: spacing.xs, marginTop: 0, color: '#374151' }}>
             🎪 Events <span style={{ fontWeight: 400, color: '#9ca3af', fontSize: 12 }}>(don&apos;t count against location limits)</span>
           </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
             {eventMarkets.map(market => {
               const isSelected = selectedMarketIds.includes(market.id)
               const canSelect = market.canAdd || isSelected
@@ -303,10 +303,10 @@ export default function MarketSelector({
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    padding: 12,
+                    padding: spacing.xs,
                     border: '1px solid',
                     borderColor: isSelected ? primaryColor : '#d1d5db',
-                    borderRadius: 8,
+                    borderRadius: radius.md,
                     cursor: canSelect && !disabled ? 'pointer' : 'not-allowed',
                     backgroundColor: isSelected ? `${primaryColor}10` : '#fff',
                     opacity: canSelect ? 1 : 0.6
@@ -318,7 +318,7 @@ export default function MarketSelector({
                     onChange={() => handleToggle(market.id, canSelect)}
                     disabled={!canSelect || disabled}
                     style={{
-                      marginRight: 12,
+                      marginRight: spacing.xs,
                       marginTop: 2,
                       minWidth: 18,
                       minHeight: 18,
@@ -348,10 +348,10 @@ export default function MarketSelector({
       {/* Private Pickup Markets */}
       {privateMarkets.length > 0 && (
         <div>
-          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, marginTop: 0, color: '#374151' }}>
+          <h4 style={{ fontSize: typography.sizes.sm, fontWeight: 600, marginBottom: spacing.xs, marginTop: 0, color: '#374151' }}>
             My Pickup Locations
           </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
             {privateMarkets.map(market => {
               const isSelected = selectedMarketIds.includes(market.id)
               const canSelect = market.canAdd || isSelected
@@ -362,10 +362,10 @@ export default function MarketSelector({
                   style={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    padding: 12,
+                    padding: spacing.xs,
                     border: '1px solid',
                     borderColor: isSelected ? primaryColor : '#d1d5db',
-                    borderRadius: 8,
+                    borderRadius: radius.md,
                     cursor: canSelect && !disabled ? 'pointer' : 'not-allowed',
                     backgroundColor: isSelected ? `${primaryColor}10` : '#fff',
                     opacity: canSelect ? 1 : 0.6
@@ -377,7 +377,7 @@ export default function MarketSelector({
                     onChange={() => handleToggle(market.id, canSelect)}
                     disabled={!canSelect || disabled}
                     style={{
-                      marginRight: 12,
+                      marginRight: spacing.xs,
                       marginTop: 2,
                       minWidth: 18,
                       minHeight: 18,
@@ -407,11 +407,11 @@ export default function MarketSelector({
       {/* No markets selected warning */}
       {selectedMarketIds.length === 0 && (
         <div style={{
-          padding: 12,
+          padding: spacing.xs,
           backgroundColor: '#f5f5f5',
           border: '1px solid #ff3131',
-          borderRadius: 8,
-          fontSize: 14,
+          borderRadius: radius.md,
+          fontSize: typography.sizes.sm,
           color: '#4A4A4A'
         }}>
           Please select at least one {term(vertical, 'market').toLowerCase()} for this listing

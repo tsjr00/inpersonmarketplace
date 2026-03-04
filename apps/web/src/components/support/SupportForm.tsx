@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 
 interface SupportFormProps {
   vertical: string
@@ -28,11 +29,12 @@ const verticalAccent: Record<string, string> = {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '12px 16px',
-  border: '1px solid #d0d0d0',
-  borderRadius: '8px',
-  fontSize: '14px',
-  color: '#333',
+  padding: sizing.control.padding,
+  border: `1px solid ${statusColors.neutral300}`,
+  borderRadius: radius.md,
+  fontSize: sizing.control.fontSize,
+  minHeight: sizing.control.minHeight,
+  color: statusColors.neutral800,
   outline: 'none',
   boxSizing: 'border-box',
   fontFamily: 'inherit',
@@ -40,10 +42,10 @@ const inputStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   display: 'block',
-  fontSize: '13px',
-  fontWeight: 600,
-  color: '#555',
-  marginBottom: '4px',
+  fontSize: typography.sizes.xs,
+  fontWeight: typography.weights.semibold,
+  color: statusColors.neutral600,
+  marginBottom: spacing['3xs'],
 }
 
 export function SupportForm({ vertical }: SupportFormProps) {
@@ -116,16 +118,16 @@ export function SupportForm({ vertical }: SupportFormProps) {
       <div
         style={{
           textAlign: 'center',
-          padding: '32px 24px',
-          backgroundColor: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          borderRadius: '12px',
+          padding: `${spacing.lg} ${spacing.md}`,
+          backgroundColor: statusColors.successLight,
+          border: `1px solid ${statusColors.successBorder}`,
+          borderRadius: radius.lg,
         }}
       >
-        <p style={{ fontSize: '16px', fontWeight: 600, color: '#166534', marginBottom: '8px' }}>
+        <p style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: '#166534', marginBottom: spacing['2xs'] }}>
           Thank you!
         </p>
-        <p style={{ fontSize: '14px', color: '#555', lineHeight: 1.6, margin: 0 }}>
+        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, lineHeight: 1.6, margin: 0 }}>
           We&apos;ve received your message and will get back to you within 24-48 hours.
         </p>
       </div>
@@ -134,7 +136,7 @@ export function SupportForm({ vertical }: SupportFormProps) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
         <div>
           <label style={labelStyle}>Name *</label>
           <input
@@ -197,13 +199,13 @@ export function SupportForm({ vertical }: SupportFormProps) {
       {error && (
         <div
           style={{
-            marginTop: '12px',
-            padding: '10px 14px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            color: '#dc2626',
-            fontSize: '13px',
+            marginTop: spacing.xs,
+            padding: `${spacing['2xs']} ${spacing.xs}`,
+            backgroundColor: statusColors.dangerLight,
+            border: `1px solid ${statusColors.dangerBorder}`,
+            borderRadius: radius.md,
+            color: statusColors.danger,
+            fontSize: typography.sizes.xs,
           }}
         >
           {error}
@@ -215,14 +217,12 @@ export function SupportForm({ vertical }: SupportFormProps) {
         disabled={submitting}
         style={{
           width: '100%',
-          marginTop: '20px',
-          padding: '14px 24px',
+          marginTop: spacing.md,
+          ...sizing.cta,
+          fontWeight: typography.weights.semibold,
           backgroundColor: submitting ? '#ccc' : accent,
           color: '#fff',
           border: 'none',
-          borderRadius: '8px',
-          fontSize: '15px',
-          fontWeight: 600,
           cursor: submitting ? 'not-allowed' : 'pointer',
         }}
       >

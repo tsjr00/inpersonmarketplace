@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
+import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 
 interface DateRange {
   start: Date
@@ -89,15 +90,14 @@ export default function DateRangePicker({
   }, [maxDays])
 
   const buttonStyle = (isActive: boolean, disabled?: boolean) => ({
-    padding: '8px 16px',
-    borderRadius: 6,
+    ...sizing.control,
+    padding: `${spacing['2xs']} ${spacing.sm}`,
     border: 'none',
-    fontSize: 14,
-    fontWeight: 500 as const,
+    fontWeight: typography.weights.medium as number,
     cursor: disabled ? 'not-allowed' as const : 'pointer' as const,
     opacity: disabled ? 0.5 : 1,
-    backgroundColor: isActive ? 'var(--color-primary, #166534)' : '#f3f4f6',
-    color: isActive ? 'white' : '#374151',
+    backgroundColor: isActive ? 'var(--color-primary, #166534)' : statusColors.neutral100,
+    color: isActive ? 'white' : statusColors.neutral700,
     transition: 'all 0.15s ease'
   })
 
@@ -106,7 +106,7 @@ export default function DateRangePicker({
       {/* Preset buttons */}
       <div style={{
         display: 'flex',
-        gap: 8,
+        gap: spacing['2xs'],
         flexWrap: 'wrap'
       }}>
         {(!maxDays || maxDays >= 7) && (
@@ -145,17 +145,17 @@ export default function DateRangePicker({
       {/* Custom date picker */}
       {showCustom && (
         <div style={{
-          marginTop: 12,
-          padding: 12,
-          backgroundColor: '#f9fafb',
-          borderRadius: 8,
+          marginTop: spacing.xs,
+          padding: spacing.xs,
+          backgroundColor: statusColors.neutral50,
+          borderRadius: radius.md,
           display: 'flex',
-          gap: 12,
+          gap: spacing.xs,
           alignItems: 'center',
           flexWrap: 'wrap'
         }}>
           <div>
-            <label style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+            <label style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, display: 'block', marginBottom: spacing['3xs'] }}>
               Start Date
             </label>
             <input
@@ -164,15 +164,13 @@ export default function DateRangePicker({
               min={minDate}
               onChange={(e) => setCustomStart(e.target.value)}
               style={{
-                padding: '8px 12px',
-                borderRadius: 4,
-                border: '1px solid #d1d5db',
-                fontSize: 14
+                ...sizing.control,
+                border: `1px solid ${statusColors.neutral300}`,
               }}
             />
           </div>
           <div>
-            <label style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+            <label style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, display: 'block', marginBottom: spacing['3xs'] }}>
               End Date
             </label>
             <input
@@ -180,25 +178,22 @@ export default function DateRangePicker({
               value={customEnd}
               onChange={(e) => setCustomEnd(e.target.value)}
               style={{
-                padding: '8px 12px',
-                borderRadius: 4,
-                border: '1px solid #d1d5db',
-                fontSize: 14
+                ...sizing.control,
+                border: `1px solid ${statusColors.neutral300}`,
               }}
             />
           </div>
           <button
             onClick={handleCustomApply}
             style={{
-              padding: '8px 16px',
-              borderRadius: 4,
+              ...sizing.control,
+              padding: `${spacing['2xs']} ${spacing.sm}`,
               border: 'none',
               backgroundColor: 'var(--color-primary, #166534)',
               color: 'white',
-              fontSize: 14,
-              fontWeight: 500,
+              fontWeight: typography.weights.medium,
               cursor: 'pointer',
-              marginTop: 18
+              marginTop: spacing.sm
             }}
           >
             Apply

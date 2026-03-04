@@ -258,6 +258,32 @@ export function getVerticalCSSVars(vertical: string): Record<string, string> {
   }
 }
 
+/** Standard interactive element sizing presets.
+ *  Spread into inline styles: `style={{ ...sizing.control, border: ... }}`
+ *  Override individual props after spreading as needed. */
+export const sizing = {
+  /** Filters, secondary buttons, form selects (38px, compact) */
+  control: {
+    padding: `${spacing['2xs']} ${spacing.xs}`,   // 8px 12px
+    fontSize: typography.sizes.sm,
+    borderRadius: radius.sm,                       // 6px
+    minHeight: '38px',
+  },
+  /** Primary CTA buttons: Add to Cart, Checkout, Submit */
+  cta: {
+    padding: `${spacing.xs} ${spacing.md}`,        // 12px 24px
+    fontSize: typography.sizes.base,
+    borderRadius: radius.md,                        // 8px
+    minHeight: '44px',
+  },
+  /** Small badges, pills, status tags */
+  badge: {
+    padding: `${spacing['3xs']} ${spacing['2xs']}`, // 4px 8px
+    fontSize: typography.sizes.xs,
+    borderRadius: radius.full,                       // 9999px
+  },
+}
+
 // Shorthand for common patterns
 export const tokens = {
   colors,
@@ -267,6 +293,7 @@ export const tokens = {
   containers,
   radius,
   shadows,
+  sizing,
 }
 
 export default tokens

@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { colors } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 import { VendorTierType } from '@/lib/constants'
 
 interface Props {
@@ -57,26 +57,33 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
     }
   }
 
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    marginBottom: spacing['2xs'],
+    fontWeight: typography.weights.semibold,
+    fontSize: typography.sizes.sm,
+  }
+
+  const urlInputStyle: React.CSSProperties = {
+    width: '100%',
+    ...sizing.control,
+    border: `1px solid ${statusColors.neutral300}`,
+    boxSizing: 'border-box',
+  }
+
   return (
     <div style={{
       backgroundColor: 'white',
-      borderRadius: 12,
-      padding: 24
+      borderRadius: radius.lg,
+      padding: spacing.md
     }}>
-      <h2 style={{ marginBottom: 20, fontSize: 20, fontWeight: 600 }}>
+      <h2 style={{ marginBottom: spacing.md, fontSize: typography.sizes.xl, fontWeight: typography.weights.semibold }}>
         About Your Business
       </h2>
 
       {/* Description - Both tiers */}
-      <div style={{ marginBottom: 20 }}>
-        <label style={{
-          display: 'block',
-          marginBottom: 8,
-          fontWeight: 600,
-          fontSize: 14
-        }}>
-          Description
-        </label>
+      <div style={{ marginBottom: spacing.md }}>
+        <label style={labelStyle}>Description</label>
         <textarea
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -84,19 +91,19 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
           rows={6}
           style={{
             width: '100%',
-            padding: '12px',
-            border: '1px solid #d1d5db',
-            borderRadius: 8,
-            fontSize: 14,
+            padding: sizing.control.padding,
+            border: `1px solid ${statusColors.neutral300}`,
+            borderRadius: radius.md,
+            fontSize: sizing.control.fontSize,
             fontFamily: 'inherit',
             resize: 'vertical',
             boxSizing: 'border-box'
           }}
         />
         <p style={{
-          margin: '4px 0 0',
-          fontSize: 12,
-          color: '#6b7280'
+          margin: `${spacing['3xs']} 0 0`,
+          fontSize: typography.sizes.xs,
+          color: statusColors.neutral500
         }}>
           Available for all vendors. This helps buyers learn about your business.
         </p>
@@ -105,118 +112,74 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
       {/* Social Links - Premium only */}
       <div>
         <h3 style={{
-          margin: '24px 0 16px',
-          fontSize: 16,
-          fontWeight: 600,
+          margin: `${spacing.md} 0 ${spacing.sm}`,
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
           display: 'flex',
           alignItems: 'center',
-          gap: 8
+          gap: spacing['2xs']
         }}>
           Social Media Links
           {isPremium ? (
             <span style={{
-              padding: '2px 8px',
-              fontSize: 11,
-              fontWeight: 600,
-              backgroundColor: '#dbeafe',
-              color: '#3b82f6',
-              borderRadius: 8
+              ...sizing.badge,
+              fontWeight: typography.weights.semibold,
+              backgroundColor: statusColors.infoLight,
+              color: statusColors.info,
+              borderRadius: radius.md
             }}>
               Premium Feature
             </span>
           ) : (
             <span style={{
-              padding: '2px 8px',
-              fontSize: 11,
-              fontWeight: 600,
-              backgroundColor: '#f3f4f6',
-              color: '#6b7280',
-              borderRadius: 8
+              ...sizing.badge,
+              fontWeight: typography.weights.semibold,
+              backgroundColor: statusColors.neutral100,
+              color: statusColors.neutral500,
+              borderRadius: radius.md
             }}>
               Upgrade to Premium
             </span>
           )}
         </h3>
 
-        <div style={{ display: 'grid', gap: 16, opacity: isPremium ? 1 : 0.5 }}>
+        <div style={{ display: 'grid', gap: spacing.sm, opacity: isPremium ? 1 : 0.5 }}>
           {/* Facebook */}
           <div>
-            <label style={{
-              display: 'block',
-              marginBottom: 8,
-              fontWeight: 600,
-              fontSize: 14
-            }}>
-              Facebook Page
-            </label>
+            <label style={labelStyle}>Facebook Page</label>
             <input
               type="url"
               value={formData.facebook}
               onChange={(e) => setFormData({ ...formData, facebook: e.target.value })}
               placeholder="https://facebook.com/yourpage"
               disabled={!isPremium}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                fontSize: 14,
-                boxSizing: 'border-box'
-              }}
+              style={urlInputStyle}
             />
           </div>
 
           {/* Instagram */}
           <div>
-            <label style={{
-              display: 'block',
-              marginBottom: 8,
-              fontWeight: 600,
-              fontSize: 14
-            }}>
-              Instagram Profile
-            </label>
+            <label style={labelStyle}>Instagram Profile</label>
             <input
               type="url"
               value={formData.instagram}
               onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
               placeholder="https://instagram.com/yourprofile"
               disabled={!isPremium}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                fontSize: 14,
-                boxSizing: 'border-box'
-              }}
+              style={urlInputStyle}
             />
           </div>
 
           {/* Website */}
           <div>
-            <label style={{
-              display: 'block',
-              marginBottom: 8,
-              fontWeight: 600,
-              fontSize: 14
-            }}>
-              Website
-            </label>
+            <label style={labelStyle}>Website</label>
             <input
               type="url"
               value={formData.website}
               onChange={(e) => setFormData({ ...formData, website: e.target.value })}
               placeholder="https://yourwebsite.com"
               disabled={!isPremium}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                fontSize: 14,
-                boxSizing: 'border-box'
-              }}
+              style={urlInputStyle}
             />
           </div>
         </div>
@@ -227,14 +190,12 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
         onClick={handleSave}
         disabled={saving}
         style={{
-          marginTop: 24,
-          padding: '12px 32px',
-          backgroundColor: '#3b82f6',
+          marginTop: spacing.md,
+          ...sizing.cta,
+          fontWeight: typography.weights.semibold,
+          backgroundColor: statusColors.info,
           color: 'white',
           border: 'none',
-          borderRadius: 8,
-          fontSize: 16,
-          fontWeight: 600,
           cursor: saving ? 'not-allowed' : 'pointer',
           opacity: saving ? 0.6 : 1
         }}
@@ -245,12 +206,12 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
       {/* Message */}
       {message && (
         <p style={{
-          marginTop: 12,
-          padding: 12,
-          backgroundColor: message.includes('success') ? colors.primaryLight : '#fee2e2',
-          color: message.includes('success') ? colors.primaryDark : '#991b1b',
-          borderRadius: 6,
-          fontSize: 14
+          marginTop: spacing.xs,
+          padding: spacing.xs,
+          backgroundColor: message.includes('success') ? colors.primaryLight : statusColors.dangerLight,
+          color: message.includes('success') ? colors.primaryDark : statusColors.dangerDark,
+          borderRadius: radius.sm,
+          fontSize: typography.sizes.sm
         }}>
           {message}
         </p>

@@ -6,6 +6,7 @@ import { useCart, CartItem } from '@/lib/hooks/useCart'
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
 import { formatPickupDate } from '@/types/pickup'
 import { term } from '@/lib/vertical'
+import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 
 export function CartDrawer() {
   const router = useRouter()
@@ -73,8 +74,8 @@ export function CartDrawer() {
       }}>
         {/* Header */}
         <div style={{
-          padding: '20px 25px',
-          borderBottom: '1px solid #eee',
+          padding: `${spacing.sm} ${spacing.md}`,
+          borderBottom: `1px solid ${statusColors.neutral200}`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -104,7 +105,7 @@ export function CartDrawer() {
         <div style={{
           flex: 1,
           overflow: 'auto',
-          padding: 25,
+          padding: spacing.md,
         }}>
           {loading ? (
             <div style={{
@@ -124,16 +125,16 @@ export function CartDrawer() {
               <p>Your cart is empty</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
               {/* Warning banner for schedule issues */}
               {hasScheduleIssues && (
                 <div style={{
-                  padding: 12,
-                  backgroundColor: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  borderRadius: 8,
-                  color: '#991b1b',
-                  fontSize: 13,
+                  padding: spacing.xs,
+                  backgroundColor: statusColors.dangerLight,
+                  border: `1px solid ${statusColors.dangerBorder}`,
+                  borderRadius: radius.md,
+                  color: statusColors.dangerDark,
+                  fontSize: typography.sizes.sm,
                 }}>
                   <strong>Some items need attention</strong>
                   <p style={{ margin: '4px 0 0', fontSize: 12 }}>
@@ -145,12 +146,12 @@ export function CartDrawer() {
               {/* Market box notice */}
               {hasMarketBoxItems && listingItems.length > 0 && (
                 <div style={{
-                  padding: 12,
-                  backgroundColor: '#f0f9ff',
-                  border: '1px solid #bae6fd',
-                  borderRadius: 8,
-                  color: '#0c4a6e',
-                  fontSize: 12,
+                  padding: spacing.xs,
+                  backgroundColor: statusColors.infoLight,
+                  border: `1px solid ${statusColors.infoBorder}`,
+                  borderRadius: radius.md,
+                  color: statusColors.infoDark,
+                  fontSize: typography.sizes.xs,
                 }}>
                   {term(vertical, 'market_box')} subscriptions require card payment. External payment options will not be available for this order.
                 </div>
@@ -199,11 +200,11 @@ export function CartDrawer() {
         {/* Footer */}
         {items.length > 0 && (
           <div style={{
-            padding: 25,
-            borderTop: '1px solid #eee',
-            backgroundColor: '#fafafa',
+            padding: spacing.md,
+            borderTop: `1px solid ${statusColors.neutral200}`,
+            backgroundColor: statusColors.neutral50,
           }}>
-            <div style={{ marginBottom: 15 }}>
+            <div style={{ marginBottom: spacing.xs }}>
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -219,13 +220,11 @@ export function CartDrawer() {
               onClick={handleCheckout}
               style={{
                 width: '100%',
-                padding: '15px 20px',
-                fontSize: 16,
-                fontWeight: 600,
-                backgroundColor: '#333',
+                ...sizing.cta,
+                fontWeight: typography.weights.semibold,
+                backgroundColor: statusColors.neutral800,
                 color: 'white',
                 border: 'none',
-                borderRadius: 6,
                 cursor: 'pointer',
               }}
             >
@@ -235,15 +234,14 @@ export function CartDrawer() {
               onClick={() => setIsOpen(false)}
               style={{
                 width: '100%',
-                padding: '12px 20px',
-                fontSize: 14,
-                fontWeight: 500,
+                ...sizing.control,
+                padding: `${spacing.xs} ${spacing.md}`,
+                fontWeight: typography.weights.medium,
                 backgroundColor: 'transparent',
-                color: '#666',
-                border: '1px solid #ddd',
-                borderRadius: 6,
+                color: statusColors.neutral500,
+                border: `1px solid ${statusColors.neutral300}`,
                 cursor: 'pointer',
-                marginTop: 8,
+                marginTop: spacing['2xs'],
               }}
             >
               Continue Shopping
@@ -282,7 +280,7 @@ function CartItemCard({
 
   return (
     <div style={{
-      padding: 15,
+      padding: spacing.sm,
       border: hasIssue ? '2px solid #fca5a5' : '1px solid #eee',
       borderRadius: 8,
       backgroundColor: hasIssue ? '#fef2f2' : 'white',
@@ -445,7 +443,7 @@ function MarketBoxCartItemCard({
 
   return (
     <div style={{
-      padding: 15,
+      padding: spacing.sm,
       border: hasIssue ? '2px solid #fca5a5' : '1px solid #dbeafe',
       borderRadius: 8,
       backgroundColor: hasIssue ? '#fef2f2' : '#f8fafc',

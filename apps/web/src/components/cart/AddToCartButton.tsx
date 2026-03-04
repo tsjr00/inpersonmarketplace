@@ -14,7 +14,7 @@ import {
 } from '@/types/pickup'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { generateTimeSlots, formatTimeSlot } from '@/lib/utils/time-slots'
-import { colors } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, sizing } from '@/lib/design-tokens'
 
 /*
  * PICKUP SCHEDULING CONTEXT
@@ -222,11 +222,11 @@ export function AddToCartButton({
                     type="button"
                     onClick={() => handleSelectDate(todayDate, market.market_id, market.market_name)}
                     style={{
-                      padding: '10px 12px',
+                      padding: sizing.control.padding,
                       border: isSelected
                         ? `2px solid ${primaryColor}`
-                        : '1px solid #e5e7eb',
-                      borderRadius: 6,
+                        : `1px solid ${colors.border}`,
+                      borderRadius: radius.sm,
                       backgroundColor: isSelected ? colors.primaryLight : 'white',
                       cursor: 'pointer',
                       textAlign: 'left',
@@ -343,11 +343,11 @@ export function AddToCartButton({
                             type="button"
                             onClick={() => handleSelectDate(date, market.market_id, market.market_name)}
                             style={{
-                              padding: '8px 12px',
+                              padding: sizing.control.padding,
                               border: isSelected
                                 ? `2px solid ${primaryColor}`
-                                : '1px solid #e5e7eb',
-                              borderRadius: 6,
+                                : `1px solid ${colors.border}`,
+                              borderRadius: radius.sm,
                               backgroundColor: isSelected ? colors.primaryLight : 'white',
                               cursor: 'pointer',
                               textAlign: 'left',
@@ -405,10 +405,10 @@ export function AddToCartButton({
           ) : (
             // Single accepting date - show as info
             <div style={{
-              padding: '10px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              backgroundColor: '#f9fafb'
+              padding: sizing.control.padding,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              backgroundColor: colors.surfaceMuted
             }}>
               {acceptingDates[0] && (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -520,20 +520,20 @@ export function AddToCartButton({
                   type="button"
                   onClick={() => setSelectedTimeSlot(slot)}
                   style={{
-                    padding: '8px 4px',
+                    padding: `${spacing['2xs']} ${spacing['3xs']}`,
                     border: isSelected
                       ? `2px solid ${primaryColor}`
-                      : '1px solid #e5e7eb',
-                    borderRadius: 6,
+                      : `1px solid ${colors.border}`,
+                    borderRadius: radius.sm,
                     backgroundColor: isSelected ? colors.primaryLight : 'white',
                     cursor: 'pointer',
-                    fontSize: 13,
-                    fontWeight: isSelected ? 600 : 400,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: isSelected ? typography.weights.semibold : typography.weights.normal,
                     color: '#374151',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 4
+                    gap: spacing['3xs']
                   }}
                 >
                   {isSelected && <span style={{ color: primaryColor, fontSize: 14 }}>✓</span>}
@@ -608,18 +608,16 @@ export function AddToCartButton({
         disabled={isDisabled}
         style={{
           width: '100%',
-          padding: '15px 20px',
-          fontSize: 18,
-          fontWeight: 600,
+          ...sizing.cta,
+          fontWeight: typography.weights.semibold,
           backgroundColor: isDisabled ? '#ccc' : primaryColor,
           color: 'white',
           border: 'none',
-          borderRadius: 6,
           cursor: isDisabled ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 10,
+          gap: spacing['2xs'],
         }}
       >
         {adding ? (

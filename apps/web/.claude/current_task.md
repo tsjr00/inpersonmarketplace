@@ -1,123 +1,97 @@
-# Current Task: Consistent Listing Availability via Batch SQL Function (Session 50 continued)
-
+# Current Task: App-Wide Spacing & Padding Standardization
 Started: 2026-03-03
 
 ## Goal
-Fix inconsistent "Closed" pill on browse page. Some listings show "Closed" while others from the same vendor don't — but clicking into ANY of them says "orders are currently closed." Root cause: browse page used a JS reimplementation that ignored vendor attendance data. Fix: single SQL source of truth via batch RPC function.
+Replace hardcoded padding/margin/gap values across 11 component files with design token references. Add sizing presets to design-tokens.ts. Make interactive elements consistently tighter (38px for controls, 44px for CTAs).
 
-## Session 50 Summary — Prior Items COMMITTED
+## Prior Session Context
+- Listing availability fix COMPLETE (committed `78014ce`, migration 067 applied all 3 envs, pushed to prod)
+- MarketFilters layout fix COMPLETE (committed `e39706f`, pushed to prod)
+- Main and staging synced with origin/main
 
-### Schedule Conflict Prevention (COMMITTED `c4ead74`, pushed to staging)
-- 5-batch implementation: shared utility, API validation, DB trigger, UI handling, business rule test
-- Migration 066 applied to all 3 envs, schema snapshot updated, moved to applied/ (`7e52bd1`)
+## Plan File
+`C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md` — full 5-batch plan
 
-### Dashboard UX + VI Tests (COMMITTED `e4d34b4`, pushed to staging)
-- Combined Payments+Earnings card, fixed icons, added VI-R16 through VI-R19
+## Key Decisions Made
+- **Sizing presets added to design-tokens.ts**: `sizing.control` (8px 12px, 38px, sm font), `sizing.cta` (12px 24px, 44px, base font), `sizing.badge` (4px 8px, xs font, pill radius)
+- **No new shared components** — keep inline style pattern, just replace hardcoded values with tokens
+- **Landing page pill shapes preserved** — ComingSoonForm keeps borderRadius: '24px'/'9999px'
+- **Qty +/- buttons left as-is** — intentionally compact (28px)
+- **MarketFilters.tsx already fixed** in previous commit `e39706f` — that's the reference
 
-## Listing Availability Consistency Fix — Status
+## What's Been Completed
+- [x] **Batch 0**: `src/lib/design-tokens.ts` — added `sizing` export with control/cta/badge presets + added to `tokens` shorthand
+- [x] **Batch 1a**: `src/app/[vertical]/browse/SearchFilter.tsx` — full rewrite, all hardcoded → design tokens
+- [x] **Batch 1b**: `src/components/vendor/OrderFilters.tsx` — full rewrite, all hardcoded → design tokens, shared selectStyle/labelStyle
+- [x] **Batch 2a**: `src/components/cart/AddToCartButton.tsx` — CTA button → sizing.cta, date/time selection → sizing.control, hardcoded borders → colors.border
+- [x] **Batch 2b**: `src/components/cart/CartDrawer.tsx` — header/content/footer padding → spacing tokens, CTA → sizing.cta, banners → statusColors, cart items → spacing.sm
+- [x] **Batch 3a**: `src/components/support/SupportForm.tsx` — full rewrite, inputStyle/labelStyle → tokens, submit → sizing.cta, error → statusColors
+- [x] **Batch 3b**: `src/components/vendor/ProfileEditForm.tsx` — full rewrite, all hardcoded → tokens, premium badges → sizing.badge
+- [x] **Batch 3c**: `src/components/landing/ComingSoonForm.tsx` — inputStyle padding/fontSize → sizing.control, submit → sizing.cta, error → statusColors (kept pill borderRadius)
+- [x] **Batch 4a**: `src/components/shared/TierBadge.tsx` — full rewrite, hardcoded sizes → typography/spacing tokens
 
-### Root Cause (CONFIRMED)
-Two separate availability systems existed:
-1. **Detail page** → `get_available_pickup_dates()` SQL function (checks vendor attendance, vendor hours, timezone)
-2. **Browse page** → JS `calculateMarketAvailability()` in `listing-availability.ts` (IGNORES vendor attendance entirely)
-3. **Cart validate API** → same JS utility (ALSO ignores attendance — order integrity issue)
-4. **Vendor listings page** → same JS utility (same bug)
-
-### Completed (code written, NOT YET COMMITTED):
-
-- [x] **Batch 1**: Migration `supabase/migrations/20260303_067_batch_listing_availability.sql`
-  - `get_listings_accepting_status(p_listing_ids uuid[])` function
-  - Uses `LEFT JOIN LATERAL get_available_pickup_dates(lid)` — guaranteed sync
-  - Aggregates: `bool_or(is_accepting)`, `MIN(hours_until_cutoff)`, `MIN(cutoff_hours)`
-  - `SECURITY DEFINER SET search_path = public`
-  - NOTIFY pgrst at end
-
-- [x] **Batch 2**: Browse page (`src/app/[vertical]/browse/page.tsx`)
-  - Removed `import { calculateMarketAvailability }`
-  - Removed `calculateListingAvailability()` function (was ~45 lines of JS)
-  - Added `deriveAvailabilityStatus()` — simple map lookup from RPC data
-  - Added RPC call after pagination: `supabase.rpc('get_listings_accepting_status', { p_listing_ids })`
-  - Builds `availabilityMap` (Map<string, availability>)
-  - `ListingCard` now accepts `availabilityStatus` prop instead of calculating internally
-  - Both `<ListingCard>` callsites updated (grouped by category + filtered flat grid)
-
-- [x] **Batch 3**: Cart validate API (`src/app/api/cart/validate/route.ts`)
-  - Removed `import { processListingMarkets, type MarketWithSchedules }`
-  - **GET handler** (line ~94): Replaced 35-line JS block (fetched listing_markets + processListingMarkets) with single RPC call
-  - **POST handler** (line ~208): Replaced per-item N+1 pattern (each item fetched listing_markets separately) with single batch RPC call before the loop
-  - Both now use `get_listings_accepting_status()` via `availMap`
-
-- [x] **Batch 4**: Vendor listings page (`src/app/[vertical]/vendor/listings/page.tsx`)
-  - Removed `import { calculateMarketAvailability, type MarketWithSchedules }`
-  - Removed `calculateListingAvailability()` function
-  - Added `deriveAvailabilityStatus()` with extra `listingStatus` param (draft listings skip check)
-  - Added RPC call after tier limit calculation
-  - Updated inline `calculateListingAvailability(listing)` → `deriveAvailabilityStatus(availabilityMap.get(listing.id), listing.status)`
-
-- [x] **Batch 5**: Business rule + documentation
-  - Updated VJ rule count: 14 → 15 in file header comment
-  - Added VJ-R15 with 4 .todo markers (browse, cart validate, vendor listings, DB test)
-  - Added deprecation comment to `listing-availability.ts` header
-  - SQL comments in migration 067 document sync guarantee
-
-### REMAINING (must do before commit):
-- [ ] Run `npx vitest run` — expect all pass
-- [ ] Run `npx tsc --noEmit` — was 0 errors after each batch
-- [ ] Commit all files
+## What's Remaining
+- [ ] **Batch 4b**: `src/components/analytics/DateRangePicker.tsx` — buttonStyle needs sizing.control values, date inputs need tokens, gaps need spacing tokens. FILE ALREADY READ — see current content below.
+- [ ] **Batch 4c**: `src/components/vendor/MarketSelector.tsx` — structural spacing (padding/gap/borderRadius hardcoded → tokens). NOT YET READ.
+- [ ] Run `npx tsc --noEmit` — last check was clean after Batch 3 (Batch 4a TierBadge not yet checked)
+- [ ] Run `npx vitest run` — need to verify all tests pass
+- [ ] Commit all changes
 - [ ] Push to staging
-- [ ] User applies migration 067 to Dev, Staging, Prod
 
-### Post-commit (user action needed):
-- [ ] User applies migration 067 to all 3 envs
-- [ ] After confirmed: update SCHEMA_SNAPSHOT.md (changelog + function description), move to applied/, update MIGRATION_LOG.md
-
-## Files Modified (Not Yet Committed)
-| File | Status | Change |
-|------|--------|--------|
-| `supabase/migrations/20260303_067_batch_listing_availability.sql` | NEW | Batch SQL function wrapping get_available_pickup_dates |
-| `src/app/[vertical]/browse/page.tsx` | MODIFIED | Replaced JS availability with RPC lookup |
-| `src/app/api/cart/validate/route.ts` | MODIFIED | Replaced JS availability with RPC (both GET + POST handlers) |
-| `src/app/[vertical]/vendor/listings/page.tsx` | MODIFIED | Replaced JS availability with RPC lookup |
-| `src/lib/__tests__/integration/business-rules-coverage.test.ts` | MODIFIED | VJ-R15 added (4 .todo markers) |
-| `src/lib/utils/listing-availability.ts` | MODIFIED | Deprecation comment added |
-
-## Key Decisions
-- **LEFT JOIN LATERAL** pattern guarantees sync — batch function calls get_available_pickup_dates() directly, no duplicated logic
-- **Browse page RPC runs after pagination** — only queries 50 visible listings, not all
-- **Cart validate POST was N+1** — each item did its own listing_markets query. Now 1 batch RPC call for all items.
-- **listing-availability.ts retained** — processListingMarkets() still used by api/listings/[id]/markets/route.ts for market data display
-- **Draft listings skip availability check** — vendor listings page returns 'open' for non-published listings
-
-## Architecture
+## DateRangePicker.tsx Key Replacements Needed
 ```
-Single SQL Source of Truth:
-  get_available_pickup_dates(listing_id)
-    ├── Checks vendor attendance (vendor_market_schedules.is_active)
-    ├── Uses vendor-specific hours (vendor_start_time/vendor_end_time)
-    ├── Timezone-aware cutoff calculation
-    ├── FT parks: same-day only, zero cutoff
-    ├── FT events: 7-day window, advance cutoff
-    └── FM: 7-day window, advance cutoff
+Line 92: padding: '8px 16px' → sizing.control.padding
+Line 93: borderRadius: 6 → sizing.control.borderRadius
+Line 95: fontSize: 14 → sizing.control.fontSize
+Line 109: gap: 8 → spacing['2xs']
+Line 148: marginTop: 12 → spacing.xs
+Line 149: padding: 12 → spacing.xs
+Line 150: backgroundColor: '#f9fafb' → statusColors.neutral50
+Line 151: borderRadius: 8 → radius.md
+Line 153: gap: 12 → spacing.xs
+Line 158: fontSize: 12 → typography.sizes.xs, marginBottom: 4 → spacing['3xs']
+Line 167-170: date inputs padding: '8px 12px', borderRadius: 4, fontSize: 14 → sizing.control values
+Line 192-200: Apply btn same pattern
+```
 
-Batch wrapper (NEW — migration 067):
-  get_listings_accepting_status(listing_ids uuid[])
-    └── LEFT JOIN LATERAL get_available_pickup_dates() for each
-    └── Aggregates: bool_or(is_accepting), MIN(hours_until_cutoff), MIN(cutoff_hours)
+## MarketSelector.tsx Key Replacements Needed
+Already imports colors. Add spacing/radius. Replace:
+- padding: 12/16 → spacing.xs/spacing.sm
+- borderRadius: 8 → radius.md
+- gap: 10/24 → spacing['2xs']/spacing.md
+- marginBottom: 12 → spacing.xs
+- marginRight: 12 → spacing.xs
+- Repeats for eventMarkets and privateMarkets sections (same pattern x3)
 
-Consumers (all now use batch RPC):
-  ├── Browse page → CutoffBadge (open/closing-soon/closed pill)
-  ├── Cart validate GET → cutoffWarnings
-  ├── Cart validate POST → cutoff_passed per item
-  └── Vendor listings page → ListingCutoffStatusBadge
+## Files Modified (all uncommitted)
+1. `src/lib/design-tokens.ts` — added sizing export
+2. `src/app/[vertical]/browse/SearchFilter.tsx` — full token conversion
+3. `src/components/vendor/OrderFilters.tsx` — full token conversion
+4. `src/components/cart/AddToCartButton.tsx` — CTA + selection buttons
+5. `src/components/cart/CartDrawer.tsx` — all padding/spacing
+6. `src/components/support/SupportForm.tsx` — full token conversion
+7. `src/components/vendor/ProfileEditForm.tsx` — full token conversion
+8. `src/components/landing/ComingSoonForm.tsx` — input/button/error tokens
+9. `src/components/shared/TierBadge.tsx` — badge size presets
 
-Existing (unchanged):
-  ├── Listing detail page → calls get_available_pickup_dates() directly
-  ├── is_listing_accepting_orders() → wraps get_available_pickup_dates()
-  └── listing-availability.ts → retained for processListingMarkets() in market data API
+## Sizing Presets Reference (in design-tokens.ts)
+```typescript
+export const sizing = {
+  control: { padding: '8px 12px', fontSize: sm, borderRadius: '6px', minHeight: '38px' },
+  cta: { padding: '12px 24px', fontSize: base, borderRadius: '8px', minHeight: '44px' },
+  badge: { padding: '4px 8px', fontSize: xs, borderRadius: '9999px' },
+}
 ```
 
 ## Git State
-- Main branch, 14 commits ahead of origin/main
-- Staging synced to main (pushed after migration 066 schema update)
-- Migration 066 applied to all 3 envs, moved to applied/
-- Migration 067 NOT YET applied (pending commit + user action)
+- Branch: main, up to date with origin/main (pushed to prod last commit `e39706f`)
+- All Batch 0 through 4a changes are UNCOMMITTED
+- tsc clean after Batch 3 (Batch 4a not yet checked)
+
+## Gotchas / Watch Out For
+- `sizing` properties are strings (e.g., minHeight: '38px') — works with inline styles
+- ComingSoonForm keeps pill borderRadius intentionally — don't replace with radius tokens
+- CartDrawer uses `statusColors` for neutral greys (neutral50, neutral200, etc.) — not `colors`
+- OrderFilters pickup date select has conditional active styling (blue border/bg when selected) — preserved with statusColors.info/infoLight
+- AddToCartButton has many small internal elements (11-13px fonts) that are intentionally compact — don't touch
+- MarketSelector has 3 repeating sections (traditional, event, private) — same spacing pattern applies to all 3

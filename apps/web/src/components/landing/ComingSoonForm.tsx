@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { spacing, typography, sizing, statusColors } from '@/lib/design-tokens'
 
 interface ComingSoonFormProps {
   vertical: string
@@ -20,11 +21,11 @@ interface FormData {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '12px 16px',
-  border: '1px solid #d0d0d0',
-  borderRadius: '24px',
-  fontSize: '14px',
-  color: '#333',
+  padding: sizing.control.padding,
+  border: `1px solid ${statusColors.neutral300}`,
+  borderRadius: '24px',  // Intentional pill shape for landing page
+  fontSize: sizing.control.fontSize,
+  color: statusColors.neutral800,
   outline: 'none',
   boxSizing: 'border-box',
   fontFamily: 'inherit',
@@ -32,7 +33,7 @@ const inputStyle: React.CSSProperties = {
 
 const textareaStyle: React.CSSProperties = {
   ...inputStyle,
-  borderRadius: '16px',
+  borderRadius: '16px',  // Softer pill for multiline
   minHeight: '100px',
   resize: 'vertical',
 }
@@ -171,7 +172,7 @@ export function ComingSoonForm({ vertical }: ComingSoonFormProps) {
         information or a free demo of all of the business features
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
         <input
           type="text"
           placeholder={labels.businessName}
@@ -264,13 +265,13 @@ export function ComingSoonForm({ vertical }: ComingSoonFormProps) {
       {error && (
         <div
           style={{
-            marginTop: '12px',
-            padding: '10px 14px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
+            marginTop: spacing.xs,
+            padding: `${spacing['2xs']} ${spacing.xs}`,
+            backgroundColor: statusColors.dangerLight,
+            border: `1px solid ${statusColors.dangerBorder}`,
             borderRadius: '8px',
-            color: '#dc2626',
-            fontSize: '13px',
+            color: statusColors.danger,
+            fontSize: typography.sizes.xs,
           }}
         >
           {error}
@@ -282,14 +283,14 @@ export function ComingSoonForm({ vertical }: ComingSoonFormProps) {
         disabled={submitting}
         style={{
           width: '100%',
-          marginTop: '16px',
-          padding: '14px 24px',
+          marginTop: spacing.sm,
+          padding: sizing.cta.padding,
           backgroundColor: submitting ? '#ccc' : labels.accentColor,
           color: '#fff',
           border: 'none',
-          borderRadius: '9999px',
-          fontSize: '16px',
-          fontWeight: 700,
+          borderRadius: '9999px',  // Pill shape for landing page
+          fontSize: sizing.cta.fontSize,
+          fontWeight: typography.weights.bold,
           cursor: submitting ? 'not-allowed' : 'pointer',
           textTransform: 'uppercase',
           letterSpacing: '0.5px',

@@ -1,5 +1,7 @@
 'use client'
 
+import { colors, spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
+
 interface PickupDateOption {
   date: string
   market_id: string
@@ -32,6 +34,20 @@ function formatPickupDate(dateStr: string): string {
   })
 }
 
+const selectStyle: React.CSSProperties = {
+  ...sizing.control,
+  border: `1px solid ${colors.border}`,
+  backgroundColor: colors.surfaceElevated,
+  cursor: 'pointer',
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: typography.sizes.sm,
+  fontWeight: typography.weights.semibold,
+  marginRight: spacing['2xs'],
+  color: statusColors.neutral700,
+}
+
 export default function OrderFilters({
   currentStatus,
   currentMarketId,
@@ -51,30 +67,21 @@ export default function OrderFilters({
   return (
     <div style={{
       display: 'flex',
-      gap: 12,
-      padding: 16,
-      backgroundColor: 'white',
-      borderRadius: 8,
-      border: '1px solid #e5e7eb',
+      gap: spacing.xs,
+      padding: spacing.sm,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: radius.md,
+      border: `1px solid ${colors.border}`,
       flexWrap: 'wrap',
       alignItems: 'center'
     }}>
       {/* Date Range Filter */}
       <div>
-        <label style={{ fontSize: 14, fontWeight: 600, marginRight: 8, color: '#374151' }}>
-          Period:
-        </label>
+        <label style={labelStyle}>Period:</label>
         <select
           value={currentDateRange || '30days'}
           onChange={(e) => onDateRangeChange(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #d1d5db',
-            borderRadius: 6,
-            fontSize: 14,
-            backgroundColor: 'white',
-            minWidth: 140
-          }}
+          style={{ ...selectStyle, minWidth: 130 }}
         >
           <option value="today">Today</option>
           <option value="week">Last 7 Days</option>
@@ -86,20 +93,11 @@ export default function OrderFilters({
 
       {/* Status Filter */}
       <div>
-        <label style={{ fontSize: 14, fontWeight: 600, marginRight: 8, color: '#374151' }}>
-          Status:
-        </label>
+        <label style={labelStyle}>Status:</label>
         <select
           value={currentStatus || ''}
           onChange={(e) => onStatusChange(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            border: '1px solid #d1d5db',
-            borderRadius: 6,
-            fontSize: 14,
-            backgroundColor: 'white',
-            minWidth: 150
-          }}
+          style={{ ...selectStyle, minWidth: 130 }}
         >
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
@@ -113,20 +111,11 @@ export default function OrderFilters({
       {/* Market Filter */}
       {markets.length > 0 && (
         <div>
-          <label style={{ fontSize: 14, fontWeight: 600, marginRight: 8, color: '#374151' }}>
-            Market:
-          </label>
+          <label style={labelStyle}>Market:</label>
           <select
             value={currentMarketId || ''}
             onChange={(e) => onMarketChange(e.target.value)}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 14,
-              backgroundColor: 'white',
-              minWidth: 180
-            }}
+            style={{ ...selectStyle, minWidth: 160 }}
           >
             <option value="">All Markets</option>
             {markets.map(market => (
@@ -141,19 +130,17 @@ export default function OrderFilters({
       {/* Pickup Date Filter */}
       {upcomingPickupDates && upcomingPickupDates.length > 0 && (
         <div>
-          <label style={{ fontSize: 14, fontWeight: 600, marginRight: 8, color: '#374151' }}>
-            Pickup Date:
-          </label>
+          <label style={labelStyle}>Pickup Date:</label>
           <select
             value={currentPickupDate || ''}
             onChange={(e) => onPickupDateChange(e.target.value)}
             style={{
-              padding: '8px 12px',
-              border: currentPickupDate ? '2px solid #1e40af' : '1px solid #d1d5db',
-              borderRadius: 6,
-              fontSize: 14,
-              backgroundColor: currentPickupDate ? '#dbeafe' : 'white',
-              minWidth: 200
+              ...selectStyle,
+              minWidth: 180,
+              ...(currentPickupDate ? {
+                border: `2px solid ${statusColors.info}`,
+                backgroundColor: statusColors.infoLight,
+              } : {}),
             }}
           >
             <option value="">All Pickup Dates</option>
@@ -171,17 +158,16 @@ export default function OrderFilters({
         <button
           onClick={onClearFilters}
           style={{
-            padding: '8px 16px',
-            backgroundColor: '#f3f4f6',
+            ...sizing.control,
+            padding: `${spacing['2xs']} ${spacing.sm}`,
+            backgroundColor: colors.surfaceMuted,
             border: 'none',
-            borderRadius: 6,
-            fontSize: 14,
-            fontWeight: 600,
-            color: '#374151',
+            fontWeight: typography.weights.semibold,
+            color: statusColors.neutral700,
             cursor: 'pointer'
           }}
         >
-          Clear Filters
+          Clear
         </button>
       )}
     </div>

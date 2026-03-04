@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { VerticalBranding } from '@/lib/branding'
+import { colors, spacing, typography, radius, sizing } from '@/lib/design-tokens'
 
 interface SearchFilterProps {
   vertical: string
@@ -52,16 +53,16 @@ export default function SearchFilter({
     <div style={{
       display: 'flex',
       flexWrap: 'wrap',
-      gap: 15,
-      marginBottom: 30,
-      padding: 20,
+      gap: spacing.xs,
+      marginBottom: spacing.md,
+      padding: spacing.sm,
       backgroundColor: 'white',
-      borderRadius: 8,
+      borderRadius: radius.md,
       border: `1px solid ${branding.colors.secondary}`
     }}>
       {/* Search Input */}
-      <form onSubmit={handleSearch} style={{ flex: '1 1 300px' }}>
-        <div style={{ display: 'flex', gap: 10 }}>
+      <form onSubmit={handleSearch} style={{ flex: '1 1 280px' }}>
+        <div style={{ display: 'flex', gap: spacing['2xs'] }}>
           <input
             type="text"
             value={search}
@@ -69,22 +70,20 @@ export default function SearchFilter({
             placeholder="Search listings..."
             style={{
               flex: 1,
-              padding: '10px 15px',
-              fontSize: 16,
+              ...sizing.control,
               border: `1px solid ${branding.colors.secondary}`,
-              borderRadius: 6,
-              boxSizing: 'border-box'
+              boxSizing: 'border-box' as const
             }}
           />
           <button
             type="submit"
             style={{
-              padding: '10px 20px',
+              ...sizing.control,
+              padding: `${spacing['2xs']} ${spacing.sm}`,
               backgroundColor: branding.colors.primary,
               color: 'white',
               border: 'none',
-              borderRadius: 6,
-              fontWeight: 600,
+              fontWeight: typography.weights.semibold,
               cursor: 'pointer'
             }}
           >
@@ -94,18 +93,16 @@ export default function SearchFilter({
       </form>
 
       {/* Category Filter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <label style={{ fontWeight: 600, color: '#333' }}>Category:</label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+        <label style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>Category:</label>
         <select
           value={currentCategory || ''}
           onChange={(e) => handleCategoryChange(e.target.value)}
           style={{
-            padding: '10px 15px',
-            fontSize: 16,
+            ...sizing.control,
             border: `1px solid ${branding.colors.secondary}`,
-            borderRadius: 6,
             backgroundColor: 'white',
-            minWidth: 150
+            minWidth: 130
           }}
         >
           <option value="">All Categories</option>
@@ -116,8 +113,8 @@ export default function SearchFilter({
       </div>
 
       {/* ZIP Code Filter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <label style={{ fontWeight: 600, color: '#333' }}>Near:</label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+        <label style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>Near:</label>
         <input
           type="text"
           value={zipInput}
@@ -138,12 +135,10 @@ export default function SearchFilter({
           inputMode="numeric"
           maxLength={5}
           style={{
-            padding: '10px 15px',
-            fontSize: 16,
+            ...sizing.control,
             border: `1px solid ${branding.colors.secondary}`,
-            borderRadius: 6,
-            width: 100,
-            boxSizing: 'border-box'
+            width: 90,
+            boxSizing: 'border-box' as const
           }}
         />
         {zipInput.length === 5 && zipInput !== currentZip && (
@@ -156,14 +151,12 @@ export default function SearchFilter({
               router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
             }}
             style={{
-              padding: '10px 15px',
+              ...sizing.control,
               backgroundColor: branding.colors.primary,
               color: 'white',
               border: 'none',
-              borderRadius: 6,
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: 14
+              fontWeight: typography.weights.semibold,
+              cursor: 'pointer'
             }}
           >
             Go
@@ -176,16 +169,16 @@ export default function SearchFilter({
         <button
           onClick={clearFilters}
           style={{
-            padding: '10px 20px',
-            backgroundColor: '#6c757d',
-            color: 'white',
+            ...sizing.control,
+            padding: `${spacing['2xs']} ${spacing.sm}`,
+            backgroundColor: colors.surfaceMuted,
+            color: colors.textSecondary,
             border: 'none',
-            borderRadius: 6,
-            fontWeight: 600,
+            fontWeight: typography.weights.semibold,
             cursor: 'pointer'
           }}
         >
-          Clear Filters
+          Clear
         </button>
       )}
     </div>
