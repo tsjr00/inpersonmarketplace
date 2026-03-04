@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import SettingsForm from './SettingsForm'
 import ChangePasswordForm from './ChangePasswordForm'
 import NotificationPreferences from './NotificationPreferences'
@@ -18,7 +19,8 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
   const { vertical } = await params
   const supabase = await createClient()
 
-  // Check auth
+  // Check auth + vertical membership
+  await enforceVerticalAccess(vertical)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     redirect(`/${vertical}/login`)

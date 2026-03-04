@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)))
     const unreadOnly = searchParams.get('unread_only') === 'true'
+    const vertical = searchParams.get('vertical')
     const offset = (page - 1) * limit
 
     crumb.supabase('select', 'notifications')
@@ -38,6 +39,11 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
+
+    // Vertical isolation: show this vertical's notifications + legacy (NULL) notifications
+    if (vertical) {
+      query = query.or(`vertical_id.eq.${vertical},vertical_id.is.null`)
+    }
 
     if (unreadOnly) {
       query = query.is('read_at', null)

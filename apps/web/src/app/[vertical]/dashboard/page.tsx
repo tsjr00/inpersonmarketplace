@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { hasAdminRole } from '@/lib/auth/admin'
+import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import Link from 'next/link'
 import Image from 'next/image'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -25,7 +26,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const { vertical } = await params
   const supabase = await createClient()
 
-  // Check auth
+  // Check auth + vertical membership
+  await enforceVerticalAccess(vertical)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     redirect(`/${vertical}/login`)

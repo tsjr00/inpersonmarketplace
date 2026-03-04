@@ -118,7 +118,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   // Fetch unread count + check for critical severity + trigger sound/vibrate
   const fetchCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications?limit=10&unread_only=true')
+      const res = await fetch(`/api/notifications?limit=10&unread_only=true&vertical=${vertical}`)
       if (res.ok) {
         const { notifications: unread, pagination } = await res.json()
         const newCount = pagination?.total ?? unread?.length ?? 0
@@ -165,7 +165,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true)
     try {
-      const res = await fetch('/api/notifications?limit=8')
+      const res = await fetch(`/api/notifications?limit=8&vertical=${vertical}`)
       if (res.ok) {
         const { notifications: items } = await res.json()
         setNotifications(items)
@@ -250,7 +250,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
 
   // Mark all as read
   const handleMarkAllRead = async () => {
-    await fetch('/api/notifications/read-all', { method: 'POST' })
+    await fetch(`/api/notifications/read-all?vertical=${vertical}`, { method: 'POST' })
     setUnreadCount(0)
     setHighestUnreadSeverity('info')
     setNotifications((prev) =>

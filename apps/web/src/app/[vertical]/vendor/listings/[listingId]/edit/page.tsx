@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import ListingForm from '../../ListingForm'
 
 interface EditListingPageProps {
@@ -11,7 +12,8 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
   const { vertical, listingId } = await params
   const supabase = await createClient()
 
-  // Check auth
+  // Check auth + vertical membership
+  await enforceVerticalAccess(vertical)
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
     redirect(`/${vertical}/login`)

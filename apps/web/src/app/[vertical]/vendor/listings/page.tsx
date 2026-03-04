@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import Link from 'next/link'
 import PublishButton from './PublishButton'
 import DeleteListingButton from './DeleteListingButton'
@@ -239,7 +240,8 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
   const { market: filterMarketId } = await searchParams
   const supabase = await createClient()
 
-  // Check auth
+  // Check auth + vertical membership
+  await enforceVerticalAccess(vertical)
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
     redirect(`/${vertical}/login`)

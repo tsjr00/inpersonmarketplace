@@ -454,7 +454,7 @@ async function processMarketBoxVendorPayout(
   // Get vendor Stripe info
   const { data: vendor, error: vendorError } = await supabase
     .from('vendor_profiles')
-    .select('id, stripe_account_id, stripe_payouts_enabled, user_id')
+    .select('id, stripe_account_id, stripe_payouts_enabled, user_id, vertical_id')
     .eq('id', offering.vendor_profile_id)
     .single()
 
@@ -510,7 +510,7 @@ async function processMarketBoxVendorPayout(
   if (vendor.user_id) {
     await sendNotification(vendor.user_id, 'payout_processed', {
       amountCents: vendorPayoutCents,
-    })
+    }, { vertical: vendor.vertical_id })
   }
 }
 
@@ -761,15 +761,15 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
     // Notify vendor
     const { data: payout } = await supabase
       .from('vendor_payouts')
-      .select('vendor_profiles!inner(user_id)')
+      .select('vendor_profiles!inner(user_id, vertical_id)')
       .eq('market_box_subscription_id', mbSubscriptionId)
       .single()
 
-    const vp = (payout as unknown as { vendor_profiles: { user_id: string } })?.vendor_profiles
+    const vp = (payout as unknown as { vendor_profiles: { user_id: string; vertical_id: string } })?.vendor_profiles
     if (vp?.user_id) {
       await sendNotification(vp.user_id, 'payout_processed', {
         amountCents: transfer.amount,
-      })
+      }, { vertical: vp.vertical_id })
     }
     return
   }
@@ -787,15 +787,15 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
   // Notify vendor that payout was processed
   const { data: orderItem } = await supabase
     .from('order_items')
-    .select('vendor_profiles!vendor_profile_id(user_id)')
+    .select('vendor_profiles!vendor_profile_id(user_id, vertical_id)')
     .eq('id', orderItemId)
     .single()
 
-  const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string } | null })?.vendor_profiles
+  const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string; vertical_id: string } | null })?.vendor_profiles
   if (vendorProfile?.user_id) {
     await sendNotification(vendorProfile.user_id, 'payout_processed', {
       amountCents: transfer.amount,
-    })
+    }, { vertical: vendorProfile.vertical_id })
   }
 }
 

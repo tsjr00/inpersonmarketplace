@@ -18,13 +18,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Accept vertical from query param or body
+    const vertical = request.nextUrl.searchParams.get('vertical')
+
     crumb.supabase('update', 'notifications')
     // RLS ensures user can only update their own notifications
-    const { error } = await supabase
+    let markQuery = supabase
       .from('notifications')
       .update({ read_at: new Date().toISOString() })
       .eq('user_id', user.id)
       .is('read_at', null)
+
+    // Vertical isolation: only mark read for this vertical + legacy (NULL)
+    if (vertical) {
+      markQuery = markQuery.or(`vertical_id.eq.${vertical},vertical_id.is.null`)
+    }
+
+    const { error } = await markQuery
 
     if (error) {
       return NextResponse.json({ error: 'Failed to mark all as read' }, { status: 500 })

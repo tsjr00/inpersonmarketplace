@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import EditProfileForm from './EditProfileForm'
 import ProfileImageUpload from '@/components/vendor/ProfileImageUpload'
 import ProfileEditForm from '@/components/vendor/ProfileEditForm'
@@ -16,7 +17,8 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
   const { vertical } = await params
   const supabase = await createClient()
 
-  // Check auth
+  // Check auth + vertical membership
+  await enforceVerticalAccess(vertical)
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
     redirect(`/${vertical}/login`)

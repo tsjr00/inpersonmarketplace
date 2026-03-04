@@ -64,6 +64,40 @@ export default function LoginPage({ params }: LoginPageProps) {
     }
 
     if (data.user) {
+      // Post-login vertical check: verify user belongs to this vertical
+      // If not, redirect to their home vertical instead
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role, roles, verticals')
+        .eq('user_id', data.user.id)
+        .single()
+
+      const isAdmin = profile?.role === 'admin' ||
+        profile?.role === 'platform_admin' ||
+        profile?.roles?.includes('admin') ||
+        profile?.roles?.includes('platform_admin')
+
+      const userVerticals = (profile?.verticals as string[] | null) || []
+
+      // Admins can access any vertical. Users with no verticals are new (allow).
+      if (!isAdmin && userVerticals.length > 0 && !userVerticals.includes(vertical)) {
+        // Check vendor_profiles fallback
+        const { data: vendorProfile } = await supabase
+          .from('vendor_profiles')
+          .select('id')
+          .eq('user_id', data.user.id)
+          .eq('vertical_id', vertical)
+          .maybeSingle()
+
+        if (!vendorProfile) {
+          // User doesn't belong to this vertical — redirect to their home
+          const homeVertical = userVerticals[0]
+          router.push(`/${homeVertical}/dashboard`)
+          router.refresh()
+          return
+        }
+      }
+
       router.push(`/${vertical}/dashboard`)
       router.refresh()
     }

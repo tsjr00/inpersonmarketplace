@@ -73,7 +73,7 @@ export default function NotificationsPage() {
     else setLoadingMore(true)
 
     try {
-      const res = await fetch(`/api/notifications?page=${page}&limit=20`)
+      const res = await fetch(`/api/notifications?page=${page}&limit=20&vertical=${vertical}`)
       if (res.ok) {
         const data = await res.json()
         if (append) {
@@ -116,7 +116,7 @@ export default function NotificationsPage() {
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true)
     try {
-      await fetch('/api/notifications/read-all', { method: 'POST' })
+      await fetch(`/api/notifications/read-all?vertical=${vertical}`, { method: 'POST' })
       setNotifications(prev =>
         prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
       )

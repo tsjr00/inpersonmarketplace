@@ -124,7 +124,8 @@ async function sendInApp(
   type: NotificationType,
   title: string,
   message: string,
-  data: NotificationTemplateData
+  data: NotificationTemplateData,
+  vertical?: string
 ): Promise<ChannelResult> {
   try {
     const supabase = createServiceClient()
@@ -136,6 +137,7 @@ async function sendInApp(
         title,
         message,
         data: data as Record<string, unknown>,
+        vertical_id: vertical || null,
       })
       .select('id')
       .single()
@@ -477,7 +479,7 @@ export async function sendNotification(
         const result = await sendInApp(userId, type, title, message, {
           ...templateData,
           // Store actionUrl in template data for the frontend
-        })
+        }, options?.vertical)
         if (result.messageId) {
           inAppNotificationId = result.messageId
         }

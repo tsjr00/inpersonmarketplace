@@ -137,19 +137,20 @@ export async function GET(request: NextRequest) {
           const stockNotifications: Promise<unknown>[] = []
           for (const listing of listings) {
             if (listing.quantity === null) continue // Unlimited inventory
-            const vendorProfile = listing.vendor_profiles as unknown as { user_id: string } | null
+            const vendorProfile = listing.vendor_profiles as unknown as { user_id: string; vertical_id?: string } | null
             const vendorUserId = vendorProfile?.user_id
             if (!vendorUserId) continue
+            const vendorVertical = vendorProfile?.vertical_id || order.vertical_id
 
             if (listing.quantity === 0) {
               stockNotifications.push(sendNotification(vendorUserId, 'inventory_out_of_stock', {
                 listingTitle: listing.title,
-              }))
+              }, { vertical: vendorVertical }))
             } else if (listing.quantity <= LOW_STOCK_THRESHOLD) {
               stockNotifications.push(sendNotification(vendorUserId, 'inventory_low_stock', {
                 listingTitle: listing.title,
                 quantity: listing.quantity,
-              }))
+              }, { vertical: vendorVertical }))
             }
           }
           await Promise.all(stockNotifications)
@@ -337,7 +338,7 @@ export async function GET(request: NextRequest) {
               orderNumber,
               itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
               marketName: info.marketName,
-            })
+            }, { vertical: order.vertical_id })
           )
         )
       }
@@ -479,7 +480,7 @@ async function processMarketBoxPayout(serviceClient: any, subscriptionId: string
     // Get vendor Stripe info
     const { data: vendor } = await serviceClient
       .from('vendor_profiles')
-      .select('id, stripe_account_id, stripe_payouts_enabled, user_id')
+      .select('id, stripe_account_id, stripe_payouts_enabled, user_id, vertical_id')
       .eq('id', offering.vendor_profile_id)
       .single()
 
@@ -526,7 +527,7 @@ async function processMarketBoxPayout(serviceClient: any, subscriptionId: string
     if (vendor.user_id) {
       await sendNotification(vendor.user_id, 'payout_processed', {
         amountCents: vendorPayoutCents,
-      })
+      }, { vertical: vendor.vertical_id })
     }
   } catch (err) {
     console.error('[MARKET_BOX_PAYOUT] Error in checkout success payout:', err)
