@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
@@ -116,7 +115,6 @@ export default function VendorActivityClient({
   initialReason,
   initialTab = 'activity'
 }: VendorActivityClientProps) {
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabType>(initialTab)
   const { showBanner, StatusBanner } = useStatusBanner()
 
@@ -143,6 +141,7 @@ export default function VendorActivityClient({
     } else if (activeTab === 'referrals') {
       fetchReferrals()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, statusFilter, reasonFilter])
 
   const fetchFlags = async () => {

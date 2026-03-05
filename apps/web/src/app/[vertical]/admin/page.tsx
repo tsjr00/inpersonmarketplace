@@ -51,9 +51,9 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
 
   // Vendors data
   const [
-    { count: totalVendors },
+    { count: _totalVendors },
     { count: pendingVendors },
-    { count: approvedVendors },
+    { count: _approvedVendors },
     { count: standardVendors },
     { count: premiumVendors }
   ] = await Promise.all([

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice, calculateBuyerPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
@@ -143,6 +143,7 @@ export default function BuyerOrdersPage() {
 
   useEffect(() => {
     fetchOrders()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, marketFilter])
 
   async function fetchOrders() {

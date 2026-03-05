@@ -114,7 +114,7 @@ export default function BuyerOrderDetailPage() {
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [confirmingItemId, setConfirmingItemId] = useState<string | null>(null)
   const [cancellingItemId, setCancellingItemId] = useState<string | null>(null)
-  const [reportingItemId, setReportingItemId] = useState<string | null>(null)
+  const [, setReportingItemId] = useState<string | null>(null)
 
   // Share prompt state (shown after pickup confirmation)
   const [showSharePrompt, setShowSharePrompt] = useState(false)
@@ -152,6 +152,7 @@ export default function BuyerOrderDetailPage() {
 
   useEffect(() => {
     fetchOrder()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
   const fetchOrder = async () => {
@@ -281,7 +282,8 @@ export default function BuyerOrderDetailPage() {
     })
   }
 
-  const handleReportIssue = (itemId: string) => {
+  // TODO: Wire up report issue button in order detail UI
+  const _handleReportIssue = (itemId: string) => {
     setConfirmDialog({
       open: true,
       title: 'Report Issue',
