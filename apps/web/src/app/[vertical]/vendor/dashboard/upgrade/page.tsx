@@ -11,11 +11,11 @@ import { term } from '@/lib/vertical'
 
 // ── Food Truck 3-Tier Upgrade Page ──────────────────────────────────────
 
-const FT_TIERS: { key: FoodTruckTier; price: number; popular?: boolean }[] = [
-  { key: 'free', price: 0 },
-  { key: 'basic', price: SUBSCRIPTION_AMOUNTS.ft_basic_monthly_cents / 100 },
-  { key: 'pro', price: SUBSCRIPTION_AMOUNTS.ft_pro_monthly_cents / 100, popular: true },
-  { key: 'boss', price: SUBSCRIPTION_AMOUNTS.ft_boss_monthly_cents / 100 },
+const FT_TIERS: { key: FoodTruckTier; monthlyPrice: number; annualPrice: number; popular?: boolean }[] = [
+  { key: 'free', monthlyPrice: 0, annualPrice: 0 },
+  { key: 'basic', monthlyPrice: SUBSCRIPTION_AMOUNTS.ft_basic_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.ft_basic_annual_cents / 100 },
+  { key: 'pro', monthlyPrice: SUBSCRIPTION_AMOUNTS.ft_pro_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.ft_pro_annual_cents / 100, popular: true },
+  { key: 'boss', monthlyPrice: SUBSCRIPTION_AMOUNTS.ft_boss_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.ft_boss_annual_cents / 100 },
 ]
 
 function FtFeatureRow({ label, free, basic, pro, boss }: { label: string; free: string; basic: string; pro: string; boss: string }) {
@@ -36,6 +36,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
   const [isProcessing, setIsProcessing] = useState<string | null>(null) // tier being processed
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<string | null>(null)
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
 
   useEffect(() => {
     async function checkSubscription() {
@@ -103,7 +104,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'vendor',
-          cycle: 'monthly',
+          cycle: billingCycle,
           vertical,
           tier,
         }),
@@ -167,6 +168,62 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
           </p>
         </div>
 
+        {/* Billing Cycle Toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-flex',
+            backgroundColor: '#f3f4f6',
+            borderRadius: 10,
+            padding: 4,
+          }}>
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              style={{
+                padding: '10px 24px',
+                fontSize: 14,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: billingCycle === 'monthly' ? 'white' : 'transparent',
+                color: billingCycle === 'monthly' ? '#333' : '#666',
+                boxShadow: billingCycle === 'monthly' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('annual')}
+              style={{
+                padding: '10px 24px',
+                fontSize: 14,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: billingCycle === 'annual' ? 'white' : 'transparent',
+                color: billingCycle === 'annual' ? '#333' : '#666',
+                boxShadow: billingCycle === 'annual' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              Annual
+              <span style={{
+                backgroundColor: '#ff3131',
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: 12,
+                fontSize: 11,
+                fontWeight: 700,
+              }}>
+                Save up to 32%
+              </span>
+            </button>
+          </div>
+        </div>
+
         {/* Error */}
         {error && (
           <div style={{ marginBottom: 16 }}>
@@ -177,11 +234,11 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
         {/* Tier Cards */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
           gap: 20,
           marginBottom: 40,
         }}>
-          {FT_TIERS.map(({ key, price, popular }) => {
+          {FT_TIERS.map(({ key, monthlyPrice, annualPrice, popular }) => {
             const limits = FT_TIER_LIMITS[key]
             const isCurrent = currentTier === key
             const tierOrder: Record<string, number> = { free: 0, basic: 1, pro: 2, boss: 3 }
@@ -189,13 +246,19 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
             const isDowngrade = (tierOrder[key] || 0) < (tierOrder[currentTier || 'free'] || 0)
             const processing = isProcessing === key
 
+            const isAnnual = billingCycle === 'annual'
+            const displayPrice = isAnnual ? annualPrice : monthlyPrice
+            const monthlySavings = monthlyPrice > 0 && isAnnual
+              ? Math.round((1 - annualPrice / (monthlyPrice * 12)) * 100)
+              : 0
+
             return (
               <div
                 key={key}
                 style={{
                   backgroundColor: 'white',
                   borderRadius: 16,
-                  padding: 28,
+                  padding: 24,
                   border: popular ? '2px solid #ff3131' : isCurrent ? '2px solid #4A4A4A' : '2px solid #e5e7eb',
                   boxShadow: popular ? '0 8px 24px rgba(255, 49, 49, 0.15)' : '0 1px 3px rgba(0,0,0,0.1)',
                   position: 'relative',
@@ -204,7 +267,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                 }}
               >
                 {/* Popular badge */}
-                {popular && (
+                {popular && !isCurrent && (
                   <div style={{
                     position: 'absolute',
                     top: -12,
@@ -248,11 +311,35 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
 
                 {/* Price */}
                 <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  {price === 0 ? (
-                    <span style={{ fontSize: 32, fontWeight: 'bold', color: '#333' }}>Free forever</span>
+                  {displayPrice === 0 ? (
+                    <span style={{ fontSize: 28, fontWeight: 'bold', color: '#333' }}>Free forever</span>
+                  ) : isAnnual ? (
+                    <div>
+                      <div>
+                        <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${displayPrice.toFixed(2)}</span>
+                        <span style={{ color: '#666', fontSize: 16 }}>/yr</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
+                        ${(displayPrice / 12).toFixed(2)}/mo
+                      </div>
+                      {monthlySavings > 0 && (
+                        <div style={{
+                          display: 'inline-block',
+                          marginTop: 4,
+                          padding: '2px 8px',
+                          backgroundColor: '#fef2f2',
+                          color: '#ff3131',
+                          borderRadius: 12,
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}>
+                          Save {monthlySavings}%
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <>
-                      <span style={{ fontSize: 40, fontWeight: 'bold', color: '#333' }}>${price}</span>
+                      <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${displayPrice.toFixed(2)}</span>
                       <span style={{ color: '#666', fontSize: 16 }}>/mo</span>
                     </>
                   )}
@@ -430,7 +517,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: '#666' }}>
-          Secure payment powered by Stripe. All plans billed monthly.
+          Secure payment powered by Stripe. {billingCycle === 'annual' ? 'Annual plans billed once per year.' : 'Cancel or change plans anytime.'}
         </p>
       </div>
     </div>

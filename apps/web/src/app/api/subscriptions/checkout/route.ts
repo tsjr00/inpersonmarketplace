@@ -62,6 +62,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Validate cycle for all paid subscriptions
+      if (!cycle || !['monthly', 'annual'].includes(cycle)) {
+        return NextResponse.json(
+          { error: 'Invalid billing cycle. Must be "monthly" or "annual".' },
+          { status: 400 }
+        )
+      }
+
       // FT vendors must specify a tier
       if (isFtVendor) {
         if (!requestedTier || !isFoodTruckTier(requestedTier)) {
@@ -77,13 +85,7 @@ export async function POST(request: NextRequest) {
           )
         }
       } else {
-        // FM/buyer path: validate cycle
-        if (!cycle || !['monthly', 'annual'].includes(cycle)) {
-          return NextResponse.json(
-            { error: 'Invalid billing cycle. Must be "monthly" or "annual".' },
-            { status: 400 }
-          )
-        }
+        // FM/buyer path
         if (!areSubscriptionPricesConfigured()) {
           return NextResponse.json(
             { error: 'Subscription prices are not configured. Please contact support.' },
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
       // Get the appropriate price config
       let priceId: string
       if (isFtVendor && requestedTier) {
-        const ftPrice = getFtPriceConfig(requestedTier)
+        const ftPrice = getFtPriceConfig(requestedTier, cycle)
         if (!ftPrice || !ftPrice.priceId) {
           return NextResponse.json(
             { error: `${requestedTier} subscription is not available.` },
@@ -295,7 +297,7 @@ export async function POST(request: NextRequest) {
       const sessionMetadata: Record<string, string> = {
         user_id: user.id,
         type: isFtVendor ? 'food_truck_vendor' : type,
-        cycle: isFtVendor ? 'monthly' : cycle,
+        cycle,
       }
       if (requestedTier) sessionMetadata.tier = requestedTier
       if (vertical) sessionMetadata.vertical = vertical

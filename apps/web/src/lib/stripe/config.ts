@@ -27,7 +27,7 @@ export const SUBSCRIPTION_PRICES = {
   fm_premium: {
     monthly: {
       priceId: process.env.STRIPE_FM_PREMIUM_MONTHLY_PRICE_ID || '',
-      amountCents: 2499, // $24.99/month
+      amountCents: 2500, // $25/month
     },
     annual: {
       priceId: process.env.STRIPE_FM_PREMIUM_ANNUAL_PRICE_ID || '',
@@ -63,19 +63,31 @@ export const SUBSCRIPTION_PRICES = {
       amountCents: 48150, // $481.50/year (saves ~20%)
     },
   },
-  // Food truck vendor tiers (monthly only for launch)
+  // Food truck vendor tiers
   food_truck_vendor: {
     basic_monthly: {
       priceId: process.env.STRIPE_FT_BASIC_MONTHLY_PRICE_ID || '',
       amountCents: 1000, // $10/month
     },
+    basic_annual: {
+      priceId: process.env.STRIPE_FT_BASIC_ANNUAL_PRICE_ID || '',
+      amountCents: 8150, // $81.50/year (saves ~32%)
+    },
     pro_monthly: {
       priceId: process.env.STRIPE_FT_PRO_MONTHLY_PRICE_ID || '',
-      amountCents: 3000, // $30/month
+      amountCents: 2500, // $25/month
+    },
+    pro_annual: {
+      priceId: process.env.STRIPE_FT_PRO_ANNUAL_PRICE_ID || '',
+      amountCents: 20815, // $208.15/year (saves ~30%)
     },
     boss_monthly: {
       priceId: process.env.STRIPE_FT_BOSS_MONTHLY_PRICE_ID || '',
       amountCents: 5000, // $50/month
+    },
+    boss_annual: {
+      priceId: process.env.STRIPE_FT_BOSS_ANNUAL_PRICE_ID || '',
+      amountCents: 48150, // $481.50/year (saves ~20%)
     },
   },
 }
@@ -108,9 +120,10 @@ export function areVerticalPricesConfigured(vertical: string): boolean {
   return areSubscriptionPricesConfigured()
 }
 
-// Get FT price config by tier name
-export function getFtPriceConfig(tier: string): { priceId: string; amountCents: number } | null {
-  const key = `${tier}_monthly` as keyof typeof SUBSCRIPTION_PRICES.food_truck_vendor
+// Get FT price config by tier name and billing cycle
+export function getFtPriceConfig(tier: string, cycle?: 'monthly' | 'annual'): { priceId: string; amountCents: number } | null {
+  const suffix = cycle === 'annual' ? 'annual' : 'monthly'
+  const key = `${tier}_${suffix}` as keyof typeof SUBSCRIPTION_PRICES.food_truck_vendor
   return SUBSCRIPTION_PRICES.food_truck_vendor[key] || null
 }
 

@@ -78,17 +78,26 @@ See `apps/web/.claude/backlog.md` for the template.
 ### Problem It Solves
 We push to staging, user manually tests, finds issues, we fix, push again. No structured verification means inconsistent testing and missed regressions.
 
-### The Protocol
-After pushing to staging (or production), the user runs through the smoke test checklist at `apps/web/.claude/smoke-test-checklist.md`.
+### The Protocol — Three Tiers
 
-### User Prompt
+| Tier | When | Time | What |
+|------|------|------|------|
+| **Tier 1: Targeted** | Every staging push | ~2 min | Claude provides 2-3 specific items to check based on the diff |
+| **Tier 2: Critical Path** | Every production push | ~5 min | 6-item "is the app broken?" check |
+| **Tier 3: Full Verification** | Major releases / monthly | ~30 min | Complete walkthrough of all flows |
+
+Full checklist details at `apps/web/.claude/smoke-test-checklist.md`.
+
+### User Prompts
 > "Running smoke test." (then reports results)
 > "Smoke test passed."
 > "Smoke test failed on [X]."
 
 ### Claude's Responsibility
-- After every push to staging, remind: *"Ready for smoke test — the checklist is in `apps/web/.claude/smoke-test-checklist.md`. Let me know what passes/fails."*
-- If the user skips the smoke test before pushing to production, flag it: *"We haven't smoke-tested staging yet. Want to do that before pushing to prod?"*
+- **After staging push:** Provide a Tier 1 targeted list — 2-3 specific things to verify based on what changed. Do NOT point to the full checklist.
+- **Before production push:** If staging wasn't tested, flag it: *"We haven't verified staging yet. Here are the 2-3 things to check before we push to prod."*
+- **After production push:** Remind about Tier 2: *"Production is live. Quick 5-minute critical path check: can you confirm pages load, login works, and browse shows listings?"*
+- **After major releases:** Recommend Tier 3: *"This was a big release — worth doing a full Tier 3 verification."*
 
 ---
 
