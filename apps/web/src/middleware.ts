@@ -7,7 +7,7 @@ const VALID_VERTICALS = new Set(['farmers_market', 'food_trucks', 'fire_works'])
 // Top-level routes that are NOT verticals (skip allowlist check for these)
 const NON_VERTICAL_PREFIXES = new Set([
   'api', 'admin', '_next', 'about', 'browse', 'contact', 'dashboard',
-  'login', 'privacy', 'signup', 'terms', 'vendor-signup', 'test-components',
+  'login', 'privacy', 'signup', 'support', 'terms', 'vendor-signup', 'test-components',
   'robots.txt', 'sitemap.xml', 'llms.txt',
 ])
 

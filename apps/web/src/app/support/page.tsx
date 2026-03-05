@@ -20,8 +20,7 @@ export default function SupportHub() {
           815 Enterprises
         </Link>
         <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-          <Link href="/terms" style={{ color: '#666', textDecoration: 'none' }}>Terms</Link>
-          <Link href="/privacy" style={{ color: '#666', textDecoration: 'none' }}>Privacy</Link>
+          <Link href="/terms" style={{ color: '#666', textDecoration: 'none' }}>Terms &amp; Privacy</Link>
         </div>
       </nav>
 
@@ -126,8 +125,7 @@ export default function SupportHub() {
         textAlign: 'center'
       }}>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 15, fontSize: 14 }}>
-          <Link href="/terms" style={{ color: '#aaa', textDecoration: 'none' }}>Terms</Link>
-          <Link href="/privacy" style={{ color: '#aaa', textDecoration: 'none' }}>Privacy</Link>
+          <Link href="/terms" style={{ color: '#aaa', textDecoration: 'none' }}>Terms &amp; Privacy</Link>
           <Link href="/support" style={{ color: '#aaa', textDecoration: 'none' }}>Support</Link>
         </div>
         <p style={{ fontSize: 14, margin: 0 }}>
