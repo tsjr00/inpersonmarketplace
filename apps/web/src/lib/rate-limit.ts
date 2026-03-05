@@ -168,7 +168,6 @@ export async function checkRateLimit(
   const burst = checkBurst(identifier)
 
   // Upstash Redis path (shared across all instances)
-  console.log('[rate-limit] redis client:', redis ? 'connected' : 'null (in-memory fallback)')
   if (redis) {
     try {
       const limiter = getLimiter(config)
@@ -179,9 +178,8 @@ export async function checkRateLimit(
         resetAt: result.reset,
         burst,
       }
-    } catch (err) {
+    } catch {
       // Redis error — fall through to in-memory as safety net
-      console.error('[rate-limit] Upstash Redis error:', err)
     }
   }
 
