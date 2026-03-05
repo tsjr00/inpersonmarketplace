@@ -71,8 +71,13 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (password.length < 9) {
+      setError('Password must be at least 9 characters')
+      setLoading(false)
+      return
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      setError('Password must include uppercase, lowercase, number, and special character')
       setLoading(false)
       return
     }
@@ -223,7 +228,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         <form onSubmit={handlePasswordReset}>
           <div style={{ marginBottom: spacing.sm }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              New Password (min 6 characters)
+              New Password (min 9 chars: upper, lower, number, special)
             </label>
             <input
               type="password"

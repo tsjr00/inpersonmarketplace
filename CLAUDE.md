@@ -6,6 +6,29 @@
 2. **`apps/web/.claude/current_task.md`** - CRITICAL: Current task context (if exists)
 3. **`CLAUDE_CONTEXT.md`** - App overview, architecture, lessons learned
 4. **`supabase/SCHEMA_SNAPSHOT.md`** - Current database schema (source of truth)
+5. **`PROCESSES_AND_PROTOCOLS.md`** - Session workflows, quality gates, and collaboration protocols
+
+---
+
+## Processes & Protocols — MANDATORY
+
+**You MUST read `PROCESSES_AND_PROTOCOLS.md` at the start of every session.**
+
+This file defines 7 protocols that govern how sessions are run:
+1. **Session Kickoff** — Scope agreement before work begins
+2. **Backlog Management** — Track ideas without derailing current work
+3. **Pre-Push Smoke Test** — Structured post-deployment verification
+4. **Decision Log** — Record business/architecture decisions
+5. **Pre-Commit Quality Gate** — Run full lint/type/test before committing
+6. **End-of-Session Checkpoint** — Capture state before session ends
+7. **Autonomy Modes** — Report / Fix / Ship delegation levels
+
+**Claude's responsibility:** Proactively recommend and redirect the user to these protocols when the situation calls for them. These systems produce more consistent results than ad-hoc workflows.
+
+**Supporting files:**
+- `apps/web/.claude/backlog.md` — Prioritized pending work
+- `apps/web/.claude/decisions.md` — Decision log
+- `apps/web/.claude/smoke-test-checklist.md` — Post-deployment verification
 
 ---
 
@@ -57,6 +80,45 @@ When you need information (schema, configuration, business rules, etc.):
 - State it clearly as a hypothesis, not a fact
 - Explain the reasoning
 - Note what would confirm or refute it
+
+---
+
+## Incremental Research Protocol — MANDATORY for Large Tasks
+
+**Applies when:** Task requires reviewing more than 5 files, spans multiple feature areas, or involves producing documents/plans based on codebase understanding.
+
+**DO NOT** research everything first, then write everything from memory. Context window pressure means comprehensive understanding gets lost to auto-compaction before you can use it.
+
+**Instead, follow this process:**
+
+### Phase 1: Quick Scan (no detail)
+- Identify the major component areas relevant to the task
+- List them as a checklist (in `current_task.md` or a working file)
+- Do NOT read code deeply at this stage — just understand the structure
+
+### Phase 2: Deep Dive + Write (per component)
+For EACH component area, sequentially:
+1. Read the relevant code/files in detail
+2. Extract the specific elements relevant to your task
+3. **Write your findings to a working file IMMEDIATELY** — before moving to the next component
+4. Move to the next component area
+
+This ensures that even if auto-compaction occurs mid-process, completed sections are preserved in the working file and you can resume from the next uncompleted component.
+
+### Phase 3: Consolidate
+Once all component areas are documented:
+1. Review your accumulated notes
+2. Deduplicate, resolve contradictions, streamline
+3. Produce the final deliverable (document, plan, code changes)
+
+### Working File Convention
+- Research notes go in `apps/web/.claude/[task-name]_research.md`
+- Use a checklist format so progress is visible
+- Mark each component area as complete after findings are written
+- If the working file exceeds 500 lines, split into topic files and maintain an index
+
+### Why This Exists
+The "research everything then write everything" approach has repeatedly failed due to auto-compaction erasing unwritten findings. This protocol creates incremental checkpoints that survive context loss. Each written section is a recovery point — if compaction happens, you resume from the next unwritten section, not from scratch.
 
 ---
 

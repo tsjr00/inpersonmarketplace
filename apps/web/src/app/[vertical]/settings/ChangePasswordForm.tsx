@@ -24,8 +24,12 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
       return
     }
 
-    if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'New password must be at least 8 characters' })
+    if (newPassword.length < 9) {
+      setMessage({ type: 'error', text: 'Password must be at least 9 characters' })
+      return
+    }
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+      setMessage({ type: 'error', text: 'Password must include uppercase, lowercase, number, and special character' })
       return
     }
 
@@ -110,7 +114,7 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
           type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Enter new password (min 8 characters)"
+          placeholder="Min 9 chars: upper, lower, number, special"
           style={{
             width: '100%',
             maxWidth: 400,
