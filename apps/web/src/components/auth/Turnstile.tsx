@@ -67,8 +67,8 @@ export function Turnstile({
 
     // Check if script already loaded
     if (window.turnstile) {
-      setIsLoaded(true)
-      initWidget()
+      // Use queueMicrotask to avoid synchronous setState in effect body
+      queueMicrotask(() => { setIsLoaded(true); initWidget() })
       return
     }
 

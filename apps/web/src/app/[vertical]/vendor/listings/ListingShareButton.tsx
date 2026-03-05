@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import ShareButton from '@/components/marketing/ShareButton'
 
 interface ListingShareButtonProps {
@@ -10,13 +9,10 @@ interface ListingShareButtonProps {
 }
 
 export default function ListingShareButton({ listingId, listingTitle, vertical }: ListingShareButtonProps) {
-  const [shareUrl, setShareUrl] = useState('')
-
-  useEffect(() => {
-    // Construct URL on client side
-    const baseUrl = `${window.location.protocol}//${window.location.host}`
-    setShareUrl(`${baseUrl}/${vertical}/listing/${listingId}`)
-  }, [listingId, vertical])
+  const baseUrl = typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.host}`
+    : ''
+  const shareUrl = `${baseUrl}/${vertical}/listing/${listingId}`
 
   if (!shareUrl) {
     return null

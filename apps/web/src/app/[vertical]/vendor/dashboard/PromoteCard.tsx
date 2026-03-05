@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import ShareButton from '@/components/marketing/ShareButton'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -11,13 +10,9 @@ interface PromoteCardProps {
 }
 
 export default function PromoteCard({ vendorId, vendorName, vertical }: PromoteCardProps) {
-  const [baseUrl, setBaseUrl] = useState('')
-
-  useEffect(() => {
-    // Get base URL from window location
-    setBaseUrl(`${window.location.protocol}//${window.location.host}`)
-  }, [])
-
+  const baseUrl = typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.host}`
+    : ''
   const profileUrl = `${baseUrl}/${vertical}/vendor/${vendorId}/profile`
 
   return (
