@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-export default function PrivacyHub() {
+export default function SupportHub() {
   return (
     <div style={{
       minHeight: '100vh',
@@ -21,7 +21,7 @@ export default function PrivacyHub() {
         </Link>
         <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
           <Link href="/terms" style={{ color: '#666', textDecoration: 'none' }}>Terms</Link>
-          <Link href="/support" style={{ color: '#666', textDecoration: 'none' }}>Support</Link>
+          <Link href="/privacy" style={{ color: '#666', textDecoration: 'none' }}>Privacy</Link>
         </div>
       </nav>
 
@@ -32,23 +32,23 @@ export default function PrivacyHub() {
         backgroundColor: 'white'
       }}>
         <h1 style={{ fontSize: 36, fontWeight: 'bold', marginBottom: 16, color: '#222' }}>
-          Privacy Policy
+          Support
         </h1>
         <p style={{ fontSize: 18, color: '#666', maxWidth: 600, margin: '0 auto', lineHeight: 1.6 }}>
-          815 Enterprises is committed to protecting your privacy. Each platform has its own privacy policy detailing how your data is collected and used.
+          Need help? Choose your platform below to reach the right support team, or contact us directly for general inquiries.
         </p>
       </section>
 
-      {/* Platform Links */}
+      {/* Platform Support Links */}
       <section style={{ padding: '60px 40px', maxWidth: 800, margin: '0 auto' }}>
         <h2 style={{ fontSize: 24, fontWeight: 600, marginBottom: 30, color: '#333' }}>
-          Platform Privacy Policies
+          Platform Support
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Farmers Marketing */}
           <Link
-            href="/farmers_market/terms#privacy-policy"
+            href="/farmers_market/support"
             style={{
               display: 'block',
               padding: 24,
@@ -59,19 +59,19 @@ export default function PrivacyHub() {
             }}
           >
             <h3 style={{ color: '#2d4a5e', fontSize: 20, marginBottom: 8 }}>
-              Farmers Marketing
+              Farmers Marketing Support
             </h3>
             <p style={{ color: '#555', margin: 0, lineHeight: 1.6 }}>
-              Privacy policy for the Farmers Marketing platform at farmersmarketing.app
+              Get help with orders, vendor accounts, market boxes, and everything related to the Farmers Marketing platform.
             </p>
             <span style={{ display: 'inline-block', marginTop: 12, color: '#2d4a5e', fontWeight: 600 }}>
-              View Privacy Policy →
+              Go to Support →
             </span>
           </Link>
 
           {/* Food Truck'n */}
           <Link
-            href="/food_trucks/terms#privacy-policy"
+            href="/food_trucks/support"
             style={{
               display: 'block',
               padding: 24,
@@ -82,35 +82,39 @@ export default function PrivacyHub() {
             }}
           >
             <h3 style={{ color: '#ff5757', fontSize: 20, marginBottom: 8 }}>
-              Food Truck&apos;n
+              Food Truck&apos;n Support
             </h3>
             <p style={{ color: '#555', margin: 0, lineHeight: 1.6 }}>
-              Privacy policy for the Food Truck&apos;n platform at foodtruckn.app
+              Get help with orders, vendor accounts, chef boxes, and everything related to the Food Truck&apos;n platform.
             </p>
             <span style={{ display: 'inline-block', marginTop: 12, color: '#ff5757', fontWeight: 600 }}>
-              View Privacy Policy →
+              Go to Support →
             </span>
           </Link>
         </div>
 
-        {/* General Privacy Info */}
+        {/* General Contact */}
         <div style={{ marginTop: 40, padding: 24, backgroundColor: 'white', borderRadius: 12, border: '1px solid #e5e7eb' }}>
           <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12, color: '#333' }}>
-            General Privacy Practices
+            General Inquiries
           </h3>
-          <p style={{ color: '#555', lineHeight: 1.8, margin: '0 0 12px 0' }}>
-            Across all 815 Enterprises platforms, we follow these core principles:
+          <p style={{ color: '#555', lineHeight: 1.8, margin: '0 0 16px 0' }}>
+            For business inquiries, partnerships, or questions not specific to a single platform, contact us directly:
           </p>
-          <ul style={{ color: '#555', lineHeight: 2, paddingLeft: 20, margin: '0 0 12px 0' }}>
-            <li>We only collect data necessary to provide our services</li>
-            <li>We never sell your personal information to third parties</li>
-            <li>Payment processing is handled securely by Stripe</li>
-            <li>You can request deletion of your account and data at any time</li>
-          </ul>
-          <p style={{ color: '#555', lineHeight: 1.8, margin: 0 }}>
-            For privacy questions or data requests, contact us at{' '}
-            <a href="mailto:contact@815enterprises.com" style={{ color: '#0070f3' }}>contact@815enterprises.com</a>.
-          </p>
+          <a
+            href="mailto:contact@815enterprises.com"
+            style={{
+              display: 'inline-block',
+              padding: '12px 24px',
+              backgroundColor: '#333',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: 8,
+              fontWeight: 600
+            }}
+          >
+            contact@815enterprises.com
+          </a>
         </div>
       </section>
 

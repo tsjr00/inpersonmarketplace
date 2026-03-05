@@ -7,8 +7,10 @@ Structured record of business and architecture decisions. Check here before aski
 | 2026-02-28 | Business | Vendor trial = 90 days, grace = 14 days | Industry standard, generous enough to prove value | Yes | 48 |
 | 2026-02-28 | Business | Trial auto-grants Basic tier (FT) | Lowest paid tier gives real value without giving everything away | Yes | 48 |
 | 2026-02-28 | Architecture | Market box payout at checkout, not per-pickup | Prepaid model — vendor should get paid when buyer pays | No (would require migration) | 48 |
-| 2026-02-24 | Business | FM Premium = $24.99/mo (paid via Stripe) | User-set pricing, not free | No | 45 |
-| 2026-02-24 | Business | FT tiers: free / basic $10 / pro $30 / boss $50 | User-set pricing | Yes | 45 |
+| 2026-03-05 | Business | FM Premium = $25/mo (was $24.99) | Clean number, user requested | Yes | 50 |
+| 2026-03-05 | Business | FT Pro = $25/mo (was $30), matches FM Premium | Unified pricing across verticals | Yes | 50 |
+| 2026-03-05 | Business | FT annual pricing = same as FM annual | Consistency: Basic $81.50/yr, Pro $208.15/yr, Boss $481.50/yr | Yes | 50 |
+| 2026-03-05 | Business | FM Premium annual stays $208.15/yr (not rounded to $210) | User chose to keep existing amount despite $25 monthly | Yes | 50 |
 | 2026-02-22 | Architecture | Vendor quality checks = nightly cron (Phase 8) | Don't slow down real-time operations with quality scoring | Yes | 42 |
 | 2026-02-20 | Financial | Tip % applied to displaySubtotal (per-item rounded) | Matches Stripe line items, avoids penny discrepancies | No | 40 |
 | 2026-02-20 | Financial | Platform fee tip tracked in `tip_on_platform_fee_cents` | Vendor gets tip on food only, platform fee tip is separate | No | 40 |
