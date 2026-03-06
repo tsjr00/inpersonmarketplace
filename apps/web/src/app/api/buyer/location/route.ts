@@ -253,3 +253,22 @@ export async function PATCH(request: NextRequest) {
     }
   })
 }
+
+// DELETE - Clear location cookie
+export async function DELETE(request: NextRequest) {
+  return withErrorTracing('/api/buyer/location', 'DELETE', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await checkRateLimit(`buyer-location-delete:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
+    const response = NextResponse.json({ success: true })
+    response.cookies.set(LOCATION_COOKIE_NAME, '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/'
+    })
+    return response
+  })
+}

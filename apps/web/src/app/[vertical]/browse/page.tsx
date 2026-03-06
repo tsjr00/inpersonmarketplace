@@ -540,6 +540,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   // Priority: 1) ?zip= URL param  2) user_location cookie  3) no filtering
   let locationText: string | null = null
   let hasLocationFilter = false
+  let currentRadius = 25 // default radius in miles
 
   // Haversine distance calculation (reused for both sources)
   const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -581,6 +582,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     if (serverLocation) {
       locationText = serverLocation.locationText
       hasLocationFilter = true
+      currentRadius = serverLocation.radius
       const maxDistKm = serverLocation.radius * 1.609 // convert miles to km
 
       listings = listings.filter(listing => {
@@ -670,7 +672,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             }}>
               Browse
             </h1>
-            {hasLocationFilter && locationText && (
+            {hasLocationFilter && locationText && zip && (
               <div style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -683,18 +685,16 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               }}>
                 <span>📍</span>
                 <span>Near {locationText}</span>
-                {zip && (
-                  <Link
-                    href={`/${vertical}/browse${category ? `?category=${category}` : ''}${search ? `${category ? '&' : '?'}search=${search}` : ''}`}
-                    style={{
-                      color: colors.primaryDark,
-                      fontSize: typography.sizes.xs,
-                      marginLeft: spacing['2xs'],
-                    }}
-                  >
-                    ✕
-                  </Link>
-                )}
+                <Link
+                  href={`/${vertical}/browse${category ? `?category=${category}` : ''}${search ? `${category ? '&' : '?'}search=${search}` : ''}`}
+                  style={{
+                    color: colors.primaryDark,
+                    fontSize: typography.sizes.xs,
+                    marginLeft: spacing['2xs'],
+                  }}
+                >
+                  ✕
+                </Link>
               </div>
             )}
           </div>
@@ -706,9 +706,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         {/* View Toggle */}
         <BrowseToggle vertical={vertical} currentView={currentView} branding={branding} />
 
-        {/* Location prompt — shown when no location data from any source */}
-        {!hasLocationFilter && !zip && (
-          <BrowseLocationPrompt vertical={vertical} />
+        {/* Location bar — input mode when no location, radius controls when location is set */}
+        {!zip && (
+          <BrowseLocationPrompt
+            vertical={vertical}
+            hasLocation={hasLocationFilter}
+            locationText={locationText || undefined}
+            currentRadius={currentRadius}
+          />
         )}
 
         {/* Search & Filter */}
