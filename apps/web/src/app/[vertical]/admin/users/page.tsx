@@ -88,6 +88,7 @@ export default async function AdminUsersPage({ params, searchParams }: AdminUser
         tier
       )
     `, { count: 'exact' })
+    .contains('verticals', [vertical])
     .order('created_at', { ascending: false })
 
   // Apply search filter (server-side)

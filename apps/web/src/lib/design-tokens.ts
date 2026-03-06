@@ -60,6 +60,11 @@ export const statusColors = {
   infoLight: '#eff6ff',
   infoBorder: '#93c5fd',
 
+  // Selection state — distinct from availability (green/yellow/red) and primary color
+  selectionBorder: '#4F46E5',   // indigo-600
+  selectionBg: '#EEF2FF',       // indigo-50
+  selectionText: '#4338CA',     // indigo-700
+
   // Neutral greys (for non-themed UI elements)
   neutral50: '#f9fafb',
   neutral100: '#f3f4f6',

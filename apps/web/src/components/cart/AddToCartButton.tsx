@@ -14,7 +14,7 @@ import {
 } from '@/types/pickup'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { generateTimeSlots, formatTimeSlot } from '@/lib/utils/time-slots'
-import { colors, spacing, typography, radius, sizing } from '@/lib/design-tokens'
+import { colors, statusColors, spacing, typography, radius, sizing } from '@/lib/design-tokens'
 
 /*
  * PICKUP SCHEDULING CONTEXT
@@ -208,7 +208,7 @@ export function AddToCartButton({
 
           {/* FOOD TRUCK: Location-first same-day flow */}
           {isFoodTruck ? (
-            <div style={{ border: `1px solid ${primaryColor}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {marketGroups.map(market => {
                 const acceptingMarketDates = market.dates.filter(d => d.is_accepting)
                 if (acceptingMarketDates.length === 0) return null
@@ -224,10 +224,10 @@ export function AddToCartButton({
                     style={{
                       padding: sizing.control.padding,
                       border: isSelected
-                        ? `2px solid ${primaryColor}`
+                        ? `2px solid ${statusColors.selectionBorder}`
                         : `1px solid ${colors.border}`,
                       borderRadius: radius.sm,
-                      backgroundColor: isSelected ? colors.primaryLight : 'white',
+                      backgroundColor: isSelected ? statusColors.selectionBg : 'white',
                       cursor: 'pointer',
                       textAlign: 'left',
                       display: 'flex',
@@ -240,7 +240,7 @@ export function AddToCartButton({
                         width: 8,
                         height: 8,
                         borderRadius: '50%',
-                        backgroundColor: primaryColor,
+                        backgroundColor: isSelected ? statusColors.selectionBorder : '#6b7280',
                         flexShrink: 0,
                         marginTop: 5
                       }} />
@@ -259,7 +259,7 @@ export function AddToCartButton({
                       </div>
                     </div>
                     {isSelected && (
-                      <span style={{ color: primaryColor, fontSize: 16 }}>✓</span>
+                      <span style={{ color: statusColors.selectionBorder, fontSize: 16 }}>✓</span>
                     )}
                   </button>
                 )
@@ -267,7 +267,7 @@ export function AddToCartButton({
             </div>
           ) : hasMultipleOptions ? (
             /* FARMERS MARKET: Date selection flow (unchanged) */
-            <div style={{ border: `1px solid ${primaryColor}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ border: `1px solid ${colors.border}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {marketGroups.map(market => {
                 // Only show markets with at least one accepting date
                 const acceptingMarketDates = market.dates.filter(d => d.is_accepting)
@@ -345,10 +345,10 @@ export function AddToCartButton({
                             style={{
                               padding: sizing.control.padding,
                               border: isSelected
-                                ? `2px solid ${primaryColor}`
+                                ? `2px solid ${statusColors.selectionBorder}`
                                 : `1px solid ${colors.border}`,
                               borderRadius: radius.sm,
-                              backgroundColor: isSelected ? colors.primaryLight : 'white',
+                              backgroundColor: isSelected ? statusColors.selectionBg : 'white',
                               cursor: 'pointer',
                               textAlign: 'left',
                               display: 'flex',
@@ -391,7 +391,7 @@ export function AddToCartButton({
                               )}
                               {/* Selection checkmark */}
                               {isSelected && (
-                                <span style={{ color: primaryColor, fontSize: 16 }}>✓</span>
+                                <span style={{ color: statusColors.selectionBorder, fontSize: 16 }}>✓</span>
                               )}
                             </div>
                           </button>
@@ -522,10 +522,10 @@ export function AddToCartButton({
                   style={{
                     padding: `${spacing['2xs']} ${spacing['3xs']}`,
                     border: isSelected
-                      ? `2px solid ${primaryColor}`
+                      ? `2px solid ${statusColors.selectionBorder}`
                       : `1px solid ${colors.border}`,
                     borderRadius: radius.sm,
-                    backgroundColor: isSelected ? colors.primaryLight : 'white',
+                    backgroundColor: isSelected ? statusColors.selectionBg : 'white',
                     cursor: 'pointer',
                     fontSize: typography.sizes.sm,
                     fontWeight: isSelected ? typography.weights.semibold : typography.weights.normal,
@@ -536,7 +536,7 @@ export function AddToCartButton({
                     gap: spacing['3xs']
                   }}
                 >
-                  {isSelected && <span style={{ color: primaryColor, fontSize: 14 }}>✓</span>}
+                  {isSelected && <span style={{ color: statusColors.selectionBorder, fontSize: 14 }}>✓</span>}
                   {formatTimeSlot(slot)}
                 </button>
               )
