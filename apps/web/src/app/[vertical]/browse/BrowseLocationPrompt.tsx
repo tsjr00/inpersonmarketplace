@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import LocationSearchInline from '@/components/location/LocationSearchInline'
 import { term, getRadiusOptions } from '@/lib/vertical'
@@ -19,9 +20,12 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
   const router = useRouter()
   const colors = getVerticalColors(vertical)
   const radiusOptions = getRadiusOptions(vertical)
+  // Local state for optimistic UI — shows selected radius immediately
+  const [radius, setRadius] = useState(currentRadius ?? 25)
 
   const handleRadiusChange = async (newRadius: number) => {
-    // Save radius to cookie via PATCH, then refresh server page
+    setRadius(newRadius) // Optimistic update
+    // Save radius to cookie via PATCH, then hard reload to bypass ISR cache
     try {
       await fetch('/api/buyer/location', {
         method: 'PATCH',
@@ -31,7 +35,8 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
     } catch {
       // Ignore errors - radius will still work on next page load
     }
-    router.refresh()
+    // Full reload bypasses revalidate=300 ISR cache
+    window.location.reload()
   }
 
   const handleClear = async () => {
@@ -73,7 +78,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
       <LocationSearchInline
         hasLocation
         locationText={locationText}
-        radius={currentRadius}
+        radius={radius}
         onLocationSet={() => {
           router.refresh()
         }}
