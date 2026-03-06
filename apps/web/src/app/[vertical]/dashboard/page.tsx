@@ -107,6 +107,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .eq('vertical_id', vertical)
     .eq('order_items.status', 'ready')
     .is('order_items.cancelled_at', null)
+    .is('order_items.issue_reported_at', null)
+    .is('order_items.buyer_confirmed_at', null)
     .order('created_at', { ascending: false })
     .limit(3)
 
@@ -127,6 +129,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     .eq('order_items.status', 'fulfilled')
     .is('order_items.buyer_confirmed_at', null)
     .is('order_items.cancelled_at', null)
+    .is('order_items.issue_reported_at', null)
     .limit(10)
 
   const confirmationNeededCount = ordersNeedingConfirmation?.length || 0
