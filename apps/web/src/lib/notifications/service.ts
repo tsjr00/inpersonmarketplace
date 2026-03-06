@@ -296,7 +296,8 @@ async function sendPush(
   body: string,
   actionUrl: string,
   urgency: NotificationUrgency = 'standard',
-  soundEnabled: boolean = true
+  soundEnabled: boolean = true,
+  vertical?: string
 ): Promise<ChannelResult> {
   if (!configureWebPush()) {
     return {
@@ -330,6 +331,7 @@ async function sendPush(
       tag: 'notification',
       urgency,
       soundEnabled,
+      vertical: vertical || null,
     })
 
     const results = await Promise.allSettled(
@@ -522,7 +524,7 @@ export async function sendNotification(
       }
       case 'push': {
         const soundOn = preferences.sound_enabled !== false
-        results.push(await sendPush(userId, title, message, actionUrl, urgency, soundOn))
+        results.push(await sendPush(userId, title, message, actionUrl, urgency, soundOn, options?.vertical))
         break
       }
     }
