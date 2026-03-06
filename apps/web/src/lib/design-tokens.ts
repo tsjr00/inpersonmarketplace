@@ -32,6 +32,9 @@ export const colors = {
   // Border Colors
   border: 'var(--color-border, #E8E5E0)',
   borderMuted: 'var(--color-border-muted, #F0EDE8)',
+
+  // Input Colors
+  inputBg: 'var(--color-input-bg, #FFFEF5)',        // Editable field background — distinct from card white
 }
 
 // Semantic status colors — NOT vertical-specific, same across all verticals.
@@ -157,6 +160,7 @@ const verticalColorPalettes: Record<string, typeof colors> = {
     textInverseMuted: 'rgba(255, 255, 255, 0.85)',
     border: '#E8E5E0',
     borderMuted: '#F0EDE8',
+    inputBg: '#FFFEF5',
   },
   food_trucks: {
     // Primary Colors (Medium red — brand identity, headers, links, active states)
@@ -184,6 +188,7 @@ const verticalColorPalettes: Record<string, typeof colors> = {
     // Border Colors
     border: '#e0e0e0',
     borderMuted: '#eeeeee',
+    inputBg: '#f5f8ff',
   },
 }
 
@@ -251,6 +256,7 @@ export function getVerticalCSSVars(vertical: string): Record<string, string> {
     '--color-text-inverse-muted': palette.textInverseMuted,
     '--color-border': palette.border,
     '--color-border-muted': palette.borderMuted,
+    '--color-input-bg': palette.inputBg,
     ...(shadowPalette ? {
       '--shadow-primary': shadowPalette.primary,
       '--shadow-primary-hover': shadowPalette.primaryHover,

@@ -203,7 +203,7 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
   const pushStatusText = !pushSupported
     ? 'Not supported in this browser'
     : pushPermission === 'denied'
-      ? 'Blocked in browser settings'
+      ? 'Blocked in browser settings — see setup guide'
       : pushLoading
         ? 'Setting up...'
         : null
@@ -266,6 +266,16 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
           </div>
         </div>
       </div>
+
+      {/* Setup guide link */}
+      {(!pushSupported || pushPermission === 'denied') && (
+        <div style={{ padding: '8px 12px', backgroundColor: colors.primaryLight, borderRadius: 6, fontSize: 12 }}>
+          <a href={`/${vertical}/help/setup`} style={{ color: colors.primaryDark, fontWeight: 600 }}>
+            View Setup Guide
+          </a>{' '}
+          <span style={{ color: colors.textMuted }}>— step-by-step instructions for enabling notifications and installing the app.</span>
+        </div>
+      )}
 
       {/* Sound & Vibration */}
       <div>

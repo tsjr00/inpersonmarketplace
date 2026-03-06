@@ -129,6 +129,7 @@ export default function SettingsForm({
             borderRadius: radius.sm,
             fontSize: typography.sizes.sm,
             color: colors.textPrimary,
+            backgroundColor: colors.inputBg,
             boxSizing: 'border-box'
           }}
         />
@@ -190,6 +191,7 @@ export default function SettingsForm({
               borderRadius: radius.sm,
               fontSize: typography.sizes.sm,
               color: colors.textPrimary,
+              backgroundColor: colors.inputBg,
               boxSizing: 'border-box'
             }}
           />

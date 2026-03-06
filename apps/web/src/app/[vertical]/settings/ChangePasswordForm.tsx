@@ -94,6 +94,7 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
             borderRadius: 6,
             fontSize: 14,
             color: colors.textPrimary,
+            backgroundColor: colors.inputBg,
             boxSizing: 'border-box'
           }}
         />
@@ -123,6 +124,7 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
             borderRadius: 6,
             fontSize: 14,
             color: colors.textPrimary,
+            backgroundColor: colors.inputBg,
             boxSizing: 'border-box'
           }}
         />
@@ -152,6 +154,7 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
             borderRadius: 6,
             fontSize: 14,
             color: colors.textPrimary,
+            backgroundColor: colors.inputBg,
             boxSizing: 'border-box'
           }}
         />

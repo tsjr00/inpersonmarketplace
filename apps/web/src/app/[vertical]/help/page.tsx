@@ -146,6 +146,27 @@ export default async function HelpPage({ params }: HelpPageProps) {
         </p>
       </div>
 
+      {/* Setup Guide Link */}
+      <Link
+        href={`/${vertical}/help/setup`}
+        style={{
+          display: 'block',
+          marginBottom: spacing.lg,
+          padding: spacing.sm,
+          backgroundColor: statusColors.infoLight,
+          border: `1px solid ${statusColors.infoBorder}`,
+          borderRadius: radius.md,
+          textDecoration: 'none',
+        }}
+      >
+        <p style={{ margin: 0, fontSize: typography.sizes.sm, color: statusColors.infoDark, fontWeight: 600 }}>
+          Setup Guide: Enable Notifications &amp; Install the App →
+        </p>
+        <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral600 }}>
+          Step-by-step instructions for all browsers and devices.
+        </p>
+      </Link>
+
       {categoryNames.length === 0 ? (
         <div style={{
           padding: spacing.xl,
