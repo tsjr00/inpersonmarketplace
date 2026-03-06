@@ -287,7 +287,7 @@ export default function BuyerOrderDetailPage() {
     setConfirmDialog({
       open: true,
       title: 'Report Issue',
-      message: 'Describe the issue with this item. For the fastest resolution, please also contact the vendor directly.',
+      message: 'Describe the issue with this item. Please note: your payment has already been processed and the platform does not automatically issue refunds. Contact the vendor directly to discuss a resolution or refund.',
       confirmLabel: 'Report Issue',
       variant: 'danger',
       showInput: true,
@@ -306,7 +306,7 @@ export default function BuyerOrderDetailPage() {
           const data = await res.json()
           if (!res.ok) throw new Error(data.error || 'Failed to report issue')
 
-          showBanner('Issue reported. Contact the vendor directly for fastest resolution.', 'success')
+          showBanner('Issue reported. Please note: your payment has already been processed. The platform does not issue automatic refunds for reported issues. Please contact the vendor directly to discuss a resolution or refund.', 'success')
           fetchOrder()
         } catch (err) {
           showBanner(err instanceof Error ? err.message : 'Failed to report issue', 'error')
@@ -361,7 +361,7 @@ export default function BuyerOrderDetailPage() {
           fetchOrder()
 
           if (problemItemIds.length > 0) {
-            showBanner('Submitted. For items with problems, contact the vendor directly for fastest resolution.', 'success')
+            showBanner('Submitted. For items with problems: your payment has already been processed and refunds are not automatic. Please contact the vendor directly to discuss a resolution.', 'success')
           }
         } catch (err) {
           showBanner(err instanceof Error ? err.message : 'Failed to submit', 'error')
@@ -1087,7 +1087,7 @@ export default function BuyerOrderDetailPage() {
                         color: '#92400e',
                         marginTop: spacing['2xs']
                       }}>
-                        Issue reported on {new Date(item.issue_reported_at).toLocaleDateString()}. Contact vendor for fastest resolution.
+                        Issue reported on {new Date(item.issue_reported_at).toLocaleDateString()}. Your payment has been processed — contact the vendor directly to discuss a resolution or refund.
                       </div>
                     )}
 

@@ -80,11 +80,20 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const prevUnreadCountRef = useRef<number>(0)
   const hasInteractedRef = useRef(false)
   const router = useRouter()
   const pathname = usePathname()
+
+  // Detect mobile viewport for dropdown positioning
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 480)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // Fetch user sound preference on mount
   useEffect(() => {
@@ -271,11 +280,11 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
     return new Date(dateStr).toLocaleDateString()
   }
 
-  // Badge color: RED for critical, YELLOW for warning, GREEN for info-only
+  // Badge color: RED for critical, YELLOW for warning, PRIMARY for info-only
   const BADGE_COLORS: Record<NotificationSeverity, { bg: string; text: string }> = {
     critical: { bg: '#dc2626', text: 'white' },
     warning: { bg: '#f59e0b', text: '#78350f' },
-    info: { bg: '#16a34a', text: 'white' },
+    info: { bg: primaryColor, text: 'white' },
   }
   const badge = BADGE_COLORS[highestUnreadSeverity]
 
@@ -341,12 +350,13 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
       {/* Dropdown */}
       {isOpen && (
         <div style={{
-          position: 'absolute',
-          right: 0,
-          top: '100%',
-          marginTop: spacing['2xs'],
-          width: 340,
-          maxHeight: 440,
+          position: isMobile ? 'fixed' : 'absolute',
+          ...(isMobile
+            ? { left: 8, right: 8, top: 56, width: 'auto' }
+            : { right: 0, top: '100%', width: 340 }
+          ),
+          marginTop: isMobile ? 0 : spacing['2xs'],
+          maxHeight: isMobile ? 'calc(100vh - 72px)' : 440,
           backgroundColor: colors.surfaceElevated,
           borderRadius: radius.lg,
           boxShadow: shadows.lg,

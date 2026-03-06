@@ -66,12 +66,13 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const hasSeenTutorial = !!(userProfile?.tutorial_completed_at || userProfile?.tutorial_skipped_at)
   const showTutorial = !hasSeenTutorial
 
-  // Get recent orders count (as buyer) — scoped to this vertical
+  // Get active orders count (as buyer) — only current/in-progress orders
   const { count: orderCount } = await supabase
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('buyer_user_id', user.id)
     .eq('vertical_id', vertical)
+    .in('status', ['pending', 'paid', 'confirmed', 'ready'])
 
   // Get orders with items ready for pickup (up to 3)
   const { data: readyOrders } = await supabase
@@ -523,7 +524,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               )}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {orderCount || 0} order{orderCount !== 1 ? 's' : ''} placed
+              {orderCount || 0} active order{orderCount !== 1 ? 's' : ''}
               {confirmationNeededCount > 0 && (
                 <span style={{
                   marginLeft: spacing.xs,

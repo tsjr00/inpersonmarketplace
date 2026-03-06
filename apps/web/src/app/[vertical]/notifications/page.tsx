@@ -96,21 +96,23 @@ export default function NotificationsPage() {
   }, [fetchNotifications])
 
   const handleNotificationClick = async (notification: Notification) => {
+    // Mark as read (don't await — navigate immediately for responsiveness)
     if (!notification.read_at) {
-      await fetch(`/api/notifications/${notification.id}/read`, { method: 'PATCH' })
+      fetch(`/api/notifications/${notification.id}/read`, { method: 'PATCH' })
       setNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n)
       )
     }
 
+    // Navigate to the action URL
     const config = getNotificationConfig(notification.type)
-    if (config) {
-      const actionUrl = config.actionUrl({
-        ...(notification.data as Record<string, string> | null),
-        vertical,
-      })
-      router.push(actionUrl)
-    }
+    const actionUrl = config
+      ? config.actionUrl({
+          ...(notification.data as Record<string, string> | null),
+          vertical,
+        })
+      : `/${vertical}/dashboard`
+    router.push(actionUrl)
   }
 
   const handleMarkAllRead = async () => {
