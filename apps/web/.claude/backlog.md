@@ -16,6 +16,11 @@ Last updated: 2026-03-05
 - [ ] **Geographic intelligence feature** — Plan exists at `.claude/geographic_intelligence_plan.md`
 - [ ] **A2P 10DLC SMS approval** — Waiting on carrier, nothing actionable until approved
 
+## Post-Launch — Growth & Expansion
+- [ ] **Ecosystem Partner Platform** (`partners.farmersmarketing.app`) — Give ag nonprofits, market associations, and advocacy orgs (FARFA, FMC, state FM associations, food truck associations) a professional profile page, event calendar, resource hosting, and analytics on our platform — free. Same app, same DB, same deployment ($0 incremental infra cost). They share their presence to their networks; we get credibility transfer and organic vendor pipeline. Phase 1 = profiles + events + resources + directory (~3-4 sessions). Full design: `docs/CC_reference_data/Ecosystem_Partner_Platform_Design.md`
+- [ ] **Growth Ambassador Program** — Incentivized referral system for non-vendor partners (community connectors, influencers) who earn signup bonuses + time-limited revenue share for vendors they bring on. Complements ecosystem play for FT vertical where no central gatekeepers exist. Design: `docs/CC_reference_data/Growth_Partner_System_Design.md`
+- [ ] **Geographic Expansion Planning** — Use `docs/CC_reference_data/Geographic_Expansion_Planner.xlsx` workbook to score and prioritize markets. Algorithm design: `docs/CC_reference_data/Geographic_Expansion_Algorithm.md`
+
 ## Icebox — Ideas for Later
 - [ ] **Events feature Phase 5+** — Ticketing, capacity management, recurring events
 - [ ] **Advanced vendor analytics** — Sales trends, customer demographics, peak hours
