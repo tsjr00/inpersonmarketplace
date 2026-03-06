@@ -56,11 +56,13 @@ export async function withErrorTracing<T>(
         // Log to console and database
         await logError(error)
 
-        // H-8: Report to Sentry (auto-disabled when DSN not set)
-        Sentry.captureException(error, {
-          tags: { route, method, errorCode: error.code },
-          extra: error.context,
-        })
+        // H-8: Report to Sentry — only server errors (5xx), not validation/auth (4xx)
+        if (error.httpStatus >= 500) {
+          Sentry.captureException(error, {
+            tags: { route, method, errorCode: error.code },
+            extra: error.context,
+          })
+        }
 
         // Return standardized error response
         return NextResponse.json(
