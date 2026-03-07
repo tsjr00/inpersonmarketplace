@@ -198,17 +198,6 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
         </p>
       </div>
 
-      {/* Filters */}
-      <MarketFilters
-        vertical={vertical}
-        currentCity={city}
-        currentSearch={search}
-        currentState={state}
-        currentType={locationType}
-        cities={filteredCities}
-        states={states}
-      />
-
       {/* Upcoming Events Section — hidden when type filter excludes events */}
       {(!locationType || locationType === 'event') && eventMarkets && eventMarkets.length > 0 && (
         <div style={{ marginBottom: spacing.lg }}>
@@ -326,6 +315,17 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
           currentSearch={search}
           initialLocation={savedLocation}
           radiusOptions={getRadiusOptions(vertical)}
+          filtersSlot={
+            <MarketFilters
+              vertical={vertical}
+              currentCity={city}
+              currentSearch={search}
+              currentState={state}
+              currentType={locationType}
+              cities={filteredCities}
+              states={states}
+            />
+          }
         />
       )}
     </div>
