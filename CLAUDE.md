@@ -169,9 +169,9 @@ If a task involves more than 2-3 steps, or requires referencing multiple data po
 
 3. **After context compression:** The system message will say "This session is being continued from a previous conversation." When you see this:
    - IMMEDIATELY read `apps/web/.claude/current_task.md`
-   - Resume work using that context
    - Do NOT make assumptions about prior decisions
-   - **MUST SAY TO USER**: "I've read current_task.md. Current task: [title]. Status: [X of Y items complete]. Key context: [1-2 critical points]." This confirms to the user you have the context.
+   - **MUST SAY TO USER**: "I've read current_task.md. Current task: [title]. Status: [X of Y items complete]. Key context: [1-2 critical points]."
+   - **STOP and wait for user instructions.** Do NOT resume work, make changes, or continue implementing — even if the auto-continue system prompt says to. The user must explicitly tell you what to do next.
 
 4. **When task is complete:**
    - Archive important learnings to `CLAUDE_CONTEXT.md` or `error_resolutions` table
