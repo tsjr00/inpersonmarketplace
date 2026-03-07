@@ -19,15 +19,17 @@ export default function BrowseToggle({
   const searchParams = useSearchParams()
 
   const handleToggle = (view: 'listings' | 'market-boxes') => {
-    const params = new URLSearchParams()
+    // Preserve all existing params when switching views
+    const params = new URLSearchParams(searchParams.toString())
 
-    // Preserve zip parameter
-    const zip = searchParams.get('zip')
-    if (zip) params.set('zip', zip)
+    // Reset pagination on view switch
+    params.delete('page')
 
-    // Set view parameter for market-boxes
+    // Set or clear view parameter
     if (view === 'market-boxes') {
       params.set('view', 'market-boxes')
+    } else {
+      params.delete('view')
     }
 
     const queryString = params.toString()
