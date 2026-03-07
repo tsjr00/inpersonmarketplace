@@ -10,23 +10,6 @@
 
 ---
 
-## CC: Autonomy Grant
-
-CC: You have full permission from Tracy to:
-- Create/edit any files without asking Tracy
-- Install packages without asking Tracy
-- Make commits without asking Tracy
-- Push to GitHub without asking Tracy
-
-CC: Only ask Tracy if:
-- Deleting production data
-- Making security decisions
-- Truly ambiguous requirements
-
-CC: Otherwise work autonomously and report actions to Tracy.
-
----
-
 ## CC: Objective
 
 Build four reusable UI components that all future features will use: AdminTable (sortable/filterable data tables), StandardForm (forms with validation), StatusBadge (status indicators), and MobileNav (consistent mobile navigation). These components create consistency across the app and speed up future UI development by 30-40% by eliminating repetitive component creation.

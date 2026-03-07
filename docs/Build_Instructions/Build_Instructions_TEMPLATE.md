@@ -10,23 +10,6 @@
 
 ---
 
-## CC: Autonomy Grant
-
-CC: You have full permission from Tracy to:
-- Create/edit any files without asking Tracy
-- Install packages without asking Tracy
-- Make commits without asking Tracy
-- Push to GitHub without asking Tracy
-
-CC: Only ask Tracy if:
-- Deleting production data
-- Making security decisions
-- Truly ambiguous requirements
-
-CC: Otherwise work autonomously and report actions to Tracy.
-
----
-
 ## CC: Objective
 
 [One paragraph: What is CC building? What problem does it solve?]

@@ -7,12 +7,6 @@
 
 ---
 
-## CC: Autonomy Grant
-
-CC: You have permission from Tracy to create files, commit, and push without asking.
-
----
-
 ## CC: Objective
 
 Create two logging systems:
@@ -228,4 +222,4 @@ Tell Tracy:
 2. Created MIGRATION_LOG.md at /docs/MIGRATION_LOG.md
 3. Created /supabase/migrations/ folder with README
 4. All files committed and pushed
-5. Logs ready for use in parallel sessions
+5. Logs ready for use

@@ -225,7 +225,7 @@ Ready for Tracy's review.
 ## Why This is Mandatory
 
 **Without proper logging:**
-- Tracy loses track of progress across parallel sessions
+- Tracy loses track of progress across sessions
 - Migration history unclear (which DB changes happened when)
 - Difficult to troubleshoot issues later
 - Can't easily resume work in next session

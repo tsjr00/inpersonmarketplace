@@ -7,12 +7,6 @@
 
 ---
 
-## CC: Autonomy Grant
-
-CC: You have permission from Tracy to create files, commit, and push without asking.
-
----
-
 ## CC: Objective
 
 Save all Build Instructions and key documents to /docs/build-sessions/ in Git so Tracy has permanent backup.
@@ -23,14 +17,8 @@ Save all Build Instructions and key documents to /docs/build-sessions/ in Git so
 
 **FOR CC TO READ AND EXECUTE**
 
-**Time:** 5 minutes  
+**Time:** 5 minutes
 **Branch:** main
-
----
-
-## CC: Autonomy Grant
-
-CC: You have permission from Tracy to create files, commit, and push without asking.
 
 ---
 
@@ -98,7 +86,7 @@ Tell Tracy:
 1. Folders created: /docs/Build_Instructions/ and /docs/Session_Summaries/
 2. README files explain naming conventions
 3. Committed and pushed
-4. Structure ready for parallel sessions
+4. Structure ready
 
 ---
 
@@ -135,7 +123,7 @@ Tell Tracy:
    - Build_Instructions_Markets_Foundation.md
    - Build_Instructions_Vendor_Analytics.md
 2. Keep in local folder: `C:\GitHub\Projects\FastWrks-Docs\`
-3. Reference them when giving to CC-1 and CC-2
+3. Reference them when giving to CC
 
 **Why not save to Git now?**
 - Full files are 10,000+ tokens
@@ -143,4 +131,4 @@ Tell Tracy:
 - Git has the folder structure ready
 - More efficient workflow
 
-**After this task:** Foundation complete, ready for parallel sessions
+**After this task:** Foundation complete
