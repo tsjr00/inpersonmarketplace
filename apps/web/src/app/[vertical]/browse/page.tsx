@@ -719,9 +719,6 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           </p>
         </div>
 
-        {/* View Toggle */}
-        <BrowseToggle vertical={vertical} currentView={currentView} branding={branding} />
-
         {/* Location bar — input mode when no location, radius controls when location is set */}
         {!zip && (
           <BrowseLocationPrompt
@@ -731,6 +728,9 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             currentRadius={currentRadius}
           />
         )}
+
+        {/* View Toggle */}
+        <BrowseToggle vertical={vertical} currentView={currentView} branding={branding} />
 
         {/* Available Now Toggle */}
         <AvailabilityToggle

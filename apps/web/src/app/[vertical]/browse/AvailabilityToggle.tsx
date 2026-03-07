@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { spacing, typography, radius } from '@/lib/design-tokens'
 
 interface AvailabilityToggleProps {
   vertical: string
@@ -30,14 +29,16 @@ export default function AvailabilityToggle({
   }
 
   const activeStyle = {
-    padding: `${spacing['2xs']} ${spacing.sm}`,
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold as number,
+    padding: '8px 32px',
+    fontSize: 14,
+    fontWeight: 600,
     border: 'none',
-    borderRadius: radius.md,
+    borderRadius: 6,
     cursor: 'pointer' as const,
     backgroundColor: primaryColor,
     color: 'white',
+    minWidth: 160,
+    transition: 'all 0.2s',
   }
 
   const inactiveStyle = {
@@ -48,24 +49,31 @@ export default function AvailabilityToggle({
 
   return (
     <div style={{
-      display: 'inline-flex',
-      backgroundColor: '#f3f4f6',
-      borderRadius: radius.md,
-      padding: 2,
-      marginBottom: spacing.sm,
+      display: 'flex',
+      justifyContent: 'center',
+      marginBottom: 16,
     }}>
-      <button
-        onClick={() => handleToggle(false)}
-        style={!isAvailableNow ? activeStyle : inactiveStyle}
-      >
-        All Listings
-      </button>
-      <button
-        onClick={() => handleToggle(true)}
-        style={isAvailableNow ? activeStyle : inactiveStyle}
-      >
-        Available Now
-      </button>
+      <div style={{
+        display: 'flex',
+        gap: 0,
+        backgroundColor: '#f3f4f6',
+        borderRadius: 8,
+        padding: 4,
+        border: `1px solid ${primaryColor}`,
+      }}>
+        <button
+          onClick={() => handleToggle(false)}
+          style={!isAvailableNow ? activeStyle : inactiveStyle}
+        >
+          All Listings
+        </button>
+        <button
+          onClick={() => handleToggle(true)}
+          style={isAvailableNow ? activeStyle : inactiveStyle}
+        >
+          Available Now
+        </button>
+      </div>
     </div>
   )
 }

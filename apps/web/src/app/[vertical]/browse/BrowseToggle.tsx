@@ -44,21 +44,21 @@ export default function BrowseToggle({
         display: 'flex',
         gap: 0,
         backgroundColor: '#f3f4f6',
-        borderRadius: 12,
-        padding: 6,
-        border: `2px solid ${branding.colors.primary}`
+        borderRadius: 8,
+        padding: 4,
+        border: `1px solid ${branding.colors.primary}`
       }}>
         <button
           onClick={() => handleToggle('listings')}
           style={{
-            padding: '14px 32px',
+            padding: '8px 32px',
             backgroundColor: currentView === 'listings' ? branding.colors.primary : 'transparent',
             color: currentView === 'listings' ? 'white' : '#6b7280',
             border: 'none',
-            borderRadius: 8,
+            borderRadius: 6,
             fontWeight: 600,
             cursor: 'pointer',
-            fontSize: 16,
+            fontSize: 14,
             transition: 'all 0.2s',
             minWidth: 160
           }}
@@ -68,14 +68,14 @@ export default function BrowseToggle({
         <button
           onClick={() => handleToggle('market-boxes')}
           style={{
-            padding: '14px 32px',
+            padding: '8px 32px',
             backgroundColor: currentView === 'market-boxes' ? branding.colors.primary : 'transparent',
             color: currentView === 'market-boxes' ? 'white' : '#6b7280',
             border: 'none',
-            borderRadius: 8,
+            borderRadius: 6,
             fontWeight: 600,
             cursor: 'pointer',
-            fontSize: 16,
+            fontSize: 14,
             transition: 'all 0.2s',
             minWidth: 160
           }}
