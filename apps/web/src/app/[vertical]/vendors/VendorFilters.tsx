@@ -54,77 +54,80 @@ export default function VendorFilters({
 
   const hasFilters = currentMarket || currentCategory || currentSearch || currentSort !== 'rating' || currentPayment
 
+  const selectStyle = {
+    padding: `${spacing['2xs']} ${spacing.xs}`,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radius.sm,
+    fontSize: typography.sizes.sm,
+    backgroundColor: colors.surfaceBase,
+  }
+
+  const labelStyle = {
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.medium as number,
+    color: colors.textSecondary,
+  }
+
   return (
     <div style={{
       marginBottom: spacing.md,
-      padding: spacing.md,
+      padding: spacing.sm,
       backgroundColor: colors.surfaceElevated,
       borderRadius: radius.lg,
-      border: `1px solid ${colors.border}`
+      border: `1px solid ${colors.border}`,
+      display: 'flex',
+      flexDirection: 'column' as const,
+      gap: spacing.xs,
     }}>
-      {/* Search */}
-      <form onSubmit={handleSearchSubmit} style={{ marginBottom: spacing.sm }}>
-        <div style={{ display: 'flex', gap: spacing.xs }}>
+      {/* Row 1: Search + Market + Category */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
+        alignItems: 'center'
+      }}>
+        {/* Search */}
+        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: spacing['2xs'], flex: '1 1 180px' }}>
           <input
             type="text"
-            placeholder="Search vendors by name..."
+            placeholder="Search vendors..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             style={{
               flex: 1,
-              padding: `${spacing.xs} ${spacing.sm}`,
+              padding: `${spacing['2xs']} ${spacing.xs}`,
               border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              fontSize: typography.sizes.base,
-              backgroundColor: colors.surfaceBase
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              backgroundColor: colors.surfaceBase,
+              minWidth: 100,
             }}
           />
           <button
             type="submit"
             style={{
-              padding: `${spacing.xs} ${spacing.md}`,
+              padding: `${spacing['2xs']} ${spacing.sm}`,
               backgroundColor: 'transparent',
               color: colors.primary,
-              border: `2px solid ${colors.primary}`,
-              borderRadius: radius.md,
-              fontSize: typography.sizes.base,
+              border: `1px solid ${colors.primary}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
               fontWeight: typography.weights.semibold,
               cursor: 'pointer'
             }}
           >
             Search
           </button>
-        </div>
-      </form>
+        </form>
 
-      {/* Filters Row */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: spacing.sm,
-        alignItems: 'center'
-      }}>
         {/* Market Filter */}
         {markets.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-            <label style={{
-              fontSize: typography.sizes.sm,
-              fontWeight: typography.weights.medium,
-              color: colors.textSecondary
-            }}>
-              Market:
-            </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <label style={labelStyle}>Market:</label>
             <select
               value={currentMarket || ''}
               onChange={(e) => updateFilters({ market: e.target.value || undefined })}
-              style={{
-                padding: `${spacing['2xs']} ${spacing.xs}`,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                fontSize: typography.sizes.sm,
-                backgroundColor: colors.surfaceBase,
-                minWidth: 150
-              }}
+              style={{ ...selectStyle, minWidth: 130 }}
             >
               <option value="">All Markets</option>
               {markets.map(market => (
@@ -138,25 +141,12 @@ export default function VendorFilters({
 
         {/* Category Filter */}
         {categories.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-            <label style={{
-              fontSize: typography.sizes.sm,
-              fontWeight: typography.weights.medium,
-              color: colors.textSecondary
-            }}>
-              Category:
-            </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <label style={labelStyle}>Category:</label>
             <select
               value={currentCategory || ''}
               onChange={(e) => updateFilters({ category: e.target.value || undefined })}
-              style={{
-                padding: `${spacing['2xs']} ${spacing.xs}`,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                fontSize: typography.sizes.sm,
-                backgroundColor: colors.surfaceBase,
-                minWidth: 150
-              }}
+              style={{ ...selectStyle, minWidth: 130 }}
             >
               <option value="">All Categories</option>
               {categories.map(cat => (
@@ -167,27 +157,22 @@ export default function VendorFilters({
             </select>
           </div>
         )}
+      </div>
 
+      {/* Row 2: Payment + Sort + Clear */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
+        alignItems: 'center'
+      }}>
         {/* Payment Method Filter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-          <label style={{
-            fontSize: typography.sizes.sm,
-            fontWeight: typography.weights.medium,
-            color: colors.textSecondary
-          }}>
-            Payment:
-          </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <label style={labelStyle}>Payment:</label>
           <select
             value={currentPayment || ''}
             onChange={(e) => updateFilters({ payment: e.target.value || undefined })}
-            style={{
-              padding: `${spacing['2xs']} ${spacing.xs}`,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.sm,
-              fontSize: typography.sizes.sm,
-              backgroundColor: colors.surfaceBase,
-              minWidth: 130
-            }}
+            style={{ ...selectStyle, minWidth: 120 }}
           >
             <option value="">All Payments</option>
             <option value="cards">Cards</option>
@@ -199,24 +184,12 @@ export default function VendorFilters({
         </div>
 
         {/* Sort */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-          <label style={{
-            fontSize: typography.sizes.sm,
-            fontWeight: typography.weights.medium,
-            color: colors.textSecondary
-          }}>
-            Sort:
-          </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <label style={labelStyle}>Sort:</label>
           <select
             value={currentSort}
             onChange={(e) => updateFilters({ sort: e.target.value })}
-            style={{
-              padding: `${spacing['2xs']} ${spacing.xs}`,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.sm,
-              fontSize: typography.sizes.sm,
-              backgroundColor: colors.surfaceBase
-            }}
+            style={selectStyle}
           >
             <option value="rating">Top Rated</option>
             <option value="name">Name A-Z</option>

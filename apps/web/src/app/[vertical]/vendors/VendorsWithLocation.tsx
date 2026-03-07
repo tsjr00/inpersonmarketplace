@@ -101,6 +101,8 @@ interface VendorsWithLocationProps {
   } | null
   /** Custom radius options per vertical */
   radiusOptions?: number[]
+  /** Optional content rendered between location bar and results (e.g. filters) */
+  filtersSlot?: React.ReactNode
 }
 
 export default function VendorsWithLocation({
@@ -112,7 +114,8 @@ export default function VendorsWithLocation({
   currentSort,
   currentPayment,
   initialLocation,
-  radiusOptions
+  radiusOptions,
+  filtersSlot
 }: VendorsWithLocationProps) {
   // Initialize state from server-provided location (if available)
   const [hasLocation, setHasLocation] = useState<boolean | null>(initialLocation ? true : null)
@@ -367,6 +370,9 @@ export default function VendorsWithLocation({
           radiusOptions={radiusOptions}
         />
       </div>
+
+      {/* Filters slot — injected from page (e.g. VendorFilters) */}
+      {filtersSlot}
 
       {/* Location prompt card - show when no location is set and location check is complete */}
       {locationChecked && !hasLocation && (

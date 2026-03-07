@@ -263,17 +263,6 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         </p>
       </div>
 
-      {/* Filters */}
-      <VendorFilters
-        currentMarket={market}
-        currentCategory={category}
-        currentSearch={search}
-        currentSort={sort}
-        currentPayment={payment}
-        markets={allMarkets}
-        categories={allCategories}
-      />
-
       {/* Vendors with Location Filtering */}
       <VendorsWithLocation
         vertical={vertical}
@@ -285,6 +274,17 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         currentPayment={payment}
         initialLocation={savedLocation}
         radiusOptions={getRadiusOptions(vertical)}
+        filtersSlot={
+          <VendorFilters
+            currentMarket={market}
+            currentCategory={category}
+            currentSearch={search}
+            currentSort={sort}
+            currentPayment={payment}
+            markets={allMarkets}
+            categories={allCategories}
+          />
+        }
       />
     </div>
   )
