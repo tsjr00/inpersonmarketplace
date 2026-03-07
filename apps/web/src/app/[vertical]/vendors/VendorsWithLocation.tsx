@@ -160,7 +160,7 @@ export default function VendorsWithLocation({
       setTotalVendors(0)
       setHasMore(false)
     }
-  }, [currentMarket, currentCategory, currentSearch, currentSort, radius, locationChecked])
+  }, [currentMarket, currentCategory, currentSearch, currentSort, currentPayment, radius, locationChecked])
 
   // Fetch favorites on mount
   useEffect(() => {
