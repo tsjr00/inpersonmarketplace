@@ -159,8 +159,8 @@ export default function ShareButton({
           style={{
             position: 'absolute',
             top: '100%',
-            right: 'auto',
-            left: 0,
+            right: 0,
+            left: 'auto',
             marginTop: 4,
             backgroundColor: '#ffffff',
             border: '1px solid #e5e7eb',
