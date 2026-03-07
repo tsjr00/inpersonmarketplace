@@ -16,6 +16,7 @@ import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 // listing-availability.ts utility is deprecated for availability checks.
 // Availability now uses get_listings_accepting_status() RPC (single SQL source of truth).
+import AvailabilityToggle from './AvailabilityToggle'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
 import { getServerLocation } from '@/lib/location/server'
 
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ vertical:
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; page?: string }>
+  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; page?: string; available?: string }>
 }
 
 interface MarketSchedule {
@@ -193,7 +194,8 @@ function groupListingsByCategory(listings: Listing[], vertical: string): Record<
 
 export default async function BrowsePage({ params, searchParams }: BrowsePageProps) {
   const { vertical } = await params
-  const { category, search, view, zip, page } = await searchParams
+  const { category, search, view, zip, page, available } = await searchParams
+  const isAvailableNow = available === 'true'
   const currentPage = Math.max(1, parseInt(page || '1', 10))
   const PAGE_SIZE = 50
   const supabase = await createClient()
@@ -620,6 +622,20 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // L-3: Allergen filter removed from browse (kept on listing detail page for warnings)
 
+  // "Available Now" pre-filter — fetch availability for ALL listings before pagination
+  // when ?available=true is set, so we only paginate accepting listings
+  if (isAvailableNow && listings && listings.length > 0) {
+    const { data: allAvailData } = await supabase.rpc('get_listings_accepting_status', {
+      p_listing_ids: listings.map(l => l.id)
+    })
+    if (allAvailData) {
+      const acceptingIds = new Set(
+        allAvailData.filter((a: { is_accepting: boolean }) => a.is_accepting).map((a: { listing_id: string }) => a.listing_id)
+      )
+      listings = listings.filter(l => acceptingIds.has(l.id))
+    }
+  }
+
   // Pagination — slice AFTER all filtering
   const totalListings = listings?.length || 0
   const totalPages = Math.max(1, Math.ceil(totalListings / PAGE_SIZE))
@@ -716,6 +732,13 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           />
         )}
 
+        {/* Available Now Toggle */}
+        <AvailabilityToggle
+          vertical={vertical}
+          isAvailableNow={isAvailableNow}
+          primaryColor={branding.colors.primary}
+        />
+
         {/* Search & Filter */}
         <SearchFilter
           vertical={vertical}
@@ -723,13 +746,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           currentCategory={category}
           currentSearch={search}
           currentZip={zip}
+          currentAvailable={available}
           branding={branding}
         />
 
         {/* Results Count */}
         <div style={{ marginBottom: spacing.sm }}>
           <p style={{ color: colors.textSecondary, margin: 0 }}>
-            {totalListings} listing{totalListings !== 1 ? 's' : ''} found
+            {totalListings} listing{totalListings !== 1 ? 's' : ''} found{isAvailableNow ? ' accepting orders now' : ''}
             {category && ` in ${category}`}
             {search && ` matching "${search}"`}
             {totalPages > 1 && ` · Page ${safePage} of ${totalPages}`}

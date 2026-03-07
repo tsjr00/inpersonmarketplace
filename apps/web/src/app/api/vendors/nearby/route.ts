@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       const category = searchParams.get('category')
       const search = searchParams.get('search')
       const sort = searchParams.get('sort') || 'rating'
+      const payment = searchParams.get('payment')
 
       // Validate required params
       if (!lat || !lng) {
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
       // If PostGIS function fails (e.g., not available), fall back to cache-based method
       if (postgisError) {
         console.warn('[Vendors Nearby] PostGIS function failed, using fallback:', postgisError.message)
-        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, market, category, search, sort)
+        return await fallbackNearbyQuery(supabase, latitude, longitude, radiusMiles, limit, offset, vertical, market, category, search, sort, payment)
       }
 
       if (!nearbyVendors || nearbyVendors.length === 0) {
@@ -115,7 +116,11 @@ export async function GET(request: NextRequest) {
             tier,
             created_at,
             average_rating,
-            rating_count
+            rating_count,
+            venmo_username,
+            cashapp_cashtag,
+            paypal_username,
+            accepts_cash_at_pickup
           `)
           .in('id', vendorIds)
           .eq('status', 'approved')
@@ -200,7 +205,13 @@ export async function GET(request: NextRequest) {
           listingCount,
           categories,
           markets: vendorMarkets,
-          distance_miles: distanceMap.get(vendor.id) ?? null
+          distance_miles: distanceMap.get(vendor.id) ?? null,
+          paymentMethods: {
+            venmo: vendor.venmo_username as string | null,
+            cashapp: vendor.cashapp_cashtag as string | null,
+            paypal: vendor.paypal_username as string | null,
+            cash: (vendor.accepts_cash_at_pickup as boolean) || false,
+          }
         }
       })
 
@@ -225,6 +236,20 @@ export async function GET(request: NextRequest) {
           v.name.toLowerCase().includes(searchLower) ||
           (v.description?.toLowerCase().includes(searchLower))
         )
+      }
+
+      // Filter by payment method
+      if (payment) {
+        filteredVendors = filteredVendors.filter(v => {
+          switch (payment) {
+            case 'cards': return true
+            case 'venmo': return !!v.paymentMethods.venmo
+            case 'cashapp': return !!v.paymentMethods.cashapp
+            case 'paypal': return !!v.paymentMethods.paypal
+            case 'cash': return v.paymentMethods.cash
+            default: return true
+          }
+        })
       }
 
       // STEP 5: Sort vendors (always by distance first for location-based queries, then by selected sort within tier)
@@ -296,7 +321,8 @@ async function fallbackNearbyQuery(
   market: string | null,
   category: string | null,
   search: string | null,
-  sort: string
+  sort: string,
+  payment: string | null
 ) {
   // Haversine formula for distance between two points
   const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -367,7 +393,7 @@ async function fallbackNearbyQuery(
   const [vendorsResult, listingsResult, marketsResult] = await Promise.all([
     supabase
       .from('vendor_profiles')
-      .select('id, profile_data, description, profile_image_url, tier, created_at, average_rating, rating_count')
+      .select('id, profile_data, description, profile_image_url, tier, created_at, average_rating, rating_count, venmo_username, cashapp_cashtag, paypal_username, accepts_cash_at_pickup')
       .in('id', vendorIds)
       .eq('status', 'approved')
       .is('deleted_at', null),
@@ -434,7 +460,13 @@ async function fallbackNearbyQuery(
       listingCount: vendorListings.length,
       categories,
       markets: Array.from(marketMap.values()).sort((a, b) => a.distance_miles - b.distance_miles),
-      distance_miles: Math.round((vendorDistances.get(vendor.id) ?? 0) * 10) / 10
+      distance_miles: Math.round((vendorDistances.get(vendor.id) ?? 0) * 10) / 10,
+      paymentMethods: {
+        venmo: vendor.venmo_username as string | null,
+        cashapp: vendor.cashapp_cashtag as string | null,
+        paypal: vendor.paypal_username as string | null,
+        cash: (vendor.accepts_cash_at_pickup as boolean) || false,
+      }
     }
   })
 
@@ -446,6 +478,20 @@ async function fallbackNearbyQuery(
     filteredVendors = filteredVendors.filter(v =>
       v.name.toLowerCase().includes(searchLower) || v.description?.toLowerCase().includes(searchLower)
     )
+  }
+
+  // Filter by payment method
+  if (payment) {
+    filteredVendors = filteredVendors.filter(v => {
+      switch (payment) {
+        case 'cards': return true
+        case 'venmo': return !!v.paymentMethods.venmo
+        case 'cashapp': return !!v.paymentMethods.cashapp
+        case 'paypal': return !!v.paymentMethods.paypal
+        case 'cash': return v.paymentMethods.cash
+        default: return true
+      }
+    })
   }
 
   // Sort (always by distance first, then secondary sort)

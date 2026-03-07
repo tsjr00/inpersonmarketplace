@@ -11,6 +11,7 @@ import { listingJsonLd } from '@/lib/marketing/json-ld'
 import { getAppUrl } from '@/lib/environment'
 import { formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
 import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { groupPickupDatesByMarket, type AvailablePickupDate } from '@/types/pickup'
 import type { Metadata } from 'next'
@@ -116,7 +117,11 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           id,
           profile_data,
           status,
-          created_at
+          created_at,
+          venmo_username,
+          cashapp_cashtag,
+          paypal_username,
+          accepts_cash_at_pickup
         ),
         listing_images (
           id,
@@ -379,6 +384,15 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                     primaryColor={branding.colors.primary}
                   />
                 </div>
+                <div style={{ marginBottom: spacing.xs }}>
+                  <PaymentMethodBadges
+                    venmoUsername={vendorProfile.venmo_username as string | null}
+                    cashappCashtag={vendorProfile.cashapp_cashtag as string | null}
+                    paypalUsername={vendorProfile.paypal_username as string | null}
+                    acceptsCashAtPickup={vendorProfile.accepts_cash_at_pickup as boolean}
+                    size="sm"
+                  />
+                </div>
                 <ListingPurchaseSection
                   listingId={listingId}
                   maxQuantity={listing.quantity}
@@ -399,6 +413,15 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 border: `1px solid ${colors.border}`,
                 marginBottom: spacing.sm
               }}>
+                <div style={{ marginBottom: spacing.xs }}>
+                  <PaymentMethodBadges
+                    venmoUsername={vendorProfile.venmo_username as string | null}
+                    cashappCashtag={vendorProfile.cashapp_cashtag as string | null}
+                    paypalUsername={vendorProfile.paypal_username as string | null}
+                    acceptsCashAtPickup={vendorProfile.accepts_cash_at_pickup as boolean}
+                    size="sm"
+                  />
+                </div>
                 <ListingPurchaseSection
                   listingId={listingId}
                   maxQuantity={listing.quantity}

@@ -11,6 +11,7 @@ interface SearchFilterProps {
   currentCategory?: string
   currentSearch?: string
   currentZip?: string
+  currentAvailable?: string
   branding: VerticalBranding
 }
 
@@ -20,6 +21,7 @@ export default function SearchFilter({
   currentCategory,
   currentSearch,
   currentZip,
+  currentAvailable,
   branding
 }: SearchFilterProps) {
   const router = useRouter()
@@ -32,6 +34,7 @@ export default function SearchFilter({
     if (search) params.set('search', search)
     if (currentCategory) params.set('category', currentCategory)
     if (currentZip) params.set('zip', currentZip)
+    if (currentAvailable) params.set('available', currentAvailable)
     router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
   }
 
@@ -40,6 +43,7 @@ export default function SearchFilter({
     if (currentSearch) params.set('search', currentSearch)
     if (category) params.set('category', category)
     if (currentZip) params.set('zip', currentZip)
+    if (currentAvailable) params.set('available', currentAvailable)
     router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
   }
 
@@ -128,6 +132,7 @@ export default function SearchFilter({
               if (currentSearch) params.set('search', currentSearch)
               if (currentCategory) params.set('category', currentCategory)
               params.set('zip', zipInput)
+              if (currentAvailable) params.set('available', currentAvailable)
               router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
             }
           }}
@@ -148,6 +153,7 @@ export default function SearchFilter({
               if (currentSearch) params.set('search', currentSearch)
               if (currentCategory) params.set('category', currentCategory)
               params.set('zip', zipInput)
+              if (currentAvailable) params.set('available', currentAvailable)
               router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
             }}
             style={{

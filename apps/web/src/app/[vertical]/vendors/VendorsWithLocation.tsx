@@ -8,6 +8,7 @@ import TierBadge from '@/components/shared/TierBadge'
 import { VendorTierType } from '@/lib/constants'
 import { term } from '@/lib/vertical'
 import { colors, spacing, typography, radius as radiusToken } from '@/lib/design-tokens'
+import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
 import { createClient } from '@/lib/supabase/client'
 
 interface VendorMarket {
@@ -15,6 +16,13 @@ interface VendorMarket {
   name: string
   market_type?: string
   distance_miles?: number
+}
+
+interface VendorPaymentMethods {
+  venmo: string | null
+  cashapp: string | null
+  paypal: string | null
+  cash: boolean
 }
 
 interface EnrichedVendor {
@@ -30,6 +38,7 @@ interface EnrichedVendor {
   categories: string[]
   markets: VendorMarket[]
   distance_miles?: number | null
+  paymentMethods?: VendorPaymentMethods
 }
 
 // Helper to get the two most relevant markets (closest traditional + closest private pickup)
@@ -82,6 +91,7 @@ interface VendorsWithLocationProps {
   currentCategory?: string
   currentSearch?: string
   currentSort: string
+  currentPayment?: string
   /** Server-side location from cookie/profile - skips initial API call */
   initialLocation?: {
     latitude: number
@@ -100,6 +110,7 @@ export default function VendorsWithLocation({
   currentCategory,
   currentSearch,
   currentSort,
+  currentPayment,
   initialLocation,
   radiusOptions
 }: VendorsWithLocationProps) {
@@ -256,6 +267,7 @@ export default function VendorsWithLocation({
       if (currentMarket) params.set('market', currentMarket)
       if (currentCategory) params.set('category', currentCategory)
       if (currentSearch) params.set('search', currentSearch)
+      if (currentPayment) params.set('payment', currentPayment)
 
       const response = await fetch(`/api/vendors/nearby?${params}`)
       const data = await response.json()
@@ -604,6 +616,19 @@ export default function VendorsWithLocation({
                 }}>
                   {vendor.categories.slice(0, 4).join(' • ')}
                   {vendor.categories.length > 4 && ` +${vendor.categories.length - 4}`}
+                </div>
+              )}
+
+              {/* Payment Methods */}
+              {vendor.paymentMethods && (
+                <div style={{ marginBottom: spacing.xs }}>
+                  <PaymentMethodBadges
+                    venmoUsername={vendor.paymentMethods.venmo}
+                    cashappCashtag={vendor.paymentMethods.cashapp}
+                    paypalUsername={vendor.paymentMethods.paypal}
+                    acceptsCashAtPickup={vendor.paymentMethods.cash}
+                    size="sm"
+                  />
                 </div>
               )}
 

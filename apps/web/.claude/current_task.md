@@ -1,58 +1,73 @@
-# Current Task: Session 50 — Continued (Two UX Fixes)
+# Current Task: Session 51 — Payment Method Display/Filter + Available Now Toggle
 
-Started: 2026-03-05
-Continued: 2026-03-06
+Started: 2026-03-07
 
-## Active Work — TWO FIXES IN PROGRESS
+## POST-COMPACTION: STOP and wait for user instructions before making any changes.
 
-### Fix 1: Admin Panel Vertical Filtering — COMPLETE ✅
-**Problem:** Platform admin viewing `/food_trucks/admin/users` sees ALL users including FM-only shoppers.
-**File:** `src/app/[vertical]/admin/users/page.tsx`
-**Fix:** Added `.contains('verticals', [vertical])` to the user query (after line 91). One-line change. DONE.
+## Goal
+Two features from tester feedback:
+1. **Payment method display + filter** on Vendors page, listing detail, vendor profile
+2. **"Available Now" segmented control** on Browse page
 
-### Fix 2: Pickup Selection Colors — IN PROGRESS (3 of 5 edits done)
-**Problem:** Selection buttons use `primaryColor` (green for FM, red for FT) which conflicts with availability status colors (green=Open, red=Closed). Shoppers are confused.
-**Solution:** Use indigo/blue for "selected" state — distinct from all status colors.
+## Plan File
+`C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md` — approved by user
 
-**Edits completed:**
-1. ✅ `src/lib/design-tokens.ts` — Added `selectionBorder: '#4F46E5'`, `selectionBg: '#EEF2FF'`, `selectionText: '#4338CA'` to `statusColors` object
-2. ✅ `src/components/cart/AddToCartButton.tsx` — Added `statusColors` import
-3. ✅ `AddToCartButton.tsx` — FT location buttons (lines ~220-265): Changed selected border/bg from `primaryColor`/`primaryLight` → `statusColors.selectionBorder`/`statusColors.selectionBg`. Wrapper border changed from `primaryColor` → `colors.border`. Dot color changes on selection. Checkmark uses `statusColors.selectionBorder`.
-4. ✅ `AddToCartButton.tsx` — FM date selection wrapper border changed from `primaryColor` → `colors.border` (line ~270)
+## Key Decisions Made
+- Payment badges: **outlined grey pills** (border: 1px solid #6b7280, transparent bg) — NOT colored fills
+- Payment filter goes on **Vendors page** (not Browse listings) — payment is a vendor-level attribute
+- Listing detail: payment methods go **above Add to Cart button** (not in "Sold by" card — too low on page)
+- "Available Now" toggle: segmented control, uses `branding.colors.primary` for active state
+- No migrations needed — payment columns already exist in vendor_profiles
 
-5. ✅ `AddToCartButton.tsx` — FM date selection buttons: Changed selected border/bg/checkmark → `statusColors.selection*`
-6. ✅ `AddToCartButton.tsx` — FT time slot buttons: Changed selected border/bg/checkmark → `statusColors.selection*`
+## What's Been Completed
 
-### Verification:
-- ✅ `npx tsc --noEmit` — 0 errors
-- ✅ `npm run lint` — 0 errors (338 pre-existing warnings only)
-- Ready to commit and push to staging
+### Earlier this session (before these features):
+- [x] Global CLAUDE.md created at `C:\Users\tracy\.claude\CLAUDE.md`
+- [x] Removed dual-session autonomy grants from 5 build instruction files + deleted test-autonomy folder (commit `54a5469`)
+- [x] Added post-compaction STOP rule to both global and project CLAUDE.md (commit `9a26f79`)
 
-## Prod Demo Seed Data — COMPLETE ✅
-- Created `supabase/migrations/PROD_DEMO_SEED.sql`
-- 2 FT vendors: Sample BBQ Shack (basic, Amarillo) + Sample Taco Loco (pro, Canyon)
-- Auth emails: `foodtrucknapp+truck4@gmail.com`, `foodtrucknapp+truck5@gmail.com`
-- Each has: 5 listings, 2 chef boxes, 1 food truck park, 1 private location
-- Event skipped (migration 039 not applied to prod)
-- Verification query confirmed all data landed correctly
-- Stripe account IDs are placeholders — no real transactions on prod (use staging for that)
+### Feature 1: Payment Methods (Steps 1-5 of 10)
+- [x] **Step 1**: Created `src/components/vendor/PaymentMethodBadges.tsx` — reusable outlined pill component
+- [x] **Step 2**: Updated `src/app/[vertical]/vendors/page.tsx` — added payment columns to query, `?payment=` param, filter logic, enriched vendor objects with `paymentMethods`
+- [x] **Step 3**: Updated `src/app/[vertical]/vendors/VendorFilters.tsx` — added Payment dropdown (All Payments / Cards / Venmo / Cash App / PayPal / Cash)
+- [x] **Step 4**: Updated `src/app/[vertical]/vendors/VendorsWithLocation.tsx` — extended interface, added PaymentMethodBadges to vendor cards, passes `payment` param to API
+- [ ] **Step 5**: `src/app/api/vendors/nearby/route.ts` — **PARTIALLY DONE**:
+  - ✅ PostGIS path: payment columns added to SELECT, paymentMethods in enrichment, payment filter added, `payment` param parsed
+  - ✅ Fallback function signature updated to accept `payment` param
+  - ❌ Fallback path: payment columns NOT yet added to SELECT query (line ~370)
+  - ❌ Fallback path: paymentMethods NOT yet added to enrichment (line ~425)
+  - ❌ Fallback path: payment filter NOT yet added (after line ~449)
 
-## Earlier Session 50 Completions (commits already pushed to staging)
-1. ✅ Geographic Expansion workbook corrections (commit `546a680`)
-2. ✅ Growth Partner System design doc (commit `546a680`)
-3. ✅ Ecosystem Partner Platform design doc (commit `546a680`)
-4. ✅ Push notification vertical branding fix (commit `9ecd2ab`)
+### Feature 1: Remaining (Steps 6-7)
+- [ ] **Step 6**: `src/app/[vertical]/listing/[listingId]/page.tsx` — add payment columns to query, display above Add to Cart
+- [ ] **Step 7**: `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` — add PaymentMethodBadges display
+
+### Feature 2: Available Now Toggle (Steps 8-10)
+- [ ] **Step 8**: Create `src/app/[vertical]/browse/AvailabilityToggle.tsx`
+- [ ] **Step 9**: Update `src/app/[vertical]/browse/page.tsx` — availability pre-filter + toggle rendering
+- [ ] **Step 10**: Update `src/app/[vertical]/browse/SearchFilter.tsx` — preserve `available` param
+
+## Files Modified This Session
+- `C:\Users\tracy\.claude\CLAUDE.md` (global) — created
+- `CLAUDE.md` (project) — post-compaction STOP rule
+- `docs/Build_Instructions/Build_Instructions_Archive/Build_Instructions_Component_Library.md` — stripped autonomy
+- `docs/Build_Instructions/Build_Instructions_Archive/Initialize_Logs.md` — stripped autonomy
+- `docs/Build_Instructions/Build_Instructions_Archive/Save_Docs_to_Git.md` — stripped autonomy
+- `docs/Build_Instructions/Build_Instructions_Archive/CC_End_of_Session_Protocol.md` — stripped parallel ref
+- `docs/Build_Instructions/Build_Instructions_TEMPLATE.md` — stripped autonomy
+- `apps/web/docs/test-autonomy/` — deleted
+- `src/components/vendor/PaymentMethodBadges.tsx` — NEW
+- `src/app/[vertical]/vendors/page.tsx` — payment query + filter
+- `src/app/[vertical]/vendors/VendorFilters.tsx` — payment dropdown
+- `src/app/[vertical]/vendors/VendorsWithLocation.tsx` — badges + filter pass
+- `src/app/api/vendors/nearby/route.ts` — PARTIALLY updated (PostGIS path done, fallback incomplete)
 
 ## Git State
-- Main is **11 ahead** of origin/main (production NOT pushed, user hasn't approved)
-- Staging is synced with main
-- Current uncommitted changes: design-tokens.ts, AddToCartButton.tsx, admin users page.tsx, PROD_DEMO_SEED.sql
+- Commits this session: `54a5469` (autonomy cleanup), `9a26f79` (post-compaction rule)
+- All feature work is UNCOMMITTED
+- Branch: main, up to date with origin/main at `d27817e` (prior commits not yet pushed)
 
-## Key Technical Details for Continuation
-- `statusColors` in `design-tokens.ts` now has: `selectionBorder`, `selectionBg`, `selectionText`
-- `AddToCartButton.tsx` imports both `colors` AND `statusColors` from design-tokens
-- The pattern for each selection button change is:
-  - `border: isSelected ? \`2px solid ${primaryColor}\`` → `\`2px solid ${statusColors.selectionBorder}\``
-  - `backgroundColor: isSelected ? colors.primaryLight` → `statusColors.selectionBg`
-  - Checkmark `color: primaryColor` → `statusColors.selectionBorder`
-- `PickupLocationsCard.tsx` does NOT need changes (it only shows availability status, no selection)
+## Gotchas
+- Nearby API has TWO paths: PostGIS (primary) and fallback. BOTH need payment columns + filter
+- `stripeChargesEnabled` prop exists on PaymentMethodBadges but is unused — Cards badge always shows
+- Vendor profile page uses `select('*')` so payment data is already fetched — just needs display component

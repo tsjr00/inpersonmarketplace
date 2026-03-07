@@ -34,12 +34,13 @@ interface VendorsPageProps {
     category?: string
     search?: string
     sort?: string
+    payment?: string
   }>
 }
 
 export default async function VendorsPage({ params, searchParams }: VendorsPageProps) {
   const { vertical } = await params
-  const { market, category, search, sort = 'rating' } = await searchParams
+  const { market, category, search, sort = 'rating', payment } = await searchParams
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
@@ -57,7 +58,11 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         tier,
         created_at,
         average_rating,
-        rating_count
+        rating_count,
+        venmo_username,
+        cashapp_cashtag,
+        paypal_username,
+        accepts_cash_at_pickup
       `)
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
@@ -141,7 +146,13 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
       ratingCount: vendor.rating_count as number | null,
       listingCount,
       categories,
-      markets: vendorMarkets
+      markets: vendorMarkets,
+      paymentMethods: {
+        venmo: vendor.venmo_username as string | null,
+        cashapp: vendor.cashapp_cashtag as string | null,
+        paypal: vendor.paypal_username as string | null,
+        cash: (vendor.accepts_cash_at_pickup as boolean) || false,
+      }
     }
   })
 
@@ -170,6 +181,20 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
       v.name.toLowerCase().includes(searchLower) ||
       (v.description?.toLowerCase().includes(searchLower))
     )
+  }
+
+  // Filter by payment method
+  if (payment) {
+    filteredVendors = filteredVendors.filter(v => {
+      switch (payment) {
+        case 'cards': return true // All vendors accept cards via Stripe
+        case 'venmo': return !!v.paymentMethods.venmo
+        case 'cashapp': return !!v.paymentMethods.cashapp
+        case 'paypal': return !!v.paymentMethods.paypal
+        case 'cash': return v.paymentMethods.cash
+        default: return true
+      }
+    })
   }
 
   // Apply sorting - premium vendors always shown first
@@ -244,6 +269,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         currentCategory={category}
         currentSearch={search}
         currentSort={sort}
+        currentPayment={payment}
         markets={allMarkets}
         categories={allCategories}
       />
@@ -256,6 +282,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         currentCategory={category}
         currentSearch={search}
         currentSort={sort}
+        currentPayment={payment}
         initialLocation={savedLocation}
         radiusOptions={getRadiusOptions(vertical)}
       />

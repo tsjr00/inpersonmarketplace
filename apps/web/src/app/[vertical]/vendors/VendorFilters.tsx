@@ -9,6 +9,7 @@ interface VendorFiltersProps {
   currentCategory?: string
   currentSearch?: string
   currentSort?: string
+  currentPayment?: string
   markets: { id: string; name: string }[]
   categories: string[]
 }
@@ -18,6 +19,7 @@ export default function VendorFilters({
   currentCategory,
   currentSearch,
   currentSort = 'rating',
+  currentPayment,
   markets,
   categories
 }: VendorFiltersProps) {
@@ -50,7 +52,7 @@ export default function VendorFilters({
     router.push(pathname)
   }
 
-  const hasFilters = currentMarket || currentCategory || currentSearch || currentSort !== 'rating'
+  const hasFilters = currentMarket || currentCategory || currentSearch || currentSort !== 'rating' || currentPayment
 
   return (
     <div style={{
@@ -165,6 +167,36 @@ export default function VendorFilters({
             </select>
           </div>
         )}
+
+        {/* Payment Method Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+          <label style={{
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.medium,
+            color: colors.textSecondary
+          }}>
+            Payment:
+          </label>
+          <select
+            value={currentPayment || ''}
+            onChange={(e) => updateFilters({ payment: e.target.value || undefined })}
+            style={{
+              padding: `${spacing['2xs']} ${spacing.xs}`,
+              border: `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              fontSize: typography.sizes.sm,
+              backgroundColor: colors.surfaceBase,
+              minWidth: 130
+            }}
+          >
+            <option value="">All Payments</option>
+            <option value="cards">Cards</option>
+            <option value="venmo">Venmo</option>
+            <option value="cashapp">Cash App</option>
+            <option value="paypal">PayPal</option>
+            <option value="cash">Cash</option>
+          </select>
+        </div>
 
         {/* Sort */}
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>

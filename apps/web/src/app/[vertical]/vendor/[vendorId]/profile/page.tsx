@@ -12,6 +12,7 @@ import { getAppUrl } from '@/lib/environment'
 import { vendorProfileJsonLd } from '@/lib/marketing/json-ld'
 import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
+import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
 import { colors } from '@/lib/design-tokens'
 import type { Metadata } from 'next'
 
@@ -850,6 +851,29 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 )}
               </div>
             )}
+          </div>
+
+          {/* Payment Methods */}
+          <div style={{
+            marginTop: 20,
+            paddingTop: 20,
+            borderTop: '1px solid #f3f4f6'
+          }}>
+            <h3 style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: '#374151',
+              margin: '0 0 12px 0'
+            }}>
+              Accepted Payments
+            </h3>
+            <PaymentMethodBadges
+              venmoUsername={vendor.venmo_username as string | null}
+              cashappCashtag={vendor.cashapp_cashtag as string | null}
+              paypalUsername={vendor.paypal_username as string | null}
+              acceptsCashAtPickup={vendor.accepts_cash_at_pickup as boolean}
+              size="md"
+            />
           </div>
 
           {/* Categories - show ALL categories vendor sells */}
