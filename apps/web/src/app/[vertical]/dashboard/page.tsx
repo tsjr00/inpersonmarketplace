@@ -17,6 +17,7 @@ import ExternalOrderFollowUp from '@/components/buyer/ExternalOrderFollowUp'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
+import HelpSearchWidget from '@/components/help/HelpSearchWidget'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -573,26 +574,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           {/* Notifications Card */}
           <DashboardNotifications vertical={vertical} limit={3} />
 
-          {/* Help & FAQ Card */}
-          <Link
-            href={`/${vertical}/help`}
-            style={{
-              display: 'block',
-              padding: spacing.md,
-              backgroundColor: colors.surfaceElevated,
-              color: colors.textPrimary,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              textDecoration: 'none'
-            }}
-          >
-            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              Help & FAQ
-            </h3>
-            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              Guides, tips, and answers to common questions
-            </p>
-          </Link>
+          {/* Help & FAQ Search Widget */}
+          <HelpSearchWidget vertical={vertical} />
 
           {/* Share Feedback Card */}
           <FeedbackCard vertical={vertical} />
@@ -856,26 +839,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 </p>
               </Link>
 
-              {/* Help & FAQ Card */}
-              <Link
-                href={`/${vertical}/help`}
-                style={{
-                  display: 'block',
-                  padding: spacing.md,
-                  backgroundColor: colors.surfaceElevated,
-                  color: colors.textPrimary,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: radius.md,
-                  textDecoration: 'none'
-                }}
-              >
-                <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                  Help & FAQ
-                </h3>
-                <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                  Guides, tips, and answers to common questions
-                </p>
-              </Link>
+              {/* Help & FAQ Search Widget */}
+              <HelpSearchWidget vertical={vertical} />
 
               {/* Vendor Feedback Card */}
               <VendorFeedbackCard vertical={vertical} />
@@ -1020,26 +985,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   </p>
                 </Link>
 
-                {/* Help & FAQ Card */}
-                <Link
-                  href={`/${vertical}/help`}
-                  style={{
-                    display: 'block',
-                    padding: spacing.md,
-                    backgroundColor: colors.surfaceElevated,
-                    color: colors.textPrimary,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: radius.md,
-                    textDecoration: 'none'
-                  }}
-                >
-                  <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                    Help & FAQ
-                  </h3>
-                  <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                    Guides, tips, and answers to common questions
-                  </p>
-                </Link>
+                {/* Help & FAQ Search Widget */}
+                <HelpSearchWidget vertical={vertical} />
 
                 {/* Vendor Feedback Card */}
                 <VendorFeedbackCard vertical={vertical} />

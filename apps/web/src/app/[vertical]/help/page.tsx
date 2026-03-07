@@ -1,23 +1,16 @@
 import { Metadata } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { colors, statusColors, spacing, typography, radius } from '@/lib/design-tokens'
+import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 import { defaultBranding } from '@/lib/branding'
 import { faqPageJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
+import HelpArticleList from '@/components/help/HelpArticleList'
 
 export const revalidate = 300 // 5 min cache — content changes infrequently
 
 interface HelpPageProps {
   params: Promise<{ vertical: string }>
-}
-
-interface Article {
-  id: string
-  vertical_id: string | null
-  category: string
-  title: string
-  body: string
-  sort_order: number
+  searchParams: Promise<{ q?: string; article?: string }>
 }
 
 export async function generateMetadata({ params }: HelpPageProps): Promise<Metadata> {
@@ -33,8 +26,9 @@ export async function generateMetadata({ params }: HelpPageProps): Promise<Metad
   }
 }
 
-export default async function HelpPage({ params }: HelpPageProps) {
+export default async function HelpPage({ params, searchParams }: HelpPageProps) {
   const { vertical } = await params
+  const { q, article: articleId } = await searchParams
   const serviceClient = createServiceClient()
 
   // Fetch published articles for this vertical + global articles
@@ -46,14 +40,6 @@ export default async function HelpPage({ params }: HelpPageProps) {
     .order('category')
     .order('sort_order')
 
-  // Group by category
-  const grouped = (articles || []).reduce<Record<string, Article[]>>((acc, article) => {
-    if (!acc[article.category]) acc[article.category] = []
-    acc[article.category].push(article)
-    return acc
-  }, {})
-
-  const categoryNames = Object.keys(grouped).sort()
   const allArticles = articles || []
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
   const baseUrl = `https://${branding.domain}`
@@ -167,79 +153,12 @@ export default async function HelpPage({ params }: HelpPageProps) {
         </p>
       </Link>
 
-      {categoryNames.length === 0 ? (
-        <div style={{
-          padding: spacing.xl,
-          textAlign: 'center',
-          backgroundColor: statusColors.neutral50,
-          border: `1px dashed ${statusColors.neutral300}`,
-          borderRadius: radius.md,
-          color: statusColors.neutral500,
-        }}>
-          No help articles available yet. Check back soon!
-        </div>
-      ) : (
-        categoryNames.map(category => (
-          <div key={category} style={{ marginBottom: spacing.lg }}>
-            <h2 style={{
-              fontSize: typography.sizes.lg,
-              fontWeight: typography.weights.semibold,
-              color: statusColors.infoDark,
-              marginBottom: spacing.xs,
-              paddingBottom: spacing['2xs'],
-              borderBottom: `2px solid ${statusColors.infoBorder}`,
-            }}>
-              {category}
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-              {grouped[category].map(article => (
-                <details
-                  key={article.id}
-                  style={{
-                    backgroundColor: 'white',
-                    border: `1px solid ${statusColors.neutral200}`,
-                    borderRadius: radius.md,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <summary style={{
-                    padding: `${spacing.xs} ${spacing.sm}`,
-                    cursor: 'pointer',
-                    fontWeight: typography.weights.semibold,
-                    fontSize: typography.sizes.sm,
-                    color: statusColors.neutral700,
-                    listStyle: 'none',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}>
-                    {article.title}
-                    <span style={{
-                      fontSize: typography.sizes.xs,
-                      color: statusColors.neutral400,
-                      marginLeft: spacing.xs,
-                      flexShrink: 0,
-                      transition: 'transform 0.2s',
-                    }}>
-                      ▼
-                    </span>
-                  </summary>
-                  <div style={{
-                    padding: `0 ${spacing.sm} ${spacing.sm} ${spacing.sm}`,
-                    fontSize: typography.sizes.sm,
-                    lineHeight: typography.leading.relaxed,
-                    color: statusColors.neutral600,
-                    whiteSpace: 'pre-wrap',
-                    borderTop: `1px solid ${statusColors.neutral100}`,
-                  }}>
-                    {article.body}
-                  </div>
-                </details>
-              ))}
-            </div>
-          </div>
-        ))
-      )}
+      {/* Searchable Article List */}
+      <HelpArticleList
+        articles={allArticles}
+        initialQuery={q}
+        initialArticleId={articleId}
+      />
     </div>
   )
 }
