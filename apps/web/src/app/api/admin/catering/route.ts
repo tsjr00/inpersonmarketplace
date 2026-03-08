@@ -49,10 +49,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
+    const vertical = searchParams.get('vertical') || 'food_trucks'
 
     let query = serviceClient
       .from('catering_requests')
       .select('*')
+      .eq('vertical_id', vertical)
       .order('created_at', { ascending: false })
 
     if (status) {
@@ -69,6 +71,58 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ requests: requests || [] })
+    // Also fetch approved vendors for the invite UI
+    const { data: vendorProfiles } = await serviceClient
+      .from('vendor_profiles')
+      .select('id, user_id, profile_data')
+      .eq('vertical_id', vertical)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
+
+    const vendors = (vendorProfiles || []).map((v) => ({
+      id: v.id,
+      business_name:
+        (v.profile_data as Record<string, unknown>)?.business_name as string ||
+        (v.profile_data as Record<string, unknown>)?.farm_name as string ||
+        'Unknown',
+    }))
+
+    // Fetch market_vendors for any approved requests
+    const marketIds = (requests || [])
+      .filter((r) => r.market_id)
+      .map((r) => r.market_id)
+
+    const marketVendorsMap: Record<string, Array<{
+      vendor_profile_id: string
+      response_status: string | null
+      response_notes: string | null
+      invited_at: string | null
+    }>> = {}
+
+    if (marketIds.length > 0) {
+      const { data: mvData } = await serviceClient
+        .from('market_vendors')
+        .select('market_id, vendor_profile_id, response_status, response_notes, invited_at')
+        .in('market_id', marketIds)
+
+      if (mvData) {
+        for (const mv of mvData) {
+          const mid = mv.market_id as string
+          if (!marketVendorsMap[mid]) marketVendorsMap[mid] = []
+          marketVendorsMap[mid].push({
+            vendor_profile_id: mv.vendor_profile_id as string,
+            response_status: mv.response_status as string | null,
+            response_notes: mv.response_notes as string | null,
+            invited_at: mv.invited_at as string | null,
+          })
+        }
+      }
+    }
+
+    return NextResponse.json({
+      requests: requests || [],
+      vendors,
+      marketVendorsMap,
+    })
   })
 }
