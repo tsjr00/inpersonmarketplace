@@ -72,6 +72,10 @@ export type NotificationType =
   // Admin-facing
   | 'new_vendor_application'
   | 'issue_disputed'
+  // Catering
+  | 'catering_request_received'
+  | 'catering_vendor_invited'
+  | 'catering_vendor_responded'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -104,6 +108,12 @@ export interface NotificationTemplateData {
   trialEndsAt?: string
   unpublishedCount?: number
   deactivatedBoxCount?: number
+  // Catering
+  companyName?: string
+  headcount?: number
+  eventDate?: string
+  eventAddress?: string
+  responseAction?: string  // 'accepted' | 'declined'
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -466,6 +476,35 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `Vendor Disputed Buyer Issue`,
     message: (d) => `${d.vendorName} resolved a buyer-reported issue on order #${d.orderNumber} in their own favor (confirmed delivery). Review may be needed.`,
     actionUrl: () => `/admin/feedback`,
+  },
+
+  // ── Catering ──────────────────────────────────────────────────────
+
+  catering_request_received: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'admin',
+    title: () => `New Catering Request`,
+    message: (d) => `${d.companyName} submitted a catering request for ${d.headcount} people on ${d.eventDate}.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/catering`,
+  },
+
+  catering_vendor_invited: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => `New Catering Opportunity`,
+    message: (d) => `${d.companyName} is looking for food trucks for ${d.headcount} people on ${d.eventDate} at ${d.eventAddress}. Tap to view details and respond.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/catering/${d.marketName}`,
+  },
+
+  catering_vendor_responded: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'admin',
+    title: () => `Vendor Responded to Catering Invite`,
+    message: (d) => `${d.vendorName} ${d.responseAction || 'responded to'} the catering invitation for ${d.marketName}.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/catering`,
   },
 }
 
