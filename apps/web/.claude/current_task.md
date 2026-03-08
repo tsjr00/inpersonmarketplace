@@ -1,73 +1,57 @@
-# Current Task: Session 51 — Payment Method Display/Filter + Available Now Toggle
+# Current Task: Session 52 — Help Search Widget, Share Fix, Article Audit, Schedule Bug
 
 Started: 2026-03-07
 
-## POST-COMPACTION: STOP and wait for user instructions before making any changes.
+## All Commits This Session (4 on main, 3 ahead of origin/main)
+1. `63c1ffb` — Fix share menu overflowing right edge of screen (right:0 instead of left:0) — PUSHED TO PROD
+2. `d96e0ac` — Add searchable help widget to dashboard + help page search — pushed to staging
+3. `6ffed30` — Migration 069: Fix 6 stale help articles (payment methods, fees, tips, min order, FM/FT plan pricing) — pushed to staging
+4. `c7607e3` — Migration 069 applied: move to applied/, update schema snapshot + log — NOT pushed yet
 
-## Goal
-Two features from tester feedback:
-1. **Payment method display + filter** on Vendors page, listing detail, vendor profile
-2. **"Available Now" segmented control** on Browse page
+## What's Fully Complete
+- [x] Share menu fix: dropdown anchors right instead of left (affects vendor profile + listing detail)
+- [x] Help search widget: `src/components/help/HelpSearchWidget.tsx` — dashboard card with inline search, dropdown results, links to Help/Setup/Support
+- [x] Help article list: `src/components/help/HelpArticleList.tsx` — searchable article view for help page with ?q= and ?article= params
+- [x] Dashboard: all 3 Help & FAQ static link cards replaced with HelpSearchWidget (shopper line 577, approved vendor line 843, pending vendor line 993)
+- [x] Help page: accepts ?q= and ?article= search params, uses HelpArticleList client component
+- [x] Migration 069: Updated 6 stale knowledge_articles — payment methods (added Venmo/CashApp/PayPal/Cash), service fees (6.5%+$0.15), tips (displaySubtotal), min order ($10 FM/$5 FT), FM plans (added pricing), FT plans (Pro $30→$25 fix)
+- [x] Migration 069 applied to all 3 envs, moved to applied/, schema snapshot + migration log updated
 
-## Plan File
-`C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md` — approved by user
+## RESOLVED — Vendor Profile Weekly Schedule Missing on Prod
 
-## Key Decisions Made
-- Payment badges: **outlined grey pills** (border: 1px solid #6b7280, transparent bg) — NOT colored fills
-- Payment filter goes on **Vendors page** (not Browse listings) — payment is a vendor-level attribute
-- Listing detail: payment methods go **above Add to Cart button** (not in "Sold by" card — too low on page)
-- "Available Now" toggle: segmented control, uses `branding.colors.primary` for active state
-- No migrations needed — payment columns already exist in vendor_profiles
+### Root Cause
+Migrations 039 (`add_event_market_type`) and 040 (`event_availability_function`) were **never applied to prod** despite being logged as applied. Migration 039 adds `event_start_date` and `event_end_date` columns to the `markets` table. The profile page query (line 218-235) selects these columns via PostgREST nested join. PostgREST returns an error when selecting nonexistent columns, but the code doesn't check for errors (`const { data } = ...`), so `data` is `null`, the schedule-building logic is entirely skipped, and `PickupScheduleGrid` never renders.
 
-## What's Been Completed
+### What Was Applied to Prod (2026-03-07)
+1. **Migration 039** — `event_start_date`, `event_end_date`, `event_url` columns + event market_type CHECK constraint + event dates index
+2. **Migration 040** — Updated `get_available_pickup_dates()` function with event support
+3. **Migration 047** — `vendor_quality_scan_log` + `vendor_quality_findings` tables + RLS
+4. **Migration 066** — `check_vendor_schedule_conflict()` trigger on vendor_market_schedules
+5. **Migration 067** — `get_listings_accepting_status()` batch availability function
 
-### Earlier this session (before these features):
-- [x] Global CLAUDE.md created at `C:\Users\tracy\.claude\CLAUDE.md`
-- [x] Removed dual-session autonomy grants from 5 build instruction files + deleted test-autonomy folder (commit `54a5469`)
-- [x] Added post-compaction STOP rule to both global and project CLAUDE.md (commit `9a26f79`)
+### How It Was Found
+- Schedule showed on staging but NOT prod → same code, different DB state
+- All data verified correct via SQL editor (admin role) — listings, listing_markets, markets, schedules all present
+- RLS policies compared between staging and prod — identical
+- Checked `information_schema.columns` for `event_start_date` and `event_end_date` on prod → only `expires_at` existed, the other two were missing
+- Confirmed: PostgREST fails silently when asked to select nonexistent columns through nested joins
 
-### Feature 1: Payment Methods (Steps 1-5 of 10)
-- [x] **Step 1**: Created `src/components/vendor/PaymentMethodBadges.tsx` — reusable outlined pill component
-- [x] **Step 2**: Updated `src/app/[vertical]/vendors/page.tsx` — added payment columns to query, `?payment=` param, filter logic, enriched vendor objects with `paymentMethods`
-- [x] **Step 3**: Updated `src/app/[vertical]/vendors/VendorFilters.tsx` — added Payment dropdown (All Payments / Cards / Venmo / Cash App / PayPal / Cash)
-- [x] **Step 4**: Updated `src/app/[vertical]/vendors/VendorsWithLocation.tsx` — extended interface, added PaymentMethodBadges to vendor cards, passes `payment` param to API
-- [ ] **Step 5**: `src/app/api/vendors/nearby/route.ts` — **PARTIALLY DONE**:
-  - ✅ PostGIS path: payment columns added to SELECT, paymentMethods in enrichment, payment filter added, `payment` param parsed
-  - ✅ Fallback function signature updated to accept `payment` param
-  - ❌ Fallback path: payment columns NOT yet added to SELECT query (line ~370)
-  - ❌ Fallback path: paymentMethods NOT yet added to enrichment (line ~425)
-  - ❌ Fallback path: payment filter NOT yet added (after line ~449)
-
-### Feature 1: Remaining (Steps 6-7)
-- [ ] **Step 6**: `src/app/[vertical]/listing/[listingId]/page.tsx` — add payment columns to query, display above Add to Cart
-- [ ] **Step 7**: `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` — add PaymentMethodBadges display
-
-### Feature 2: Available Now Toggle (Steps 8-10)
-- [ ] **Step 8**: Create `src/app/[vertical]/browse/AvailabilityToggle.tsx`
-- [ ] **Step 9**: Update `src/app/[vertical]/browse/page.tsx` — availability pre-filter + toggle rendering
-- [ ] **Step 10**: Update `src/app/[vertical]/browse/SearchFilter.tsx` — preserve `available` param
-
-## Files Modified This Session
-- `C:\Users\tracy\.claude\CLAUDE.md` (global) — created
-- `CLAUDE.md` (project) — post-compaction STOP rule
-- `docs/Build_Instructions/Build_Instructions_Archive/Build_Instructions_Component_Library.md` — stripped autonomy
-- `docs/Build_Instructions/Build_Instructions_Archive/Initialize_Logs.md` — stripped autonomy
-- `docs/Build_Instructions/Build_Instructions_Archive/Save_Docs_to_Git.md` — stripped autonomy
-- `docs/Build_Instructions/Build_Instructions_Archive/CC_End_of_Session_Protocol.md` — stripped parallel ref
-- `docs/Build_Instructions/Build_Instructions_TEMPLATE.md` — stripped autonomy
-- `apps/web/docs/test-autonomy/` — deleted
-- `src/components/vendor/PaymentMethodBadges.tsx` — NEW
-- `src/app/[vertical]/vendors/page.tsx` — payment query + filter
-- `src/app/[vertical]/vendors/VendorFilters.tsx` — payment dropdown
-- `src/app/[vertical]/vendors/VendorsWithLocation.tsx` — badges + filter pass
-- `src/app/api/vendors/nearby/route.ts` — PARTIALLY updated (PostGIS path done, fallback incomplete)
+### Lesson Learned
+- Migration log is NOT reliable for prod status — it only has Dev/Staging columns
+- "Applied to all 3 envs" notes were wrong for 5 migrations (039, 040, 047, 066, 067)
+- Need a Prod column in migration log OR a verification script to check prod schema
 
 ## Git State
-- Commits this session: `54a5469` (autonomy cleanup), `9a26f79` (post-compaction rule)
-- All feature work is UNCOMMITTED
-- Branch: main, up to date with origin/main at `d27817e` (prior commits not yet pushed)
+- Branch: main, 3 commits ahead of origin/main
+- Staging is synced with main
+- No uncommitted changes (migration log update not committed yet)
+- Session 51 commits (875ebd8 and earlier) already pushed to prod
 
-## Gotchas
-- Nearby API has TWO paths: PostGIS (primary) and fallback. BOTH need payment columns + filter
-- `stripeChargesEnabled` prop exists on PaymentMethodBadges but is unused — Cards badge always shows
-- Vendor profile page uses `select('*')` so payment data is already fetched — just needs display component
+## Key Files This Session
+- `src/components/marketing/ShareButton.tsx` — share menu anchor fix (right:0)
+- `src/components/help/HelpSearchWidget.tsx` — NEW dashboard search card
+- `src/components/help/HelpArticleList.tsx` — NEW help page searchable list
+- `src/app/[vertical]/dashboard/page.tsx` — 3 Help cards → HelpSearchWidget
+- `src/app/[vertical]/help/page.tsx` — accepts ?q= and ?article= params
+- `supabase/migrations/applied/20260307_069_update_stale_help_articles.sql` — content fixes
+- `supabase/migrations/MIGRATION_LOG.md` — corrected prod status for 039/040/047/066/067

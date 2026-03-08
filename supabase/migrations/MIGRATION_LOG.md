@@ -74,17 +74,17 @@
 | 20260219_035_add_payout_status_enum_values.sql | ✅ | 2026-02-19 | ✅ | 2026-02-19 | Add skipped_dev + pending_stripe_setup to payout_status enum. Applied to all 3 envs. |
 | 20260219_037_market_box_payout_support.sql | ✅ | 2026-02-19 | ✅ | 2026-02-19 | Make vendor_payouts.order_item_id nullable, add market_box_pickup_id FK. Applied to all 3 envs. |
 | 20260220_038_fix_listing_tier_trigger_status.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Fix tier trigger to check 'published' not 'active'. Applied to all 3 envs. |
-| 20260221_039_add_event_market_type.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Add 'event' market_type + event date columns. Applied to Staging & Prod. |
-| 20260221_040_event_availability_function.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Rewrite get_available_pickup_dates() with event support. Applied to Staging & Prod. |
+| 20260221_039_add_event_market_type.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Add 'event' market_type + event date columns. Applied to all 3 envs (Prod applied 2026-03-07 — was missing, caused schedule bug). |
+| 20260221_040_event_availability_function.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Rewrite get_available_pickup_dates() with event support. Applied to all 3 envs (Prod applied 2026-03-07). |
 | 20260220_041_add_tip_on_platform_fee.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Add tip_on_platform_fee_cents to orders. Applied to all 3 envs. |
 | 20260220_042_fix_remaining_security_definer_search_paths.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | SET search_path=public on 11 SECURITY DEFINER functions. Applied to all 3 envs. |
 | 20260220_043_vendor_payout_unique_constraint.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Partial unique index on vendor_payouts(order_item_id). Applied to all 3 envs. |
 | 20260221_046_supabase_linter_fixes.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Merged 9 overlapping permissive policies, dropped 4 duplicate indexes, added 18 FK indexes, dropped 4 legacy indexes. Applied to all 3 envs. |
-| 20260222_047_vendor_quality_checks.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Vendor quality checks tables + cron. Applied to all 3 envs. |
+| 20260222_047_vendor_quality_checks.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Vendor quality checks tables + cron. Applied to all 3 envs (Prod applied 2026-03-07 — was missing). |
 | 20260304_068_user_agreement_acceptances.sql | ✅ | 2026-03-04 | ✅ | 2026-03-04 | user_agreement_acceptances table for legal agreement tracking. RLS: self-select + self-insert. Applied to all 3 envs. |
 | 20260307_069_update_stale_help_articles.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | Updated 6 stale knowledge_articles: payment methods, fees, tips, minimum order, FM/FT plan pricing. Data only. Applied to all 3 envs. |
-| 20260303_067_batch_listing_availability.sql | ✅ | 2026-03-03 | ✅ | 2026-03-03 | Batch listing availability function. Calls get_available_pickup_dates() via LEFT JOIN LATERAL. Replaces inconsistent JS availability. Applied to all 3 envs. |
-| 20260303_066_schedule_conflict_trigger.sql | ✅ | 2026-03-03 | ✅ | 2026-03-03 | Schedule conflict prevention trigger on vendor_market_schedules. Blocks single-truck vendors from overlapping schedules at different markets. Applied to all 3 envs. |
+| 20260303_067_batch_listing_availability.sql | ✅ | 2026-03-03 | ✅ | 2026-03-03 | Batch listing availability function. Calls get_available_pickup_dates() via LEFT JOIN LATERAL. Applied to all 3 envs (Prod applied 2026-03-07 — was missing). |
+| 20260303_066_schedule_conflict_trigger.sql | ✅ | 2026-03-03 | ✅ | 2026-03-03 | Schedule conflict prevention trigger on vendor_market_schedules. Applied to all 3 envs (Prod applied 2026-03-07 — was missing). |
 | 20260303_065_add_notification_vertical_id.sql | ✅ | 2026-03-03 | ✅ | 2026-03-03 | Add vertical_id to notifications table. FK to verticals, index on (user_id, vertical_id). Applied to all 3 envs. |
 | 20260228_061_fm_free_tier.sql | ✅ | 2026-02-28 | ✅ | 2026-02-28 | FM free tier + updated listing limits. Renamed set_ft_default_tier → set_default_vendor_tier (both verticals get 'free'). Applied to all 3 envs. |
 | 20260228_060_vendor_trial_system.sql | ✅ | 2026-02-28 | ✅ | 2026-02-28 | Add trial_started_at, trial_ends_at, trial_grace_ends_at to vendor_profiles. 90-day Basic trial for FT vendors. Applied to all 3 envs (Dev, Staging, Prod). |
