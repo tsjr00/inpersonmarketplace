@@ -79,6 +79,18 @@ export default function Footer() {
                   Help &amp; FAQ
                 </Link>
               </li>
+              <li style={{ marginBottom: spacing.xs }}>
+                <Link
+                  href="/food_trucks/catering"
+                  style={{
+                    color: colors.textSecondary,
+                    textDecoration: 'none',
+                    fontSize: typography.sizes.sm
+                  }}
+                >
+                  Corporate Catering
+                </Link>
+              </li>
             </ul>
           </div>
 

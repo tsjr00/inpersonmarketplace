@@ -386,6 +386,23 @@ export function Header({
                       </Link>
                     )}
 
+                    {/* Catering */}
+                    <Link
+                      href={`/${vertical}/catering`}
+                      onClick={() => setDropdownOpen(false)}
+                      style={{
+                        display: 'block',
+                        padding: `${spacing.xs} ${spacing.sm}`,
+                        textDecoration: 'none',
+                        color: colors.textPrimary,
+                        fontSize: typography.sizes.sm,
+                        minHeight: 44,
+                        lineHeight: '20px'
+                      }}
+                    >
+                      Corporate Catering
+                    </Link>
+
                     <div style={{ borderTop: `1px solid ${colors.border}` }} />
 
                     {/* Settings */}
@@ -633,6 +650,20 @@ export function Header({
                     Admin Dashboard
                   </Link>
                 )}
+
+                <Link
+                  href={`/${vertical}/catering`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: `${spacing.xs} 0`,
+                    textDecoration: 'none',
+                    color: colors.textPrimary,
+                    fontSize: typography.sizes.base
+                  }}
+                >
+                  Corporate Catering
+                </Link>
 
                 <div style={{ borderTop: `1px solid ${colors.border}`, margin: `${spacing.xs} 0` }} />
 
