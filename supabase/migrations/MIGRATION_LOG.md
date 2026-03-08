@@ -82,6 +82,8 @@
 | 20260221_046_supabase_linter_fixes.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Merged 9 overlapping permissive policies, dropped 4 duplicate indexes, added 18 FK indexes, dropped 4 legacy indexes. Applied to all 3 envs. |
 | 20260222_047_vendor_quality_checks.sql | ✅ | 2026-02-22 | ✅ | 2026-02-22 | Vendor quality checks tables + cron. Applied to all 3 envs (Prod applied 2026-03-07 — was missing). |
 | 20260304_068_user_agreement_acceptances.sql | ✅ | 2026-03-04 | ✅ | 2026-03-04 | user_agreement_acceptances table for legal agreement tracking. RLS: self-select + self-insert. Applied to all 3 envs. |
+| 20260307_071_catering_help_articles.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | 6 vendor catering help articles under "For Food Truck Operators". Data only. Applied to all 3 envs. |
+| 20260307_070_corporate_catering.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | New `catering_requests` table + columns on `markets` (catering_request_id, headcount) and `market_vendors` (response_status, response_notes, invited_at). RLS, indexes, trigger. Applied to all 3 envs. |
 | 20260307_069_update_stale_help_articles.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | Updated 6 stale knowledge_articles: payment methods, fees, tips, minimum order, FM/FT plan pricing. Data only. Applied to all 3 envs. |
 | 20260303_067_batch_listing_availability.sql | ✅ | 2026-03-03 | ✅ | 2026-03-03 | Batch listing availability function. Calls get_available_pickup_dates() via LEFT JOIN LATERAL. Applied to all 3 envs (Prod applied 2026-03-07 — was missing). |
 | 20260303_066_schedule_conflict_trigger.sql | ✅ | 2026-03-03 | ✅ | 2026-03-03 | Schedule conflict prevention trigger on vendor_market_schedules. Applied to all 3 envs (Prod applied 2026-03-07 — was missing). |

@@ -10,69 +10,79 @@ Started: 2026-03-07
 - [x] Schedule bug RESOLVED: migrations 039/040/047/066/067 applied to prod manually
 - [x] Documentation commit (`327deae`) — pushed to staging
 - [x] Corporate catering plan approved — persistent guide at `apps/web/.claude/corporate_catering_plan.md`
+- [x] Corporate catering Phase 1 code COMPLETE — 8 commits (`74cdcd8` through `14fb5e0`)
+- [x] All catering commits pushed to staging (`14fb5e0`)
+- [x] Migrations 070 + 071 applied to ALL 3 environments (Dev, Staging, Prod)
 
-## Git State
-- Branch: main, 5 commits ahead of origin/main
-- Staging synced with main
+## Git State — IN PROGRESS (UNCOMMITTED CHANGES)
+- Branch: main, 12 commits ahead of origin/main
+- Staging synced through `14fb5e0`
+- Latest commit: `14fb5e0` — migration 071 catering help articles
+- **UNCOMMITTED WORK that needs to be committed:**
+  - `supabase/SCHEMA_SNAPSHOT.md` — changelog entries added for 070 + 071
+  - `supabase/migrations/MIGRATION_LOG.md` — entries added for 070 + 071
+  - `supabase/migrations/20260307_070_corporate_catering.sql` — MOVED to `applied/`
+  - `supabase/migrations/20260307_071_catering_help_articles.sql` — MOVED to `applied/`
+  - `apps/web/.claude/current_task.md` — this file
 
-## Corporate Catering Phase 1 — Implementation Tracker
+## IMPORTANT: Schema Snapshot Structured Tables Are STALE
+- Migration 070 added a NEW TABLE (`catering_requests`) and NEW COLUMNS on `markets` and `market_vendors`
+- Changelog entries were added but structured column/FK/index tables have NOT been regenerated
+- User needs to run `supabase/REFRESH_SCHEMA.sql` in SQL Editor and paste results so structured tables can be rebuilt
+- Note this staleness until refresh happens
+
+## Corporate Catering Phase 1 — COMPLETE
 
 **Full plan:** `apps/web/.claude/corporate_catering_plan.md`
 
-### Build Order (smallest first to avoid mid-task cutoff)
+### All 10 Build Items Done
 
-- [ ] **1. Migration file** — `catering_requests` table + new columns on `markets` and `market_vendors`
-- [ ] **2. Notification types** — Add 3 types to `src/lib/notifications/types.ts`
-- [ ] **3. Public catering request API** — `src/app/api/catering-requests/route.ts` (follows vendor-leads pattern)
-- [ ] **4. Public catering page** — `src/app/[vertical]/catering/page.tsx` (form + marketing)
-- [ ] **5. Admin catering API routes** — GET list + PATCH update/approve + POST invite
-- [ ] **6. Admin catering page** — `src/app/[vertical]/admin/catering/page.tsx` (biggest piece)
-- [ ] **7. Vendor respond API** — `src/app/api/vendor/catering/[marketId]/respond/route.ts`
-- [ ] **8. Vendor catering detail page** — `src/app/[vertical]/vendor/catering/[marketId]/page.tsx`
-- [ ] **9. Modified files** — Dashboard card, AdminNav, market badges, header nav
-- [ ] **10. Type check + commit**
+- [x] **1. Migration file** — `74cdcd8` — `catering_requests` table + new columns on `markets` and `market_vendors`
+- [x] **2. Notification types** — `74cdcd8` — 3 types added to `src/lib/notifications/types.ts`
+- [x] **3. Public catering request API** — `f158a64` — `src/app/api/catering-requests/route.ts`
+- [x] **4. Public catering page** — `5e0e0b8` — `src/app/[vertical]/catering/page.tsx` + `CateringRequestForm.tsx`
+- [x] **5. Admin catering API routes** — `69a8d73` — GET list + PATCH update/approve + POST invite
+- [x] **6. Admin catering page** — `8f76631` — `src/app/[vertical]/admin/catering/page.tsx`
+- [x] **7. Vendor respond API** — `69a8d73` — `src/app/api/vendor/catering/[marketId]/respond/route.ts`
+- [x] **8. Vendor catering detail page** — `8f76631` — + GET route at `src/app/api/vendor/catering/[marketId]/route.ts`
+- [x] **9. Modified files** — `8f76631` AdminNav + `20a4aa9` Header dropdown/mobile menu + Footer
+- [x] **10. Help articles** — `14fb5e0` — Migration 071: 6 vendor catering articles
 
-### Key Patterns to Follow
-- **Public form API:** `src/app/api/vendor-leads/route.ts` — service client, rate-limited, no auth
-- **Admin API:** `src/app/api/admin/markets/route.ts` — admin role check, service client
-- **Support page form:** `src/app/[vertical]/support/page.tsx` — public form with categories
-- **Notification types:** `src/lib/notifications/types.ts` — union type + NOTIFICATION_REGISTRY
-- **Admin nav:** `src/components/admin/AdminNav.tsx` — nav items array
+### Files Created (12 new files)
+1. `supabase/migrations/applied/20260307_070_corporate_catering.sql`
+2. `supabase/migrations/applied/20260307_071_catering_help_articles.sql`
+3. `src/app/api/catering-requests/route.ts`
+4. `src/app/[vertical]/catering/page.tsx`
+5. `src/components/catering/CateringRequestForm.tsx`
+6. `src/app/api/admin/catering/route.ts`
+7. `src/app/api/admin/catering/[id]/route.ts`
+8. `src/app/api/admin/catering/[id]/invite/route.ts`
+9. `src/app/[vertical]/admin/catering/page.tsx`
+10. `src/app/api/vendor/catering/[marketId]/route.ts`
+11. `src/app/api/vendor/catering/[marketId]/respond/route.ts`
+12. `src/app/[vertical]/vendor/catering/[marketId]/page.tsx`
 
-### Database Schema (Migration)
-```sql
--- New table
-catering_requests (id, vertical_id, status, company_name, contact_name, contact_email,
-  contact_phone, event_date, event_end_date, event_start_time, event_end_time,
-  headcount, address, city, state, zip, cuisine_preferences, dietary_notes,
-  budget_notes, vendor_count, setup_instructions, additional_notes,
-  market_id FK→markets, admin_notes, created_at, updated_at)
+### Files Modified (4)
+1. `src/lib/notifications/types.ts` — 3 new catering notification types + template data
+2. `src/components/admin/AdminNav.tsx` — "Catering" nav item added
+3. `src/components/layout/Header.tsx` — "Corporate Catering" in dropdown menu + mobile hamburger menu
+4. `src/components/shared/Footer.tsx` — "Corporate Catering" link in Company section
 
--- New columns
-markets: + catering_request_id UUID FK→catering_requests, + headcount INTEGER
-market_vendors: + response_status TEXT, + response_notes TEXT, + invited_at TIMESTAMPTZ
-```
+### User Decision: Nav Placement
+- User explicitly said: "do not add catering as a top level nav component. it can be a footer menu link and it can be an option under the drop down nav, but not on top."
+- Implemented as: dropdown menu item + mobile menu item + footer link (NOT top-level nav bar)
 
-### Notification Types to Add
-- `catering_request_received` (admin, standard urgency)
-- `catering_vendor_invited` (vendor, standard urgency)
-- `catering_vendor_responded` (admin, standard urgency)
-- Template data: companyName, headcount, eventDate, address (add to NotificationTemplateData)
+### Remaining / Optional (not yet requested)
+- Dashboard catering invitation card for vendors (query market_vendors for invited status)
+- Market detail page headcount badge for catering events
+- Schema snapshot structured tables need regeneration (REFRESH_SCHEMA.sql)
+- Main still 12 commits ahead of origin/main (not pushed to prod yet)
 
-### Files to Create
-1. `supabase/migrations/20260307_070_corporate_catering.sql`
-2. `src/app/api/catering-requests/route.ts`
-3. `src/app/[vertical]/catering/page.tsx`
-4. `src/app/api/admin/catering/route.ts`
-5. `src/app/api/admin/catering/[id]/route.ts`
-6. `src/app/api/admin/catering/[id]/invite/route.ts`
-7. `src/app/[vertical]/admin/catering/page.tsx`
-8. `src/app/api/vendor/catering/[marketId]/respond/route.ts`
-9. `src/app/[vertical]/vendor/catering/[marketId]/page.tsx`
-
-### Files to Modify
-1. `src/lib/notifications/types.ts` — 3 new types
-2. `src/app/[vertical]/dashboard/page.tsx` — catering invitation card
-3. `src/components/admin/AdminNav.tsx` — "Catering" nav item
-4. `src/app/[vertical]/markets/[id]/page.tsx` — headcount badge
-5. Header/layout nav — "Catering" public link
+### Catering Commits (chronological)
+1. `74cdcd8` — Migration 070 + notification types
+2. `f158a64` — Public catering request API route
+3. `5e0e0b8` — Public catering page + form component
+4. `69a8d73` — Admin + vendor API routes (4 routes)
+5. `8f76631` — Admin page + vendor detail page + vendor GET route + AdminNav
+6. `20a4aa9` — Header dropdown/mobile + footer nav links
+7. `14fb5e0` — Migration 071: 6 vendor catering help articles
