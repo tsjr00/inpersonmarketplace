@@ -9,6 +9,7 @@ import MarketVendorsList from './MarketVendorsList'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
+import ShareButton from '@/components/marketing/ShareButton'
 
 interface MarketDetailPageProps {
   params: Promise<{ vertical: string; id: string }>
@@ -259,6 +260,18 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             }}>
               {market.description}
             </p>
+          )}
+
+          {/* Share button for events */}
+          {isEvent && (
+            <div style={{ marginBottom: spacing.xs }}>
+              <ShareButton
+                url={`${baseUrl}/${vertical}/markets/${id}`}
+                title={market.name}
+                text={`Check out ${market.name}${eventStartDate ? ` on ${new Date(eventStartDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}` : ''}`}
+                variant="compact"
+              />
+            </div>
           )}
 
           {/* Event dates */}

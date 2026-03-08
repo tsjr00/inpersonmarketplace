@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { CateringRequestForm } from '@/components/catering/CateringRequestForm'
 import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 interface CateringPageProps {
   params: Promise<{ vertical: string }>
@@ -40,7 +41,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
             fontSize: typography.sizes['2xl'],
           }}
         >
-          Corporate Catering
+          {term(vertical, 'event_feature_name')}
         </h1>
         <p
           style={{
@@ -53,9 +54,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
             marginRight: 'auto',
           }}
         >
-          Bring food trucks to your office, event, or company gathering.
-          Your employees order and pick up their meals — no catering trays,
-          no leftovers, just great food.
+          {term(vertical, 'event_hero_subtitle')}
         </p>
       </div>
 
@@ -88,13 +87,19 @@ export default async function CateringPage({ params }: CateringPageProps) {
             gap: spacing['2xs'],
           }}
         >
-          {[
+          {(vertical === 'food_trucks' ? [
             'Submit your event details below',
             'We match you with food trucks that fit your needs',
             'Share the event link with your team',
             'Employees pre-order and choose a pickup time',
             'Trucks arrive with meals ready — no long lines',
-          ].map((step, i) => (
+          ] : [
+            'Submit your event details below',
+            'We connect you with local vendors that fit your needs',
+            'Share the event link with your guests',
+            'Guests browse vendor offerings and pre-order their favorites',
+            'Vendors arrive with products ready — a curated market experience',
+          ]).map((step, i) => (
             <li
               key={i}
               style={{
@@ -118,7 +123,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
           marginBottom: spacing.lg,
         }}
       >
-        {[
+        {(vertical === 'food_trucks' ? [
           {
             title: 'No Catering Trays',
             desc: 'Fresh, made-to-order meals your team actually wants.',
@@ -135,7 +140,24 @@ export default async function CateringPage({ params }: CateringPageProps) {
             title: 'Zero Waste',
             desc: 'Every meal is spoken for. No guessing, no leftovers.',
           },
-        ].map((prop, i) => (
+        ] : [
+          {
+            title: 'Fresh & Local',
+            desc: 'Direct from local farms and artisans — the freshest products available.',
+          },
+          {
+            title: 'Browse & Buy',
+            desc: 'Guests explore vendor offerings at their own pace — a true market experience.',
+          },
+          {
+            title: 'Curated Selection',
+            desc: 'Hand-picked vendors matched to your event and audience.',
+          },
+          {
+            title: 'Community Experience',
+            desc: 'More than shopping — it\'s an event your guests will talk about.',
+          },
+        ]).map((prop, i) => (
           <div
             key={i}
             style={{
@@ -186,7 +208,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
             color: statusColors.neutral800,
           }}
         >
-          Request Food Trucks for Your Event
+          {term(vertical, 'event_request_heading')}
         </h2>
         <CateringRequestForm vertical={vertical} />
       </div>

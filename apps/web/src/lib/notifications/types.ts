@@ -72,10 +72,11 @@ export type NotificationType =
   // Admin-facing
   | 'new_vendor_application'
   | 'issue_disputed'
-  // Catering
+  // Catering / Events
   | 'catering_request_received'
   | 'catering_vendor_invited'
   | 'catering_vendor_responded'
+  | 'event_feedback_request'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -108,12 +109,13 @@ export interface NotificationTemplateData {
   trialEndsAt?: string
   unpublishedCount?: number
   deactivatedBoxCount?: number
-  // Catering
+  // Catering / Events
   companyName?: string
   headcount?: number
   eventDate?: string
   eventAddress?: string
   responseAction?: string  // 'accepted' | 'declined'
+  vertical?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
@@ -478,14 +480,17 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     actionUrl: () => `/admin/feedback`,
   },
 
-  // ── Catering ──────────────────────────────────────────────────────
+  // ── Catering / Events ─────────────────────────────────────────────
 
   catering_request_received: {
     urgency: 'standard',
     severity: 'info',
     audience: 'admin',
-    title: () => `New Catering Request`,
-    message: (d) => `${d.companyName} submitted a catering request for ${d.headcount} people on ${d.eventDate}.`,
+    title: (d) => d.vertical === 'farmers_market' ? 'New Pop-Up Market Request' : 'New Event Request',
+    message: (d) => {
+      const requestType = d.vertical === 'farmers_market' ? 'pop-up market request' : 'event request'
+      return `${d.companyName} submitted a ${requestType} for ${d.headcount} people on ${d.eventDate}.`
+    },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/catering`,
   },
 
@@ -493,8 +498,11 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'vendor',
-    title: () => `New Catering Opportunity`,
-    message: (d) => `${d.companyName} is looking for food trucks for ${d.headcount} people on ${d.eventDate} at ${d.eventAddress}. Tap to view details and respond.`,
+    title: (d) => d.vertical === 'farmers_market' ? 'New Pop-Up Market Opportunity' : 'New Event Opportunity',
+    message: (d) => {
+      const vendorWord = d.vertical === 'farmers_market' ? 'vendors' : 'food trucks'
+      return `${d.companyName} is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate} at ${d.eventAddress}. Tap to view details and respond.`
+    },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/catering/${d.marketName}`,
   },
 
@@ -502,9 +510,18 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'admin',
-    title: () => `Vendor Responded to Catering Invite`,
-    message: (d) => `${d.vendorName} ${d.responseAction || 'responded to'} the catering invitation for ${d.marketName}.`,
+    title: () => `Vendor Responded to Event Invite`,
+    message: (d) => `${d.vendorName} ${d.responseAction || 'responded to'} the event invitation for ${d.marketName}.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/catering`,
+  },
+
+  event_feedback_request: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'buyer',
+    title: () => 'How Was the Event?',
+    message: (d) => `The "${d.marketName}" event has ended. If you ordered, we'd love to hear about your experience! Leave a review for the vendors you bought from.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/buyer/orders`,
   },
 }
 

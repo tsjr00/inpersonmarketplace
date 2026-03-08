@@ -35,6 +35,16 @@ export const foodTrucksConfig: VerticalTerminologyConfig = {
     event: 'Event',
     events: 'Events',
     event_icon_emoji: '🎪',
+    // Event system (private events / catering)
+    event_feature_name: 'Private Events',
+    event_request_heading: 'Book Food Trucks for Your Event',
+    event_vendor_count_label: 'Number of Food Trucks',
+    event_vendor_unit: 'truck',
+    event_preference_label: 'Cuisine Preferences',
+    event_preference_placeholder: 'BBQ, Mexican, Asian fusion, etc.',
+    event_hero_subtitle: 'Bring food trucks to your office, event, or company gathering. Your employees order and pick up their meals — no catering trays, no leftovers, just great food.',
+    event_submit_button: 'Submit Event Request',
+    event_success_message: 'food truck options',
 
     // Descriptive phrases
     product_examples: 'tacos, BBQ, pizza, burgers, and street food from cuisines around the world',

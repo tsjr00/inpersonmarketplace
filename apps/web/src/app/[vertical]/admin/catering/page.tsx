@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 interface CateringRequest {
   id: string
@@ -76,6 +77,14 @@ export default function AdminCateringPage() {
   const [selectedVendors, setSelectedVendors] = useState<string[]>([])
   const [inviting, setInviting] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
+
+  // Repeat event state
+  const [showRepeatForm, setShowRepeatForm] = useState(false)
+  const [repeatDate, setRepeatDate] = useState('')
+  const [repeatEndDate, setRepeatEndDate] = useState('')
+  const [repeatStartTime, setRepeatStartTime] = useState('')
+  const [repeatEndTime, setRepeatEndTime] = useState('')
+  const [repeating, setRepeating] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -153,6 +162,41 @@ export default function AdminCateringPage() {
     setInviting(false)
   }
 
+  async function repeatEvent(id: string) {
+    if (!repeatDate || repeating) return
+    setRepeating(true)
+    setActionMessage(null)
+    try {
+      const res = await fetch(`/api/admin/catering/${id}/repeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_date: repeatDate,
+          event_end_date: repeatEndDate || null,
+          event_start_time: repeatStartTime || null,
+          event_end_time: repeatEndTime || null,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setActionMessage('Repeat event created successfully')
+        setShowRepeatForm(false)
+        setRepeatDate('')
+        setRepeatEndDate('')
+        setRepeatStartTime('')
+        setRepeatEndTime('')
+        await fetchData()
+        setSelectedId(data.request?.id || null)
+      } else {
+        const err = await res.json()
+        setActionMessage(`Error: ${err.error}`)
+      }
+    } catch {
+      setActionMessage('Network error')
+    }
+    setRepeating(false)
+  }
+
   const selected = requests.find((r) => r.id === selectedId)
   const filtered =
     statusFilter === 'all'
@@ -173,7 +217,7 @@ export default function AdminCateringPage() {
           marginBottom: spacing.sm,
         }}
       >
-        Corporate Catering
+        {term(vertical, 'event_feature_name')}
       </h1>
 
       {/* Status filter */}
@@ -222,10 +266,10 @@ export default function AdminCateringPage() {
             color: statusColors.neutral500,
           }}
         >
-          <p style={{ fontSize: typography.sizes.lg }}>No catering requests yet</p>
+          <p style={{ fontSize: typography.sizes.lg }}>No requests yet</p>
           <p style={{ fontSize: typography.sizes.sm }}>
-            When companies submit requests via the catering page, they will
-            appear here.
+            When organizations submit requests via the {term(vertical, 'event_feature_name').toLowerCase()} page,
+            they will appear here.
           </p>
         </div>
       ) : (
@@ -422,7 +466,7 @@ export default function AdminCateringPage() {
                   />
                 )}
                 <DetailRow label="Headcount" value={`${selected.headcount} people`} />
-                <DetailRow label="Trucks Requested" value={`${selected.vendor_count}`} />
+                <DetailRow label={`${term(vertical, 'event_vendor_unit')}s Requested`} value={`${selected.vendor_count}`} />
                 <DetailRow
                   label="Location"
                   value={`${selected.address}, ${selected.city}, ${selected.state} ${selected.zip}`}
@@ -489,7 +533,99 @@ export default function AdminCateringPage() {
                     >
                       Settlement Report
                     </a>
+                    <button
+                      onClick={() => setShowRepeatForm(!showRepeatForm)}
+                      style={{
+                        ...sizing.control,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: spacing['3xs'],
+                        backgroundColor: statusColors.infoLight,
+                        color: statusColors.infoDark,
+                        border: `1px solid ${statusColors.infoBorder}`,
+                        fontWeight: typography.weights.semibold,
+                        fontSize: typography.sizes.xs,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {showRepeatForm ? 'Cancel' : 'Repeat Event'}
+                    </button>
                   </div>
+                  {showRepeatForm && (
+                    <div style={{
+                      marginTop: spacing.sm,
+                      padding: spacing.sm,
+                      backgroundColor: statusColors.neutral50,
+                      border: `1px solid ${statusColors.neutral200}`,
+                      borderRadius: radius.md,
+                    }}>
+                      <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: statusColors.neutral600 }}>
+                        Create a new request with same company & location, new dates:
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.xs, marginBottom: spacing.xs }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral600, marginBottom: spacing['3xs'] }}>
+                            Event Date *
+                          </label>
+                          <input
+                            type="date"
+                            value={repeatDate}
+                            onChange={(e) => setRepeatDate(e.target.value)}
+                            style={{ ...sizing.control, width: '100%', border: `1px solid ${statusColors.neutral300}`, borderRadius: radius.md, fontSize: typography.sizes.sm }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral600, marginBottom: spacing['3xs'] }}>
+                            End Date
+                          </label>
+                          <input
+                            type="date"
+                            value={repeatEndDate}
+                            onChange={(e) => setRepeatEndDate(e.target.value)}
+                            style={{ ...sizing.control, width: '100%', border: `1px solid ${statusColors.neutral300}`, borderRadius: radius.md, fontSize: typography.sizes.sm }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral600, marginBottom: spacing['3xs'] }}>
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            value={repeatStartTime}
+                            onChange={(e) => setRepeatStartTime(e.target.value)}
+                            style={{ ...sizing.control, width: '100%', border: `1px solid ${statusColors.neutral300}`, borderRadius: radius.md, fontSize: typography.sizes.sm }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral600, marginBottom: spacing['3xs'] }}>
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            value={repeatEndTime}
+                            onChange={(e) => setRepeatEndTime(e.target.value)}
+                            style={{ ...sizing.control, width: '100%', border: `1px solid ${statusColors.neutral300}`, borderRadius: radius.md, fontSize: typography.sizes.sm }}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => repeatEvent(selected.id)}
+                        disabled={!repeatDate || repeating}
+                        style={{
+                          ...sizing.control,
+                          backgroundColor: !repeatDate || repeating ? '#ccc' : statusColors.infoDark,
+                          color: 'white',
+                          border: 'none',
+                          fontWeight: typography.weights.semibold,
+                          fontSize: typography.sizes.xs,
+                          cursor: !repeatDate || repeating ? 'not-allowed' : 'pointer',
+                          width: '100%',
+                        }}
+                      >
+                        {repeating ? 'Creating...' : 'Create Repeat Event'}
+                      </button>
+                    </div>
+                  )}
                 </Section>
               )}
 

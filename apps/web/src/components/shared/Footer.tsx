@@ -1,7 +1,12 @@
 import Link from 'next/link'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
-export default function Footer() {
+interface FooterProps {
+  vertical?: string
+}
+
+export default function Footer({ vertical }: FooterProps) {
   const currentYear = new Date().getFullYear()
 
   return (
@@ -81,14 +86,14 @@ export default function Footer() {
               </li>
               <li style={{ marginBottom: spacing.xs }}>
                 <Link
-                  href="/food_trucks/catering"
+                  href={`/${vertical || 'food_trucks'}/catering`}
                   style={{
                     color: colors.textSecondary,
                     textDecoration: 'none',
                     fontSize: typography.sizes.sm
                   }}
                 >
-                  Corporate Catering
+                  {vertical ? term(vertical, 'event_feature_name') : 'Private Events'}
                 </Link>
               </li>
             </ul>

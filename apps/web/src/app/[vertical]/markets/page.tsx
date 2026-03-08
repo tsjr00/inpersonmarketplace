@@ -76,6 +76,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
     .eq('status', 'active')
     .eq('market_type', 'event')
     .eq('approval_status', 'approved')
+    .or('is_private.eq.false,is_private.is.null')
     .gte('event_end_date', todayStr)
     .order('event_start_date', { ascending: true })
 

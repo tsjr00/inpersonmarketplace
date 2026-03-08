@@ -41,7 +41,12 @@ export async function POST(request: NextRequest) {
       vendor_count,
       setup_instructions,
       additional_notes,
+      vertical,
     } = body
+
+    // Validate vertical
+    const allowedVerticals = ['food_trucks', 'farmers_market']
+    const verticalId = allowedVerticals.includes(vertical) ? vertical : 'food_trucks'
 
     // Validate required fields
     if (
@@ -84,7 +89,7 @@ export async function POST(request: NextRequest) {
     const { error: insertError } = await supabase
       .from('catering_requests')
       .insert({
-        vertical_id: 'food_trucks',
+        vertical_id: verticalId,
         company_name: String(company_name).slice(0, 200),
         contact_name: String(contact_name).slice(0, 200),
         contact_email: String(contact_email).toLowerCase().slice(0, 320),
@@ -136,7 +141,8 @@ export async function POST(request: NextRequest) {
       hc,
       String(address),
       String(city),
-      String(state)
+      String(state),
+      verticalId
     )
 
     return NextResponse.json({
@@ -156,23 +162,30 @@ async function sendAdminEmail(
   headcount: number,
   address: string,
   city: string,
-  state: string
+  state: string,
+  verticalId: string
 ) {
   const adminEmail = process.env.ADMIN_ALERT_EMAIL
   const apiKey = process.env.RESEND_API_KEY
   if (!adminEmail || !apiKey) return
+
+  const isFM = verticalId === 'farmers_market'
+  const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+  const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+  const accentColor = isFM ? '#2d5016' : '#ff5757'
+  const requestType = isFM ? 'Pop-Up Market Request' : 'Event Request'
 
   try {
     const { Resend } = await import('resend')
     const resend = new Resend(apiKey)
 
     await resend.emails.send({
-      from: "Food Truck'n <updates@mail.foodtruckn.app>",
+      from: `${senderName} <updates@${senderDomain}>`,
       to: adminEmail,
-      subject: `New Catering Request: ${companyName} (${headcount} people)`,
+      subject: `New ${requestType}: ${companyName} (${headcount} people)`,
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
-          <h2 style="color:#ff5757;margin:0 0 16px">New Catering Request</h2>
+          <h2 style="color:${accentColor};margin:0 0 16px">New ${requestType}</h2>
           <table style="border-collapse:collapse;width:100%">
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee;width:140px">Company</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(companyName)}</td></tr>
             <tr><td style="padding:8px 12px;font-weight:bold;border-bottom:1px solid #eee">Contact</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${escapeHtml(contactName)}</td></tr>

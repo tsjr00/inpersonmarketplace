@@ -8,6 +8,7 @@ import {
   rateLimits,
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
+import { sendNotification } from '@/lib/notifications/service'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -92,7 +93,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // On APPROVE: auto-create an event market from the request data
     if (status === 'approved' && cateringReq.status !== 'approved') {
       // Create event market
-      const eventName = `${cateringReq.company_name} Catering Event`
+      const eventSuffix = cateringReq.vertical_id === 'farmers_market' ? 'Pop-Up Market' : 'Private Event'
+      const eventName = `${cateringReq.company_name} ${eventSuffix}`
       const { data: market, error: marketError } = await serviceClient
         .from('markets')
         .insert({
@@ -113,6 +115,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           approval_status: 'approved',
           catering_request_id: cateringReq.id,
           headcount: cateringReq.headcount,
+          is_private: true,
         })
         .select('id')
         .single()
@@ -166,6 +169,57 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // On COMPLETED: send post-event feedback request to buyers who ordered
+    if (status === 'completed' && cateringReq.market_id) {
+      // Fire-and-forget — don't block the response
+      sendEventFeedbackNotifications(serviceClient, cateringReq.market_id, cateringReq.vertical_id).catch(
+        (err) => console.error('[admin/catering] Feedback notification error:', err)
+      )
+    }
+
     return NextResponse.json({ request: updated })
   })
+}
+
+async function sendEventFeedbackNotifications(
+  serviceClient: ReturnType<typeof createServiceClient>,
+  marketId: string,
+  verticalId: string
+) {
+  // Find all unique buyers who ordered from this event market
+  const { data: orderItems } = await serviceClient
+    .from('order_items')
+    .select('orders!inner(buyer_user_id)')
+    .eq('market_id', marketId)
+    .not('status', 'in', '("cancelled")')
+
+  if (!orderItems || orderItems.length === 0) return
+
+  const buyerIds = new Set<string>()
+  for (const item of orderItems) {
+    const order = item.orders as unknown as { buyer_user_id: string }
+    buyerIds.add(order.buyer_user_id)
+  }
+
+  // Get the market name for the notification
+  const { data: market } = await serviceClient
+    .from('markets')
+    .select('name')
+    .eq('id', marketId)
+    .single()
+
+  const marketName = market?.name || 'the event'
+
+  // Send feedback request to each buyer
+  for (const buyerId of buyerIds) {
+    await sendNotification(
+      buyerId,
+      'event_feedback_request',
+      {
+        marketName,
+        vertical: verticalId,
+      },
+      { vertical: verticalId }
+    )
+  }
 }

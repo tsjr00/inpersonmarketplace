@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 interface CateringRequestFormProps {
   vertical: string
@@ -144,6 +145,7 @@ export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          vertical,
           company_name: form.company_name.trim(),
           contact_name: form.contact_name.trim(),
           contact_email: form.contact_email.trim().toLowerCase(),
@@ -209,9 +211,9 @@ export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
             margin: 0,
           }}
         >
-          Thank you for your catering request. We&apos;ll review your event
-          details and reach out within 24 hours to discuss food truck options
-          and next steps.
+          Thank you for your request. We&apos;ll review your event
+          details and reach out within 24 hours to discuss {term(vertical, 'event_success_message')}
+          {' '}and next steps.
         </p>
       </div>
     )
@@ -340,7 +342,7 @@ export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
               </p>
             </div>
             <div>
-              <label style={labelStyle}>Number of Food Trucks</label>
+              <label style={labelStyle}>{term(vertical, 'event_vendor_count_label')}</label>
               <select
                 value={form.vendor_count}
                 onChange={(e) => updateField('vendor_count', e.target.value)}
@@ -348,7 +350,7 @@ export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20].map((n) => (
                   <option key={n} value={n}>
-                    {n} truck{n > 1 ? 's' : ''}
+                    {n} {term(vertical, 'event_vendor_unit')}{n > 1 ? 's' : ''}
                   </option>
                 ))}
               </select>
@@ -417,10 +419,10 @@ export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
         <h3 style={sectionTitleStyle}>Preferences (Optional)</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           <div>
-            <label style={labelStyle}>Cuisine Preferences</label>
+            <label style={labelStyle}>{term(vertical, 'event_preference_label')}</label>
             <input
               type="text"
-              placeholder="BBQ, Mexican, Asian fusion, etc."
+              placeholder={term(vertical, 'event_preference_placeholder')}
               value={form.cuisine_preferences}
               onChange={(e) => updateField('cuisine_preferences', e.target.value)}
               style={inputStyle}
@@ -456,7 +458,7 @@ export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
           <div>
             <label style={labelStyle}>Setup Instructions</label>
             <textarea
-              placeholder="Where should trucks park? Is there power available? Any access restrictions?"
+              placeholder={vertical === 'food_trucks' ? 'Where should trucks park? Is there power available? Any access restrictions?' : 'Where should vendors set up? Is there power/water available? Tables provided? Any access restrictions?'}
               value={form.setup_instructions}
               onChange={(e) => updateField('setup_instructions', e.target.value)}
               style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
@@ -503,7 +505,7 @@ export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
           cursor: submitting ? 'not-allowed' : 'pointer',
         }}
       >
-        {submitting ? 'Submitting...' : 'Submit Catering Request'}
+        {submitting ? 'Submitting...' : term(vertical, 'event_submit_button')}
       </button>
 
       <p

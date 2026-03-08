@@ -10,6 +10,11 @@ export type TerminologyKey =
   | 'market_box' | 'market_boxes'
   | 'market_day' | 'market_hours'
   | 'event' | 'events' | 'event_icon_emoji'
+  // Event system (catering / pop-up markets)
+  | 'event_feature_name' | 'event_request_heading'
+  | 'event_vendor_count_label' | 'event_vendor_unit'
+  | 'event_preference_label' | 'event_preference_placeholder'
+  | 'event_hero_subtitle' | 'event_submit_button' | 'event_success_message'
   // CTAs & nav labels
   | 'browse_products_cta' | 'find_markets_cta' | 'find_vendors_cta'
   | 'vendor_signup_cta' | 'my_listings_nav' | 'create_listing_cta'

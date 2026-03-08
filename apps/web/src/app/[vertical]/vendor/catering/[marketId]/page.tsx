@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
+import { term } from '@/lib/vertical/terminology'
 
 interface EventDetails {
   market_id: string
@@ -143,7 +144,7 @@ export default function VendorCateringDetailPage() {
       <div style={{ marginBottom: spacing.lg }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginBottom: spacing['2xs'] }}>
           <span style={{ ...sizing.badge, backgroundColor: statusColors.infoLight, color: statusColors.infoDark }}>
-            Catering Event
+            {term(vertical, 'event_feature_name')}
           </span>
           {details.response_status && (
             <span
@@ -223,7 +224,7 @@ export default function VendorCateringDetailPage() {
         <InfoCard
           label="Your Est. Headcount"
           value={`~${headcountPerTruck} people`}
-          sub={`${details.headcount} total / ${details.accepted_count || details.vendor_count} trucks`}
+          sub={`${details.headcount} total / ${details.accepted_count || details.vendor_count} ${term(vertical, 'event_vendor_unit')}s`}
         />
         {(details.event_start_time || details.event_end_time) && (
           <InfoCard

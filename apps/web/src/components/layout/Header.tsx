@@ -400,7 +400,7 @@ export function Header({
                         lineHeight: '20px'
                       }}
                     >
-                      Corporate Catering
+                      {term(vertical, 'event_feature_name')}
                     </Link>
 
                     <div style={{ borderTop: `1px solid ${colors.border}` }} />

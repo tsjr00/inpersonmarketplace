@@ -27,7 +27,7 @@ export default function AdminNav({ type, vertical }: AdminNavProps) {
     { label: 'Activity', href: `/${vertical}/admin/vendor-activity`, icon: '🔍' },
     { label: 'Listings', href: `/${vertical}/admin/listings`, icon: '📦' },
     { label: 'Users', href: `/${vertical}/admin/users`, icon: '👥' },
-    { label: 'Catering', href: `/${vertical}/admin/catering`, icon: '🍽️' },
+    { label: term(vertical!, 'event_feature_name'), href: `/${vertical}/admin/catering`, icon: '🍽️' },
     { label: 'Reports', href: `/${vertical}/admin/reports`, icon: '📋' },
     { label: 'Feedback', href: `/${vertical}/admin/feedback`, icon: '💬' },
   ] : []
