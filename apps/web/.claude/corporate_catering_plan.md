@@ -14,8 +14,9 @@ Companies hire food trucks through our app instead of caterers. Each corporate e
 | Model | Who Pays | Complexity | Phase |
 |-------|----------|-----------|-------|
 | **Facilitator** | Employees pay for their own food | Zero checkout changes | Phase 1 |
+| **Company Tab (Tickets)** | Company pays all meals via post-event settlement | Settlement report + manual process only | Phase 1.5 |
 | **Subsidized** | Company pays up to $X, employee pays rest | Split charge logic | Phase 2 |
-| **Full coverage** | Company pays all meals | Stripe Invoice API | Phase 2 |
+| **Full coverage** | Company pays all meals digitally | Stripe Invoice API | Phase 2 |
 
 ## Phase 1: Pre-Launch MVP (~5-7 days)
 
@@ -127,6 +128,108 @@ market_vendors:
 - Vendor bidding (admin hand-picks)
 - Real-time messaging (phone + email is fine)
 - Recurring events (create new event each time)
+
+---
+
+## Phase 1.5: Company-Paid Events via Ticket System
+
+_Bridges Phase 1 (employees pay) → Phase 2 (full digital company payment). Zero checkout changes required._
+
+### The Concept
+
+Instead of building company-paid checkout (Stripe Invoice API, split charges, access codes), use a **physical ticket + external payment** workflow:
+
+1. All catering vendors set their event payment method to **external/cash**
+2. Company distributes physical **meal tickets** to employees before the event
+3. Employees pre-order through the app (selecting external payment), bring their ticket to pickup
+4. Truck collects the ticket and writes the **order number** on the back
+5. After the event, admin generates an **Event Settlement Report** showing all orders
+6. Company writes **one check** to the platform covering: all meals + booking fee
+7. Platform pays out each truck from that check, minus standard platform fees
+8. Tickets serve as physical audit trail matching electronic records
+
+### Why This Works
+
+- **No checkout changes** — external payment mode already exists
+- **No Stripe company accounts** — single check payment
+- **Three-way reconciliation** — platform records + truck tickets + company distribution log
+- **Company gets one bill** — no managing individual reimbursements
+- **Platform still controls the money flow** — collects from company, pays trucks after deducting fees
+- **Trucks still get paid through platform** — maintains the relationship and fee structure
+
+### Event Settlement Report (Tech — Built)
+
+Admin page at `/{vertical}/admin/catering/{id}/settlement` showing:
+
+| Section | Contents |
+|---------|----------|
+| **Event Header** | Company name, event date, location, headcount, participating trucks |
+| **Per-Vendor Breakdown** | Each order: shopper name, email, items, meal price, pickup time, fulfillment status |
+| **Vendor Subtotals** | Orders served, gross revenue, platform fee (6.5% + $0.15/order), net payout |
+| **Grand Total** | Total orders, total revenue, total platform fees, total vendor payouts, booking fee line |
+| **Ticket Reconciliation** | Tickets distributed (headcount) vs orders placed vs orders fulfilled |
+
+Features:
+- **Printable** — print-optimized CSS, clean layout for physical records
+- **CSV Export** — downloadable spreadsheet for accounting
+- **Linked from admin catering page** — "Settlement Report" button on approved/completed requests
+
+### Manual Process Requirements
+
+These are operational steps — no tech needed, just documented procedures:
+
+#### Before the Event
+- [ ] **Event Agreement signed** — company and platform agree on: ticket process, headcount, booking fee, payment terms
+- [ ] **Vendor Agreement** — each participating truck acknowledges: external payment mode, ticket collection process, payout timeline
+- [ ] **Tickets printed** — company prints meal tickets (template provided by platform, or plain numbered tickets)
+- [ ] **Ticket distribution** — company HR distributes tickets to employees (1 ticket per person, or per meal if multi-day)
+- [ ] **Vendors set external payment** — admin confirms all event vendors have external/cash payment enabled for this market
+
+#### During the Event
+- [ ] Employees show ticket at pickup, hand it to the truck
+- [ ] Truck writes the **order number** (from the app) on the back of the ticket
+- [ ] Truck keeps all collected tickets
+- [ ] If employee doesn't have a ticket → they can still order and pay normally via the app (card payment)
+
+#### After the Event
+- [ ] Admin generates **Event Settlement Report**
+- [ ] Admin sends report to company contact with total amount owed (meals + booking fee)
+- [ ] Company sends one payment (check, wire, or manual Stripe invoice) within agreed terms (e.g., Net 15)
+- [ ] Platform receives payment
+- [ ] Platform pays out each truck their net amount (gross - platform fees)
+- [ ] Trucks can reconcile their payout against their collected tickets
+
+#### Edge Cases to Handle Manually
+- **Employee orders without a ticket** — they pay via card in the app. Their order still appears on the settlement report but is marked "paid by employee" and excluded from the company's bill.
+- **Employee has ticket but doesn't order** — no order in the system, ticket unused. Company doesn't get charged for it.
+- **Employee orders but doesn't pick up** — order shows as unfulfilled on report. Company and admin decide whether to charge for it.
+- **Truck loses tickets** — electronic records are the source of truth. Tickets are backup, not primary.
+- **Dollar cap per ticket** — if company wants to limit per-person spend (e.g., $20 max), admin communicates this to employees. App doesn't enforce it in Phase 1.5 — honor system.
+
+### Event Agreement Template (Non-Technical)
+
+_Platform should have a standard agreement covering:_
+
+1. **Event Details** — date, location, headcount, hours, number of trucks
+2. **Booking Fee** — flat fee or percentage, due when (upfront or post-event)
+3. **Meal Payment** — company pays for all employee meals via post-event settlement
+4. **Payment Terms** — Net 15 / Net 30 after receiving settlement report
+5. **Ticket Process** — company responsible for printing and distributing tickets
+6. **Cancellation Policy** — 72h+ notice = full refund of booking fee; <72h = 50%; <24h = no refund
+7. **No-Show Clause** — if a truck no-shows, their portion is refunded to the company
+8. **Platform Fees** — standard platform fees (6.5% + $0.15/order) deducted from vendor payouts, not charged to company
+9. **Liability** — food safety is vendor's responsibility; platform facilitates but doesn't prepare food
+
+### Vendor Event Agreement Addendum
+
+_Each truck accepting a catering invitation agrees to:_
+
+1. Set payment to external/cash for this event market
+2. Collect and retain meal tickets from employees
+3. Write order numbers on ticket backs
+4. Arrive at the specified time with menu items prepared based on pre-orders
+5. Accept payout via platform after company payment is received (estimated timeline)
+6. Understand that payout = gross sales - platform fees (same as regular orders)
 
 ---
 

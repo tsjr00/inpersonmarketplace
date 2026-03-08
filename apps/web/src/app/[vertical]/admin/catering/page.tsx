@@ -455,21 +455,41 @@ export default function AdminCateringPage() {
                 </Section>
               )}
 
-              {/* Event market link */}
+              {/* Event market link + settlement report */}
               {selected.market_id && (
                 <Section title="Event Market">
-                  <a
-                    href={`/${vertical}/markets/${selected.market_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: statusColors.infoDark,
-                      fontSize: typography.sizes.sm,
-                      fontWeight: typography.weights.semibold,
-                    }}
-                  >
-                    View Event Market Page →
-                  </a>
+                  <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <a
+                      href={`/${vertical}/markets/${selected.market_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: statusColors.infoDark,
+                        fontSize: typography.sizes.sm,
+                        fontWeight: typography.weights.semibold,
+                      }}
+                    >
+                      View Event Market Page →
+                    </a>
+                    <a
+                      href={`/${vertical}/admin/catering/${selected.id}/settlement`}
+                      style={{
+                        ...sizing.control,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: spacing['3xs'],
+                        backgroundColor: statusColors.neutral900,
+                        color: 'white',
+                        border: 'none',
+                        textDecoration: 'none',
+                        fontWeight: typography.weights.semibold,
+                        fontSize: typography.sizes.xs,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Settlement Report
+                    </a>
+                  </div>
                 </Section>
               )}
 
