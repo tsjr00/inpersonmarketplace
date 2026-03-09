@@ -7,6 +7,7 @@ import EditProfileForm from './EditProfileForm'
 import ProfileImageUpload from '@/components/vendor/ProfileImageUpload'
 import ProfileEditForm from '@/components/vendor/ProfileEditForm'
 import CertificationsForm, { Certification } from '@/components/vendor/CertificationsForm'
+import EventReadinessForm from './EventReadinessForm'
 import { VendorTierType } from '@/lib/constants'
 
 interface EditProfilePageProps {
@@ -141,6 +142,18 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
           currentCertifications={(vendorProfile.certifications as Certification[]) || []}
         />
       </div>
+
+      {/* Event Readiness Section — FT only */}
+      {vertical === 'food_trucks' && (
+        <div style={{ marginTop: 20 }}>
+          <EventReadinessForm
+            vendorId={vendorProfile.id}
+            vertical={vertical}
+            initialData={((vendorProfile.profile_data as Record<string, unknown>)?.event_readiness as Record<string, unknown>) || null}
+            eventApproved={!!vendorProfile.event_approved}
+          />
+        </div>
+      )}
     </div>
   )
 }
