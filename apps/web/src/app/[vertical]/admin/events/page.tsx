@@ -36,6 +36,7 @@ interface CateringRequest {
 interface VendorOption {
   id: string
   business_name: string
+  event_approved?: boolean
   vertical_id: string
 }
 
@@ -718,6 +719,12 @@ export default function AdminCateringPage() {
                                   (mv) => mv.vendor_profile_id === v.id
                                 )
                             )
+                            .sort((a, b) => {
+                              // Event-approved vendors first, then alphabetical
+                              if (a.event_approved && !b.event_approved) return -1
+                              if (!a.event_approved && b.event_approved) return 1
+                              return a.business_name.localeCompare(b.business_name)
+                            })
                             .map((v) => (
                               <label
                                 key={v.id}
@@ -747,6 +754,19 @@ export default function AdminCateringPage() {
                                   }}
                                 />
                                 {v.business_name}
+                                {v.event_approved && (
+                                  <span style={{
+                                    padding: `1px ${spacing['2xs']}`,
+                                    backgroundColor: '#d1fae5',
+                                    color: '#065f46',
+                                    borderRadius: 8,
+                                    fontSize: typography.sizes.xs,
+                                    fontWeight: typography.weights.semibold,
+                                    marginLeft: spacing['3xs'],
+                                  }}>
+                                    Event ✓
+                                  </span>
+                                )}
                               </label>
                             ))}
                         </div>

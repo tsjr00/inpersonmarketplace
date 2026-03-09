@@ -578,6 +578,20 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 {vendorTier !== 'standard' && (
                   <TierBadge tier={vendorTier} size="lg" />
                 )}
+                {vendor.event_approved && vertical === 'food_trucks' && (
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '4px 10px',
+                    backgroundColor: '#d1fae5',
+                    color: '#065f46',
+                    borderRadius: 16,
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}>
+                    ✓ Event Approved
+                  </span>
+                )}
                 {/* Rating Display - Always show stars */}
                 <div style={{
                   display: 'flex',
@@ -772,6 +786,20 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               </h1>
               {vendorTier !== 'standard' && (
                 <TierBadge tier={vendorTier} size="md" />
+              )}
+              {vendor.event_approved && vertical === 'food_trucks' && (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '3px 8px',
+                  backgroundColor: '#d1fae5',
+                  color: '#065f46',
+                  borderRadius: 12,
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}>
+                  ✓ Event Approved
+                </span>
               )}
             </div>
 

@@ -77,6 +77,7 @@ export type NotificationType =
   | 'catering_vendor_invited'
   | 'catering_vendor_responded'
   | 'event_feedback_request'
+  | 'vendor_event_approved'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -522,6 +523,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => 'How Was the Event?',
     message: (d) => `The "${d.marketName}" event has ended. If you ordered, we'd love to hear about your experience! Leave a review for the vendors you bought from.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/buyer/orders`,
+  },
+
+  vendor_event_approved: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => 'Approved for Private Events!',
+    message: () => `Your food truck has been approved for Private Events! You can now mark menu items as event-ready from your listings page.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/listings`,
   },
 }
 

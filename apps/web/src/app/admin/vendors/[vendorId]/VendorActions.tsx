@@ -11,9 +11,11 @@ interface VendorActionsProps {
   currentStatus: string
   vendorLatitude?: number | null
   vendorLongitude?: number | null
+  eventApproved?: boolean
+  verticalId?: string
 }
 
-export default function VendorActions({ vendorId, currentStatus, vendorLatitude, vendorLongitude }: VendorActionsProps) {
+export default function VendorActions({ vendorId, currentStatus, vendorLatitude, vendorLongitude, eventApproved = false, verticalId }: VendorActionsProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -24,7 +26,44 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
     variant: 'default' | 'danger'; onConfirm: () => void
   }>({ open: false, title: '', message: '', confirmLabel: '', variant: 'default', onConfirm: () => {} })
 
+  const [eventApprovedState, setEventApprovedState] = useState(eventApproved)
+
   const hasValidCoordinates = vendorLatitude != null && vendorLongitude != null
+
+  const toggleEventApproval = (approve: boolean) => {
+    setConfirmDialog({
+      open: true,
+      title: approve ? 'Approve for Events' : 'Revoke Event Approval',
+      message: approve
+        ? 'Approve this vendor for private events? They will be able to mark menu items as event-ready.'
+        : 'Revoke event approval? The vendor will no longer be able to mark items as event-ready.',
+      confirmLabel: approve ? 'Approve' : 'Revoke',
+      variant: approve ? 'default' : 'danger',
+      onConfirm: () => executeEventApproval(approve),
+    })
+  }
+
+  const executeEventApproval = async (approve: boolean) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/vendors/${vendorId}/event-approval`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_approved: approve }),
+      })
+      if (res.ok) {
+        setEventApprovedState(approve)
+        showBanner('success', approve ? 'Vendor approved for events' : 'Event approval revoked')
+        router.refresh()
+      } else {
+        const err = await res.json()
+        showBanner('error', err.error || 'Failed to update event approval')
+      }
+    } catch {
+      showBanner('error', 'Failed to update event approval')
+    }
+    setLoading(false)
+  }
 
   const confirmMessages: Record<string, string> = {
     approved: 'Approve this vendor? Their listings will become visible to buyers.',
@@ -229,6 +268,59 @@ export default function VendorActions({ vendorId, currentStatus, vendorLatitude,
         </button>
       )}
       </div>
+
+      {/* Event Approval — only for approved FT vendors */}
+      {currentStatus === 'approved' && verticalId === 'food_trucks' && (
+        <div style={{ marginTop: 12 }}>
+          {!eventApprovedState ? (
+            <button
+              onClick={() => toggleEventApproval(true)}
+              disabled={loading}
+              style={{
+                padding: '10px 20px',
+                backgroundColor: loading ? '#ccc' : '#059669',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Approve for Events
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{
+                padding: '4px 10px',
+                backgroundColor: '#d1fae5',
+                color: '#065f46',
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 600,
+              }}>
+                ✓ Event Approved
+              </span>
+              <button
+                onClick={() => toggleEventApproval(false)}
+                disabled={loading}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: loading ? '#ccc' : '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Revoke
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <ConfirmDialog
         open={confirmDialog.open}
         title={confirmDialog.title}

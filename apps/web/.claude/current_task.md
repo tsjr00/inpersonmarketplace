@@ -1,160 +1,132 @@
-# Current Task: Session 52 (continued) — Pop-Up Markets + Private Events Extension
+# Current Task: Session 54 — Event Approval Process + Event-Ready Listing Badge
 
-Started: 2026-03-07 | Continued: 2026-03-08
+Started: 2026-03-09
+Status: **IN PROGRESS — ~75% complete**
 
-## Session Goal
-Extend the FT "Corporate Catering" system to support both verticals:
-- **FT**: Rebranded to "Private Events" (from "Corporate Catering")
-- **FM**: "Pop-Up Markets" — same infrastructure, different copy
-- **`is_private`** flag on markets — private events hidden from browse, shared by URL
-- **Share button** on event market pages
-- **Repeat event creation** for both verticals
-- **Post-event feedback** notification to buyers
-
-## Approach: Extend, Not Fork
-Same `catering_requests` table (already has `vertical_id`), same routes, same admin pages. Changes are primarily:
-1. Remove FT-hardcoded strings, use `term()` terminology system
-2. Add `is_private` column to markets
-3. Add share button, repeat event API, feedback notification
+## Goal
+Add event approval workflow for FT vendors: admin toggle, listing checkbox, display badges.
 
 ## Plan File
-Full approved plan at: `C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md`
+`C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md` — full plan with 8 build items.
 
-## Git State — ALL CHANGES UNCOMMITTED
-- Branch: main, 14 commits ahead of origin/main
-- Staging synced through `885eb54` (settlement report commit)
-- Latest commit: `885eb54` — settlement report (pushed to staging)
-- **ALL pop-up/private events work below is UNCOMMITTED**
+## Key Decisions
+- **FT only** — FM pop-up vendor approval is a different pattern (future)
+- **`listing_data` JSONB** for event flag (no new column on listings, matches existing allergen pattern)
+- **Green palette** for all event badges (`#d1fae5` bg, `#065f46` text)
+- **Blue palette** for event checkbox when checked (`#eff6ff` bg, `#3b82f6` border) — differentiates from yellow allergen checkbox
+- **Capability profile data** (truck length, generator, etc.) is deferred — this build is the approval flag + badge foundation
 
-## Build Items — Status
+## Completed Items
 
-### COMPLETED (Items 1-12 of 14)
+### 1. Migration 076 ✅
+**File:** `supabase/migrations/20260309_076_vendor_event_approval.sql`
+- `event_approved BOOLEAN DEFAULT false`
+- `event_approved_at TIMESTAMPTZ`
+- Partial index on `event_approved = true`
+- **NOT YET APPLIED** to any environment — migration file created but user hasn't run it
 
-- [x] **1. Migration 072**: `supabase/migrations/20260308_072_add_markets_is_private.sql`
-  - Adds `is_private BOOLEAN DEFAULT false` to markets
-  - Backfills `is_private = true` for existing catering event markets
-  - Partial index on `is_private WHERE true`
-  - **NOT YET APPLIED** — migration file created, needs to be run in all 3 envs
+### 2. Notification Type ✅
+**File:** `src/lib/notifications/types.ts`
+- Added `vendor_event_approved` to NotificationType union (line ~80)
+- Added template definition at end of NOTIFICATION_TEMPLATES (after `event_feedback_request`)
+- audience: vendor, severity: success, channels: inApp + email + push
+- actionUrl: `/{vertical}/vendor/listings`
 
-- [x] **2. Terminology keys**: 9 new keys added to `TerminologyKey` type + both vertical configs
-  - Files: `src/lib/vertical/types.ts`, `configs/food-trucks.ts`, `configs/farmers-market.ts`
-  - Keys: `event_feature_name`, `event_request_heading`, `event_vendor_count_label`, `event_vendor_unit`, `event_preference_label`, `event_preference_placeholder`, `event_hero_subtitle`, `event_submit_button`, `event_success_message`
+### 3. Admin Event-Approval API ✅
+**New file:** `src/app/api/admin/vendors/[id]/event-approval/route.ts`
+- PATCH endpoint
+- Admin auth via `hasAdminRole()`, rate limiting via `rateLimits.admin`
+- Validates: vendor exists, `status === 'approved'`, `vertical_id === 'food_trucks'`
+- Updates `event_approved` + `event_approved_at`
+- Sends `vendor_event_approved` notification on approve
+- Uses `createServiceClient()` for update
 
-- [x] **3. API fix**: `src/app/api/catering-requests/route.ts`
-  - Accepts `vertical` from request body, validates against allowlist
-  - Replaced hardcoded `vertical_id: 'food_trucks'` with `verticalId`
-  - Admin email now vertical-aware (sender name, domain, accent color, request type label)
+### 4. Admin Vendor Detail UI ✅
+**Modified:** `src/app/admin/vendors/[vendorId]/VendorActions.tsx`
+- Added props: `eventApproved: boolean`, `verticalId: string`
+- Added `eventApprovedState` local state + `toggleEventApproval()` + `executeEventApproval()` handlers
+- UI: "Approve for Events" green button (when not approved) OR "✓ Event Approved" badge + "Revoke" orange button (when approved)
+- Only visible when `currentStatus === 'approved'` AND `verticalId === 'food_trucks'`
+- Uses existing ConfirmDialog for confirmation
 
-- [x] **4. Form fix**: `src/components/catering/CateringRequestForm.tsx`
-  - Sends `vertical` in POST body
-  - Uses `term()` for: vendor count label, vendor unit, preference label, preference placeholder, submit button, success message
-  - Setup instructions placeholder vertical-aware
+**Modified:** `src/app/admin/vendors/[vendorId]/page.tsx`
+- Passes `eventApproved={!!vendor.event_approved}` and `verticalId={verticalId}` to VendorActions
+- Shows green "✓ EVENT APPROVED" badge next to status badge in header
 
-- [x] **5. Public page copy**: `src/app/[vertical]/catering/page.tsx`
-  - Hero title: `term(vertical, 'event_feature_name')`
-  - Hero subtitle: `term(vertical, 'event_hero_subtitle')`
-  - Request heading: `term(vertical, 'event_request_heading')`
-  - How It Works steps: FT keeps pre-order/pickup language, FM uses browse-and-buy language
-  - Value props: FT keeps catering props, FM gets Fresh & Local / Browse & Buy / Curated / Community
+### 5. Listing Edit Form Checkbox ✅
+**Modified:** `src/app/[vertical]/vendor/listings/ListingForm.tsx`
+- Added prop: `eventApproved?: boolean` (default false)
+- Added state: `eventMenuItem` initialized from `listing?.listing_data?.event_menu_item`
+- Added "Available for Events" checkbox below allergen section (blue highlight when checked)
+- Only rendered when `vertical === 'food_trucks' && eventApproved`
+- Updated `listing_data` save payload to include `event_menu_item`
 
-- [x] **6. Admin approve**: `src/app/api/admin/catering/[id]/route.ts`
-  - Market name: `${company_name} Private Event` (FT) or `${company_name} Pop-Up Market` (FM)
-  - `is_private: true` added to market insert
-  - Added `sendNotification` import
-  - Added `sendEventFeedbackNotifications()` function — triggered when status → 'completed'
-  - Queries unique buyer_user_ids from order_items, sends `event_feedback_request` to each
+**Modified:** `src/app/[vertical]/vendor/listings/new/page.tsx`
+- Added `event_approved` to vendor profile SELECT
+- Passes `eventApproved` to ListingForm
 
-- [x] **7. Browse filter**: `src/app/[vertical]/markets/page.tsx`
-  - Added `.or('is_private.eq.false,is_private.is.null')` to events query
-  - Private events hidden from public browse, still accessible by direct URL
+**Modified:** `src/app/[vertical]/vendor/listings/[listingId]/edit/page.tsx`
+- Added `event_approved` to vendor profile SELECT
+- Passes `eventApproved` to ListingForm
 
-- [x] **8. Navigation**:
-  - `src/components/layout/Header.tsx`: Both "Corporate Catering" occurrences → `term(vertical, 'event_feature_name')` (term already imported)
-  - `src/components/shared/Footer.tsx`: Added `vertical` prop, uses `term()` for label, dynamic href
-  - `src/components/admin/AdminNav.tsx`: "Catering" label → `term(vertical!, 'event_feature_name')`
+### 6. Buyer Listing Detail "Event Ready" Pill ✅
+**Modified:** `src/app/[vertical]/listing/[listingId]/page.tsx`
+- Added "✓ Event Ready" green pill inline with price/quantity row
+- Only shown when `listing_data.event_menu_item === true`
+- Green palette: `#d1fae5` bg, `#065f46` text
 
-- [x] **9. Admin page labels**: `src/app/[vertical]/admin/catering/page.tsx`
-  - "Corporate Catering" h1 → `term(vertical, 'event_feature_name')`
-  - "Trucks Requested" → `term(vertical, 'event_vendor_unit')s Requested`
-  - Empty state text → vertical-aware
-  - Added `term` import
+### 7. Vendor Public Profile "Event Approved" Badge — PARTIALLY DONE
+**Modified:** `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx`
+- Added "✓ Event Approved" badge after TierBadge in DESKTOP view (~line 580)
+- **STILL NEEDS:** Same badge in MOBILE view (~line 788, after second TierBadge)
 
-- [x] **10. Notification messages**: `src/lib/notifications/types.ts`
-  - `catering_request_received`: title + message now vertical-aware (FM: "Pop-Up Market Request")
-  - `catering_vendor_invited`: title + message now vertical-aware (FM: "vendors" not "food trucks")
-  - `catering_vendor_responded`: title updated to "Event Invite"
-  - NEW: `event_feedback_request` type added (audience: buyer, links to orders page)
+## Remaining Items
 
-- [x] **11. Vendor detail page**: `src/app/[vertical]/vendor/catering/[marketId]/page.tsx`
-  - "Catering Event" badge → `term(vertical, 'event_feature_name')`
-  - "trucks" in headcount → `term(vertical, 'event_vendor_unit')s`
-  - Added `term` import
+### 7b. Vendor Profile Badge — MOBILE view
+**File:** `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` (~line 788)
+- Add same "✓ Event Approved" badge after the mobile TierBadge (line 788)
+- Same style as desktop version
 
-- [x] **12. Share button**: `src/app/[vertical]/markets/[id]/page.tsx`
-  - Added `ShareButton` import
-  - Renders compact share button for events (all events, including private — they're meant to be shared by URL)
-  - Share text includes event date
+### 8. Admin Events Page: Badge + Sort in Vendor Invite List
+**File:** `src/app/api/admin/events/route.ts` (GET handler, line 75-88)
+- Add `event_approved` to vendor_profiles SELECT (line 77)
+- Include `event_approved` in mapped vendors array
 
-### COMPLETED (Item 13)
-- [x] **13. Repeat event API**: `src/app/api/admin/catering/[id]/repeat/route.ts` — NEW FILE
-  - POST endpoint, admin auth + rate limiting
-  - Copies company info, address, preferences, headcount, vendor_count from original
-  - New dates from request body, status = 'new' (admin reviews before approving)
-  - Admin notes: "Repeated from request {original.id}"
+**File:** `src/app/[vertical]/admin/events/page.tsx` (line 714-751)
+- Show small green "Event ✓" pill next to vendor name in invite checkbox list
+- Sort vendors: event-approved first, then alphabetical
 
-### NOT YET DONE (Item 13 UI + Item 14 already done via code)
-- [ ] **13b. Repeat event UI**: Admin catering page needs "Repeat Event" button + inline date form
-  - Button should show on approved/completed requests
-  - Inline form: event_date (required), event_end_date, start_time, end_time
-  - On submit → POST to `/api/admin/catering/${id}/repeat` → refresh list
+### 9. Type check + lint
+- `npx tsc --noEmit`
+- `npm run lint`
 
-- [x] **14. Post-event feedback**: DONE — trigger added to admin catering PATCH route (item 6 above)
+## Files Modified This Session
+- `supabase/migrations/20260309_076_vendor_event_approval.sql` — NEW
+- `src/lib/notifications/types.ts` — MODIFIED (added vendor_event_approved)
+- `src/app/api/admin/vendors/[id]/event-approval/route.ts` — NEW
+- `src/app/admin/vendors/[vendorId]/VendorActions.tsx` — MODIFIED
+- `src/app/admin/vendors/[vendorId]/page.tsx` — MODIFIED
+- `src/app/[vertical]/vendor/listings/ListingForm.tsx` — MODIFIED
+- `src/app/[vertical]/vendor/listings/new/page.tsx` — MODIFIED
+- `src/app/[vertical]/vendor/listings/[listingId]/edit/page.tsx` — MODIFIED
+- `src/app/[vertical]/listing/[listingId]/page.tsx` — MODIFIED
+- `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` — MODIFIED (desktop badge only)
 
-## Files Modified (All Uncommitted)
+## NOT YET Modified (still needed)
+- `src/app/api/admin/events/route.ts` — add event_approved to vendor query
+- `src/app/[vertical]/admin/events/page.tsx` — badge + sort in invite list
 
-### NEW FILES (3)
-1. `supabase/migrations/20260308_072_add_markets_is_private.sql`
-2. `src/app/api/admin/catering/[id]/repeat/route.ts`
-3. `apps/web/.claude/current_task.md` (this file)
+## Commits This Session
+- None yet — all changes uncommitted
 
-### MODIFIED FILES (14)
-1. `src/lib/vertical/types.ts` — 9 new TerminologyKey entries
-2. `src/lib/vertical/configs/food-trucks.ts` — FT event terminology values
-3. `src/lib/vertical/configs/farmers-market.ts` — FM event terminology values
-4. `src/app/api/catering-requests/route.ts` — accept vertical, vertical-aware email
-5. `src/components/catering/CateringRequestForm.tsx` — send vertical, use term()
-6. `src/app/[vertical]/catering/page.tsx` — vertical-aware hero/copy/steps/props
-7. `src/app/api/admin/catering/[id]/route.ts` — market name, is_private, feedback notif
-8. `src/app/[vertical]/markets/page.tsx` — filter private events from browse
-9. `src/components/layout/Header.tsx` — term() for nav label
-10. `src/components/shared/Footer.tsx` — accept vertical prop, term() for label
-11. `src/components/admin/AdminNav.tsx` — term() for nav label
-12. `src/app/[vertical]/admin/catering/page.tsx` — vertical-aware labels
-13. `src/lib/notifications/types.ts` — vertical-aware messages + event_feedback_request
-14. `src/app/[vertical]/vendor/catering/[marketId]/page.tsx` — vertical-aware labels
-15. `src/app/[vertical]/markets/[id]/page.tsx` — share button for events
+## Previous Session (53) Context
+- Main is 17 commits ahead of origin/main
+- Staging synced through `f80f791`
+- Migrations 072-075 applied to all 3 environments
+- URL rename /catering → /events completed
 
-## What Still Needs to Be Done
-
-1. **Repeat event UI** (Item 13b) — "Repeat Event" button + inline date form on admin catering page
-2. **Type check** — `npx tsc --noEmit` — not yet run on these changes
-3. **Lint** — `npm run lint` — not yet run
-4. **Commit** — all changes uncommitted
-5. **Migration 072** — needs to be applied to Dev, Staging, Prod
-6. **Schema snapshot** — needs update after migration applied
-7. **Push to staging** — after commit
-
-## Key Decisions Made
-- **Extend not fork**: Same `catering_requests` table, same routes, vertical-aware UI via `term()`
-- **`is_private` default false**: Existing markets stay public. Catering/popup events set `is_private: true` on creation
-- **Repeat event creates status='new'**: Admin reviews before approving (may want different vendors/headcount)
-- **Post-event feedback triggered on status→completed**: Simpler than cron, admin explicitly closes event
-- **Footer accepts optional `vertical` prop**: Renders correctly with or without it
-- **FM pop-ups: no time slot language**: "Browse & Buy" model, not meal pickup windows
-- **Private events still accessible by direct URL**: Hidden from browse, but shareable
-
-## Previous Session Work (Session 52, 2026-03-07) — COMPLETE
-- Settlement report API + page committed as `885eb54`, pushed to staging
-- Corporate catering Phase 1 (items 1-10) all committed
-- Migrations 070+071 applied to all 3 environments
-- See plan file for full Phase 1/1.5 documentation
+## Gotchas
+- `vendor_profiles` uses `*` select in admin detail page, so `event_approved` is automatically available without changing the query
+- `listing_data` is JSONB — the `event_menu_item` field is stored alongside `contains_allergens` and `ingredients`
+- The vendor public profile page has TWO TierBadge instances (desktop ~line 579, mobile ~line 788) — both need the Event Approved badge
+- Migration 076 has NOT been applied yet — needs user to run on environments

@@ -295,6 +295,18 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   : 'Sold Out'
               }
             </div>
+            {!!(listing.listing_data as Record<string, unknown> | null)?.event_menu_item && (
+              <span style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: '#d1fae5',
+                color: '#065f46',
+                borderRadius: radius.lg,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+              }}>
+                ✓ Event Ready
+              </span>
+            )}
           </div>
         </div>
 

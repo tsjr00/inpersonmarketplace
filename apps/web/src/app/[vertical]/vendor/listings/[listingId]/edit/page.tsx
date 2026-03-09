@@ -25,7 +25,7 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
   // Get vendor profile with status
   const { data: vendorProfile } = await supabase
     .from('vendor_profiles')
-    .select('id, status')
+    .select('id, status, event_approved')
     .eq('user_id', user.id)
     .eq('vertical_id', vertical)
     .single()
@@ -72,6 +72,7 @@ export default async function EditListingPage({ params }: EditListingPageProps) 
         branding={branding}
         mode="edit"
         listing={listing}
+        eventApproved={!!(vendorProfile as Record<string, unknown>).event_approved}
       />
     </div>
   )

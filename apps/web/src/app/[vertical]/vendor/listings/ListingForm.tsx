@@ -33,6 +33,7 @@ interface ListingFormProps {
   branding: VerticalBranding
   mode: 'create' | 'edit'
   listing?: Record<string, unknown>
+  eventApproved?: boolean
 }
 
 export default function ListingForm({
@@ -41,7 +42,8 @@ export default function ListingForm({
   vendorStatus,
   branding,
   mode,
-  listing
+  listing,
+  eventApproved = false,
 }: ListingFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -99,6 +101,11 @@ export default function ListingForm({
   )
   const [ingredients, setIngredients] = useState(
     (listingData?.ingredients as string) || ''
+  )
+
+  // Event menu item tracking
+  const [eventMenuItem, setEventMenuItem] = useState(
+    (listingData?.event_menu_item as boolean) || false
   )
 
   // Market selection
@@ -244,6 +251,7 @@ export default function ListingForm({
       listing_data: {
         contains_allergens: containsAllergens,
         ingredients: containsAllergens ? ingredients.trim() : null,
+        event_menu_item: eventMenuItem,
       },
       updated_at: new Date().toISOString()
     }
@@ -618,6 +626,37 @@ export default function ListingForm({
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Event Menu Item Checkbox — only for event-approved FT vendors */}
+        {vertical === 'food_trucks' && eventApproved && (
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              cursor: 'pointer',
+              padding: 12,
+              backgroundColor: eventMenuItem ? '#eff6ff' : '#f9fafb',
+              border: `1px solid ${eventMenuItem ? '#3b82f6' : '#e5e7eb'}`,
+              borderRadius: 6
+            }}>
+              <input
+                type="checkbox"
+                checked={eventMenuItem}
+                onChange={(e) => setEventMenuItem(e.target.checked)}
+                disabled={loading}
+                style={{ marginTop: 3, width: 18, height: 18 }}
+              />
+              <div>
+                <span style={{ fontWeight: 600 }}>Available for Events</span>
+                <p style={{ fontSize: 13, color: '#666', margin: '4px 0 0 0' }}>
+                  Mark this item as available for private events. Event managers will see an
+                  &ldquo;Event Ready&rdquo; badge when browsing your menu.
+                </p>
+              </div>
+            </label>
           </div>
         )}
 

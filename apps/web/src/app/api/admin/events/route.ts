@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     // Also fetch approved vendors for the invite UI
     const { data: vendorProfiles } = await serviceClient
       .from('vendor_profiles')
-      .select('id, user_id, profile_data')
+      .select('id, user_id, profile_data, event_approved')
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
         (v.profile_data as Record<string, unknown>)?.business_name as string ||
         (v.profile_data as Record<string, unknown>)?.farm_name as string ||
         'Unknown',
+      event_approved: !!(v.event_approved),
     }))
 
     // Fetch market_vendors for any approved requests

@@ -28,7 +28,7 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
   // Get vendor profile with status and tier
   const { data: vendorProfile } = await supabase
     .from('vendor_profiles')
-    .select('id, status, tier')
+    .select('id, status, tier, event_approved')
     .eq('user_id', user.id)
     .eq('vertical_id', vertical)
     .single()
@@ -140,6 +140,7 @@ export default async function NewListingPage({ params }: NewListingPageProps) {
         vendorStatus={vendorProfile.status}
         branding={branding}
         mode="create"
+        eventApproved={!!(vendorProfile as Record<string, unknown>).event_approved}
       />
     </div>
   )

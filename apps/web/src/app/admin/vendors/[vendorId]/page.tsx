@@ -106,6 +106,21 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
           }}>
             {vendorStatus.toUpperCase()}
           </span>
+          {vendor.event_approved && (
+            <span style={{
+              display: 'inline-block',
+              marginTop: 10,
+              marginLeft: 8,
+              padding: '6px 12px',
+              borderRadius: 20,
+              fontSize: 14,
+              fontWeight: 600,
+              backgroundColor: '#d1fae5',
+              color: '#065f46',
+            }}>
+              ✓ EVENT APPROVED
+            </span>
+          )}
         </div>
 
         <VendorActions
@@ -113,6 +128,8 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
           currentStatus={vendorStatus}
           vendorLatitude={vendorLatitude}
           vendorLongitude={vendorLongitude}
+          eventApproved={!!(vendor.event_approved)}
+          verticalId={verticalId}
         />
       </div>
 

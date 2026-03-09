@@ -12,6 +12,8 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-03-09 | 20260309_077_update_event_help_articles | **Data update:** Updated 2 FT `knowledge_articles`. Overview article ("What are private events..."): added "Getting event-approved" section explaining separate approval process, badge, and how event managers find approved trucks. Menu setup article ("How do I set up my menu..."): added "Marking items as event-ready" section explaining "Available for Events" checkbox, "Event Ready" badge on listings, step-by-step instructions. No schema changes — content only. Applied to Dev, Staging, & Prod. |
+| 2026-03-09 | 20260309_076_vendor_event_approval | **New columns on `vendor_profiles`:** `event_approved` (BOOLEAN DEFAULT false), `event_approved_at` (TIMESTAMPTZ). **New partial index:** `idx_vendor_profiles_event_approved` on (event_approved) WHERE event_approved = true. Admin-granted flag: vendor is approved for private events (FT only). Applied to Dev, Staging, & Prod. |
 | 2026-03-08 | 20260308_075_merge_duplicate_select_policies_prod | **RLS policy merges (8 tables):** Merged duplicate permissive SELECT policies on listings, markets, notifications, order_items, orders, transactions, vendor_payouts, vendor_quality_findings. Drops separate `_admin_select` policies and recreates single merged `_select` policy per table. Idempotent — Dev/Staging already had 7 of 8 merged (from migrations 002/003), Prod had none. vendor_quality_findings newly merged on all 3 envs. Pure performance optimization, no behavioral change. Applied to Dev, Staging, & Prod. |
 | 2026-03-08 | 20260308_074_fix_rls_linter_warnings | **RLS policy fix:** Replaced `error_reports_user_insert` WITH CHECK (true) → `(reported_by_user_id IS NULL OR reported_by_user_id = auth.uid())`. **New policies:** admin-only SELECT on `admin_activity_log`, `audit_log`, `error_resolutions`, `vertical_admins` (previously had RLS enabled but no policies). Applied to Dev, Staging, & Prod. |
 | 2026-03-08 | 20260308_073_popup_market_help_articles | **Data insert + update:** 6 new `knowledge_articles` rows under "For Vendors" category (vertical_id='farmers_market') for pop-up markets: overview, accepting invitations, product setup, pre-orders/browsing, event day checklist, payments. Updated 6 existing FT articles: rebranded "Corporate Catering" → "Private Events", "employees" → "guests". No schema changes — content only. Applied to Dev, Staging, & Prod. |
@@ -1104,6 +1106,8 @@
 | trial_started_at | timestamptz | YES | - |
 | trial_ends_at | timestamptz | YES | - |
 | trial_grace_ends_at | timestamptz | YES | - |
+| event_approved | bool | YES | false |
+| event_approved_at | timestamptz | YES | - |
 
 ### vendor_referral_credits
 | Column | Type | Nullable | Default |
@@ -1904,6 +1908,7 @@
 | idx_vendor_subscription_status | btree (subscription_status) WHERE (subscription_status IS NOT NULL) |
 | idx_vendor_profiles_certifications | gin (certifications) |
 | idx_vendor_profiles_trial_active | btree (trial_ends_at) WHERE (trial_ends_at IS NOT NULL AND subscription_status = 'trialing') |
+| idx_vendor_profiles_event_approved | btree (event_approved) WHERE (event_approved = true) |
 
 ### vendor_referral_credits
 | Index Name | Definition |
