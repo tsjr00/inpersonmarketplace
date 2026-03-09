@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 
-interface CateringRequestFormProps {
+interface EventRequestFormProps {
   vertical: string
 }
 
@@ -75,7 +75,7 @@ const rowStyle: React.CSSProperties = {
   gap: spacing.sm,
 }
 
-export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
+export function EventRequestForm({ vertical }: EventRequestFormProps) {
   const accent = verticalAccent[vertical] || verticalAccent.farmers_market
   const [form, setForm] = useState<FormData>({
     company_name: '',
@@ -141,7 +141,7 @@ export function CateringRequestForm({ vertical }: CateringRequestFormProps) {
     setSubmitting(true)
 
     try {
-      const res = await fetch('/api/catering-requests', {
+      const res = await fetch('/api/event-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

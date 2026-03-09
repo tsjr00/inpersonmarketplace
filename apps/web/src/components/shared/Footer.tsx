@@ -86,7 +86,7 @@ export default function Footer({ vertical }: FooterProps) {
               </li>
               <li style={{ marginBottom: spacing.xs }}>
                 <Link
-                  href={`/${vertical || 'food_trucks'}/catering`}
+                  href={`/${vertical || 'food_trucks'}/events`}
                   style={{
                     color: colors.textSecondary,
                     textDecoration: 'none',

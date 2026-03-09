@@ -491,7 +491,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       const requestType = d.vertical === 'farmers_market' ? 'pop-up market request' : 'event request'
       return `${d.companyName} submitted a ${requestType} for ${d.headcount} people on ${d.eventDate}.`
     },
-    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/catering`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
   },
 
   catering_vendor_invited: {
@@ -503,7 +503,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       const vendorWord = d.vertical === 'farmers_market' ? 'vendors' : 'food trucks'
       return `${d.companyName} is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate} at ${d.eventAddress}. Tap to view details and respond.`
     },
-    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/catering/${d.marketName}`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketName}`,
   },
 
   catering_vendor_responded: {
@@ -512,7 +512,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'admin',
     title: () => `Vendor Responded to Event Invite`,
     message: (d) => `${d.vendorName} ${d.responseAction || 'responded to'} the event invitation for ${d.marketName}.`,
-    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/catering`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
   },
 
   event_feedback_request: {

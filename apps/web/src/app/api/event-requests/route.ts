@@ -9,7 +9,7 @@ import {
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
 
 export async function POST(request: NextRequest) {
-  return withErrorTracing('/api/catering-requests', 'POST', async () => {
+  return withErrorTracing('/api/event-requests', 'POST', async () => {
     // Rate limit: submit preset (10/60s per IP)
     const clientIp = getClientIp(request)
     const rateLimitResult = await checkRateLimit(

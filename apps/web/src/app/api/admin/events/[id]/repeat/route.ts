@@ -15,7 +15,7 @@ interface RouteContext {
 
 // POST - Create a repeat event from an existing catering request
 export async function POST(request: NextRequest, context: RouteContext) {
-  return withErrorTracing('/api/admin/catering/[id]/repeat', 'POST', async () => {
+  return withErrorTracing('/api/admin/events/[id]/repeat', 'POST', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = await checkRateLimit(
       `admin:${clientIp}`,

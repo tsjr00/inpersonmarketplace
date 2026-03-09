@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CateringRequestForm } from '@/components/catering/CateringRequestForm'
+import { EventRequestForm } from '@/components/events/EventRequestForm'
 import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 
@@ -210,7 +210,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
         >
           {term(vertical, 'event_request_heading')}
         </h2>
-        <CateringRequestForm vertical={vertical} />
+        <EventRequestForm vertical={vertical} />
       </div>
     </div>
   )

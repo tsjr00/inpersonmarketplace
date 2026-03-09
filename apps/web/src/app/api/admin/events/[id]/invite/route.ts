@@ -17,7 +17,7 @@ interface RouteContext {
 // POST - Invite vendors to a catering event
 export async function POST(request: NextRequest, context: RouteContext) {
   return withErrorTracing(
-    '/api/admin/catering/[id]/invite',
+    '/api/admin/events/[id]/invite',
     'POST',
     async () => {
       const clientIp = getClientIp(request)

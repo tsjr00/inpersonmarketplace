@@ -15,7 +15,7 @@ interface RouteContext {
 // GET - Vendor views catering event details for a market they're invited to
 export async function GET(request: NextRequest, context: RouteContext) {
   return withErrorTracing(
-    '/api/vendor/catering/[marketId]',
+    '/api/vendor/events/[marketId]',
     'GET',
     async () => {
       const clientIp = getClientIp(request)

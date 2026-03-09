@@ -16,7 +16,7 @@ interface RouteContext {
 
 // PATCH - Update catering request status (approve → auto-creates event market)
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  return withErrorTracing('/api/admin/catering/[id]', 'PATCH', async () => {
+  return withErrorTracing('/api/admin/events/[id]', 'PATCH', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = await checkRateLimit(
       `admin:${clientIp}`,

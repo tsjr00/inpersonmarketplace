@@ -11,7 +11,7 @@ import { withErrorTracing } from '@/lib/errors'
 
 // GET - List catering requests (admin only)
 export async function GET(request: NextRequest) {
-  return withErrorTracing('/api/admin/catering', 'GET', async () => {
+  return withErrorTracing('/api/admin/events', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = await checkRateLimit(
       `admin:${clientIp}`,

@@ -17,7 +17,7 @@ interface RouteContext {
 
 // GET - Generate event settlement report for a catering request
 export async function GET(request: NextRequest, context: RouteContext) {
-  return withErrorTracing('/api/admin/catering/[id]/settlement', 'GET', async () => {
+  return withErrorTracing('/api/admin/events/[id]/settlement', 'GET', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = await checkRateLimit(
       `admin:${clientIp}`,

@@ -16,7 +16,7 @@ interface RouteContext {
 // PATCH - Vendor accepts or declines a catering invitation
 export async function PATCH(request: NextRequest, context: RouteContext) {
   return withErrorTracing(
-    '/api/vendor/catering/[marketId]/respond',
+    '/api/vendor/events/[marketId]/respond',
     'PATCH',
     async () => {
       const clientIp = getClientIp(request)

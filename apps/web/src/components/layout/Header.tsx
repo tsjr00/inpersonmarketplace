@@ -386,9 +386,9 @@ export function Header({
                       </Link>
                     )}
 
-                    {/* Catering */}
+                    {/* Events */}
                     <Link
-                      href={`/${vertical}/catering`}
+                      href={`/${vertical}/events`}
                       onClick={() => setDropdownOpen(false)}
                       style={{
                         display: 'block',
@@ -652,7 +652,7 @@ export function Header({
                 )}
 
                 <Link
-                  href={`/${vertical}/catering`}
+                  href={`/${vertical}/events`}
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     display: 'block',

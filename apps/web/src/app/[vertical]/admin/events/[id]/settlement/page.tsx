@@ -123,7 +123,7 @@ export default function SettlementReportPage() {
   useEffect(() => {
     async function fetchSettlement() {
       try {
-        const res = await fetch(`/api/admin/catering/${requestId}/settlement`)
+        const res = await fetch(`/api/admin/events/${requestId}/settlement`)
         if (res.ok) {
           setData(await res.json())
         } else {
@@ -214,7 +214,7 @@ export default function SettlementReportPage() {
           {error || 'Failed to load settlement report'}
         </div>
         <Link
-          href={`/${vertical}/admin/catering`}
+          href={`/${vertical}/admin/events`}
           style={{ color: statusColors.infoDark, fontSize: typography.sizes.sm, display: 'inline-block', marginTop: spacing.sm }}
         >
           Back to Catering
@@ -234,7 +234,7 @@ export default function SettlementReportPage() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
           <Link
-            href={`/${vertical}/admin/catering`}
+            href={`/${vertical}/admin/events`}
             style={{ color: statusColors.infoDark, fontSize: typography.sizes.sm }}
           >
             Back to Catering

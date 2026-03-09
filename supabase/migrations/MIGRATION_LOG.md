@@ -84,6 +84,8 @@
 | 20260304_068_user_agreement_acceptances.sql | ✅ | 2026-03-04 | ✅ | 2026-03-04 | user_agreement_acceptances table for legal agreement tracking. RLS: self-select + self-insert. Applied to all 3 envs. |
 | 20260307_071_catering_help_articles.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | 6 vendor catering help articles under "For Food Truck Operators". Data only. Applied to all 3 envs. |
 | 20260307_070_corporate_catering.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | New `catering_requests` table + columns on `markets` (catering_request_id, headcount) and `market_vendors` (response_status, response_notes, invited_at). RLS, indexes, trigger. Applied to all 3 envs. |
+| 20260308_075_merge_duplicate_select_policies_prod.sql | ✅ | 2026-03-08 | ✅ | 2026-03-08 | Merge 8 duplicate permissive SELECT policy pairs into single policies. Fixes Prod gap from migrations 002/003 + new vendor_quality_findings merge. Applied to all 3 envs. |
+| 20260308_074_fix_rls_linter_warnings.sql | ✅ | 2026-03-08 | ✅ | 2026-03-08 | Fix error_reports INSERT policy (was WITH CHECK true) + add admin SELECT policies to 4 tables. Applied to all 3 envs. |
 | 20260308_073_popup_market_help_articles.sql | ✅ | 2026-03-08 | ✅ | 2026-03-08 | 6 FM pop-up market help articles + rebrand 6 FT articles from "Corporate Catering" to "Private Events". Data only. Applied to all 3 envs. |
 | 20260308_072_add_markets_is_private.sql | ✅ | 2026-03-08 | ✅ | 2026-03-08 | Add `is_private` BOOLEAN to markets. Backfill catering events to true. Partial index. Applied to all 3 envs. |
 | 20260307_069_update_stale_help_articles.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | Updated 6 stale knowledge_articles: payment methods, fees, tips, minimum order, FM/FT plan pricing. Data only. Applied to all 3 envs. |

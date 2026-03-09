@@ -94,7 +94,7 @@ export default function AdminCateringPage() {
   async function fetchData() {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/catering?vertical=${vertical}`)
+      const res = await fetch(`/api/admin/events?vertical=${vertical}`)
       if (res.ok) {
         const data = await res.json()
         setRequests(data.requests || [])
@@ -110,7 +110,7 @@ export default function AdminCateringPage() {
   async function updateStatus(id: string, status: string) {
     setActionMessage(null)
     try {
-      const res = await fetch(`/api/admin/catering/${id}`, {
+      const res = await fetch(`/api/admin/events/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
@@ -139,7 +139,7 @@ export default function AdminCateringPage() {
     setInviting(true)
     setActionMessage(null)
     try {
-      const res = await fetch(`/api/admin/catering/${requestId}/invite`, {
+      const res = await fetch(`/api/admin/events/${requestId}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ vendor_ids: selectedVendors }),
@@ -167,7 +167,7 @@ export default function AdminCateringPage() {
     setRepeating(true)
     setActionMessage(null)
     try {
-      const res = await fetch(`/api/admin/catering/${id}/repeat`, {
+      const res = await fetch(`/api/admin/events/${id}/repeat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -516,7 +516,7 @@ export default function AdminCateringPage() {
                       View Event Market Page →
                     </a>
                     <a
-                      href={`/${vertical}/admin/catering/${selected.id}/settlement`}
+                      href={`/${vertical}/admin/events/${selected.id}/settlement`}
                       style={{
                         ...sizing.control,
                         display: 'inline-flex',

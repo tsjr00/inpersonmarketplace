@@ -54,7 +54,7 @@ export default function VendorCateringDetailPage() {
   async function fetchDetails() {
     setLoading(true)
     try {
-      const res = await fetch(`/api/vendor/catering/${marketId}`)
+      const res = await fetch(`/api/vendor/events/${marketId}`)
       if (res.ok) {
         const data = await res.json()
         setDetails(data.event)
@@ -72,7 +72,7 @@ export default function VendorCateringDetailPage() {
     setResponding(true)
     setActionMessage(null)
     try {
-      const res = await fetch(`/api/vendor/catering/${marketId}/respond`, {
+      const res = await fetch(`/api/vendor/events/${marketId}/respond`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
