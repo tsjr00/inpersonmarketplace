@@ -147,7 +147,7 @@ export default function CheckoutSuccessPage() {
     <div style={{
       minHeight: '100vh',
       backgroundColor: colors.surfaceBase,
-      padding: spacing.xl,
+      padding: `${spacing.sm} ${spacing.xs}`,
     }}>
       <div style={{
         maxWidth: containers.lg,
@@ -158,34 +158,34 @@ export default function CheckoutSuccessPage() {
           backgroundColor: colors.surfaceElevated,
           borderRadius: radius.md,
           border: `1px solid ${colors.border}`,
-          padding: spacing.xl,
+          padding: `${spacing.sm} ${spacing.xs}`,
           textAlign: 'center',
-          marginBottom: spacing.lg,
+          marginBottom: spacing.sm,
           boxShadow: shadows.md,
         }}>
           <div style={{
-            width: 80,
-            height: 80,
+            width: 56,
+            height: 56,
             backgroundColor: colors.primaryLight,
             borderRadius: radius.full,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: `0 auto ${spacing.md}`,
-            fontSize: 40,
+            margin: `0 auto ${spacing.xs}`,
+            fontSize: 28,
             color: colors.primary,
           }}>
             &#10003;
           </div>
 
           <h1 style={{
-            margin: `0 0 ${spacing['2xs']} 0`,
+            margin: `0 0 ${spacing['3xs']} 0`,
             fontSize: typography.sizes['2xl'],
             color: colors.textPrimary,
           }}>
             Order Placed!
           </h1>
-          <p style={{ color: colors.textSecondary, marginBottom: 0 }}>
+          <p style={{ color: colors.textSecondary, marginBottom: 0, fontSize: typography.sizes.sm }}>
             Thank you for your purchase. Your order has been submitted and the vendor will be notified.
           </p>
         </div>
@@ -196,13 +196,13 @@ export default function CheckoutSuccessPage() {
             backgroundColor: colors.surfaceElevated,
             borderRadius: radius.md,
             border: `1px solid ${colors.border}`,
-            padding: spacing.md,
-            marginBottom: spacing.lg,
+            padding: `${spacing.xs} ${spacing.xs}`,
+            marginBottom: spacing.sm,
             boxShadow: shadows.sm,
           }}>
             <h2 style={{
               marginTop: 0,
-              marginBottom: spacing.md,
+              marginBottom: spacing.xs,
               fontSize: typography.sizes.lg,
               color: colors.textPrimary,
             }}>
@@ -210,26 +210,26 @@ export default function CheckoutSuccessPage() {
             </h2>
 
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: spacing.sm,
-              marginBottom: spacing.md,
-              padding: spacing.sm,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: spacing['2xs'],
+              marginBottom: spacing.sm,
+              padding: spacing.xs,
               backgroundColor: colors.surfaceMuted,
               borderRadius: radius.sm,
             }}>
               <div>
-                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `0 0 ${spacing['3xs']} 0` }}>Order Number</p>
-                <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary }}>{order.order_number}</p>
+                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Order Number</p>
+                <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary, fontSize: typography.sizes.base }}>{order.order_number}</p>
               </div>
               <div>
-                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `0 0 ${spacing['3xs']} 0` }}>Date</p>
+                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Date</p>
                 <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary }}>
                   {new Date(order.created_at).toLocaleDateString()}
                 </p>
               </div>
               <div>
-                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `0 0 ${spacing['3xs']} 0` }}>Status</p>
+                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Status</p>
                 <span style={{
                   display: 'inline-block',
                   padding: `${spacing['3xs']} ${spacing['2xs']}`,
@@ -243,7 +243,7 @@ export default function CheckoutSuccessPage() {
                 </span>
               </div>
               <div>
-                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `0 0 ${spacing['3xs']} 0` }}>Total</p>
+                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Total</p>
                 <p style={{ fontWeight: typography.weights.semibold, margin: 0, fontSize: typography.sizes.lg, color: colors.primary }}>
                   ${(order.total_cents / 100).toFixed(2)}
                 </p>
@@ -257,13 +257,13 @@ export default function CheckoutSuccessPage() {
 
             {order.items && order.items.length > 0 && (
               <>
-                <h3 style={{ fontSize: typography.sizes.base, marginBottom: spacing.sm, color: colors.textPrimary }}>Items</h3>
+                <h3 style={{ fontSize: typography.sizes.base, marginBottom: spacing.xs, color: colors.textPrimary }}>Items</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                   {order.items.map((item, index) => (
                     <div
                       key={item.id || index}
                       style={{
-                        padding: `${spacing.xs} ${spacing.sm}`,
+                        padding: spacing.xs,
                         backgroundColor: colors.surfaceMuted,
                         borderRadius: radius.sm,
                       }}
@@ -282,29 +282,24 @@ export default function CheckoutSuccessPage() {
                         </p>
                       </div>
                       {(item.market_name || item.pickup_date) && (
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: spacing['2xs'],
-                          marginTop: spacing['2xs'],
+                        <p style={{
+                          margin: `${spacing['2xs']} 0 0`,
                           padding: `${spacing['2xs']} ${spacing.xs}`,
                           backgroundColor: colors.primaryLight,
                           borderRadius: radius.sm,
                           fontSize: typography.sizes.xs,
                           color: colors.textSecondary,
-                          flexWrap: 'wrap',
+                          lineHeight: typography.leading.relaxed,
                         }}>
-                          <span>{item.market_type === 'event' ? '\u{1F3AA}' : item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
-                          <span>
-                            <strong>Pickup:</strong> {formatPickupDate(item.pickup_date) || 'Date TBD'}
-                            {item.confirmed_pickup_time
-                              ? ` at ${formatPickupTime(item.confirmed_pickup_time, null)}`
-                              : formatPickupTime(item.pickup_start_time, item.pickup_end_time) ? `, ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}` : ''
-                            }
-                            {item.market_name && ` at ${item.market_name}`}
-                            {item.market_city && `, ${item.market_city}`}
-                          </span>
-                        </div>
+                          <span style={{ marginRight: spacing['3xs'] }}>{item.market_type === 'event' ? '\u{1F3AA}' : item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
+                          <strong>Pickup:</strong> {formatPickupDate(item.pickup_date) || 'Date TBD'}
+                          {item.confirmed_pickup_time
+                            ? ` at ${formatPickupTime(item.confirmed_pickup_time, null)}`
+                            : formatPickupTime(item.pickup_start_time, item.pickup_end_time) ? `, ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}` : ''
+                          }
+                          {item.market_name && ` at ${item.market_name}`}
+                          {item.market_city && `, ${item.market_city}`}
+                        </p>
                       )}
                     </div>
                   ))}
@@ -314,7 +309,7 @@ export default function CheckoutSuccessPage() {
 
             {order.marketBoxSubscriptions && order.marketBoxSubscriptions.length > 0 && (
               <>
-                <h3 style={{ fontSize: typography.sizes.base, marginTop: spacing.md, marginBottom: spacing.sm, color: colors.textPrimary }}>
+                <h3 style={{ fontSize: typography.sizes.base, marginTop: spacing.sm, marginBottom: spacing.xs, color: colors.textPrimary }}>
                   {term(vertical, 'market_box')} Subscriptions
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
@@ -322,7 +317,7 @@ export default function CheckoutSuccessPage() {
                     <div
                       key={sub.id}
                       style={{
-                        padding: `${spacing.xs} ${spacing.sm}`,
+                        padding: spacing.xs,
                         backgroundColor: colors.surfaceMuted,
                         borderRadius: radius.sm,
                         borderLeft: `3px solid ${colors.primary}`,
@@ -334,68 +329,27 @@ export default function CheckoutSuccessPage() {
                       <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
                         {sub.vendor_name} &bull; {sub.term_weeks}-week subscription &bull; ${(sub.total_paid_cents / 100).toFixed(2)}
                       </p>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: spacing['2xs'],
-                        marginTop: spacing['2xs'],
+                      <p style={{
+                        margin: `${spacing['2xs']} 0 0`,
                         padding: `${spacing['2xs']} ${spacing.xs}`,
                         backgroundColor: colors.primaryLight,
                         borderRadius: radius.sm,
                         fontSize: typography.sizes.xs,
                         color: colors.textSecondary,
-                        flexWrap: 'wrap',
+                        lineHeight: typography.leading.relaxed,
                       }}>
-                        <span>{'\u{1F4E6}'}</span>
-                        <span>
-                          <strong>Starts:</strong> {new Date(sub.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          {sub.pickup_day_of_week !== null && ` \u2022 Every ${DAY_NAMES[sub.pickup_day_of_week]}`}
-                          {formatPickupTime(sub.pickup_start_time, sub.pickup_end_time) && `, ${formatPickupTime(sub.pickup_start_time, sub.pickup_end_time)}`}
-                          {sub.market_name && ` at ${sub.market_name}`}
-                          {sub.market_city && `, ${sub.market_city}`}
-                        </span>
-                      </div>
+                        <span style={{ marginRight: spacing['3xs'] }}>{'\u{1F4E6}'}</span>
+                        <strong>Starts:</strong> {new Date(sub.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {sub.pickup_day_of_week !== null && ` \u2022 Every ${DAY_NAMES[sub.pickup_day_of_week]}`}
+                        {formatPickupTime(sub.pickup_start_time, sub.pickup_end_time) && `, ${formatPickupTime(sub.pickup_start_time, sub.pickup_end_time)}`}
+                        {sub.market_name && ` at ${sub.market_name}`}
+                        {sub.market_city && `, ${sub.market_city}`}
+                      </p>
                     </div>
                   ))}
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {/* Food Truck Order Expectation Card */}
-        {vertical === 'food_trucks' && order && order.items && order.items.length > 0 && (
-          <div style={{
-            backgroundColor: '#fffbeb',
-            borderRadius: radius.md,
-            border: '1px solid #fde68a',
-            padding: spacing.md,
-            marginBottom: spacing.lg,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
-              <span style={{ fontSize: typography.sizes.lg, flexShrink: 0 }}>{'\u{1F4F1}'}</span>
-              <div>
-                <h3 style={{
-                  margin: `0 0 ${spacing['2xs']} 0`,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold,
-                  color: '#92400e',
-                }}>
-                  What happens next?
-                </h3>
-                <p style={{
-                  margin: 0,
-                  fontSize: typography.sizes.sm,
-                  color: '#78350f',
-                  lineHeight: typography.leading.relaxed,
-                }}>
-                  Your order has been sent to {order.items[0]?.vendor_name || 'the truck'}. You&apos;ll receive
-                  a notification when they confirm it. Food truck operators sometimes experience unexpected
-                  rushes or supply changes &mdash; if you haven&apos;t received confirmation within 30 minutes
-                  of your pickup time, the truck may not be able to fulfill your order this time.
-                </p>
-              </div>
-            </div>
           </div>
         )}
 
@@ -428,8 +382,8 @@ export default function CheckoutSuccessPage() {
               backgroundColor: locations.length > 1 ? '#fff3cd' : colors.surfaceElevated,
               borderRadius: radius.md,
               border: locations.length > 1 ? '2px solid #ffc107' : `1px solid ${colors.border}`,
-              padding: spacing.md,
-              marginBottom: spacing.lg,
+              padding: `${spacing.sm} ${spacing.xs}`,
+              marginBottom: spacing.sm,
               boxShadow: shadows.sm,
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing.xs }}>
@@ -523,24 +477,27 @@ export default function CheckoutSuccessPage() {
           backgroundColor: colors.surfaceElevated,
           borderRadius: radius.md,
           border: `1px solid ${colors.border}`,
-          padding: spacing.md,
-          marginBottom: spacing.lg,
+          padding: `${spacing.sm} ${spacing.xs}`,
+          marginBottom: spacing.sm,
           boxShadow: shadows.sm,
         }}>
           <h2 style={{
             marginTop: 0,
-            marginBottom: spacing.sm,
+            marginBottom: spacing.xs,
             fontSize: typography.sizes.lg,
             color: colors.textPrimary,
           }}>
             What&apos;s Next?
           </h2>
-          <ul style={{ margin: 0, paddingLeft: spacing.sm, color: colors.textSecondary, lineHeight: typography.leading.loose, listStyleType: 'disc' }}>
+          <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary, fontSize: typography.sizes.sm, lineHeight: typography.leading.loose, listStyleType: 'disc' }}>
             {order?.items && order.items.length > 0 && (
               <>
                 <li>The vendor will be notified and will confirm your order</li>
                 <li>You&apos;ll receive a notification when your items are ready for pickup</li>
-                <li>Pick up your items at the designated market location{[...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : ''}</li>
+                {vertical === 'food_trucks' && (
+                  <li>Food trucks may experience unexpected rushes &mdash; if you haven&apos;t received confirmation within 30 minutes of pickup, the order may not be fulfilled this time</li>
+                )}
+                <li>Pick up your items at the designated location{[...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : ''}</li>
               </>
             )}
             {order?.marketBoxSubscriptions && order.marketBoxSubscriptions.length > 0 && (
@@ -562,7 +519,7 @@ export default function CheckoutSuccessPage() {
           <Link
             href={`/${vertical}/buyer/orders`}
             style={{
-              padding: `${spacing.sm} ${spacing.lg}`,
+              padding: `${spacing.xs} ${spacing.md}`,
               backgroundColor: 'transparent',
               color: colors.primary,
               textDecoration: 'none',
@@ -580,7 +537,7 @@ export default function CheckoutSuccessPage() {
           <Link
             href={`/${vertical}/browse`}
             style={{
-              padding: `${spacing.sm} ${spacing.lg}`,
+              padding: `${spacing.xs} ${spacing.md}`,
               backgroundColor: colors.surfaceElevated,
               color: colors.textPrimary,
               textDecoration: 'none',
