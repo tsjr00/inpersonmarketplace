@@ -299,21 +299,6 @@ export function Header({
                     </div>
 
                     {/* Navigation Items */}
-                    <Link
-                      href={`/${vertical}/buyer/orders`}
-                      onClick={() => setDropdownOpen(false)}
-                      style={{
-                        display: 'block',
-                        padding: `${spacing.xs} ${spacing.sm}`,
-                        textDecoration: 'none',
-                        color: colors.textPrimary,
-                        fontSize: typography.sizes.sm,
-                        minHeight: 44,
-                        lineHeight: '20px'
-                      }}
-                    >
-                      My Orders
-                    </Link>
 
                     {/* Become a Vendor - only for non-vendors */}
                     {!hasVendorProfile && (
@@ -386,6 +371,23 @@ export function Header({
                       </Link>
                     )}
 
+                    {/* Settings */}
+                    <Link
+                      href={`/${vertical}/settings`}
+                      onClick={() => setDropdownOpen(false)}
+                      style={{
+                        display: 'block',
+                        padding: `${spacing.xs} ${spacing.sm}`,
+                        textDecoration: 'none',
+                        color: colors.textPrimary,
+                        fontSize: typography.sizes.sm,
+                        minHeight: 44,
+                        lineHeight: '20px'
+                      }}
+                    >
+                      Settings
+                    </Link>
+
                     {/* Events */}
                     <Link
                       href={`/${vertical}/events`}
@@ -404,23 +406,6 @@ export function Header({
                     </Link>
 
                     <div style={{ borderTop: `1px solid ${colors.border}` }} />
-
-                    {/* Settings */}
-                    <Link
-                      href={`/${vertical}/settings`}
-                      onClick={() => setDropdownOpen(false)}
-                      style={{
-                        display: 'block',
-                        padding: `${spacing.xs} ${spacing.sm}`,
-                        textDecoration: 'none',
-                        color: colors.textPrimary,
-                        fontSize: typography.sizes.sm,
-                        minHeight: 44,
-                        lineHeight: '20px'
-                      }}
-                    >
-                      Settings
-                    </Link>
 
                     {/* Logout */}
                     <button
@@ -575,20 +560,6 @@ export function Header({
                   Dashboard
                 </Link>
 
-                <Link
-                  href={`/${vertical}/buyer/orders`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: `${spacing.xs} 0`,
-                    textDecoration: 'none',
-                    color: colors.textPrimary,
-                    fontSize: typography.sizes.base
-                  }}
-                >
-                  My Orders
-                </Link>
-
                 {!hasVendorProfile && (
                   <Link
                     href={`/${vertical}/vendor-signup`}
@@ -652,22 +623,6 @@ export function Header({
                 )}
 
                 <Link
-                  href={`/${vertical}/events`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: `${spacing.xs} 0`,
-                    textDecoration: 'none',
-                    color: colors.textPrimary,
-                    fontSize: typography.sizes.base
-                  }}
-                >
-                  Corporate Catering
-                </Link>
-
-                <div style={{ borderTop: `1px solid ${colors.border}`, margin: `${spacing.xs} 0` }} />
-
-                <Link
                   href={`/${vertical}/settings`}
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
@@ -680,6 +635,22 @@ export function Header({
                 >
                   Settings
                 </Link>
+
+                <Link
+                  href={`/${vertical}/events`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: `${spacing.xs} 0`,
+                    textDecoration: 'none',
+                    color: colors.textPrimary,
+                    fontSize: typography.sizes.base
+                  }}
+                >
+                  {term(vertical, 'event_feature_name')}
+                </Link>
+
+                <div style={{ borderTop: `1px solid ${colors.border}`, margin: `${spacing.xs} 0` }} />
 
                 <button
                   onClick={handleLogout}

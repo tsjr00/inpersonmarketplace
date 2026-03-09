@@ -1,132 +1,79 @@
-# Current Task: Session 54 — Event Approval Process + Event-Ready Listing Badge
+# Current Task: Session 54 — Event Approval + Menu + Success Page Cleanup
 
 Started: 2026-03-09
-Status: **IN PROGRESS — ~75% complete**
+Status: **Header dropdown committed, success page redesign NEXT**
 
-## Goal
-Add event approval workflow for FT vendors: admin toggle, listing checkbox, display badges.
+## Completed This Session
 
-## Plan File
-`C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md` — full plan with 8 build items.
+### Phase 1: Event Approval System — COMMITTED ✅
+Commit `2cece06`, pushed to staging. All 8 build items complete.
 
-## Key Decisions
-- **FT only** — FM pop-up vendor approval is a different pattern (future)
-- **`listing_data` JSONB** for event flag (no new column on listings, matches existing allergen pattern)
-- **Green palette** for all event badges (`#d1fae5` bg, `#065f46` text)
-- **Blue palette** for event checkbox when checked (`#eff6ff` bg, `#3b82f6` border) — differentiates from yellow allergen checkbox
-- **Capability profile data** (truck length, generator, etc.) is deferred — this build is the approval flag + badge foundation
+### Phase 2: Migration 077 — Help Articles ✅
+Applied to all 3 envs, moved to applied/.
 
-## Completed Items
+### Phase 3: Business Rules Audit Update ✅
+12 new rules added across 5 domains.
 
-### 1. Migration 076 ✅
-**File:** `supabase/migrations/20260309_076_vendor_event_approval.sql`
-- `event_approved BOOLEAN DEFAULT false`
-- `event_approved_at TIMESTAMPTZ`
-- Partial index on `event_approved = true`
-- **NOT YET APPLIED** to any environment — migration file created but user hasn't run it
+### Phase 4: Header Dropdown Menu — NEEDS COMMIT
+**File:** `src/components/layout/Header.tsx`
+- Removed "My Orders" from desktop + mobile dropdown
+- Renamed "Corporate Catering" → `term(vertical, 'event_feature_name')` in mobile menu
+- Moved Events link to after Settings in both desktop + mobile
+- Type check + lint clean (0 errors)
+- **NOT YET COMMITTED**
 
-### 2. Notification Type ✅
-**File:** `src/lib/notifications/types.ts`
-- Added `vendor_event_approved` to NotificationType union (line ~80)
-- Added template definition at end of NOTIFICATION_TEMPLATES (after `event_feedback_request`)
-- audience: vendor, severity: success, channels: inApp + email + push
-- actionUrl: `/{vertical}/vendor/listings`
+Also uncommitted: `apps/web/.claude/business_rules_audit_and_testing.md` updates
 
-### 3. Admin Event-Approval API ✅
-**New file:** `src/app/api/admin/vendors/[id]/event-approval/route.ts`
-- PATCH endpoint
-- Admin auth via `hasAdminRole()`, rate limiting via `rateLimits.admin`
-- Validates: vendor exists, `status === 'approved'`, `vertical_id === 'food_trucks'`
-- Updates `event_approved` + `event_approved_at`
-- Sends `vendor_event_approved` notification on approve
-- Uses `createServiceClient()` for update
+### Phase 5: Success/Order Placed Page Redesign — NOT STARTED
+**File:** Likely `src/app/[vertical]/checkout/success/page.tsx` or similar
 
-### 4. Admin Vendor Detail UI ✅
-**Modified:** `src/app/admin/vendors/[vendorId]/VendorActions.tsx`
-- Added props: `eventApproved: boolean`, `verticalId: string`
-- Added `eventApprovedState` local state + `toggleEventApproval()` + `executeEventApproval()` handlers
-- UI: "Approve for Events" green button (when not approved) OR "✓ Event Approved" badge + "Revoke" orange button (when approved)
-- Only visible when `currentStatus === 'approved'` AND `verticalId === 'food_trucks'`
-- Uses existing ConfirmDialog for confirmation
+**User's detailed instructions for mobile cleanup:**
 
-**Modified:** `src/app/admin/vendors/[vendorId]/page.tsx`
-- Passes `eventApproved={!!vendor.event_approved}` and `verticalId={verticalId}` to VendorActions
-- Shows green "✓ EVENT APPROVED" badge next to status badge in header
+1. **Top section (checkmark + "Order Placed")**
+   - Remove excess white space ABOVE the checkmark circle
+   - Move checkmark up, make it slightly smaller
+   - Move "Order Placed" text up closer to checkmark
+   - Reduce white space between elements
 
-### 5. Listing Edit Form Checkbox ✅
-**Modified:** `src/app/[vertical]/vendor/listings/ListingForm.tsx`
-- Added prop: `eventApproved?: boolean` (default false)
-- Added state: `eventMenuItem` initialized from `listing?.listing_data?.event_menu_item`
-- Added "Available for Events" checkbox below allergen section (blue highlight when checked)
-- Only rendered when `vertical === 'food_trucks' && eventApproved`
-- Updated `listing_data` save payload to include `event_menu_item`
+2. **Thank you text block**
+   - Remove excessive left/right padding — take text almost to edge of container
+   - Should fit in ~2 lines instead of 3
 
-**Modified:** `src/app/[vertical]/vendor/listings/new/page.tsx`
-- Added `event_approved` to vendor profile SELECT
-- Passes `eventApproved` to ListingForm
+3. **Order Details section — gray box inside outlined box**
+   - Reduce padding between gray box and outline — gray box should extend almost to edge
+   - This gives more room for text inside gray box (less wrapping)
 
-**Modified:** `src/app/[vertical]/vendor/listings/[listingId]/edit/page.tsx`
-- Added `event_approved` to vendor profile SELECT
-- Passes `eventApproved` to ListingForm
+4. **Order info inside top gray box — RESTRUCTURE from 2-column grid to single-column stack:**
+   - Line 1: Small label "Order Number"
+   - Line 2: Bold order number (full width across gray box)
+   - Line 3: Small label "Date"
+   - Line 4: Numeric date
+   - Line 5: Small label "Status"
+   - Line 6: Status value
+   - Line 7: Small label "Total"
+   - Line 8: Total in dollar format + "includes tip" description
 
-### 6. Buyer Listing Detail "Event Ready" Pill ✅
-**Modified:** `src/app/[vertical]/listing/[listingId]/page.tsx`
-- Added "✓ Event Ready" green pill inline with price/quantity row
-- Only shown when `listing_data.event_menu_item === true`
-- Green palette: `#d1fae5` bg, `#065f46` text
+5. **Item description gray box**
+   - Widen to match (reduce outer padding)
+   - Pink pickup box: icon + "Pickup" text + info should START on same line as icon (not icon on its own line)
 
-### 7. Vendor Public Profile "Event Approved" Badge — PARTIALLY DONE
-**Modified:** `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx`
-- Added "✓ Event Approved" badge after TierBadge in DESKTOP view (~line 580)
-- **STILL NEEDS:** Same badge in MOBILE view (~line 788, after second TierBadge)
+6. **"What Happens Next" sections — CONSOLIDATE**
+   - There are TWO "What's Next" sections — merge into ONE
+   - Remove phone icon from top one
+   - Remove yellow background shading (use white/no shading)
+   - Convert block text into bullet points
+   - Left-justify bullets (use the bottom section's format as the model — it already has bullets and left alignment)
+   - Net result: one consolidated "What's Next" section with bullets, no yellow bg, no phone icon
 
-## Remaining Items
+## Git State
+- **Last commit:** `2cece06` — Session 54 event approval
+- **Main:** 18 commits ahead of origin/main
+- **Staging:** Synced with main
+- **Uncommitted:** Header.tsx dropdown edits + business_rules_audit_and_testing.md
+- Migrations 076+077 applied to all 3 environments
 
-### 7b. Vendor Profile Badge — MOBILE view
-**File:** `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` (~line 788)
-- Add same "✓ Event Approved" badge after the mobile TierBadge (line 788)
-- Same style as desktop version
-
-### 8. Admin Events Page: Badge + Sort in Vendor Invite List
-**File:** `src/app/api/admin/events/route.ts` (GET handler, line 75-88)
-- Add `event_approved` to vendor_profiles SELECT (line 77)
-- Include `event_approved` in mapped vendors array
-
-**File:** `src/app/[vertical]/admin/events/page.tsx` (line 714-751)
-- Show small green "Event ✓" pill next to vendor name in invite checkbox list
-- Sort vendors: event-approved first, then alphabetical
-
-### 9. Type check + lint
-- `npx tsc --noEmit`
-- `npm run lint`
-
-## Files Modified This Session
-- `supabase/migrations/20260309_076_vendor_event_approval.sql` — NEW
-- `src/lib/notifications/types.ts` — MODIFIED (added vendor_event_approved)
-- `src/app/api/admin/vendors/[id]/event-approval/route.ts` — NEW
-- `src/app/admin/vendors/[vendorId]/VendorActions.tsx` — MODIFIED
-- `src/app/admin/vendors/[vendorId]/page.tsx` — MODIFIED
-- `src/app/[vertical]/vendor/listings/ListingForm.tsx` — MODIFIED
-- `src/app/[vertical]/vendor/listings/new/page.tsx` — MODIFIED
-- `src/app/[vertical]/vendor/listings/[listingId]/edit/page.tsx` — MODIFIED
-- `src/app/[vertical]/listing/[listingId]/page.tsx` — MODIFIED
-- `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` — MODIFIED (desktop badge only)
-
-## NOT YET Modified (still needed)
-- `src/app/api/admin/events/route.ts` — add event_approved to vendor query
-- `src/app/[vertical]/admin/events/page.tsx` — badge + sort in invite list
-
-## Commits This Session
-- None yet — all changes uncommitted
-
-## Previous Session (53) Context
-- Main is 17 commits ahead of origin/main
-- Staging synced through `f80f791`
-- Migrations 072-075 applied to all 3 environments
-- URL rename /catering → /events completed
-
-## Gotchas
-- `vendor_profiles` uses `*` select in admin detail page, so `event_approved` is automatically available without changing the query
-- `listing_data` is JSONB — the `event_menu_item` field is stored alongside `contains_allergens` and `ingredients`
-- The vendor public profile page has TWO TierBadge instances (desktop ~line 579, mobile ~line 788) — both need the Event Approved badge
-- Migration 076 has NOT been applied yet — needs user to run on environments
+## Key Decisions This Session
+- Event approval is FT-only
+- "My Orders" removed from dropdown — dashboard has orders
+- Events link placed after Settings in menu
+- NotificationSeverity: 'info' not 'success'

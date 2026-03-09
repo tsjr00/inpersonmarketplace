@@ -16,7 +16,7 @@
 >
 > **The workflow is: user confirms → then tests → then code. Never skip the first step.**
 >
-> **Current vitest stats (2026-03-03):** 337 passing, 59 todo, 0 failures across 8 test files.
+> **Current vitest stats (2026-03-09):** 368 passing, 59 todo, 0 failures across 12 test files.
 >
 > If you find yourself processing a long list of rules and optimizing for speed or volume, STOP. Accuracy matters more than output. One correct test for a confirmed rule is worth more than fifty tests for rules nobody approved.
 
@@ -523,6 +523,15 @@ Vendor suggests new market → admin reviews → approved/rejected → vendor jo
 | ✅ 📋T VJ-R12 | Listing availability calculated from market schedules + cutoff hours + vendor attendance (FT requires attendance record) | VJ-W6 | FT listing at market with no vendor_market_schedule attendance → not available |
 | ✅ 📋T VJ-R13 | Vendor can pause listing (status='paused') without deleting. Paused listings hidden from browse but preserve order history | VJ-W6 | Status change to 'paused' → listing disappears from browse → existing orders unaffected |
 
+#### SESSION 48-54 ADDITIONS (Vendor Trial + Event Approval)
+
+| ID | Rule | Workflow | What to Test |
+|----|------|----------|-------------|
+| ✅ VJ-R16 | **Vendor trial system (Session 48):** Admin approval of FT vendor auto-grants Basic tier free for 90 days. Sets `subscription_status='trialing'`, `trial_started_at=now()`, `trial_ends_at=now()+90d`. FM approval auto-grants Standard tier. Trial ends → vendor downgraded to 'free' tier by cron Phase 10. **Columns:** `trial_started_at`, `trial_ends_at`, `trial_grace_ends_at` on vendor_profiles. | VJ-W2 | Admin approves FT vendor → tier='basic', subscription_status='trialing', trial_ends_at=90 days out. Admin approves FM vendor → tier='standard'. |
+| ✅ VJ-R17 | **Trial lifecycle cron Phase 10 (Session 48):** Cron Phase 10 handles full trial lifecycle: 14d/7d/3d reminder notifications, trial expiry (downgrade to free, subscription_status='canceled'), 14-day grace period, grace expiry (excess listings → 'draft', market boxes → inactive). Trial fields cleared on paid upgrade (Stripe webhook + downgrade-free route). | VJ-W2, IR-W1 | Trial at 14 days remaining → `trial_reminder_14d` notification. Trial expired → tier='free', subscription_status='canceled'. Grace expired → excess listings drafted. Stripe paid upgrade → trial fields cleared. |
+| ✅ VJ-R18 | **Event approval (Session 54, FT-only):** Admin can approve vendors for private events via `PATCH /api/admin/vendors/[id]/event-approval`. Separate from marketplace approval — vendor must first be `status='approved'` AND `vertical_id='food_trucks'`. Sets `event_approved=true`, `event_approved_at=now()`. Revoke sets `event_approved=false`, `event_approved_at=null`. Sends `vendor_event_approved` notification on approve. | VJ-W2 | Admin event-approves FT vendor → event_approved=true, notification sent. Attempt on FM vendor → rejected. Attempt on non-approved vendor → rejected. Revoke → event_approved=false, no notification. |
+| ✅ VJ-R19 | **Event-ready listing flag (Session 54):** Event-approved vendors see "Available for Events" checkbox on listing edit. Stored as `listing_data.event_menu_item=true` (JSONB, alongside `contains_allergens` and `ingredients`). Checkbox only rendered when `vertical='food_trucks' && eventApproved`. Buyer listing detail shows "✓ Event Ready" green pill when `listing_data.event_menu_item=true`. Non-event-approved vendors never see checkbox (cannot set flag). | VJ-W6 | Event-approved vendor checks box + saves → listing_data.event_menu_item=true in DB. Buyer sees "Event Ready" pill. Non-event-approved vendor → checkbox not rendered. Revoke event approval → checkbox disappears (existing flags remain in DB but checkbox hidden). |
+
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
 **Vendor Signup (src/app/api/submit/route.ts, 236 lines):**
@@ -721,6 +730,12 @@ Scheduled/ready pickup past date → vendor marks missed OR cron Phase 4 auto-ha
 | ✅ 📋T SL-R15 | `maxSubscribersPerOffering` enforced at purchase time (API check + RPC atomic check). Falls back to tier default if vendor hasn't set it. **User clarification Session 49**: Should include a message to buyer: "The seller is at capacity at this time — please check back next week." | SL-W2 | Offering at capacity → new subscriber rejected with capacity message |
 | ✅ 📋T SL-R16 | Cron Phase 7 auto-fulfills stale market box confirmation windows (buyer confirmed, vendor didn't, >5min) but does NOT trigger payout. **This is now CORRECT behavior** — payout happens at checkout time (Session 48 fix), so Phase 7 should NOT create a second payout. | SL-W4 | Auto-fulfilled pickup → status=picked_up, no new vendor_payouts record (payout already exists from checkout) |
 
+#### SESSION 48 ADDITION (Trial Auto-Downgrade)
+
+| ID | Rule | Workflow | What to Test |
+|----|------|----------|-------------|
+| ✅ SL-R17 | **Trial grace expiry auto-downgrade (Session 48):** When vendor trial grace period expires (14 days after trial end), cron Phase 10 auto-unpublishes excess listings beyond free tier limits (→ status='draft') and deactivates excess market boxes (→ active=false). Vendor notified with `trial_grace_expired` (immediate urgency). This ensures free-tier vendors can't keep premium-tier listing counts after trial ends. | SL-W6, VJ-W2 | Vendor with 10 published listings, trial grace expired, free tier limit=5 → 5 excess listings set to 'draft'. Vendor with 3 active market boxes, free tier limit=1 → 2 deactivated. Vendor notified. |
+
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
 **Three core tables:**
@@ -847,6 +862,13 @@ Stripe sends signed payload → `constructEvent()` verifies signature → proces
 | AC-R13 | Account deletion rate-limited to 3/hour and requires email confirmation match | AC-W2 | 4th deletion attempt in same hour → 429 |
 | AC-R14 | Chief vertical admin can add/remove other vertical admins. Only platform admin can set `is_chief` flag | AC-W4 | Non-chief vertical admin trying to add admin → rejected |
 
+#### SESSION 49 ADDITIONS (Rate Limiting + Legal Terms)
+
+| ID | Rule | Workflow | What to Test |
+|----|------|----------|-------------|
+| ✅ AC-R15 | **Upstash Redis rate limiting (Session 49):** `checkRateLimit()` is async, uses Upstash Redis sliding window for shared state across Vercel instances. Falls back to in-memory when `UPSTASH_REDIS_REST_URL` env var not set (local dev). Free tier: 10K commands/day, each check ≈ 2 commands. Limiter instances cached per config in a Map. Replaces in-memory-only rate limiting (which reset on cold starts). **181 call sites updated to async.** | AC-W2 | Rate limit exceeded on Instance A → Instance B also rejects (shared state). Missing env var → falls back to in-memory (no crash). Sliding window (not fixed) — requests at window boundary don't all reset. |
+| ✅ AC-R16 | **Legal terms acceptance tracking (Session 49):** `user_agreement_acceptances` table tracks agreement acceptance per user. 3 agreement types: `platform_user`, `vendor_service`, `vendor_partner`. Records: user_id, agreement_type, agreement_version, accepted_at, ip_address, user_agent, vertical_id. RLS: users can SELECT/INSERT own rows only. Entity name: VIIIXV LLC. Migration 068. | AC-W2 | User accepts terms → record created with correct agreement_type + version. User cannot read other users' acceptance records (RLS). Multiple acceptances of same type/version allowed (version tracking). |
+
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
 **Authentication architecture:**
@@ -902,8 +924,8 @@ This safer pattern that checks admin role before creating service client exists 
 **GAP 3 — `is_platform_admin()` DB function doesn't check `role='platform_admin'`:**
 Only checks `role='admin'`. If a user has `role='platform_admin'` (without `'admin'` in roles array), DB-level RLS policies would NOT treat them as admin.
 
-**GAP 4 — In-memory rate limiting resets on cold starts:**
-Per-instance state. Attacker hitting different Vercel instances bypasses limits. Upstash Redis migration planned but not implemented.
+**GAP 4 — ~~In-memory rate limiting resets on cold starts~~ RESOLVED Session 49:**
+~~Per-instance state. Attacker hitting different Vercel instances bypasses limits.~~ Upstash Redis sliding window implemented (AC-R15). Shared state across all instances. Falls back to in-memory when env vars not set (local dev).
 
 **GAP 5 — TypeScript type inconsistency:**
 `platform_admin` exists in `admin.ts` UserRole but not in `types.ts` UserRole.
@@ -1009,9 +1031,16 @@ Verify that `getNotificationUrgency(type, vertical)` returns correct per-vertica
 | 🟣V NI-R36 | `pickup_confirmation_needed` should only fire when one party misses the 30-second mutual confirmation window — NOT at the start of the window. Current code fires immediately when buyer confirms (before vendor has a chance to respond). Urgency: immediate for both verticals. Requires sequence/protocol redesign for the missed-window scenario | NI-W8 | Buyer confirms + vendor confirms within 30s → NO notification. Buyer confirms + vendor misses 30s → immediate notification fires. Vendor fulfills first + buyer misses 30s → immediate notification fires |
 | 📋T NI-R37 | External payment reminder timing is per-vertical: FT = 15 minutes, FM = 12 hours, default = 12 hours. Hardcoded in cron Phase 3.5 (`REMINDER_DELAY_MS` in expire-orders route) | NI-W1 | FT external order at 16 min old → reminder sent. FM external order at 16 min old → no reminder (12hr threshold) |
 
+#### SESSION 48-54 ADDITIONS (Trial + Event Notifications)
+
+| ID | Rule | Workflow | What to Test |
+|----|------|----------|-------------|
+| ✅ NI-R38 | **6 trial notification types (Session 48):** `vendor_approved_trial` (audience: vendor, urgency: standard, severity: info), `trial_reminder_14d` / `trial_reminder_7d` / `trial_reminder_3d` (audience: vendor, urgency: standard, severity: warning), `trial_expired` (audience: vendor, urgency: standard, severity: warning), `trial_grace_expired` (audience: vendor, urgency: immediate, severity: critical). All exist in NOTIFICATION_TEMPLATES. Cron Phase 10 sends reminders at correct intervals. `trial_grace_expired` is immediate urgency because listings are being auto-drafted (service disruption). | NI-W8 | All 6 types exist in registry. Correct audience/urgency/severity for each. Cron sends `trial_reminder_14d` at 14 days, not 15 or 13. `trial_grace_expired` triggers push notification (immediate urgency). |
+| ✅ NI-R39 | **Event approval notification (Session 54):** `vendor_event_approved` (audience: vendor, urgency: standard, severity: info, channels: inApp+email+push). Sent when admin approves vendor for events. actionUrl points to `/{vertical}/vendor/listings` so vendor can mark items as event-ready. NOT sent on revoke (silent revocation). | NI-W8 | Admin approves vendor for events → notification sent with correct actionUrl. Admin revokes → no notification. Type exists in NOTIFICATION_TEMPLATES with correct properties. |
+
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
-**30 notification types (types.ts):**
+**32 notification types (types.ts) — updated from 30:**
 - 10 buyer-facing, 18 vendor-facing, 2 admin-facing
 - Urgency mapping: immediate=push+in_app (10 types), urgent=sms+in_app (2 types), standard=email+in_app (14 types), info=email_only (4 types)
 
@@ -1150,6 +1179,14 @@ These rules prevent wasteful API calls, DB queries, and polling that skyrocket c
 | IR-R25 | 📋T Phase 10a trial reminder dedup uses 1 batch query + `Set<string>`, not 1 DB query per trial vendor | IR-W1 | 5 trial vendors → 1 dedup query total (not 5) |
 | IR-R26 | 📋T quality-checks.ts only loads vendor_profiles for IDs found in active schedules (scoped `.in()` query), not `SELECT *` from all vendors | IR-W1 | 3 vendors in schedules, 100 total → only 3 profiles loaded |
 
+#### SESSION 47-49 ADDITIONS (Sentry + Support + Email)
+
+| ID | Rule | Workflow | What to Test |
+|----|------|----------|-------------|
+| ✅ IR-R27 | **Sentry v10 error tracking (Session 49):** Client init via `SentryInit.tsx` `'use client'` component (v10 doesn't auto-load `sentry.client.config.ts`). Imported in root layout.tsx. CSP updated for `*.ingest.sentry.io` AND `*.ingest.us.sentry.io`. 4xx validation errors excluded from reporting (only 5xx/unhandled). Server config in `sentry.server.config.ts`, edge in `sentry.edge.config.ts`. | IR-W6 | Unhandled error → appears in Sentry. 400 validation error → NOT reported. SentryInit component renders without crash. CSP doesn't block Sentry ingestion. |
+| ✅ IR-R28 | **Support ticket system (Session 47):** `support_tickets` table (migration 058). Public form at `/{vertical}/support` — no auth required. Rate-limited API (prevents spam). Fields: name, email, subject, message, vertical_id. Admin can view tickets. Email notification to admin on new ticket. | IR-W6 | Anonymous user submits support ticket → record created, admin notified. Rate limit exceeded → 429. Ticket scoped to correct vertical_id. |
+| ✅ IR-R29 | **Per-vertical email FROM domains (Session 47):** `verifiedEmailDomains` mapping in notification service.ts: FM → `updates@mail.farmersmarketing.app`, FT → `updates@mail.foodtruckn.app`. Changed from `noreply@` to `updates@` for deliverability. Both domains verified in Resend. All emails include "do not reply" footer with link to `/{vertical}/support`. | IR-W3 | FT notification email → FROM `updates@mail.foodtruckn.app`. FM notification email → FROM `updates@mail.farmersmarketing.app`. Footer includes support link. |
+
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
 **Cron configuration (vercel.json) — updated Session 49 for business hours:**
@@ -1268,9 +1305,9 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 
 ---
 
-## VITEST COVERAGE SUMMARY (2026-03-03)
+## VITEST COVERAGE SUMMARY (2026-03-09)
 
-**8 test files**, 342 passing, 66 `.todo()`, 0 failures. Pre-commit hook runs all tests on every commit.
+**8 test files**, 368 passing, 59 `.todo()`, 0 failures. Pre-commit hook runs all tests on every commit.
 
 ### Coverage by Domain
 
@@ -1278,13 +1315,30 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 |--------|-------------|-----------|---------|---------|----------|
 | 1. Money Path | 28 (MP-R1–R28) | 16 | 12 | 0 | 57% active |
 | 2. Order Lifecycle | 22 (OL-R1–R22) | 3 | 19 | 0 | 14% active |
-| 3. Vertical Isolation | 15 (VI-R1–R15) | 7 | 8 | 0 | 47% active |
-| 4. Vendor Journey | 13 (VJ-R1–R13) | 5 | 8 | 0 | 38% active |
-| 5. Subscriptions | 16 (SL-R1–R16) | 1 | 15 | 0 | 6% active |
-| 6. Auth & Access | 14 (AC-R1–R14) | 0 | 0 | 14 | 0% (unconfirmed) |
-| 7. Notifications | 37 (NI-R1–R37) | 18 | 1 | 18 | 49% active |
-| 8. Infrastructure | 26 (IR-R1–R26) | 5 | 7 | 14 | 19% (R1-R14 unconfirmed, R15-R26 confirmed) |
-| **Totals** | **171** | **55** | **70** | **46** | **32% active** |
+| 3. Vertical Isolation | 19 (VI-R1–R19) | 7 | 12 | 0 | 37% active |
+| 4. Vendor Journey | 19 (VJ-R1–R19) | 5 | 8 | 6 | 26% active |
+| 5. Subscriptions | 17 (SL-R1–R17) | 1 | 16 | 0 | 6% active |
+| 6. Auth & Access | 16 (AC-R1–R16) | 0 | 0 | 16 | 0% (R1-R14 unconfirmed, R15-R16 new) |
+| 7. Notifications | 39 (NI-R1–R39) | 18 | 1 | 20 | 46% active |
+| 8. Infrastructure | 29 (IR-R1–R29) | 5 | 7 | 17 | 17% (R1-R14 unconfirmed, R15-R29 confirmed) |
+| **Totals** | **189** | **55** | **75** | **59** | **29% active** |
+
+### New Rules Added (Sessions 47-54) — Pending Vitest Coverage
+
+| ID | Domain | Rule Summary | Testable With |
+|----|--------|-------------|---------------|
+| VJ-R16 | Vendor Journey | Vendor trial auto-grant (90d, Basic/Standard) | DB test (trigger on approve) |
+| VJ-R17 | Vendor Journey | Trial lifecycle cron Phase 10 | Cron test (reminders, expiry, grace) |
+| VJ-R18 | Vendor Journey | Event approval (FT-only, admin-controlled) | API test (PATCH endpoint) |
+| VJ-R19 | Vendor Journey | Event-ready listing flag (listing_data JSONB) | Component test (checkbox visibility) |
+| SL-R17 | Subscriptions | Trial grace auto-downgrade (listings→draft) | Cron test (Phase 10 grace expiry) |
+| NI-R38 | Notifications | 6 trial notification types | Pure function test (registry check) |
+| NI-R39 | Notifications | vendor_event_approved notification | Pure function test (registry check) |
+| AC-R15 | Auth & Access | Upstash Redis sliding window rate limiting | Integration test (shared state) |
+| AC-R16 | Auth & Access | Legal terms acceptance tracking | DB test (RLS, 3 agreement types) |
+| IR-R27 | Infrastructure | Sentry v10 client init (SentryInit.tsx) | Component test (renders, CSP) |
+| IR-R28 | Infrastructure | Support ticket system (public form) | API test (rate limit, vertical scope) |
+| IR-R29 | Infrastructure | Per-vertical email FROM domains | Pure function test (domain mapping) |
 
 ### Test Files → Domains
 
@@ -1368,6 +1422,7 @@ Converting these requires either integration test infrastructure (e.g., test dat
 | 2026-02-28 | **FM Free Tier Restructure** — VI-R12 updated (FM now has free/standard/premium/featured). VJ-R4 tier limits updated for both verticals. VJ-R6 updated (all vendors default to 'free', trigger renamed `set_default_vendor_tier`). VJ-R8 market limits updated. Tier limits tables regenerated. 38-check business rules audit: 35 pass, 3 fails found+fixed (migration 061 status regression 'active'→'published', getTierLimits fallback standard→free, admin dropdown missing tiers). | Session 49 |
 | 2026-03-03 | **Vitest cross-reference complete.** Added 🟣V (active test) and 📋T (todo placeholder) indicators to all 159 rules across 8 domains. Added coverage summary section. 42 rules have active passing tests, 71 have todo placeholders, 46 have no tests (unconfirmed domains). Session 51. |
 | 2026-02-28 | **Market box payout fix verified against code.** SL-Q1/SL-R4/SL-R5 RESOLVED (per-pickup payout removed, full prepaid at checkout). GAPs 1,2,5 in Domain 5 RESOLVED. MP-W4 updated. MP-Q1 RESOLVED (new `market_box_subscription_id` column + unique index). MP-R6/R7 updated with new index/key. OL-R21 updated (Phase 5 now handles both order_item and market_box_subscription payouts). VI-Q3 RESOLVED (referral codes verified filtered by vertical_id). VI-R6/NI-R6 corrected (`updates@` not `noreply@`). **Phase 7 payout gap FIXED** — auto-fulfilled regular orders now create vendor payout + Stripe transfer (OL-R22 resolved). | Session 48 |
+| 2026-03-09 | **Sessions 47-54 rule additions (12 new rules).** VJ-R16/R17 (vendor trial system + lifecycle cron). VJ-R18/R19 (event approval + event-ready listing flag). SL-R17 (trial grace auto-downgrade). NI-R38/R39 (trial + event notifications). AC-R15/R16 (Upstash Redis rate limiting + legal terms). IR-R27/R28/R29 (Sentry + support tickets + per-vertical email FROM). GAP 4 (in-memory rate limiting) marked RESOLVED. Coverage summary updated: 189 total rules, 368 passing tests, 59 todo. Updated notification type count from 30 to 32. | Session 54 |
 
 ---
 
