@@ -78,6 +78,7 @@ export type NotificationType =
   | 'catering_vendor_responded'
   | 'event_feedback_request'
   | 'vendor_event_approved'
+  | 'vendor_event_application_submitted'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -532,6 +533,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => 'Approved for Private Events!',
     message: () => `Your food truck has been approved for Private Events! You can now mark menu items as event-ready from your listings page.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/listings`,
+  },
+
+  vendor_event_application_submitted: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'admin',
+    title: () => 'Event Application Received',
+    message: (d) => `${d.vendorName || 'A vendor'} has applied for private event approval. Review their event readiness profile.`,
+    actionUrl: (d) => `/admin/vendors/${d.vendorId || ''}`,
   },
 }
 

@@ -121,6 +121,21 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
               ✓ EVENT APPROVED
             </span>
           )}
+          {!vendor.event_approved && (profileData?.event_readiness as Record<string, unknown>)?.application_status === 'pending_review' && (
+            <span style={{
+              display: 'inline-block',
+              marginTop: 10,
+              marginLeft: 8,
+              padding: '6px 12px',
+              borderRadius: 20,
+              fontSize: 14,
+              fontWeight: 600,
+              backgroundColor: '#fff3cd',
+              color: '#856404',
+            }}>
+              EVENT APPLICATION PENDING
+            </span>
+          )}
         </div>
 
         <VendorActions
@@ -235,6 +250,56 @@ export default async function VendorDetailPage({ params }: VendorDetailPageProps
               </div>
             </div>
           )}
+
+          {/* Event Readiness Application */}
+          {(profileData?.event_readiness as Record<string, unknown>)?.application_status &&
+           (profileData?.event_readiness as Record<string, unknown>)?.application_status !== 'not_applied' && (() => {
+            const er = profileData.event_readiness as Record<string, unknown>
+            const fieldRows: Array<{ label: string; value: string }> = [
+              { label: 'Vehicle Type', value: er.vehicle_type === 'food_truck' ? 'Food Truck' : 'Food Trailer (truck + trailer)' },
+              { label: 'Vehicle Length', value: `${er.vehicle_length_feet} feet` },
+              { label: 'Requires Generator', value: er.requires_generator ? 'Yes' : 'No' },
+              ...(er.requires_generator ? [
+                { label: 'Generator Type', value: er.generator_type === 'quiet_inverter' ? 'Quiet / Inverter' : 'Standard' },
+                { label: 'Generator Fuel', value: er.generator_fuel === 'propane' ? 'Propane (minimal smell)' : er.generator_fuel === 'gasoline' ? 'Gasoline' : 'Diesel' },
+              ] : []),
+              { label: 'Max Runtime (no external power)', value: `${er.max_runtime_hours} hours` },
+              { label: 'Strong Cooking Odors', value: er.strong_odors ? `Yes — ${er.odor_description || ''}` : 'No' },
+              { label: 'Food Perishability', value: er.food_perishability === 'immediate' ? 'Must eat immediately' : er.food_perishability === 'within_15_min' ? 'Best within 15 min' : 'Can sit 30+ min' },
+              { label: 'Packaging', value: (er.packaging as string) || 'N/A' },
+              { label: 'Utensils Required', value: er.utensils_required ? 'Yes' : 'No' },
+              { label: 'Seating Recommended', value: er.seating_recommended ? 'Yes' : 'No' },
+              { label: 'Max Headcount Per Wave', value: `${er.max_headcount_per_wave} people / 30 min` },
+              { label: 'Event Experience', value: er.has_event_experience ? `Yes — ${er.event_experience_description || ''}` : 'No' },
+              ...(er.additional_notes ? [{ label: 'Additional Notes', value: er.additional_notes as string }] : []),
+            ]
+            return (
+              <details style={{
+                backgroundColor: 'white',
+                borderRadius: 8,
+                padding: 25,
+                marginBottom: 20,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              }}>
+                <summary style={{ cursor: 'pointer', color: '#333', fontSize: 18, fontWeight: 700, marginBottom: 10 }}>
+                  Event Readiness Application
+                  {typeof er.submitted_at === 'string' && (
+                    <span style={{ fontSize: 13, fontWeight: 400, color: '#666', marginLeft: 10 }}>
+                      Submitted {new Date(er.submitted_at).toLocaleDateString()}
+                    </span>
+                  )}
+                </summary>
+                <div style={{ display: 'grid', gap: 10, marginTop: 15 }}>
+                  {fieldRows.map((row, i) => (
+                    <div key={i} style={{ display: 'flex', borderBottom: '1px solid #eee', paddingBottom: 8 }}>
+                      <div style={{ width: 200, color: '#666', fontSize: 14 }}>{row.label}</div>
+                      <div style={{ flex: 1, color: '#333', fontSize: 14 }}>{row.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )
+          })()}
 
           {/* Vendor Verification / Onboarding */}
           <div style={{

@@ -74,11 +74,21 @@ export async function PATCH(
       )
     }
 
+    // Sync application_status in profile_data.event_readiness
+    const existingProfileData = (vendor.profile_data as Record<string, unknown>) || {}
+    const existingReadiness = (existingProfileData.event_readiness as Record<string, unknown>) || {}
+    const updatedReadiness = Object.keys(existingReadiness).length > 0
+      ? { ...existingReadiness, application_status: event_approved ? 'approved' : 'rejected' }
+      : null
+
     // Update event approval status
     const updateData: Record<string, unknown> = {
       event_approved,
       event_approved_at: event_approved ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
+      ...(updatedReadiness ? {
+        profile_data: { ...existingProfileData, event_readiness: updatedReadiness },
+      } : {}),
     }
 
     const { error: updateError } = await serviceClient
