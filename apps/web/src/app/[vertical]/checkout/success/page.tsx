@@ -218,41 +218,48 @@ export default function CheckoutSuccessPage() {
               backgroundColor: colors.surfaceMuted,
               borderRadius: radius.sm,
             }}>
-              <div>
-                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Order Number</p>
-                <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary, fontSize: typography.sizes.base }}>{order.order_number}</p>
-              </div>
-              <div>
-                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Date</p>
-                <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary }}>
-                  {new Date(order.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <div>
-                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Status</p>
-                <span style={{
-                  display: 'inline-block',
-                  padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                  backgroundColor: colors.primaryLight,
-                  color: colors.primaryDark,
-                  borderRadius: radius.full,
-                  fontSize: typography.sizes.xs,
-                  fontWeight: typography.weights.semibold,
-                }}>
-                  Order Placed
-                </span>
-              </div>
-              <div>
-                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Total</p>
-                <p style={{ fontWeight: typography.weights.semibold, margin: 0, fontSize: typography.sizes.lg, color: colors.primary }}>
-                  ${(order.total_cents / 100).toFixed(2)}
-                </p>
-                {order.tip_amount > 0 && (
-                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: `${spacing['3xs']} 0 0 0` }}>
-                    Includes ${(order.tip_amount / 100).toFixed(2)} tip ({order.tip_percentage}%)
+              {/* Row 1: Order Number + Date */}
+              <div style={{ display: 'flex', gap: spacing.sm }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Order Number</p>
+                  <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary, fontSize: typography.sizes.base }}>{order.order_number}</p>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Date</p>
+                  <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary }}>
+                    {new Date(order.created_at).toLocaleDateString()}
                   </p>
-                )}
+                </div>
               </div>
+              {/* Row 2: Status + Total */}
+              <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Status</p>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                    backgroundColor: colors.primaryLight,
+                    color: colors.primaryDark,
+                    borderRadius: radius.full,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                  }}>
+                    Order Placed
+                  </span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Total</p>
+                  <p style={{ fontWeight: typography.weights.semibold, margin: 0, fontSize: typography.sizes.lg, color: colors.primary }}>
+                    ${(order.total_cents / 100).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+              {/* Row 3: Tip info (if applicable) */}
+              {order.tip_amount > 0 && (
+                <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>
+                  Includes ${(order.tip_amount / 100).toFixed(2)} tip ({order.tip_percentage}%)
+                </p>
+              )}
             </div>
 
             {order.items && order.items.length > 0 && (
