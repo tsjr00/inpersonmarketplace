@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { calculateWindowExpiry } from '@/lib/cron/order-timing'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -176,7 +177,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
 
         const now = new Date()
-        const CONFIRMATION_WINDOW_SECONDS = 30
         const buyerAlreadyConfirmed = !!(pickup as Record<string, unknown>).buyer_confirmed_at
 
         if (buyerAlreadyConfirmed) {
@@ -213,9 +213,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         } else {
           // Vendor confirming first — start 30s window, wait for buyer
           updates.vendor_confirmed_at = now.toISOString()
-          updates.confirmation_window_expires_at = new Date(
-            now.getTime() + CONFIRMATION_WINDOW_SECONDS * 1000
-          ).toISOString()
+          updates.confirmation_window_expires_at = calculateWindowExpiry(now)
           // If still scheduled, also mark as ready
           if (pickup.status === 'scheduled') {
             updates.status = 'ready'
