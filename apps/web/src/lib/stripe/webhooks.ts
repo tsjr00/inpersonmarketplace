@@ -7,6 +7,7 @@ import { TracedError } from '@/lib/errors/traced-error'
 import { logError } from '@/lib/errors/logger'
 import { crumb } from '@/lib/errors/breadcrumbs'
 import { calculateVendorPayout } from '@/lib/pricing'
+import { selectBasePriceForTermWeeks } from '@/lib/stripe/webhook-utils'
 
 /**
  * Safely extract current_period_end from a Stripe subscription object.
@@ -435,14 +436,11 @@ async function processMarketBoxVendorPayout(
   }
 
   // Use metadata base price if available, otherwise query offering
-  let basePriceCents: number
-  if (basePriceCentsFromMeta && basePriceCentsFromMeta > 0) {
-    basePriceCents = basePriceCentsFromMeta
-  } else {
-    basePriceCents = termWeeks === 8
-      ? (offering.price_8week_cents || offering.price_4week_cents || offering.price_cents)
-      : (offering.price_4week_cents || offering.price_cents)
-  }
+  const basePriceCents = selectBasePriceForTermWeeks(
+    { basePriceCentsFromMeta },
+    offering,
+    termWeeks,
+  )
 
   if (basePriceCents <= 0) {
     crumb.stripe(`Market box base price is 0 — skipping payout for subscription ${subscriptionId}`)
