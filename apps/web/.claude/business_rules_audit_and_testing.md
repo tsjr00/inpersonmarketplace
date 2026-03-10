@@ -16,7 +16,7 @@
 >
 > **The workflow is: user confirms → then tests → then code. Never skip the first step.**
 >
-> **Current vitest stats (2026-03-09):** 368 passing, 59 todo, 0 failures across 12 test files.
+> **Current vitest stats (2026-03-09):** 370 passing, 110 todo, 0 failures across 12 test files.
 >
 > If you find yourself processing a long list of rules and optimizing for speed or volume, STOP. Accuracy matters more than output. One correct test for a confirmed rule is worth more than fifty tests for rules nobody approved.
 
@@ -129,7 +129,7 @@ Buyer selects tip % at checkout → tip applied to displayed subtotal (not base)
 |----|------|----------|-------------|
 | ✅ 🟣V MP-R1 | Buyer fee is exactly 6.5% of base subtotal + $0.15 flat fee (Stripe only) | MP-W1 | `calculateBuyerPrice(1000)` returns correct value; flat fee excluded for external |
 | ✅ 🟣V MP-R2 | Vendor fee is exactly 6.5% of base subtotal, prorated per item | MP-W1, MP-W3 | Payout amount = item price - (item price × 0.065) - prorated flat fee |
-| ✅ MP-R3 | Tip percentage applied to displayed subtotal (sum of per-item display prices), NOT base subtotal | MP-W1 | Tip on $19.18 displayed subtotal (2 × $9.59) not $18.00 base |
+| ✅ 🟣V MP-R3 | Tip percentage applied to displayed subtotal (sum of per-item display prices), NOT base subtotal | MP-W1 | Tip on $19.18 displayed subtotal (2 × $9.59) not $18.00 base |
 | ✅ MP-R4 | Vendor receives tip on food cost only; platform fee portion tracked in `tip_on_platform_fee_cents` | MP-W1 | vendor_tip = tip_amount - tip_on_platform_fee_cents |
 | ✅ 🟣V MP-R5 | Small order fee ($0.50) applies when displayed subtotal (base+6.5%) < $5.00 (configurable per vertical) | MP-W1, MP-W2 | Fee applied before tip calculation; threshold compared against displayed price |
 | ✅ 📋T MP-R6 | Double payout prevention: unique index on `vendor_payouts(order_item_id)` WHERE status NOT IN ('failed','cancelled'). Also `idx_vendor_payouts_mb_sub_unique` on `market_box_subscription_id` (Session 48, migration 059) | MP-W3, MP-W4 | Cannot insert two non-failed payouts for same order_item OR same market_box_subscription |
@@ -311,7 +311,7 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 
 | ✅ 📋T OL-R18 | **Cron Phase 3.6: auto-confirm digital external payments**. Matches: `orders.status = 'pending'` AND `orders.payment_method` IN (`'venmo'`, `'cashapp'`, `'paypal'`) — NOT `'cash'` — AND all `order_items.pickup_date <= TODAY - 24hr`. Action: `orders.status` → `'paid'`, `order_items.status` → `'confirmed'`, `orders.external_payment_confirmed_at = NOW()`, fees recorded in ledger. | Venmo order, pickup 24hr+ past → after cron: `orders.status = 'paid'`, `order_items.status = 'confirmed'`, `external_payment_confirmed_at IS NOT NULL`. Cash order same conditions → NO changes (cash excluded). |
 
-| 🔵❓ 📋T OL-R19 | **Cron Phase 4: no-show buyer, vendor still paid (per-vertical timing needed)**. Current code: `order_items.status = 'ready'` AND `order_items.pickup_date < TODAY` — no per-vertical logic. Code verified: item status changes to `'fulfilled'`, payout created with `vendor_payouts.status = 'pending'`, buyer gets `pickup_missed` notification. **Per-vertical scenarios to decide:** **FT**: Buyer ordered for 5:00 PM slot. No-show should trigger after the time slot passes, not just after midnight. Current code only checks date, ignoring `preferred_pickup_time`. **FM**: Buyer's pickup was during Saturday market (8am-1pm). No-show detection at midnight Saturday → Sunday is reasonable since market is closed. **Decision needed**: Should FT no-show check `pickup_date + preferred_pickup_time < NOW` instead of just `pickup_date < TODAY`? | FT: item `status='ready'`, `pickup_date = today`, `preferred_pickup_time = 17:00`, current time = 18:00 → should this trigger no-show? (Currently: NO — pickup_date is today, not past). FM: item `status='ready'`, `pickup_date = yesterday` → after cron: `order_items.status = 'fulfilled'`, payout created, buyer notified. |
+| ✅ 📋T OL-R19 | **Cron Phase 4: no-show buyer, vendor still paid (per-vertical timing).** **FT**: No-show triggers 1 hour after `preferred_pickup_time` passes on `pickup_date`. If pickup was at 5:00 PM, no-show at 6:00 PM same day — vendor paid, buyer gets `pickup_missed` notification. **FM**: Keep as-is — date-based detection. `pickup_date < TODAY` (midnight rollover). Saturday market pickup → no-show detected Sunday morning cron run. **Both**: item status → `'fulfilled'`, payout created with `vendor_payouts.status = 'pending'`. **USER DECISION Session 54**: FT = 1 hour after pickup time passes = no-show + mark fulfilled + pay vendor. FM = keep as-is (date-based, midnight detection reasonable). **CODE STATUS**: Current code is date-only for both verticals — FT per-time logic NOT YET IMPLEMENTED. | FT: item `status='ready'`, `pickup_date = today`, `preferred_pickup_time = 17:00`, current time = 18:01 → after cron: `status='fulfilled'`, payout created, buyer notified. FT same item at 17:59 → no change (within 1hr window). FM: item `status='ready'`, `pickup_date = yesterday` → after cron: `status='fulfilled'`, payout created, buyer notified. |
 
 | 🔵❓ 📋T OL-R20 | **Cron Phase 4.5: vendor stale reminder, no status change**. Matches: `order_items.status = 'confirmed'` AND `order_items.pickup_date < TODAY` with 3-day lookback. Action: escalating vendor notifications. `order_items.status` stays `'confirmed'` — does NOT change. | Item `order_items.status = 'confirmed'`, `pickup_date = yesterday` → after cron: `order_items.status` still `'confirmed'`, vendor notification sent. |
 
@@ -346,7 +346,7 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 | 🔵❓ OL-Q5 | Chef Box & Market Box corollary for OL-R16: Do subscription-based box orders follow the same external payment cancellation rules as regular listings? Or do they have separate timing? | NEEDS USER DECISION |
 | 🔵❓ OL-Q6 | Chef Box & Market Box corollary for OL-R17: Do subscription-based box orders get the same vendor reminder timing (FT=15min, FM=12hr)? Or different? | NEEDS USER DECISION |
 | 🔵❓ OL-Q7 | Cash order status progression: Cash orders are excluded from Phase 3.6 auto-confirm (only digital external auto-confirms). What is the full lifecycle for a cash order? Vendor must manually confirm payment — but what if they never do? Phase 3 cancels eventually (past pickup), but is there an intermediate reminder or escalation specific to cash? | NEEDS DOCUMENTATION — user referenced a prior conversation about cash status progression |
-| 🔵❓ OL-Q8 | OL-R19 per-vertical no-show timing: Should FT no-show detection use `pickup_date + preferred_pickup_time < NOW` (time-aware) instead of just `pickup_date < TODAY` (date-only)? Current code ignores the time slot entirely. | NEEDS USER DECISION |
+| ✅ OL-Q8 | OL-R19 per-vertical no-show timing: FT = 1 hour after preferred_pickup_time passes. FM = keep date-based (midnight rollover). | **USER DECIDED Session 54**: FT uses time-aware detection. FM stays date-only. Code change needed for FT. |
 
 ---
 
@@ -1104,7 +1104,7 @@ Exported but never called.
 > **⚠️ STOP — THIS DOMAIN HAS NOT BEEN REVIEWED BY THE USER.**
 > Everything below in Domain 8 is Claude's observation from reading code, NOT a confirmed business decision. Do NOT write tests, make code changes, or treat any rule here as approved. The user must review each rule and mark it ✅ before any action is taken.
 
-## 🔵❓ DOMAIN 8: INFRASTRUCTURE RELIABILITY (Entire domain not yet reviewed by user)
+## ✅ DOMAIN 8: INFRASTRUCTURE RELIABILITY (User reviewed Session 54 — IR-R1 through IR-R14 confirmed)
 
 ### Named Workflows
 
@@ -1135,30 +1135,30 @@ Off-peak detection (10pm-6am local) → `getPollingInterval()` selects active vs
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| IR-R1 | Each cron phase has independent try/catch. Phase N failure does NOT prevent Phase N+1 from executing | IR-W1 | Phase 3 throws → Phases 4-9 still execute |
-| IR-R2 | Within each phase, per-item processing is try/caught. One failed item does NOT abort the entire phase | IR-W1 | Item processing error → remaining items in phase still processed |
-| IR-R3 | Stripe webhook returns 500 on handler failure (triggers Stripe retry, up to 16 times over 72hr). Returns 400 on invalid signature (no retry) | IR-W3 | Handler exception → 500 → Stripe retries. Bad signature → 400 → no retry |
-| IR-R4 | CI pipeline fails the build on: lint errors, type errors, test failures, build errors. Security audit is `continue-on-error: true` | IR-W4 | Type error in PR → CI fails → merge blocked |
-| IR-R5 | Required env vars validated at server startup via instrumentation hook. Missing → server fails to start | IR-W4 | Deploy without SUPABASE_URL → server won't start |
+| ✅ 📋T IR-R1 | Each cron phase has independent try/catch. Phase N failure does NOT prevent Phase N+1 from executing | IR-W1 | Phase 3 throws → Phases 4-9 still execute |
+| ✅ 📋T IR-R2 | Within each phase, per-item processing is try/caught. One failed item does NOT abort the entire phase | IR-W1 | Item processing error → remaining items in phase still processed |
+| ✅ 📋T IR-R3 | Stripe webhook returns 500 on handler failure (triggers Stripe retry, up to 16 times over 72hr). Returns 400 on invalid signature (no retry) | IR-W3 | Handler exception → 500 → Stripe retries. Bad signature → 400 → no retry |
+| ✅ 📋T IR-R4 | CI pipeline fails the build on: lint errors, type errors, test failures, build errors. Security audit is `continue-on-error: true` | IR-W4 | Type error in PR → CI fails → merge blocked |
+| ✅ 📋T IR-R5 | Required env vars validated at server startup via instrumentation hook. Missing → server fails to start | IR-W4 | Deploy without SUPABASE_URL → server won't start |
 
 #### HIGH (Monitoring + Recovery)
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| IR-R6 | `withErrorTracing()` wraps all API routes: catches errors → creates `TracedError` → logs to DB + console → reports to Sentry → returns standardized JSON response | IR-W2 | Unhandled error in route → standardized `{error, code, traceId}` response |
-| IR-R7 | Admin email alerts for high/critical severity errors via Resend | IR-W2 | Critical error → `ADMIN_ALERT_EMAIL` receives alert email |
-| IR-R8 | Breadcrumb system tracks execution path per-request via `AsyncLocalStorage`. Max 50 breadcrumbs per request | IR-W2 | API call → breadcrumbs show: api entry, supabase query, auth check, etc. |
-| IR-R9 | Stripe webhook handles 12 event types. Unhandled events logged but do not cause errors | IR-W3 | Unknown event type → breadcrumb logged, 200 returned |
-| IR-R10 | Failed vendor payouts retried for 7 days (cron Phase 5), then permanently cancelled with admin email alert | IR-W1 | Payout failed 8 days ago → status=cancelled, admin emailed |
+| ✅ 📋T IR-R6 | `withErrorTracing()` wraps all API routes: catches errors → creates `TracedError` → logs to DB + console → reports to Sentry → returns standardized JSON response. **Note:** Developer infrastructure — not user-facing. Execution path visible in Vercel function logs. | IR-W2 | Unhandled error in route → standardized `{error, code, traceId}` response |
+| ✅ 📋T IR-R7 | Admin email alerts for high/critical severity errors via Resend | IR-W2 | Critical error → `ADMIN_ALERT_EMAIL` receives alert email |
+| ✅ 🟣V IR-R8 | Breadcrumb system tracks execution path per-request via `AsyncLocalStorage`. Max 50 breadcrumbs per request. **Note:** Developer infrastructure — not user-facing. | IR-W2 | API call → breadcrumbs show: api entry, supabase query, auth check, etc. |
+| ✅ 📋T IR-R9 | Stripe webhook handles 12 event types. Unhandled events logged but do not cause errors | IR-W3 | Unknown event type → breadcrumb logged, 200 returned |
+| ✅ 📋T IR-R10 | Failed vendor payouts retried for 7 days (cron Phase 5), then permanently cancelled with admin email alert | IR-W1 | Payout failed 8 days ago → status=cancelled, admin emailed |
 
 #### MEDIUM (Operational Health)
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| IR-R11 | Data retention: error_logs > 90 days deleted, read notifications > 60 days deleted, activity_events > 30 days deleted | IR-W5 | 91-day-old error_log → deleted. 61-day-old unread notification → preserved |
-| IR-R12 | Security headers on all routes: X-Content-Type-Options, X-Frame-Options, HSTS, CSP, Referrer-Policy, Permissions-Policy | IR-W4 | Any page response → includes all 6 security headers |
-| IR-R13 | Cache strategy: public data routes (vendors, markets, activity feed) use s-maxage + stale-while-revalidate. Sensitive paths use no-store | IR-W4 | `/api/vendors/nearby` → `s-maxage=300`. `/admin/*` → `no-store` |
-| IR-R14 | All cron routes log per-phase counts in JSON response summary for Vercel function logs | IR-W1 | Cron completion → JSON with processed/error counts per phase |
+| ✅ 📋T IR-R11 | Data retention: error_logs > 90 days deleted, read notifications > 60 days deleted, activity_events > 30 days deleted. **Note:** Only debug/transient data is cleaned up — core business records (orders, payments, vendor profiles) are kept indefinitely. | IR-W5 | 91-day-old error_log → deleted. 61-day-old unread notification → preserved |
+| ✅ 📋T IR-R12 | Security headers on all routes: X-Content-Type-Options, X-Frame-Options, HSTS, CSP, Referrer-Policy, Permissions-Policy. Set in `next.config.ts`. | IR-W4 | Any page response → includes all 6 security headers |
+| ✅ 📋T IR-R13 | Cache strategy: public data routes (vendors, markets, activity feed) use s-maxage + stale-while-revalidate. Sensitive paths use no-store | IR-W4 | `/api/vendors/nearby` → `s-maxage=300`. `/admin/*` → `no-store` |
+| ✅ 📋T IR-R14 | All cron routes log per-phase counts in JSON response summary for Vercel function logs | IR-W1 | Cron completion → JSON with processed/error counts per phase |
 
 #### COST OPTIMIZATION (Confirmed — Session 49)
 
@@ -1183,9 +1183,9 @@ These rules prevent wasteful API calls, DB queries, and polling that skyrocket c
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| ✅ IR-R27 | **Sentry v10 error tracking (Session 49):** Client init via `SentryInit.tsx` `'use client'` component (v10 doesn't auto-load `sentry.client.config.ts`). Imported in root layout.tsx. CSP updated for `*.ingest.sentry.io` AND `*.ingest.us.sentry.io`. 4xx validation errors excluded from reporting (only 5xx/unhandled). Server config in `sentry.server.config.ts`, edge in `sentry.edge.config.ts`. | IR-W6 | Unhandled error → appears in Sentry. 400 validation error → NOT reported. SentryInit component renders without crash. CSP doesn't block Sentry ingestion. |
-| ✅ IR-R28 | **Support ticket system (Session 47):** `support_tickets` table (migration 058). Public form at `/{vertical}/support` — no auth required. Rate-limited API (prevents spam). Fields: name, email, subject, message, vertical_id. Admin can view tickets. Email notification to admin on new ticket. | IR-W6 | Anonymous user submits support ticket → record created, admin notified. Rate limit exceeded → 429. Ticket scoped to correct vertical_id. |
-| ✅ IR-R29 | **Per-vertical email FROM domains (Session 47):** `verifiedEmailDomains` mapping in notification service.ts: FM → `updates@mail.farmersmarketing.app`, FT → `updates@mail.foodtruckn.app`. Changed from `noreply@` to `updates@` for deliverability. Both domains verified in Resend. All emails include "do not reply" footer with link to `/{vertical}/support`. | IR-W3 | FT notification email → FROM `updates@mail.foodtruckn.app`. FM notification email → FROM `updates@mail.farmersmarketing.app`. Footer includes support link. |
+| ✅ 📋T IR-R27 | **Sentry v10 error tracking (Session 49):** Client init via `SentryInit.tsx` `'use client'` component (v10 doesn't auto-load `sentry.client.config.ts`). Imported in root layout.tsx. CSP updated for `*.ingest.sentry.io` AND `*.ingest.us.sentry.io`. 4xx validation errors excluded from reporting (only 5xx/unhandled). Server config in `sentry.server.config.ts`, edge in `sentry.edge.config.ts`. | IR-W6 | Unhandled error → appears in Sentry. 400 validation error → NOT reported. SentryInit component renders without crash. CSP doesn't block Sentry ingestion. |
+| ✅ 📋T IR-R28 | **Support ticket system (Session 47):** `support_tickets` table (migration 058). Public form at `/{vertical}/support` — no auth required. Rate-limited API (prevents spam). Fields: name, email, subject, message, vertical_id. Admin can view tickets. Email notification to admin on new ticket. | IR-W6 | Anonymous user submits support ticket → record created, admin notified. Rate limit exceeded → 429. Ticket scoped to correct vertical_id. |
+| ✅ 📋T IR-R29 | **Per-vertical email FROM domains (Session 47):** `verifiedEmailDomains` mapping in notification service.ts: FM → `updates@mail.farmersmarketing.app`, FT → `updates@mail.foodtruckn.app`. Changed from `noreply@` to `updates@` for deliverability. Both domains verified in Resend. All emails include "do not reply" footer with link to `/{vertical}/support`. | IR-W3 | FT notification email → FROM `updates@mail.foodtruckn.app`. FM notification email → FROM `updates@mail.farmersmarketing.app`. Footer includes support link. |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
@@ -1320,25 +1320,20 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | 5. Subscriptions | 17 (SL-R1–R17) | 1 | 16 | 0 | 6% active |
 | 6. Auth & Access | 16 (AC-R1–R16) | 0 | 0 | 16 | 0% (R1-R14 unconfirmed, R15-R16 new) |
 | 7. Notifications | 39 (NI-R1–R39) | 18 | 1 | 20 | 46% active |
-| 8. Infrastructure | 29 (IR-R1–R29) | 5 | 7 | 17 | 17% (R1-R14 unconfirmed, R15-R29 confirmed) |
-| **Totals** | **189** | **55** | **75** | **59** | **29% active** |
+| 8. Infrastructure | 29 (IR-R1–R29) | 6 | 23 | 0 | 100% confirmed, 21% active (R8/R15-R18/R23 active, rest todo) |
+| **Totals** | **189** | **56** | **91** | **42** | **30% active, 78% confirmed** |
 
-### New Rules Added (Sessions 47-54) — Pending Vitest Coverage
+### Quick Reference: Rules Added Sessions 47-54 (already in domain sections above)
 
-| ID | Domain | Rule Summary | Testable With |
-|----|--------|-------------|---------------|
-| VJ-R16 | Vendor Journey | Vendor trial auto-grant (90d, Basic/Standard) | DB test (trigger on approve) |
-| VJ-R17 | Vendor Journey | Trial lifecycle cron Phase 10 | Cron test (reminders, expiry, grace) |
-| VJ-R18 | Vendor Journey | Event approval (FT-only, admin-controlled) | API test (PATCH endpoint) |
-| VJ-R19 | Vendor Journey | Event-ready listing flag (listing_data JSONB) | Component test (checkbox visibility) |
-| SL-R17 | Subscriptions | Trial grace auto-downgrade (listings→draft) | Cron test (Phase 10 grace expiry) |
-| NI-R38 | Notifications | 6 trial notification types | Pure function test (registry check) |
-| NI-R39 | Notifications | vendor_event_approved notification | Pure function test (registry check) |
-| AC-R15 | Auth & Access | Upstash Redis sliding window rate limiting | Integration test (shared state) |
-| AC-R16 | Auth & Access | Legal terms acceptance tracking | DB test (RLS, 3 agreement types) |
-| IR-R27 | Infrastructure | Sentry v10 client init (SentryInit.tsx) | Component test (renders, CSP) |
-| IR-R28 | Infrastructure | Support ticket system (public form) | API test (rate limit, vertical scope) |
-| IR-R29 | Infrastructure | Per-vertical email FROM domains | Pure function test (domain mapping) |
+These rules are defined in their proper domain sections. This is a cross-reference for quick lookup only.
+
+| ID | Domain | Rule Summary |
+|----|--------|-------------|
+| VJ-R16–R19 | Domain 4 | Trial system, event approval, event-ready listing flag |
+| SL-R17 | Domain 5 | Trial grace auto-downgrade |
+| NI-R38–R39 | Domain 7 | Trial notifications, event approval notification |
+| AC-R15–R16 | Domain 6 | Upstash rate limiting, legal terms |
+| IR-R27–R29 | Domain 8 | Sentry, support tickets, per-vertical email FROM |
 
 ### Test Files → Domains
 
@@ -1349,14 +1344,14 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | `notification-types.test.ts` | ~85 active | NI-R19–R36, NI-Q5 + registry structure + audience |
 | `vendor-tier-limits.test.ts` | ~47 active | VJ-R3, R4, R6, R8, VI-R12 |
 | `vertical-isolation.test.ts` | ~23 active | VI-R6, R7, R8, R9 |
-| `business-rules-coverage.test.ts` | ~28 active + 66 todo | MP-R10–R16, R20–R25, R28, OL-R5/R7/R8, SL-R4, VI-R1, R14, IR-R15–R26 + cross-domain |
+| `business-rules-coverage.test.ts` | ~38 active + 94 todo | MP-R10–R16, R20–R25, R28, OL-R5/R7/R8, SL-R4, VI-R1, R14, IR-R1–R29 + cross-domain |
 | `rate-limit.test.ts` | 7 active | Rate limiting infra (maps to AC-R7 concept) |
 | `errors.test.ts` | 10 active | Error tracing infra (maps to IR-R6 concept) |
 
 ### What "No Test" Means by Domain
 - **Domain 6 (Auth)**: All 14 rules 🔵❓ unconfirmed. Tests were removed in Session 51 cleanup. User must review before tests are written.
 - **Domain 7 (NI-R1–R18)**: 🔵❓ unconfirmed code observations. User must review before tests are written.
-- **Domain 8 (Infra)**: All 14 rules 🔵❓ unconfirmed. No tests exist because domain not yet reviewed by user.
+- **Domain 8 (Infra)**: All 29 rules ✅ confirmed (Session 54). IR-R1–R14 newly confirmed, IR-R15–R29 previously confirmed. Tests needed for IR-R1–R14, R19–R22, R24–R29.
 
 ### What "📋T Todo" Means
 These are `.todo()` placeholders — the test *structure* exists (correct rule ID, correct describe block) but the test body needs:

@@ -13,14 +13,11 @@
  *   VJ  = Vendor Journey (15 rules) — confirmed Session 49, R14-R15 added Session 50
  *   SL  = Subscription Lifecycle (16 rules) — confirmed Session 49
  *   NI  = Notifications R19-R37 (19 rules) — confirmed Session 50
- *
- * Partially confirmed:
- *   IR  = Infrastructure R15-R26 (Cost Optimization) — confirmed by user
+ *   IR  = Infrastructure R1-R29 (29 rules) — R1-R14 confirmed Session 54, R15-R26 confirmed Session 49, R27-R29 confirmed Session 49
  *
  * NOT included (unconfirmed — do NOT add tests until user reviews):
  *   AC  = Auth & Access Control — entire domain unreviewed
  *   NI  = Notifications R1-R18 — Claude observations, not confirmed
- *   IR  = Infrastructure R1-R14 — unreviewed (R15-R26 confirmed above)
  *
  * Run: npx vitest run src/lib/__tests__/integration/business-rules-coverage.test.ts
  */
@@ -70,6 +67,12 @@ import {
   getPollingInterval,
 } from '@/lib/polling-config'
 import { timesOverlap } from '@/lib/utils/schedule-overlap'
+import {
+  startBreadcrumbTrail,
+  addBreadcrumb,
+  getBreadcrumbs,
+  clearBreadcrumbs,
+} from '@/lib/errors/breadcrumbs'
 
 // ══════════════════════════════════════════════════════════════════════
 // DOMAIN 1: MONEY PATH (MP)
@@ -323,8 +326,11 @@ describe('OL: Order Lifecycle — coverage check', () => {
   it.todo('OL-R17: Phase 3.5 sends reminder (FT=15min, FM=12hr) — no status change (cron test)')
   it.todo('OL-R18: Phase 3.6 auto-confirms digital external payments (not cash) (cron test)')
 
-  // ── OL-R19/R20: Open questions ────────────────────────────────────
-  it.todo('OL-R19: Phase 4 no-show per-vertical timing (needs user decision)')
+  // ── OL-R19: No-show timing (USER DECIDED Session 54) ──────────────
+  // FT: 1 hour after preferred_pickup_time passes → no-show + pay vendor
+  // FM: date-based (pickup_date < today) — midnight rollover, reasonable for day markets
+  // CODE STATUS: FT per-time logic NOT YET IMPLEMENTED — current code is date-only
+  it.todo('OL-R19: FT no-show triggers 1hr after pickup time; FM triggers after date passes (cron test)')
   it.todo('OL-R20: Phase 4.5 stale vendor reminder (needs user decision)')
 
   // ── OL-R21/R22: Payout retry + auto-fulfill ──────────────────────
@@ -725,4 +731,125 @@ describe('IR: Infrastructure Reliability — Cost Optimization', () => {
   // quality-checks.ts only loads vendor_profiles for IDs found in
   // active schedules, not SELECT * from all vendor_profiles.
   it.todo('IR-R26: quality checks only loads vendor_profiles for IDs in active schedules (requires integration test)')
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// DOMAIN 8 (continued): INFRASTRUCTURE RELIABILITY — Core Systems (R1-R14)
+// Confirmed by user Session 54
+// Detailed tests in: errors.test.ts (TracedError, getHttpStatus)
+// ══════════════════════════════════════════════════════════════════════
+
+describe('IR: Infrastructure Reliability — Core Systems (R1-R14)', () => {
+
+  // ── IR-R1: Per-phase try/catch isolation ─────────────────────────
+  // Each cron phase has independent try/catch. Phase N failure does NOT
+  // prevent Phase N+1 from executing.
+  it.todo('IR-R1: cron phase N failure does not prevent Phase N+1 (requires cron test)')
+
+  // ── IR-R2: Per-item try/catch within phases ─────────────────────
+  // Within each phase, per-item processing is try/caught.
+  // One failed item does NOT abort the entire phase.
+  it.todo('IR-R2: single item failure does not abort remaining items in phase (requires cron test)')
+
+  // ── IR-R3: Webhook HTTP status codes ────────────────────────────
+  // Handler failure → 500 (triggers Stripe retry up to 16× over 72hr)
+  // Invalid signature → 400 (no retry)
+  it.todo('IR-R3: webhook returns 500 on handler error, 400 on bad signature (requires API test)')
+
+  // ── IR-R4: CI pipeline fail conditions ──────────────────────────
+  // Build fails on: lint errors, type errors, test failures, build errors.
+  // Security audit is continue-on-error: true
+  it.todo('IR-R4: CI pipeline fails on lint/type/test/build errors (requires CI test)')
+
+  // ── IR-R5: Required env var validation ──────────────────────────
+  // Instrumentation hook validates required env vars at server startup.
+  // Missing → server fails to start.
+  it.todo('IR-R5: missing required env vars prevent server startup (requires integration test)')
+
+  // ── IR-R6: withErrorTracing standardized responses ──────────────
+  // COVERED: errors.test.ts (TracedError, getHttpStatus)
+  // withErrorTracing wraps all API routes → TracedError → standardized JSON {error, code, traceId}
+
+  // ── IR-R7: Admin email alerts for critical errors ───────────────
+  it.todo('IR-R7: critical severity error triggers admin email alert via Resend (requires API test)')
+
+  // ── IR-R8: Breadcrumb system ────────────────────────────────────
+  // AsyncLocalStorage-scoped breadcrumbs track execution path per-request.
+  // Max 50 breadcrumbs per request to prevent memory issues.
+  it('IR-R8: breadcrumbs are request-scoped via AsyncLocalStorage', async () => {
+    // Trail 1
+    const result1 = await startBreadcrumbTrail(async () => {
+      addBreadcrumb('api', 'GET /api/test')
+      addBreadcrumb('supabase', 'select on orders')
+      return getBreadcrumbs()
+    })
+    expect(result1).toHaveLength(2)
+    expect(result1[0].category).toBe('api')
+    expect(result1[1].category).toBe('supabase')
+
+    // Trail 2 — separate request context, should be empty
+    const result2 = await startBreadcrumbTrail(async () => {
+      return getBreadcrumbs()
+    })
+    expect(result2).toHaveLength(0) // Proves isolation between requests
+  })
+
+  it('IR-R8: max 50 breadcrumbs enforced', async () => {
+    const result = await startBreadcrumbTrail(async () => {
+      for (let i = 0; i < 55; i++) {
+        addBreadcrumb('test', `breadcrumb ${i}`)
+      }
+      return getBreadcrumbs()
+    })
+    expect(result).toHaveLength(50)
+    // Oldest breadcrumbs dropped (shift), newest kept
+    expect(result[0].message).toBe('breadcrumb 5') // First 5 shifted off
+    expect(result[49].message).toBe('breadcrumb 54')
+  })
+
+  // ── IR-R9: Stripe webhook event type handling ───────────────────
+  // 12 event types handled. Unhandled events logged but do not cause errors.
+  it.todo('IR-R9: unhandled Stripe event type returns 200, not error (requires API test)')
+
+  // ── IR-R10: Failed payout retry window ──────────────────────────
+  // Phase 5 retries failed payouts for 7 days, then cancels + admin alert.
+  it.todo('IR-R10: failed payout cancelled after 7 days with admin alert (requires cron test)')
+
+  // ── IR-R11: Data retention periods ──────────────────────────────
+  // error_logs > 90d, read notifications > 60d, activity_events > 30d deleted.
+  // Core business records (orders, payments) kept indefinitely.
+  it.todo('IR-R11: Phase 9 deletes error_logs >90d, read notifications >60d, activity_events >30d (requires cron test)')
+
+  // ── IR-R12: Security headers ────────────────────────────────────
+  // X-Content-Type-Options, X-Frame-Options, HSTS, CSP, Referrer-Policy, Permissions-Policy
+  it.todo('IR-R12: all routes include 6 security headers (requires API/integration test)')
+
+  // ── IR-R13: Cache strategy ──────────────────────────────────────
+  // Public routes: s-maxage + stale-while-revalidate. Sensitive routes: no-store.
+  it.todo('IR-R13: public routes have s-maxage, sensitive routes have no-store (requires API test)')
+
+  // ── IR-R14: Cron phase summary logging ──────────────────────────
+  // All cron routes log per-phase counts in JSON response summary.
+  it.todo('IR-R14: cron returns JSON summary with per-phase processed/error counts (requires cron test)')
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// DOMAIN 8 (continued): INFRASTRUCTURE — Sessions 47-49 Additions (R27-R29)
+// Confirmed by user Sessions 47-49
+// ══════════════════════════════════════════════════════════════════════
+
+describe('IR: Infrastructure Reliability — Sentry, Support, Email (R27-R29)', () => {
+
+  // ── IR-R27: Sentry v10 client initialization ────────────────────
+  // SentryInit.tsx 'use client' component — v10 doesn't auto-load sentry.client.config.ts.
+  // CSP must allow *.ingest.sentry.io AND *.ingest.us.sentry.io
+  it.todo('IR-R27: SentryInit component renders without crash (requires component test)')
+
+  // ── IR-R28: Support ticket system ───────────────────────────────
+  // Public form at /{vertical}/support — no auth required. Rate-limited.
+  it.todo('IR-R28: support ticket API creates record without auth, rate-limited (requires API test)')
+
+  // ── IR-R29: Per-vertical email FROM domains ─────────────────────
+  // FM → updates@mail.farmersmarketing.app, FT → updates@mail.foodtruckn.app
+  it.todo('IR-R29: email FROM domain maps correctly per vertical (requires notification service test)')
 })
