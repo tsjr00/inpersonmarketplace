@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { colors, spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
-import { VendorTierType } from '@/lib/constants'
 
 interface Props {
   vendorId: string
@@ -9,10 +8,9 @@ interface Props {
     description?: string | null
     social_links?: Record<string, string> | null
   }
-  tier: VendorTierType
 }
 
-export default function ProfileEditForm({ vendorId, currentData, tier }: Props) {
+export default function ProfileEditForm({ vendorId, currentData }: Props) {
   const [formData, setFormData] = useState({
     description: currentData.description || '',
     facebook: currentData.social_links?.facebook || '',
@@ -21,8 +19,6 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
   })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
-
-  const isPremium = tier === 'premium' || tier === 'featured'
 
   const handleSave = async () => {
     setSaving(true)
@@ -35,11 +31,11 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
         body: JSON.stringify({
           vendorId,
           description: formData.description,
-          social_links: isPremium ? {
+          social_links: {
             facebook: formData.facebook,
             instagram: formData.instagram,
             website: formData.website
-          } : null
+          }
         })
       })
 
@@ -119,31 +115,26 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
           alignItems: 'center',
           gap: spacing['2xs']
         }}>
-          Social Media Links
-          {isPremium ? (
-            <span style={{
-              ...sizing.badge,
-              fontWeight: typography.weights.semibold,
-              backgroundColor: statusColors.infoLight,
-              color: statusColors.info,
-              borderRadius: radius.md
-            }}>
-              Premium Feature
-            </span>
-          ) : (
-            <span style={{
-              ...sizing.badge,
-              fontWeight: typography.weights.semibold,
-              backgroundColor: statusColors.neutral100,
-              color: statusColors.neutral500,
-              borderRadius: radius.md
-            }}>
-              Upgrade to Premium
-            </span>
-          )}
+          Website & Social Media
         </h3>
 
-        <div style={{ display: 'grid', gap: spacing.sm, opacity: isPremium ? 1 : 0.5 }}>
+        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, margin: `0 0 ${spacing.sm} 0` }}>
+          Help customers find you online. Adding your website and social links builds trust and visibility.
+        </p>
+
+        <div style={{ display: 'grid', gap: spacing.sm }}>
+          {/* Website */}
+          <div>
+            <label style={labelStyle}>Website</label>
+            <input
+              type="url"
+              value={formData.website}
+              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+              placeholder="https://yourwebsite.com"
+              style={urlInputStyle}
+            />
+          </div>
+
           {/* Facebook */}
           <div>
             <label style={labelStyle}>Facebook Page</label>
@@ -152,7 +143,6 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
               value={formData.facebook}
               onChange={(e) => setFormData({ ...formData, facebook: e.target.value })}
               placeholder="https://facebook.com/yourpage"
-              disabled={!isPremium}
               style={urlInputStyle}
             />
           </div>
@@ -165,20 +155,6 @@ export default function ProfileEditForm({ vendorId, currentData, tier }: Props) 
               value={formData.instagram}
               onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
               placeholder="https://instagram.com/yourprofile"
-              disabled={!isPremium}
-              style={urlInputStyle}
-            />
-          </div>
-
-          {/* Website */}
-          <div>
-            <label style={labelStyle}>Website</label>
-            <input
-              type="url"
-              value={formData.website}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              placeholder="https://yourwebsite.com"
-              disabled={!isPremium}
               style={urlInputStyle}
             />
           </div>

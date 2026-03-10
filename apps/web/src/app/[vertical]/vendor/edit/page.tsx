@@ -8,7 +8,6 @@ import ProfileImageUpload from '@/components/vendor/ProfileImageUpload'
 import ProfileEditForm from '@/components/vendor/ProfileEditForm'
 import CertificationsForm, { Certification } from '@/components/vendor/CertificationsForm'
 import EventReadinessForm from './EventReadinessForm'
-import { VendorTierType } from '@/lib/constants'
 
 interface EditProfilePageProps {
   params: Promise<{ vertical: string }>
@@ -116,7 +115,6 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
             description: vendorProfile.description,
             social_links: vendorProfile.social_links
           }}
-          tier={(vendorProfile.tier || 'free') as VendorTierType}
         />
       </div>
 

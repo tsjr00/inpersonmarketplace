@@ -14,6 +14,18 @@ Last updated: 2026-03-05
 - [ ] **Stripe live mode activation** — Switch from test keys to live keys when ready for real payments
 - [x] **Set Dev/Staging password policy** — DONE by user 2026-03-05
 
+## Priority 2.5 — Documentation Deep Dives
+- [ ] **Area-specific deep dive series** — Create a series of internal reference docs that explain how specific domains work across the full stack (DB → API → UI → cron). Each deep dive follows the same template: current state audit, business rules, data flow, edge cases, and improvement opportunities. Topics:
+  1. **Statuses** — Order item statuses, vendor statuses, market statuses, payout statuses. Full lifecycle maps.
+  2. **Dates & Times** — Pickup windows, cutoff hours, event dates, timezone handling, cron timing.
+  3. **Locations** — Geocoding, Haversine filtering, user location cookies, market lat/lng, vendor service areas.
+  4. **Hours/Schedules** — Market schedules, vendor availability, pickup hours, schedule conflicts.
+  5. **Tiers & Limits** — FM/FT tier structures, vendor-limits.ts, trial system, feature gating.
+  6. **Financial Flows** — Pricing, fees, tips, payouts, refunds, Stripe Connect, external payments.
+  7. **Auth & Access** — Login, signup, vertical gate, admin checks, RLS, service client usage.
+  8. **Device/Browser** — PWA, push notifications, mobile quirks, responsive patterns, offline.
+  - Process: For each topic, Claude reads all relevant code, writes findings to a `.claude/deep-dive-[topic].md` file, then consolidates into a reference doc in `docs/`.
+
 ## Priority 3 — When Time Allows
 - [ ] **Geographic intelligence feature** — Plan exists at `.claude/geographic_intelligence_plan.md`
 - [ ] **A2P 10DLC SMS approval** — Waiting on carrier, nothing actionable until approved

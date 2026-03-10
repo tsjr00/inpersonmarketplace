@@ -687,10 +687,10 @@ export default function ListingForm({
             />
           </div>
 
-          {/* Quantity */}
+          {/* Quantity — inventory tracking */}
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
-              Quantity Available
+              Units in Stock
             </label>
             <input
               type="number"
@@ -709,17 +709,20 @@ export default function ListingForm({
                 boxSizing: 'border-box'
               }}
             />
+            <p style={{ fontSize: 12, color: '#888', marginTop: 4, marginBottom: 0 }}>
+              How many units do you have to sell? Decreases as orders come in.
+            </p>
           </div>
         </div>
 
-        {/* Size / Amount — required for publishing */}
+        {/* Unit size / serving size — required for publishing */}
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
-            {vertical === 'food_trucks' ? 'Amount Available Today' : 'Size / Amount'} {formData.status === 'published' && <span style={{ color: '#c00' }}>*</span>}
+            {vertical === 'food_trucks' ? 'Serving Size' : 'Unit Size / Amount'} {formData.status === 'published' && <span style={{ color: '#c00' }}>*</span>}
           </label>
           <p style={{ fontSize: 13, color: '#666', marginTop: 0, marginBottom: 8 }}>
             {vertical === 'food_trucks'
-              ? 'How much will you have available? (e.g., "20 servings", "15 feeds")'
+              ? 'What does each order include? (e.g., "1 serving", "12 oz", "feeds 4")'
               : 'What does the buyer receive? (e.g., "1 lb", "3-pack", "feeds 4")'}
           </p>
           <div style={{ display: 'flex', gap: 12 }}>

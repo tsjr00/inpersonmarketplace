@@ -54,8 +54,8 @@ export async function PATCH(request: NextRequest) {
         updates.description = description
       }
 
-      // Only premium can save social links
-      if (social_links !== undefined && (vendor.tier === 'premium' || vendor.tier === 'featured')) {
+      // All vendors can save social links
+      if (social_links !== undefined) {
         updates.social_links = social_links
       }
 

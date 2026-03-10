@@ -200,6 +200,51 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
       </div>
 
       {/* Upcoming Events Section — hidden when type filter excludes events */}
+      {locationType === 'event' && (!eventMarkets || eventMarkets.length === 0) && (
+        <div style={{
+          textAlign: 'center',
+          padding: `${spacing.xl} ${spacing.md}`,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: radius.lg,
+          border: `1px solid ${colors.borderMuted}`,
+          marginBottom: spacing.lg
+        }}>
+          <div style={{ fontSize: 48, marginBottom: spacing.sm }}>{'\u{1F3AA}'}</div>
+          <h2 style={{
+            color: branding.colors.primary,
+            margin: `0 0 ${spacing.xs} 0`,
+            fontSize: typography.sizes.xl,
+            fontWeight: typography.weights.semibold
+          }}>
+            No upcoming events at this time
+          </h2>
+          <p style={{
+            color: colors.textMuted,
+            fontSize: typography.sizes.base,
+            maxWidth: 480,
+            margin: `0 auto ${spacing.md} auto`,
+            lineHeight: 1.5
+          }}>
+            Planning an event and need food trucks? We can help you find the perfect vendors for your event.
+          </p>
+          <a
+            href={`/${vertical}/events`}
+            style={{
+              display: 'inline-block',
+              padding: `${spacing.xs} ${spacing.lg}`,
+              backgroundColor: branding.colors.primary,
+              color: '#fff',
+              borderRadius: radius.md,
+              fontWeight: typography.weights.semibold,
+              fontSize: typography.sizes.base,
+              textDecoration: 'none'
+            }}
+          >
+            Request Food Trucks for Your Event
+          </a>
+        </div>
+      )}
+
       {(!locationType || locationType === 'event') && eventMarkets && eventMarkets.length > 0 && (
         <div style={{ marginBottom: spacing.lg }}>
           <h2 style={{

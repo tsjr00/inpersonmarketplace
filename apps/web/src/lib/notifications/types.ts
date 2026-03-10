@@ -244,7 +244,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `New Order Received`,
     message: (d) => `${d.buyerName || 'A customer'} placed order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''}.${d.marketName ? ` Pickup at ${d.marketName}` : ''}${d.pickupDate ? ` on ${d.pickupDate}` : ''}.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
   },
 
   new_external_order: {
@@ -280,7 +280,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `Order Cancelled by Customer`,
     message: (d) => `${d.buyerName || 'A customer'} cancelled order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''}.${d.reason ? ` Reason: ${d.reason}` : ''}`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
   },
 
   vendor_approved: {
@@ -307,7 +307,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `Market Approved!`,
     message: (d) => `Your market "${d.marketName}" has been approved and is now live.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/markets`,
   },
 
   pickup_confirmation_needed: {
@@ -316,7 +316,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `Pickup Confirmation Needed`,
     message: (d) => `${d.buyerName || 'A customer'} says they've picked up order #${d.orderNumber}. Please confirm within 30 seconds.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/pickup`,
   },
 
   pickup_issue_reported: {
@@ -324,8 +324,8 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'critical',
     audience: 'vendor',
     title: () => `Pickup Issue Reported`,
-    message: (d) => `An issue was reported for order #${d.orderNumber}.${d.reason ? ` Details: ${d.reason}` : ''} Please check your dashboard.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+    message: (d) => `An issue was reported for order #${d.orderNumber}.${d.reason ? ` Details: ${d.reason}` : ''} Please check your orders.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
   },
 
   inventory_low_stock: {
@@ -352,7 +352,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `Payout Processed`,
     message: (d) => `A payout${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been sent to your account.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
   },
 
   payout_failed: {
@@ -361,7 +361,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `Payout Failed`,
     message: (d) => `A payout${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} for order #${d.orderNumber} could not be processed. We'll retry automatically. If this persists, please check your Stripe account settings.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
   },
 
   stale_confirmed_vendor: {
@@ -388,7 +388,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'vendor',
     title: () => `Order Cancellation Rate Notice`,
     message: (d) => `Your order cancellation rate is ${d.cancellationRate ? `${d.cancellationRate}%` : 'above average'} (${d.cancelledCount || 0} cancelled out of ${d.confirmedCount || 0} confirmed orders). Confirming an order is a commitment to fulfill it. Continued cancellations may result in account restrictions. If you are experiencing issues fulfilling orders, please reach out to support.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/analytics`,
   },
 
   vendor_quality_alert: {
@@ -479,7 +479,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'admin',
     title: () => `Vendor Disputed Buyer Issue`,
     message: (d) => `${d.vendorName} resolved a buyer-reported issue on order #${d.orderNumber} in their own favor (confirmed delivery). Review may be needed.`,
-    actionUrl: () => `/admin/feedback`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/feedback`,
   },
 
   // ── Catering / Events ─────────────────────────────────────────────
@@ -541,7 +541,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'admin',
     title: () => 'Event Application Received',
     message: (d) => `${d.vendorName || 'A vendor'} has applied for private event approval. Review their event readiness profile.`,
-    actionUrl: (d) => `/admin/vendors/${d.vendorId || ''}`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/vendors`,
   },
 }
 
