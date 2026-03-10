@@ -83,23 +83,14 @@ export default function FeeBalanceCard({ vendorId, vertical }: FeeBalanceCardPro
       borderRadius: radius.md,
       boxShadow: shadows.sm
     }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: spacing.xs
+      <h3 style={{
+        color: data?.requires_payment ? '#92400e' : colors.primary,
+        margin: `0 0 ${spacing.xs} 0`,
+        fontSize: typography.sizes.base,
+        fontWeight: typography.weights.semibold
       }}>
-        <div>
-          <h3 style={{
-            color: data?.requires_payment ? '#92400e' : colors.primary,
-            margin: 0,
-            fontSize: typography.sizes.base,
-            fontWeight: typography.weights.semibold
-          }}>
-            {data?.requires_payment ? 'Platform Fees Due' : 'Platform Fees'}
-          </h3>
-        </div>
-      </div>
+        {data?.requires_payment ? 'Platform Fees Due' : 'Platform Fees'}
+      </h3>
 
       {loading ? (
         <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: 0 }}>

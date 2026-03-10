@@ -463,15 +463,13 @@ export default function VendorDashboardOrdersPage() {
           borderRadius: radius.md,
           marginBottom: spacing.md
         }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <span style={{ fontSize: 24 }}>&#9888;&#65039;</span>
-            <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontWeight: 700, color: '#dc2626', fontSize: typography.sizes.base }}>
-                Stripe Setup Required
-              </p>
-              <p style={{ margin: '8px 0 0 0', color: '#991b1b', fontSize: typography.sizes.sm, lineHeight: 1.4 }}>
-                You have orders waiting, but your Stripe account is not connected. You must complete Stripe setup before you can confirm or fulfill orders.
-              </p>
+          <div>
+            <p style={{ margin: '0 0 4px 0', fontWeight: 700, color: '#dc2626', fontSize: typography.sizes.base }}>
+              {'⚠️'} Stripe Setup Required
+            </p>
+            <p style={{ margin: '0 0 0 0', color: '#991b1b', fontSize: typography.sizes.sm, lineHeight: 1.4 }}>
+              You have orders waiting, but your Stripe account is not connected. You must complete Stripe setup before you can confirm or fulfill orders.
+            </p>
               <Link
                 href={`/${vertical}/vendor/dashboard/stripe`}
                 style={{
@@ -488,7 +486,6 @@ export default function VendorDashboardOrdersPage() {
               >
                 Complete Stripe Setup
               </Link>
-            </div>
           </div>
         </div>
       )}

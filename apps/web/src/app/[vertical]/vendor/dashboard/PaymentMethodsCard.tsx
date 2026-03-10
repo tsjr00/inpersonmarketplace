@@ -158,21 +158,14 @@ export default function PaymentMethodsCard({
       borderRadius: radius.md,
       boxShadow: shadows.sm
     }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: spacing.xs
+      <h3 style={{
+        color: colors.primary,
+        margin: `0 0 ${spacing.xs} 0`,
+        fontSize: typography.sizes.base,
+        fontWeight: typography.weights.semibold
       }}>
-        <h3 style={{
-          color: colors.primary,
-          margin: 0,
-          fontSize: typography.sizes.base,
-          fontWeight: typography.weights.semibold
-        }}>
-          Payments &amp; Earnings
-        </h3>
-      </div>
+        Payments &amp; Earnings
+      </h3>
 
       {/* Earnings Section */}
       <div style={{
