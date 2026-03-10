@@ -16,7 +16,7 @@
 >
 > **The workflow is: user confirms → then tests → then code. Never skip the first step.**
 >
-> **Current vitest stats (2026-03-09):** 370 passing, 110 todo, 0 failures across 12 test files.
+> **Current vitest stats (2026-03-09):** 480 passing, 110 todo, 0 failures across 19 test files.
 >
 > If you find yourself processing a long list of rules and optimizing for speed or volume, STOP. Accuracy matters more than output. One correct test for a confirmed rule is worth more than fifty tests for rules nobody approved.
 
@@ -307,11 +307,11 @@ Item `confirmed` (vendor accepted but never prepared) past pickup date → escal
 
 | ✅ 📋T OL-R16 | **Cron Phase 3: cancel expired external payment orders (per-vertical timing)**. Matches: `orders.status = 'pending'` AND `orders.payment_method = 'external'` AND items past the vertical's cancel window. Per-vertical: **FT regular listings** = orders from yesterday (`order_items.pickup_date < TODAY`). **FM regular listings** = day after item pickup date (`order_items.pickup_date < TODAY - 1day`). Action: `orders.status` → `'cancelled'`, all `order_items.status` → `'cancelled'`, inventory restored. | FT external order, `pickup_date = yesterday` → after cron: cancelled + inventory restored. FM external order, `pickup_date = 2 days ago` → after cron: cancelled + inventory restored. FM external order, `pickup_date = yesterday` → NOT cancelled yet (FM gets 1 extra day). |
 
-| ✅ 📋T OL-R17 | **Cron Phase 3.5: reminder only, no status changes (per-vertical timing)**. Matches: `orders.status = 'pending'` AND `orders.payment_method = 'external'`. Per-vertical reminder timing: **FT** = 15min after `orders.created_at`. **FM** = 12hrs after `orders.created_at`. Action: sends vendor notification `type = 'external_payment_reminder'`. Does NOT change `orders.status` or any `order_items.status`. | FT external order 20min old → reminder sent, no status changes. FM external order 13hrs old → reminder sent, no status changes. FT external order 10min old → no reminder yet. FM external order 6hrs old → no reminder yet. |
+| ✅ 🟣V OL-R17 | **Cron Phase 3.5: reminder only, no status changes (per-vertical timing)**. Matches: `orders.status = 'pending'` AND `orders.payment_method = 'external'`. Per-vertical reminder timing: **FT** = 15min after `orders.created_at`. **FM** = 12hrs after `orders.created_at`. Action: sends vendor notification `type = 'external_payment_reminder'`. Does NOT change `orders.status` or any `order_items.status`. | FT external order 20min old → reminder sent, no status changes. FM external order 13hrs old → reminder sent, no status changes. FT external order 10min old → no reminder yet. FM external order 6hrs old → no reminder yet. |
 
-| ✅ 📋T OL-R18 | **Cron Phase 3.6: auto-confirm digital external payments**. Matches: `orders.status = 'pending'` AND `orders.payment_method` IN (`'venmo'`, `'cashapp'`, `'paypal'`) — NOT `'cash'` — AND all `order_items.pickup_date <= TODAY - 24hr`. Action: `orders.status` → `'paid'`, `order_items.status` → `'confirmed'`, `orders.external_payment_confirmed_at = NOW()`, fees recorded in ledger. | Venmo order, pickup 24hr+ past → after cron: `orders.status = 'paid'`, `order_items.status = 'confirmed'`, `external_payment_confirmed_at IS NOT NULL`. Cash order same conditions → NO changes (cash excluded). |
+| ✅ 🟣V OL-R18 | **Cron Phase 3.6: auto-confirm digital external payments**. Matches: `orders.status = 'pending'` AND `orders.payment_method` IN (`'venmo'`, `'cashapp'`, `'paypal'`) — NOT `'cash'` — AND all `order_items.pickup_date <= TODAY - 24hr`. Action: `orders.status` → `'paid'`, `order_items.status` → `'confirmed'`, `orders.external_payment_confirmed_at = NOW()`, fees recorded in ledger. | Venmo order, pickup 24hr+ past → after cron: `orders.status = 'paid'`, `order_items.status = 'confirmed'`, `external_payment_confirmed_at IS NOT NULL`. Cash order same conditions → NO changes (cash excluded). |
 
-| ✅ 📋T OL-R19 | **Cron Phase 4: no-show buyer, vendor still paid (per-vertical timing).** **FT**: No-show triggers 1 hour after `preferred_pickup_time` passes on `pickup_date`. If pickup was at 5:00 PM, no-show at 6:00 PM same day — vendor paid, buyer gets `pickup_missed` notification. **FM**: Keep as-is — date-based detection. `pickup_date < TODAY` (midnight rollover). Saturday market pickup → no-show detected Sunday morning cron run. **Both**: item status → `'fulfilled'`, payout created with `vendor_payouts.status = 'pending'`. **USER DECISION Session 54**: FT = 1 hour after pickup time passes = no-show + mark fulfilled + pay vendor. FM = keep as-is (date-based, midnight detection reasonable). **CODE STATUS**: Current code is date-only for both verticals — FT per-time logic NOT YET IMPLEMENTED. | FT: item `status='ready'`, `pickup_date = today`, `preferred_pickup_time = 17:00`, current time = 18:01 → after cron: `status='fulfilled'`, payout created, buyer notified. FT same item at 17:59 → no change (within 1hr window). FM: item `status='ready'`, `pickup_date = yesterday` → after cron: `status='fulfilled'`, payout created, buyer notified. |
+| ✅ 🟣V OL-R19 | **Cron Phase 4: no-show buyer, vendor still paid (per-vertical timing).** **FT**: No-show triggers 1 hour after `preferred_pickup_time` passes on `pickup_date`. If pickup was at 5:00 PM, no-show at 6:00 PM same day — vendor paid, buyer gets `pickup_missed` notification. **FM**: Keep as-is — date-based detection. `pickup_date < TODAY` (midnight rollover). Saturday market pickup → no-show detected Sunday morning cron run. **Both**: item status → `'fulfilled'`, payout created with `vendor_payouts.status = 'pending'`. **USER DECISION Session 54**: FT = 1 hour after pickup time passes = no-show + mark fulfilled + pay vendor. FM = keep as-is (date-based, midnight detection reasonable). **CODE STATUS**: Current code is date-only for both verticals — FT per-time logic NOT YET IMPLEMENTED. | FT: item `status='ready'`, `pickup_date = today`, `preferred_pickup_time = 17:00`, current time = 18:01 → after cron: `status='fulfilled'`, payout created, buyer notified. FT same item at 17:59 → no change (within 1hr window). FM: item `status='ready'`, `pickup_date = yesterday` → after cron: `status='fulfilled'`, payout created, buyer notified. |
 
 | 🔵❓ 📋T OL-R20 | **Cron Phase 4.5: vendor stale reminder, no status change**. Matches: `order_items.status = 'confirmed'` AND `order_items.pickup_date < TODAY` with 3-day lookback. Action: escalating vendor notifications. `order_items.status` stays `'confirmed'` — does NOT change. | Item `order_items.status = 'confirmed'`, `pickup_date = yesterday` → after cron: `order_items.status` still `'confirmed'`, vendor notification sent. |
 
@@ -1148,14 +1148,14 @@ Off-peak detection (10pm-6am local) → `getPollingInterval()` selects active vs
 | ✅ 📋T IR-R6 | `withErrorTracing()` wraps all API routes: catches errors → creates `TracedError` → logs to DB + console → reports to Sentry → returns standardized JSON response. **Note:** Developer infrastructure — not user-facing. Execution path visible in Vercel function logs. | IR-W2 | Unhandled error in route → standardized `{error, code, traceId}` response |
 | ✅ 📋T IR-R7 | Admin email alerts for high/critical severity errors via Resend | IR-W2 | Critical error → `ADMIN_ALERT_EMAIL` receives alert email |
 | ✅ 🟣V IR-R8 | Breadcrumb system tracks execution path per-request via `AsyncLocalStorage`. Max 50 breadcrumbs per request. **Note:** Developer infrastructure — not user-facing. | IR-W2 | API call → breadcrumbs show: api entry, supabase query, auth check, etc. |
-| ✅ 📋T IR-R9 | Stripe webhook handles 12 event types. Unhandled events logged but do not cause errors | IR-W3 | Unknown event type → breadcrumb logged, 200 returned |
+| ✅ 🟣V IR-R9 | Stripe webhook handles 12 event types. Unhandled events logged but do not cause errors | IR-W3 | Unknown event type → breadcrumb logged, 200 returned |
 | ✅ 📋T IR-R10 | Failed vendor payouts retried for 7 days (cron Phase 5), then permanently cancelled with admin email alert | IR-W1 | Payout failed 8 days ago → status=cancelled, admin emailed |
 
 #### MEDIUM (Operational Health)
 
 | ID | Rule | Workflow | What to Test |
 |----|------|----------|-------------|
-| ✅ 📋T IR-R11 | Data retention: error_logs > 90 days deleted, read notifications > 60 days deleted, activity_events > 30 days deleted. **Note:** Only debug/transient data is cleaned up — core business records (orders, payments, vendor profiles) are kept indefinitely. | IR-W5 | 91-day-old error_log → deleted. 61-day-old unread notification → preserved |
+| ✅ 🟣V IR-R11 | Data retention: error_logs > 90 days deleted, read notifications > 60 days deleted, activity_events > 30 days deleted. **Note:** Only debug/transient data is cleaned up — core business records (orders, payments, vendor profiles) are kept indefinitely. | IR-W5 | 91-day-old error_log → deleted. 61-day-old unread notification → preserved |
 | ✅ 📋T IR-R12 | Security headers on all routes: X-Content-Type-Options, X-Frame-Options, HSTS, CSP, Referrer-Policy, Permissions-Policy. Set in `next.config.ts`. | IR-W4 | Any page response → includes all 6 security headers |
 | ✅ 📋T IR-R13 | Cache strategy: public data routes (vendors, markets, activity feed) use s-maxage + stale-while-revalidate. Sensitive paths use no-store | IR-W4 | `/api/vendors/nearby` → `s-maxage=300`. `/admin/*` → `no-store` |
 | ✅ 📋T IR-R14 | All cron routes log per-phase counts in JSON response summary for Vercel function logs | IR-W1 | Cron completion → JSON with processed/error counts per phase |
@@ -1172,12 +1172,12 @@ These rules prevent wasteful API calls, DB queries, and polling that skyrocket c
 | IR-R18 | 🟣V Vendor order polling is per-vertical: FT=2min/10min off-peak (same-day food), FM=60min/180min off-peak (orders days ahead). All skip when tab hidden | IR-W7 | FT page → 2min interval. FM page → 60min interval |
 | IR-R19 | 📋T CutoffStatusBanner fetches on page-load only — no `setInterval`. Cutoff changes are measured in hours/days, not seconds | IR-W7 | Component has no setInterval calls |
 | IR-R20 | 📋T expire-orders runs 4 parallel count queries before processing. If no active order_items + no pending orders + no failed payouts + no trial vendors → skip all phases | IR-W1 | Empty DB → cron returns `{skipped:true, message:'No work to process'}` |
-| IR-R21 | 📋T vendor-quality-checks counts vendor_profiles first. If 0 vendors → skip all 5 quality checks, return `{skipped:true, findings:0}` | IR-W1 | 0 vendors → cron returns early with no quality check queries |
-| IR-R22 | 📋T Phase 9 data retention (error_logs 90d, notifications 60d, activity_events 30d) runs only on Sundays, not daily | IR-W1 | Monday cron run → Phase 9 skipped. Sunday → Phase 9 executes |
+| IR-R21 | 🟣V vendor-quality-checks counts vendor_profiles first. If 0 vendors → skip all 5 quality checks, return `{skipped:true, findings:0}` | IR-W1 | 0 vendors → cron returns early with no quality check queries |
+| IR-R22 | 🟣V Phase 9 data retention (error_logs 90d, notifications 60d, activity_events 30d) runs only on Sundays, not daily | IR-W1 | Monday cron run → Phase 9 skipped. Sunday → Phase 9 executes |
 | IR-R23 | 🟣V `getPollingInterval(active, offPeak)` returns off-peak value when `isOffPeak()=true`, active value otherwise. All polling components use this function | IR-W7 | 3am → returns offPeak param. noon → returns active param |
 | IR-R24 | 📋T Phase 4.5 stale-confirmed notification dedup uses 1 batch query + `Set<string>` for O(1) lookups, not 3 DB queries per stale item | IR-W1 | 10 stale items → 1 dedup query total (not 30) |
 | IR-R25 | 📋T Phase 10a trial reminder dedup uses 1 batch query + `Set<string>`, not 1 DB query per trial vendor | IR-W1 | 5 trial vendors → 1 dedup query total (not 5) |
-| IR-R26 | 📋T quality-checks.ts only loads vendor_profiles for IDs found in active schedules (scoped `.in()` query), not `SELECT *` from all vendors | IR-W1 | 3 vendors in schedules, 100 total → only 3 profiles loaded |
+| IR-R26 | 🟣V quality-checks.ts only loads vendor_profiles for IDs found in active schedules (scoped `.in()` query), not `SELECT *` from all vendors | IR-W1 | 3 vendors in schedules, 100 total → only 3 profiles loaded |
 
 #### SESSION 47-49 ADDITIONS (Sentry + Support + Email)
 
@@ -1185,7 +1185,7 @@ These rules prevent wasteful API calls, DB queries, and polling that skyrocket c
 |----|------|----------|-------------|
 | ✅ 📋T IR-R27 | **Sentry v10 error tracking (Session 49):** Client init via `SentryInit.tsx` `'use client'` component (v10 doesn't auto-load `sentry.client.config.ts`). Imported in root layout.tsx. CSP updated for `*.ingest.sentry.io` AND `*.ingest.us.sentry.io`. 4xx validation errors excluded from reporting (only 5xx/unhandled). Server config in `sentry.server.config.ts`, edge in `sentry.edge.config.ts`. | IR-W6 | Unhandled error → appears in Sentry. 400 validation error → NOT reported. SentryInit component renders without crash. CSP doesn't block Sentry ingestion. |
 | ✅ 📋T IR-R28 | **Support ticket system (Session 47):** `support_tickets` table (migration 058). Public form at `/{vertical}/support` — no auth required. Rate-limited API (prevents spam). Fields: name, email, subject, message, vertical_id. Admin can view tickets. Email notification to admin on new ticket. | IR-W6 | Anonymous user submits support ticket → record created, admin notified. Rate limit exceeded → 429. Ticket scoped to correct vertical_id. |
-| ✅ 📋T IR-R29 | **Per-vertical email FROM domains (Session 47):** `verifiedEmailDomains` mapping in notification service.ts: FM → `updates@mail.farmersmarketing.app`, FT → `updates@mail.foodtruckn.app`. Changed from `noreply@` to `updates@` for deliverability. Both domains verified in Resend. All emails include "do not reply" footer with link to `/{vertical}/support`. | IR-W3 | FT notification email → FROM `updates@mail.foodtruckn.app`. FM notification email → FROM `updates@mail.farmersmarketing.app`. Footer includes support link. |
+| ✅ 🟣V IR-R29 | **Per-vertical email FROM domains (Session 47):** `verifiedEmailDomains` mapping in notification service.ts: FM → `updates@mail.farmersmarketing.app`, FT → `updates@mail.foodtruckn.app`. Changed from `noreply@` to `updates@` for deliverability. Both domains verified in Resend. All emails include "do not reply" footer with link to `/{vertical}/support`. | IR-W3 | FT notification email → FROM `updates@mail.foodtruckn.app`. FM notification email → FROM `updates@mail.farmersmarketing.app`. Footer includes support link. |
 
 #### CODE-VERIFIED DETAILS (Deep Dive Agent — 2026-02-25)
 
@@ -1314,14 +1314,14 @@ Stripe price IDs, webhook secret, Sentry config not validated at startup → fai
 | Domain | Total Rules | 🟣V Active | 📋T Todo | No Test | Coverage |
 |--------|-------------|-----------|---------|---------|----------|
 | 1. Money Path | 28 (MP-R1–R28) | 16 | 12 | 0 | 57% active |
-| 2. Order Lifecycle | 22 (OL-R1–R22) | 3 | 19 | 0 | 14% active |
+| 2. Order Lifecycle | 22 (OL-R1–R22) | 6 | 16 | 0 | 27% active |
 | 3. Vertical Isolation | 19 (VI-R1–R19) | 7 | 12 | 0 | 37% active |
 | 4. Vendor Journey | 19 (VJ-R1–R19) | 5 | 8 | 6 | 26% active |
 | 5. Subscriptions | 17 (SL-R1–R17) | 1 | 16 | 0 | 6% active |
 | 6. Auth & Access | 16 (AC-R1–R16) | 0 | 0 | 16 | 0% (R1-R14 unconfirmed, R15-R16 new) |
 | 7. Notifications | 39 (NI-R1–R39) | 18 | 1 | 20 | 46% active |
-| 8. Infrastructure | 29 (IR-R1–R29) | 6 | 23 | 0 | 100% confirmed, 21% active (R8/R15-R18/R23 active, rest todo) |
-| **Totals** | **189** | **56** | **91** | **42** | **30% active, 78% confirmed** |
+| 8. Infrastructure | 29 (IR-R1–R29) | 11 | 18 | 0 | 100% confirmed, 38% active (R8-R9/R11/R15-R18/R21-R23/R26/R29 active) |
+| **Totals** | **189** | **65** | **82** | **42** | **34% active, 78% confirmed** |
 
 ### Quick Reference: Rules Added Sessions 47-54 (already in domain sections above)
 
