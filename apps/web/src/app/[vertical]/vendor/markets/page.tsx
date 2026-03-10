@@ -125,6 +125,7 @@ export default function VendorMarketsPage() {
   const [selectedMarketForSchedule, setSelectedMarketForSchedule] = useState<Market | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [expandedMarketIds, setExpandedMarketIds] = useState<Set<string>>(new Set())
+  const [expandedPickupIds, setExpandedPickupIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchMarkets()
@@ -669,10 +670,29 @@ export default function VendorMarketsPage() {
                     backgroundColor: market.isHomeMarket ? statusColors.infoLight : 'white'
                   }}
                 >
-                  {/* Market name — full width across top */}
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600 }}>
-                    {market.name}
-                  </h3>
+                  {/* Market name — full width across top, with collapse button for non-home */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+                      {market.name}
+                    </h3>
+                    {!market.isHomeMarket && (
+                      <button
+                        onClick={() => setExpandedMarketIds(prev => { const next = new Set(prev); next.delete(market.id); return next })}
+                        style={{
+                          padding: '2px 8px',
+                          backgroundColor: 'transparent',
+                          color: statusColors.neutral400,
+                          border: `1px solid ${statusColors.neutral300}`,
+                          borderRadius: 4,
+                          fontSize: 11,
+                          cursor: 'pointer',
+                          flexShrink: 0
+                        }}
+                      >
+                        Collapse
+                      </button>
+                    )}
+                  </div>
 
                   {/* Home market badge + helper OR set-as-home button */}
                   {market.isHomeMarket && (
@@ -2327,158 +2347,223 @@ export default function VendorMarketsPage() {
             <p style={{ color: statusColors.neutral400, fontStyle: 'italic', margin: 0 }}>
               No pickup locations yet. Create one above!
             </p>
-          ) : (
+          ) : (() => {
+            const expandedPickups = privatePickupMarkets.filter(m => expandedPickupIds.has(m.id))
+            const collapsedPickups = privatePickupMarkets.filter(m => !expandedPickupIds.has(m.id))
+            return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {privatePickupMarkets.map(market => (
+              {/* Expanded pickup cards */}
+              {expandedPickups.map(market => (
                 <div
                   key={market.id}
                   style={{
-                    padding: 16,
+                    padding: 12,
                     border: `1px solid ${statusColors.neutral200}`,
                     borderRadius: 8
                   }}
                 >
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    flexWrap: 'wrap',
-                    gap: 12
-                  }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-                          {market.name}
-                        </h3>
-                        {market.expires_at && (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '2px 8px',
-                            backgroundColor: new Date(market.expires_at) < new Date() ? statusColors.dangerLight : statusColors.warningLight,
-                            color: new Date(market.expires_at) < new Date() ? statusColors.dangerDark : statusColors.warningDark,
-                            borderRadius: 4,
-                            fontSize: 11,
-                            fontWeight: 500
-                          }}>
-                            {new Date(market.expires_at) < new Date() ? '⚠️ Expired' : `📅 Expires ${new Date(market.expires_at).toLocaleDateString()}`}
-                          </span>
-                        )}
-                      </div>
-                      <p style={{ margin: '0 0 8px 0', fontSize: 14, color: statusColors.neutral500 }}>
-                        {market.address}, {market.city}, {market.state} {market.zip}
-                      </p>
-
-                      {/* Schedule Display */}
-                      {market.schedules && market.schedules.length > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                          {market.schedules.map((schedule, idx) => (
-                            <div
-                              key={idx}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 16,
-                                padding: '8px 12px',
-                                backgroundColor: statusColors.neutral100,
-                                borderRadius: 6,
-                                marginBottom: 6,
-                                fontSize: 13
-                              }}
-                            >
-                              <div style={{ flex: 1 }}>
-                                <strong>{DAYS[schedule.day_of_week]}</strong>{' '}
-                                {formatTime12h(schedule.start_time)} - {formatTime12h(schedule.end_time)}
-                              </div>
-                              {(() => {
-                                const cutoffHrs = market.cutoff_hours ?? getDefaultCutoffHours('private_pickup')
-                                const display = getCutoffDisplay(schedule.day_of_week, schedule.start_time, cutoffHrs)
-                                return display ? (
-                                  <div style={{
-                                    padding: '4px 8px',
-                                    backgroundColor: statusColors.warningLight,
-                                    borderRadius: 4,
-                                    fontSize: 12,
-                                    color: statusColors.warningDark
-                                  }}>
-                                    Cutoff: {display}
-                                  </div>
-                                ) : null
-                              })()}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Warning if no schedules */}
-                      {(!market.schedules || market.schedules.length === 0) && (
-                        <div style={{
-                          marginTop: 8,
-                          padding: '8px 12px',
-                          backgroundColor: statusColors.dangerLight,
-                          border: `1px solid ${statusColors.dangerBorder}`,
-                          borderRadius: 6,
-                          fontSize: 13,
-                          color: statusColors.dangerDark
-                        }}>
-                          ⚠️ No pickup schedule set. Edit to add pickup times.
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <button
-                        onClick={() => handleEdit(market)}
-                        style={{
-                          padding: '8px 16px',
-                          backgroundColor: statusColors.info,
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 6,
-                          fontSize: 14,
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirmId(market.id)}
-                        style={{
-                          padding: '8px 16px',
-                          backgroundColor: statusColors.danger,
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 6,
-                          fontSize: 14,
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                  {/* Name + collapse button */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+                      {market.name}
+                    </h3>
+                    <button
+                      onClick={() => setExpandedPickupIds(prev => { const next = new Set(prev); next.delete(market.id); return next })}
+                      style={{
+                        padding: '2px 8px',
+                        backgroundColor: 'transparent',
+                        color: statusColors.neutral400,
+                        border: `1px solid ${statusColors.neutral300}`,
+                        borderRadius: 4,
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        flexShrink: 0
+                      }}
+                    >
+                      Collapse
+                    </button>
                   </div>
-                  <button
-                    onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
-                    style={{
-                      marginTop: 12,
-                      padding: '8px 16px',
-                      backgroundColor: statusColors.info,
-                      color: 'white',
-                      border: 'none',
+
+                  {/* Expiry badge */}
+                  {market.expires_at && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '2px 8px',
+                      backgroundColor: new Date(market.expires_at) < new Date() ? statusColors.dangerLight : statusColors.warningLight,
+                      color: new Date(market.expires_at) < new Date() ? statusColors.dangerDark : statusColors.warningDark,
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      marginBottom: 4
+                    }}>
+                      {new Date(market.expires_at) < new Date() ? '⚠️ Expired' : `📅 Expires ${new Date(market.expires_at).toLocaleDateString()}`}
+                    </span>
+                  )}
+
+                  {/* Address */}
+                  <p style={{ margin: '0 0 4px 0', fontSize: 13, color: statusColors.neutral500 }}>
+                    {market.address}, {market.city}, {market.state} {market.zip}
+                  </p>
+
+                  {/* Schedule Display */}
+                  {market.schedules && market.schedules.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      {market.schedules.map((schedule, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 16,
+                            padding: '6px 10px',
+                            backgroundColor: statusColors.neutral100,
+                            borderRadius: 6,
+                            marginBottom: 4,
+                            fontSize: 13
+                          }}
+                        >
+                          <div style={{ flex: 1 }}>
+                            <strong>{DAYS[schedule.day_of_week]}</strong>{' '}
+                            {formatTime12h(schedule.start_time)} - {formatTime12h(schedule.end_time)}
+                          </div>
+                          {(() => {
+                            const cutoffHrs = market.cutoff_hours ?? getDefaultCutoffHours('private_pickup')
+                            const display = getCutoffDisplay(schedule.day_of_week, schedule.start_time, cutoffHrs)
+                            return display ? (
+                              <div style={{
+                                padding: '3px 6px',
+                                backgroundColor: statusColors.warningLight,
+                                borderRadius: 4,
+                                fontSize: 11,
+                                color: statusColors.warningDark
+                              }}>
+                                Cutoff: {display}
+                              </div>
+                            ) : null
+                          })()}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Warning if no schedules */}
+                  {(!market.schedules || market.schedules.length === 0) && (
+                    <div style={{
+                      marginTop: 4,
+                      padding: '6px 10px',
+                      backgroundColor: statusColors.dangerLight,
+                      border: `1px solid ${statusColors.dangerBorder}`,
                       borderRadius: 6,
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Manage Listings at This Location
-                  </button>
+                      fontSize: 12,
+                      color: statusColors.dangerDark
+                    }}>
+                      No pickup schedule set. Edit to add pickup times.
+                    </div>
+                  )}
+
+                  {/* Action buttons — side by side */}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                    <button
+                      onClick={() => handleEdit(market)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: statusColors.info,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: statusColors.info,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Manage Listings
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmId(market.id)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: statusColors.danger,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
+
+              {/* Collapsed pickup rows */}
+              {collapsedPickups.length > 0 && (
+                <div style={{
+                  border: `1px solid ${statusColors.neutral200}`,
+                  borderRadius: 8,
+                  overflow: 'hidden'
+                }}>
+                  {collapsedPickups.map((market, idx) => (
+                    <div
+                      key={market.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 12px',
+                        borderBottom: idx < collapsedPickups.length - 1 ? `1px solid ${statusColors.neutral100}` : 'none',
+                        cursor: 'pointer',
+                        backgroundColor: 'white'
+                      }}
+                      onClick={() => setExpandedPickupIds(prev => { const next = new Set(prev); next.add(market.id); return next })}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        onChange={() => setExpandedPickupIds(prev => { const next = new Set(prev); next.add(market.id); return next })}
+                        style={{ width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>{market.name}</span>
+                        <span style={{ fontSize: 12, color: statusColors.neutral400, marginLeft: 8 }}>
+                          {market.city}, {market.state}
+                        </span>
+                      </div>
+                      {market.schedules && market.schedules.length > 0 && (
+                        <span style={{ fontSize: 11, color: statusColors.neutral500, flexShrink: 0 }}>
+                          {market.schedules.map(s => DAYS[s.day_of_week].slice(0, 3)).join(', ')}
+                        </span>
+                      )}
+                      {market.expires_at && new Date(market.expires_at) < new Date() && (
+                        <span style={{ fontSize: 11, color: statusColors.danger, fontWeight: 600, flexShrink: 0 }}>
+                          Expired
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+            )
+          })()}
         </div>
       </div>
       <ConfirmDialog
