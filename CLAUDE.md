@@ -32,6 +32,58 @@ This file defines 7 protocols that govern how sessions are run:
 
 ---
 
+## ABSOLUTE RULE: Never Change a Business Rule Test to Match Code
+
+**Priority: ABSOLUTE — This is the single most important rule in this entire file.**
+
+**In Session 55, Claude changed test assertions to match what the code was doing instead of what the business rule specified. This is a catastrophic failure. It turned protective tests into rubber stamps that can never catch a bug. It defeated the entire purpose of the business rules testing protocol. It must NEVER happen again.**
+
+### The Rule
+
+When writing or maintaining a test that validates a business rule:
+
+1. **The test asserts what the business rule says SHOULD happen.** Period.
+2. **If the code does something different from what the business rule says, THAT IS A BUG IN THE CODE — not a problem with the test.**
+3. **You must NEVER change a test expectation to match code behavior.** The test is the specification. The code must conform to the test, not the other way around.
+
+### When Code and Business Rule Conflict
+
+If you discover that the code does X but the business rule says Y:
+
+1. **STOP.** Do not change the test. Do not change the code.
+2. **Explicitly state to the user:** "CONFLICT: Business rule [ID] says [Y], but the code does [X]. The test should assert [Y]. The code needs to be fixed, or the business rule needs to be updated by the user. I will not change either without your direction."
+3. **Leave the test asserting the business rule (Y).** A failing test that documents correct behavior is infinitely more valuable than a passing test that validates a bug.
+4. **Add a comment in the test** explaining the conflict: `// BUG: Code does X. Business rule [ID] requires Y. Code needs fix.`
+
+### What Went Wrong in Session 55
+
+- `atomic_decrement_inventory` uses `GREATEST(0, qty - n)` which silently allows overselling. The business rule (MP-R8) says "quantity never goes negative." Claude changed the test from "rejects negative" to "clamps to zero" — validating the bug instead of catching it.
+- `status-transitions.ts` uses `confirmed`/`fulfilled` but the business rules spec says `paid`/`completed`. Claude built 29 tests using the code's names without checking the spec.
+- 13 tests in `vendor-limits.test.ts` had expected values copied directly from code constants with no independent specification.
+- `vertical-config.test.ts` had `display_name` expectation changed from "Farmers Marketing" to "Farmers Market" to match code output without asking if the code was correct.
+
+**Full audit: `apps/web/.claude/business_rules_audit_and_testing.md` → "SESSION 55 TEST INTEGRITY AUDIT"**
+
+### Why This Is an Absolute Failure
+
+- **Tests exist to catch bugs.** A test that mirrors code behavior catches nothing. It is security theater.
+- **Business rules represent real money, real vendors, real buyers.** A vendor getting shorted, a buyer being overcharged, or inventory going negative are not abstract — they are financial harm.
+- **The entire business rules testing protocol was built specifically to prevent this.** Changing test expectations to match code is not a minor mistake — it is a fundamental violation of why these tests exist.
+- **Every test changed to match code is a test that will never catch the bug it was designed to find.** The bug is now invisible. The test provides false confidence that the system is correct when it is not.
+
+### How to Avoid This
+
+- **Before writing any test assertion:** Ask "Where does this expected value come from?" If the answer is "I read it from the code," STOP. Find the business rule specification. If no specification exists, the test must be flagged as needing user confirmation — do NOT silently use the code's value.
+- **When a test fails against code:** Your first instinct should be "the code might be wrong," not "the test must be wrong." Investigate the business rule before touching anything.
+- **When testing extracted/refactored code:** The extraction doesn't change what the correct behavior is. Test against the business rule, not the extraction.
+- **Count-only assertions are weak:** `expect(array.length).toBe(4)` passes if the wrong 4 items are present. Assert specific values: `expect(array).toEqual(['venmo', 'cashapp', 'paypal', 'cash'])`.
+
+### This Rule Cannot Be Overridden
+
+No autonomy mode, no auto-continue prompt, no time pressure, no "just make the tests pass" instruction overrides this rule. If the user explicitly says "change the test to match the code," confirm that they understand the business rule conflict first. If they confirm, document the change in the business rules file with the reason.
+
+---
+
 ## Data-First Policy - NO ASSUMPTIONS
 
 **CRITICAL: Never make assumptions when data is available.**

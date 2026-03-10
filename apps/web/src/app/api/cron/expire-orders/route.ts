@@ -11,6 +11,7 @@ import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
 import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
 import { calculateNoShowPayout } from '@/lib/cron/no-show'
+import { STRIPE_CHECKOUT_EXPIRY_MS, PAYOUT_RETRY_MAX_DAYS, STALE_CONFIRMATION_WINDOW_MS, isStripeCheckoutExpired, isConfirmationWindowStale } from '@/lib/cron/order-timing'
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -256,7 +257,7 @@ export async function GET(request: NextRequest) {
     // Orders where buyer initiated checkout but never completed payment
     // ============================================================
     try {
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      const tenMinutesAgo = new Date(Date.now() - STRIPE_CHECKOUT_EXPIRY_MS).toISOString()
 
       const { data: staleStripeOrders, error: staleError } = await supabase
         .from('orders')
@@ -939,10 +940,9 @@ export async function GET(request: NextRequest) {
     let payoutsSucceeded = 0
     let payoutsCancelled = 0
     try {
-      const MAX_RETRY_AGE_DAYS = 7
       const MAX_PAYOUTS_PER_RUN = 10
       const cutoffDate = new Date()
-      cutoffDate.setDate(cutoffDate.getDate() - MAX_RETRY_AGE_DAYS)
+      cutoffDate.setDate(cutoffDate.getDate() - PAYOUT_RETRY_MAX_DAYS)
 
       // Get failed payouts within retry window
       const { data: failedPayouts, error: payoutFetchError } = await supabase
@@ -1228,7 +1228,7 @@ export async function GET(request: NextRequest) {
 
         const totalCents = expiredPayouts.reduce((sum, p) => sum + p.amount_cents, 0)
         console.warn(
-          `[Phase 5] ALERT: ${payoutsCancelled} payouts cancelled after ${MAX_RETRY_AGE_DAYS} days. ` +
+          `[Phase 5] ALERT: ${payoutsCancelled} payouts cancelled after ${PAYOUT_RETRY_MAX_DAYS} days. ` +
           `Total: $${(totalCents / 100).toFixed(2)}. Manual resolution required.`
         )
 
@@ -1245,7 +1245,7 @@ export async function GET(request: NextRequest) {
               subject: `[ACTION REQUIRED] ${payoutsCancelled} vendor payout${payoutsCancelled === 1 ? '' : 's'} cancelled — $${(totalCents / 100).toFixed(2)} needs manual resolution`,
               html: `
                 <h2 style="color:#dc2626;margin:0 0 16px">Vendor Payouts Cancelled</h2>
-                <p>${payoutsCancelled} vendor payout${payoutsCancelled === 1 ? '' : 's'} failed for ${MAX_RETRY_AGE_DAYS}+ days and ${payoutsCancelled === 1 ? 'has' : 'have'} been permanently cancelled.</p>
+                <p>${payoutsCancelled} vendor payout${payoutsCancelled === 1 ? '' : 's'} failed for ${PAYOUT_RETRY_MAX_DAYS}+ days and ${payoutsCancelled === 1 ? 'has' : 'have'} been permanently cancelled.</p>
                 <p style="font-size:24px;font-weight:bold;margin:16px 0">$${(totalCents / 100).toFixed(2)}</p>
                 <p>These vendors were not paid. Manual resolution required:</p>
                 <ul>
@@ -1354,7 +1354,7 @@ export async function GET(request: NextRequest) {
     // ============================================================
     let staleWindowsFulfilled = 0
     try {
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+      const fiveMinutesAgo = new Date(Date.now() - STALE_CONFIRMATION_WINDOW_MS).toISOString()
 
       // Order items: buyer confirmed but vendor didn't fulfill
       const { data: staleItems, error: staleError } = await supabase

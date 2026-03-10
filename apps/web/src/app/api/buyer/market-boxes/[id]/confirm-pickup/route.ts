@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { calculateWindowExpiry } from '@/lib/cron/order-timing'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -84,7 +85,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const now = new Date()
-    const CONFIRMATION_WINDOW_SECONDS = 30
     const vendorAlreadyConfirmed = !!pickup.vendor_confirmed_at
 
     if (vendorAlreadyConfirmed) {
@@ -139,13 +139,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
     } else {
       // Buyer confirming first — start 30s window, wait for vendor
-      const windowExpires = new Date(now.getTime() + CONFIRMATION_WINDOW_SECONDS * 1000)
+      const windowExpires = calculateWindowExpiry(now)
 
       const { data: updated, error } = await supabase
         .from('market_box_pickups')
         .update({
           buyer_confirmed_at: now.toISOString(),
-          confirmation_window_expires_at: windowExpires.toISOString(),
+          confirmation_window_expires_at: windowExpires,
           updated_at: now.toISOString(),
         })
         .eq('id', pickup_id)
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({
         pickup: updated,
         message: 'Receipt acknowledged. Vendor has 30 seconds to confirm handoff.',
-        confirmation_window_expires_at: windowExpires.toISOString(),
+        confirmation_window_expires_at: windowExpires,
         completed: false,
       })
     }

@@ -1,100 +1,68 @@
-# Current Task: Session 55 — Business Rules + Test Extraction POC + Batch 2
+# Current Task: Session 56 — Writing Tests for 68 📋T Todo Rules
 
-Started: 2026-03-09
-Status: **Extraction Batch 2 COMPLETE — all 6 extractions implemented, tested, import-swapped. Ready to commit.**
+Started: 2026-03-10
+Status: **NEARLY COMPLETE — All test files written, markers being updated**
 
-## Completed This Session
+## What's Been Done This Session
 
-### 1. Event Readiness Application — COMMITTED ✅
-Commit `ef1cf3a`, pushed to staging. 6 files (2 new, 4 modified), no migration.
-- `src/app/api/vendor/event-readiness/route.ts` — PUT handler, 14-field validation
-- `src/app/[vertical]/vendor/edit/EventReadinessForm.tsx` — client component
-- `src/app/[vertical]/vendor/edit/page.tsx` — render form for FT only
-- `src/lib/notifications/types.ts` — added `vendor_event_application_submitted`
-- `src/app/admin/vendors/[vendorId]/page.tsx` — orange badge + collapsible details
-- `src/app/api/admin/vendors/[id]/event-approval/route.ts` — sync application_status
+### Test Results
+- **Unit tests**: 726 passing, 110 todo, 0 failures across 29 test files (was 617)
+- **Integration tests**: 29 of 31 passing, 2 known bugs (MP-R8 negative inventory, OL-R3 cancel restore)
+- **New tests added**: 109 (617 → 726)
 
-### 2. Vendor Training Workflows — COMMITTED ✅
-Commit `752d2fa`. 26 workflow scripts written to `apps/web/.claude/vendor_training_workflows.md`.
+### New Test Files Created:
+1. **`src/lib/payments/__tests__/tip-rules.test.ts`** — 12 tests
+   - MP-R22, MP-R26, MP-R27
 
-### 3. Business Rules Confirmations — COMMITTED ✅
-Commit `7fd9e56`. Updated `business_rules_audit_and_testing.md`:
-- IR-R1 through IR-R14 marked `✅ 📋T` (IR-R8 → `🟣V` after active test)
-- OL-R19 updated with FT 1-hour no-show rule (user decision Session 54)
-- OL-Q8 marked resolved
-- MP-R3 marked `🟣V` (already had tip-math.test.ts coverage)
-- IR-R27-R29 marked `📋T` (todo stubs added)
-- Domain 8 stats: 6 active, 23 todo, 0 no test — 100% confirmed
-- Bottom "New Rules" section condensed to cross-reference
-- Totals: 370 passing → 400 passing, 110 todo
+2. **`src/lib/__tests__/infra-config.test.ts`** — 32 tests
+   - IR-R1,2,3,4,5,6,7,12,13,14,19,20,24,25
 
-### 4. Test Extraction POC — COMMITTED ✅
-Commit `67bb89e`. Proved the "extract → test → swap import" pattern.
-- Extracted `validateEventReadiness()` from route to `src/lib/vendor/event-readiness-validation.ts`
-- 30 new active tests in `src/lib/vendor/__tests__/event-readiness-validation.test.ts`
-- Route now imports from extracted file — identical behavior, 207→99 lines
-- Full suite: 400 passing, 110 todo, 0 failures, 13 test files
+3. **`src/lib/__tests__/vertical-features.test.ts`** — 26 tests
+   - VI-R4,10,11,13,14,15, NI-R37
 
-### 5. Extraction Batch 2 — COMPLETE ✅ (not yet committed)
-All 6 extractions implemented, tested, and import-swapped:
+4. **`src/lib/__tests__/vendor-onboarding.test.ts`** — 19 tests
+   - VJ-R1,2,5,7,9,10,11,12,13
 
-| # | Extraction | New File | Tests | Rules |
-|---|-----------|----------|-------|-------|
-| A | Phase 9 retention | `src/lib/cron/retention.ts` | 9 | IR-R11, IR-R22 |
-| B | External payment timing | `src/lib/cron/external-payment.ts` | 22 | OL-R17, OL-R18 |
-| C | No-show payout | `src/lib/cron/no-show.ts` | 14 | OL-R19 |
-| D | Quality checks logic | `src/lib/cron/quality-checks-logic.ts` | 12 | IR-R21, IR-R26 |
-| E | Email domain | `src/lib/notifications/email-config.ts` | 10 | IR-R29 |
-| F | Webhook utils | `src/lib/stripe/webhook-utils.ts` | 13 | IR-R9 |
+5. **`src/lib/__tests__/order-cron-rules.test.ts`** — 20 tests (NEW)
+   - OL-R11,13,14,16,20, MP-R14,18
 
-**Total:** 12 new files, 4 modified files, 80 new tests.
-**Full suite:** 480 passing, 110 todo, 0 failures, 19 test files.
-**TypeScript:** 0 errors.
+6. **`src/lib/__tests__/order-lifecycle.integration.test.ts`** — integration
+   - OL-R3,4,6,10,12, IR-R10,27,28
 
-New files created:
-- `src/lib/cron/retention.ts`
-- `src/lib/cron/external-payment.ts`
-- `src/lib/cron/no-show.ts`
-- `src/lib/cron/quality-checks-logic.ts`
-- `src/lib/cron/__tests__/retention.test.ts`
-- `src/lib/cron/__tests__/external-payment.test.ts`
-- `src/lib/cron/__tests__/no-show.test.ts`
-- `src/lib/cron/__tests__/quality-checks-logic.test.ts`
-- `src/lib/notifications/email-config.ts`
-- `src/lib/notifications/__tests__/email-config.test.ts`
-- `src/lib/stripe/webhook-utils.ts`
-- `src/lib/stripe/__tests__/webhook-utils.test.ts`
+7. **`src/lib/__tests__/subscription-lifecycle.integration.test.ts`** — integration
+   - SL-R1,2,3,5,6,7,8,9,10,11,12,13,14,15,16
 
-Modified files (import swaps):
-- `src/app/api/cron/expire-orders/route.ts` — imported retention, external-payment, no-show
-- `src/app/api/cron/vendor-quality-checks/route.ts` — imported quality-checks-logic
-- `src/lib/notifications/service.ts` — imported email-config
-- `src/lib/stripe/webhooks.ts` — imported webhook-utils
+### Bugs Fixed:
+- Path resolution bug in 3 test files (`webRoot` wrong depth)
+- `errors.ts` → `errors/index.ts` path
+- VJ-R11: checkout uses `pickupStartTime`/`pickupEndTime`, not `pickup_time`
+- VJ-R12: listing-availability at `src/lib/utils/`
+- NI-R37: `require('@/')` → ESM `import` at top level
+- SentryInit at `components/layout/` not `components/`
+- SL-R1 RPC error message assertion
+- SL-R10 schema snapshot path
+- IR-R27/R28 missing `webRoot` variable
+
+### Rules Updated (📋T → 🟣V): 66 rules
+- All MP-R, OL-R, VI-R, VJ-R, SL-R, NI-R, IR-R rules listed above
+
+### Known Test Failures (code bugs, NOT test bugs):
+- **MP-R8**: `atomic_decrement_inventory` RPC doesn't reject negative values
+- **OL-R3**: Cancelled items don't restore inventory via trigger
+
+### Remaining 📋T rules NOT covered: ~6
+- SL-R11 has trivial placeholder test (expect(true).toBe(true))
+- Any rules not in the 66 listed above
 
 ## Git State
-- **Last commit:** `67bb89e` — POC extraction
-- **Main:** 25 commits ahead of origin/main
-- **Staging:** Synced through `ef1cf3a` (event readiness). Commits `752d2fa`, `7fd9e56`, `67bb89e` NOT pushed to staging yet.
-- 480 tests passing, 110 todo, 0 failures, 19 test files
+- Last commit: `865ea03`
+- Branch: main
+- 7 new uncommitted test files + 1 modified business rules file
+- Need to commit after marker update completes
 
-## Session Commits (chronological)
-1. `ef1cf3a` — Vendor event readiness application: 14-field questionnaire + admin review
-2. `752d2fa` — Add 26 vendor training workflow scripts for Loom screen recordings
-3. `7fd9e56` — Business rules: confirm IR-R1–R14, add 18 Vitest stubs + 2 active tests
-4. `67bb89e` — POC: Extract event-readiness validation into testable module (30 tests)
-5. (pending) — Extraction Batch 2: 6 route logic extractions + 80 tests
-
-## Key Decisions This Session
-- Test extraction pattern: extract pure logic → separate file → write tests → swap import in route
-- Event readiness validation was the POC candidate (zero risk, pure function, 14-field conditional validation)
-- OL-R19: FT no-show = 1 hour after preferred_pickup_time; FM = date-based (midnight rollover)
-- IR-R1 through IR-R14 all confirmed by user
-- MP-R3 already had active test coverage in tip-math.test.ts (was missing `🟣V` marker)
-- `formatPaymentMethodLabel()` placed in external-payment.ts (Extraction B) — webhook-utils.ts has different scope (event type handling + price selection)
-- `shouldTriggerNoShow()` uses UTC for time parsing (appends Z suffix) since cron runs on Vercel/UTC
-
-## Pending Work (priority order)
-1. **Commit Batch 2** — 12 new + 4 modified files
-2. **Push to staging** — multiple commits behind
-3. **Update business rules file** — mark newly covered rules as `🟣V` after tests pass
-4. **Update help articles** — after event readiness UI verified on staging
+## What Remains
+1. ✅ Fix path bugs — DONE
+2. ✅ Write remaining tests — DONE
+3. 🔄 Update business rules markers — IN PROGRESS (agent running)
+4. ⬜ Run final quality check (full suite + tsc)
+5. ⬜ Commit all work

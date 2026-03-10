@@ -10,13 +10,11 @@ import {
   recordFeeCredit
 } from '@/lib/payments/vendor-fees'
 import { calculateTipShare } from '@/lib/payments/tip-math'
+import { CONFIRMATION_WINDOW_SECONDS, calculateWindowExpiry } from '@/lib/cron/order-timing'
 
 interface RouteContext {
   params: Promise<{ id: string }>
 }
-
-// Vendor has 30 seconds to click Fulfill after buyer acknowledges
-const CONFIRMATION_WINDOW_SECONDS = 30
 
 // POST /api/buyer/orders/[id]/confirm - Buyer acknowledges they received an item
 // Normal flow: Buyer acknowledges first (item is 'ready'), then vendor clicks Fulfill within 30 seconds
@@ -263,14 +261,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     } else {
       // NORMAL FLOW: Buyer acknowledges first (item is 'ready')
       // Vendor has 30 seconds to click Fulfill to complete
-      const windowExpires = new Date(now.getTime() + CONFIRMATION_WINDOW_SECONDS * 1000)
+      const windowExpires = calculateWindowExpiry(now)
 
       crumb.supabase('update', 'order_items')
       const { error: updateError } = await supabase
         .from('order_items')
         .update({
           buyer_confirmed_at: now.toISOString(),
-          confirmation_window_expires_at: windowExpires.toISOString()
+          confirmation_window_expires_at: windowExpires
         })
         .eq('id', orderItemId)
 
@@ -296,7 +294,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         success: true,
         message: 'Receipt acknowledged. Vendor has 30 seconds to fulfill.',
         buyer_confirmed_at: now.toISOString(),
-        confirmation_window_expires_at: windowExpires.toISOString(),
+        confirmation_window_expires_at: windowExpires,
         completed: false
       })
     }
