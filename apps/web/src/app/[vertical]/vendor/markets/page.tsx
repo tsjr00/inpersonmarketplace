@@ -655,8 +655,8 @@ export default function VendorMarketsPage() {
               No {term(vertical, 'traditional_markets').toLowerCase()} available yet. Check back soon!
             </p>
           ) : (() => {
-            const activeMarkets = fixedMarkets.filter(m => m.isHomeMarket || m.hasAttendance || expandedMarketIds.has(m.id))
-            const availableMarkets = fixedMarkets.filter(m => !m.isHomeMarket && !m.hasAttendance && !expandedMarketIds.has(m.id))
+            const activeMarkets = fixedMarkets.filter(m => m.isHomeMarket || expandedMarketIds.has(m.id))
+            const availableMarkets = fixedMarkets.filter(m => !m.isHomeMarket && !expandedMarketIds.has(m.id))
             return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {activeMarkets.map(market => (
@@ -869,7 +869,8 @@ export default function VendorMarketsPage() {
                         gap: 10,
                         padding: '8px 12px',
                         borderBottom: idx < availableMarkets.length - 1 ? `1px solid ${statusColors.neutral100}` : 'none',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        backgroundColor: market.hasAttendance ? statusColors.successLight : 'white'
                       }}
                       onClick={() => setExpandedMarketIds(prev => { const next = new Set(prev); next.add(market.id); return next })}
                     >
@@ -885,10 +886,20 @@ export default function VendorMarketsPage() {
                           {market.city}, {market.state}
                         </span>
                       </div>
+                      {market.hasAttendance && (
+                        <span style={{
+                          fontSize: 11,
+                          color: statusColors.success,
+                          fontWeight: 600,
+                          flexShrink: 0
+                        }}>
+                          Active
+                        </span>
+                      )}
                     </div>
                   ))}
                   <div style={{ padding: '6px 12px', fontSize: 11, color: statusColors.neutral400, backgroundColor: statusColors.neutral50 }}>
-                    Check a {term(vertical, 'traditional_market').toLowerCase()} to expand and set your schedule
+                    Click a {term(vertical, 'traditional_market').toLowerCase()} to expand details and manage schedule
                   </div>
                 </div>
               )}
