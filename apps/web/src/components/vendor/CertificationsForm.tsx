@@ -265,39 +265,32 @@ export default function CertificationsForm({
               >
                 <div style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing.sm
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: spacing.xs
                 }}>
-                  {/* Badge */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing['2xs'],
-                    padding: `${spacing['2xs']} ${spacing.xs}`,
-                    backgroundColor: typeInfo.badgeBg,
-                    color: typeInfo.badgeColor,
-                    borderRadius: radius.sm,
-                    fontSize: typography.sizes.sm,
-                    fontWeight: typography.weights.semibold,
-                    whiteSpace: 'nowrap'
-                  }}>
-                    <span>{typeInfo.icon}</span>
-                    <span>{cert.label}</span>
-                  </div>
-
-                  {/* Details */}
+                  {/* Badge + Details stacked */}
                   <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: spacing['2xs'],
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      backgroundColor: typeInfo.badgeBg,
+                      color: typeInfo.badgeColor,
+                      borderRadius: radius.sm,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                      marginBottom: spacing['3xs']
+                    }}>
+                      <span>{typeInfo.icon}</span>
+                      <span>{cert.label}</span>
+                    </div>
                     <div style={{
                       fontSize: typography.sizes.sm,
                       color: colors.textPrimary
                     }}>
-                      #{cert.registration_number}
-                    </div>
-                    <div style={{
-                      fontSize: typography.sizes.xs,
-                      color: colors.textMuted
-                    }}>
-                      {cert.state}
+                      #{cert.registration_number} &bull; {cert.state}
                       {cert.expires_at && ` • Expires: ${new Date(cert.expires_at).toLocaleDateString()}`}
                     </div>
                   </div>
@@ -306,12 +299,13 @@ export default function CertificationsForm({
                   <button
                     onClick={() => handleRemoveCertification(index)}
                     style={{
-                      padding: spacing['2xs'],
+                      padding: spacing['3xs'],
                       backgroundColor: 'transparent',
                       border: 'none',
                       color: colors.textMuted,
                       cursor: 'pointer',
-                      fontSize: typography.sizes.lg
+                      fontSize: typography.sizes.lg,
+                      lineHeight: 1
                     }}
                     title="Remove certification"
                   >
@@ -476,7 +470,7 @@ export default function CertificationsForm({
                   borderRadius: radius.sm,
                   border: `1px solid ${colors.border}`,
                   fontSize: typography.sizes.base,
-                  minHeight: 44,
+                  minHeight: 38,
                   boxSizing: 'border-box'
                 }}
               />
@@ -486,7 +480,7 @@ export default function CertificationsForm({
           {/* Registration Number and State */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 100px',
+            gridTemplateColumns: '1fr 120px',
             gap: spacing.sm,
             marginBottom: spacing.sm
           }}>
@@ -510,7 +504,7 @@ export default function CertificationsForm({
                   borderRadius: radius.sm,
                   border: `1px solid ${colors.border}`,
                   fontSize: typography.sizes.base,
-                  minHeight: 44,
+                  minHeight: 38,
                   boxSizing: 'border-box'
                 }}
               />
@@ -533,7 +527,7 @@ export default function CertificationsForm({
                   borderRadius: radius.sm,
                   border: `1px solid ${colors.border}`,
                   fontSize: typography.sizes.base,
-                  minHeight: 44
+                  minHeight: 38
                 }}
               >
                 <option value="">--</option>
@@ -609,7 +603,7 @@ export default function CertificationsForm({
               onClick={handleAddCertification}
               disabled={addingWithUpload}
               style={{
-                padding: `${spacing.xs} ${spacing.md}`,
+                padding: `${spacing['2xs']} ${spacing.sm}`,
                 backgroundColor: colors.primary,
                 color: colors.textInverse,
                 border: 'none',
@@ -618,7 +612,7 @@ export default function CertificationsForm({
                 fontWeight: typography.weights.semibold,
                 cursor: addingWithUpload ? 'wait' : 'pointer',
                 opacity: addingWithUpload ? 0.7 : 1,
-                minHeight: 44
+                minHeight: 38
               }}
             >
               {addingWithUpload ? 'Uploading...' : 'Add Certification'}
@@ -631,7 +625,7 @@ export default function CertificationsForm({
                 if (newFileInputRef.current) newFileInputRef.current.value = ''
               }}
               style={{
-                padding: `${spacing.xs} ${spacing.md}`,
+                padding: `${spacing['2xs']} ${spacing.sm}`,
                 backgroundColor: 'transparent',
                 color: colors.textSecondary,
                 border: `1px solid ${colors.border}`,
@@ -639,7 +633,7 @@ export default function CertificationsForm({
                 fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.medium,
                 cursor: 'pointer',
-                minHeight: 44
+                minHeight: 38
               }}
             >
               Cancel
@@ -652,7 +646,7 @@ export default function CertificationsForm({
             onClick={() => setShowAddForm(true)}
             style={{
               width: '100%',
-              padding: spacing.sm,
+              padding: spacing.xs,
               backgroundColor: colors.surfaceMuted,
               color: colors.textSecondary,
               border: `1px dashed ${colors.border}`,
@@ -661,7 +655,7 @@ export default function CertificationsForm({
               fontWeight: typography.weights.medium,
               cursor: 'pointer',
               marginBottom: spacing.md,
-              minHeight: 44
+              minHeight: 38
             }}
           >
             + Add Certification
@@ -687,7 +681,7 @@ export default function CertificationsForm({
         disabled={saving}
         style={{
           width: '100%',
-          padding: spacing.sm,
+          padding: spacing.xs,
           backgroundColor: saving ? colors.borderMuted : colors.primary,
           color: colors.textInverse,
           border: 'none',
@@ -695,7 +689,7 @@ export default function CertificationsForm({
           fontSize: typography.sizes.base,
           fontWeight: typography.weights.semibold,
           cursor: saving ? 'not-allowed' : 'pointer',
-          minHeight: 48
+          minHeight: 44
         }}
       >
         {saving ? 'Saving...' : 'Save Certifications'}

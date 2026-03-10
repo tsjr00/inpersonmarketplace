@@ -1,68 +1,93 @@
-# Current Task: Session 56 — Writing Tests for 68 📋T Todo Rules
+# Current Task: Session 56 — Tests DONE, Now 5 UI/UX Fixes
 
 Started: 2026-03-10
-Status: **NEARLY COMPLETE — All test files written, markers being updated**
+Status: **IN PLAN MODE — 5 fixes researched, plan written, awaiting approval**
 
-## What's Been Done This Session
+## WHAT TO DO NEXT
 
-### Test Results
-- **Unit tests**: 726 passing, 110 todo, 0 failures across 29 test files (was 617)
-- **Integration tests**: 29 of 31 passing, 2 known bugs (MP-R8 negative inventory, OL-R3 cancel restore)
-- **New tests added**: 109 (617 → 726)
+**We are in PLAN MODE.** The plan file is at `C:\Users\tracy\.claude\plans\ticklish-jumping-spark.md` but it needs to be overwritten (contains old test plan content). The NEW plan content is below.
 
-### New Test Files Created:
-1. **`src/lib/payments/__tests__/tip-rules.test.ts`** — 12 tests
-   - MP-R22, MP-R26, MP-R27
+1. **Exit plan mode** with the plan below
+2. **Implement 5 fixes** in order (easiest → hardest):
+   - Fix 5: Remove vendor socials tier gate
+   - Fix 1: Fix listing form labels
+   - Fix 2: Events empty state on markets page
+   - Fix 4: Notification actionUrl improvements
+   - Item 3: Deep dive series → add to backlog
+3. **Run quality checks** (tsc + vitest)
+4. **Commit**
 
-2. **`src/lib/__tests__/infra-config.test.ts`** — 32 tests
-   - IR-R1,2,3,4,5,6,7,12,13,14,19,20,24,25
+## Completed Earlier This Session
 
-3. **`src/lib/__tests__/vertical-features.test.ts`** — 26 tests
-   - VI-R4,10,11,13,14,15, NI-R37
+### Test Writing (COMMITTED as `ea154de`)
+- 109 new tests (617 → 726 passing, 0 failures, 29 test files)
+- 65 business rules promoted 📋T → 🟣V (zero 📋T remaining)
+- 7 new test files + updated business rules markers
+- 2 known code bugs found (MP-R8 negative inventory, OL-R3 cancel restore)
 
-4. **`src/lib/__tests__/vendor-onboarding.test.ts`** — 19 tests
-   - VJ-R1,2,5,7,9,10,11,12,13
+## The 5 Fixes — Research Complete, Plan Ready
 
-5. **`src/lib/__tests__/order-cron-rules.test.ts`** — 20 tests (NEW)
-   - OL-R11,13,14,16,20, MP-R14,18
+### Fix 5: Remove Vendor Socials Tier Gate (EASIEST)
+**Problem:** Only premium/featured vendors can save social links. User wants all vendors.
+**Files:**
+- `src/components/vendor/ProfileEditForm.tsx` (line 25, 38-42): Remove `isPremium` check, enable all inputs, remove "Upgrade to Premium" badge
+- `src/app/api/vendor/profile/route.ts` (line 57-60): Remove tier check on social_links save
+- Display side already works for all vendors — no change needed
 
-6. **`src/lib/__tests__/order-lifecycle.integration.test.ts`** — integration
-   - OL-R3,4,6,10,12, IR-R10,27,28
+### Fix 1: Fix Listing Form Labels
+**Problem:** "Amount Available Today" confused with "Quantity Available" — they serve different purposes.
+- `quantity` = inventory count (how many units to sell, decremented on purchase)
+- `quantity_amount` + `quantity_unit` = portion size per purchase (what buyer receives)
+**File:** `src/app/[vertical]/vendor/listings/ListingForm.tsx`
+**Changes:**
+- `quantity` label: "Quantity Available" → "Units in Stock", add hint about inventory tracking
+- `quantity_amount` FT label: "Amount Available Today" → "Serving Size"
+- `quantity_amount` FM label: "Size / Amount" → "Unit Size / Amount"
+- FT hint: change to "What does each order include? (e.g., '1 serving', '12 oz', 'feeds 4')"
 
-7. **`src/lib/__tests__/subscription-lifecycle.integration.test.ts`** — integration
-   - SL-R1,2,3,5,6,7,8,9,10,11,12,13,14,15,16
+### Fix 2: Events Empty State on Markets Page
+**Problem:** `/food_trucks/markets?type=event` with no events shows nothing.
+**File:** `src/app/[vertical]/markets/page.tsx` (line ~203)
+**Change:** When `locationType === 'event'` and no events, show:
+- "No upcoming events at this time"
+- "Planning an event? We can help you find the perfect food trucks."
+- CTA button → `/{vertical}/events` (event request intake form, which already exists)
 
-### Bugs Fixed:
-- Path resolution bug in 3 test files (`webRoot` wrong depth)
-- `errors.ts` → `errors/index.ts` path
-- VJ-R11: checkout uses `pickupStartTime`/`pickupEndTime`, not `pickup_time`
-- VJ-R12: listing-availability at `src/lib/utils/`
-- NI-R37: `require('@/')` → ESM `import` at top level
-- SentryInit at `components/layout/` not `components/`
-- SL-R1 RPC error message assertion
-- SL-R10 schema snapshot path
-- IR-R27/R28 missing `webRoot` variable
+### Fix 4: Notification ActionUrl Improvements (HARDEST)
+**Problem:** Most notifications route to generic dashboard, not specific pages.
+**File:** `src/lib/notifications/types.ts`
+**Key changes:**
+- Vendor order notifs (`new_paid_order`, `order_cancelled_by_buyer`, `pickup_issue_reported`, `payout_processed`, `payout_failed`) → `/{vertical}/vendor/orders`
+- `pickup_confirmation_needed` → `/{vertical}/vendor/pickup`
+- `market_approved` → `/{vertical}/vendor/markets`
+- `vendor_cancellation_warning` → `/{vertical}/vendor/analytics`
+- Fix 2 hardcoded non-vertical admin paths (`issue_disputed`, `vendor_event_application_submitted`)
+- Buyer notifications already correct (all go to `/buyer/orders`)
 
-### Rules Updated (📋T → 🟣V): 66 rules
-- All MP-R, OL-R, VI-R, VJ-R, SL-R, NI-R, IR-R rules listed above
+**Available pages confirmed:**
+- `/{vertical}/vendor/orders/page.tsx` ✅ exists
+- `/{vertical}/vendor/dashboard/orders/page.tsx` ✅ exists
+- `/{vertical}/vendor/pickup/page.tsx` ✅ exists
+- `/{vertical}/vendor/markets/page.tsx` ✅ exists
+- `/{vertical}/vendor/analytics/page.tsx` ✅ exists
+- `/{vertical}/buyer/orders/[id]/page.tsx` ✅ exists (detail page)
+- No vendor order detail page exists (no `/{vertical}/vendor/orders/[id]`)
 
-### Known Test Failures (code bugs, NOT test bugs):
-- **MP-R8**: `atomic_decrement_inventory` RPC doesn't reject negative values
-- **OL-R3**: Cancelled items don't restore inventory via trigger
-
-### Remaining 📋T rules NOT covered: ~6
-- SL-R11 has trivial placeholder test (expect(true).toBe(true))
-- Any rules not in the 66 listed above
+### Item 3: Deep Dive Series → Backlog
+**Not code.** Add to `apps/web/.claude/backlog.md` describing:
+- Topics: statuses, dates, locations, hours/times, tiers, financial limits, auth state, device/browser
+- Process: end-to-end trace from DB schema through API routes through UI for each topic
+- Output: `.claude/deep-dives/[topic].md` files
+- Importance: keeping complex systems & patterns transparent for debugging, onboarding, auditing
 
 ## Git State
-- Last commit: `865ea03`
-- Branch: main
-- 7 new uncommitted test files + 1 modified business rules file
-- Need to commit after marker update completes
+- Last commit: `ea154de` (Session 56 tests)
+- Branch: main (29 ahead of origin/main)
+- No uncommitted changes
+- Currently in plan mode
 
-## What Remains
-1. ✅ Fix path bugs — DONE
-2. ✅ Write remaining tests — DONE
-3. 🔄 Update business rules markers — IN PROGRESS (agent running)
-4. ⬜ Run final quality check (full suite + tsc)
-5. ⬜ Commit all work
+## Key Decisions
+- Labels fix is about clarity, not removing fields — both quantity fields serve different purposes
+- Socials gate removal is just 2 files (edit form + API route), display already works
+- Notification URLs route to the most specific EXISTING page — no new pages created
+- Events empty state links to the existing event request form at `/{vertical}/events`

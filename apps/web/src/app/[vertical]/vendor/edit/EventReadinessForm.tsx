@@ -44,7 +44,7 @@ const inputStyle = {
   borderRadius: radius.sm,
   border: `1px solid ${colors.border}`,
   fontSize: typography.sizes.base,
-  minHeight: 44,
+  minHeight: 38,
   boxSizing: 'border-box' as const,
 }
 
@@ -289,7 +289,7 @@ export default function EventReadinessForm({
 
       {/* 4. Generator Type (conditional) */}
       {form.requires_generator && (
-        <div style={{ marginBottom: spacing.sm, paddingLeft: spacing.md }}>
+        <div style={{ marginBottom: spacing.sm }}>
           <label style={labelStyle}>Generator Type *</label>
           <select
             value={form.generator_type || ''}
@@ -306,7 +306,7 @@ export default function EventReadinessForm({
 
       {/* 5. Generator Fuel (conditional) */}
       {form.requires_generator && (
-        <div style={{ marginBottom: spacing.sm, paddingLeft: spacing.md }}>
+        <div style={{ marginBottom: spacing.sm }}>
           <label style={labelStyle}>Generator Fuel *</label>
           <select
             value={form.generator_fuel || ''}
@@ -376,7 +376,7 @@ export default function EventReadinessForm({
 
       {/* 7b. Odor Description (conditional) */}
       {form.strong_odors && (
-        <div style={{ marginBottom: spacing.sm, paddingLeft: spacing.md }}>
+        <div style={{ marginBottom: spacing.sm }}>
           <label style={labelStyle}>Describe the Odors *</label>
           <input
             type="text"
@@ -418,24 +418,24 @@ export default function EventReadinessForm({
       {/* 10. Utensils Required */}
       <div style={{ marginBottom: spacing.sm }}>
         <label style={labelStyle}>Does Your Food Require Utensils? *</label>
-        <div style={{ display: 'flex', gap: spacing.md }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
             <input
               type="radio"
               name="utensils_required"
               checked={form.utensils_required === true}
               onChange={() => updateField('utensils_required', true)}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 16, height: 16 }}
             />
             Yes (forks, knives, or spoons needed)
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
             <input
               type="radio"
               name="utensils_required"
               checked={form.utensils_required === false}
               onChange={() => updateField('utensils_required', false)}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 16, height: 16 }}
             />
             No (handheld)
           </label>
@@ -445,24 +445,24 @@ export default function EventReadinessForm({
       {/* 11. Seating Recommended */}
       <div style={{ marginBottom: spacing.md }}>
         <label style={labelStyle}>Should Guests Have Seating? *</label>
-        <div style={{ display: 'flex', gap: spacing.md }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
             <input
               type="radio"
               name="seating_recommended"
               checked={form.seating_recommended === true}
               onChange={() => updateField('seating_recommended', true)}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 16, height: 16 }}
             />
             Yes (e.g., BBQ plates, full meals)
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
             <input
               type="radio"
               name="seating_recommended"
               checked={form.seating_recommended === false}
               onChange={() => updateField('seating_recommended', false)}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 16, height: 16 }}
             />
             No (handheld, walk-and-eat)
           </label>
@@ -525,7 +525,7 @@ export default function EventReadinessForm({
 
       {/* 13b. Experience Description (conditional) */}
       {form.has_event_experience && (
-        <div style={{ marginBottom: spacing.sm, paddingLeft: spacing.md }}>
+        <div style={{ marginBottom: spacing.sm }}>
           <label style={labelStyle}>Describe Your Experience *</label>
           <textarea
             value={form.event_experience_description || ''}
@@ -575,7 +575,7 @@ export default function EventReadinessForm({
         disabled={saving}
         style={{
           width: '100%',
-          padding: spacing.sm,
+          padding: spacing.xs,
           backgroundColor: saving ? colors.borderMuted : colors.primary,
           color: colors.textInverse,
           border: 'none',
@@ -583,7 +583,7 @@ export default function EventReadinessForm({
           fontSize: typography.sizes.base,
           fontWeight: typography.weights.semibold,
           cursor: saving ? 'not-allowed' : 'pointer',
-          minHeight: 48,
+          minHeight: 44,
         }}
       >
         {saving

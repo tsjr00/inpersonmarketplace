@@ -83,18 +83,12 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
 
   return (
     <div style={{
-      maxWidth: 600,
-      margin: '0 auto',
-      padding: 30,
-      backgroundColor: 'white',
-      border: '1px solid ' + branding.colors.secondary,
-      borderRadius: 8,
       color: '#333'
     }}>
       {error && (
         <div style={{
           padding: 10,
-          marginBottom: 20,
+          marginBottom: 12,
           backgroundColor: '#fee',
           border: '1px solid #fcc',
           borderRadius: 4,
@@ -107,7 +101,7 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
       {success && (
         <div style={{
           padding: 10,
-          marginBottom: 20,
+          marginBottom: 12,
           backgroundColor: colors.primaryLight,
           border: `1px solid ${colors.primary}`,
           borderRadius: 4,
@@ -119,7 +113,7 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
 
       <form onSubmit={handleSubmit}>
         {/* Legal Name */}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 12 }}>
           <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
             Legal Name
           </label>
@@ -132,9 +126,9 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
             disabled={loading}
             style={{
               width: '100%',
-              padding: 10,
-              fontSize: 16,
-              border: '1px solid ' + branding.colors.primary,
+              padding: '8px 10px',
+              fontSize: 15,
+              border: `1px solid ${colors.border}`,
               borderRadius: 4,
               boxSizing: 'border-box'
             }}
@@ -142,7 +136,7 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
         </div>
 
         {/* Phone */}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 12 }}>
           <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
             Phone Number
           </label>
@@ -155,9 +149,9 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
             disabled={loading}
             style={{
               width: '100%',
-              padding: 10,
-              fontSize: 16,
-              border: '1px solid ' + branding.colors.primary,
+              padding: '8px 10px',
+              fontSize: 15,
+              border: `1px solid ${colors.border}`,
               borderRadius: 4,
               boxSizing: 'border-box'
             }}
@@ -165,7 +159,7 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
         </div>
 
         {/* Email */}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 12 }}>
           <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
             Email Address
           </label>
@@ -178,9 +172,9 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
             disabled={loading}
             style={{
               width: '100%',
-              padding: 10,
-              fontSize: 16,
-              border: '1px solid ' + branding.colors.primary,
+              padding: '8px 10px',
+              fontSize: 15,
+              border: `1px solid ${colors.border}`,
               borderRadius: 4,
               boxSizing: 'border-box'
             }}
@@ -188,7 +182,7 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
         </div>
 
         {/* Business Name */}
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 12 }}>
           <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
             Business Name
           </label>
@@ -201,9 +195,9 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
             disabled={loading}
             style={{
               width: '100%',
-              padding: 10,
-              fontSize: 16,
-              border: '1px solid ' + branding.colors.primary,
+              padding: '8px 10px',
+              fontSize: 15,
+              border: `1px solid ${colors.border}`,
               borderRadius: 4,
               boxSizing: 'border-box'
             }}
@@ -213,8 +207,8 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
         {/* Multiple Trucks Checkbox — Food Trucks only */}
         {vertical === 'food_trucks' && (
           <div style={{
-            marginBottom: 20,
-            padding: 16,
+            marginBottom: 12,
+            padding: 12,
             backgroundColor: '#f9fafb',
             border: '1px solid #e5e7eb',
             borderRadius: 8,
@@ -245,14 +239,14 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
         )}
 
         {/* Buttons */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 30 }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
           <button
             type="submit"
             disabled={loading}
             style={{
               flex: 1,
-              padding: 12,
-              fontSize: 16,
+              padding: '8px 16px',
+              fontSize: 15,
               fontWeight: 600,
               backgroundColor: loading ? '#ccc' : branding.colors.primary,
               color: 'white',
@@ -270,8 +264,8 @@ export default function EditProfileForm({ vertical, vendorProfile, branding }: E
             disabled={loading}
             style={{
               flex: 1,
-              padding: 12,
-              fontSize: 16,
+              padding: '8px 16px',
+              fontSize: 15,
               fontWeight: 600,
               backgroundColor: '#6c757d',
               color: 'white',

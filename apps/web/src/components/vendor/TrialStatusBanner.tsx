@@ -36,55 +36,51 @@ export default function TrialStatusBanner({
 
   return (
     <div style={{
-      padding: spacing.md,
+      padding: '12px 16px',
       backgroundColor: bgColor,
       border: `2px solid ${borderColor}`,
       borderRadius: radius.lg,
       marginBottom: spacing.md,
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
-        <div style={{ flex: 1 }}>
-          <p style={{
-            margin: 0,
-            fontSize: typography.sizes.sm,
-            fontWeight: 600,
-            color: textColor,
-          }}>
-            {isTrialing
-              ? `Free Basic Trial — ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining`
-              : `Trial Ended — ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} to upgrade`
-            }
-          </p>
-          <p style={{
-            margin: '4px 0 0 0',
-            fontSize: typography.sizes.xs,
-            color: textColor,
-            opacity: 0.85,
-          }}>
-            {isTrialing
-              ? 'You have full access to Basic tier features during your trial. Upgrade anytime to keep them after your trial ends.'
-              : 'Your free trial has ended. Upgrade to Basic to keep all your menu items, locations, and Chef Boxes. Items beyond Free tier limits will be paused after the grace period.'
-            }
-          </p>
-          <Link
-            href={`/${vertical}/vendor/dashboard/upgrade`}
-            style={{
-              display: 'inline-block',
-              marginTop: 8,
-              padding: '6px 16px',
-              fontSize: typography.sizes.xs,
-              fontWeight: 600,
-              color: 'white',
-              backgroundColor: isGracePeriod ? '#f59e0b' : '#3b82f6',
-              borderRadius: radius.md,
-              textDecoration: 'none',
-            }}
-          >
-            Upgrade to Basic — $10/mo
-          </Link>
-        </div>
-      </div>
+      <p style={{
+        margin: 0,
+        fontSize: typography.sizes.sm,
+        fontWeight: 600,
+        color: textColor,
+      }}>
+        {icon}{' '}
+        {isTrialing
+          ? `Free Basic Trial — ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining`
+          : `Trial Ended — ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} to upgrade`
+        }
+      </p>
+      <p style={{
+        margin: '4px 0 0 0',
+        fontSize: typography.sizes.xs,
+        color: textColor,
+        opacity: 0.85,
+      }}>
+        {isTrialing
+          ? 'You have full access to Basic tier features during your trial. Upgrade anytime to keep them after your trial ends.'
+          : 'Your free trial has ended. Upgrade to Basic to keep all your menu items, locations, and Chef Boxes. Items beyond Free tier limits will be paused after the grace period.'
+        }
+      </p>
+      <Link
+        href={`/${vertical}/vendor/dashboard/upgrade`}
+        style={{
+          display: 'inline-block',
+          marginTop: 8,
+          padding: '6px 16px',
+          fontSize: typography.sizes.xs,
+          fontWeight: 600,
+          color: 'white',
+          backgroundColor: isGracePeriod ? '#f59e0b' : '#3b82f6',
+          borderRadius: radius.md,
+          textDecoration: 'none',
+        }}
+      >
+        Upgrade to Basic — $10/mo
+      </Link>
     </div>
   )
 }
