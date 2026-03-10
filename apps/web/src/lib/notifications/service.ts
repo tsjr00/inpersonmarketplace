@@ -25,6 +25,7 @@ import {
   getNotificationUrgency,
 } from './types'
 import { defaultBranding } from '@/lib/branding/defaults'
+import { getEmailFromAddress, getEmailBranding } from '@/lib/notifications/email-config'
 import { TracedError, logError } from '@/lib/errors'
 
 // ── External Clients (lazy init) ────────────────────────────────────
@@ -168,22 +169,9 @@ async function sendEmail(
     }
   }
 
-  // H-3 FIX: Per-vertical email FROM address
-  // Each vertical gets its own FROM address using its verified domain.
-  // Requires Resend DNS verification for each domain's `mail.` subdomain.
-  // Falls back to FM domain if vertical domain not in the verified list.
-  const verifiedEmailDomains: Record<string, string> = {
-    farmers_market: 'updates@mail.farmersmarketing.app',
-    food_trucks: 'updates@mail.foodtruckn.app',
-    fire_works: 'updates@mail.farmersmarketing.app', // Not yet verified — uses FM fallback
-  }
-  const fallbackFrom = process.env.RESEND_FROM_EMAIL || 'updates@mail.farmersmarketing.app'
-  const fromAddress = verifiedEmailDomains[vertical || 'farmers_market'] || fallbackFrom
-  // Use vertical-aware branding for display name, domain, and header color
-  const branding = defaultBranding[vertical || 'farmers_market']
-  const brandName = branding?.brand_name || 'Farmers Marketing'
-  const brandDomain = branding?.domain || 'farmersmarketing.app'
-  const brandColor = branding?.colors?.primary || '#2d5016'
+  // H-3 FIX: Per-vertical email FROM address + branding (extracted to email-config.ts)
+  const fromAddress = getEmailFromAddress(vertical)
+  const { brandName, brandDomain, brandColor } = getEmailBranding(vertical)
 
   try {
     const { data, error } = await resend.emails.send({

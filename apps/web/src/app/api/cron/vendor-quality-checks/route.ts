@@ -11,6 +11,12 @@ import {
   checkInventoryVelocity,
   type QualityFinding,
 } from '@/lib/quality-checks'
+import {
+  buildDismissalKeySet,
+  filterUndismissedFindings,
+  groupFindingsByVendor,
+  formatFindingsSummary,
+} from '@/lib/cron/quality-checks-logic'
 
 function safeCompare(a: string, b: string): boolean {
   if (a.length !== b.length) {
@@ -120,15 +126,8 @@ export async function GET(request: NextRequest) {
         .eq('status', 'dismissed')
         .gte('dismissed_at', sevenDaysAgo)
 
-      const dismissedKeys = new Set(
-        (recentDismissals || []).map(
-          d => `${d.vendor_profile_id}:${d.check_type}:${d.reference_key}`
-        )
-      )
-
-      const filteredFindings = allFindings.filter(
-        f => !dismissedKeys.has(`${f.vendor_profile_id}:${f.check_type}:${f.reference_key}`)
-      )
+      const dismissedKeys = buildDismissalKeySet(recentDismissals || [])
+      const filteredFindings = filterUndismissedFindings(allFindings, dismissedKeys)
 
       // Step 5: Insert new findings
       let findingsCreated = 0
@@ -151,20 +150,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Step 6: Group findings per vendor, send one notification each
-      const vendorFindings = new Map<string, { vertical: string; count: number; findings: QualityFinding[] }>()
-      for (const f of filteredFindings) {
-        const existing = vendorFindings.get(f.vendor_profile_id)
-        if (existing) {
-          existing.count++
-          existing.findings.push(f)
-        } else {
-          vendorFindings.set(f.vendor_profile_id, {
-            vertical: f.vertical_id,
-            count: 1,
-            findings: [f],
-          })
-        }
-      }
+      const vendorFindings = groupFindingsByVendor(filteredFindings)
 
       // Get vendor user_ids for notification
       const vendorIds = Array.from(vendorFindings.keys())
@@ -181,16 +167,7 @@ export async function GET(request: NextRequest) {
           const vf = vendorFindings.get(vendor.id)
           if (!vf) continue
 
-          // Build summary
-          const severityIcon: Record<string, string> = {
-            action_required: '[!]',
-            heads_up: '[i]',
-            suggestion: '[~]',
-          }
-          const summary = vf.findings
-            .slice(0, 5)
-            .map(f => `${severityIcon[f.severity] || '-'} ${f.title}`)
-            .join('\n')
+          const summary = formatFindingsSummary(vf.findings)
 
           await sendNotification(vendor.user_id, 'vendor_quality_alert', {
             findingsCount: vf.count,

@@ -8,6 +8,9 @@ import { withErrorTracing } from '@/lib/errors'
 import { FEES } from '@/lib/pricing'
 import { getTierLimits } from '@/lib/vendor-limits'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
+import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
+import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
+import { calculateNoShowPayout } from '@/lib/cron/no-show'
 
 /**
  * Timing-safe string comparison to prevent timing attacks
@@ -386,12 +389,7 @@ export async function GET(request: NextRequest) {
     // Per-vertical timing: FT = 15min after order, FM = 12hr after order.
     // Does NOT auto-confirm — just sends a reminder notification.
     // ============================================================
-    const REMINDER_DELAY_MS: Record<string, number> = {
-      food_trucks: 15 * 60 * 1000,       // 15 minutes
-      farmers_market: 12 * 60 * 60 * 1000, // 12 hours
-      fire_works: 12 * 60 * 60 * 1000,    // 12 hours (same as FM)
-    }
-    const DEFAULT_REMINDER_DELAY_MS = 12 * 60 * 60 * 1000 // 12 hours default
+    // Constants imported from @/lib/cron/external-payment
 
     let externalReminders = 0
     try {
@@ -435,9 +433,7 @@ export async function GET(request: NextRequest) {
         for (const order of unreminderOrders) {
           // Per-vertical: check if this order is old enough for its vertical's reminder delay
           const vertical = order.vertical_id || 'farmers_market'
-          const delayMs = REMINDER_DELAY_MS[vertical] ?? DEFAULT_REMINDER_DELAY_MS
-          const orderAge = now - new Date(order.created_at).getTime()
-          if (orderAge < delayMs) continue // Not old enough for this vertical's delay
+          if (!isOrderOldEnoughForReminder(order.created_at, vertical, now)) continue
 
           const items = order.order_items as unknown as Array<{
             id: string
@@ -482,8 +478,7 @@ export async function GET(request: NextRequest) {
     // ============================================================
     let externalAutoConfirmed = 0
     try {
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
-      const yesterdayDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD
+      const yesterdayDate = getAutoConfirmCutoffDate()
 
       const { data: staleDigitalOrders, error: digitalError } = await supabase
         .from('orders')
@@ -527,16 +522,9 @@ export async function GET(request: NextRequest) {
               vendor_profiles: { id: string; user_id: string; profile_data?: unknown }
             }>
 
+            if (!areAllItemsPastPickupWindow(items, yesterdayDate)) continue
+
             const activeItems = items.filter(i => !i.cancelled_at)
-            if (activeItems.length === 0) continue
-
-            // All active items must have pickup_date 24+ hours ago
-            const allPastWindow = activeItems.every(item => {
-              if (!item.pickup_date) return false
-              return item.pickup_date <= yesterdayDate
-            })
-
-            if (!allPastWindow) continue
 
             const now = new Date().toISOString()
 
@@ -574,8 +562,7 @@ export async function GET(request: NextRequest) {
             // Notify vendor
             const firstVendor = activeItems[0]?.vendor_profiles
             if (firstVendor?.user_id) {
-              const methodLabel = order.payment_method === 'cashapp' ? 'Cash App'
-                : order.payment_method.charAt(0).toUpperCase() + order.payment_method.slice(1)
+              const methodLabel = formatPaymentMethodLabel(order.payment_method)
               await sendNotification(firstVendor.user_id, 'external_payment_auto_confirmed', {
                 orderNumber: order.order_number,
                 paymentMethod: methodLabel,
@@ -658,14 +645,12 @@ export async function GET(request: NextRequest) {
               .eq('id', item.id)
 
             // H19 FIX: Pay vendor for no-show items (vendor prepared the order)
-            // Calculate payout: vendor_payout_cents + prorated vendor tip share
-            // Vendor gets tip on food cost only (excludes platform fee tip portion)
-            const tipAmount = order?.tip_amount || 0
-            const tipOnPlatformFee = order?.tip_on_platform_fee_cents || 0
-            const vendorTipCents = tipAmount - tipOnPlatformFee
-            const totalItemsInOrder = order?.order_items?.length || 1
-            const tipShareCents = totalItemsInOrder > 0 ? Math.round(vendorTipCents / totalItemsInOrder) : 0
-            const actualPayoutCents = (item.vendor_payout_cents || 0) + tipShareCents
+            const actualPayoutCents = calculateNoShowPayout({
+              vendorPayoutCents: item.vendor_payout_cents || 0,
+              tipAmount: order?.tip_amount || 0,
+              tipOnPlatformFeeCents: order?.tip_on_platform_fee_cents || 0,
+              totalItemsInOrder: order?.order_items?.length || 1,
+            })
 
             if (actualPayoutCents > 0 && order?.stripe_checkout_session_id) {
               // Check for existing payout (prevent double payout)
@@ -1604,34 +1589,29 @@ export async function GET(request: NextRequest) {
     let errorLogsDeleted = 0
     let notificationsDeleted = 0
     let activityEventsDeleted = 0
-    const isCleanupDay = new Date().getUTCDay() === 0 // Sunday
-
-    if (isCleanupDay) try {
-      const now = new Date()
+    if (isCleanupDay()) try {
+      const cutoffs = calculateRetentionCutoffs()
 
       // Delete error_logs older than 90 days
-      const errorLogCutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString()
       const { count: elCount } = await supabase
         .from('error_logs')
         .delete({ count: 'exact' })
-        .lt('created_at', errorLogCutoff)
+        .lt('created_at', cutoffs.error_logs)
       errorLogsDeleted = elCount || 0
 
       // Delete read notifications older than 60 days
-      const notifCutoff = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString()
       const { count: nCount } = await supabase
         .from('notifications')
         .delete({ count: 'exact' })
         .not('read_at', 'is', null)
-        .lt('created_at', notifCutoff)
+        .lt('created_at', cutoffs.notifications)
       notificationsDeleted = nCount || 0
 
       // Delete activity_events older than 30 days
-      const activityCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
       const { count: aeCount } = await supabase
         .from('public_activity_events')
         .delete({ count: 'exact' })
-        .lt('created_at', activityCutoff)
+        .lt('created_at', cutoffs.activity_events)
       activityEventsDeleted = aeCount || 0
 
       totalProcessed += errorLogsDeleted + notificationsDeleted + activityEventsDeleted
