@@ -124,6 +124,7 @@ export default function VendorMarketsPage() {
   const [error, setError] = useState<{ error: string; code?: string; traceId?: string; details?: string } | null>(null)
   const [selectedMarketForSchedule, setSelectedMarketForSchedule] = useState<Market | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [expandedMarketIds, setExpandedMarketIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchMarkets()
@@ -653,150 +654,140 @@ export default function VendorMarketsPage() {
             <p style={{ color: statusColors.neutral400, fontStyle: 'italic', margin: 0 }}>
               No {term(vertical, 'traditional_markets').toLowerCase()} available yet. Check back soon!
             </p>
-          ) : (
+          ) : (() => {
+            const activeMarkets = fixedMarkets.filter(m => m.isHomeMarket || m.hasAttendance || expandedMarketIds.has(m.id))
+            const availableMarkets = fixedMarkets.filter(m => !m.isHomeMarket && !m.hasAttendance && !expandedMarketIds.has(m.id))
+            return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {fixedMarkets.map(market => (
+              {activeMarkets.map(market => (
                 <div
                   key={market.id}
                   style={{
-                    padding: 16,
+                    padding: 12,
                     border: market.isHomeMarket ? `2px solid ${statusColors.info}` : `1px solid ${statusColors.neutral200}`,
                     borderRadius: 8,
                     backgroundColor: market.isHomeMarket ? statusColors.infoLight : 'white'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-                          {market.name}
-                        </h3>
-                        {market.isHomeMarket && (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '2px 8px',
-                            backgroundColor: statusColors.info,
-                            color: 'white',
-                            borderRadius: 4,
-                            fontSize: 12,
-                            fontWeight: 600
-                          }}>
-                            🏠 {vertical === 'food_trucks' ? 'Home Park' : 'Home Market'}
-                          </span>
-                        )}
-                        {market.isHomeMarket && (
-                          <p style={{
-                            margin: '4px 0 0 0',
-                            fontSize: 12,
-                            color: statusColors.neutral500,
-                            fontStyle: 'italic',
-                          }}>
-                            Your home location is used as your primary position in geographic search results. Buyers searching near this location will see you first.
-                          </p>
-                        )}
-                      </div>
-                      <p style={{ margin: '0 0 4px 0', fontSize: 14, color: statusColors.neutral500 }}>
-                        {market.address}, {market.city}, {market.state} {market.zip}
-                      </p>
-                      {market.day_of_week !== null && market.day_of_week !== undefined && (
-                        <p style={{ margin: '0 0 8px 0', fontSize: 14, color: statusColors.neutral500 }}>
-                          {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
-                        </p>
-                      )}
-                      {/* Cutoff time for traditional markets */}
-                      {market.day_of_week !== null && market.day_of_week !== undefined && market.start_time && (() => {
-                        const cutoffHrs = market.cutoff_hours ?? getDefaultCutoffHours('traditional')
-                        const display = getCutoffDisplay(market.day_of_week!, market.start_time!, cutoffHrs)
-                        return display ? (
-                          <div style={{
-                            padding: '6px 10px',
-                            backgroundColor: statusColors.warningLight,
-                            borderRadius: 4,
-                            fontSize: 12,
-                            color: statusColors.warningDark,
-                            marginBottom: 12,
-                            display: 'inline-block'
-                          }}>
-                            <strong>Order cutoff:</strong> {display}
-                          </div>
-                        ) : (
-                          <div style={{
-                            padding: '6px 10px',
-                            backgroundColor: colors.primaryLight,
-                            borderRadius: 4,
-                            fontSize: 12,
-                            color: colors.primaryDark,
-                            marginBottom: 12,
-                            display: 'inline-block'
-                          }}>
-                            Orders accepted until pickup time
-                          </div>
-                        )
-                      })()}
+                  {/* Market name — full width across top */}
+                  <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600 }}>
+                    {market.name}
+                  </h3>
+
+                  {/* Home market badge + helper OR set-as-home button */}
+                  {market.isHomeMarket && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '2px 8px',
+                        backgroundColor: statusColors.info,
+                        color: 'white',
+                        borderRadius: 4,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        flexShrink: 0
+                      }}>
+                        🏠 {vertical === 'food_trucks' ? 'Home Park' : 'Home Market'}
+                      </span>
+                      <span style={{ fontSize: 12, color: statusColors.neutral500, fontStyle: 'italic' }}>
+                        Your home location — used as your primary position in geographic search results.
+                      </span>
                     </div>
-                    {/* Set as Home Market button - only for standard vendors, not on current home market */}
-                    {!isPremium && !market.isHomeMarket && (
+                  )}
+                  {!isPremium && !market.isHomeMarket && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                       <button
                         onClick={() => handleSetHomeMarket(market.id)}
                         disabled={changingHomeMarket}
                         style={{
-                          padding: '6px 12px',
+                          padding: '4px 10px',
                           backgroundColor: changingHomeMarket ? statusColors.neutral400 : statusColors.neutral100,
                           color: statusColors.neutral700,
                           border: `1px solid ${statusColors.neutral300}`,
-                          borderRadius: 6,
-                          fontSize: 13,
+                          borderRadius: 4,
+                          fontSize: 12,
                           fontWeight: 500,
                           cursor: changingHomeMarket ? 'not-allowed' : 'pointer'
                         }}
                       >
                         {changingHomeMarket ? 'Changing...' : (vertical === 'food_trucks' ? 'Set as Home Park' : 'Set as Home Market')}
                       </button>
-                    )}
-                    {!isPremium && !market.isHomeMarket && !changingHomeMarket && (
-                      <p style={{
-                        margin: '4px 0 0 0',
-                        fontSize: 11,
-                        color: statusColors.neutral400,
-                        maxWidth: 200,
-                      }}>
-                        Sets this as your primary location for geographic search ranking
-                      </p>
-                    )}
-                  </div>
-                  {/* Attendance prompt for markets without schedule set */}
-                  {!market.hasAttendance && (
-                    <div style={{
-                      marginTop: 8,
-                      padding: 10,
-                      backgroundColor: statusColors.warningLight,
-                      border: `1px solid ${statusColors.warningBorder}`,
-                      borderRadius: 6,
-                      fontSize: 13,
-                      color: statusColors.warningDark,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8
-                    }}>
-                      <span style={{ fontSize: 16 }}>!</span>
-                      <span>
-                        Set your schedule to start accepting orders at this {vertical === 'food_trucks' ? 'park' : 'market'}.
-                      </span>
+                      {!changingHomeMarket && (
+                        <span style={{ fontSize: 11, color: statusColors.neutral400 }}>
+                          Sets this as your primary location for geographic search ranking
+                        </span>
+                      )}
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                  {/* Address — single line */}
+                  <p style={{ margin: '0 0 4px 0', fontSize: 13, color: statusColors.neutral500 }}>
+                    {market.address}, {market.city}, {market.state} {market.zip}
+                  </p>
+                  {market.day_of_week !== null && market.day_of_week !== undefined && (
+                    <p style={{ margin: '0 0 6px 0', fontSize: 13, color: statusColors.neutral500 }}>
+                      {DAYS[market.day_of_week]} {market.start_time} - {market.end_time}
+                    </p>
+                  )}
+                  {/* Cutoff time for traditional markets */}
+                  {market.day_of_week !== null && market.day_of_week !== undefined && market.start_time && (() => {
+                    const cutoffHrs = market.cutoff_hours ?? getDefaultCutoffHours('traditional')
+                    const display = getCutoffDisplay(market.day_of_week!, market.start_time!, cutoffHrs)
+                    return display ? (
+                      <div style={{
+                        padding: '4px 8px',
+                        backgroundColor: statusColors.warningLight,
+                        borderRadius: 4,
+                        fontSize: 11,
+                        color: statusColors.warningDark,
+                        marginBottom: 8,
+                        display: 'inline-block'
+                      }}>
+                        <strong>Order cutoff:</strong> {display}
+                      </div>
+                    ) : (
+                      <div style={{
+                        padding: '4px 8px',
+                        backgroundColor: colors.primaryLight,
+                        borderRadius: 4,
+                        fontSize: 11,
+                        color: colors.primaryDark,
+                        marginBottom: 8,
+                        display: 'inline-block'
+                      }}>
+                        Orders accepted until pickup time
+                      </div>
+                    )
+                  })()}
+
+                  {/* Attendance prompt for markets without schedule set */}
+                  {!market.hasAttendance && (
+                    <div style={{
+                      marginBottom: 8,
+                      padding: '6px 10px',
+                      backgroundColor: statusColors.warningLight,
+                      border: `1px solid ${statusColors.warningBorder}`,
+                      borderRadius: 6,
+                      fontSize: 12,
+                      color: statusColors.warningDark,
+                    }}>
+                      Set your schedule to start accepting orders at this {vertical === 'food_trucks' ? 'park' : 'market'}.
+                    </div>
+                  )}
+
+                  {/* Action buttons — side by side */}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <button
                       onClick={() => router.push(`/${vertical}/vendor/listings?market=${market.id}`)}
                       style={{
-                        padding: '8px 16px',
+                        padding: '6px 12px',
                         backgroundColor: statusColors.info,
                         color: 'white',
                         border: 'none',
                         borderRadius: 6,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: 600,
                         cursor: 'pointer'
                       }}
@@ -806,12 +797,12 @@ export default function VendorMarketsPage() {
                     <button
                       onClick={() => setSelectedMarketForSchedule(market)}
                       style={{
-                        padding: '8px 16px',
+                        padding: '6px 12px',
                         backgroundColor: !market.hasAttendance ? statusColors.warning : colors.primary,
                         color: 'white',
                         border: 'none',
                         borderRadius: 6,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: 600,
                         cursor: 'pointer'
                       }}
@@ -821,12 +812,12 @@ export default function VendorMarketsPage() {
                     <Link
                       href={`/${vertical}/vendor/markets/${market.id}/prep`}
                       style={{
-                        padding: '8px 16px',
+                        padding: '6px 12px',
                         backgroundColor: 'transparent',
                         color: colors.primary,
                         border: `1px solid ${colors.primary}`,
                         borderRadius: 6,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: 600,
                         textDecoration: 'none',
                         display: 'inline-block'
@@ -838,7 +829,7 @@ export default function VendorMarketsPage() {
 
                   {/* Schedule Selector - shown inline when this market is selected */}
                   {selectedMarketForSchedule?.id === market.id && (
-                    <div style={{ marginTop: 16 }}>
+                    <div style={{ marginTop: 12 }}>
                       <MarketScheduleSelector
                         marketId={market.id}
                         marketName={market.name}
@@ -850,8 +841,60 @@ export default function VendorMarketsPage() {
                   )}
                 </div>
               ))}
+
+              {/* Available markets — compact rows for markets not yet attended */}
+              {availableMarkets.length > 0 && (
+                <div style={{
+                  marginTop: 4,
+                  border: `1px solid ${statusColors.neutral200}`,
+                  borderRadius: 8,
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    padding: '8px 12px',
+                    backgroundColor: statusColors.neutral100,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: statusColors.neutral700,
+                    borderBottom: `1px solid ${statusColors.neutral200}`
+                  }}>
+                    Available {term(vertical, 'traditional_markets')} ({availableMarkets.length})
+                  </div>
+                  {availableMarkets.map((market, idx) => (
+                    <div
+                      key={market.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 12px',
+                        borderBottom: idx < availableMarkets.length - 1 ? `1px solid ${statusColors.neutral100}` : 'none',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setExpandedMarketIds(prev => { const next = new Set(prev); next.add(market.id); return next })}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        onChange={() => setExpandedMarketIds(prev => { const next = new Set(prev); next.add(market.id); return next })}
+                        style={{ width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>{market.name}</span>
+                        <span style={{ fontSize: 12, color: statusColors.neutral400, marginLeft: 8 }}>
+                          {market.city}, {market.state}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ padding: '6px 12px', fontSize: 11, color: statusColors.neutral400, backgroundColor: statusColors.neutral50 }}>
+                    Check a {term(vertical, 'traditional_market').toLowerCase()} to expand and set your schedule
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* Suggest a Farmers Market Section */}
@@ -862,34 +905,26 @@ export default function VendorMarketsPage() {
           padding: 24,
           marginBottom: 24
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: 16,
-            flexWrap: 'wrap',
-            gap: 12
-          }}>
-            <div>
-              <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
-                {term(vertical, 'suggest_market_cta')}
-              </h2>
-              <p style={{ margin: 0, fontSize: 14, color: statusColors.neutral500 }}>
-                {isFoodTruck
-                  ? "Know of a food truck park or event location that isn't listed? Submit it for review and help grow our community."
-                  : "Know of a farmers market that isn't listed? Submit it for review and help grow our community."}
-              </p>
-            </div>
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 600 }}>
+              {term(vertical, 'suggest_market_cta')}
+            </h2>
+            <p style={{ margin: '0 0 8px 0', fontSize: 14, color: statusColors.neutral500 }}>
+              {isFoodTruck
+                ? "Know of a food truck park or event location that isn't listed? Submit it for review and help grow our community."
+                : "Know of a farmers market that isn't listed? Submit it for review and help grow our community."}
+            </p>
             {!showSuggestionForm && (
               <button
                 onClick={() => setShowSuggestionForm(true)}
                 style={{
-                  padding: '10px 20px',
+                  padding: '6px 14px',
                   backgroundColor: colors.primary,
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
                   fontWeight: 600,
+                  fontSize: 13,
                   cursor: 'pointer'
                 }}
               >
@@ -1414,45 +1449,41 @@ export default function VendorMarketsPage() {
                                        suggestion.approval_status === 'approved' ? statusColors.successLight : statusColors.warningLight
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-                            {suggestion.name}
-                          </h4>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '2px 8px',
-                            backgroundColor: suggestion.approval_status === 'rejected' ? statusColors.danger :
-                                           suggestion.approval_status === 'approved' ? statusColors.success : statusColors.warning,
-                            color: 'white',
-                            borderRadius: 4,
-                            fontSize: 12,
-                            fontWeight: 600,
-                            textTransform: 'capitalize'
-                          }}>
-                            {suggestion.approval_status === 'pending' ? 'Pending Review' : suggestion.approval_status}
-                          </span>
-                        </div>
-                        <p style={{ margin: '0 0 4px 0', fontSize: 14, color: statusColors.neutral500 }}>
-                          {suggestion.address}, {suggestion.city}, {suggestion.state} {suggestion.zip}
-                        </p>
-                        {suggestion.schedules && suggestion.schedules.length > 0 && (
-                          <p style={{ margin: '0 0 4px 0', fontSize: 14, color: statusColors.neutral500 }}>
-                            {suggestion.schedules.map((s, i) => (
-                              <span key={i}>
-                                {i > 0 && ', '}
-                                {DAYS[s.day_of_week]} {formatTime12h(s.start_time)} - {formatTime12h(s.end_time)}
-                              </span>
-                            ))}
-                          </p>
-                        )}
-                        <p style={{ margin: 0, fontSize: 12, color: statusColors.neutral400 }}>
-                          Submitted {new Date(suggestion.submitted_at).toLocaleDateString()}
-                        </p>
-                      </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
+                        {suggestion.name}
+                      </h4>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '2px 8px',
+                        backgroundColor: suggestion.approval_status === 'rejected' ? statusColors.danger :
+                                       suggestion.approval_status === 'approved' ? statusColors.success : statusColors.warning,
+                        color: 'white',
+                        borderRadius: 4,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textTransform: 'capitalize'
+                      }}>
+                        {suggestion.approval_status === 'pending' ? 'Pending Review' : suggestion.approval_status}
+                      </span>
                     </div>
+                    <p style={{ margin: '0 0 4px 0', fontSize: 13, color: statusColors.neutral500 }}>
+                      {suggestion.address}, {suggestion.city}, {suggestion.state} {suggestion.zip}
+                    </p>
+                    {suggestion.schedules && suggestion.schedules.length > 0 && (
+                      <p style={{ margin: '0 0 4px 0', fontSize: 13, color: statusColors.neutral500 }}>
+                        {suggestion.schedules.map((s, i) => (
+                          <span key={i}>
+                            {i > 0 && ', '}
+                            {DAYS[s.day_of_week]} {formatTime12h(s.start_time)} - {formatTime12h(s.end_time)}
+                          </span>
+                        ))}
+                      </p>
+                    )}
+                    <p style={{ margin: 0, fontSize: 11, color: statusColors.neutral400 }}>
+                      Submitted {new Date(suggestion.submitted_at).toLocaleDateString()}
+                    </p>
                     {suggestion.approval_status === 'rejected' && suggestion.rejection_reason && (
                       <div style={{
                         marginTop: 12,
@@ -1489,34 +1520,27 @@ export default function VendorMarketsPage() {
           backgroundColor: 'white',
           borderRadius: 8,
           border: `1px solid ${statusColors.neutral200}`,
-          padding: 24
+          padding: 24,
+          marginBottom: 24
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 16
-          }}>
-            <div>
-              <h2 style={{ fontSize: 20, fontWeight: 600,margin: 0 }}>
-                🎪 {term(vertical, 'events')}
-              </h2>
-              <p style={{ fontSize: 14,color: colors.textMuted, margin: '4px 0 0' }}>
-                Upcoming festivals, fairs, and special events. Events don&apos;t count against your location limits.
-              </p>
-            </div>
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 4px 0' }}>
+              🎪 {term(vertical, 'events')}
+            </h2>
+            <p style={{ fontSize: 14, color: colors.textMuted, margin: '0 0 8px 0' }}>
+              Upcoming festivals, fairs, and special events. Events don&apos;t count against your location limits.
+            </p>
             <button
               onClick={() => setShowEventSuggestionForm(!showEventSuggestionForm)}
               style={{
-                padding: '8px 16px',
+                padding: '6px 14px',
                 backgroundColor: showEventSuggestionForm ? colors.textMuted : 'white',
                 color: showEventSuggestionForm ? 'white' : colors.primary,
                 border: `1px solid ${showEventSuggestionForm ? colors.textMuted : colors.primary}`,
                 borderRadius: 6,
                 cursor: 'pointer',
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: 500,
-                whiteSpace: 'nowrap' as const
               }}
             >
               {showEventSuggestionForm ? 'Cancel' : 'Suggest an Event'}
@@ -1676,7 +1700,7 @@ export default function VendorMarketsPage() {
 
           {/* Event Markets List */}
           {eventMarkets.length === 0 && !showEventSuggestionForm ? (
-            <p style={{ fontSize: 14,color: colors.textMuted, textAlign: 'center', padding: '20px 0' }}>
+            <p style={{ fontSize: 13, color: colors.textMuted, fontStyle: 'italic', margin: 0 }}>
               No upcoming events. Suggest an event to get started!
             </p>
           ) : (
@@ -1778,40 +1802,32 @@ export default function VendorMarketsPage() {
           border: `1px solid ${statusColors.neutral200}`,
           padding: 24
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: 16,
-            flexWrap: 'wrap',
-            gap: 12
-          }}>
-            <div>
-              <h2 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 600 }}>
-                {term(vertical, 'private_pickups')}
-              </h2>
-              <p style={{ margin: 0, fontSize: 14, color: statusColors.neutral500 }}>
-                {isFoodTruck
-                  ? 'Your own service locations with flexible scheduling.'
-                  : 'Your own pickup locations with flexible scheduling.'}
-                {limits && ` (${limits.currentPrivatePickupCount} of ${limits.privatePickupLocations} used)`}
-                {limits && !limits.canAddPrivatePickup && (
-                  <span style={{ color: statusColors.danger, marginLeft: 8 }}>
-                    Limit reached. <a href={`/${vertical}/settings`} style={{ color: statusColors.info }}>Upgrade</a> for more locations.
-                  </span>
-                )}
-              </p>
-            </div>
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 600 }}>
+              {term(vertical, 'private_pickups')}
+            </h2>
+            <p style={{ margin: '0 0 8px 0', fontSize: 14, color: statusColors.neutral500 }}>
+              {isFoodTruck
+                ? 'Your own service locations with flexible scheduling.'
+                : 'Your own pickup locations with flexible scheduling.'}
+              {limits && ` (${limits.currentPrivatePickupCount} of ${limits.privatePickupLocations} used)`}
+              {limits && !limits.canAddPrivatePickup && (
+                <span style={{ color: statusColors.danger, marginLeft: 8 }}>
+                  Limit reached. <a href={`/${vertical}/settings`} style={{ color: statusColors.info }}>Upgrade</a> for more locations.
+                </span>
+              )}
+            </p>
             {!showForm && limits?.canAddPrivatePickup && (
               <button
                 onClick={() => setShowForm(true)}
                 style={{
-                  padding: '10px 20px',
+                  padding: '6px 14px',
                   backgroundColor: 'transparent',
                   color: colors.primary,
                   border: `2px solid ${colors.primary}`,
                   borderRadius: 6,
                   fontWeight: 600,
+                  fontSize: 13,
                   cursor: 'pointer'
                 }}
               >
@@ -1822,12 +1838,13 @@ export default function VendorMarketsPage() {
               <button
                 disabled
                 style={{
-                  padding: '10px 20px',
+                  padding: '6px 14px',
                   backgroundColor: statusColors.neutral400,
                   color: 'white',
                   border: 'none',
                   borderRadius: 6,
                   fontWeight: 600,
+                  fontSize: 13,
                   cursor: 'not-allowed'
                 }}
                 title="Upgrade to add more pickup locations"
@@ -1979,26 +1996,18 @@ export default function VendorMarketsPage() {
 
                 {/* Coordinates Info Notice */}
                 <div style={{
-                  padding: 16,
+                  padding: '10px 14px',
                   backgroundColor: statusColors.infoLight,
                   border: `1px solid ${statusColors.infoBorder}`,
                   borderRadius: 8,
                   marginTop: 12
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <span style={{ fontSize: 20 }}>📍</span>
-                    <div>
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: statusColors.infoDark }}>
-                        Improve Your Visibility with Coordinates
-                      </h4>
-                      <p style={{ margin: 0, fontSize: 13, color: statusColors.infoDark, lineHeight: 1.5 }}>
-                        Adding coordinates helps buyers find your pickup location more accurately. Without coordinates, buyers searching near the edge of the 25-mile radius may not see your products at this location.
-                      </p>
-                      <p style={{ margin: '8px 0 0 0', fontSize: 12, color: statusColors.infoBorder }}>
-                        Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: statusColors.info, fontWeight: 500 }}>latlong.net</a> - enter your address to find the coordinates.
-                      </p>
-                    </div>
-                  </div>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: statusColors.infoDark }}>
+                    {'📍'} Improve Your Visibility with Coordinates
+                  </h4>
+                  <p style={{ margin: 0, fontSize: 13, color: statusColors.infoDark, lineHeight: 1.5 }}>
+                    Adding coordinates helps buyers find your pickup location more accurately. Without coordinates, buyers near the edge of the 25-mile radius may not see you. Get coordinates from <a href="https://www.latlong.net/" target="_blank" rel="noopener noreferrer" style={{ color: statusColors.info, fontWeight: 500 }}>latlong.net</a>.
+                  </p>
                 </div>
 
                 {/* Latitude/Longitude Fields */}
@@ -2094,42 +2103,37 @@ export default function VendorMarketsPage() {
 
                 {/* Expiration Date (for temporary/one-time events) */}
                 <div style={{
-                  padding: 16,
+                  padding: '10px 14px',
                   backgroundColor: statusColors.warningLight,
                   border: `1px solid ${statusColors.warningBorder}`,
                   borderRadius: 8,
                   marginTop: 12
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <span style={{ fontSize: 20 }}>📅</span>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 4, color: statusColors.warningDark }}>
-                        Expiration Date <span style={{ fontWeight: 400, color: statusColors.warningDark }}>(optional)</span>
-                      </label>
-                      <p style={{ margin: '0 0 8px 0', fontSize: 13, color: statusColors.warningDark }}>
-                        For one-time events or temporary locations. After this date, the location will no longer be visible to buyers.
-                      </p>
-                      <input
-                        type="date"
-                        value={formData.expires_at}
-                        onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
-                        min={new Date().toISOString().split('T')[0]}
-                        style={{
-                          width: '100%',
-                          maxWidth: 200,
-                          padding: '10px 12px',
-                          border: `1px solid ${statusColors.warningBorder}`,
-                          borderRadius: 6,
-                          fontSize: 14,
-                          boxSizing: 'border-box',
-                          backgroundColor: 'white'
-                        }}
-                      />
-                      <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.warningDark }}>
-                        Leave blank for recurring/permanent locations.
-                      </p>
-                    </div>
-                  </div>
+                  <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 4, color: statusColors.warningDark }}>
+                    {'📅'} Expiration Date <span style={{ fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <p style={{ margin: '0 0 8px 0', fontSize: 13, color: statusColors.warningDark }}>
+                    For one-time events or temporary locations. After this date, the location will no longer be visible to buyers.
+                  </p>
+                  <input
+                    type="date"
+                    value={formData.expires_at}
+                    onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    style={{
+                      width: '100%',
+                      maxWidth: 200,
+                      padding: '8px 10px',
+                      border: `1px solid ${statusColors.warningBorder}`,
+                      borderRadius: 6,
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                      backgroundColor: 'white'
+                    }}
+                  />
+                  <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.warningDark }}>
+                    Leave blank for recurring/permanent locations.
+                  </p>
                 </div>
 
                 {/* Pickup Windows Section */}
