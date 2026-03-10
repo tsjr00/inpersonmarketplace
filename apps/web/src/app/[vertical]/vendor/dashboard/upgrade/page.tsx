@@ -371,7 +371,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                     disabled
                     style={{
                       width: '100%',
-                      padding: '14px 0',
+                      padding: '10px 0',
                       fontSize: 16,
                       fontWeight: 600,
                       backgroundColor: '#f3f4f6',
@@ -389,7 +389,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                     disabled={!!isProcessing}
                     style={{
                       width: '100%',
-                      padding: '14px 0',
+                      padding: '10px 0',
                       fontSize: 16,
                       fontWeight: 600,
                       backgroundColor: processing ? '#f5f5f5' : 'transparent',
@@ -408,7 +408,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                       disabled={!!isProcessing}
                       style={{
                         width: '100%',
-                        padding: '14px 0',
+                        padding: '10px 0',
                         fontSize: 16,
                         fontWeight: 600,
                         backgroundColor: showDowngradeConfirm === key ? '#dc2626' : processing ? '#9ca3af' : 'white',

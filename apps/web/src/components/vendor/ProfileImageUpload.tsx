@@ -71,12 +71,12 @@ export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }:
         Profile Image / Logo
       </label>
 
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
         {/* Preview */}
         <div
           style={{
-            width: 120,
-            height: 120,
+            width: 100,
+            height: 100,
             borderRadius: 12,
             backgroundColor: '#f3f4f6',
             border: '2px dashed #d1d5db',
@@ -84,7 +84,8 @@ export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }:
             alignItems: 'center',
             justifyContent: 'center',
             overflow: 'hidden',
-            position: 'relative'
+            position: 'relative',
+            flexShrink: 0
           }}
         >
           {previewUrl ? (
@@ -95,12 +96,12 @@ export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }:
               style={{ objectFit: 'cover' }}
             />
           ) : (
-            <span style={{ fontSize: 40, opacity: 0.3 }}>📷</span>
+            <span style={{ fontSize: 36, opacity: 0.3 }}>📷</span>
           )}
         </div>
 
-        {/* Upload controls */}
-        <div style={{ flex: 1 }}>
+        {/* Upload button */}
+        <div>
           <input
             type="file"
             accept="image/*"
@@ -113,41 +114,37 @@ export default function ProfileImageUpload({ currentImageUrl, onUploadSuccess }:
             htmlFor="profile-image-upload"
             style={{
               display: 'inline-block',
-              padding: '10px 20px',
+              padding: '8px 20px',
               backgroundColor: '#3b82f6',
               color: 'white',
               borderRadius: 6,
               fontSize: 14,
               fontWeight: 600,
+              textAlign: 'center',
               cursor: uploading ? 'not-allowed' : 'pointer',
               opacity: uploading ? 0.6 : 1
             }}
           >
             {uploading ? 'Uploading...' : 'Choose Image'}
           </label>
-
-          <p style={{
-            margin: '8px 0 0',
-            fontSize: 12,
-            color: '#6b7280'
-          }}>
-            PNG, JPG, or WebP. Max 2MB. Square images work best.
-          </p>
-          <p style={{
-            margin: '4px 0 0',
-            fontSize: 11,
-            color: '#9ca3af'
-          }}>
-            Large image? Compress it free at <a href="https://squoosh.app" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>squoosh.app</a>
-          </p>
-
-          {error && (
-            <p style={{ margin: '8px 0 0', fontSize: 13, color: '#ef4444' }}>
-              {error}
-            </p>
-          )}
         </div>
       </div>
+
+      {/* Helper text — full width below preview row */}
+      <p style={{
+        margin: '8px 0 0',
+        fontSize: 12,
+        color: '#6b7280'
+      }}>
+        PNG, JPG, or WebP. Max 2MB. Square images work best. Large image? Compress free at{' '}
+        <a href="https://squoosh.app" target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>squoosh.app</a>
+      </p>
+
+      {error && (
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: '#ef4444' }}>
+          {error}
+        </p>
+      )}
     </div>
   )
 }

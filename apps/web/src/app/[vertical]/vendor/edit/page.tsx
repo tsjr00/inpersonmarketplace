@@ -44,7 +44,7 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
       minHeight: '100vh',
       backgroundColor: branding.colors.background,
       color: branding.colors.text,
-      padding: 40
+      padding: '24px 16px'
     }}>
       {/* Header */}
       <div style={{
@@ -77,21 +77,15 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         backgroundColor: '#fef3c7',
         border: '1px solid #fcd34d',
         borderRadius: 8,
-        padding: 16,
+        padding: '12px 16px',
         marginBottom: 20,
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 12
       }}>
-        <span style={{ fontSize: 20 }}>💡</span>
-        <div>
-          <p style={{ margin: 0, fontWeight: 600, color: '#92400e' }}>
-            Each section saves independently
-          </p>
-          <p style={{ margin: '4px 0 0 0', fontSize: 14, color: '#b45309' }}>
-            Click the save button in each section after making changes. Your data is saved when you see the success message.
-          </p>
-        </div>
+        <p style={{ margin: 0, fontWeight: 600, color: '#92400e', fontSize: 14 }}>
+          {'💡'} Each section saves independently
+        </p>
+        <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#b45309' }}>
+          Click the save button in each section after making changes. Your data is saved when you see the success message.
+        </p>
       </div>
 
       {/* Profile Image Section */}
