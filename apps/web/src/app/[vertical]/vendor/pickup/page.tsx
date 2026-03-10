@@ -639,46 +639,39 @@ export default function VendorPickupPage() {
           borderBottom: '3px solid #dc2626',
           borderTop: '3px solid #dc2626'
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 12
-          }}>
-            <span style={{ fontSize: 24 }}>⏱️</span>
-            <div style={{ flex: 1 }}>
-              <p style={{
-                margin: 0,
-                fontSize: 16,
-                fontWeight: 700,
-                color: statusColors.danger
-              }}>
-                Confirmation Window Expired
-              </p>
-              <p style={{
-                margin: '8px 0 0 0',
+          <div>
+            <p style={{
+              margin: 0,
+              fontSize: 15,
+              fontWeight: 700,
+              color: statusColors.danger
+            }}>
+              {'⏱️'} Confirmation Window Expired
+            </p>
+            <p style={{
+              margin: '4px 0 0 0',
+              fontSize: 14,
+              color: statusColors.dangerDark,
+              lineHeight: 1.4
+            }}>
+              The buyer&apos;s acknowledgment has timed out. Please ask the buyer to confirm receipt again on their device, then tap Fulfill within 30 seconds.
+            </p>
+            <button
+              onClick={() => setWindowExpiredError(null)}
+              style={{
+                marginTop: 8,
+                padding: '6px 16px',
+                backgroundColor: statusColors.danger,
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
                 fontSize: 14,
-                color: statusColors.dangerDark,
-                lineHeight: 1.4
-              }}>
-                The buyer&apos;s acknowledgment has timed out. Please ask the buyer to confirm receipt again on their device, then tap Fulfill within 30 seconds.
-              </p>
-              <button
-                onClick={() => setWindowExpiredError(null)}
-                style={{
-                  marginTop: 12,
-                  padding: '8px 16px',
-                  backgroundColor: statusColors.danger,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  fontSize: 14,
                   fontWeight: 600,
                   cursor: 'pointer'
                 }}
               >
                 Got it
               </button>
-            </div>
           </div>
         </div>
       )}
@@ -711,7 +704,7 @@ export default function VendorPickupPage() {
       <div style={{ padding: 16 }}>
         {!selectedMarket ? (
           <div style={{
-            padding: 40,
+            padding: 24,
             textAlign: 'center',
             backgroundColor: 'white',
             borderRadius: 8,
@@ -723,7 +716,7 @@ export default function VendorPickupPage() {
           </div>
         ) : (filteredOrders.length === 0 && filteredMBPickups.length === 0) ? (
           <div style={{
-            padding: 40,
+            padding: 24,
             textAlign: 'center',
             backgroundColor: 'white',
             borderRadius: 8,

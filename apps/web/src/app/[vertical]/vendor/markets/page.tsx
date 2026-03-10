@@ -597,36 +597,30 @@ export default function VendorMarketsPage() {
             border: `1px solid ${statusColors.warningBorder}`,
             borderRadius: 8,
             marginBottom: 24,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 12
           }}>
-            <span style={{ fontSize: 20, flexShrink: 0 }}>!</span>
-            <div>
-              <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 600, color: statusColors.warningDark }}>
-                Complete Your Setup
-              </h3>
-              <p style={{ margin: 0, fontSize: 14, color: statusColors.warningDark, lineHeight: 1.5 }}>
-                Your vendor account is pending approval. You can browse available {term(vertical, 'markets').toLowerCase()} while you wait.
-                Once approved, you&apos;ll be able to join {term(vertical, 'markets').toLowerCase()} and start accepting orders.
-              </p>
-              <Link
-                href={`/${vertical}/vendor/dashboard`}
-                style={{
-                  display: 'inline-block',
-                  marginTop: 8,
-                  padding: '8px 16px',
-                  backgroundColor: statusColors.warningDark,
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: 6,
-                  fontSize: 14,
-                  fontWeight: 600
-                }}
-              >
-                Back to Dashboard
-              </Link>
-            </div>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: statusColors.warningDark }}>
+              {'⚠️'} Complete Your Setup
+            </h3>
+            <p style={{ margin: 0, fontSize: 13, color: statusColors.warningDark, lineHeight: 1.5 }}>
+              Your vendor account is pending approval. You can browse available {term(vertical, 'markets').toLowerCase()} while you wait.
+              Once approved, you&apos;ll be able to join {term(vertical, 'markets').toLowerCase()} and start accepting orders.
+            </p>
+            <Link
+              href={`/${vertical}/vendor/dashboard`}
+              style={{
+                display: 'inline-block',
+                marginTop: 8,
+                padding: '6px 16px',
+                backgroundColor: statusColors.warningDark,
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 600
+              }}
+            >
+              Back to Dashboard
+            </Link>
           </div>
         )}
 
@@ -912,19 +906,14 @@ export default function VendorMarketsPage() {
             borderRadius: 8,
             marginBottom: 20
           }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              <span style={{ fontSize: 20 }}>ℹ️</span>
-              <div>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: colors.primaryDark }}>
-                  How Market Suggestions Work
-                </h4>
-                <p style={{ margin: 0, fontSize: 13, color: colors.primaryDark, lineHeight: 1.5 }}>
-                  {isFoodTruck
-                    ? 'When you suggest a location, our team will review it to verify the information. Once approved, the location will appear in the public list and all truck operators can join it. This helps ensure we only list real, verified locations.'
-                    : 'When you suggest a farmers market, our team will review it to verify the information. Once approved, the market will appear in the public markets list and all vendors can join it. This helps ensure we only list real, verified markets.'}
-                </p>
-              </div>
-            </div>
+            <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: colors.primaryDark }}>
+              {'ℹ️'} How Market Suggestions Work
+            </h4>
+            <p style={{ margin: 0, fontSize: 13, color: colors.primaryDark, lineHeight: 1.5 }}>
+              {isFoodTruck
+                ? 'When you suggest a location, our team will review it to verify the information. Once approved, the location will appear in the public list and all truck operators can join it. This helps ensure we only list real, verified locations.'
+                : 'When you suggest a farmers market, our team will review it to verify the information. Once approved, the market will appear in the public markets list and all vendors can join it. This helps ensure we only list real, verified markets.'}
+            </p>
           </div>
 
           {/* Suggestion Form */}
@@ -1857,17 +1846,12 @@ export default function VendorMarketsPage() {
               borderRadius: 8,
               marginBottom: 20
             }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <span style={{ fontSize: 20 }}>⚠️</span>
-                <div>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: 14, fontWeight: 600, color: statusColors.dangerDark }}>
-                    Notice: Automatic Order Cutoff
-                  </h4>
-                  <p style={{ margin: 0, fontSize: 13, color: statusColors.dangerDark, lineHeight: 1.5 }}>
-                    All pre-order sales automatically close <strong>{getDefaultCutoffHours('private_pickup')} hours before your pickup time</strong>. This gives you time to prepare orders and know exactly what to bring. When you set your pickup day and time below, your cutoff time will be calculated automatically.
-                  </p>
-                </div>
-              </div>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: statusColors.dangerDark }}>
+                {'⚠️'} Notice: Automatic Order Cutoff
+              </h4>
+              <p style={{ margin: 0, fontSize: 13, color: statusColors.dangerDark, lineHeight: 1.5 }}>
+                All pre-order sales automatically close <strong>{getDefaultCutoffHours('private_pickup')} hours before your pickup time</strong>. This gives you time to prepare orders and know exactly what to bring. When you set your pickup day and time below, your cutoff time will be calculated automatically.
+              </p>
             </div>
           )}
 
