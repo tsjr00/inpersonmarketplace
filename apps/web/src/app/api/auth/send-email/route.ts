@@ -91,7 +91,9 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text()
 
     try {
-      const wh = new Webhook(hookSecret)
+      // Supabase provides secret as "v1,whsec_<base64>" but standardwebhooks expects just "whsec_<base64>"
+      const signingSecret = hookSecret.replace(/^v1,/, '')
+      const wh = new Webhook(signingSecret)
       const headers: Record<string, string> = {}
       request.headers.forEach((value, key) => {
         headers[key] = value
