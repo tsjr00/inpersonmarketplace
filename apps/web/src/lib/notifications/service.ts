@@ -171,14 +171,14 @@ async function sendEmail(
 
   // H-3 FIX: Per-vertical email FROM address + branding (extracted to email-config.ts)
   const fromAddress = getEmailFromAddress(vertical)
-  const { brandName, brandDomain, brandColor } = getEmailBranding(vertical)
+  const { brandName, brandDomain, brandColor, logoUrl } = getEmailBranding(vertical)
 
   try {
     const { data, error } = await resend.emails.send({
       from: `${brandName} <${fromAddress}>`,
       to: userEmail,
       subject,
-      html: formatEmailHtml(subject, body, brandName, brandDomain, brandColor, vertical),
+      html: formatEmailHtml(subject, body, brandName, brandDomain, brandColor, vertical, logoUrl),
       text: body,
     })
 
@@ -203,7 +203,8 @@ export function formatEmailHtml(
   brandName: string = 'Farmers Marketing',
   brandDomain: string = 'farmersmarketing.app',
   brandColor: string = '#2d5016',
-  vertical?: string
+  vertical?: string,
+  logoUrl?: string
 ): string {
   const htmlBody = body
     .replace(/&/g, '&amp;')
@@ -214,6 +215,9 @@ export function formatEmailHtml(
     .replace(/\n/g, '<br>')
 
   const supportPath = vertical ? `/${vertical}/support` : '/support'
+  const logoHtml = logoUrl
+    ? `<img src="${logoUrl}" alt="${brandName}" width="120" height="120" style="display:block;margin:0 auto 12px" />`
+    : `<strong style="color:${brandColor};font-size:18px">${brandName}</strong>`
 
   return `<!DOCTYPE html>
 <html>
@@ -221,8 +225,8 @@ export function formatEmailHtml(
 <body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
   <div style="max-width:560px;margin:0 auto;padding:32px 16px">
     <div style="background:#fff;border-radius:8px;padding:32px;border:1px solid #e5e7eb">
-      <div style="margin-bottom:24px">
-        <strong style="color:${brandColor};font-size:18px">${brandName}</strong>
+      <div style="margin-bottom:24px;text-align:center">
+        ${logoHtml}
       </div>
       <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6">${htmlBody}</p>
     </div>
