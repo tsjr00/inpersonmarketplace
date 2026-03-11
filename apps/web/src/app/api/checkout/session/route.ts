@@ -250,6 +250,20 @@ export async function POST(request: NextRequest) {
       throw traced.validation('ERR_CHECKOUT_001', 'Invalid items in checkout', { expected: items.length, got: listings.length })
     }
 
+    // Validate all vendors have Stripe accounts (required for card checkout)
+    if (listings.length > 0) {
+      const vendorProfileIds = [...new Set(listings.map(l => (l as Listing).vendor_profile_id))]
+      const { data: vendors } = await supabase
+        .from('vendor_profiles')
+        .select('id, stripe_account_id')
+        .in('id', vendorProfileIds)
+
+      const vendorsWithoutStripe = (vendors || []).filter(v => !v.stripe_account_id)
+      if (vendorsWithoutStripe.length > 0) {
+        throw traced.validation('ERR_CHECKOUT_003', 'One or more vendors cannot accept card payments. Please contact the vendor to set up payments.')
+      }
+    }
+
     // Validate market box offerings
     if (hasMarketBoxes) {
       for (const mbItem of marketBoxItems!) {

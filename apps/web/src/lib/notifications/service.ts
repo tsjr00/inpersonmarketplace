@@ -32,7 +32,7 @@ import { TracedError, logError } from '@/lib/errors'
 
 let resendClient: Resend | null = null
 
-function getResendClient(): Resend | null {
+export function getResendClient(): Resend | null {
   if (!process.env.RESEND_API_KEY) return null
   if (!resendClient) {
     resendClient = new Resend(process.env.RESEND_API_KEY)
@@ -197,7 +197,7 @@ async function sendEmail(
 }
 
 /** Wrap plain-text email body in a clean HTML template */
-function formatEmailHtml(
+export function formatEmailHtml(
   subject: string,
   body: string,
   brandName: string = 'Farmers Marketing',

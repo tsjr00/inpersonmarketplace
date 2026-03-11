@@ -313,6 +313,8 @@ export default function CheckoutPage() {
           if (data.methods?.length > 0) {
             const hasStripe = data.methods.some((m: PaymentMethod) => m.id === 'stripe')
             setSelectedPaymentMethod(hasStripe ? 'stripe' : data.methods[0].id)
+          } else {
+            setError({ message: 'No payment methods available. The vendor may need to set up payments before orders can be placed.' })
           }
         }
       } catch (err) {
