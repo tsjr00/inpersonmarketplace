@@ -35,12 +35,13 @@ interface VendorsPageProps {
     search?: string
     sort?: string
     payment?: string
+    favorites?: string
   }>
 }
 
 export default async function VendorsPage({ params, searchParams }: VendorsPageProps) {
   const { vertical } = await params
-  const { market, category, search, sort = 'rating', payment } = await searchParams
+  const { market, category, search, sort = 'rating', payment, favorites } = await searchParams
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
@@ -272,6 +273,7 @@ export default async function VendorsPage({ params, searchParams }: VendorsPageP
         currentSearch={search}
         currentSort={sort}
         currentPayment={payment}
+        initialFavoritesFilter={favorites === 'true'}
         initialLocation={savedLocation}
         radiusOptions={getRadiusOptions(vertical)}
         filtersSlot={
