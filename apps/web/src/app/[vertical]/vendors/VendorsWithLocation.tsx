@@ -103,6 +103,8 @@ interface VendorsWithLocationProps {
   radiusOptions?: number[]
   /** Optional content rendered between location bar and results (e.g. filters) */
   filtersSlot?: React.ReactNode
+  /** Start with favorites filter active (from ?favorites=true query param) */
+  initialFavoritesFilter?: boolean
 }
 
 export default function VendorsWithLocation({
@@ -115,7 +117,8 @@ export default function VendorsWithLocation({
   currentPayment,
   initialLocation,
   radiusOptions,
-  filtersSlot
+  filtersSlot,
+  initialFavoritesFilter = false
 }: VendorsWithLocationProps) {
   // Initialize state from server-provided location (if available)
   const [hasLocation, setHasLocation] = useState<boolean | null>(initialLocation ? true : null)
@@ -138,7 +141,7 @@ export default function VendorsWithLocation({
   const [currentOffset, setCurrentOffset] = useState(0)
   // Favorites state
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set())
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(initialFavoritesFilter)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // Check for saved location on mount - ONLY if no initialLocation provided
