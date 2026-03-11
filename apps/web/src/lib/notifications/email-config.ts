@@ -31,15 +31,25 @@ export function getEmailFromAddress(vertical?: string): string {
  * Get email branding (name, domain, primary color) for a vertical.
  * Falls back to FM branding for unknown verticals.
  */
+/** Per-vertical logo paths (served from /public/logos/) */
+const EMAIL_LOGOS: Record<string, string> = {
+  farmers_market: '/logos/farmersmarketing-full-logo.png',
+  food_trucks: '/logos/food-truckn-logo.png',
+}
+
 export function getEmailBranding(vertical?: string): {
   brandName: string
   brandDomain: string
   brandColor: string
+  logoUrl: string
 } {
-  const branding = defaultBranding[vertical || 'farmers_market']
+  const v = vertical || 'farmers_market'
+  const branding = defaultBranding[v]
+  const domain = branding?.domain || 'farmersmarketing.app'
   return {
     brandName: branding?.brand_name || 'Farmers Marketing',
-    brandDomain: branding?.domain || 'farmersmarketing.app',
+    brandDomain: domain,
     brandColor: branding?.colors?.primary || '#2d5016',
+    logoUrl: `https://${domain}${EMAIL_LOGOS[v] || EMAIL_LOGOS.farmers_market}`,
   }
 }
