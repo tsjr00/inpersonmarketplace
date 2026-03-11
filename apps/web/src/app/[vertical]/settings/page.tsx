@@ -86,8 +86,6 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
         <SettingsForm
           initialDisplayName={userProfile?.display_name || ''}
-          initialPhone={userProfile?.phone || ''}
-          initialSmsConsent={Boolean((userProfile?.notification_preferences as Record<string, unknown>)?.sms_order_updates)}
           userEmail={user.email || ''}
           primaryColor={branding.colors.primary}
         />
@@ -278,7 +276,8 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
         <NotificationPreferences
           primaryColor={branding.colors.primary}
-          smsEnabled={Boolean(userProfile?.phone && (userProfile?.notification_preferences as Record<string, unknown>)?.sms_order_updates)}
+          initialPhone={userProfile?.phone || ''}
+          initialSmsConsent={Boolean((userProfile?.notification_preferences as Record<string, unknown>)?.sms_order_updates)}
         />
       </div>
 
