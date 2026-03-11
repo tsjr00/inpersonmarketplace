@@ -133,6 +133,10 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
   const vendorDescription = vendor.description as string | null
   const vendorImageUrl = vendor.profile_image_url as string | null
   const socialLinks = vendor.social_links as Record<string, string> | null
+  // Ensure website URLs have a protocol so they don't become relative links
+  const websiteUrl = socialLinks?.website
+    ? (socialLinks.website.match(/^https?:\/\//) ? socialLinks.website : `https://${socialLinks.website}`)
+    : null
   const averageRating = vendor.average_rating as number | null
   const ratingCount = vendor.rating_count as number | null
   const certifications = (vendor.certifications as {
@@ -747,9 +751,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       Instagram
                     </a>
                   )}
-                  {socialLinks.website && (
+                  {websiteUrl && (
                     <a
-                      href={socialLinks.website}
+                      href={websiteUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -859,9 +863,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     Instagram
                   </a>
                 )}
-                {socialLinks.website && (
+                {websiteUrl && (
                   <a
-                    href={socialLinks.website}
+                    href={websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
