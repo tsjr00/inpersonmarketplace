@@ -659,7 +659,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   // Group listings by category when no search/filter is applied
   const isFiltered = !!(search || category)
   const groupedListings = !isFiltered ? groupListingsByCategory(paginatedListings, vertical) : {}
-  const sortedCategories = Object.keys(groupedListings).sort()
+  // Sort categories by their position in the CATEGORIES/FOOD_TRUCK_CATEGORIES constant (food first, non-food last)
+  const categoryOrder = vertical === 'food_trucks' ? FOOD_TRUCK_CATEGORIES : CATEGORIES
+  const sortedCategories = Object.keys(groupedListings).sort((a, b) => {
+    const idxA = categoryOrder.indexOf(a as never)
+    const idxB = categoryOrder.indexOf(b as never)
+    // Unknown categories go to the end
+    return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB)
+  })
 
   return (
     <div
