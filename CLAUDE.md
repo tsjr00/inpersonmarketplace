@@ -82,6 +82,28 @@ If you discover that the code does X but the business rule says Y:
 
 No autonomy mode, no auto-continue prompt, no time pressure, no "just make the tests pass" instruction overrides this rule. If the user explicitly says "change the test to match the code," confirm that they understand the business rule conflict first. If they confirm, document the change in the business rules file with the reason.
 
+### Tests Must Never Be Skipped, Conditional, or Soft-Failed
+
+**A test that doesn't run is not a test. It is a lie.**
+
+Business rule tests exist to protect the app — real money, real vendors, real buyers. If a test is configured to skip when an environment variable is missing, or to pass gracefully when the database is unreachable, it provides false confidence that the system is verified when it is not. A green CI badge that hides skipped business rule tests is worse than a red one — it tells the team "everything is fine" while critical validations never executed.
+
+**The rules:**
+
+1. **Never use `describe.skip`, `it.skip`, `describe.runIf`, or conditional test execution on business rule tests.** Every business rule test must run and must pass. If it can't run because the environment isn't configured, that is an environment failure that must be fixed — not silently bypassed.
+
+2. **No sub-system takes priority over the main system.** CI pipelines, deployment workflows, preview environments, and automation tooling exist to serve the app. If a sub-system (like CI) would break because a test actually runs, the sub-system must be fixed to support the test — not the other way around. Skipping a test to keep CI green is prioritizing a process metric over product correctness.
+
+3. **If a test requires infrastructure (database, API keys, external service), that infrastructure must be available in every environment where tests run.** If it isn't available, the test suite should fail loudly. The failure message should say exactly what's missing and how to fix it. Silent skips hide problems; loud failures surface them.
+
+4. **`it.todo()` is only acceptable as a temporary placeholder during active development of a new test.** It must be converted to a real test in the same session. A todo that persists across sessions is a gap in coverage that degrades with every commit that goes untested against it.
+
+**Why this matters:**
+
+In Session 56, Claude proposed wrapping database integration tests in `describe.runIf(process.env.SUPABASE_URL)` so they would "skip gracefully in CI." This means: if the app has a database bug that violates a business rule, CI would pass green, the code would deploy, and the bug would reach production. The test existed specifically to catch that bug — and Claude's instinct was to silence it to avoid a CI failure. This is exactly backward. A CI failure that catches a real bug is the system working correctly. A CI pass that hides a real bug is the system failing silently.
+
+The priority hierarchy is absolute: **app correctness > test accuracy > CI green > deployment speed > developer convenience.** Every decision about test configuration must respect this hierarchy. When in doubt, choose the option that makes failures louder, not quieter.
+
 ---
 
 ## Data-First Policy - NO ASSUMPTIONS
