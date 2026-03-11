@@ -73,7 +73,6 @@ export async function PATCH(request: NextRequest) {
       updates.notification_preferences = {
         ...currentPrefs,
         sms_order_updates: Boolean(sms_consent),
-        sms_consent_at: sms_consent ? new Date().toISOString() : null,
       }
     }
 
