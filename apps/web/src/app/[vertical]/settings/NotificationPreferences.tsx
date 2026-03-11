@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import { colors } from '@/lib/design-tokens'
+import { useParams, useRouter } from 'next/navigation'
+import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 
 interface NotificationPreferencesProps {
   primaryColor: string
-  smsEnabled?: boolean
+  initialPhone: string
+  initialSmsConsent: boolean
 }
 
 interface Preferences {
@@ -28,8 +29,9 @@ const DEFAULT_PREFS: Preferences = {
   sound_enabled: true,
 }
 
-export default function NotificationPreferences({ primaryColor, smsEnabled = false }: NotificationPreferencesProps) {
+export default function NotificationPreferences({ primaryColor, initialPhone, initialSmsConsent }: NotificationPreferencesProps) {
   const params = useParams()
+  const router = useRouter()
   const vertical = params.vertical as string
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
   const [loading, setLoading] = useState(false)
@@ -40,8 +42,38 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
   const [pushSupported, setPushSupported] = useState(false)
   const [pushPermission, setPushPermission] = useState<string>('default')
 
+  // SMS opt-in state
+  const [phone, setPhone] = useState(initialPhone)
+  const [smsConsent, setSmsConsent] = useState(initialSmsConsent)
+  const [smsLoading, setSmsLoading] = useState(false)
+
+  const smsEnabled = initialSmsConsent && Boolean(initialPhone)
+
+  // Format phone as user types: (555) 123-4567
+  const formatPhone = (value: string): string => {
+    const digits = value.replace(/\D/g, '')
+    const local = digits.startsWith('1') && digits.length > 10 ? digits.slice(1) : digits
+    if (local.length <= 3) return local
+    if (local.length <= 6) return `(${local.slice(0, 3)}) ${local.slice(3)}`
+    return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6, 10)}`
+  }
+
+  const handlePhoneChange = (value: string) => {
+    const cleaned = value.replace(/[^\d()\s-]/g, '')
+    setPhone(formatPhone(cleaned))
+    setMessage(null)
+  }
+
+  const phoneDigits = phone.replace(/\D/g, '')
+  const hasValidPhone = phoneDigits.length >= 10
+
+  const handlePhoneClear = () => {
+    setPhone('')
+    setSmsConsent(false)
+    setMessage(null)
+  }
+
   useEffect(() => {
-    // Check push support
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
       setPushSupported(true)
       setPushPermission(Notification.permission)
@@ -75,7 +107,7 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
   }, [preferences, initialPrefs])
 
   const handleToggle = (key: keyof Preferences) => {
-    if (key === 'push_enabled') return // Push has its own handler
+    if (key === 'push_enabled') return
     setPreferences(prev => ({
       ...prev,
       [key]: !prev[key]
@@ -90,7 +122,6 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
 
     try {
       if (!preferences.push_enabled) {
-        // Enabling push
         const permission = await Notification.requestPermission()
         setPushPermission(permission)
         if (permission !== 'granted') {
@@ -122,7 +153,6 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
 
         setPreferences(prev => ({ ...prev, push_enabled: true }))
       } else {
-        // Disabling push
         const registration = await navigator.serviceWorker.ready
         const subscription = await registration.pushManager.getSubscription()
         if (subscription) {
@@ -166,6 +196,44 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
       setMessage({ type: 'error', text: 'Error saving preferences' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Save phone + SMS consent, then refresh page so SMS toggles unlock
+  const handleSmsOptIn = async () => {
+    if (!hasValidPhone) {
+      setMessage({ type: 'error', text: 'Please enter a valid phone number' })
+      return
+    }
+    if (!smsConsent) {
+      setMessage({ type: 'error', text: 'Please accept the SMS terms to enable text notifications' })
+      return
+    }
+
+    setSmsLoading(true)
+    setMessage(null)
+
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          sms_consent: true,
+        })
+      })
+
+      if (res.ok) {
+        // Refresh page so server re-renders with updated smsEnabled
+        router.refresh()
+      } else {
+        const data = await res.json()
+        setMessage({ type: 'error', text: data.error || 'Failed to save phone number' })
+        setSmsLoading(false)
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Error saving phone number' })
+      setSmsLoading(false)
     }
   }
 
@@ -302,51 +370,173 @@ export default function NotificationPreferences({ primaryColor, smsEnabled = fal
       <div>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: '0 0 12px 0' }}>
           SMS Notifications
-          {!smsEnabled && (
-            <span style={{
-              marginLeft: 8,
-              padding: '2px 8px',
-              backgroundColor: colors.primaryLight,
-              color: colors.primaryDark,
-              borderRadius: 4,
-              fontSize: 11,
-              fontWeight: 500
-            }}>
-              Add phone number above to enable
-            </span>
-          )}
         </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+
+        {!smsEnabled ? (
+          /* SMS opt-in flow: phone number + consent */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>
+              Add your phone number and accept the terms below to enable SMS notifications.
+            </p>
+
+            {/* Phone Number */}
             <div>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: smsEnabled ? undefined : '#9ca3af' }}>Order Updates</p>
-              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: smsEnabled ? '#6b7280' : '#9ca3af' }}>
-                Get text alerts about your orders
-              </p>
+              <label style={{
+                display: 'block',
+                fontSize: typography.sizes.sm,
+                color: colors.textMuted,
+                marginBottom: 6,
+                fontWeight: typography.weights.medium
+              }}>
+                Phone Number
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, maxWidth: 400 }}>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.sm,
+                    color: colors.textPrimary,
+                    backgroundColor: colors.inputBg,
+                    boxSizing: 'border-box'
+                  }}
+                />
+                {phone && (
+                  <button
+                    type="button"
+                    onClick={handlePhoneClear}
+                    style={{
+                      padding: '10px 12px',
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: radius.sm,
+                      backgroundColor: colors.surfaceMuted,
+                      color: colors.textMuted,
+                      fontSize: typography.sizes.sm,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
-            <ToggleSwitch
-              checked={preferences.sms_order_updates}
-              onChange={() => handleToggle('sms_order_updates')}
-              disabled={!smsEnabled}
-            />
+
+            {/* SMS Consent */}
+            {hasValidPhone && (
+              <>
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: colors.surfaceMuted,
+                  borderRadius: radius.sm,
+                  border: `1px solid ${colors.border}`,
+                  maxWidth: 500
+                }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: spacing.xs,
+                    cursor: 'pointer',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={smsConsent}
+                      onChange={(e) => { setSmsConsent(e.target.checked); setMessage(null) }}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        marginTop: 2,
+                        flexShrink: 0,
+                        accentColor: primaryColor,
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <span style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, lineHeight: '1.5' }}>
+                      I agree to receive automated SMS/text messages from {term(vertical, 'display_name')} for order
+                      status alerts, pickup notifications, and cancellation notices. Message frequency varies
+                      (typically 1-5 per week during active orders). Message and data rates may apply.
+                      Reply STOP to opt out, HELP for help. See our{' '}
+                      <a href={`/${vertical}/terms#sms-terms`} target="_blank" style={{ color: primaryColor }}>Terms of Service</a>
+                      {' '}and{' '}
+                      <a href={`/${vertical}/terms#privacy-policy`} target="_blank" style={{ color: primaryColor }}>Privacy Policy</a>.
+                    </span>
+                  </label>
+                </div>
+
+                <div>
+                  <button
+                    onClick={handleSmsOptIn}
+                    disabled={smsLoading || !smsConsent}
+                    style={{
+                      padding: '10px 24px',
+                      backgroundColor: smsLoading || !smsConsent ? '#d1d5db' : primaryColor,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 6,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: smsLoading || !smsConsent ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {smsLoading ? 'Enabling...' : 'Enable SMS Notifications'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: smsEnabled ? undefined : '#9ca3af' }}>Marketing & Promotions</p>
-              <p style={{ margin: '2px 0 0 0', fontSize: 12, color: smsEnabled ? '#6b7280' : '#9ca3af' }}>
-                Receive deals via text message
-              </p>
+        ) : (
+          /* SMS already enabled — show toggles */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Order Updates</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                  Get text alerts about your orders
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={preferences.sms_order_updates}
+                onChange={() => handleToggle('sms_order_updates')}
+              />
             </div>
-            <ToggleSwitch
-              checked={preferences.sms_marketing}
-              onChange={() => handleToggle('sms_marketing')}
-              disabled={!smsEnabled}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Marketing & Promotions</p>
+                <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
+                  Receive deals via text message
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={preferences.sms_marketing}
+                onChange={() => handleToggle('sms_marketing')}
+              />
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>
+              Phone: {initialPhone} · <button
+                onClick={handlePhoneClear}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: primaryColor,
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: 12,
+                  textDecoration: 'underline'
+                }}
+              >
+                Change number
+              </button>
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Save Button */}
+      {/* Save Preferences Button (for email/push/sound/sms toggles) */}
       <div>
         <button
           onClick={handleSave}
