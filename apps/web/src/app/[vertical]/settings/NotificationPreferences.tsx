@@ -46,8 +46,9 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
   const [phone, setPhone] = useState(initialPhone)
   const [smsConsent, setSmsConsent] = useState(initialSmsConsent)
   const [smsLoading, setSmsLoading] = useState(false)
+  const [changingNumber, setChangingNumber] = useState(false)
 
-  const smsEnabled = initialSmsConsent && Boolean(initialPhone)
+  const smsEnabled = initialSmsConsent && Boolean(initialPhone) && !changingNumber
 
   // Format phone as user types: (555) 123-4567
   const formatPhone = (value: string): string => {
@@ -518,7 +519,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
             </div>
             <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>
               Phone: {initialPhone} · <button
-                onClick={handlePhoneClear}
+                onClick={() => { setChangingNumber(true); setPhone(initialPhone); setSmsConsent(false) }}
                 style={{
                   background: 'none',
                   border: 'none',
