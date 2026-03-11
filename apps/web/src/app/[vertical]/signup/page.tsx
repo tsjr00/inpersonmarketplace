@@ -81,6 +81,7 @@ export default function SignupPage({ params }: SignupPageProps) {
           full_name: fullName,
           preferred_vertical: vertical,
         },
+        emailRedirectTo: `${window.location.origin}/${vertical}/dashboard`,
       },
     })
 
