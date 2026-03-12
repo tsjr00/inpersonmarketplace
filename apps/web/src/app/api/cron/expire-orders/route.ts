@@ -662,42 +662,40 @@ export async function GET(request: NextRequest) {
                 .neq('status', 'failed')
                 .maybeSingle()
 
-              if (!existingPayout && vendor?.stripe_account_id && vendor?.stripe_payouts_enabled) {
-                try {
-                  const transfer = await transferToVendor({
-                    amount: actualPayoutCents,
-                    destination: vendor.stripe_account_id,
-                    orderId: item.order_id,
-                    orderItemId: item.id,
-                  })
+              if (!existingPayout) {
+                // H-10 FIX: Insert payout record FIRST (atomic pattern).
+                // Guarantees a record exists even if the transfer call or subsequent DB update fails.
+                const initialStatus = vendor?.stripe_account_id && vendor?.stripe_payouts_enabled
+                  ? 'pending' : 'pending_stripe_setup'
 
-                  await supabase.from('vendor_payouts').insert({
-                    order_item_id: item.id,
-                    vendor_profile_id: item.vendor_profile_id,
-                    amount_cents: actualPayoutCents,
-                    stripe_transfer_id: transfer.id,
-                    status: 'processing',
-                  })
-                } catch (transferError) {
-                  console.error('[Phase 4] Stripe transfer failed for no-show payout:', transferError)
-                  // Record failed payout for retry in Phase 5
-                  await supabase.from('vendor_payouts').insert({
-                    order_item_id: item.id,
-                    vendor_profile_id: item.vendor_profile_id,
-                    amount_cents: actualPayoutCents,
-                    stripe_transfer_id: null,
-                    status: 'failed',
-                  })
-                }
-              } else if (!existingPayout && !vendor?.stripe_payouts_enabled) {
-                // Vendor doesn't have Stripe ready — record as pending
-                await supabase.from('vendor_payouts').insert({
+                const { data: payoutRecord } = await supabase.from('vendor_payouts').insert({
                   order_item_id: item.id,
                   vendor_profile_id: item.vendor_profile_id,
                   amount_cents: actualPayoutCents,
                   stripe_transfer_id: null,
-                  status: 'pending_stripe_setup',
-                })
+                  status: initialStatus,
+                }).select('id').single()
+
+                // If vendor has Stripe, attempt transfer
+                if (payoutRecord && initialStatus === 'pending') {
+                  try {
+                    const transfer = await transferToVendor({
+                      amount: actualPayoutCents,
+                      destination: vendor.stripe_account_id,
+                      orderId: item.order_id,
+                      orderItemId: item.id,
+                    })
+
+                    await supabase.from('vendor_payouts')
+                      .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
+                      .eq('id', payoutRecord.id)
+                  } catch (transferError) {
+                    console.error('[Phase 4] Stripe transfer failed for no-show payout:', transferError)
+                    await supabase.from('vendor_payouts')
+                      .update({ status: 'failed', updated_at: new Date().toISOString() })
+                      .eq('id', payoutRecord.id)
+                  }
+                }
               }
             }
 
@@ -840,17 +838,66 @@ export async function GET(request: NextRequest) {
     }
 
     // ============================================================
+    // PHASE 4.6: Auto-expire stale confirmed orders (M-12)
+    // Orders stuck in 'confirmed' for 7+ days with a pickup_date in the past
+    // likely had both parties not show up. Mark as expired.
+    // ============================================================
+    let staleConfirmedExpired = 0
+    try {
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      const today = new Date().toISOString().split('T')[0]
+
+      const { data: staleConfirmed } = await supabase
+        .from('order_items')
+        .select(`
+          id,
+          order_id,
+          order:orders!inner(buyer_user_id, order_number, vertical_id)
+        `)
+        .eq('status', 'confirmed')
+        .is('cancelled_at', null)
+        .lt('pickup_date', today)
+        .lt('updated_at', sevenDaysAgo.toISOString())
+        .limit(100)
+
+      if (staleConfirmed && staleConfirmed.length > 0) {
+        for (const item of staleConfirmed) {
+          const orderData = (item as any).order as any
+          await supabase
+            .from('order_items')
+            .update({ status: 'expired', updated_at: new Date().toISOString() })
+            .eq('id', item.id)
+
+          // Check if all items in this order are now terminal → expire the order too
+          await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: item.order_id })
+
+          if (orderData?.buyer_user_id) {
+            await sendNotification(orderData.buyer_user_id, 'order_expired', {
+              orderNumber: orderData.order_number,
+            }, { vertical: orderData.vertical_id })
+          }
+
+          staleConfirmedExpired++
+          totalProcessed++
+        }
+      }
+    } catch (phase46Error) {
+      console.error('Phase 4.6 error:', phase46Error instanceof Error ? phase46Error.message : 'Unknown error')
+    }
+
+    // ============================================================
     // PHASE 4.7: Auto-miss past-due market box pickups
-    // Market box pickups that are still 'scheduled' more than 2 days
-    // after their scheduled_date are automatically marked 'missed'.
-    // This allows the subscription completion trigger to fire naturally
-    // when all weeks are accounted for.
+    // Market box pickups that are still 'scheduled' past their grace period.
+    // H-3 FIX: Per-vertical grace periods — FM=2 days, FT=2 hours.
+    // Uses shortest cutoff (2h) for the query, then checks per-vertical in the loop.
     // ============================================================
     let marketBoxPickupsMissed = 0
     try {
-      const twoDaysAgo = new Date()
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
-      const cutoffDateStr = twoDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
+      // Use shortest grace period for the DB filter (FT=2 hours)
+      const shortestCutoff = new Date()
+      shortestCutoff.setHours(shortestCutoff.getHours() - 2)
+      const cutoffDateStr = shortestCutoff.toISOString().split('T')[0] // YYYY-MM-DD
 
       const { data: overduePickups, error: overdueError } = await supabase
         .from('market_box_pickups')
@@ -881,6 +928,18 @@ export async function GET(request: NextRequest) {
       } else if (overduePickups && overduePickups.length > 0) {
         for (const pickup of overduePickups) {
           try {
+            // H-3: Per-vertical grace period check
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pickupSub = pickup.market_box_subscriptions as any
+            const pickupVertical = pickupSub?.market_box_offerings?.vertical_id || 'farmers_market'
+            const scheduledDate = new Date(pickup.scheduled_date)
+            const now = new Date()
+            const hoursElapsed = (now.getTime() - scheduledDate.getTime()) / (1000 * 60 * 60)
+
+            // FM = 48 hours (2 days), FT = 2 hours
+            const graceHours = pickupVertical === 'food_trucks' ? 2 : 48
+            if (hoursElapsed < graceHours) continue
+
             // Mark as missed
             const { error: updateError } = await supabase
               .from('market_box_pickups')
@@ -1208,6 +1267,26 @@ export async function GET(request: NextRequest) {
             totalErrors++
           }
         }
+      }
+
+      // H-9: Check for stale 'processing' payouts — transfers that were initiated but never resolved.
+      // If a payout has been 'processing' for 7+ days, mark as 'failed' so Phase 5 retries it.
+      const STALE_PROCESSING_DAYS = 7
+      const staleProcessingCutoff = new Date(Date.now() - STALE_PROCESSING_DAYS * 24 * 60 * 60 * 1000)
+      const { data: staleProcessingPayouts } = await supabase
+        .from('vendor_payouts')
+        .select('id')
+        .eq('status', 'processing')
+        .lt('created_at', staleProcessingCutoff.toISOString())
+
+      if (staleProcessingPayouts && staleProcessingPayouts.length > 0) {
+        const staleIds = staleProcessingPayouts.map(p => p.id)
+        await supabase
+          .from('vendor_payouts')
+          .update({ status: 'failed', updated_at: new Date().toISOString() })
+          .in('id', staleIds)
+
+        console.warn(`[Phase 5] H-9: ${staleIds.length} stale 'processing' payouts (${STALE_PROCESSING_DAYS}+ days) marked as 'failed' for retry.`)
       }
 
       // Mark expired payouts (older than retry window) as cancelled
@@ -1550,9 +1629,9 @@ export async function GET(request: NextRequest) {
             vendorTiersExpired++
             totalProcessed++
             // Notify vendor their subscription expired
-            await sendNotification(vendor.user_id, 'payout_failed', {
-              orderNumber: 'subscription',
-              amountCents: 0,
+            await sendNotification(vendor.user_id, 'subscription_expired', {
+              previousTier: vendor.tier,
+              newTier: newTier,
             }, { vertical: vendor.vertical_id })
           }
         }
@@ -1793,7 +1872,7 @@ export async function GET(request: NextRequest) {
       payouts: { retried: payoutsRetried, succeeded: payoutsSucceeded, cancelled: payoutsCancelled },
       externalPayments: { reminders: externalReminders, autoConfirmed: externalAutoConfirmed },
       errorDigest: { reportsSummarized: errorReportsSummarized },
-      staleConfirmed: { notified: staleConfirmedCount },
+      staleConfirmed: { notified: staleConfirmedCount, expired: staleConfirmedExpired },
       marketBoxPickups: { missed: marketBoxPickupsMissed },
       staleWindows: { fulfilled: staleWindowsFulfilled },
       tierExpirations: { vendors: vendorTiersExpired, buyers: buyerTiersExpired },

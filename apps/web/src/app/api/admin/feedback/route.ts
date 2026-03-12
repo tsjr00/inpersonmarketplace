@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { verifyAdminScope } from '@/lib/auth/admin'
 
 // GET - Get all feedback (admin only)
 // Supports both shopper and vendor feedback via 'source' param
@@ -17,23 +17,16 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-    const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    const vertical = searchParams.get('vertical')
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // H-7: Verify admin scope (platform admin sees all, vertical admin sees only their vertical)
+    const scope = await verifyAdminScope(vertical)
+    if (!scope) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    // Verify admin
-    const { data: userProfile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('role, roles')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .single()
-
-    if (profileError || !userProfile || !hasAdminRole(userProfile || {})) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    if (!scope.authorized) {
+      return NextResponse.json({ error: 'Vertical ID required for vertical admins' }, { status: 403 })
     }
 
     // Use service client to bypass RLS for admin queries
@@ -43,8 +36,6 @@ export async function GET(request: NextRequest) {
     }
     const serviceClient = createServiceClient()
 
-    const { searchParams } = new URL(request.url)
-    const vertical = searchParams.get('vertical')
     const category = searchParams.get('category')
     const status = searchParams.get('status')
     const source = searchParams.get('source') || 'shopper' // 'shopper' or 'vendor'
@@ -58,8 +49,9 @@ export async function GET(request: NextRequest) {
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (vertical) {
-      query = query.eq('vertical_id', vertical)
+    // H-7: Enforce vertical scope — vertical admins can only see their vertical's data
+    if (scope.effectiveVerticalId) {
+      query = query.eq('vertical_id', scope.effectiveVerticalId)
     }
     if (category) {
       query = query.eq('category', category)
@@ -150,22 +142,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // H-7: Verify admin scope
+    const scope = await verifyAdminScope()
+    if (!scope) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    // Verify admin
-    const { data: userProfile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('role, roles')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .single()
-
-    if (profileError || !userProfile || !hasAdminRole(userProfile || {})) {
+    if (!scope.authorized && !scope.isPlatformAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -186,6 +168,19 @@ export async function PATCH(request: NextRequest) {
     // Choose table based on source
     const tableName = source === 'vendor' ? 'vendor_feedback' : 'shopper_feedback'
 
+    // H-7: For vertical admins, verify the feedback item belongs to their vertical
+    if (!scope.isPlatformAdmin) {
+      const { data: feedbackItem } = await serviceClient
+        .from(tableName)
+        .select('vertical_id')
+        .eq('id', id)
+        .single()
+
+      if (feedbackItem && scope.effectiveVerticalId && feedbackItem.vertical_id !== scope.effectiveVerticalId) {
+        return NextResponse.json({ error: 'Not authorized for this vertical' }, { status: 403 })
+      }
+    }
+
     const updateData: Record<string, unknown> = {}
     if (status) {
       const validStatuses = ['new', 'in_review', 'resolved', 'closed']
@@ -195,7 +190,7 @@ export async function PATCH(request: NextRequest) {
       updateData.status = status
       if (status === 'resolved' || status === 'closed') {
         updateData.resolved_at = new Date().toISOString()
-        updateData.resolved_by = user.id
+        updateData.resolved_by = scope.userId
       }
     }
     if (admin_notes !== undefined) {

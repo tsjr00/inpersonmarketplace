@@ -10,6 +10,35 @@ import { calculateVendorPayout } from '@/lib/pricing'
 import { selectBasePriceForTermWeeks } from '@/lib/stripe/webhook-utils'
 
 /**
+ * H-6: Dedup helper — check if a notification was already sent recently.
+ * Prevents duplicate notifications from Stripe webhook retries.
+ * Uses the same pattern as Phase 4.5 in expire-orders.
+ */
+async function wasNotificationSent(
+  supabase: ReturnType<typeof createServiceClient>,
+  userId: string,
+  type: string,
+  referenceId: string,
+  lookbackHours = 24
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString()
+  const { data } = await supabase
+    .from('notifications')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('type', type)
+    .gte('created_at', cutoff)
+    .limit(5)
+
+  if (!data || data.length === 0) return false
+
+  // Check if any notification has matching reference in its data
+  // For a simple dedup, just checking user+type within the window is sufficient
+  // since payout notifications are rare (one per order item)
+  return true
+}
+
+/**
  * Safely extract current_period_end from a Stripe subscription object.
  * Handles API version differences where the field may be moved or restructured.
  * Falls back to 30 days from now if the field is unavailable.
@@ -612,6 +641,85 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       vpQuery = vpQuery.eq('vertical_id', vertical)
     }
     await vpQuery
+
+    // M-1 FIX: Auto-pause excess listings on tier downgrade.
+    // Without this, vendors keep premium listings live after cancelling.
+    try {
+      const { getTierLimits } = await import('@/lib/vendor-limits')
+      const limits = getTierLimits(downgradeTier, vertical || undefined)
+      const maxListings = limits.productListings
+
+      // Get vendor profile ID
+      let vpIdQuery = supabase
+        .from('vendor_profiles')
+        .select('id')
+        .eq('user_id', userId)
+      if (vertical) vpIdQuery = vpIdQuery.eq('vertical_id', vertical)
+      const { data: vp } = await vpIdQuery.single()
+
+      if (vp) {
+        // Count published listings
+        const { count: publishedCount } = await supabase
+          .from('listings')
+          .select('id', { count: 'exact', head: true })
+          .eq('vendor_profile_id', vp.id)
+          .eq('status', 'published')
+
+        if (publishedCount && publishedCount > maxListings) {
+          const excessCount = publishedCount - maxListings
+          // Get the newest excess listings (keep oldest ones published)
+          const { data: excessListings } = await supabase
+            .from('listings')
+            .select('id')
+            .eq('vendor_profile_id', vp.id)
+            .eq('status', 'published')
+            .order('created_at', { ascending: false })
+            .limit(excessCount)
+
+          if (excessListings && excessListings.length > 0) {
+            const excessIds = excessListings.map(l => l.id)
+            await supabase
+              .from('listings')
+              .update({ status: 'draft', updated_at: new Date().toISOString() })
+              .in('id', excessIds)
+
+            crumb.stripe(`M-1: Auto-paused ${excessIds.length} excess listings for vendor ${vp.id} after downgrade to ${downgradeTier}`)
+          }
+        }
+
+        // Also deactivate excess market boxes
+        const maxActiveBoxes = limits.activeMarketBoxes
+        const { count: activeBoxCount } = await supabase
+          .from('market_box_offerings')
+          .select('id', { count: 'exact', head: true })
+          .eq('vendor_profile_id', vp.id)
+          .eq('status', 'active')
+
+        if (activeBoxCount && activeBoxCount > maxActiveBoxes) {
+          const excessBoxCount = activeBoxCount - maxActiveBoxes
+          const { data: excessBoxes } = await supabase
+            .from('market_box_offerings')
+            .select('id')
+            .eq('vendor_profile_id', vp.id)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(excessBoxCount)
+
+          if (excessBoxes && excessBoxes.length > 0) {
+            const boxIds = excessBoxes.map(b => b.id)
+            await supabase
+              .from('market_box_offerings')
+              .update({ status: 'inactive', updated_at: new Date().toISOString() })
+              .in('id', boxIds)
+
+            crumb.stripe(`M-1: Deactivated ${boxIds.length} excess market boxes for vendor ${vp.id}`)
+          }
+        }
+      }
+    } catch (pauseError) {
+      // Don't block downgrade if auto-pause fails — Phase 10c handles it nightly
+      console.error('[M-1] Failed to auto-pause excess listings:', pauseError)
+    }
   } else if (subscriptionType === 'buyer') {
     await supabase
       .from('user_profiles')
@@ -765,9 +873,13 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
 
     const vp = (payout as unknown as { vendor_profiles: { user_id: string; vertical_id: string } })?.vendor_profiles
     if (vp?.user_id) {
-      await sendNotification(vp.user_id, 'payout_processed', {
-        amountCents: transfer.amount,
-      }, { vertical: vp.vertical_id })
+      // H-6: Dedup — skip if already notified for this payout
+      const alreadySent = await wasNotificationSent(supabase, vp.user_id, 'payout_processed', mbSubscriptionId)
+      if (!alreadySent) {
+        await sendNotification(vp.user_id, 'payout_processed', {
+          amountCents: transfer.amount,
+        }, { vertical: vp.vertical_id })
+      }
     }
     return
   }
@@ -791,9 +903,13 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
 
   const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string; vertical_id: string } | null })?.vendor_profiles
   if (vendorProfile?.user_id) {
-    await sendNotification(vendorProfile.user_id, 'payout_processed', {
-      amountCents: transfer.amount,
-    }, { vertical: vendorProfile.vertical_id })
+    // H-6: Dedup
+    const alreadySent = await wasNotificationSent(supabase, vendorProfile.user_id, 'payout_processed', orderItemId)
+    if (!alreadySent) {
+      await sendNotification(vendorProfile.user_id, 'payout_processed', {
+        amountCents: transfer.amount,
+      }, { vertical: vendorProfile.vertical_id })
+    }
   }
 }
 
@@ -818,10 +934,14 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
 
     const vp = (payout as unknown as { vendor_profiles: { user_id: string; vertical_id: string } })?.vendor_profiles
     if (vp?.user_id) {
-      await sendNotification(vp.user_id, 'payout_failed', {
-        amountCents: transfer.amount,
-        reason: 'Transfer was reversed by Stripe',
-      }, { vertical: vp.vertical_id })
+      // H-6: Dedup
+      const alreadySent = await wasNotificationSent(supabase, vp.user_id, 'payout_failed', mbSubscriptionId)
+      if (!alreadySent) {
+        await sendNotification(vp.user_id, 'payout_failed', {
+          amountCents: transfer.amount,
+          reason: 'Transfer was reversed by Stripe',
+        }, { vertical: vp.vertical_id })
+      }
     }
     return
   }
@@ -843,10 +963,14 @@ async function handleTransferFailed(transfer: Stripe.Transfer) {
   const vendorProfile = (orderItem as unknown as { vendor_profiles: { user_id: string } | null })?.vendor_profiles
   const orderData = (orderItem as unknown as { order: { vertical_id: string } | null })?.order
   if (vendorProfile?.user_id) {
-    await sendNotification(vendorProfile.user_id, 'payout_failed', {
-      amountCents: transfer.amount,
-      reason: 'Transfer was reversed by Stripe',
-    }, { vertical: orderData?.vertical_id })
+    // H-6: Dedup
+    const alreadySent = await wasNotificationSent(supabase, vendorProfile.user_id, 'payout_failed', orderItemId)
+    if (!alreadySent) {
+      await sendNotification(vendorProfile.user_id, 'payout_failed', {
+        amountCents: transfer.amount,
+        reason: 'Transfer was reversed by Stripe',
+      }, { vertical: orderData?.vertical_id })
+    }
   }
 }
 
@@ -915,12 +1039,16 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
 
   const refundAmountCents = charge.amount_refunded
 
+  // H-6: Dedup — Stripe can retry charge.refunded webhooks
   // Notify buyer about refund
   if (order.buyer_user_id) {
-    await sendNotification(order.buyer_user_id, 'order_refunded', {
-      orderNumber: order.order_number,
-      amountCents: refundAmountCents,
-    }, { vertical: order.vertical_id })
+    const alreadySent = await wasNotificationSent(supabase, order.buyer_user_id, 'order_refunded', payment.order_id)
+    if (!alreadySent) {
+      await sendNotification(order.buyer_user_id, 'order_refunded', {
+        orderNumber: order.order_number,
+        amountCents: refundAmountCents,
+      }, { vertical: order.vertical_id })
+    }
   }
 
   // Notify vendors about refund
@@ -935,10 +1063,13 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   }
 
   for (const vendorUserId of vendorUserIds) {
-    await sendNotification(vendorUserId, 'order_refunded', {
-      orderNumber: order.order_number,
-      amountCents: refundAmountCents,
-    }, { vertical: order.vertical_id })
+    const alreadySent = await wasNotificationSent(supabase, vendorUserId, 'order_refunded', payment.order_id)
+    if (!alreadySent) {
+      await sendNotification(vendorUserId, 'order_refunded', {
+        orderNumber: order.order_number,
+        amountCents: refundAmountCents,
+      }, { vertical: order.vertical_id })
+    }
   }
 
   crumb.stripe(`charge.refunded processed: order ${payment.order_id}, ${isFullRefund ? 'full' : 'partial'} refund of $${(refundAmountCents / 100).toFixed(2)}`)

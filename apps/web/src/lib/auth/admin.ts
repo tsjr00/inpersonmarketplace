@@ -159,3 +159,99 @@ export async function verifyAdminForApi(): Promise<{ isAdmin: boolean; userId: s
   const isAdmin = hasAdminRole(profile || {})
   return { isAdmin, userId: user.id }
 }
+
+/**
+ * H-7: Verify admin scope for vertical-filtered API routes.
+ * Platform admins see all verticals. Vertical admins see only their assigned vertical(s).
+ * Returns scope info or null if unauthorized.
+ */
+export async function verifyAdminScope(
+  requestedVerticalId?: string | null
+): Promise<{
+  authorized: boolean
+  isPlatformAdmin: boolean
+  userId: string
+  effectiveVerticalId: string | null
+} | null> {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role, roles')
+    .eq('user_id', user.id)
+    .is('deleted_at', null)
+    .single()
+
+  if (!profile) return null
+
+  const isPlatformAdmin = hasPlatformAdminRole(profile)
+
+  // Platform admins can access everything
+  if (isPlatformAdmin) {
+    return {
+      authorized: true,
+      isPlatformAdmin: true,
+      userId: user.id,
+      effectiveVerticalId: requestedVerticalId || null,
+    }
+  }
+
+  // Check if user has admin role or is in vertical_admins
+  const isAdmin = hasAdminRole(profile)
+
+  if (isAdmin && requestedVerticalId) {
+    // User has admin role — verify they manage the requested vertical
+    const { data: verticalAdmin } = await supabase
+      .from('vertical_admins')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('vertical_id', requestedVerticalId)
+      .maybeSingle()
+
+    if (verticalAdmin) {
+      return {
+        authorized: true,
+        isPlatformAdmin: false,
+        userId: user.id,
+        effectiveVerticalId: requestedVerticalId,
+      }
+    }
+  }
+
+  // Check vertical_admins table as fallback (for users not in user_profiles as admin)
+  if (!isAdmin) {
+    const { data: verticalAdmins } = await supabase
+      .from('vertical_admins')
+      .select('vertical_id')
+      .eq('user_id', user.id)
+
+    if (verticalAdmins && verticalAdmins.length > 0) {
+      const allowedVerticals = verticalAdmins.map(va => va.vertical_id)
+      if (requestedVerticalId && allowedVerticals.includes(requestedVerticalId)) {
+        return {
+          authorized: true,
+          isPlatformAdmin: false,
+          userId: user.id,
+          effectiveVerticalId: requestedVerticalId,
+        }
+      }
+      // If no vertical requested but they have exactly one, use it
+      if (!requestedVerticalId && allowedVerticals.length === 1) {
+        return {
+          authorized: true,
+          isPlatformAdmin: false,
+          userId: user.id,
+          effectiveVerticalId: allowedVerticals[0],
+        }
+      }
+    }
+  }
+
+  // Not authorized
+  return isAdmin
+    ? { authorized: false, isPlatformAdmin: false, userId: user.id, effectiveVerticalId: null }
+    : null
+}

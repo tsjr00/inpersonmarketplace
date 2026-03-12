@@ -69,6 +69,7 @@ export type NotificationType =
   | 'trial_reminder_3d'
   | 'trial_expired'
   | 'trial_grace_expired'
+  | 'subscription_expired'
   // Admin-facing
   | 'new_vendor_application'
   | 'issue_disputed'
@@ -111,6 +112,9 @@ export interface NotificationTemplateData {
   trialEndsAt?: string
   unpublishedCount?: number
   deactivatedBoxCount?: number
+  // Subscription lifecycle
+  previousTier?: string
+  newTier?: string
   // Catering / Events
   companyName?: string
   headcount?: number
@@ -460,6 +464,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       return `Your grace period has ended. ${summary} Upgrade to reactivate them, or manage your listings to stay within Free tier limits.`
     },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/dashboard/upgrade`,
+  },
+
+  subscription_expired: {
+    urgency: 'urgent',
+    severity: 'critical',
+    audience: 'vendor',
+    title: () => `Subscription Expired`,
+    message: (d) => `Your ${d.previousTier || 'paid'} subscription has expired and your account has been downgraded to ${d.newTier || 'Free'}. Renew your subscription to regain access to premium features.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard/upgrade`,
   },
 
   // ── Admin-facing ─────────────────────────────────────────────────

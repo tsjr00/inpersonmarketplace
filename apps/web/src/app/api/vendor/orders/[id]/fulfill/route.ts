@@ -280,26 +280,60 @@ export async function POST(
             status: 'processing',
           })
         } catch (transferError) {
-          // C2 FIX: Revert status on failed transfer to prevent orphaned fulfillment
-          crumb.logic('Stripe transfer failed, reverting order item status')
-          await supabase
-            .from('order_items')
-            .update({
-              status: 'ready',
-              vendor_confirmed_at: null,
-              pickup_confirmed_at: null,
-            })
-            .eq('id', orderItemId)
-
+          // H-1 FIX: Keep item 'fulfilled' — payout failure ≠ fulfillment failure.
+          // Insert a failed payout record so Phase 5 cron retries the transfer automatically.
+          crumb.logic('Stripe transfer failed, recording failed payout for retry')
           console.error('Stripe transfer failed:', transferError)
 
-          // H3 FIX: Notify vendor that payout failed
+          crumb.supabase('insert', 'vendor_payouts')
+          await supabase.from('vendor_payouts').insert({
+            order_item_id: orderItem.id,
+            vendor_profile_id: vendorProfile.id,
+            amount_cents: actualPayoutCents,
+            stripe_transfer_id: null,
+            status: 'failed',
+          })
+
+          // Record fee credit even on failed transfer (will be deducted when retry succeeds)
+          if (feeDeductionCents > 0) {
+            try {
+              await recordFeeCredit(
+                serviceClient,
+                vendorProfile.id,
+                feeDeductionCents,
+                `Auto-deducted from payout (transfer pending retry)`,
+                orderItem.order_id
+              )
+            } catch (feeErr) {
+              crumb.logic('Fee credit recording failed on transfer failure', { error: feeErr })
+            }
+          }
+
+          // Notify vendor that payout failed but will retry
           await sendNotification(user.id, 'payout_failed', {
             orderNumber: orderData?.order_number || orderItemId.slice(0, 8),
             amountCents: actualPayoutCents,
           }, { vertical: orderData?.vertical_id })
 
-          throw traced.external('ERR_ORDER_004', 'Failed to process vendor payout. Order status has been reverted — please try again.', { orderItemId })
+          // Atomically mark order completed — fulfillment succeeded even though payout failed
+          await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })
+
+          // Notify buyer that order is fulfilled (payout issue is vendor-side only)
+          const failedListing = (orderItem as any).listing as any
+          const failedVendorName = failedListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
+          await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
+            orderNumber: orderData.order_number,
+            vendorName: failedVendorName,
+            itemTitle: failedListing?.title,
+          }, { vertical: orderData.vertical_id })
+
+          return NextResponse.json({
+            success: true,
+            message: 'Order fulfilled. Payment transfer failed but will be retried automatically.',
+            completed: true,
+            vendor_confirmed_at: now.toISOString(),
+            payoutStatus: 'failed_will_retry',
+          })
         }
       } else if (isDev) {
         // Dev mode without Stripe

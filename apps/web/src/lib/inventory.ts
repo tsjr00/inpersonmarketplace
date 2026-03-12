@@ -2,42 +2,36 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Restore inventory for cancelled/expired order items.
- * Reads current quantity and adds back the restored amount.
+ * Uses atomic_restore_inventory RPC for race-safe restoration.
  *
  * Uses service client to bypass RLS since this runs in system contexts
  * (cron jobs, cancellation handlers).
- *
- * Note: This has a small race window between read and update.
- * For the restore path (less contention than decrement), this is acceptable.
- * A proper atomic_restore_inventory RPC should be created in a future migration.
  */
 export async function restoreInventory(
   serviceClient: SupabaseClient,
   listingId: string,
   quantity: number
 ): Promise<{ success: boolean; newQuantity?: number }> {
-  // Only restore if listing has managed inventory (quantity is not null)
-  const { data: listing, error: fetchError } = await serviceClient
-    .from('listings')
-    .select('quantity')
-    .eq('id', listingId)
-    .single()
+  const { data, error } = await serviceClient
+    .rpc('atomic_restore_inventory', {
+      p_listing_id: listingId,
+      p_quantity: quantity,
+    })
 
-  if (fetchError || !listing || listing.quantity === null) {
-    // Listing not found or has unlimited inventory — nothing to restore
-    return { success: true }
-  }
-
-  const newQuantity = listing.quantity + quantity
-
-  const { error: updateError } = await serviceClient
-    .from('listings')
-    .update({ quantity: newQuantity })
-    .eq('id', listingId)
-
-  if (updateError) {
+  if (error) {
+    // RPC returns no rows if listing not found or has unlimited inventory
+    // That's not a failure — nothing to restore
+    if (error.code === 'PGRST116') {
+      return { success: true }
+    }
+    console.error('Failed to restore inventory:', error.message)
     return { success: false }
   }
+
+  // RPC returns array of {new_quantity}
+  const newQuantity = Array.isArray(data) && data.length > 0
+    ? data[0].new_quantity
+    : undefined
 
   return { success: true, newQuantity }
 }

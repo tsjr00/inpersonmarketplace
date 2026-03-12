@@ -139,7 +139,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     })
 
     // Update the order item as cancelled
-    // Note: cancellation_fee_cents column doesn't exist - we only store refund_amount_cents
     crumb.supabase('update', 'order_items')
     const { error: updateError } = await supabase
       .from('order_items')
@@ -148,7 +147,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         cancelled_at: new Date().toISOString(),
         cancelled_by: 'buyer',
         cancellation_reason: reason || 'Cancelled by buyer',
-        refund_amount_cents: refundAmountCents
+        refund_amount_cents: refundAmountCents,
+        cancellation_fee_cents: cancellationFeeCents
       })
       .eq('id', orderItemId)
 
@@ -229,26 +229,49 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // F7 FIX: Transfer cancellation fee vendor share to vendor via Stripe
+    // M-11 FIX: Record payout in vendor_payouts so Phase 5 can retry failures
     if (cancellationFeeApplied && vendorShareCents > 0 && stripeRefundId) {
       const cancelVendor = (orderItem.listing as any)?.vendor_profiles
       if (cancelVendor?.stripe_account_id && cancelVendor.stripe_payouts_enabled) {
+        // Insert pending payout FIRST (atomic pattern from H-10)
+        const serviceClient = createServiceClient()
+        const { data: payoutRecord } = await serviceClient.from('vendor_payouts').insert({
+          order_item_id: orderItemId,
+          vendor_profile_id: (orderItem.listing as any)?.vendor_profile_id || cancelVendor?.id,
+          amount_cents: vendorShareCents,
+          stripe_transfer_id: null,
+          status: 'pending',
+        }).select('id').single()
+
         try {
           crumb.logic('Transferring cancellation fee vendor share', {
             vendorShareCents,
             vendorId: cancelVendor.id,
           })
-          await transferToVendor({
+          const transfer = await transferToVendor({
             amount: vendorShareCents,
             destination: cancelVendor.stripe_account_id,
             orderId: order.id,
             orderItemId: orderItemId,
           })
+
+          if (payoutRecord) {
+            await serviceClient.from('vendor_payouts')
+              .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
+              .eq('id', payoutRecord.id)
+          }
         } catch (transferErr) {
           console.error('[CANCEL_VENDOR_SHARE] Cancellation fee transfer failed:', {
             orderItemId,
             vendorShareCents,
             error: transferErr instanceof Error ? transferErr.message : transferErr,
           })
+          // Mark as failed — Phase 5 will retry
+          if (payoutRecord) {
+            await serviceClient.from('vendor_payouts')
+              .update({ status: 'failed', updated_at: new Date().toISOString() })
+              .eq('id', payoutRecord.id)
+          }
         }
       }
     }
