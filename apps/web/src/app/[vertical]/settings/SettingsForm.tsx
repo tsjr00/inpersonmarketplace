@@ -18,9 +18,15 @@ export default function SettingsForm({
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const trimmedName = displayName.trim()
+  const nameError = trimmedName.length < 2 ? 'Display name must be at least 2 characters' : null
   const hasChanges = displayName !== initialDisplayName
 
   const handleSave = async () => {
+    if (nameError) {
+      setMessage({ type: 'error', text: nameError })
+      return
+    }
     setLoading(true)
     setMessage(null)
 
@@ -60,18 +66,19 @@ export default function SettingsForm({
           marginBottom: 6,
           fontWeight: typography.weights.medium
         }}>
-          Display Name
+          Display Name <span style={{ color: '#dc2626' }}>*</span>
         </label>
         <input
           type="text"
           value={displayName}
           onChange={(e) => { setDisplayName(e.target.value); setMessage(null) }}
           placeholder="Enter your display name"
+          required
           style={{
             width: '100%',
             maxWidth: 400,
             padding: '10px 12px',
-            border: `1px solid ${colors.border}`,
+            border: `1px solid ${nameError && trimmedName.length > 0 ? '#dc2626' : colors.border}`,
             borderRadius: radius.sm,
             fontSize: typography.sizes.sm,
             color: colors.textPrimary,
@@ -79,6 +86,11 @@ export default function SettingsForm({
             boxSizing: 'border-box'
           }}
         />
+        {nameError && trimmedName.length > 0 && (
+          <p style={{ fontSize: typography.sizes.xs, color: '#dc2626', marginTop: 4, marginBottom: 0 }}>
+            {nameError}
+          </p>
+        )}
       </div>
 
       {/* Email Field (read-only) */}
@@ -117,10 +129,10 @@ export default function SettingsForm({
       <div>
         <button
           onClick={handleSave}
-          disabled={loading || !hasChanges}
+          disabled={loading || !hasChanges || !!nameError}
           style={{
             padding: '10px 24px',
-            backgroundColor: loading || !hasChanges ? colors.border : primaryColor,
+            backgroundColor: loading || !hasChanges || nameError ? colors.border : primaryColor,
             color: 'white',
             border: 'none',
             borderRadius: radius.sm,
