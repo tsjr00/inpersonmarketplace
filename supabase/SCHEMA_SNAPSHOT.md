@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-03-12 | 20260312_078_session52_audit_fixes | **C-1:** Rewrote `atomic_decrement_inventory()` — now RAISE EXCEPTION on insufficient inventory (was GREATEST(0, qty-n) silent clamp). Auto-drafts listing when qty hits 0. **C-2:** `enforce_listing_tier_limit()` now calls `can_vendor_publish()` before allowing status='published'. **H-8:** New `atomic_restore_inventory(p_listing_id UUID, p_quantity INTEGER)` RPC — atomically adds back inventory (used by cancel route). **M-7:** `is_platform_admin()` checks both `role='admin'` and `'admin'=ANY(roles)` (removed invalid 'platform_admin' enum reference). **M-13:** New column `order_items.cancellation_fee_cents` (INTEGER, nullable) — persists cancellation fee at cancel time. Applied to Dev, Staging, & Prod. |
 | 2026-03-09 | 20260309_077_update_event_help_articles | **Data update:** Updated 2 FT `knowledge_articles`. Overview article ("What are private events..."): added "Getting event-approved" section explaining separate approval process, badge, and how event managers find approved trucks. Menu setup article ("How do I set up my menu..."): added "Marking items as event-ready" section explaining "Available for Events" checkbox, "Event Ready" badge on listings, step-by-step instructions. No schema changes — content only. Applied to Dev, Staging, & Prod. |
 | 2026-03-09 | 20260309_076_vendor_event_approval | **New columns on `vendor_profiles`:** `event_approved` (BOOLEAN DEFAULT false), `event_approved_at` (TIMESTAMPTZ). **New partial index:** `idx_vendor_profiles_event_approved` on (event_approved) WHERE event_approved = true. Admin-granted flag: vendor is approved for private events (FT only). Applied to Dev, Staging, & Prod. |
 | 2026-03-08 | 20260308_075_merge_duplicate_select_policies_prod | **RLS policy merges (8 tables):** Merged duplicate permissive SELECT policies on listings, markets, notifications, order_items, orders, transactions, vendor_payouts, vendor_quality_findings. Drops separate `_admin_select` policies and recreates single merged `_select` policy per table. Idempotent — Dev/Staging already had 7 of 8 merged (from migrations 002/003), Prod had none. vendor_quality_findings newly merged on all 3 envs. Pure performance optimization, no behavioral change. Applied to Dev, Staging, & Prod. |
@@ -594,6 +595,7 @@
 | cancelled_by | text | YES | - |
 | cancellation_reason | text | YES | - |
 | refund_amount_cents | int4 | YES | - |
+| cancellation_fee_cents | int4 | YES | - |
 | pickup_date | date | YES | - |
 | market_id | uuid | YES | - |
 | expires_at | timestamptz | YES | - |
@@ -2040,6 +2042,7 @@
 |----------|-----------|---------|----------|
 | atomic_complete_order_if_ready | p_order_id uuid | boolean | DEFINER |
 | atomic_decrement_inventory | p_listing_id uuid, p_quantity integer | TABLE(new_quantity integer) | DEFINER |
+| atomic_restore_inventory | p_listing_id uuid, p_quantity integer | TABLE(new_quantity integer) | DEFINER |
 | auto_add_schedule_to_vendors | - | trigger | DEFINER |
 | auto_create_vendor_schedules | - | trigger | DEFINER |
 | auto_create_vendor_schedules_insert | - | trigger | DEFINER |
