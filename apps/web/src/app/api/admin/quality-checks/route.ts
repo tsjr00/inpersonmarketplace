@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { createClient as createRawClient } from '@supabase/supabase-js'
 import { withErrorTracing } from '@/lib/errors'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { verifyAdminScope } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import {
   checkScheduleConflicts,
@@ -20,24 +20,17 @@ import { sendNotification } from '@/lib/notifications'
  */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/quality-checks', 'GET', async () => {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role, roles')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!hasAdminRole(profile || {})) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
     const { searchParams } = new URL(request.url)
     const vertical = searchParams.get('vertical')
+
+    // H-7: Verify admin scope (platform admin sees all, vertical admin sees only their vertical)
+    const scope = await verifyAdminScope(vertical)
+    if (!scope) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!scope.authorized) {
+      return NextResponse.json({ error: 'Vertical ID required for vertical admins' }, { status: 403 })
+    }
 
     const serviceClient = await createServiceClient()
 
@@ -66,8 +59,9 @@ export async function GET(request: NextRequest) {
       .order('severity', { ascending: true })
       .order('created_at', { ascending: false })
 
-    if (vertical) {
-      findingsQuery = findingsQuery.eq('vertical_id', vertical)
+    // H-7: Enforce vertical scope
+    if (scope.effectiveVerticalId) {
+      findingsQuery = findingsQuery.eq('vertical_id', scope.effectiveVerticalId)
     }
 
     const { data: findings, error: findingsError } = await findingsQuery
@@ -120,20 +114,13 @@ export async function POST(request: NextRequest) {
     const rateCheck = await checkRateLimit(`admin-quality-run:${ip}`, rateLimits.admin)
     if (!rateCheck.success) return rateLimitResponse(rateCheck)
 
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // H-7: Quality scan triggers are platform-admin or any admin — scope is on the read side
+    const scope = await verifyAdminScope()
+    if (!scope) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role, roles')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!hasAdminRole(profile || {})) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!scope.authorized && !scope.isPlatformAdmin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
     // Use service role for writes

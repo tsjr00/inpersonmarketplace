@@ -314,16 +314,45 @@ export async function POST(request: NextRequest) {
 
     // H2 FIX: Decrement inventory at order creation (prevents overselling)
     // Inventory is restored if order expires/is cancelled via cron
+    // C-1 FIX: RPC now RAISES EXCEPTION if insufficient stock (instead of silent clamp)
+    // RPC also sets listing to 'draft' when inventory hits 0
     crumb.logic('Decrementing inventory at checkout')
     const serviceClient = createServiceClient()
     for (const item of orderItems) {
       const currentQuantity = inventoryMap.get(item.listing_id)
       if (currentQuantity !== null && currentQuantity !== undefined) {
-        await serviceClient
+        const { data: decrementResult, error: decrementError } = await serviceClient
           .rpc('atomic_decrement_inventory' as string, {
             p_listing_id: item.listing_id,
             p_quantity: item.quantity
           })
+
+        if (decrementError) {
+          // Insufficient stock — abort checkout
+          throw traced.validation('ERR_INVENTORY_001',
+            `Insufficient stock for one or more items. Only ${currentQuantity} available.`,
+            { listingId: item.listing_id, requested: item.quantity, available: currentQuantity }
+          )
+        }
+
+        // If inventory hit zero, the RPC auto-drafted the listing — notify vendor
+        const newQty = Array.isArray(decrementResult) && decrementResult.length > 0
+          ? decrementResult[0].new_quantity
+          : decrementResult?.new_quantity
+        if (newQty === 0) {
+          const vendorUserId = vendor.user_id
+          // Look up listing title from original cart data
+          const cartItem = cartItems.find(ci => {
+            const l = ci.listings as unknown as { id: string; title?: string }
+            return l?.id === item.listing_id
+          })
+          const listingTitle = (cartItem?.listings as unknown as { title?: string })?.title
+          if (vendorUserId) {
+            sendNotification(vendorUserId, 'inventory_out_of_stock', {
+              listingTitle: listingTitle || 'A listing',
+            }, { vertical }).catch(() => {}) // Fire and forget
+          }
+        }
       }
     }
 

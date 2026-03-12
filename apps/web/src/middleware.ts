@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
-
-// C-5: Valid verticals allowlist — blocks invalid vertical slugs at the edge
-const VALID_VERTICALS = new Set(['farmers_market', 'food_trucks', 'fire_works'])
+import { VALID_VERTICALS } from '@/lib/validation/vertical'
 
 // Top-level routes that are NOT verticals (skip allowlist check for these)
 const NON_VERTICAL_PREFIXES = new Set([

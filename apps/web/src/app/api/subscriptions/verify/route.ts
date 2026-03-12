@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe/config'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
@@ -12,6 +12,13 @@ export async function GET(request: NextRequest) {
 
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
+    }
+
+    // C-3 FIX: Require authentication — prevent unauthorized tier activation
+    const authClient = await createClient()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const sessionId = request.nextUrl.searchParams.get('session_id')
@@ -35,6 +42,11 @@ export async function GET(request: NextRequest) {
       const vertical = session.metadata?.vertical || null
       const userId = session.metadata?.user_id
       const subscriptionId = session.subscription as string | null
+
+      // C-3 FIX: Verify authenticated user matches the Stripe session's user
+      if (userId && userId !== user.id) {
+        return NextResponse.json({ error: 'Session does not belong to authenticated user' }, { status: 403 })
+      }
 
       // Fallback tier activation: if session is paid, ensure DB is updated
       // This is idempotent — safe to run even if the webhook already fired

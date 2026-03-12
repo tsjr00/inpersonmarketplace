@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
         longitude: (typeof longitude === 'number' && isFinite(longitude)) ? longitude : null,
         season_start: season_start || null,
         season_end: season_end || null,
-        status: 'active',
+        status: 'pending',
         approval_status: 'pending',
         submitted_by_vendor_id: vendorProfile.id,
         submitted_at: new Date().toISOString(),

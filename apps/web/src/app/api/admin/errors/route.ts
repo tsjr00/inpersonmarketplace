@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
-import { hasAdminRole } from '@/lib/auth/admin'
+import { hasAdminRole, hasPlatformAdminRole } from '@/lib/auth/admin'
 
 /**
  * GET /api/admin/errors
@@ -57,10 +57,12 @@ export async function GET(request: NextRequest) {
       .is('deleted_at', null)
       .single()
 
-    const isPlatformAdmin = hasAdminRole(profile || {})
+    // H-7 FIX: Use hasPlatformAdminRole (not hasAdminRole) — vertical admins should NOT bypass scope
+    const isPlatformAdmin = hasPlatformAdminRole(profile || {})
+    const isAnyAdmin = hasAdminRole(profile || {})
 
-    // If not platform admin, verify they're a vertical admin for the requested vertical
-    if (!isPlatformAdmin) {
+    // If not any admin role, check vertical_admins table
+    if (!isAnyAdmin && !isPlatformAdmin) {
       if (!verticalId) {
         throw traced.auth('ERR_AUTH_002', 'Vertical ID required for vertical admins')
       }

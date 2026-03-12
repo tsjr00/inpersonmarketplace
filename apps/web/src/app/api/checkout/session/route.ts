@@ -722,16 +722,28 @@ export async function POST(request: NextRequest) {
 
       // Decrement inventory at checkout time (not at payment success)
       // This reserves the items — inventory is restored if order is cancelled/expires
+      // C-1 FIX: RPC now RAISES EXCEPTION if insufficient stock (instead of silent clamp)
+      // RPC also sets listing to 'draft' when inventory hits 0
       crumb.logic('Decrementing inventory at checkout')
       for (const item of items) {
         const currentQuantity = inventoryMap.get(item.listingId)
         // Only decrement if listing has managed inventory (not null/unlimited)
         if (currentQuantity !== null && currentQuantity !== undefined) {
-          await serviceClient
+          const { data: decrementResult, error: decrementError } = await serviceClient
             .rpc('atomic_decrement_inventory' as string, {
               p_listing_id: item.listingId,
               p_quantity: item.quantity
             })
+
+          if (decrementError) {
+            // Insufficient stock — abort checkout
+            throw traced.validation('ERR_INVENTORY_001',
+              `Insufficient stock for one or more items. Only ${currentQuantity} available.`,
+              { listingId: item.listingId, requested: item.quantity, available: currentQuantity }
+            )
+          }
+          // Note: When inventory hits 0, the RPC auto-drafts the listing.
+          // Vendor notification for out-of-stock is sent from checkout success handler.
         }
       }
     }

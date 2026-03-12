@@ -122,9 +122,11 @@ export async function POST(
       crumb.logic('Cash order — fees deferred to fulfill time')
     }
 
-    // Update order status
+    // M-15 FIX: Atomic update with double-confirmation guard.
+    // The WHERE clause includes `external_payment_confirmed_at IS NULL` so concurrent
+    // requests can't both succeed — only the first one matches.
     crumb.supabase('update', 'orders')
-    const { error: updateError } = await supabase
+    const { data: updatedOrder, error: updateError } = await supabase
       .from('orders')
       .update({
         status: 'paid',
@@ -133,9 +135,16 @@ export async function POST(
         updated_at: new Date().toISOString()
       })
       .eq('id', orderId)
+      .is('external_payment_confirmed_at', null)
+      .select('id')
+      .maybeSingle()
 
     if (updateError) {
       throw traced.fromSupabase(updateError, { table: 'orders', operation: 'update' })
+    }
+
+    if (!updatedOrder) {
+      throw traced.validation('ERR_ORDER_003', 'Payment was already confirmed by another request')
     }
 
     // Update order_items status to confirmed (matches the order's paid status)

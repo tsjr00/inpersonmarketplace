@@ -173,6 +173,10 @@ async function sendEmail(
   const fromAddress = getEmailFromAddress(vertical)
   const { brandName, brandDomain, brandColor, logoUrl } = getEmailBranding(vertical)
 
+  // H-5: Build settings URL for unsubscribe link + header
+  const settingsPath = vertical ? `/${vertical}/settings` : '/settings'
+  const unsubscribeUrl = `https://${brandDomain}${settingsPath}#notifications`
+
   try {
     const { data, error } = await resend.emails.send({
       from: `${brandName} <${fromAddress}>`,
@@ -180,6 +184,10 @@ async function sendEmail(
       subject,
       html: formatEmailHtml(subject, body, brandName, brandDomain, brandColor, vertical, logoUrl),
       text: body,
+      headers: {
+        'List-Unsubscribe': `<${unsubscribeUrl}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
     })
 
     if (error) {
@@ -235,6 +243,9 @@ export function formatEmailHtml(
     </p>
     <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:8px">
       This is an automated message. Please do not reply to this email. If you need help, contact us at <a href="https://${brandDomain}${supportPath}" style="color:#9ca3af">${brandDomain}${supportPath}</a>.
+    </p>
+    <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:4px">
+      <a href="https://${brandDomain}/${vertical || 'farmers_market'}/settings#notifications" style="color:#9ca3af">Manage notification preferences</a>
     </p>
   </div>
 </body>
@@ -516,7 +527,17 @@ export async function sendNotification(
       }
       case 'push': {
         const soundOn = preferences.sound_enabled !== false
-        results.push(await sendPush(userId, title, message, actionUrl, urgency, soundOn, options?.vertical))
+        const pushResult = await sendPush(userId, title, message, actionUrl, urgency, soundOn, options?.vertical)
+        results.push(pushResult)
+
+        // M-14: SMS fallback when push fails entirely (all subscriptions failed or no subscriptions)
+        // Only triggers if push was NOT skipped (user has push enabled) and SMS isn't already in the channel list
+        if (!pushResult.success && !pushResult.skipped && !channels.includes('sms')) {
+          if (preferences.sms_order_updates && userPhone) {
+            const smsResult = await sendSms(userPhone, `${title}: ${message}`)
+            results.push({ ...smsResult, reason: smsResult.reason || 'SMS fallback after push failure' })
+          }
+        }
         break
       }
     }
