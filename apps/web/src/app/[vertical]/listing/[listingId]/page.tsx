@@ -310,6 +310,18 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 ✓ Event Ready
               </span>
             )}
+            {(listing.advance_order_days as number) > 0 && (
+              <span style={{
+                padding: `${spacing['3xs']} ${spacing.xs}`,
+                backgroundColor: '#dbeafe',
+                color: '#1e40af',
+                borderRadius: radius.lg,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+              }}>
+                Advance Order &middot; Prepaid
+              </span>
+            )}
           </div>
         </div>
 

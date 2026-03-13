@@ -740,7 +740,6 @@ export default function ListingForm({
                 }}
               >
                 <option value="0">Same day only</option>
-                <option value="1">1 day ahead</option>
                 <option value="2">2 days ahead</option>
                 <option value="3">3 days ahead</option>
                 <option value="5">5 days ahead</option>
@@ -749,7 +748,8 @@ export default function ListingForm({
             </div>
             <p style={{ fontSize: 13, color: '#666', marginTop: 6, lineHeight: 1.5 }}>
               How far in advance can customers order this item? Use <strong>same day only</strong> for
-              regular walk-up items. Set a longer window for catering or bulk orders that need prep time.
+              regular walk-up items. Catering orders require 48-hour advance notice and cash
+              payments are not accepted. Minimum is 2 days ahead.
             </p>
           </div>
         )}

@@ -21,6 +21,8 @@ export interface CheckoutItem {
     time_formatted: string | null
     day_name: string | null
   } | null
+  // Catering / advance ordering
+  advance_order_days?: number
   // Market box fields
   offeringId?: string | null
   offeringName?: string | null

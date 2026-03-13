@@ -294,6 +294,9 @@ export default function CheckoutPage() {
         return
       }
 
+      // Catering items: no cash (48hr lead time = prepaid/digital only)
+      const cartHasCatering = checkoutItems.some(i => (i.advance_order_days || 0) > 0)
+
       const vendorIds = [...new Set(checkoutItems.map(item => item.vendor_profile_id).filter(Boolean))]
       if (vendorIds.length === 0) return
 
@@ -306,13 +309,18 @@ export default function CheckoutPage() {
 
         if (res.ok) {
           const data = await res.json()
-          setPaymentMethods(data.methods || [])
+          let methods: PaymentMethod[] = data.methods || []
+          // Remove cash option when cart has catering items (48hr lead time rule)
+          if (cartHasCatering) {
+            methods = methods.filter((m: PaymentMethod) => m.id !== 'cash')
+          }
+          setPaymentMethods(methods)
           setVendorPaymentInfo(data.vendors || [])
 
           // Auto-select Stripe if available, otherwise first method
-          if (data.methods?.length > 0) {
-            const hasStripe = data.methods.some((m: PaymentMethod) => m.id === 'stripe')
-            setSelectedPaymentMethod(hasStripe ? 'stripe' : data.methods[0].id)
+          if (methods.length > 0) {
+            const hasStripe = methods.some((m: PaymentMethod) => m.id === 'stripe')
+            setSelectedPaymentMethod(hasStripe ? 'stripe' : methods[0].id)
           } else {
             setError({ message: 'No payment methods available. The vendor may need to set up payments before orders can be placed.' })
           }
@@ -710,6 +718,20 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.xs,
                 }}>
                   This order includes {term(vertical, 'market_box')} subscriptions. Card payment is required.
+                </div>
+              )}
+
+              {/* Catering advance order notice */}
+              {checkoutItems.some(i => (i.advance_order_days || 0) > 0) && (
+                <div style={{
+                  padding: spacing.xs,
+                  backgroundColor: statusColors.infoLight,
+                  border: `1px solid ${statusColors.infoBorder}`,
+                  borderRadius: radius.md,
+                  color: statusColors.infoDark,
+                  fontSize: typography.sizes.xs,
+                }}>
+                  This order includes catering items. Cash payment is not available for advance orders.
                 </div>
               )}
 
