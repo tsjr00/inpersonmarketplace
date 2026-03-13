@@ -26,7 +26,7 @@ interface ExternalOrderFollowUpProps {
 export default function ExternalOrderFollowUp({ vertical }: ExternalOrderFollowUpProps) {
   const [orders, setOrders] = useState<ExternalOrder[]>([])
   const [loading, setLoading] = useState(true)
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [confirmingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchExternalOrders()
@@ -53,9 +53,11 @@ export default function ExternalOrderFollowUp({ vertical }: ExternalOrderFollowU
   }
 
   const handleConfirmAll = async (order: ExternalOrder) => {
-    setConfirmingId(order.id)
+    // Optimistically remove from list immediately
+    setOrders(prev => prev.filter(o => o.id !== order.id))
+
+    // Fire API confirmations in background
     try {
-      // Confirm each fulfilled item that buyer hasn't confirmed yet
       const fulfilledItems = order.items.filter(i => i.status === 'fulfilled')
       for (const item of fulfilledItems) {
         await fetch(`/api/buyer/orders/${order.id}/confirm`, {
@@ -64,12 +66,10 @@ export default function ExternalOrderFollowUp({ vertical }: ExternalOrderFollowU
           body: JSON.stringify({ orderItemId: item.id })
         })
       }
-      // Remove from list after successful confirmation
-      setOrders(prev => prev.filter(o => o.id !== order.id))
     } catch (err) {
       console.error('Error confirming order:', err)
-    } finally {
-      setConfirmingId(null)
+      // Re-fetch to restore on failure
+      fetchExternalOrders()
     }
   }
 

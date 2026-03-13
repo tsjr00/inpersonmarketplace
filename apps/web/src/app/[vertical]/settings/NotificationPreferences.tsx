@@ -34,7 +34,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
   const router = useRouter()
   const vertical = params.vertical as string
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
-  const [loading, setLoading] = useState(false)
+  const [loading] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
@@ -176,9 +176,15 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
   }
 
   const handleSave = async () => {
-    setLoading(true)
     setMessage(null)
 
+    // Optimistically show success immediately
+    const prevPrefs = initialPrefs
+    setMessage({ type: 'success', text: 'Preferences saved!' })
+    setInitialPrefs(preferences)
+    setHasChanges(false)
+
+    // Fire API in background, revert on error
     try {
       const res = await fetch('/api/user/notifications', {
         method: 'PUT',
@@ -186,17 +192,13 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
         body: JSON.stringify(preferences)
       })
 
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Preferences saved!' })
-        setInitialPrefs(preferences)
-        setHasChanges(false)
-      } else {
+      if (!res.ok) {
+        setInitialPrefs(prevPrefs)
         setMessage({ type: 'error', text: 'Failed to save preferences' })
       }
     } catch {
+      setInitialPrefs(prevPrefs)
       setMessage({ type: 'error', text: 'Error saving preferences' })
-    } finally {
-      setLoading(false)
     }
   }
 

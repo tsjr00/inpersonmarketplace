@@ -54,15 +54,19 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
   const [marketName, setMarketName] = useState('')
   const [marketLocation, setMarketLocation] = useState('')
   const [marketSchedule, setMarketSchedule] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
     setError(null)
 
+    // Optimistically show success screen immediately
+    setSuccess(true)
+    onSuccess?.()
+
+    // Fire API in background
     try {
       const res = await fetch('/api/buyer/feedback', {
         method: 'POST',
@@ -77,18 +81,15 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
         })
       })
 
-      if (res.ok) {
-        setSuccess(true)
-        onSuccess?.()
-      } else {
+      if (!res.ok) {
         const data = await res.json()
+        setSuccess(false)
         setError(data.error || 'Failed to submit feedback')
       }
     } catch (err) {
       console.error('Error submitting feedback:', err)
+      setSuccess(false)
       setError('Failed to submit feedback. Please try again.')
-    } finally {
-      setSubmitting(false)
     }
   }
 

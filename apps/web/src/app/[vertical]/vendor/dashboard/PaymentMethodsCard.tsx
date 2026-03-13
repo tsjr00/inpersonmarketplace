@@ -34,7 +34,7 @@ export default function PaymentMethodsCard({
   earnings
 }: PaymentMethodsCardProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [saving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -78,31 +78,33 @@ export default function PaymentMethodsCard({
   const hasExternalMethods = venmoUsername || cashappCashtag || paypalUsername || acceptsCash
 
   const handleSave = async () => {
-    setSaving(true)
     setError(null)
     setSuccess(false)
 
-    // Validate usernames before saving
+    // Validate usernames before saving (synchronous — blocks if invalid)
     const venmoValidation = validatePaymentUsername('venmo', venmoUsername || null)
     const cashappValidation = validatePaymentUsername('cashapp', cashappCashtag || null)
     const paypalValidation = validatePaymentUsername('paypal', paypalUsername || null)
 
     if (!venmoValidation.valid) {
       setError(venmoValidation.error || 'Invalid Venmo username')
-      setSaving(false)
       return
     }
     if (!cashappValidation.valid) {
       setError(cashappValidation.error || 'Invalid Cash App tag')
-      setSaving(false)
       return
     }
     if (!paypalValidation.valid) {
       setError(paypalValidation.error || 'Invalid PayPal username')
-      setSaving(false)
       return
     }
 
+    // Optimistically show success and close editor
+    setSuccess(true)
+    setIsEditing(false)
+    setTimeout(() => setSuccess(false), 3000)
+
+    // Fire API in background, revert on error
     try {
       const response = await fetch('/api/vendor/profile', {
         method: 'PATCH',
@@ -116,19 +118,16 @@ export default function PaymentMethodsCard({
         })
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to save')
+        const data = await response.json()
+        setSuccess(false)
+        setError(data.error || 'Failed to save')
+        setIsEditing(true)
       }
-
-      setSuccess(true)
-      setIsEditing(false)
-      setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
+      setSuccess(false)
       setError(err instanceof Error ? err.message : 'Failed to save')
-    } finally {
-      setSaving(false)
+      setIsEditing(true)
     }
   }
 
