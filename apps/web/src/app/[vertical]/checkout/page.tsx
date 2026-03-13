@@ -526,6 +526,16 @@ export default function CheckoutPage() {
   async function handleQuantityChange(listingId: string, newQuantity: number) {
     const cartItem = items.find(ci => ci.listingId === listingId)
     if (cartItem) {
+      if (newQuantity < 1) {
+        // Removing — let the remove handler deal with it
+        removeFromCart(cartItem.id)
+        return
+      }
+      // Optimistically update checkoutItems so prices reflect immediately
+      // (the background validation useEffect will reconcile if needed)
+      setCheckoutItems(prev => prev.map(ci =>
+        ci.listingId === listingId ? { ...ci, quantity: newQuantity } : ci
+      ))
       setUpdatingItemId(listingId)
       try { await updateQuantity(cartItem.id, newQuantity) } finally { setUpdatingItemId(null) }
     }
@@ -533,7 +543,11 @@ export default function CheckoutPage() {
 
   function handleRemoveListing(listingId: string) {
     const cartItem = items.find(ci => ci.listingId === listingId)
-    if (cartItem) removeFromCart(cartItem.id)
+    if (cartItem) {
+      // Optimistically remove from checkoutItems so prices update immediately
+      setCheckoutItems(prev => prev.filter(ci => ci.listingId !== listingId))
+      removeFromCart(cartItem.id)
+    }
   }
 
   function handleRemoveMarketBox(offeringId: string) {
