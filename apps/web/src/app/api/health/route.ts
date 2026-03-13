@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 // GET /api/health — Simple health check for monitoring
 // Verifies: server is running + database is reachable
+// Uses anon key directly (no auth needed, verticals table has public SELECT)
 export async function GET() {
   const start = Date.now()
 
   try {
-    const supabase = createServiceClient()
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
     // Quick DB connectivity check — single row from a small table
     const { error } = await supabase
