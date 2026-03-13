@@ -16,6 +16,21 @@ import { getAuthEmailTemplate } from '@/lib/notifications/auth-email-templates'
 
 const KNOWN_VERTICALS = ['farmers_market', 'food_trucks']
 
+/** Map domains to verticals for detection when Supabase mangles redirect_to paths */
+const DOMAIN_TO_VERTICAL: Record<string, string> = {
+  'foodtruckn.app': 'food_trucks',
+  'farmersmarketing.app': 'farmers_market',
+}
+
+/** Map auth action types to the correct redirect path within a vertical */
+const ACTION_REDIRECT_PATHS: Record<string, string> = {
+  recovery: 'reset-password',
+  signup: 'dashboard',
+  magiclink: 'dashboard',
+  email_change: 'settings',
+  invite: 'dashboard',
+}
+
 interface SendEmailHookPayload {
   user: {
     id: string
@@ -36,44 +51,73 @@ interface SendEmailHookPayload {
 }
 
 /**
- * Determine user's vertical from metadata or redirect URL.
- * Priority: user_metadata.preferred_vertical > redirect_to URL path > default FM
+ * Determine user's vertical from redirect URL, domain, or metadata.
+ *
+ * Priority:
+ *   1. redirect_to URL path (e.g., /food_trucks/reset-password)
+ *   2. redirect_to URL domain (e.g., foodtruckn.app — catches Supabase path-mangling)
+ *   3. user_metadata.preferred_vertical (set at signup)
+ *   4. Default: farmers_market
+ *
+ * Supabase may replace the client's redirect_to with a wildcard from the
+ * Redirect URLs whitelist (e.g., "https://farmersmarketing.app/**"), mangling
+ * the path but sometimes preserving the domain. Domain detection handles this.
  */
 function detectVertical(payload: SendEmailHookPayload): string {
-  // 1. Check user_metadata (set during signup)
+  try {
+    const url = new URL(payload.email_data.redirect_to)
+
+    // 1. Path-based: e.g., /food_trucks/reset-password → "food_trucks"
+    const pathSegment = url.pathname.split('/')[1]
+    if (pathSegment && KNOWN_VERTICALS.includes(pathSegment)) {
+      return pathSegment
+    }
+
+    // 2. Domain-based: e.g., foodtruckn.app/** → "food_trucks"
+    const hostname = url.hostname.replace(/^www\./, '')
+    if (DOMAIN_TO_VERTICAL[hostname]) {
+      return DOMAIN_TO_VERTICAL[hostname]
+    }
+  } catch {
+    // Invalid URL — fall through
+  }
+
+  // 3. User metadata (set during signup — may differ from current vertical)
   const metaVertical = payload.user.user_metadata?.preferred_vertical
   if (metaVertical && KNOWN_VERTICALS.includes(metaVertical)) {
     return metaVertical
   }
 
-  // 2. Extract from redirect_to URL path (e.g., "https://farmersmarketing.app/farmers_market/reset-password")
-  try {
-    const url = new URL(payload.email_data.redirect_to)
-    const pathSegment = url.pathname.split('/')[1]
-    if (pathSegment && KNOWN_VERTICALS.includes(pathSegment)) {
-      return pathSegment
-    }
-  } catch {
-    // Invalid URL — fall through to default
-  }
-
-  // 3. Default
+  // 4. Default
   return 'farmers_market'
 }
 
 /**
  * Build the Supabase verification URL that the user clicks to confirm their action.
+ *
+ * IMPORTANT: We construct our own redirect_to URL instead of using
+ * emailData.redirect_to, because Supabase may mangle it to a wildcard pattern
+ * (e.g., "https://farmersmarketing.app/**") which would send the user to a 404.
+ * We use the detected vertical + brand domain to build the correct destination.
  */
-function buildVerificationUrl(emailData: SendEmailHookPayload['email_data']): string {
+function buildVerificationUrl(
+  emailData: SendEmailHookPayload['email_data'],
+  vertical: string,
+  brandDomain: string
+): string {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!supabaseUrl) {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured')
   }
 
+  // Build correct redirect URL from detected vertical + brand domain
+  const redirectPath = ACTION_REDIRECT_PATHS[emailData.email_action_type] || 'dashboard'
+  const correctRedirectTo = `https://${brandDomain}/${vertical}/${redirectPath}`
+
   const params = new URLSearchParams({
     token: emailData.token_hash,
     type: emailData.email_action_type,
-    redirect_to: emailData.redirect_to,
+    redirect_to: correctRedirectTo,
   })
 
   return `${supabaseUrl}/auth/v1/verify?${params.toString()}`
@@ -120,8 +164,8 @@ export async function POST(request: NextRequest) {
     const fromAddress = getEmailFromAddress(vertical)
     const { brandName, brandDomain, brandColor, logoUrl } = getEmailBranding(vertical)
 
-    // Build verification URL
-    const verificationUrl = buildVerificationUrl(email_data)
+    // Build verification URL with correct redirect for this vertical
+    const verificationUrl = buildVerificationUrl(email_data, vertical, brandDomain)
 
     // Get the template for this action type
     const template = getAuthEmailTemplate(email_data.email_action_type, {
