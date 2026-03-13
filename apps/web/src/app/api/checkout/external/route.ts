@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
           id,
           title,
           price_cents,
+          advance_order_days,
           vendor_profile_id,
           vendor_profiles (
             id,
@@ -132,6 +133,18 @@ export async function POST(request: NextRequest) {
     if (vendorIds.size > 1) {
       throw traced.validation('ERR_CHECKOUT_001',
         'External payment methods only work with single-vendor orders. Please use card payment or remove items from different vendors.')
+    }
+
+    // Catering items cannot be paid with cash (48hr lead time = no pay-at-pickup)
+    if (payment_method === 'cash') {
+      const hasCatering = cartItems.some(item => {
+        const listing = item.listings as unknown as { advance_order_days?: number }
+        return (listing.advance_order_days || 0) > 0
+      })
+      if (hasCatering) {
+        throw traced.validation('ERR_CHECKOUT_001',
+          'Cash payment is not available for catering orders. Please use card or a digital payment method.')
+      }
     }
 
     // Get vendor info

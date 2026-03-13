@@ -169,6 +169,7 @@ export async function POST(request: NextRequest) {
           price_cents,
           quantity,
           status,
+          advance_order_days,
           vendor_profiles (
             id,
             profile_data,
@@ -228,6 +229,7 @@ export async function POST(request: NextRequest) {
           available: isAvailable,
           available_quantity: listing.quantity,
           cutoff_passed: cutoffPassed,
+          advance_order_days: listing.advance_order_days || 0,
         }
       })
 
