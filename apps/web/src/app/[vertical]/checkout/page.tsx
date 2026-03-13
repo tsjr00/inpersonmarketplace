@@ -11,7 +11,6 @@ import { colors, statusColors, spacing, typography, radius, shadows, containers 
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { term } from '@/lib/vertical'
 import { TipSelector } from './TipSelector'
-import { CheckoutListingItem } from './CheckoutListingItem'
 import { CheckoutMarketBoxItem } from './CheckoutMarketBoxItem'
 import { CheckoutPickupGroup } from './CheckoutPickupGroup'
 import { CrossSellSection } from './CrossSellSection'
@@ -765,23 +764,13 @@ export default function CheckoutPage() {
                 }
 
                 return Array.from(groups.entries()).map(([key, items]) =>
-                  items.length === 1 ? (
-                    <CheckoutListingItem
-                      key={key}
-                      item={items[0]}
-                      updatingItemId={updatingItemId}
-                      onQuantityChange={handleQuantityChange}
-                      onRemove={handleRemoveListing}
-                    />
-                  ) : (
-                    <CheckoutPickupGroup
-                      key={key}
-                      items={items}
-                      updatingItemId={updatingItemId}
-                      onQuantityChange={handleQuantityChange}
-                      onRemove={handleRemoveListing}
-                    />
-                  )
+                  <CheckoutPickupGroup
+                    key={key}
+                    items={items}
+                    updatingItemId={updatingItemId}
+                    onQuantityChange={handleQuantityChange}
+                    onRemove={handleRemoveListing}
+                  />
                 )
               })()}
 
