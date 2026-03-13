@@ -231,7 +231,7 @@ export function CartDrawer() {
               Proceed to Checkout
             </button>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={() => { setIsOpen(false); router.push(`/${vertical}/browse`) }}
               style={{
                 width: '100%',
                 ...sizing.control,
