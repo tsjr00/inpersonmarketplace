@@ -66,7 +66,7 @@ export default function NotificationsPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [markingAllRead, setMarkingAllRead] = useState(false)
+  const [markingAllRead] = useState(false)
 
   const fetchNotifications = useCallback(async (page = 1, append = false) => {
     if (page === 1) setLoading(true)
@@ -115,18 +115,13 @@ export default function NotificationsPage() {
     router.push(actionUrl)
   }
 
-  const handleMarkAllRead = async () => {
-    setMarkingAllRead(true)
-    try {
-      await fetch(`/api/notifications/read-all?vertical=${vertical}`, { method: 'POST' })
-      setNotifications(prev =>
-        prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
-      )
-    } catch {
-      // Silently fail
-    } finally {
-      setMarkingAllRead(false)
-    }
+  const handleMarkAllRead = () => {
+    // Optimistically mark all as read immediately
+    setNotifications(prev =>
+      prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
+    )
+    // Fire API in background — no need to await
+    fetch(`/api/notifications/read-all?vertical=${vertical}`, { method: 'POST' })
   }
 
   const handleLoadMore = () => {

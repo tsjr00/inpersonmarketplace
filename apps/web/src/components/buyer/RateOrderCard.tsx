@@ -27,7 +27,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
   const [ratingVendor, setRatingVendor] = useState<{ id: string; name: string } | null>(null)
   const [selectedRating, setSelectedRating] = useState<number>(0)
   const [comment, setComment] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting] = useState(false)
   const [showGoogleReview, setShowGoogleReview] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
 
@@ -52,39 +52,45 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
   const handleSubmitRating = async () => {
     if (!ratingOrder || !ratingVendor || selectedRating === 0) return
 
-    setSubmitting(true)
+    // Capture values before clearing state
+    const orderId = ratingOrder.id
+    const rating = selectedRating
+    const ratingComment = comment.trim() || undefined
+    const vendorId = ratingVendor.id
+
+    // Optimistically show success immediately
+    const googlePlaceId = process.env.NEXT_PUBLIC_GOOGLE_PLACE_ID
+    if (rating >= 4 && googlePlaceId) {
+      setShowGoogleReview(true)
+    } else {
+      setRatingOrder(null)
+      setRatingVendor(null)
+      setSelectedRating(0)
+      setComment('')
+    }
+    // Remove from unrated list immediately
+    setOrders(prev => prev.filter(o => o.id !== orderId))
+
+    // Fire API in background
     try {
-      const res = await fetch(`/api/buyer/orders/${ratingOrder.id}/rate`, {
+      const res = await fetch(`/api/buyer/orders/${orderId}/rate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rating: selectedRating,
-          comment: comment.trim() || undefined,
-          vendor_profile_id: ratingVendor.id
+          rating,
+          comment: ratingComment,
+          vendor_profile_id: vendorId
         })
       })
 
-      if (res.ok) {
-        const googlePlaceId = process.env.NEXT_PUBLIC_GOOGLE_PLACE_ID
-        if (selectedRating >= 4 && googlePlaceId) {
-          // Show Google review prompt for good ratings
-          setShowGoogleReview(true)
-        } else {
-          // Close modal and refresh list
-          setRatingOrder(null)
-          setRatingVendor(null)
-          setSelectedRating(0)
-          setComment('')
-        }
-        fetchUnratedOrders()
-      } else {
+      if (!res.ok) {
         const data = await res.json()
         setToast({ message: data.error || 'Failed to submit rating', type: 'error' })
+        fetchUnratedOrders()
       }
-    } catch (err) {
+    } catch {
       setToast({ message: 'Failed to submit rating', type: 'error' })
-    } finally {
-      setSubmitting(false)
+      fetchUnratedOrders()
     }
   }
 
