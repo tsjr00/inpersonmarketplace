@@ -75,7 +75,7 @@
 | 20260219_037_market_box_payout_support.sql | ✅ | 2026-02-19 | ✅ | 2026-02-19 | Make vendor_payouts.order_item_id nullable, add market_box_pickup_id FK. Applied to all 3 envs. |
 | 20260220_038_fix_listing_tier_trigger_status.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Fix tier trigger to check 'published' not 'active'. Applied to all 3 envs. |
 | 20260221_039_add_event_market_type.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Add 'event' market_type + event date columns. Applied to all 3 envs (Prod applied 2026-03-07 — was missing, caused schedule bug). |
-| 20260221_040_event_availability_function.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | Rewrite get_available_pickup_dates() with event support. Applied to all 3 envs (Prod applied 2026-03-07). |
+| 20260221_040_event_availability_function.sql | ✅ | 2026-02-21 | ✅ | 2026-02-21 | ⚠️ **SUPERSEDED by 054.** Rewrite get_available_pickup_dates() with event support. Applied to all 3 envs. Prod re-applied 2026-03-07 out of order, accidentally reverting 054's timezone fix (CURRENT_DATE→local_today). Function now managed by migration 079. |
 | 20260220_041_add_tip_on_platform_fee.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Add tip_on_platform_fee_cents to orders. Applied to all 3 envs. |
 | 20260220_042_fix_remaining_security_definer_search_paths.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | SET search_path=public on 11 SECURITY DEFINER functions. Applied to all 3 envs. |
 | 20260220_043_vendor_payout_unique_constraint.sql | ✅ | 2026-02-20 | ✅ | 2026-02-20 | Partial unique index on vendor_payouts(order_item_id). Applied to all 3 envs. |
@@ -84,6 +84,7 @@
 | 20260304_068_user_agreement_acceptances.sql | ✅ | 2026-03-04 | ✅ | 2026-03-04 | user_agreement_acceptances table for legal agreement tracking. RLS: self-select + self-insert. Applied to all 3 envs. |
 | 20260307_071_catering_help_articles.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | 6 vendor catering help articles under "For Food Truck Operators". Data only. Applied to all 3 envs. |
 | 20260307_070_corporate_catering.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | New `catering_requests` table + columns on `markets` (catering_request_id, headcount) and `market_vendors` (response_status, response_notes, invited_at). RLS, indexes, trigger. Applied to all 3 envs. |
+| 20260312_079_advance_order_days.sql | ❌ | - | ❌ | - | Add `advance_order_days` column to listings (default 0). Rewrite get_available_pickup_dates() with advance ordering support + timezone fix (re-applies 054, supersedes 040). FT same-day default preserved; vendors set 1-7 days for catering/bulk pre-orders. |
 | 20260312_078_session52_audit_fixes.sql | ✅ | 2026-03-12 | ✅ | 2026-03-12 | C-1: atomic_decrement_inventory RAISE on oversell + auto-draft. C-2: can_vendor_publish() in tier trigger. H-8: atomic_restore_inventory RPC. M-7: is_platform_admin() fix. M-13: cancellation_fee_cents column. Applied to all 3 envs. |
 | 20260309_077_update_event_help_articles.sql | ✅ | 2026-03-09 | ✅ | 2026-03-09 | Update 2 FT event help articles: event approval process + Available for Events checkbox instructions. Data only. Applied to all 3 envs. |
 | 20260309_076_vendor_event_approval.sql | ✅ | 2026-03-09 | ✅ | 2026-03-09 | Add event_approved + event_approved_at to vendor_profiles. Partial index on event_approved=true. FT private event vendor qualification. Applied to all 3 envs. |

@@ -91,6 +91,7 @@ export default function ListingForm({
     quantity_amount: listing?.quantity_amount?.toString() || '',
     quantity_unit: (listing?.quantity_unit as string) || '',
     category: (listing?.category as string) || '',
+    advance_order_days: listing?.advance_order_days?.toString() || '0',
     // Force draft for pending/incomplete onboarding vendors
     status: isPendingVendor ? 'draft' : ((listing?.status as string) || 'draft')
   })
@@ -187,7 +188,7 @@ export default function ListingForm({
     if (storageKey) {
       sessionStorage.removeItem(storageKey)
       setHasDraft(false)
-      setFormData({ title: '', description: '', price: '', quantity: '', quantity_amount: '', quantity_unit: '', category: '', status: 'draft' })
+      setFormData({ title: '', description: '', price: '', quantity: '', quantity_amount: '', quantity_unit: '', category: '', advance_order_days: '0', status: 'draft' })
       setContainsAllergens(false)
       setIngredients('')
     }
@@ -248,6 +249,7 @@ export default function ListingForm({
       quantity_unit: formData.quantity_unit || null,
       category: formData.category.trim() || null,
       status: canPublishListing ? formData.status : 'draft',
+      advance_order_days: formData.advance_order_days ? parseInt(formData.advance_order_days) : 0,
       listing_data: {
         contains_allergens: containsAllergens,
         ingredients: containsAllergens ? ingredients.trim() : null,
@@ -714,6 +716,43 @@ export default function ListingForm({
             </p>
           </div>
         </div>
+
+        {/* Advance Ordering — FT vendors only */}
+        {vertical === 'food_trucks' && (
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
+              Advance Order Window
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <select
+                name="advance_order_days"
+                value={formData.advance_order_days}
+                onChange={handleChange}
+                disabled={loading}
+                style={{
+                  width: 180,
+                  padding: 10,
+                  fontSize: 16,
+                  border: `1px solid ${branding.colors.primary}`,
+                  borderRadius: 4,
+                  backgroundColor: 'white',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="0">Same day only</option>
+                <option value="1">1 day ahead</option>
+                <option value="2">2 days ahead</option>
+                <option value="3">3 days ahead</option>
+                <option value="5">5 days ahead</option>
+                <option value="7">7 days ahead</option>
+              </select>
+            </div>
+            <p style={{ fontSize: 13, color: '#666', marginTop: 6, lineHeight: 1.5 }}>
+              How far in advance can customers order this item? Use <strong>same day only</strong> for
+              regular walk-up items. Set a longer window for catering or bulk orders that need prep time.
+            </p>
+          </div>
+        )}
 
         {/* Unit size / serving size — required for publishing */}
         <div style={{ marginBottom: 20 }}>
