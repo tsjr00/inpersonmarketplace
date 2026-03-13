@@ -13,6 +13,7 @@ import { term } from '@/lib/vertical'
 import { TipSelector } from './TipSelector'
 import { CheckoutListingItem } from './CheckoutListingItem'
 import { CheckoutMarketBoxItem } from './CheckoutMarketBoxItem'
+import { CheckoutPickupGroup } from './CheckoutPickupGroup'
 import { CrossSellSection } from './CrossSellSection'
 import { PaymentMethodSelector } from './PaymentMethodSelector'
 import type { CheckoutItem, SuggestedProduct, PaymentMethod, VendorPaymentInfo } from './types'
@@ -735,16 +736,40 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {/* Listing items */}
-              {listingItems.map(item => (
-                <CheckoutListingItem
-                  key={item.listingId}
-                  item={item}
-                  updatingItemId={updatingItemId}
-                  onQuantityChange={handleQuantityChange}
-                  onRemove={handleRemoveListing}
-                />
-              ))}
+              {/* Listing items — grouped by vendor + pickup location/date */}
+              {(() => {
+                // Group items by vendor + market + pickup date
+                const groups = new Map<string, CheckoutItem[]>()
+                for (const item of listingItems) {
+                  const key = `${item.vendor_profile_id || item.vendor_name}::${item.market_id || ''}::${item.pickup_date || ''}::${item.schedule_id || ''}`
+                  const group = groups.get(key)
+                  if (group) {
+                    group.push(item)
+                  } else {
+                    groups.set(key, [item])
+                  }
+                }
+
+                return Array.from(groups.entries()).map(([key, items]) =>
+                  items.length === 1 ? (
+                    <CheckoutListingItem
+                      key={key}
+                      item={items[0]}
+                      updatingItemId={updatingItemId}
+                      onQuantityChange={handleQuantityChange}
+                      onRemove={handleRemoveListing}
+                    />
+                  ) : (
+                    <CheckoutPickupGroup
+                      key={key}
+                      items={items}
+                      updatingItemId={updatingItemId}
+                      onQuantityChange={handleQuantityChange}
+                      onRemove={handleRemoveListing}
+                    />
+                  )
+                )
+              })()}
 
               {/* Market Box items */}
               {marketBoxCheckoutItems.length > 0 && (
