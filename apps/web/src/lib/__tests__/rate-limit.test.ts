@@ -5,12 +5,15 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { checkRateLimit, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
 describe('checkRateLimit', () => {
-  // Use unique identifiers per test to avoid cross-test interference
+  // Use unique identifiers per test AND per run to avoid cross-test and
+  // cross-run interference (Redis keys persist for the window duration,
+  // so back-to-back runs within 60s would collide without the runId)
+  const runId = Date.now().toString(36)
   let testId = 0
   beforeEach(() => { testId++ })
 
   it('allows requests under the limit', async () => {
-    const id = `test-under-${testId}`
+    const id = `test-under-${runId}-${testId}`
     const result = await checkRateLimit(id, { limit: 5, windowSeconds: 60 })
 
     expect(result.success).toBe(true)
@@ -18,7 +21,7 @@ describe('checkRateLimit', () => {
   })
 
   it('tracks remaining count accurately', async () => {
-    const id = `test-remaining-${testId}`
+    const id = `test-remaining-${runId}-${testId}`
     const config = { limit: 3, windowSeconds: 60 }
 
     const r1 = await checkRateLimit(id, config)
@@ -32,7 +35,7 @@ describe('checkRateLimit', () => {
   })
 
   it('blocks requests at the limit', async () => {
-    const id = `test-block-${testId}`
+    const id = `test-block-${runId}-${testId}`
     const config = { limit: 2, windowSeconds: 60 }
 
     await checkRateLimit(id, config) // 1
@@ -46,13 +49,13 @@ describe('checkRateLimit', () => {
   it('different identifiers are tracked independently', async () => {
     const config = { limit: 1, windowSeconds: 60 }
 
-    const r1 = await checkRateLimit(`user-a-${testId}`, config)
-    const r2 = await checkRateLimit(`user-b-${testId}`, config)
+    const r1 = await checkRateLimit(`user-a-${runId}-${testId}`, config)
+    const r2 = await checkRateLimit(`user-b-${runId}-${testId}`, config)
 
     expect(r1.success).toBe(true)
     expect(r2.success).toBe(true)
 
-    const r3 = await checkRateLimit(`user-a-${testId}`, config)
+    const r3 = await checkRateLimit(`user-a-${runId}-${testId}`, config)
     expect(r3.success).toBe(false)
   })
 })
