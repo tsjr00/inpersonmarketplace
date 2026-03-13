@@ -4,7 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import Image from 'next/image'
 import SearchFilter from './SearchFilter'
-import BrowseToggle from './BrowseToggle'
+import BrowseFilterBar from './BrowseFilterBar'
 import BrowsePagination from './BrowsePagination'
 import BrowseLocationPrompt from './BrowseLocationPrompt'
 import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
@@ -16,7 +16,7 @@ import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 // listing-availability.ts utility is deprecated for availability checks.
 // Availability now uses get_listings_accepting_status() RPC (single SQL source of truth).
-import AvailabilityToggle from './AvailabilityToggle'
+// AvailabilityToggle and BrowseToggle replaced by BrowseFilterBar
 import SocialProofToast from '@/components/marketing/SocialProofToast'
 import { getServerLocation } from '@/lib/location/server'
 
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ vertical:
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; page?: string; available?: string }>
+  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; page?: string; available?: string; menu?: string }>
 }
 
 interface MarketSchedule {
@@ -194,7 +194,7 @@ function groupListingsByCategory(listings: Listing[], vertical: string): Record<
 
 export default async function BrowsePage({ params, searchParams }: BrowsePageProps) {
   const { vertical } = await params
-  const { category, search, view, zip, page, available } = await searchParams
+  const { category, search, view, zip, page, available, menu } = await searchParams
   const isAvailableNow = available === 'true'
   const currentPage = Math.max(1, parseInt(page || '1', 10))
   const PAGE_SIZE = 50
@@ -336,8 +336,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             </p>
           </div>
 
-          {/* View Toggle */}
-          <BrowseToggle vertical={vertical} currentView={currentView} branding={branding} />
+          {/* Filter Bar */}
+          <BrowseFilterBar
+            vertical={vertical}
+            currentView={currentView}
+            isAvailableNow={isAvailableNow}
+            currentMenu={menu}
+            branding={branding}
+          />
 
           {/* Market Boxes Info */}
           <div style={{
@@ -620,6 +626,17 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     uniqueCategories = (categoryField?.options as string[]) || []
   }
 
+  // Menu type filter — FT catering vs daily menu
+  if (menu === 'catering' && listings) {
+    listings = listings.filter(l =>
+      (l.listing_data as Record<string, unknown> | null)?.event_menu_item === true
+    )
+  } else if (menu === 'daily' && listings) {
+    listings = listings.filter(l =>
+      (l.listing_data as Record<string, unknown> | null)?.event_menu_item !== true
+    )
+  }
+
   // L-3: Allergen filter removed from browse (kept on listing detail page for warnings)
 
   // "Available Now" pre-filter — fetch availability for ALL listings before pagination
@@ -736,14 +753,13 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           />
         )}
 
-        {/* View Toggle */}
-        <BrowseToggle vertical={vertical} currentView={currentView} branding={branding} />
-
-        {/* Available Now Toggle */}
-        <AvailabilityToggle
+        {/* Filter Bar — View + Availability + Menu Type (FT) */}
+        <BrowseFilterBar
           vertical={vertical}
+          currentView={currentView}
           isAvailableNow={isAvailableNow}
-          primaryColor={branding.colors.primary}
+          currentMenu={menu}
+          branding={branding}
         />
 
         {/* Search & Filter */}
@@ -754,6 +770,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           currentSearch={search}
           currentZip={zip}
           currentAvailable={available}
+          currentMenu={menu}
           branding={branding}
         />
 
@@ -761,6 +778,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         <div style={{ marginBottom: spacing.sm }}>
           <p style={{ color: colors.textSecondary, margin: 0 }}>
             {totalListings} listing{totalListings !== 1 ? 's' : ''} found{isAvailableNow ? ' accepting orders now' : ''}
+            {menu === 'catering' ? ' on the catering menu' : menu === 'daily' ? ' on the daily menu' : ''}
             {category && ` in ${category}`}
             {search && ` matching "${search}"`}
             {totalPages > 1 && ` · Page ${safePage} of ${totalPages}`}
