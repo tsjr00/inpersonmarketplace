@@ -12,6 +12,7 @@ interface SearchFilterProps {
   currentSearch?: string
   currentZip?: string
   currentAvailable?: string
+  currentMenu?: string
   branding: VerticalBranding
 }
 
@@ -22,6 +23,7 @@ export default function SearchFilter({
   currentSearch,
   currentZip,
   currentAvailable,
+  currentMenu,
   branding
 }: SearchFilterProps) {
   const router = useRouter()
@@ -34,6 +36,7 @@ export default function SearchFilter({
     if (currentCategory) params.set('category', currentCategory)
     if (currentZip) params.set('zip', currentZip)
     if (currentAvailable) params.set('available', currentAvailable)
+    if (currentMenu) params.set('menu', currentMenu)
     router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
   }
 
@@ -43,6 +46,7 @@ export default function SearchFilter({
     if (category) params.set('category', category)
     if (currentZip) params.set('zip', currentZip)
     if (currentAvailable) params.set('available', currentAvailable)
+    if (currentMenu) params.set('menu', currentMenu)
     router.push(`/${vertical}/browse${params.toString() ? '?' + params.toString() : ''}`)
   }
 

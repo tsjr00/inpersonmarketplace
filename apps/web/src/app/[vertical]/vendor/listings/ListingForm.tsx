@@ -717,8 +717,8 @@ export default function ListingForm({
           </div>
         </div>
 
-        {/* Advance Ordering — FT vendors only */}
-        {vertical === 'food_trucks' && (
+        {/* Advance Ordering — only for event-approved FT vendors on event-ready listings */}
+        {vertical === 'food_trucks' && eventApproved && eventMenuItem && (
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>
               Advance Order Window
