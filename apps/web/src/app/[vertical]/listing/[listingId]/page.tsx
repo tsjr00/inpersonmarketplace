@@ -28,6 +28,9 @@ import type { Metadata } from 'next'
  * See: docs/Build_Instructions/Pickup_Scheduling_Comprehensive_Plan.md
  */
 
+// Always fetch fresh data — availability changes frequently (cutoff windows)
+export const dynamic = 'force-dynamic'
+
 interface ListingDetailPageProps {
   params: Promise<{ vertical: string; listingId: string }>
 }
@@ -291,7 +294,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               {listing.quantity === null
                 ? 'In Stock'
                 : listing.quantity > 0
-                  ? `Qty: ${listing.quantity}`
+                  ? `Qty Available: ${listing.quantity}`
                   : 'Sold Out'
               }
             </div>
