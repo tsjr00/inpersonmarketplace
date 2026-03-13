@@ -12,6 +12,8 @@
  * Run: npx vitest run --config vitest.integration.config.ts src/lib/__tests__/subscription-lifecycle.integration.test.ts
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import fs from 'fs'
+import path from 'path'
 import { createTestClient } from '../test-utils/supabase-test-client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isExternalPayment, shouldCallStripeRefund, buildIdempotencyKey } from '@/lib/orders/checkout-helpers'
@@ -83,11 +85,9 @@ describe('SL-R1: atomic subscription creation', () => {
 
     // If we can't query pg_catalog directly via PostgREST, verify via schema snapshot
     if (error) {
-      const fs = require('fs')
-      const _path = require('path')
-      const webRoot = _path.resolve(__dirname, '..', '..', '..')
+      const webRoot = path.resolve(__dirname, '..', '..', '..')
       const schema = fs.readFileSync(
-        _path.join(webRoot, '../../supabase/SCHEMA_SNAPSHOT.md'),
+        path.join(webRoot, '../../supabase/SCHEMA_SNAPSHOT.md'),
         'utf8'
       )
       expect(schema).toContain('subscribe_to_market_box_if_capacity')
@@ -153,8 +153,6 @@ describe('SL-R9: market boxes require Stripe — no external payment', () => {
 
 describe('SL-R10: term_weeks CHECK constraint (4 or 8)', () => {
   it('schema snapshot documents term_weeks constraint', () => {
-    const fs = require('fs')
-    const path = require('path')
     const webRoot = path.resolve(__dirname, '..', '..', '..')
     const schema = fs.readFileSync(
       path.join(webRoot, '../../supabase/SCHEMA_SNAPSHOT.md'),
@@ -170,8 +168,6 @@ describe('SL-R10: term_weeks CHECK constraint (4 or 8)', () => {
 
 describe('SL-R12: offering deactivation guard', () => {
   it('market box offerings route exists for management', () => {
-    const fs = require('fs')
-    const path = require('path')
     const exists = fs.existsSync(
       path.resolve(__dirname, '../../app/api/vendor/market-boxes/route.ts')
     )
@@ -260,8 +256,6 @@ describe('SL-R11: no duplicate active subscriptions', () => {
 
 describe('SL-R13: cannot change pickup location with active subs', () => {
   it('market_box_offerings route handles PATCH with active sub guard', () => {
-    const fs = require('fs')
-    const path = require('path')
     // The route should check for active subscriptions before allowing changes
     const routePath = path.resolve(__dirname, '../../app/api/vendor/market-boxes')
     expect(fs.existsSync(routePath)).toBe(true)
