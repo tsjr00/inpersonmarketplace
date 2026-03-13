@@ -206,8 +206,9 @@ export function AddToCartButton({
           </label>
           <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
 
-          {/* FOOD TRUCK: Location-first same-day flow */}
-          {isFoodTruck ? (
+          {/* FOOD TRUCK same-day: Location-first flow (one date per market)
+              FOOD TRUCK advance ordering: Falls through to FM-style date picker below */}
+          {isFoodTruck && !marketGroups.some(m => m.dates.filter(d => d.is_accepting).length > 1) ? (
             <div style={{ border: `1px solid ${colors.border}`, borderRadius: 6, padding: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {marketGroups.map(market => {
                 const acceptingMarketDates = market.dates.filter(d => d.is_accepting)
