@@ -100,7 +100,7 @@ VALUES
       'city', 'Amarillo',
       'state', 'TX',
       'zip', '79110',
-      'vendor_type', jsonb_build_array('Fruits & Vegetables')
+      'vendor_type', jsonb_build_array('Produce')
     ),
     'Third-generation family farm growing seasonal fruits and vegetables using sustainable practices.',
     true, 'acct_sample_green_acres',
@@ -122,7 +122,7 @@ VALUES
       'city', 'Canyon',
       'state', 'TX',
       'zip', '79015',
-      'vendor_type', jsonb_build_array('Fruits & Vegetables')
+      'vendor_type', jsonb_build_array('Produce')
     ),
     'Certified organic produce — specialty salad greens, heirloom tomatoes, and fresh herbs year-round.',
     true, 'acct_sample_sunrise_organics',
@@ -166,7 +166,7 @@ VALUES
       'city', 'Amarillo',
       'state', 'TX',
       'zip', '79106',
-      'vendor_type', jsonb_build_array('Honey & Preserves')
+      'vendor_type', jsonb_build_array('Pantry')
     ),
     'Small-batch jams, jellies, pickles, and hot sauces made from Texas-grown produce.',
     true, 'acct_sample_panhandle_preserves',
@@ -210,7 +210,7 @@ VALUES
       'city', 'Plainview',
       'state', 'TX',
       'zip', '79072',
-      'vendor_type', jsonb_build_array('Arts & Crafts')
+      'vendor_type', jsonb_build_array('Art & Decor')
     ),
     'Handmade stoneware pottery — mugs, bowls, planters, and decorative pieces. Wheel-thrown and kiln-fired.',
     true, 'acct_sample_west_texas_pottery',
@@ -226,8 +226,8 @@ UPDATE vendor_verifications SET
   status = 'approved', submitted_at = now(), reviewed_at = now(),
   notes = 'Prod FM demo seed - auto-approved',
   documents = jsonb_build_array(jsonb_build_object('filename', 'business_license.pdf', 'type', 'business_license', 'url', '', 'uploaded_at', now()::text)),
-  requested_categories = ARRAY['Fruits & Vegetables'],
-  category_verifications = jsonb_build_object('Fruits & Vegetables', jsonb_build_object('status', 'approved', 'reviewed_at', now()::text, 'notes', 'Demo seed')),
+  requested_categories = ARRAY['Produce'],
+  category_verifications = jsonb_build_object('Produce', jsonb_build_object('status', 'approved', 'reviewed_at', now()::text, 'notes', 'Demo seed')),
   coi_status = 'approved', coi_verified_at = now(),
   coi_documents = jsonb_build_array(jsonb_build_object('filename', 'coi.pdf', 'url', '', 'uploaded_at', now()::text)),
   prohibited_items_acknowledged_at = now(), onboarding_completed_at = now()
@@ -237,8 +237,8 @@ UPDATE vendor_verifications SET
   status = 'approved', submitted_at = now(), reviewed_at = now(),
   notes = 'Prod FM demo seed - auto-approved',
   documents = jsonb_build_array(jsonb_build_object('filename', 'business_license.pdf', 'type', 'business_license', 'url', '', 'uploaded_at', now()::text)),
-  requested_categories = ARRAY['Fruits & Vegetables'],
-  category_verifications = jsonb_build_object('Fruits & Vegetables', jsonb_build_object('status', 'approved', 'reviewed_at', now()::text, 'notes', 'Demo seed')),
+  requested_categories = ARRAY['Produce'],
+  category_verifications = jsonb_build_object('Produce', jsonb_build_object('status', 'approved', 'reviewed_at', now()::text, 'notes', 'Demo seed')),
   coi_status = 'approved', coi_verified_at = now(),
   coi_documents = jsonb_build_array(jsonb_build_object('filename', 'coi.pdf', 'url', '', 'uploaded_at', now()::text)),
   prohibited_items_acknowledged_at = now(), onboarding_completed_at = now()
@@ -259,8 +259,8 @@ UPDATE vendor_verifications SET
   status = 'approved', submitted_at = now(), reviewed_at = now(),
   notes = 'Prod FM demo seed - auto-approved',
   documents = jsonb_build_array(jsonb_build_object('filename', 'cottage_food_permit.pdf', 'type', 'cottage_food_permit', 'url', '', 'uploaded_at', now()::text)),
-  requested_categories = ARRAY['Honey & Preserves'],
-  category_verifications = jsonb_build_object('Honey & Preserves', jsonb_build_object('status', 'approved', 'reviewed_at', now()::text, 'notes', 'Demo seed')),
+  requested_categories = ARRAY['Pantry'],
+  category_verifications = jsonb_build_object('Pantry', jsonb_build_object('status', 'approved', 'reviewed_at', now()::text, 'notes', 'Demo seed')),
   coi_status = 'approved', coi_verified_at = now(),
   coi_documents = jsonb_build_array(jsonb_build_object('filename', 'coi.pdf', 'url', '', 'uploaded_at', now()::text)),
   prohibited_items_acknowledged_at = now(), onboarding_completed_at = now()
@@ -281,8 +281,8 @@ UPDATE vendor_verifications SET
   status = 'approved', submitted_at = now(), reviewed_at = now(),
   notes = 'Prod FM demo seed - auto-approved',
   documents = jsonb_build_array(jsonb_build_object('filename', 'business_license.pdf', 'type', 'business_license', 'url', '', 'uploaded_at', now()::text)),
-  requested_categories = ARRAY['Arts & Crafts'],
-  category_verifications = jsonb_build_object('Arts & Crafts', jsonb_build_object('status', 'approved', 'reviewed_at', now()::text, 'notes', 'Demo seed')),
+  requested_categories = ARRAY['Art & Decor'],
+  category_verifications = jsonb_build_object('Art & Decor', jsonb_build_object('status', 'approved', 'reviewed_at', now()::text, 'notes', 'Demo seed')),
   coi_status = 'approved', coi_verified_at = now(),
   coi_documents = jsonb_build_array(jsonb_build_object('filename', 'coi.pdf', 'url', '', 'uploaded_at', now()::text)),
   prohibited_items_acknowledged_at = now(), onboarding_completed_at = now()
@@ -425,19 +425,19 @@ INSERT INTO listings (id, vendor_profile_id, vertical_id, status, title, descrip
 VALUES
   ('ee300000-0101-4000-8000-000000000001', 'ee000000-0001-4000-8000-000000000001', 'farmers_market', 'published',
    'Sample Heirloom Tomatoes', 'Vine-ripened heirloom tomatoes in a mix of Cherokee Purple, Brandywine, and Green Zebra varieties.',
-   500, 40, 'Fruits & Vegetables', 'presale', 1, 'lb',
+   500, 40, 'Produce', 'presale', 1, 'lb',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0102-4000-8000-000000000002', 'ee000000-0001-4000-8000-000000000001', 'farmers_market', 'published',
    'Sample Sweet Corn', 'Fresh-picked bi-color sweet corn. So sweet you can eat it raw right off the cob.',
-   800, 30, 'Fruits & Vegetables', 'presale', 6, 'ears',
+   800, 30, 'Produce', 'presale', 6, 'ears',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0103-4000-8000-000000000003', 'ee000000-0001-4000-8000-000000000001', 'farmers_market', 'published',
    'Sample Mixed Greens Bag', 'Spring mix of arugula, spinach, baby kale, and red leaf lettuce. Washed and ready to eat.',
-   450, 50, 'Fruits & Vegetables', 'presale', 8, 'oz',
+   450, 50, 'Produce', 'presale', 8, 'oz',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0104-4000-8000-000000000004', 'ee000000-0001-4000-8000-000000000001', 'farmers_market', 'published',
    'Sample Jalapeño Peppers', 'Texas-grown jalapeños. Medium heat, perfect for salsa, poppers, or pickling.',
-   350, 60, 'Fruits & Vegetables', 'presale', 0.5, 'lb',
+   350, 60, 'Produce', 'presale', 0.5, 'lb',
    jsonb_build_object('contains_allergens', false));
 
 -- V2: Sample Sunrise Organics (Produce, premium tier, 8 listings)
@@ -445,11 +445,11 @@ INSERT INTO listings (id, vendor_profile_id, vertical_id, status, title, descrip
 VALUES
   ('ee300000-0201-4000-8000-000000000001', 'ee000000-0002-4000-8000-000000000002', 'farmers_market', 'published',
    'Sample Organic Salad Greens', 'Certified organic spring mix grown in our temperature-controlled greenhouse. Tender and flavorful.',
-   600, 35, 'Fruits & Vegetables', 'presale', 5, 'oz',
+   600, 35, 'Produce', 'presale', 5, 'oz',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0202-4000-8000-000000000002', 'ee000000-0002-4000-8000-000000000002', 'farmers_market', 'published',
    'Sample Cherry Tomato Pint', 'Sweet Sungold and red cherry tomatoes. Perfect for snacking, salads, or roasting.',
-   400, 45, 'Fruits & Vegetables', 'presale', 1, 'pint',
+   400, 45, 'Produce', 'presale', 1, 'pint',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0203-4000-8000-000000000003', 'ee000000-0002-4000-8000-000000000002', 'farmers_market', 'published',
    'Sample Fresh Basil Bunch', 'Fragrant Genovese basil, freshly cut. Makes the best pesto and caprese.',
@@ -457,7 +457,7 @@ VALUES
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0204-4000-8000-000000000004', 'ee000000-0002-4000-8000-000000000002', 'farmers_market', 'published',
    'Sample Organic Zucchini', 'Tender summer squash harvested small for the best flavor. Great grilled, spiralized, or in bread.',
-   400, 35, 'Fruits & Vegetables', 'presale', 1, 'lb',
+   400, 35, 'Produce', 'presale', 1, 'lb',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0205-4000-8000-000000000005', 'ee000000-0002-4000-8000-000000000002', 'farmers_market', 'published',
    'Sample Herb Starter Kit', 'Three 4-inch pots: basil, cilantro, and rosemary. Ready to plant or keep on your windowsill.',
@@ -465,15 +465,15 @@ VALUES
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0206-4000-8000-000000000006', 'ee000000-0002-4000-8000-000000000002', 'farmers_market', 'published',
    'Sample Rainbow Chard Bunch', 'Bright red, orange, and yellow stems with tender dark-green leaves. Beautiful and nutritious.',
-   350, 40, 'Fruits & Vegetables', 'presale', 1, 'bunch',
+   350, 40, 'Produce', 'presale', 1, 'bunch',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0207-4000-8000-000000000007', 'ee000000-0002-4000-8000-000000000002', 'farmers_market', 'published',
    'Sample Microgreens Tray', 'Sunflower and radish microgreens. Packed with flavor and nutrients. Harvested the morning of market day.',
-   500, 25, 'Fruits & Vegetables', 'presale', 4, 'oz',
+   500, 25, 'Produce', 'presale', 4, 'oz',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0208-4000-8000-000000000008', 'ee000000-0002-4000-8000-000000000002', 'farmers_market', 'published',
    'Sample Heirloom Cucumber Bag', 'Crisp Lemon cucumbers and Armenian cucumbers. Mild, sweet, and perfect for salads.',
-   450, 30, 'Fruits & Vegetables', 'presale', 1, 'lb',
+   450, 30, 'Produce', 'presale', 1, 'lb',
    jsonb_build_object('contains_allergens', false));
 
 -- V3: Sample Sweet Bee Bakery (Cottage, standard, 5 listings)
@@ -505,19 +505,19 @@ INSERT INTO listings (id, vendor_profile_id, vertical_id, status, title, descrip
 VALUES
   ('ee300000-0401-4000-8000-000000000001', 'ee000000-0004-4000-8000-000000000004', 'farmers_market', 'published',
    'Sample Peach Jalapeño Jam', 'Sweet peaches with a kick of jalapeño heat. Amazing on crackers with cream cheese or as a glaze for grilled chicken.',
-   800, 30, 'Honey & Preserves', 'presale', 8, 'oz',
+   800, 30, 'Pantry', 'presale', 8, 'oz',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0402-4000-8000-000000000002', 'ee000000-0004-4000-8000-000000000004', 'farmers_market', 'published',
    'Sample Bread & Butter Pickles', 'Crisp, tangy-sweet pickles made from locally grown cucumbers. Old family recipe.',
-   700, 25, 'Honey & Preserves', 'presale', 16, 'oz',
+   700, 25, 'Pantry', 'presale', 16, 'oz',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0403-4000-8000-000000000003', 'ee000000-0004-4000-8000-000000000004', 'farmers_market', 'published',
    'Sample Texas Hot Sauce', 'Small-batch hot sauce made with habaneros, roasted garlic, and apple cider vinegar. Medium-hot.',
-   600, 35, 'Honey & Preserves', 'presale', 5, 'oz',
+   600, 35, 'Pantry', 'presale', 5, 'oz',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0404-4000-8000-000000000004', 'ee000000-0004-4000-8000-000000000004', 'farmers_market', 'published',
    'Sample Strawberry Preserves', 'Whole strawberry preserves with just fruit, sugar, and pectin. Tastes like summer in a jar.',
-   750, 30, 'Honey & Preserves', 'presale', 10, 'oz',
+   750, 30, 'Pantry', 'presale', 10, 'oz',
    jsonb_build_object('contains_allergens', false));
 
 -- V5: Sample Prairie Wellness (Health, standard, 6 listings)
@@ -553,23 +553,23 @@ INSERT INTO listings (id, vendor_profile_id, vertical_id, status, title, descrip
 VALUES
   ('ee300000-0601-4000-8000-000000000001', 'ee000000-0006-4000-8000-000000000006', 'farmers_market', 'published',
    'Sample Handmade Coffee Mug', 'Wheel-thrown stoneware mug with a speckled desert glaze. Holds 12oz, dishwasher and microwave safe.',
-   2800, 12, 'Arts & Crafts', 'presale', 1, 'mug',
+   2800, 12, 'Art & Decor', 'presale', 1, 'mug',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0602-4000-8000-000000000002', 'ee000000-0006-4000-8000-000000000006', 'farmers_market', 'published',
    'Sample Ceramic Bowl Set', 'Set of two nesting bowls in turquoise and sand glazes. Perfect for cereal, soup, or ice cream.',
-   4500, 8, 'Arts & Crafts', 'presale', 2, 'bowls',
+   4500, 8, 'Art & Decor', 'presale', 2, 'bowls',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0603-4000-8000-000000000003', 'ee000000-0006-4000-8000-000000000006', 'farmers_market', 'published',
    'Sample Succulent Planter', 'Small stoneware planter with drainage hole. Comes with a saucer. Plant not included.',
-   1800, 15, 'Arts & Crafts', 'presale', 1, 'planter',
+   1800, 15, 'Art & Decor', 'presale', 1, 'planter',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0604-4000-8000-000000000004', 'ee000000-0006-4000-8000-000000000006', 'farmers_market', 'published',
    'Sample Decorative Wall Plate', 'Hand-painted stoneware plate with Palo Duro Canyon landscape design. For display, not food use.',
-   3500, 6, 'Arts & Crafts', 'presale', 1, 'plate',
+   3500, 6, 'Art & Decor', 'presale', 1, 'plate',
    jsonb_build_object('contains_allergens', false)),
   ('ee300000-0605-4000-8000-000000000005', 'ee000000-0006-4000-8000-000000000006', 'farmers_market', 'published',
    'Sample Ceramic Spoon Rest', 'Wheel-thrown spoon rest with a rustic desert glaze. Keeps your countertop clean in style.',
-   1500, 10, 'Arts & Crafts', 'presale', 1, 'piece',
+   1500, 10, 'Art & Decor', 'presale', 1, 'piece',
    jsonb_build_object('contains_allergens', false));
 
 ALTER TABLE listings ENABLE TRIGGER enforce_listing_limit_trigger;

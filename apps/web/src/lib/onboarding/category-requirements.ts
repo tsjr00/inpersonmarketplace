@@ -107,23 +107,16 @@ const CATEGORY_REQUIREMENTS: Record<Category, CategoryRequirement> = {
  */
 export const JURISDICTION_DISCLAIMER = 'Permit requirements shown are based on Texas state regulations. Requirements may differ in other states.'
 
-const NO_REQUIREMENT: CategoryRequirement = {
-  level: 'none',
-  label: 'No permits required',
-  description: 'This category does not require permits.',
-  acceptedDocTypes: [],
-}
-
 export function getCategoryRequirement(category: Category): CategoryRequirement {
-  return CATEGORY_REQUIREMENTS[category] ?? NO_REQUIREMENT
+  return CATEGORY_REQUIREMENTS[category]
 }
 
 export function getRequiredDocTypes(category: Category): DocType[] {
-  return CATEGORY_REQUIREMENTS[category]?.acceptedDocTypes ?? []
+  return CATEGORY_REQUIREMENTS[category].acceptedDocTypes
 }
 
 export function requiresDocuments(category: Category): boolean {
-  return (CATEGORY_REQUIREMENTS[category]?.level ?? 'none') !== 'none'
+  return CATEGORY_REQUIREMENTS[category].level !== 'none'
 }
 
 export function getCategoriesRequiringDocs(): Category[] {
