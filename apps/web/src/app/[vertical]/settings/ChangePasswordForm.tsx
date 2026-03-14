@@ -12,6 +12,9 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -81,23 +84,49 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
         }}>
           Current Password
         </label>
-        <input
-          type="password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          placeholder="Enter current password"
-          style={{
-            width: '100%',
-            maxWidth: 400,
-            padding: '10px 12px',
-            border: '1px solid #d1d5db',
-            borderRadius: 6,
-            fontSize: 14,
-            color: colors.textPrimary,
-            backgroundColor: colors.inputBg,
-            boxSizing: 'border-box'
-          }}
-        />
+        <div style={{ position: 'relative', maxWidth: 400 }}>
+          <input
+            type={showCurrent ? 'text' : 'password'}
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Enter current password"
+            style={{
+              width: '100%',
+              padding: '10px 40px 10px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: 6,
+              fontSize: 14,
+              color: colors.textPrimary,
+              backgroundColor: colors.inputBg,
+              boxSizing: 'border-box'
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowCurrent(!showCurrent)}
+            aria-label={showCurrent ? 'Hide password' : 'Show password'}
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 4,
+              fontSize: 18,
+              color: '#9ca3af',
+              lineHeight: 1,
+              minHeight: 44,
+              minWidth: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {showCurrent ? '🙈' : '👁'}
+          </button>
+        </div>
       </div>
 
       {/* New Password */}
@@ -111,23 +140,49 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
         }}>
           New Password
         </label>
-        <input
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Min 9 chars: upper, lower, number, special"
-          style={{
-            width: '100%',
-            maxWidth: 400,
-            padding: '10px 12px',
-            border: '1px solid #d1d5db',
-            borderRadius: 6,
-            fontSize: 14,
-            color: colors.textPrimary,
-            backgroundColor: colors.inputBg,
-            boxSizing: 'border-box'
-          }}
-        />
+        <div style={{ position: 'relative', maxWidth: 400 }}>
+          <input
+            type={showNew ? 'text' : 'password'}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Min 9 chars: upper, lower, number, special"
+            style={{
+              width: '100%',
+              padding: '10px 40px 10px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: 6,
+              fontSize: 14,
+              color: colors.textPrimary,
+              backgroundColor: colors.inputBg,
+              boxSizing: 'border-box'
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowNew(!showNew)}
+            aria-label={showNew ? 'Hide password' : 'Show password'}
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 4,
+              fontSize: 18,
+              color: '#9ca3af',
+              lineHeight: 1,
+              minHeight: 44,
+              minWidth: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {showNew ? '🙈' : '👁'}
+          </button>
+        </div>
       </div>
 
       {/* Confirm New Password */}
@@ -141,23 +196,49 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
         }}>
           Confirm New Password
         </label>
-        <input
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          placeholder="Re-enter new password"
-          style={{
-            width: '100%',
-            maxWidth: 400,
-            padding: '10px 12px',
-            border: '1px solid #d1d5db',
-            borderRadius: 6,
-            fontSize: 14,
-            color: colors.textPrimary,
-            backgroundColor: colors.inputBg,
-            boxSizing: 'border-box'
-          }}
-        />
+        <div style={{ position: 'relative', maxWidth: 400 }}>
+          <input
+            type={showConfirm ? 'text' : 'password'}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter new password"
+            style={{
+              width: '100%',
+              padding: '10px 40px 10px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: 6,
+              fontSize: 14,
+              color: colors.textPrimary,
+              backgroundColor: colors.inputBg,
+              boxSizing: 'border-box'
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirm(!showConfirm)}
+            aria-label={showConfirm ? 'Hide password' : 'Show password'}
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 4,
+              fontSize: 18,
+              color: '#9ca3af',
+              lineHeight: 1,
+              minHeight: 44,
+              minWidth: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {showConfirm ? '🙈' : '👁'}
+          </button>
+        </div>
       </div>
 
       {/* Change Password Button */}
