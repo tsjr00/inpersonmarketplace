@@ -12,6 +12,8 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-03-14 | 20260314_082_sales_tax_help_article | **Data insert:** 1 new global `knowledge_articles` row (vertical_id=NULL) under "For Vendors" category: "Sales Tax: What Vendors Need to Know". TX-specific tax guidance for vendors — taxable vs exempt items, responsibilities, platform tracking features, Comptroller links. sort_order 20. No schema changes — content only. Applied to Dev, Staging, & Prod. |
+| 2026-03-14 | 20260314_081_add_listing_is_taxable | **New column:** `listings.is_taxable` (BOOLEAN NOT NULL DEFAULT false). Vendor-set flag indicating item is subject to sales tax. Used for tax reporting/tracking only — platform does not collect/remit tax. Applied to Dev, Staging, & Prod. |
 | 2026-03-13 | 20260312_080_catering_48hr_lead_time | **Function rewrite:** `get_available_pickup_dates()` — catering items (`advance_order_days > 0`) now require 2-calendar-day minimum lead time (48hr rule). Regular FT items (`advance_order_days = 0`) unchanged (today only). Catering date window: `[local_today + 2, local_today + advance_order_days]`. No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
 | 2026-03-12 | 20260312_079_advance_order_days | **New column:** `listings.advance_order_days` (INTEGER NOT NULL DEFAULT 0). Number of days in advance customers can order (0 = same-day only). **Function rewrite:** `get_available_pickup_dates()` — re-applies timezone fix from migration 054 (accidentally overwritten by out-of-order application of migration 040 to prod on 2026-03-07). FT non-event date window: `potential_date <= local_today + advance_order_days`. FM/events unchanged (full 7-day window). Applied to Dev, Staging, & Prod. |
 | 2026-03-12 | 20260312_078_session52_audit_fixes | **C-1:** Rewrote `atomic_decrement_inventory()` — now RAISE EXCEPTION on insufficient inventory (was GREATEST(0, qty-n) silent clamp). Auto-drafts listing when qty hits 0. **C-2:** `enforce_listing_tier_limit()` now calls `can_vendor_publish()` before allowing status='published'. **H-8:** New `atomic_restore_inventory(p_listing_id UUID, p_quantity INTEGER)` RPC — atomically adds back inventory (used by cancel route). **M-7:** `is_platform_admin()` checks both `role='admin'` and `'admin'=ANY(roles)` (removed invalid 'platform_admin' enum reference). **M-13:** New column `order_items.cancellation_fee_cents` (INTEGER, nullable) — persists cancellation fee at cancel time. Applied to Dev, Staging, & Prod. |
@@ -420,6 +422,8 @@
 | premium_window_ends_at | timestamptz | YES | - |
 | quantity_amount | numeric | YES | - |
 | quantity_unit | text | YES | - |
+| advance_order_days | int4 | NO | 0 |
+| is_taxable | bool | NO | false |
 
 ### market_box_offerings
 | Column | Type | Nullable | Default |
