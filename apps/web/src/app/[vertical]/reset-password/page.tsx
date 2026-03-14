@@ -16,6 +16,8 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -230,43 +232,97 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
               New Password (min 9 chars: upper, lower, number, special)
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading || !!error}
-              minLength={6}
-              style={{
-                width: '100%',
-                padding: spacing.xs,
-                fontSize: typography.sizes.base,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                boxSizing: 'border-box'
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={loading || !!error}
+                minLength={6}
+                style={{
+                  width: '100%',
+                  padding: `${spacing.xs} 40px ${spacing.xs} ${spacing.xs}`,
+                  fontSize: typography.sizes.base,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  boxSizing: 'border-box'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 4,
+                  fontSize: 18,
+                  color: '#9ca3af',
+                  lineHeight: 1,
+                  minHeight: 44,
+                  minWidth: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
 
           <div style={{ marginBottom: spacing.md }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
               Confirm Password
             </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              disabled={loading || !!error}
-              style={{
-                width: '100%',
-                padding: spacing.xs,
-                fontSize: typography.sizes.base,
-                border: `1px solid ${colors.border}`,
-                borderRadius: radius.sm,
-                boxSizing: 'border-box'
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                disabled={loading || !!error}
+                style={{
+                  width: '100%',
+                  padding: `${spacing.xs} 40px ${spacing.xs} ${spacing.xs}`,
+                  fontSize: typography.sizes.base,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  boxSizing: 'border-box'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 4,
+                  fontSize: 18,
+                  color: '#9ca3af',
+                  lineHeight: 1,
+                  minHeight: 44,
+                  minWidth: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {showConfirmPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
 
           <button
