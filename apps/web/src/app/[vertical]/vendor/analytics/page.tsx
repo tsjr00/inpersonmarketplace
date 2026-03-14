@@ -42,6 +42,15 @@ interface CustomerData {
   averageOrdersPerCustomer: number
 }
 
+interface TaxSummaryData {
+  totalSalesCents: number
+  taxableSalesCents: number
+  nonTaxableSalesCents: number
+  totalOrderCount: number
+  taxableOrderCount: number
+  nonTaxableOrderCount: number
+}
+
 export default function VendorAnalyticsPage() {
   const params = useParams()
   const router = useRouter()
@@ -65,6 +74,7 @@ export default function VendorAnalyticsPage() {
   const [trends, setTrends] = useState<TrendData[]>([])
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [customers, setCustomers] = useState<CustomerData | null>(null)
+  const [taxSummary, setTaxSummary] = useState<TaxSummaryData | null>(null)
   const [chartMetric, setChartMetric] = useState<'revenue' | 'orders'>('revenue')
 
   // Fetch vendor profile
@@ -107,11 +117,12 @@ export default function VendorAnalyticsPage() {
     const endDate = dateRange.end.toISOString().split('T')[0]
 
     try {
-      const [overviewRes, trendsRes, productsRes, customersRes] = await Promise.all([
+      const [overviewRes, trendsRes, productsRes, customersRes, taxRes] = await Promise.all([
         fetch(`/api/vendor/analytics/overview?vendor_id=${vendorId}&start_date=${startDate}&end_date=${endDate}`),
         fetch(`/api/vendor/analytics/trends?vendor_id=${vendorId}&start_date=${startDate}&end_date=${endDate}&period=day`),
         fetch(`/api/vendor/analytics/top-products?vendor_id=${vendorId}&start_date=${startDate}&end_date=${endDate}&limit=10`),
-        fetch(`/api/vendor/analytics/customers?vendor_id=${vendorId}&start_date=${startDate}&end_date=${endDate}`)
+        fetch(`/api/vendor/analytics/customers?vendor_id=${vendorId}&start_date=${startDate}&end_date=${endDate}`),
+        fetch(`/api/vendor/analytics/tax-summary?vendor_id=${vendorId}&start_date=${startDate}&end_date=${endDate}`)
       ])
 
       if (overviewRes.ok) {
@@ -132,6 +143,11 @@ export default function VendorAnalyticsPage() {
       if (customersRes.ok) {
         const data = await customersRes.json()
         setCustomers(data)
+      }
+
+      if (taxRes.ok) {
+        const data = await taxRes.json()
+        setTaxSummary(data)
       }
     } catch (err) {
       console.error('Error fetching analytics:', err)
@@ -373,6 +389,13 @@ export default function VendorAnalyticsPage() {
                       trends.forEach(t => {
                         rows.push(`${t.date},$${(t.revenue / 100).toFixed(2)},${t.orders}`)
                       })
+                      rows.push('')
+                    }
+                    if (taxSummary && taxSummary.totalOrderCount > 0) {
+                      rows.push('Sales Tax Summary')
+                      rows.push(`Total Sales,$${(taxSummary.totalSalesCents / 100).toFixed(2)},${taxSummary.totalOrderCount} orders`)
+                      rows.push(`Taxable Sales,$${(taxSummary.taxableSalesCents / 100).toFixed(2)},${taxSummary.taxableOrderCount} orders`)
+                      rows.push(`Non-Taxable Sales,$${(taxSummary.nonTaxableSalesCents / 100).toFixed(2)},${taxSummary.nonTaxableOrderCount} orders`)
                     }
                     const csv = rows.join('\n')
                     const blob = new Blob([csv], { type: 'text/csv' })
@@ -709,6 +732,154 @@ export default function VendorAnalyticsPage() {
                   </div>
                 )}
               </div>
+            </div>
+            {/* Sales Tax Summary — available to ALL tiers */}
+            <div style={{
+              marginTop: spacing.md,
+              padding: spacing.sm,
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: radius.md,
+              border: `1px solid ${colors.border}`,
+              boxShadow: shadows.sm
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: spacing.sm
+              }}>
+                <h2 style={{
+                  margin: 0,
+                  fontSize: typography.sizes.lg,
+                  fontWeight: typography.weights.semibold,
+                  color: colors.textPrimary
+                }}>
+                  Sales Tax Summary
+                </h2>
+                <Link
+                  href={`/${vertical}/help?q=Sales+Tax`}
+                  style={{
+                    fontSize: typography.sizes.xs,
+                    color: colors.textMuted,
+                    textDecoration: 'none',
+                  }}
+                >
+                  Learn more →
+                </Link>
+              </div>
+
+              {taxSummary && taxSummary.totalOrderCount > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                  {/* Summary cards */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: spacing.xs
+                  }}>
+                    <div style={{
+                      padding: spacing.sm,
+                      backgroundColor: colors.surfaceMuted,
+                      borderRadius: radius.md,
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                        ${(taxSummary.totalSalesCents / 100).toFixed(2)}
+                      </div>
+                      <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Total Sales</div>
+                    </div>
+                    <div style={{
+                      padding: spacing.sm,
+                      backgroundColor: '#fef3c7',
+                      borderRadius: radius.md,
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: '#92400e' }}>
+                        ${(taxSummary.taxableSalesCents / 100).toFixed(2)}
+                      </div>
+                      <div style={{ fontSize: typography.sizes.xs, color: '#92400e' }}>Taxable Sales</div>
+                    </div>
+                    <div style={{
+                      padding: spacing.sm,
+                      backgroundColor: colors.primaryLight,
+                      borderRadius: radius.md,
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primaryDark }}>
+                        ${(taxSummary.nonTaxableSalesCents / 100).toFixed(2)}
+                      </div>
+                      <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Non-Taxable</div>
+                    </div>
+                  </div>
+
+                  {/* Breakdown bar */}
+                  {taxSummary.totalSalesCents > 0 && (
+                    <div>
+                      <div style={{
+                        display: 'flex',
+                        height: 12,
+                        borderRadius: 6,
+                        overflow: 'hidden',
+                        backgroundColor: colors.surfaceMuted
+                      }}>
+                        <div style={{
+                          width: `${(taxSummary.taxableSalesCents / taxSummary.totalSalesCents) * 100}%`,
+                          backgroundColor: '#f59e0b',
+                          transition: 'width 0.3s'
+                        }} />
+                        <div style={{
+                          flex: 1,
+                          backgroundColor: colors.primary,
+                          opacity: 0.3
+                        }} />
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        marginTop: spacing['3xs'],
+                        fontSize: typography.sizes.xs,
+                        color: colors.textMuted
+                      }}>
+                        <span>Taxable: {((taxSummary.taxableSalesCents / taxSummary.totalSalesCents) * 100).toFixed(1)}% ({taxSummary.taxableOrderCount} orders)</span>
+                        <span>Non-taxable: {((taxSummary.nonTaxableSalesCents / taxSummary.totalSalesCents) * 100).toFixed(1)}% ({taxSummary.nonTaxableOrderCount} orders)</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <p style={{
+                    margin: 0,
+                    fontSize: typography.sizes.xs,
+                    color: colors.textMuted,
+                    padding: spacing['2xs'],
+                    backgroundColor: colors.surfaceMuted,
+                    borderRadius: radius.sm
+                  }}>
+                    This report is for your records only. You are responsible for collecting and remitting sales tax. The platform does not collect tax on your behalf.
+                  </p>
+                </div>
+              ) : (
+                <div style={{
+                  padding: spacing.md,
+                  textAlign: 'center',
+                  color: colors.textMuted
+                }}>
+                  <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm }}>
+                    {taxSummary && taxSummary.totalOrderCount === 0
+                      ? 'No completed orders in this date range.'
+                      : 'Mark items as taxable in your listings to see a breakdown here.'}
+                  </p>
+                  <Link
+                    href={`/${vertical}/vendor/listings`}
+                    style={{
+                      fontSize: typography.sizes.sm,
+                      color: colors.primary,
+                      textDecoration: 'none',
+                      fontWeight: typography.weights.medium
+                    }}
+                  >
+                    Go to Listings →
+                  </Link>
+                </div>
+              )}
             </div>
           </>
         )}

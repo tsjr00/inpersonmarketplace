@@ -104,6 +104,11 @@ export default function ListingForm({
     (listingData?.ingredients as string) || ''
   )
 
+  // Sales tax tracking
+  const [isTaxable, setIsTaxable] = useState(
+    (listing?.is_taxable as boolean) || false
+  )
+
   // Event menu item tracking
   const [eventMenuItem, setEventMenuItem] = useState(
     (listingData?.event_menu_item as boolean) || false
@@ -250,6 +255,7 @@ export default function ListingForm({
       category: formData.category.trim() || null,
       status: canPublishListing ? formData.status : 'draft',
       advance_order_days: formData.advance_order_days ? parseInt(formData.advance_order_days) : 0,
+      is_taxable: isTaxable,
       listing_data: {
         contains_allergens: containsAllergens,
         ingredients: containsAllergens ? ingredients.trim() : null,
@@ -661,6 +667,43 @@ export default function ListingForm({
             </label>
           </div>
         )}
+
+        {/* Sales Tax Checkbox — both verticals */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            cursor: 'pointer',
+            padding: 12,
+            backgroundColor: isTaxable ? '#fef3c7' : '#f9fafb',
+            border: `1px solid ${isTaxable ? '#f59e0b' : '#e5e7eb'}`,
+            borderRadius: 6
+          }}>
+            <input
+              type="checkbox"
+              checked={isTaxable}
+              onChange={(e) => setIsTaxable(e.target.checked)}
+              disabled={loading}
+              style={{ marginTop: 3, width: 18, height: 18 }}
+            />
+            <div>
+              <span style={{ fontWeight: 600 }}>This item is subject to sales tax</span>
+              <p style={{ fontSize: 13, color: '#666', margin: '4px 0 0 0' }}>
+                Check this to track taxable sales in your analytics report.{' '}
+                <a
+                  href={`/${vertical}/help?q=Sales+Tax`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: branding.colors.primary }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Learn more about sales tax
+                </a>
+              </p>
+            </div>
+          </label>
+        </div>
 
         {/* Price & Quantity Row */}
         <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>

@@ -522,6 +522,23 @@ export default function PaymentMethodsCard({
             )}
           </div>
 
+          {/* Sales Tax Info link */}
+          <Link
+            href={`/${vertical}/help?q=Sales+Tax`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing['2xs'],
+              fontSize: typography.sizes.xs,
+              color: colors.textSecondary,
+              textDecoration: 'none',
+              padding: `${spacing['2xs']} 0`,
+            }}
+          >
+            <span>Sales Tax Info</span>
+            <span style={{ color: colors.textMuted }}>→</span>
+          </Link>
+
           {/* Fee Balance (only when balance > 0) */}
           {feeBalance && (
             <div style={{
