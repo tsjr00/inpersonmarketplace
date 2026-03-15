@@ -112,8 +112,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const itemFlatFee = totalItemsInOrder ? proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItemsInOrder) : 0
     const buyerPaidForItem = orderItem.subtotal_cents + buyerPercentFee + itemFlatFee
 
-    // Update the order item as cancelled by vendor
-    const { error: updateError } = await supabase
+    // H3 FIX: Conditional UPDATE — only succeeds if cancelled_at IS NULL.
+    // Prevents double-cancel race (buyer+vendor simultaneous, double-click).
+    const { data: updatedRows, error: updateError } = await supabase
       .from('order_items')
       .update({
         status: 'cancelled',
@@ -123,10 +124,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
         refund_amount_cents: buyerPaidForItem // Full refund of what buyer actually paid
       })
       .eq('id', orderItemId)
+      .is('cancelled_at', null)
+      .select('id')
 
     if (updateError) {
       console.error('Error rejecting order item:', updateError)
       return NextResponse.json({ error: 'Failed to reject item' }, { status: 500 })
+    }
+
+    // If no rows matched, item was already cancelled by a concurrent request
+    if (!updatedRows || updatedRows.length === 0) {
+      return NextResponse.json(
+        { error: 'This item has already been cancelled' },
+        { status: 409 }
+      )
     }
 
     // Restore inventory for rejected item

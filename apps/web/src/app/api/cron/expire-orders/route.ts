@@ -161,8 +161,9 @@ export async function GET(request: NextRequest) {
             const itemFlatFee = totalItemsInOrder ? proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItemsInOrder) : 0
             const buyerPaidForItem = item.subtotal_cents + buyerPercentFee + itemFlatFee
 
-            // Mark item as cancelled due to expiration
-            const { error: updateError } = await supabase
+            // H3 FIX: Conditional UPDATE — only succeeds if cancelled_at IS NULL.
+            // Prevents race with manual buyer/vendor cancel happening concurrently.
+            const { data: expiredRows, error: updateError } = await supabase
               .from('order_items')
               .update({
                 status: 'cancelled',
@@ -172,10 +173,18 @@ export async function GET(request: NextRequest) {
                 refund_amount_cents: buyerPaidForItem
               })
               .eq('id', item.id)
+              .is('cancelled_at', null)
+              .select('id')
 
             if (updateError) {
               console.error('Error expiring order item:', updateError.message)
               totalErrors++
+              continue
+            }
+
+            // Item already cancelled by concurrent request — skip refund/restore
+            if (!expiredRows || expiredRows.length === 0) {
+              console.log(`[Phase 1] Item ${item.id} already cancelled by concurrent request, skipping`)
               continue
             }
 
