@@ -5,6 +5,8 @@ import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 import { defaultBranding } from '@/lib/branding'
 import { faqPageJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 import HelpArticleList from '@/components/help/HelpArticleList'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 
 export const revalidate = 300 // 5 min cache — content changes infrequently
 
@@ -29,6 +31,7 @@ export async function generateMetadata({ params }: HelpPageProps): Promise<Metad
 export default async function HelpPage({ params, searchParams }: HelpPageProps) {
   const { vertical } = await params
   const { q, article: articleId } = await searchParams
+  const locale = await getLocale()
   const serviceClient = createServiceClient()
 
   // Fetch published articles for this vertical + global articles
@@ -79,7 +82,7 @@ export default async function HelpPage({ params, searchParams }: HelpPageProps) 
               gap: 4,
             }}
           >
-            ← Back to Dashboard
+            {t('nav.back_dashboard', locale)}
           </Link>
           <span style={{ color: statusColors.neutral300 }}>|</span>
           <Link
@@ -93,14 +96,14 @@ export default async function HelpPage({ params, searchParams }: HelpPageProps) 
               gap: 4,
             }}
           >
-            ← Browse
+            {t('nav.back_browse', locale)}
           </Link>
         </div>
         <h1 style={{ color: statusColors.neutral900, marginBottom: spacing['2xs'], marginTop: spacing.xs, fontSize: typography.sizes['2xl'] }}>
-          Help & FAQ
+          {t('help.title', locale)}
         </h1>
         <p style={{ color: statusColors.neutral500, margin: 0, fontSize: typography.sizes.sm }}>
-          Find answers to common questions about ordering, pickups, and more.
+          {t('help.subtitle', locale)}
         </p>
       </div>
 
@@ -121,14 +124,14 @@ export default async function HelpPage({ params, searchParams }: HelpPageProps) 
             color: statusColors.neutral600,
           }}
         >
-          Can&apos;t find what you&apos;re looking for?{' '}
+          {t('help.cant_find', locale)}{' '}
           <Link
             href={`/${vertical}/support`}
             style={{ color: statusColors.infoDark, fontWeight: 600 }}
           >
-            Contact Support
+            {t('help.contact_support', locale)}
           </Link>{' '}
-          and we&apos;ll get back to you within 24-48 hours.
+          {t('help.response_time', locale)}
         </p>
       </div>
 
@@ -146,10 +149,10 @@ export default async function HelpPage({ params, searchParams }: HelpPageProps) 
         }}
       >
         <p style={{ margin: 0, fontSize: typography.sizes.sm, color: statusColors.infoDark, fontWeight: 600 }}>
-          Setup Guide: Enable Notifications &amp; Install the App →
+          {t('help.setup_guide', locale)}
         </p>
         <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral600 }}>
-          Step-by-step instructions for all browsers and devices.
+          {t('help.setup_guide_desc', locale)}
         </p>
       </Link>
 

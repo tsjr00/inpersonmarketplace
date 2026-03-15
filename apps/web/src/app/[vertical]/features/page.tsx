@@ -5,6 +5,8 @@ import { colors, spacing, typography, radius, shadows, getVerticalColors } from 
 import { Footer } from '@/components/landing'
 import { term, getContent } from '@/lib/vertical'
 import { breadcrumbJsonLd } from '@/lib/marketing/json-ld'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 
 interface FeaturesPageProps {
   params: Promise<{ vertical: string }>
@@ -27,8 +29,9 @@ export async function generateMetadata({ params }: FeaturesPageProps): Promise<M
 
 export default async function FeaturesPage({ params }: FeaturesPageProps) {
   const { vertical } = await params
+  const locale = await getLocale()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
-  const content = getContent(vertical)
+  const content = getContent(vertical, locale)
   // Actual hex values needed for hex+alpha concatenation (CSS var() can't be concatenated)
   const hexColors = getVerticalColors(vertical)
 
@@ -61,7 +64,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
           marginLeft: 'auto',
           marginRight: 'auto'
         }}>
-          {isFT ? 'Order from Food Trucks Online' : 'Order from Farmers Markets Online'}
+          {isFT ? t('features.hero_title_ft', locale) : t('features.hero_title_fm', locale)}
         </h1>
         <p style={{
           fontSize: typography.sizes.xl,
@@ -92,7 +95,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             color: colors.textPrimary,
             marginBottom: spacing.sm
           }}>
-            {isFT ? 'Mobile Food Ordering Made Simple' : 'Local Food Pre-Ordering Made Simple'}
+            {isFT ? t('features.promise_title_ft', locale) : t('features.promise_title_fm', locale)}
           </h2>
           <p style={{
             fontSize: typography.sizes.lg,
@@ -102,8 +105,8 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             marginRight: 'auto'
           }}>
             {isFT
-              ? 'No complicated apps to download. Browse menus, pre-order online, and skip the line at your favorite food trucks.'
-              : 'No complicated apps to download. Browse products, pre-order from your local farmers market online, and pick up on your schedule.'}
+              ? t('features.promise_desc_ft', locale)
+              : t('features.promise_desc_fm', locale)}
           </p>
         </div>
 
@@ -113,10 +116,10 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
           gap: spacing.lg
         }}>
           {[
-            { icon: '3️⃣', title: 'Three Clicks to Order', desc: 'Find a product, add to cart, checkout. That\'s it.' },
-            { icon: '📱', title: 'Works on Any Device', desc: 'Phone, tablet, or computer. No app download required.' },
-            { icon: '🔒', title: 'Secure Payments', desc: 'All payments processed securely through Stripe.' },
-            { icon: '📍', title: 'Local Only', desc: 'Find vendors within 25 miles of your location.' }
+            { icon: '3️⃣', title: t('features.three_clicks', locale), desc: t('features.three_clicks_desc', locale) },
+            { icon: '📱', title: t('features.any_device', locale), desc: t('features.any_device_desc', locale) },
+            { icon: '🔒', title: t('features.secure_payments', locale), desc: t('features.secure_payments_desc', locale) },
+            { icon: '📍', title: t('features.local_only', locale), desc: t('features.local_only_desc', locale) }
           ].map((item, i) => (
             <div key={i} style={{
               padding: spacing.lg,
@@ -166,7 +169,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
               color: colors.textPrimary,
               margin: 0
             }}>
-              For Shoppers
+              {t('features.for_shoppers', locale)}
             </h2>
           </div>
 
@@ -177,53 +180,53 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
           }}>
             {[
               {
-                title: 'Never Miss Your Favorites',
+                title: t('features.never_miss', locale),
                 desc: content.features_page.shopper_preorder_desc,
                 icon: '✓'
               },
               {
-                title: 'Skip the Lines',
+                title: t('features.skip_lines', locale),
                 desc: content.features_page.shopper_skip_lines_desc,
                 icon: '⚡'
               },
               {
-                title: 'Shop on Your Schedule',
-                desc: 'Browse products anytime from your phone or computer. Place orders when it\'s convenient for you, not just during market hours.',
+                title: t('features.shop_schedule', locale),
+                desc: t('features.shop_schedule_desc', locale),
                 icon: '🕐'
               },
               {
-                title: 'Know Your Vendors',
-                desc: 'Every vendor is verified. See their story, what they offer, and reviews from other shoppers before you buy.',
+                title: t('features.know_vendors', locale),
+                desc: t('features.know_vendors_desc', locale),
                 icon: '👤'
               },
               {
-                title: 'Order Updates',
-                desc: 'Get notifications when your order is confirmed and ready for pickup. No guessing, no phone calls needed.',
+                title: t('features.order_updates', locale),
+                desc: t('features.order_updates_desc', locale),
                 icon: '🔔'
               },
               {
-                title: 'Support Local',
-                desc: 'Every purchase goes directly to local vendors and makers in your community. Know exactly where your money goes.',
+                title: t('features.support_local', locale),
+                desc: t('features.support_local_desc', locale),
                 icon: '❤️'
               },
               {
-                title: `${term(vertical, 'market_boxes')}`,
+                title: `${term(vertical, 'market_boxes', locale)}`,
                 desc: content.features_page.subscription_feature_desc,
                 icon: '📦'
               },
               {
-                title: 'Favorite Vendors',
-                desc: `Save your favorite ${term(vertical, 'vendors').toLowerCase()} and quickly find them when you\'re ready to order again.`,
+                title: t('features.favorite_vendors', locale),
+                desc: t('features.favorite_vendors_desc', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() }),
                 icon: '❤️'
               },
               ...(vertical === 'food_trucks' ? [{
-                title: 'Tips at Checkout',
-                desc: `Show your appreciation with optional tips at checkout. 100% of the food cost tip goes to the ${term(vertical, 'vendor').toLowerCase()}.`,
+                title: t('features.tips_checkout', locale),
+                desc: t('features.tips_checkout_desc', locale, { vendor: term(vertical, 'vendor', locale).toLowerCase() }),
                 icon: '💝'
               }] : []),
               {
-                title: 'Buyer Premium',
-                desc: `Upgrade to Premium for early access to new ${term(vertical, 'products').toLowerCase()} before they\'re available to everyone.`,
+                title: t('features.buyer_premium', locale),
+                desc: t('features.buyer_premium_desc', locale, { products: term(vertical, 'products', locale).toLowerCase() }),
                 icon: '⭐'
               }
             ].map((item, i) => (
@@ -288,7 +291,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 border: `2px solid ${colors.primary}`
               }}
             >
-              Start Shopping
+              {t('features.start_shopping', locale)}
             </Link>
           </div>
         </div>
@@ -306,14 +309,14 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             gap: spacing.sm,
             marginBottom: spacing.lg
           }}>
-            <span style={{ fontSize: '2rem' }}>{term(vertical, 'vendor_section_emoji')}</span>
+            <span style={{ fontSize: '2rem' }}>{term(vertical, 'vendor_section_emoji', locale)}</span>
             <h2 style={{
               fontSize: typography.sizes['2xl'],
               fontWeight: typography.weights.bold,
               color: colors.textPrimary,
               margin: 0
             }}>
-              For {term(vertical, 'vendors')}
+              {t('footer.for_vendors', locale)}
             </h2>
           </div>
 
@@ -324,8 +327,8 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             maxWidth: 700
           }}>
             {isFT
-              ? 'Run the online side of your food truck business without the complexity. Accept pre-orders, manage your menu, and grow your customer base — we handle the technology.'
-              : 'Run the online side of your farmers market business without the complexity. Accept pre-orders, manage your listings, and grow your customer base — we handle the technology.'}
+              ? t('features.vendor_desc_ft', locale)
+              : t('features.vendor_desc_fm', locale)}
           </p>
 
           <div style={{
@@ -335,78 +338,78 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
           }}>
             {[
               {
-                title: 'Set Up in Minutes',
-                desc: 'Create your vendor profile, add your products, and start accepting orders. No technical skills required.',
+                title: t('features.setup_minutes', locale),
+                desc: t('features.setup_minutes_desc', locale),
                 icon: '⏱️'
               },
               {
-                title: 'Simple Product Management',
-                desc: 'Add photos, set prices, and manage inventory from your phone. Update availability in real-time.',
+                title: t('features.product_mgmt', locale),
+                desc: t('features.product_mgmt_desc', locale),
                 icon: '📦'
               },
               {
-                title: 'Know Before Market Day',
-                desc: 'See exactly what\'s ordered before you arrive. Pack with confidence, reduce waste, and prepare the right quantities.',
+                title: t('features.know_before', locale),
+                desc: t('features.know_before_desc', locale),
                 icon: '📋'
               },
               {
-                title: 'Automatic Cutoff Times',
-                desc: 'Set when orders close before each market. Customers order on time, you get predictable prep schedules.',
+                title: t('features.auto_cutoff', locale),
+                desc: t('features.auto_cutoff_desc', locale),
                 icon: '⏰'
               },
               {
-                title: 'Get Paid Reliably',
-                desc: 'Secure payment processing through Stripe. Funds deposited directly to your bank account.',
+                title: t('features.get_paid', locale),
+                desc: t('features.get_paid_desc', locale),
                 icon: '💰'
               },
               {
-                title: 'Build Customer Loyalty',
-                desc: 'Your profile showcases your story and products. Customers can find and follow you across multiple markets.',
+                title: t('features.build_loyalty', locale),
+                desc: t('features.build_loyalty_desc', locale),
                 icon: '⭐'
               },
               {
-                title: 'Multiple Pickup Options',
+                title: t('features.pickup_options', locale),
                 desc: content.features_page.vendor_pickup_desc,
                 icon: '📍'
               },
               {
-                title: 'Real-Time Order Management',
-                desc: 'View orders, confirm them with one tap, and mark as ready for pickup. Everything in one simple dashboard.',
+                title: t('features.realtime_orders', locale),
+                desc: t('features.realtime_orders_desc', locale),
                 icon: '✅'
               },
               {
-                title: 'Analytics Dashboard',
+                title: t('features.analytics', locale),
                 desc: content.features_page.analytics_feature_desc,
                 icon: '📊'
               },
               {
-                title: 'Flexible Plans & Tiers',
+                title: t('features.plans_tiers', locale),
                 desc: content.features_page.tiers_feature_desc,
                 icon: '🏷️'
               },
               {
-                title: 'Free Trial Period',
+                title: t('features.free_trial', locale),
                 desc: content.features_page.trial_feature_desc,
                 icon: '🎁'
               },
               {
-                title: 'Events & Special Markets',
-                desc: `List your ${term(vertical, 'products').toLowerCase()} at special events, pop-ups, and seasonal ${term(vertical, 'markets').toLowerCase()}.`,
+                title: t('features.events', locale),
+                desc: t('features.events_desc', locale, { products: term(vertical, 'products', locale).toLowerCase(), markets: term(vertical, 'markets', locale).toLowerCase() }),
                 icon: '🎪'
               },
               {
-                title: 'Instant Notifications',
-                desc: 'Get push notifications for new orders, confirmations, and important updates. Never miss an order.',
+                title: t('features.notifications', locale),
+                desc: t('features.notifications_desc', locale),
                 icon: '🔔'
               },
               {
-                title: 'Quality Standards',
-                desc: 'Our platform quality checks help maintain high standards and build trust with your customers.',
+                title: t('features.quality', locale),
+                desc: t('features.quality_desc', locale),
                 icon: '✅'
               },
               ...(vertical !== 'food_trucks' ? [{
-                title: 'Perfect for Cottage Food Sellers',
-                desc: 'Sell homemade baked goods, jams, preserves, and cottage food products at local markets. Built-in tools for home-based food producers operating under cottage food law.',
+                title: t('features.cottage_food', locale),
+                desc: t('features.cottage_food_desc', locale),
                 icon: '🏠'
               }] : [])
             ].map((item, i) => (
@@ -458,7 +461,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 fontSize: typography.sizes.lg
               }}
             >
-              {term(vertical, 'vendor_signup_cta')}
+              {term(vertical, 'vendor_signup_cta', locale)}
             </Link>
           </div>
         </div>
@@ -477,7 +480,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
             fontWeight: typography.weights.bold,
             marginBottom: spacing.xl
           }}>
-            {isFT ? 'Ready to Skip the Line?' : 'Ready to Shop Local?'}
+            {isFT ? t('features.ready_ft', locale) : t('features.ready_fm', locale)}
           </h2>
 
           <div style={{
@@ -501,7 +504,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 marginBottom: spacing.sm
               }}>2</div>
               <p style={{ fontSize: typography.sizes.lg, margin: 0 }}>
-                Place your order online
+                {t('features.place_order', locale)}
               </p>
             </div>
             <div>
@@ -510,7 +513,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 marginBottom: spacing.sm
               }}>3</div>
               <p style={{ fontSize: typography.sizes.lg, margin: 0 }}>
-                Pick up at your convenience
+                {t('features.pickup_convenience', locale)}
               </p>
             </div>
           </div>
@@ -528,7 +531,7 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 fontSize: typography.sizes.lg
               }}
             >
-              Shop Now
+              {t('features.shop_now', locale)}
             </Link>
             <Link
               href={`/${vertical}/vendor-signup`}
@@ -543,14 +546,14 @@ export default async function FeaturesPage({ params }: FeaturesPageProps) {
                 fontSize: typography.sizes.lg
               }}
             >
-              Start Selling
+              {t('features.start_selling', locale)}
             </Link>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <Footer vertical={vertical} />
+      <Footer vertical={vertical} locale={locale} />
     </div>
   )
 }
