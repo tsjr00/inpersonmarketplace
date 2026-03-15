@@ -5,11 +5,14 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import { defaultBranding } from '@/lib/branding/defaults'
 import { organizationJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 
 export default function AboutPage() {
   const { vertical } = useParams<{ vertical: string }>()
+  const locale = getClientLocale()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
   const baseUrl = `https://${branding.domain}`
 
@@ -53,34 +56,32 @@ export default function AboutPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
       />
       <h1 style={{ fontSize: typography.sizes['3xl'], fontWeight: typography.weights.bold, marginBottom: spacing.lg, color: colors.textPrimary }}>
-        About {branding.brand_name}
+        {t('about.title', locale, { brand: branding.brand_name })}
       </h1>
 
       <div style={{ color: colors.textSecondary, fontSize: typography.sizes.base, lineHeight: typography.leading.relaxed }}>
         {/* Mission Section */}
         <section style={{ marginBottom: spacing.xl }}>
           <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, marginBottom: spacing.md, color: colors.textPrimary }}>
-            Our Mission
+            {t('about.our_mission', locale)}
           </h2>
           <p style={{ marginBottom: spacing.md }}>
-            We believe in the power of local communities and the importance of connecting people
-            with the {term(vertical, 'vendor_people')} that serve them right in their own neighborhoods.
-            {branding.brand_name} is a farm to table marketplace and local food platform that bridges
-            the gap between {term(vertical, 'vendors').toLowerCase()} and their community.
+            {t('about.mission_p1', locale, {
+              vendor_people: term(vertical, 'vendor_people', locale),
+              brand: branding.brand_name,
+              vendors: term(vertical, 'vendors', locale).toLowerCase(),
+            })}
           </p>
           <p style={{ marginBottom: spacing.md }}>
-            {term(vertical, 'display_name')} was created to make it easier for customers to discover, pre-order
-            online, and pick up from their favorite local {term(vertical, 'vendors').toLowerCase()} — while
-            helping {term(vertical, 'vendors').toLowerCase()} manage their business more efficiently
-            and reach more customers. Whether you&apos;re looking for {term(vertical, 'product_examples')},
-            our platform connects you with verified local {term(vertical, 'vendors').toLowerCase()} near you.
+            {t('about.mission_p2', locale, {
+              brand: term(vertical, 'display_name', locale),
+              vendors: term(vertical, 'vendors', locale).toLowerCase(),
+              product_examples: term(vertical, 'product_examples', locale),
+            })}
           </p>
           {!isFT && (
             <p style={{ marginBottom: spacing.md }}>
-              We&apos;re especially proud to support cottage food producers, home bakers, and small-batch
-              artisans selling under cottage food law. Our platform gives home-based food sellers the same
-              professional online ordering tools that larger operations use — making it easy to list products,
-              accept pre-orders, and connect with local buyers.
+              {t('about.mission_p3_fm', locale)}
             </p>
           )}
         </section>
@@ -88,51 +89,56 @@ export default function AboutPage() {
         {/* How It Works Section */}
         <section style={{ marginBottom: spacing.xl }}>
           <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, marginBottom: spacing.md, color: colors.textPrimary }}>
-            What We Do
+            {t('about.what_we_do', locale)}
           </h2>
           <p style={{ marginBottom: spacing.md }}>
-            We connect local {term(vertical, 'vendors').toLowerCase()} with customers at {term(vertical, 'markets').toLowerCase()},
-            events, and community venues. Our online ordering platform makes it easy to:
+            {t('about.what_we_do_intro', locale, {
+              vendors: term(vertical, 'vendors', locale).toLowerCase(),
+              markets: term(vertical, 'markets', locale).toLowerCase(),
+            })}
           </p>
           <ul style={{ marginBottom: spacing.md, paddingLeft: spacing.lg }}>
-            <li style={{ marginBottom: spacing.xs }}>Find {term(vertical, 'vendors').toLowerCase()} and {term(vertical, 'markets').toLowerCase()} near you</li>
-            <li style={{ marginBottom: spacing.xs }}>Pre-order {term(vertical, 'products').toLowerCase()} online with guaranteed availability</li>
-            <li style={{ marginBottom: spacing.xs }}>Pick up your order at the {term(vertical, 'market').toLowerCase()} — skip the line on arrival</li>
-            <li style={{ marginBottom: spacing.xs }}>Subscribe to {term(vertical, 'market_boxes')} for curated weekly bundles</li>
-            <li style={{ marginBottom: spacing.xs }}>Support small businesses and local {term(vertical, 'vendors').toLowerCase()} directly</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_find', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase(), markets: term(vertical, 'markets', locale).toLowerCase() })}</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_preorder', locale, { products: term(vertical, 'products', locale).toLowerCase() })}</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_pickup', locale, { market: term(vertical, 'market', locale).toLowerCase() })}</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_subscribe', locale, { market_boxes: term(vertical, 'market_boxes', locale) })}</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_support', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}</li>
           </ul>
         </section>
 
         {/* For Vendors Section */}
         <section id="vendor-faq" style={{ marginBottom: spacing.xl }}>
           <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, marginBottom: spacing.md, color: colors.textPrimary }}>
-            For {term(vertical, 'vendors')}
+            {t('footer.for_vendors', locale)}
           </h2>
           <p style={{ marginBottom: spacing.md }}>
-            We help {term(vertical, 'vendors').toLowerCase()} streamline their {term(vertical, 'market_day').toLowerCase()} operations:
+            {t('about.for_vendors_intro', locale, {
+              vendors: term(vertical, 'vendors', locale).toLowerCase(),
+              market_day: term(vertical, 'market_day', locale).toLowerCase(),
+            })}
           </p>
           <ul style={{ marginBottom: spacing.md, paddingLeft: spacing.lg }}>
-            <li style={{ marginBottom: spacing.xs }}>Pre-sell {term(vertical, 'products').toLowerCase()} to know exactly what to bring</li>
-            <li style={{ marginBottom: spacing.xs }}>Accept credit cards with fees already built in</li>
-            <li style={{ marginBottom: spacing.xs }}>Build a loyal following of repeat customers</li>
-            <li style={{ marginBottom: spacing.xs }}>Get discovered by new shoppers in your area</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_presell', locale, { products: term(vertical, 'products', locale).toLowerCase() })}</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_accept_cards', locale)}</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_build_following', locale)}</li>
+            <li style={{ marginBottom: spacing.xs }}>{t('about.li_get_discovered', locale)}</li>
           </ul>
           <p style={{ marginBottom: spacing.md }}>
-            Interested in becoming a {term(vertical, 'vendor').toLowerCase()}?{' '}
+            {t('about.vendor_cta', locale, { vendor: term(vertical, 'vendor', locale).toLowerCase() })}{' '}
             <Link href={`/${vertical}/vendor-signup`} style={{ color: colors.primary }}>
-              Sign up here
+              {t('about.sign_up_here', locale)}
             </Link>
-            {' '}to get started.
+            {' '}{t('about.to_get_started', locale)}
           </p>
         </section>
 
         {/* Contact Section */}
         <section id="contact" style={{ marginBottom: spacing.xl, paddingTop: spacing.lg }}>
           <h2 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, marginBottom: spacing.md, color: colors.textPrimary }}>
-            Contact Us
+            {t('about.contact_us', locale)}
           </h2>
           <p style={{ marginBottom: spacing.lg }}>
-            Have questions, feedback, or need support? We&apos;d love to hear from you.
+            {t('about.contact_intro', locale)}
           </p>
 
           <div style={{
@@ -143,19 +149,19 @@ export default function AboutPage() {
           }}>
             <div style={{ marginBottom: spacing.md }}>
               <p style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium, color: colors.textPrimary, marginBottom: spacing.xs }}>
-                Submit a Support Request
+                {t('about.submit_support', locale)}
               </p>
               <Link
                 href={`/${vertical}/support`}
                 style={{ fontSize: typography.sizes.lg, color: colors.primary, textDecoration: 'none' }}
               >
-                Contact Support
+                {t('about.contact_support', locale)}
               </Link>
             </div>
 
             <div>
               <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                We typically respond within 24-48 hours.
+                {t('about.response_time', locale)}
               </p>
             </div>
           </div>

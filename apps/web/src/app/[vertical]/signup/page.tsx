@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface SignupPageProps {
   params: Promise<{ vertical: string }>
@@ -18,6 +20,7 @@ interface VerticalConfig {
 
 export default function SignupPage({ params }: SignupPageProps) {
   const { vertical } = use(params)
+  const locale = getClientLocale()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -57,18 +60,18 @@ export default function SignupPage({ params }: SignupPageProps) {
     setLoading(true)
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('signup.passwords_mismatch', locale))
       setLoading(false)
       return
     }
 
     if (password.length < 9) {
-      setError('Password must be at least 9 characters')
+      setError(t('signup.password_length', locale))
       setLoading(false)
       return
     }
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-      setError('Password must include uppercase, lowercase, number, and special character')
+      setError(t('signup.password_complexity', locale))
       setLoading(false)
       return
     }
@@ -110,7 +113,7 @@ export default function SignupPage({ params }: SignupPageProps) {
         backgroundColor: colors.surfaceBase,
         color: colors.textPrimary
       }}>
-        Loading...
+        {t('signup.loading', locale)}
       </div>
     )
   }
@@ -133,10 +136,10 @@ export default function SignupPage({ params }: SignupPageProps) {
           borderRadius: radius.md
         }}>
           <h2 style={{ color: colors.accent, marginBottom: spacing.xs, fontSize: typography.sizes.xl }}>
-            Account Created!
+            {t('signup.account_created', locale)}
           </h2>
           <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>
-            Welcome to {branding.brand_name}. Redirecting to your dashboard...
+            {t('signup.welcome', locale, { brand: branding.brand_name })}
           </p>
         </div>
       </div>
@@ -160,7 +163,7 @@ export default function SignupPage({ params }: SignupPageProps) {
         <Link href={`/${vertical}`} style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primary, textDecoration: 'none' }}>
           {branding.brand_name}
         </Link>
-        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
+        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>{t('nav.home', locale)}</Link>
       </nav>
 
       {/* Logo/Header */}
@@ -195,7 +198,7 @@ export default function SignupPage({ params }: SignupPageProps) {
           textAlign: 'center',
           fontSize: typography.sizes.xl
         }}>
-          Create Your Account
+          {t('signup.create_account', locale)}
         </h2>
 
         {error && (
@@ -214,7 +217,7 @@ export default function SignupPage({ params }: SignupPageProps) {
         <form onSubmit={handleSignup}>
           <div style={{ marginBottom: spacing.sm }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              Full Name
+              {t('signup.full_name', locale)}
             </label>
             <input
               type="text"
@@ -235,7 +238,7 @@ export default function SignupPage({ params }: SignupPageProps) {
 
           <div style={{ marginBottom: spacing.sm }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              Email
+              {t('signup.email', locale)}
             </label>
             <input
               type="email"
@@ -256,7 +259,7 @@ export default function SignupPage({ params }: SignupPageProps) {
 
           <div style={{ marginBottom: spacing.sm }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              Password (min 9 chars: upper, lower, number, special)
+              {t('signup.password_label', locale)}
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -291,7 +294,7 @@ export default function SignupPage({ params }: SignupPageProps) {
                   color: colors.textMuted,
                   fontSize: typography.sizes.lg
                 }}
-                title={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? t('signup.hide_password', locale) : t('signup.show_password', locale)}
               >
                 {showPassword ? '🙈' : '👁'}
               </button>
@@ -300,7 +303,7 @@ export default function SignupPage({ params }: SignupPageProps) {
 
           <div style={{ marginBottom: spacing.md }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              Confirm Password
+              {t('signup.confirm_password', locale)}
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -334,7 +337,7 @@ export default function SignupPage({ params }: SignupPageProps) {
                   color: colors.textMuted,
                   fontSize: typography.sizes.lg
                 }}
-                title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                title={showConfirmPassword ? t('signup.hide_password', locale) : t('signup.show_password', locale)}
               >
                 {showConfirmPassword ? '🙈' : '👁'}
               </button>
@@ -357,14 +360,14 @@ export default function SignupPage({ params }: SignupPageProps) {
               boxShadow: loading ? 'none' : shadows.primary
             }}
           >
-            {loading ? 'Creating account...' : 'Sign Up'}
+            {loading ? t('signup.creating', locale) : t('signup.submit', locale)}
           </button>
         </form>
 
         <p style={{ marginTop: spacing.md, textAlign: 'center', color: colors.textMuted, fontSize: typography.sizes.base }}>
-          Already have an account?{' '}
+          {t('signup.already_have_account', locale)}{' '}
           <Link href={`/${vertical}/login`} style={{ color: colors.primary, fontWeight: typography.weights.semibold }}>
-            Login
+            {t('header.login', locale)}
           </Link>
         </p>
       </div>

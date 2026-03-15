@@ -5,12 +5,15 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import { defaultBranding } from '@/lib/branding/defaults'
 import { howToJsonLd, breadcrumbJsonLd } from '@/lib/marketing/json-ld'
 
 export default function HowItWorksPage() {
   const params = useParams()
   const vertical = params.vertical as string
+  const locale = getClientLocale()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
   const isFT = vertical === 'food_trucks'
   const baseUrl = `https://${branding.domain}`
@@ -72,7 +75,7 @@ export default function HowItWorksPage() {
           fontWeight: typography.weights.bold,
           margin: `0 0 ${spacing.xs} 0`,
         }}>
-          {isFT ? 'How to Order from Food Trucks Online' : 'How to Order from Farmers Markets Online'}
+          {isFT ? t('hiw.hero_title_ft', locale) : t('hiw.hero_title_fm', locale)}
         </h1>
         <p style={{
           fontSize: typography.sizes.lg,
@@ -83,8 +86,8 @@ export default function HowItWorksPage() {
           marginRight: 'auto',
         }}>
           {isFT
-            ? 'Pre-order your favorites, skip the line, and pick up hot and ready'
-            : 'Pre-order local produce and artisan goods, then pick up at your neighborhood market'}
+            ? t('hiw.hero_subtitle_ft', locale)
+            : t('hiw.hero_subtitle_fm', locale)}
         </p>
       </div>
 
@@ -98,136 +101,136 @@ export default function HowItWorksPage() {
           flexWrap: 'wrap',
           justifyContent: 'center',
         }}>
-          <a href="#buyers" style={linkChipStyle}>For Buyers</a>
-          <a href="#vendors" style={linkChipStyle}>For Vendors</a>
-          <a href="#pickup" style={linkChipStyle}>Pickup Guide</a>
-          <a href="#cancellations" style={linkChipStyle}>Cancellations</a>
+          <a href="#buyers" style={linkChipStyle}>{t('hiw.chip_buyers', locale)}</a>
+          <a href="#vendors" style={linkChipStyle}>{t('hiw.chip_vendors', locale)}</a>
+          <a href="#pickup" style={linkChipStyle}>{t('hiw.chip_pickup', locale)}</a>
+          <a href="#cancellations" style={linkChipStyle}>{t('hiw.chip_cancellations', locale)}</a>
         </div>
 
         {/* === FOR BUYERS === */}
         <section id="buyers" style={{ marginBottom: spacing.xl }}>
-          <SectionHeader title="For Buyers" subtitle="Ordering & Pickup Process" accent={colors.primary} />
+          <SectionHeader title={t('hiw.buyers_title', locale)} subtitle={t('hiw.buyers_subtitle', locale)} accent={colors.primary} />
 
           <StepList steps={[
-            `Browse ${term(vertical, 'products').toLowerCase()} from local ${term(vertical, 'vendors').toLowerCase()}`,
-            'Add items to your cart',
-            'Complete checkout with secure payment',
-            'Vendor confirms your order and prepares items',
-            'You receive notification when items are ready for pickup',
-            'Visit the market on pickup day',
-            `Find the ${term(vertical, 'vendor').toLowerCase()} and present your order details`,
-            `${term(vertical, 'vendor')} verifies you and your order number`,
-            'Vendor hands you your items',
-            `Both you and ${term(vertical, 'vendor').toLowerCase()} confirm the handoff`,
+            t('hiw.b_step1', locale, { products: term(vertical, 'products', locale).toLowerCase(), vendors: term(vertical, 'vendors', locale).toLowerCase() }),
+            t('hiw.b_step2', locale),
+            t('hiw.b_step3', locale),
+            t('hiw.b_step4', locale),
+            t('hiw.b_step5', locale),
+            t('hiw.b_step6', locale),
+            t('hiw.b_step7', locale, { vendor: term(vertical, 'vendor', locale).toLowerCase() }),
+            t('hiw.b_step8', locale, { vendor: term(vertical, 'vendor', locale) }),
+            t('hiw.b_step9', locale),
+            t('hiw.b_step10', locale, { vendor: term(vertical, 'vendor', locale).toLowerCase() }),
           ]} />
 
-          <InfoCard title="The Pickup Confirmation Step" variant="green">
-            <p>After the vendor hands you your items:</p>
+          <InfoCard title={t('hiw.pickup_confirm_title', locale)} variant="green">
+            <p>{t('hiw.pickup_confirm_intro', locale)}</p>
             <ol style={{ paddingLeft: '1.2rem', margin: `${spacing.xs} 0` }}>
-              <li>Tap <strong>&quot;Acknowledge Receipt&quot;</strong> in your app</li>
-              <li>Vendor confirms on their end within 30 seconds</li>
-              <li>Both see a green confirmation screen</li>
+              <li>{t('hiw.pickup_confirm_li1', locale)}</li>
+              <li>{t('hiw.pickup_confirm_li2', locale)}</li>
+              <li>{t('hiw.pickup_confirm_li3', locale)}</li>
             </ol>
             <p style={{ fontWeight: typography.weights.semibold, margin: `${spacing.xs} 0 0 0` }}>
-              This protects both you and the vendor by ensuring both parties agree the handoff happened.
+              {t('hiw.pickup_confirm_note', locale)}
             </p>
           </InfoCard>
 
-          <InfoCard title="What If Something Goes Wrong?" variant="amber">
+          <InfoCard title={t('hiw.something_wrong', locale)} variant="amber">
             <ul style={{ paddingLeft: '1.2rem', margin: `${spacing.xs} 0` }}>
-              <li><strong>Items missing?</strong> Tap &quot;I Did Not Receive This&quot; instead of confirming</li>
-              <li><strong>Wrong items?</strong> Work it out directly with the vendor at the booth</li>
-              <li><strong>Vendor not at market?</strong> Check the market schedule and vendor contact info on your order</li>
+              <li><strong>{t('hiw.wrong_missing', locale)}</strong> {t('hiw.wrong_missing_action', locale)}</li>
+              <li><strong>{t('hiw.wrong_items', locale)}</strong> {t('hiw.wrong_items_action', locale)}</li>
+              <li><strong>{t('hiw.wrong_no_vendor', locale)}</strong> {t('hiw.wrong_no_vendor_action', locale)}</li>
             </ul>
           </InfoCard>
         </section>
 
         {/* === FOR VENDORS === */}
         <section id="vendors" style={{ marginBottom: spacing.xl }}>
-          <SectionHeader title="For Vendors" subtitle="Order Flow & Pickup Process" accent={colors.primaryDark || '#689F38'} />
+          <SectionHeader title={t('hiw.vendors_title', locale)} subtitle={t('hiw.vendors_subtitle', locale)} accent={colors.primaryDark || '#689F38'} />
 
           <StepList steps={[
-            'Receive order notification',
-            'Confirm you can fulfill the order',
-            `Prepare items before ${term(vertical, 'market_day').toLowerCase()}`,
-            'Mark items as "Ready for Pickup" when prepared',
-            'Buyer receives notification that items are ready',
-            `Buyer arrives at your location on ${term(vertical, 'market_day').toLowerCase()}`,
-            'Verify the buyer and the order number',
-            'Hand over all items',
-            'When buyer acknowledges receipt, tap "Yes, I Handed It Off" within 30 seconds',
-            'See green confirmation screen',
+            t('hiw.v_step1', locale),
+            t('hiw.v_step2', locale),
+            t('hiw.v_step3', locale, { market_day: term(vertical, 'market_day', locale).toLowerCase() }),
+            t('hiw.v_step4', locale),
+            t('hiw.v_step5', locale),
+            t('hiw.v_step6', locale, { market_day: term(vertical, 'market_day', locale).toLowerCase() }),
+            t('hiw.v_step7', locale),
+            t('hiw.v_step8', locale),
+            t('hiw.v_step9', locale),
+            t('hiw.v_step10', locale),
           ]} />
 
-          <InfoCard title="Why Confirmation Matters" variant="green">
+          <InfoCard title={t('hiw.why_confirm', locale)} variant="green">
             <ul style={{ paddingLeft: '1.2rem', margin: `${spacing.xs} 0` }}>
-              <li>Payment transfer is not initiated until <strong>both parties confirm</strong></li>
-              <li>If you don&apos;t confirm within 30 seconds, you&apos;ll see an urgent prompt</li>
-              <li>After 8 hours, other actions are blocked until you resolve the pending confirmation</li>
-              <li>This protects both you and your customers</li>
+              <li>{t('hiw.why_confirm_li1', locale)}</li>
+              <li>{t('hiw.why_confirm_li2', locale)}</li>
+              <li>{t('hiw.why_confirm_li3', locale)}</li>
+              <li>{t('hiw.why_confirm_li4', locale)}</li>
             </ul>
           </InfoCard>
 
-          <InfoCard title="Best Practices" variant="blue">
+          <InfoCard title={t('hiw.best_practices', locale)} variant="blue">
             <ul style={{ paddingLeft: '1.2rem', margin: `${spacing.xs} 0` }}>
-              <li>{`Stay at your location during ${term(vertical, 'market_hours').toLowerCase()}`}</li>
-              <li>Have your phone charged and app open</li>
-              <li>Confirm handoffs immediately &mdash; don&apos;t wait</li>
-              <li>Verify the buyer and the order number before handing over items</li>
-              <li>If there&apos;s an issue, tap &quot;Report Issue&quot; instead of confirming</li>
+              <li>{t('hiw.bp_li1', locale, { market_hours: term(vertical, 'market_hours', locale).toLowerCase() })}</li>
+              <li>{t('hiw.bp_li2', locale)}</li>
+              <li>{t('hiw.bp_li3', locale)}</li>
+              <li>{t('hiw.bp_li4', locale)}</li>
+              <li>{t('hiw.bp_li5', locale)}</li>
             </ul>
           </InfoCard>
 
-          <InfoCard title="Payment Timing" variant="default">
+          <InfoCard title={t('hiw.payment_timing', locale)} variant="default">
             <ul style={{ paddingLeft: '1.2rem', margin: `${spacing.xs} 0` }}>
-              <li>Payment transfers are initiated after both parties confirm</li>
-              <li>Track your payouts and financial details in your{' '}
+              <li>{t('hiw.pt_li1', locale)}</li>
+              <li>{t('hiw.pt_li2', locale)}{' '}
                 <a
                   href="https://dashboard.stripe.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: colors.primary, fontWeight: typography.weights.semibold }}
                 >
-                  Stripe Dashboard
+                  {t('hiw.pt_li2_link', locale)}
                 </a>
               </li>
-              <li>You can track order statuses on your vendor dashboard</li>
+              <li>{t('hiw.pt_li3', locale)}</li>
             </ul>
           </InfoCard>
         </section>
 
         {/* === PICKUP GUIDE === */}
         <section id="pickup" style={{ marginBottom: spacing.xl }}>
-          <SectionHeader title="Pickup Guide" subtitle="Step-by-step for both parties" accent={colors.accent} />
+          <SectionHeader title={t('hiw.pickup_guide_title', locale)} subtitle={t('hiw.pickup_guide_subtitle', locale)} accent={colors.accent} />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: spacing.md }}>
             <div style={cardStyle}>
               <h3 style={{ margin: `0 0 ${spacing.sm} 0`, color: colors.primary, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>
-                Buyers
+                {t('hiw.buyers_col', locale)}
               </h3>
               <PickupStepList color={colors.primary} steps={[
-                'Open your order details',
-                'Present your order information to the vendor',
-                'Verify you received all items',
-                'Tap "Acknowledge Receipt"',
-                'Wait for vendor to confirm (30 seconds)',
-                'Green screen = you\'re done!',
-                'Don\'t leave until you see the green screen',
+                t('hiw.bp1', locale),
+                t('hiw.bp2', locale),
+                t('hiw.bp3', locale),
+                t('hiw.bp4', locale),
+                t('hiw.bp5', locale),
+                t('hiw.bp6', locale),
+                t('hiw.bp7', locale),
               ]} />
             </div>
 
             <div style={cardStyle}>
               <h3 style={{ margin: `0 0 ${spacing.sm} 0`, color: colors.primaryDark || '#689F38', fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>
-                Vendors
+                {t('hiw.vendors_col', locale)}
               </h3>
               <PickupStepList color={colors.primaryDark || '#689F38'} steps={[
-                'Check your dashboard for ready orders',
-                'When buyer arrives, verify the buyer and the order number',
-                'Hand over all items',
-                'Wait for buyer to confirm',
-                'When notified, tap "Yes, I Handed It Off"',
-                'Green screen = payment transfer is initiated',
-                'Never let buyer leave without both confirming',
+                t('hiw.vp1', locale),
+                t('hiw.vp2', locale),
+                t('hiw.vp3', locale),
+                t('hiw.vp4', locale),
+                t('hiw.vp5', locale),
+                t('hiw.vp6', locale),
+                t('hiw.vp7', locale),
               ]} />
             </div>
           </div>
@@ -235,24 +238,24 @@ export default function HowItWorksPage() {
 
         {/* === CANCELLATIONS === */}
         <section id="cancellations" style={{ marginBottom: spacing.xl }}>
-          <SectionHeader title="Cancellation Policy" subtitle="What happens when plans change" accent={colors.accent} />
+          <SectionHeader title={t('hiw.cancel_title', locale)} subtitle={t('hiw.cancel_subtitle', locale)} accent={colors.accent} />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: spacing.md }}>
-            <InfoCard title="Before Vendor Confirms" variant="green">
+            <InfoCard title={t('hiw.before_confirm', locale)} variant="green">
               <p style={{ margin: `${spacing.xs} 0`, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>
-                Free Cancellation
+                {t('hiw.free_cancel', locale)}
               </p>
               <p style={{ margin: 0 }}>
-                Cancel before the vendor confirms your order for a full refund. The first hour after placing your order is always penalty-free, regardless of vendor status.
+                {t('hiw.free_cancel_desc', locale)}
               </p>
             </InfoCard>
 
-            <InfoCard title="After Vendor Confirms" variant="amber">
+            <InfoCard title={t('hiw.after_confirm', locale)} variant="amber">
               <p style={{ margin: `${spacing.xs} 0`, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>
-                25% Cancellation Fee
+                {t('hiw.fee_cancel', locale)}
               </p>
               <p style={{ margin: 0 }}>
-                Once the vendor has confirmed your order and the 1-hour grace window has passed, a 25% fee applies. This compensates the vendor for prep time and reserved items. You receive a 75% refund.
+                {t('hiw.fee_cancel_desc', locale)}
               </p>
             </InfoCard>
           </div>
@@ -263,7 +266,7 @@ export default function HowItWorksPage() {
             color: colors.textMuted,
             textAlign: 'center',
           }}>
-            Cancel as early as possible if your plans change. Vendors prepare items specifically for your order.
+            {t('hiw.cancel_note', locale)}
           </p>
         </section>
 
@@ -274,7 +277,7 @@ export default function HowItWorksPage() {
           borderTop: `1px solid ${colors.border}`,
         }}>
           <p style={{ color: colors.textSecondary, marginBottom: spacing.sm }}>
-            Ready to get started?
+            {t('hiw.ready_to_start', locale)}
           </p>
           <Link
             href={`/${vertical}/browse`}
@@ -290,7 +293,7 @@ export default function HowItWorksPage() {
               border: `2px solid ${colors.primary}`,
             }}
           >
-            {term(vertical, 'browse_products_cta')}
+            {term(vertical, 'browse_products_cta', locale)}
           </Link>
         </div>
       </div>
