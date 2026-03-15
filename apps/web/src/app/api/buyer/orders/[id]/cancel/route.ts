@@ -138,9 +138,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       vertical: order.vertical_id,
     })
 
-    // Update the order item as cancelled
+    // H3 FIX: Conditional UPDATE — only succeeds if cancelled_at IS NULL.
+    // Prevents double-cancel race (buyer+vendor, double-click, cron+manual).
+    // PostgreSQL's implicit row lock ensures only one concurrent UPDATE matches.
     crumb.supabase('update', 'order_items')
-    const { error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from('order_items')
       .update({
         status: 'cancelled',
@@ -151,9 +153,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
         cancellation_fee_cents: cancellationFeeCents
       })
       .eq('id', orderItemId)
+      .is('cancelled_at', null)
+      .select('id')
 
     if (updateError) {
       throw traced.fromSupabase(updateError, { table: 'order_items', operation: 'update' })
+    }
+
+    // If no rows matched, item was already cancelled by a concurrent request
+    if (!updatedRows || updatedRows.length === 0) {
+      return NextResponse.json(
+        { error: 'This item has already been cancelled' },
+        { status: 409 }
+      )
     }
 
     // Restore inventory for cancelled item

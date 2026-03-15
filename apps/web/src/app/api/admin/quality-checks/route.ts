@@ -114,14 +114,21 @@ export async function POST(request: NextRequest) {
     const rateCheck = await checkRateLimit(`admin-quality-run:${ip}`, rateLimits.admin)
     if (!rateCheck.success) return rateLimitResponse(rateCheck)
 
+    // M3 FIX: Read optional vertical filter from query params
+    const { searchParams } = new URL(request.url)
+    const vertical = searchParams.get('vertical') || undefined
+
     // H-7: Quality scan triggers are platform-admin or any admin — scope is on the read side
-    const scope = await verifyAdminScope()
+    const scope = await verifyAdminScope(vertical)
     if (!scope) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     if (!scope.authorized && !scope.isPlatformAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
+
+    // Vertical admin: force filter to their vertical only
+    const effectiveVertical = scope.effectiveVerticalId || vertical
 
     // Use service role for writes
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -153,7 +160,7 @@ export async function POST(request: NextRequest) {
         .update({ status: 'superseded' })
         .eq('status', 'active')
 
-      // Run all 5 checks
+      // Run all 5 checks (M3 FIX: pass vertical filter)
       const [
         scheduleConflicts,
         lowStockEvents,
@@ -161,11 +168,11 @@ export async function POST(request: NextRequest) {
         ghostListings,
         inventoryVelocity,
       ] = await Promise.all([
-        checkScheduleConflicts(serviceSupabase),
-        checkLowStockEvents(serviceSupabase),
-        checkPriceAnomalies(serviceSupabase),
-        checkGhostListings(serviceSupabase),
-        checkInventoryVelocity(serviceSupabase),
+        checkScheduleConflicts(serviceSupabase, effectiveVertical),
+        checkLowStockEvents(serviceSupabase, effectiveVertical),
+        checkPriceAnomalies(serviceSupabase, effectiveVertical),
+        checkGhostListings(serviceSupabase, effectiveVertical),
+        checkInventoryVelocity(serviceSupabase, effectiveVertical),
       ])
 
       const allFindings: QualityFinding[] = [

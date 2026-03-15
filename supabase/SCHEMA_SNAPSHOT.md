@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-03-14 | 20260314_083_coi_soft_gate | **Function rewrite:** `can_vendor_publish()` — removed COI status check (Gate 3). COI is now a **soft gate** for regular publishing (VJ-R1) — vendors can publish listings without approved COI. COI remains a **hard gate** for event-vendor approval only (enforced in event-approval API route, not DB function). Previously required `coi_status = 'approved'` which blocked all vendors without COI from publishing. No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
 | 2026-03-14 | 20260314_082_sales_tax_help_article | **Data insert:** 1 new global `knowledge_articles` row (vertical_id=NULL) under "For Vendors" category: "Sales Tax: What Vendors Need to Know". TX-specific tax guidance for vendors — taxable vs exempt items, responsibilities, platform tracking features, Comptroller links. sort_order 20. No schema changes — content only. Applied to Dev, Staging, & Prod. |
 | 2026-03-14 | 20260314_081_add_listing_is_taxable | **New column:** `listings.is_taxable` (BOOLEAN NOT NULL DEFAULT false). Vendor-set flag indicating item is subject to sales tax. Used for tax reporting/tracking only — platform does not collect/remit tax. Applied to Dev, Staging, & Prod. |
 | 2026-03-13 | 20260312_080_catering_48hr_lead_time | **Function rewrite:** `get_available_pickup_dates()` — catering items (`advance_order_days > 0`) now require 2-calendar-day minimum lead time (48hr rule). Regular FT items (`advance_order_days = 0`) unchanged (today only). Catering date window: `[local_today + 2, local_today + advance_order_days]`. No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
@@ -2068,7 +2069,7 @@
 | can_delete_schedule | p_schedule_id uuid | TABLE(can_delete boolean, blocking_order_count integer, b... | DEFINER |
 | can_vendor_add_fixed_market | p_vendor_profile_id uuid, p_vertical_id text | boolean | DEFINER |
 | can_vendor_add_listing_to_market | p_vendor_profile_id uuid, p_market_id uuid, p_listing_id uuid DEFAULT NULL::uuid | boolean | DEFINER |
-| can_vendor_publish | p_vendor_profile_id uuid, p_category text | boolean | DEFINER |
+| can_vendor_publish | p_vendor_profile_id uuid, p_category text | boolean | DEFINER | Checks vendor approval status + category authorization. Returns true if vendor is approved AND category is authorized (or no docs required). COI check REMOVED (migration 083) — COI is a soft gate for publishing, hard gate for events only. Called by `enforce_listing_tier_limit()` trigger. |
 | check_subscription_completion | - | trigger | INVOKER |
 | check_vendor_schedule_conflict | - | trigger | DEFINER | BEFORE INSERT/UPDATE on vendor_market_schedules. Prevents single-truck vendors from having overlapping active schedules at different markets on same day. Skips if is_active=false or multiple_trucks=true. Resolves effective times (vendor overrides or market defaults). RAISE EXCEPTION on conflict. |
 | cleanup_cart_items_invalid_schedules | - | TABLE(cart_item_id uuid, user_id uuid, listing_title text... | DEFINER |

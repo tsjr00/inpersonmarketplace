@@ -209,6 +209,7 @@ export async function GET(request: NextRequest) {
             termWeeks: number
             startDate?: string
             priceCents: number
+            basePriceCents?: number // M9: included from unified checkout metadata
           }>
 
           for (const mbItem of marketBoxItems) {
@@ -344,6 +345,69 @@ export async function GET(request: NextRequest) {
       }
     } else {
       crumb.logic('Vendor notifications already sent for this order')
+    }
+
+    // M8: Buyer order placement notification — OUTSIDE payment idempotency guard
+    // Own idempotency: check if notification already exists for this order
+    const { count: existingBuyerNotifCount } = await serviceClient
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('type', 'order_placed')
+      .contains('data', { orderNumber: order.order_number })
+
+    if ((existingBuyerNotifCount || 0) === 0) {
+      // Build summary from order items already fetched for vendor notifications
+      // Re-fetch if vendor notification was skipped (notifyItems may not be in scope)
+      const { data: buyerNotifyItems } = await serviceClient
+        .from('order_items')
+        .select(`
+          listing:listings(title, vendor_profiles(profile_data)),
+          markets!market_id(name),
+          pickup_date
+        `)
+        .eq('order_id', orderId)
+
+      const items = buyerNotifyItems as unknown as Array<{
+        listing: { title: string; vendor_profiles: { profile_data: Record<string, unknown> } | null } | null
+        markets: { name: string } | null
+        pickup_date: string | null
+      }> | null
+
+      // Aggregate vendor name(s) and pickup info
+      const vendorNames = new Set<string>()
+      let marketName = ''
+      let pickupDate = ''
+      const itemTitles: string[] = []
+
+      if (items) {
+        for (const item of items) {
+          const vpData = item.listing?.vendor_profiles?.profile_data
+          const vName = (vpData?.business_name as string) || (vpData?.farm_name as string)
+          if (vName) vendorNames.add(vName)
+          if (item.listing?.title) itemTitles.push(item.listing.title)
+          if (!marketName && item.markets?.name) marketName = item.markets.name
+          if (!pickupDate && item.pickup_date) pickupDate = item.pickup_date
+        }
+      }
+
+      const vendorName = vendorNames.size === 1
+        ? Array.from(vendorNames)[0]
+        : vendorNames.size > 1
+          ? `${vendorNames.size} vendors`
+          : undefined
+
+      await sendNotification(user.id, 'order_placed', {
+        orderNumber: order.order_number || '',
+        vendorName,
+        itemTitle: itemTitles.length === 1 ? itemTitles[0] : `${itemTitles.length} items`,
+        marketName,
+        pickupDate,
+      }, { vertical: order.vertical_id })
+
+      crumb.logic('Buyer order_placed notification sent')
+    } else {
+      crumb.logic('Buyer order_placed notification already sent for this order')
     }
 
     // Clear the buyer's cart after successful payment (idempotent — safe on every hit)
@@ -487,6 +551,25 @@ async function processMarketBoxPayout(serviceClient: any, subscriptionId: string
     if (!vendor) return
 
     if (vendor.stripe_account_id && vendor.stripe_payouts_enabled) {
+      // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps
+      // Pattern: insert 'pending' -> transfer -> update to 'processing' or 'failed'
+      const { data: payoutRecord, error: insertErr } = await serviceClient.from('vendor_payouts').insert({
+        market_box_subscription_id: subscriptionId,
+        vendor_profile_id: vendor.id,
+        amount_cents: vendorPayoutCents,
+        stripe_transfer_id: null,
+        status: 'pending',
+      }).select('id').single()
+
+      if (insertErr) {
+        if (insertErr.code === '23505') {
+          crumb.logic(`Market box payout already exists (concurrent insert) for subscription ${subscriptionId}`)
+          return
+        }
+        crumb.logic(`Failed to insert pending payout: ${insertErr.message}`)
+        return
+      }
+
       try {
         const transfer = await transferMarketBoxPayout({
           amount: vendorPayoutCents,
@@ -494,33 +577,29 @@ async function processMarketBoxPayout(serviceClient: any, subscriptionId: string
           subscriptionId,
         })
 
-        await serviceClient.from('vendor_payouts').insert({
-          market_box_subscription_id: subscriptionId,
-          vendor_profile_id: vendor.id,
-          amount_cents: vendorPayoutCents,
-          stripe_transfer_id: transfer.id,
-          status: 'processing',
-        })
+        await serviceClient.from('vendor_payouts')
+          .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
+          .eq('id', payoutRecord.id)
 
         crumb.logic(`Market box payout initiated: ${vendorPayoutCents}c for subscription ${subscriptionId}`)
       } catch (transferErr) {
         console.error('[MARKET_BOX_PAYOUT] Transfer failed in checkout success:', transferErr)
-        await serviceClient.from('vendor_payouts').insert({
-          market_box_subscription_id: subscriptionId,
-          vendor_profile_id: vendor.id,
-          amount_cents: vendorPayoutCents,
-          stripe_transfer_id: null,
-          status: 'failed',
-        })
+        await serviceClient.from('vendor_payouts')
+          .update({ status: 'failed', updated_at: new Date().toISOString() })
+          .eq('id', payoutRecord.id)
       }
     } else {
-      await serviceClient.from('vendor_payouts').insert({
+      const { error: pendingInsertErr } = await serviceClient.from('vendor_payouts').insert({
         market_box_subscription_id: subscriptionId,
         vendor_profile_id: vendor.id,
         amount_cents: vendorPayoutCents,
         stripe_transfer_id: null,
         status: 'pending_stripe_setup',
       })
+      if (pendingInsertErr && pendingInsertErr.code === '23505') {
+        crumb.logic(`Market box payout already exists (concurrent insert) for subscription ${subscriptionId}`)
+        return
+      }
     }
 
     // Notify vendor

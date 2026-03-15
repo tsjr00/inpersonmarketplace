@@ -34,6 +34,11 @@ export function isHandledEventType(type: string): type is HandledEventType {
  * Select the base price for a market box subscription based on term length.
  * Priority: metadata value → term-appropriate offering price → fallback.
  *
+ * M9 FIX: Logs a warning when base_price_cents is missing from metadata.
+ * Both checkout paths (standalone + unified) should always include it.
+ * The offering fallback exists only as a safety net — missing metadata
+ * indicates a checkout flow bug.
+ *
  * 8-week: price_8week_cents → price_4week_cents → price_cents
  * 4-week: price_4week_cents → price_cents
  */
@@ -46,6 +51,13 @@ export function selectBasePriceForTermWeeks(
   if (meta.basePriceCentsFromMeta && meta.basePriceCentsFromMeta > 0) {
     return meta.basePriceCentsFromMeta
   }
+
+  // M9 FIX: Missing metadata means checkout didn't set base_price_cents — log for investigation
+  console.warn(
+    `[MARKET_BOX_PAYOUT] base_price_cents missing from Stripe metadata. ` +
+    `Falling back to offering price (${termWeeks}-week). ` +
+    `This should not happen — both checkout paths should include basePriceCents.`
+  )
 
   if (termWeeks === 8) {
     return offering.price_8week_cents || offering.price_4week_cents || offering.price_cents

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createCheckoutSession } from '@/lib/stripe/payments'
 import { stripe } from '@/lib/stripe/config'
-import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig } from '@/lib/pricing'
+import { calculateOrderPricing, FEES, calculateSmallOrderFee, getSmallOrderFeeConfig, proratedFlatFee } from '@/lib/pricing'
 import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { restoreOrderInventory } from '@/lib/inventory'
@@ -502,14 +502,15 @@ export async function POST(request: NextRequest) {
 
     // Build order items with per-item fee breakdown
     // H6 FIX: Prorate flat fee across items so it's deducted from vendor payout
-    const proratedVendorFlatFee = Math.round(FEES.vendorFlatFeeCents / items.length)
-    const orderItems = items.map((item) => {
+    // M12 FIX: Use floor + remainder pattern to avoid off-by-one rounding
+    const orderItems = items.map((item, idx) => {
       const listing = listings.find((l) => l.id === item.listingId) as Listing
       const itemSubtotal = listing.price_cents * item.quantity
 
       // Per-item fees (percentage + prorated flat fee)
       const itemPercentFee = Math.round(itemSubtotal * (FEES.buyerFeePercent + FEES.vendorFeePercent) / 100)
       const vendorPercentFee = Math.round(itemSubtotal * FEES.vendorFeePercent / 100)
+      const itemVendorFlatFee = proratedFlatFee(FEES.vendorFlatFeeCents, items.length, idx)
 
       // Get the pickup info from request or cart
       const key = `${item.listingId}|${item.scheduleId || ''}|${item.pickupDate || ''}`
@@ -522,7 +523,7 @@ export async function POST(request: NextRequest) {
         unit_price_cents: listing.price_cents,
         subtotal_cents: itemSubtotal,
         platform_fee_cents: itemPercentFee,
-        vendor_payout_cents: itemSubtotal - vendorPercentFee - proratedVendorFlatFee,
+        vendor_payout_cents: itemSubtotal - vendorPercentFee - itemVendorFlatFee,
         market_id: pickupInfo?.marketId || null,
         schedule_id: item.scheduleId || ('scheduleId' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).scheduleId : null),
         pickup_date: item.pickupDate || ('pickupDate' in (pickupInfo || {}) ? (pickupInfo as PickupInfo).pickupDate : null),
@@ -667,12 +668,20 @@ export async function POST(request: NextRequest) {
       vertical,
       metadata: hasMarketBoxes ? {
         has_market_boxes: 'true',
-        market_box_items: JSON.stringify(marketBoxItems!.map(mb => ({
-          offeringId: mb.offeringId,
-          termWeeks: mb.termWeeks,
-          startDate: mb.startDate,
-          priceCents: mb.priceCents,
-        }))),
+        // M9 FIX: Include basePriceCents for reliable vendor payout calculation
+        market_box_items: JSON.stringify(marketBoxItems!.map(mb => {
+          const offering = marketBoxOfferings.find(o => o.id === mb.offeringId)!
+          const basePriceCents = mb.termWeeks === 8
+            ? (offering.price_8week_cents || offering.price_4week_cents)
+            : offering.price_4week_cents
+          return {
+            offeringId: mb.offeringId,
+            termWeeks: mb.termWeeks,
+            startDate: mb.startDate,
+            priceCents: mb.priceCents,
+            basePriceCents,
+          }
+        })),
       } : undefined,
     })
 

@@ -74,6 +74,22 @@ export async function PATCH(
       )
     }
 
+    // COI is a hard gate for event approval (VJ-R1: optional for publishing, required for events)
+    if (event_approved) {
+      const { data: verification } = await serviceClient
+        .from('vendor_verifications')
+        .select('coi_status')
+        .eq('vendor_profile_id', vendorId)
+        .single()
+
+      if (!verification || verification.coi_status !== 'approved') {
+        return NextResponse.json(
+          { error: 'Vendor must have approved Certificate of Insurance (COI) before event approval' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Sync application_status in profile_data.event_readiness
     const existingProfileData = (vendor.profile_data as Record<string, unknown>) || {}
     const existingReadiness = (existingProfileData.event_readiness as Record<string, unknown>) || {}

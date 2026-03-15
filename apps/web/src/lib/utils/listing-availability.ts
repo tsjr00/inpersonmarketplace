@@ -173,7 +173,7 @@ export function calculateMarketAvailability(market: MarketWithSchedules): Proces
   }
 
   const now = new Date()
-  const timezone = market.timezone || 'America/Chicago'
+  const timezone = market.timezone || 'UTC'
   const activeSchedules = market.market_schedules?.filter(s => s.active) || []
 
   // Calculate next pickup datetime and if accepting orders

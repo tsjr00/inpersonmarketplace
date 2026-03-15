@@ -5,12 +5,12 @@ import { createRefund, transferToVendor, transferMarketBoxPayout } from '@/lib/s
 import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
-import { FEES } from '@/lib/pricing'
+import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
 import { getTierLimits } from '@/lib/vendor-limits'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
 import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
-import { calculateNoShowPayout } from '@/lib/cron/no-show'
+import { calculateNoShowPayout, shouldTriggerNoShow } from '@/lib/cron/no-show'
 import { STRIPE_CHECKOUT_EXPIRY_MS, PAYOUT_RETRY_MAX_DAYS, STALE_CONFIRMATION_WINDOW_MS, isStripeCheckoutExpired, isConfirmationWindowStale } from '@/lib/cron/order-timing'
 
 /**
@@ -158,11 +158,12 @@ export async function GET(request: NextRequest) {
               .eq('order_id', item.order_id)
 
             const buyerPercentFee = Math.round(item.subtotal_cents * (FEES.buyerFeePercent / 100))
-            const proratedFlatFee = totalItemsInOrder ? Math.round(FEES.buyerFlatFeeCents / totalItemsInOrder) : 0
-            const buyerPaidForItem = item.subtotal_cents + buyerPercentFee + proratedFlatFee
+            const itemFlatFee = totalItemsInOrder ? proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItemsInOrder) : 0
+            const buyerPaidForItem = item.subtotal_cents + buyerPercentFee + itemFlatFee
 
-            // Mark item as cancelled due to expiration
-            const { error: updateError } = await supabase
+            // H3 FIX: Conditional UPDATE — only succeeds if cancelled_at IS NULL.
+            // Prevents race with manual buyer/vendor cancel happening concurrently.
+            const { data: expiredRows, error: updateError } = await supabase
               .from('order_items')
               .update({
                 status: 'cancelled',
@@ -172,10 +173,18 @@ export async function GET(request: NextRequest) {
                 refund_amount_cents: buyerPaidForItem
               })
               .eq('id', item.id)
+              .is('cancelled_at', null)
+              .select('id')
 
             if (updateError) {
               console.error('Error expiring order item:', updateError.message)
               totalErrors++
+              continue
+            }
+
+            // Item already cancelled by concurrent request — skip refund/restore
+            if (!expiredRows || expiredRows.length === 0) {
+              console.log(`[Phase 1] Item ${item.id} already cancelled by concurrent request, skipping`)
               continue
             }
 
@@ -600,6 +609,7 @@ export async function GET(request: NextRequest) {
           id,
           order_id,
           pickup_date,
+          preferred_pickup_time,
           vendor_payout_cents,
           vendor_profile_id,
           listing:listings (
@@ -625,7 +635,7 @@ export async function GET(request: NextRequest) {
         `)
         .eq('status', 'ready')
         .is('cancelled_at', null)
-        .lt('pickup_date', today)
+        .lte('pickup_date', today)
         .limit(100)
 
       if (missedError) {
@@ -636,6 +646,17 @@ export async function GET(request: NextRequest) {
             const order = item.order as any
             const listing = item.listing as any
             const vendor = item.vendor as any
+
+            // H7 FIX: Use shouldTriggerNoShow() for vertical-aware timing
+            // FT: 1 hour after preferred_pickup_time. FM: date-based (pickup_date < today).
+            if (!shouldTriggerNoShow(
+              item.pickup_date,
+              (item as any).preferred_pickup_time || null,
+              order?.vertical_id || 'farmers_market',
+            )) {
+              continue // Not yet time to trigger no-show for this item
+            }
+
             const vendorData = vendor?.profile_data as Record<string, unknown> | null
             const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
 
@@ -1289,6 +1310,27 @@ export async function GET(request: NextRequest) {
         console.warn(`[Phase 5] H-9: ${staleIds.length} stale 'processing' payouts (${STALE_PROCESSING_DAYS}+ days) marked as 'failed' for retry.`)
       }
 
+      // M-11: Catch stale 'pending' payouts — records inserted before transfer but never updated.
+      // This should only happen if the server crashed between insert and transfer.
+      // A 'pending' payout older than 10 minutes is definitely stale.
+      const STALE_PENDING_MINUTES = 10
+      const stalePendingCutoff = new Date(Date.now() - STALE_PENDING_MINUTES * 60 * 1000)
+      const { data: stalePendingPayouts } = await supabase
+        .from('vendor_payouts')
+        .select('id')
+        .eq('status', 'pending')
+        .lt('created_at', stalePendingCutoff.toISOString())
+
+      if (stalePendingPayouts && stalePendingPayouts.length > 0) {
+        const stalePendingIds = stalePendingPayouts.map(p => p.id)
+        await supabase
+          .from('vendor_payouts')
+          .update({ status: 'failed', updated_at: new Date().toISOString() })
+          .in('id', stalePendingIds)
+
+        console.warn(`[Phase 5] M-11: ${stalePendingIds.length} stale 'pending' payouts (${STALE_PENDING_MINUTES}+ min) marked as 'failed' for retry.`)
+      }
+
       // Mark expired payouts (older than retry window) as cancelled
       const { data: expiredPayouts } = await supabase
         .from('vendor_payouts')
@@ -1516,31 +1558,40 @@ export async function GET(request: NextRequest) {
                 .maybeSingle()
 
               if (!existingPayout && vendor?.stripe_account_id && vendor?.stripe_payouts_enabled) {
-                try {
-                  const transfer = await transferToVendor({
-                    amount: actualPayoutCents,
-                    destination: vendor.stripe_account_id,
-                    orderId: item.order_id,
-                    orderItemId: item.id,
-                  })
+                // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps
+                const { data: payoutRecord, error: payoutInsertErr } = await supabase.from('vendor_payouts').insert({
+                  order_item_id: item.id,
+                  vendor_profile_id: item.vendor_profile_id,
+                  amount_cents: actualPayoutCents,
+                  stripe_transfer_id: null,
+                  status: 'pending',
+                }).select('id').single()
 
-                  await supabase.from('vendor_payouts').insert({
-                    order_item_id: item.id,
-                    vendor_profile_id: item.vendor_profile_id,
-                    amount_cents: actualPayoutCents,
-                    stripe_transfer_id: transfer.id,
-                    status: 'processing',
-                  })
-                } catch (transferError) {
-                  console.error('[Phase 7] Stripe transfer failed for auto-fulfill payout:', transferError)
-                  // Record failed payout for retry in Phase 5
-                  await supabase.from('vendor_payouts').insert({
-                    order_item_id: item.id,
-                    vendor_profile_id: item.vendor_profile_id,
-                    amount_cents: actualPayoutCents,
-                    stripe_transfer_id: null,
-                    status: 'failed',
-                  })
+                if (payoutInsertErr && payoutInsertErr.code === '23505') {
+                  console.log(`[Phase 7] Payout already exists (concurrent) for item ${item.id}`)
+                } else {
+                  try {
+                    const transfer = await transferToVendor({
+                      amount: actualPayoutCents,
+                      destination: vendor.stripe_account_id,
+                      orderId: item.order_id,
+                      orderItemId: item.id,
+                    })
+
+                    if (payoutRecord) {
+                      await supabase.from('vendor_payouts')
+                        .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
+                        .eq('id', payoutRecord.id)
+                    }
+                  } catch (transferError) {
+                    console.error('[Phase 7] Stripe transfer failed for auto-fulfill payout:', transferError)
+                    // Update to failed for retry in Phase 5
+                    if (payoutRecord) {
+                      await supabase.from('vendor_payouts')
+                        .update({ status: 'failed', updated_at: new Date().toISOString() })
+                        .eq('id', payoutRecord.id)
+                    }
+                  }
                 }
               } else if (!existingPayout && !vendor?.stripe_payouts_enabled) {
                 // Vendor doesn't have Stripe ready — record as pending

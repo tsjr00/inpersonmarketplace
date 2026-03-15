@@ -46,14 +46,17 @@ describe('VJ-R1: vendor cannot publish without all 4 onboarding gates', () => {
     expect(route).toContain('gate4.stripePayoutsEnabled')
   })
 
-  it('all 4 gates combined with AND logic', () => {
-    // The actual condition combines all gates
+  it('publishing requires approval + authorization + Stripe (COI is soft gate per C1/VJ-R1)', () => {
+    // C1 FIX: COI removed from canPublishListings — soft gate for publishing, hard gate for events only
     expect(route).toContain(
       "verification.status === 'approved' &&"
     )
     expect(route).toContain('allAuthorized &&')
-    expect(route).toContain("verification.coi_status === 'approved' &&")
     expect(route).toContain('gate4.stripePayoutsEnabled')
+    // COI is NOT in canPublishListings anymore (VJ-R1: soft gate)
+    expect(route).not.toContain("verification.coi_status === 'approved' &&")
+    // COI soft gate comment must be present
+    expect(route).toContain('COI is a soft gate')
   })
 
   it('grandfathered vendors bypass partner agreement requirement', () => {

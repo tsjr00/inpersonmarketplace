@@ -213,10 +213,10 @@ export async function GET(request: NextRequest) {
     }
 
     const isGrandfathered = !!verification.onboarding_completed_at
+    // COI is a soft gate (VJ-R1): not required for publishing, required for event approval
     const canPublishListings =
       verification.status === 'approved' &&
       allAuthorized &&
-      verification.coi_status === 'approved' &&
       gate4.stripePayoutsEnabled &&
       (isGrandfathered || partnerAgreementAccepted)
 

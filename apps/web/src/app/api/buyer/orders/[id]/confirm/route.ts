@@ -185,44 +185,54 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const isDev = process.env.NODE_ENV !== 'production'
 
         if (stripeReady) {
-          try {
-            const transfer = await transferToVendor({
-              amount: actualPayoutCents,
-              destination: vendorProfile.stripe_account_id,
-              orderId: orderItem.order_id,
-              orderItemId: orderItem.id,
-            })
+          // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps.
+          // Pattern: insert 'pending' -> transfer -> update to 'processing' or 'failed'
+          crumb.supabase('insert', 'vendor_payouts (pending)')
+          const { data: payoutRecord, error: payoutInsertErr } = await supabase.from('vendor_payouts').insert({
+            order_item_id: orderItem.id,
+            vendor_profile_id: vendorProfile.id,
+            amount_cents: actualPayoutCents,
+            stripe_transfer_id: null,
+            status: 'pending',
+          }).select('id').single()
 
-            crumb.supabase('insert', 'vendor_payouts')
-            await supabase.from('vendor_payouts').insert({
-              order_item_id: orderItem.id,
-              vendor_profile_id: vendorProfile.id,
-              amount_cents: actualPayoutCents,
-              stripe_transfer_id: transfer.id,
-              status: 'processing',
-            })
+          if (payoutInsertErr && payoutInsertErr.code === '23505') {
+            crumb.logic('Vendor payout already exists (concurrent insert), skipping transfer')
+          } else {
+            try {
+              const transfer = await transferToVendor({
+                amount: actualPayoutCents,
+                destination: vendorProfile.stripe_account_id,
+                orderId: orderItem.order_id,
+                orderItemId: orderItem.id,
+              })
 
-            // F3 FIX: Record fee credit if deduction was made
-            if (feeDeductionCents > 0) {
-              await recordFeeCredit(
-                serviceClient,
-                vendorProfile.id,
-                feeDeductionCents,
-                `Auto-deducted from Stripe payout`,
-                orderItem.order_id
-              )
+              crumb.supabase('update', 'vendor_payouts')
+              if (payoutRecord) {
+                await supabase.from('vendor_payouts')
+                  .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
+                  .eq('id', payoutRecord.id)
+              }
+
+              // F3 FIX: Record fee credit if deduction was made
+              if (feeDeductionCents > 0) {
+                await recordFeeCredit(
+                  serviceClient,
+                  vendorProfile.id,
+                  feeDeductionCents,
+                  `Auto-deducted from Stripe payout`,
+                  orderItem.order_id
+                )
+              }
+            } catch (transferError) {
+              console.error('Stripe transfer failed:', transferError)
+              // Update to failed for retry cron -- buyer did their part
+              if (payoutRecord) {
+                await supabase.from('vendor_payouts')
+                  .update({ status: 'failed', updated_at: new Date().toISOString() })
+                  .eq('id', payoutRecord.id)
+              }
             }
-          } catch (transferError) {
-            console.error('Stripe transfer failed:', transferError)
-            // Record failed payout for retry cron — buyer did their part
-            crumb.supabase('insert', 'vendor_payouts (failed)')
-            await supabase.from('vendor_payouts').insert({
-              order_item_id: orderItem.id,
-              vendor_profile_id: vendorProfile.id,
-              amount_cents: actualPayoutCents,
-              stripe_transfer_id: null,
-              status: 'failed',
-            })
           }
         } else if (isDev) {
           console.log(`[DEV] Skipping Stripe payout for order item ${orderItemId}`)

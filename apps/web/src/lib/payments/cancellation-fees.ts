@@ -6,6 +6,7 @@
  */
 
 import { STRIPE_CONFIG } from '@/lib/stripe/config'
+import { proratedFlatFeeSimple } from '@/lib/pricing'
 
 // Cancellation fee: 25% of what the buyer paid, retained and split between platform + vendor
 export const CANCELLATION_FEE_PERCENT = 25
@@ -63,7 +64,8 @@ export function calculateCancellationFee(input: CancellationInput): Cancellation
   const now = input.now ?? new Date()
 
   // Calculate what buyer originally paid for this item
-  const flatFeePerItem = Math.round(STRIPE_CONFIG.buyerFlatFeeCents / totalItemsInOrder)
+  // M12 FIX: Use floor-based proration to avoid off-by-one (remainder goes to last item at checkout)
+  const flatFeePerItem = proratedFlatFeeSimple(STRIPE_CONFIG.buyerFlatFeeCents, totalItemsInOrder)
   const buyerFeeOnItem = Math.round(subtotalCents * (STRIPE_CONFIG.buyerFeePercent / 100)) + flatFeePerItem
   const buyerPaidForItem = subtotalCents + buyerFeeOnItem
 
