@@ -3,6 +3,9 @@
  * Used by the t() function for buttons, labels, errors, footer links, etc.
  */
 export const es: Record<string, string> = {
+  // Hero
+  'hero.ft_stats_banner': 'Conectándote Con Food Trucks Locales En Tu Área',
+
   // LocationEntry
   'location.error_invalid_zip': 'Ingresa un código postal válido de 5 dígitos',
   'location.showing_results_near': 'Mostrando resultados cerca de',
@@ -44,4 +47,13 @@ export const es: Record<string, string> = {
 
   // Footer copyright
   'footer.all_rights_reserved': 'Todos los derechos reservados.',
+
+  // Header / Nav
+  'header.dashboard': 'Panel',
+  'header.login': 'Iniciar Sesión',
+  'header.sign_up': 'Registrarse',
+  'header.settings': 'Configuración',
+  'header.logout': 'Cerrar Sesión',
+  'header.admin_dashboard': 'Panel de Admin',
+  'header.pending': 'Pendiente',
 }

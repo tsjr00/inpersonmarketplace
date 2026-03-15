@@ -9,6 +9,7 @@ import { CartButton } from '@/components/cart/CartButton'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { t } from '@/lib/locale/messages'
 import LanguageSelector from '@/components/shared/LanguageSelector'
 import type { Locale } from '@/lib/locale'
 
@@ -170,7 +171,7 @@ export function Header({
                 fontSize: typography.sizes.sm
               }}
             >
-              {term(vertical, 'products')}
+              {term(vertical, 'products', locale)}
             </Link>
 
             <Link
@@ -183,7 +184,7 @@ export function Header({
                 fontSize: typography.sizes.sm
               }}
             >
-              {term(vertical, 'markets')}
+              {term(vertical, 'markets', locale)}
             </Link>
 
             <Link
@@ -196,7 +197,7 @@ export function Header({
                 fontSize: typography.sizes.sm
               }}
             >
-              {term(vertical, 'vendors')}
+              {term(vertical, 'vendors', locale)}
             </Link>
 
             {user && (
@@ -209,7 +210,7 @@ export function Header({
                   fontSize: typography.sizes.sm
                 }}
               >
-                Dashboard
+                {t('header.dashboard', locale)}
               </Link>
             )}
           </nav>
@@ -322,7 +323,7 @@ export function Header({
                           lineHeight: '20px'
                         }}
                       >
-                        {term(vertical, 'vendor_signup_cta')}
+                        {term(vertical, 'vendor_signup_cta', locale)}
                       </Link>
                     )}
 
@@ -341,7 +342,7 @@ export function Header({
                           lineHeight: '20px'
                         }}
                       >
-                        {term(vertical, 'vendor_dashboard_nav')}
+                        {term(vertical, 'vendor_dashboard_nav', locale)}
                         {isPendingVendor && (
                           <span style={{
                             marginLeft: spacing['2xs'],
@@ -351,7 +352,7 @@ export function Header({
                             padding: `2px ${spacing['3xs']}`,
                             borderRadius: radius.sm
                           }}>
-                            Pending
+                            {t('header.pending', locale)}
                           </span>
                         )}
                       </Link>
@@ -373,7 +374,7 @@ export function Header({
                           lineHeight: '20px'
                         }}
                       >
-                        Admin Dashboard
+                        {t('header.admin_dashboard', locale)}
                       </Link>
                     )}
 
@@ -391,7 +392,7 @@ export function Header({
                         lineHeight: '20px'
                       }}
                     >
-                      Settings
+                      {t('header.settings', locale)}
                     </Link>
 
                     {/* Events */}
@@ -408,7 +409,7 @@ export function Header({
                         lineHeight: '20px'
                       }}
                     >
-                      {term(vertical, 'event_feature_name')}
+                      {term(vertical, 'event_feature_name', locale)}
                     </Link>
 
                     <div style={{ borderTop: `1px solid ${colors.border}` }} />
@@ -429,7 +430,7 @@ export function Header({
                         minHeight: 44
                       }}
                     >
-                      Logout
+                      {t('header.logout', locale)}
                     </button>
                   </div>
                 )}
@@ -449,7 +450,7 @@ export function Header({
                     alignItems: 'center'
                   }}
                 >
-                  Login
+                  {t('header.login', locale)}
                 </Link>
                 <Link
                   href={`/${vertical}/signup`}
@@ -466,7 +467,7 @@ export function Header({
                     alignItems: 'center'
                   }}
                 >
-                  Sign Up
+                  {t('header.sign_up', locale)}
                 </Link>
               </div>
             )}
@@ -516,7 +517,7 @@ export function Header({
                 fontWeight: typography.weights.medium
               }}
             >
-              {term(vertical, 'products')}
+              {term(vertical, 'products', locale)}
             </Link>
 
             <Link
@@ -531,7 +532,7 @@ export function Header({
                 fontWeight: typography.weights.medium
               }}
             >
-              {term(vertical, 'markets')}
+              {term(vertical, 'markets', locale)}
             </Link>
 
             <Link
@@ -546,7 +547,7 @@ export function Header({
                 fontWeight: typography.weights.medium
               }}
             >
-              {term(vertical, 'vendors')}
+              {term(vertical, 'vendors', locale)}
             </Link>
 
             {user ? (
@@ -563,7 +564,7 @@ export function Header({
                     fontWeight: typography.weights.medium
                   }}
                 >
-                  Dashboard
+                  {t('header.dashboard', locale)}
                 </Link>
 
                 {!hasVendorProfile && (
@@ -579,7 +580,7 @@ export function Header({
                       fontWeight: typography.weights.medium
                     }}
                   >
-                    {term(vertical, 'vendor_signup_cta')}
+                    {term(vertical, 'vendor_signup_cta', locale)}
                   </Link>
                 )}
 
@@ -595,7 +596,7 @@ export function Header({
                       fontSize: typography.sizes.base
                     }}
                   >
-                    {term(vertical, 'vendor_dashboard_nav')}
+                    {term(vertical, 'vendor_dashboard_nav', locale)}
                     {isPendingVendor && (
                       <span style={{
                         marginLeft: spacing['2xs'],
@@ -605,7 +606,7 @@ export function Header({
                         padding: `2px ${spacing['3xs']}`,
                         borderRadius: radius.sm
                       }}>
-                        Pending
+                        {t('header.pending', locale)}
                       </span>
                     )}
                   </Link>
@@ -624,7 +625,7 @@ export function Header({
                       fontWeight: typography.weights.medium
                     }}
                   >
-                    Admin Dashboard
+                    {t('header.admin_dashboard', locale)}
                   </Link>
                 )}
 
@@ -639,7 +640,7 @@ export function Header({
                     fontSize: typography.sizes.base
                   }}
                 >
-                  Settings
+                  {t('header.settings', locale)}
                 </Link>
 
                 <Link
@@ -653,7 +654,7 @@ export function Header({
                     fontSize: typography.sizes.base
                   }}
                 >
-                  {term(vertical, 'event_feature_name')}
+                  {term(vertical, 'event_feature_name', locale)}
                 </Link>
 
                 <div style={{ borderTop: `1px solid ${colors.border}`, margin: `${spacing.xs} 0` }} />
@@ -672,7 +673,7 @@ export function Header({
                     cursor: 'pointer'
                   }}
                 >
-                  Logout
+                  {t('header.logout', locale)}
                 </button>
               </>
             ) : (
@@ -692,7 +693,7 @@ export function Header({
                     borderRadius: radius.md
                   }}
                 >
-                  Login
+                  {t('header.login', locale)}
                 </Link>
                 <Link
                   href={`/${vertical}/signup`}
@@ -709,7 +710,7 @@ export function Header({
                     textAlign: 'center'
                   }}
                 >
-                  Sign Up
+                  {t('header.sign_up', locale)}
                 </Link>
               </div>
             )}

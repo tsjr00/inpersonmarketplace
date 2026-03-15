@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { UtensilsCrossed, Truck, MapPin as MapPinIcon } from 'lucide-react'
 import { spacing, typography, radius, containers, getVerticalColors } from '@/lib/design-tokens'
 import { term, getContent } from '@/lib/vertical'
+import { t } from '@/lib/locale/messages'
 import { LocationEntry } from './LocationEntry'
 
 interface HeroProps {
@@ -114,6 +115,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
             vertical={vertical}
             initialCity={initialCity}
             onLocationSet={setUserZipCode}
+            locale={locale}
           />
 
           {/* Subheadline */}
@@ -157,7 +159,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
                 marginBottom: spacing.md,
               }}
             >
-              Connecting You With Local Food Trucks In Your Area
+              {t('hero.ft_stats_banner', locale)}
             </p>
 
             {/* Stats grid */}
