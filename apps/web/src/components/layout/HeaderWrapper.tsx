@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
-import { getLocale } from '@/lib/locale'
+import { getLocale } from '@/lib/locale/server'
 import { Header } from './Header'
 
 interface HeaderWrapperProps {
