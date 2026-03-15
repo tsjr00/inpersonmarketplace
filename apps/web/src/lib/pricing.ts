@@ -178,6 +178,41 @@ export function calculateVendorPayout(baseCents: number): number {
 }
 
 /**
+ * Prorate a flat fee across N items with zero-sum guarantee.
+ * Items 1..N-1 get floor(fee/N), the last item gets the remainder.
+ * This ensures the total always equals the original fee exactly.
+ *
+ * Example: 15 cents / 2 items → [7, 8] (not [8, 8] = 16)
+ *
+ * @param feeCents - Total fee to prorate (e.g., 15)
+ * @param totalItems - Number of items to spread across
+ * @param itemIndex - 0-based index of the current item
+ * @returns Prorated fee for this item in cents
+ */
+export function proratedFlatFee(feeCents: number, totalItems: number, itemIndex: number): number {
+  if (totalItems <= 0) return 0
+  if (totalItems === 1) return feeCents
+  const perItem = Math.floor(feeCents / totalItems)
+  // Last item gets the remainder to ensure exact total
+  if (itemIndex === totalItems - 1) {
+    return feeCents - perItem * (totalItems - 1)
+  }
+  return perItem
+}
+
+/**
+ * Get the prorated flat fee for a single item (legacy convenience).
+ * When you don't track per-item index, returns floor for consistency
+ * and the caller should handle the remainder separately.
+ *
+ * @deprecated Prefer proratedFlatFee() with itemIndex for exact totals
+ */
+export function proratedFlatFeeSimple(feeCents: number, totalItems: number): number {
+  if (totalItems <= 0) return 0
+  return Math.floor(feeCents / totalItems)
+}
+
+/**
  * Format cents as dollar string
  *
  * @param cents - Amount in cents

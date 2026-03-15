@@ -7,8 +7,8 @@ Last updated: 2026-03-05
 - [x] **Commit password validation fix** — DONE 2026-03-05 (commit `b7d4616`)
 
 ## Priority 2 — Soon
-- [ ] **Fix fulfill route: separate fulfillment from payout** — `src/app/api/vendor/orders/[id]/fulfill/route.ts:282-303`. On failed Stripe transfer, currently reverts item to `ready` (wrong — buyer already has item). Should keep item `fulfilled` and insert `vendor_payouts` with `status='failed'` for Phase 5 cron retry. User decision 2026-03-10. See `status_system_audit.md` Q3.
-- [ ] **Fix `atomic_decrement_inventory` overselling bug** — DB function uses `GREATEST(0, qty-n)` which silently allows overselling. Must reject when `quantity < p_quantity`. Business rule MP-R8: "quantity never goes negative." Needs migration. See F1 in business rules audit.
+- [x] **Fix fulfill route: separate fulfillment from payout** — ALREADY FIXED: H-1 FIX in fulfill/route.ts:283-319. Item stays 'fulfilled', failed payout recorded for Phase 5 retry. Verified Session 55.
+- [x] **Fix `atomic_decrement_inventory` overselling bug** — ALREADY FIXED: Migration 078. Now RAISE EXCEPTION on insufficient stock. Verified Session 55.
 - [ ] **Playwright automated smoke tests** — See detailed implementation plan below
 - [ ] **Test push notifications on staging** — Verify web push works end-to-end (subscribe → trigger → receive). Instructions drafted Session 49.
 - [ ] **Stripe live mode activation** — Switch from test keys to live keys when ready for real payments
@@ -25,6 +25,12 @@ Last updated: 2026-03-05
   7. **Auth & Access** — Login, signup, vertical gate, admin checks, RLS, service client usage.
   8. **Device/Browser** — PWA, push notifications, mobile quirks, responsive patterns, offline.
   - Process: For each topic, Claude reads all relevant code, writes findings to a `.claude/deep-dive-[topic].md` file, then consolidates into a reference doc in `docs/`.
+
+## Priority 2.7 — Session 55 Deferred Items
+- [ ] **L4: Zod input validation on API routes** — Currently only vendor signup uses Zod. Other routes use manual checks. Gradually add Zod schemas to remaining API routes for consistent validation. Low priority, do incrementally.
+- [ ] **L6: SMS send logic when push enabled** — Verify SMS-skip-when-push logic works correctly in service.ts. A2P 10DLC still pending carrier approval, so this is blocked anyway.
+- [ ] **L2: External cron monitoring** — Integrate free monitoring service (Cronitor/Better Uptime) for cron heartbeat. Deferred post-launch.
+- [ ] **M4: Availability system consolidation** — Two availability systems (SQL RPC `get_available_pickup_dates()` vs JS `processListingMarkets()`) can diverge. 5 scenarios identified. Recommendation: consolidate on SQL RPC. Large refactor — post-launch.
 
 ## Priority 3 — When Time Allows
 - [ ] **Geographic intelligence feature** — Plan exists at `.claude/geographic_intelligence_plan.md`

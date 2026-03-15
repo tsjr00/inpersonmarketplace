@@ -32,6 +32,7 @@ export const URGENCY_CHANNELS: Record<NotificationUrgency, NotificationChannel[]
 
 export type NotificationType =
   // Buyer-facing
+  | 'order_placed'
   | 'order_confirmed'
   | 'order_ready'
   | 'order_fulfilled'
@@ -73,6 +74,7 @@ export type NotificationType =
   // Admin-facing
   | 'new_vendor_application'
   | 'issue_disputed'
+  | 'charge_dispute_created'
   // Catering / Events
   | 'catering_request_received'
   | 'catering_vendor_invited'
@@ -112,6 +114,9 @@ export interface NotificationTemplateData {
   trialEndsAt?: string
   unpublishedCount?: number
   deactivatedBoxCount?: number
+  // Chargeback / Dispute
+  disputeReason?: string
+  disputeAmountCents?: number
   // Subscription lifecycle
   previousTier?: string
   newTier?: string
@@ -140,6 +145,15 @@ export interface NotificationTypeConfig {
 
 export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeConfig> = {
   // ── Buyer-facing ─────────────────────────────────────────────────
+
+  order_placed: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'buyer',
+    title: () => 'Order Placed',
+    message: (d) => `Your order #${d.orderNumber} has been placed${d.vendorName ? ` with ${d.vendorName}` : ''}.${d.marketName ? ` Pickup at ${d.marketName}` : ''}${d.pickupDate ? ` on ${d.pickupDate}` : ''}. We'll notify you when the vendor confirms it.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+  },
 
   order_confirmed: {
     urgency: 'standard',
@@ -493,6 +507,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `Vendor Disputed Buyer Issue`,
     message: (d) => `${d.vendorName} resolved a buyer-reported issue on order #${d.orderNumber} in their own favor (confirmed delivery). Review may be needed.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/feedback`,
+  },
+
+  charge_dispute_created: {
+    urgency: 'urgent',
+    severity: 'critical',
+    audience: 'admin',
+    title: () => `Chargeback Received`,
+    message: (d) => `A chargeback${d.disputeAmountCents ? ` of $${(d.disputeAmountCents / 100).toFixed(2)}` : ''} was filed${d.orderNumber ? ` for order #${d.orderNumber}` : ''}.${d.disputeReason ? ` Reason: ${d.disputeReason}` : ''} Review in Stripe Dashboard immediately.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/admin/orders`,
   },
 
   // ── Catering / Events ─────────────────────────────────────────────

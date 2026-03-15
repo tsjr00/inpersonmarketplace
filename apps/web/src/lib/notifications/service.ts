@@ -410,6 +410,30 @@ export async function sendNotification(
     }
   }
 
+  // Dedup: prevent duplicate notifications of same type to same user within 10 seconds
+  // Catches Stripe webhook retries and double-click scenarios without suppressing
+  // legitimately rapid notifications (10s window is tight enough for safety)
+  try {
+    const dedupClient = createServiceClient()
+    const tenSecondsAgo = new Date(Date.now() - 10000).toISOString()
+    const { data: recentDup } = await dedupClient
+      .from('notifications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('type', type)
+      .gte('created_at', tenSecondsAgo)
+      .limit(1)
+
+    if (recentDup && recentDup.length > 0) {
+      return {
+        notificationType: type,
+        channels: [{ channel: 'in_app', success: true, skipped: true, reason: 'Duplicate notification suppressed (same type within 10s)' }],
+      }
+    }
+  } catch {
+    // Dedup check failure should not prevent notification delivery
+  }
+
   // Generate content from templates
   const title = config.title(templateData)
   const message = config.message(templateData)

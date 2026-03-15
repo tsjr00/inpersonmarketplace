@@ -110,9 +110,9 @@ describe('Each notification type has exactly one audience', () => {
 })
 
 describe('Notification type count', () => {
-  it('has at least 26 notification types', () => {
+  it('has at least 28 notification types', () => {
     const count = Object.keys(NOTIFICATION_REGISTRY).length
-    expect(count).toBeGreaterThanOrEqual(26)
+    expect(count).toBeGreaterThanOrEqual(28)
   })
 })
 
@@ -404,7 +404,7 @@ describe('Urgency-to-channel mapping integrity', () => {
 
 describe('Notification audience correctness', () => {
   const buyerTypes: NotificationType[] = [
-    'order_confirmed', 'order_ready', 'order_fulfilled',
+    'order_placed', 'order_confirmed', 'order_ready', 'order_fulfilled',
     'order_cancelled_by_vendor', 'order_refunded', 'order_expired',
     'pickup_missed', 'stale_confirmed_buyer', 'market_box_skip',
     'market_box_pickup_missed', 'issue_resolved',
@@ -424,7 +424,7 @@ describe('Notification audience correctness', () => {
   ]
 
   const adminTypes: NotificationType[] = [
-    'new_vendor_application', 'issue_disputed',
+    'new_vendor_application', 'issue_disputed', 'charge_dispute_created',
   ]
 
   for (const type of buyerTypes) {

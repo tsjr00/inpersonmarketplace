@@ -140,10 +140,12 @@ export async function POST(request: NextRequest) {
           .single();
 
         // Set requested_categories on auto-created vendor_verifications row
+        // M7: Works for both FM and FT — reads vendor_type or categories field from signup form
         if (!error && vendor) {
           const profileData = data as Record<string, unknown>
-          const vendorType = profileData?.vendor_type
-          // Map vendor_type selection(s) to categories for onboarding
+          // Check both 'vendor_type' (FT) and 'categories' (FM) field names
+          const vendorType = profileData?.vendor_type || profileData?.categories
+          // Map vendor_type/categories selection(s) to categories for onboarding
           let categories: string[] = []
           if (Array.isArray(vendorType)) {
             categories = vendorType as string[]

@@ -98,6 +98,10 @@ export async function handleWebhookEvent(event: Stripe.Event) {
       await handleChargeRefunded(event.data.object as Stripe.Charge)
       break
 
+    case 'charge.dispute.created':
+      await handleChargeDisputeCreated(event.data.object as Stripe.Dispute)
+      break
+
     // Subscription events for premium tiers
     case 'customer.subscription.updated':
       await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
@@ -493,7 +497,29 @@ async function processMarketBoxVendorPayout(
   }
 
   if (vendor.stripe_account_id && vendor.stripe_payouts_enabled) {
-    // Vendor has Stripe ready — initiate transfer
+    // M-11 FIX: Insert payout record BEFORE transfer to prevent tracking gaps
+    // If transfer succeeds but DB insert fails, we'd have no record of the payment.
+    // Pattern: insert 'pending' -> transfer -> update to 'processing' or 'failed'
+    const { data: payoutRecord, error: insertErr } = await supabase.from('vendor_payouts').insert({
+      market_box_subscription_id: subscriptionId,
+      vendor_profile_id: vendor.id,
+      amount_cents: vendorPayoutCents,
+      stripe_transfer_id: null,
+      status: 'pending',
+    }).select('id').single()
+
+    if (insertErr) {
+      // Unique index violation means another process already created the payout
+      if (insertErr.code === '23505') {
+        crumb.stripe(`Market box payout already exists (concurrent insert) for subscription ${subscriptionId}`)
+        return
+      }
+      await logError(new TracedError('ERR_PAYOUT_003', `Failed to insert pending payout record: ${insertErr.message}`, {
+        route: '/webhooks/stripe', method: 'POST', subscriptionId,
+      }))
+      return
+    }
+
     try {
       const transfer = await transferMarketBoxPayout({
         amount: vendorPayoutCents,
@@ -501,35 +527,31 @@ async function processMarketBoxVendorPayout(
         subscriptionId,
       })
 
-      await supabase.from('vendor_payouts').insert({
-        market_box_subscription_id: subscriptionId,
-        vendor_profile_id: vendor.id,
-        amount_cents: vendorPayoutCents,
-        stripe_transfer_id: transfer.id,
-        status: 'processing',
-      })
+      await supabase.from('vendor_payouts')
+        .update({ stripe_transfer_id: transfer.id, status: 'processing', updated_at: new Date().toISOString() })
+        .eq('id', payoutRecord.id)
 
       crumb.stripe(`Market box payout initiated: ${vendorPayoutCents}c to vendor ${vendor.id} for subscription ${subscriptionId}`)
     } catch (transferErr) {
       console.error('[MARKET_BOX_PAYOUT] Transfer failed:', transferErr)
-      // Record failed payout for retry in Phase 5 cron
-      await supabase.from('vendor_payouts').insert({
-        market_box_subscription_id: subscriptionId,
-        vendor_profile_id: vendor.id,
-        amount_cents: vendorPayoutCents,
-        stripe_transfer_id: null,
-        status: 'failed',
-      })
+      // Update to failed for retry in Phase 5 cron
+      await supabase.from('vendor_payouts')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', payoutRecord.id)
     }
   } else {
     // Vendor doesn't have Stripe ready — record as pending
-    await supabase.from('vendor_payouts').insert({
+    const { error: pendingInsertErr } = await supabase.from('vendor_payouts').insert({
       market_box_subscription_id: subscriptionId,
       vendor_profile_id: vendor.id,
       amount_cents: vendorPayoutCents,
       stripe_transfer_id: null,
       status: 'pending_stripe_setup',
     })
+    if (pendingInsertErr && pendingInsertErr.code === '23505') {
+      crumb.stripe(`Market box payout already exists (concurrent insert) for subscription ${subscriptionId}`)
+      return
+    }
     crumb.stripe(`Market box payout pending Stripe setup for vendor ${vendor.id}, subscription ${subscriptionId}`)
   }
 
@@ -818,13 +840,25 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
   const supabase = createServiceClient()
 
-  await supabase
+  // H6 FIX: payment_intent.succeeded can arrive BEFORE checkout.session.completed,
+  // which is the handler that creates the order and payment record. If the payment
+  // record doesn't exist yet, this update matches zero rows — that's fine.
+  // We return 200 regardless so Stripe doesn't retry needlessly.
+  // checkout.session.completed is the authoritative handler that creates the order,
+  // inserts the payment record, and sends notifications. This handler is a
+  // secondary confirmation that simply marks an existing payment as succeeded.
+  const { data } = await supabase
     .from('payments')
     .update({
       status: 'succeeded',
       paid_at: new Date().toISOString(),
     })
     .eq('stripe_payment_intent_id', paymentIntent.id)
+    .select('id')
+
+  if (!data || data.length === 0) {
+    crumb.stripe(`payment_intent.succeeded: no payment record found for PI ${paymentIntent.id} — checkout.session.completed will handle this`)
+  }
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
@@ -1073,4 +1107,63 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   }
 
   crumb.stripe(`charge.refunded processed: order ${payment.order_id}, ${isFullRefund ? 'full' : 'partial'} refund of $${(refundAmountCents / 100).toFixed(2)}`)
+}
+
+/**
+ * H5: Handle chargeback (dispute) — notify admins, do NOT auto-pause vendors.
+ * Chargebacks require human review; automated punitive action could harm innocent vendors.
+ */
+async function handleChargeDisputeCreated(dispute: Stripe.Dispute) {
+  const supabase = createServiceClient()
+
+  const disputeAmount = dispute.amount
+  const disputeReason = dispute.reason || 'unknown'
+  const paymentIntentId = typeof dispute.payment_intent === 'string'
+    ? dispute.payment_intent
+    : dispute.payment_intent?.id
+
+  crumb.stripe(`charge.dispute.created: ${dispute.id}, amount=${disputeAmount}, reason=${disputeReason}, PI=${paymentIntentId || 'none'}`)
+
+  // Try to find the related order via payment_intent
+  let orderNumber: string | undefined
+  let vertical: string | undefined
+
+  if (paymentIntentId) {
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('order_id')
+      .eq('stripe_payment_intent_id', paymentIntentId)
+      .single()
+
+    if (payment?.order_id) {
+      const { data: order } = await supabase
+        .from('orders')
+        .select('order_number, vertical_id')
+        .eq('id', payment.order_id)
+        .single()
+
+      orderNumber = order?.order_number
+      vertical = order?.vertical_id
+    }
+  }
+
+  // Notify all admin users about the chargeback
+  const { data: admins } = await supabase
+    .from('user_profiles')
+    .select('user_id')
+    .or('role.eq.admin,role.eq.platform_admin')
+
+  if (admins && admins.length > 0) {
+    await Promise.all(
+      admins.map((admin) =>
+        sendNotification(admin.user_id, 'charge_dispute_created', {
+          orderNumber,
+          disputeAmountCents: disputeAmount,
+          disputeReason,
+        }, { vertical })
+      )
+    )
+  }
+
+  crumb.stripe(`charge.dispute.created processed: dispute ${dispute.id}${orderNumber ? `, order #${orderNumber}` : ''}, $${(disputeAmount / 100).toFixed(2)} — admins notified`)
 }

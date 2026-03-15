@@ -1,90 +1,112 @@
-# Current Task: Session 52 (continued) — Advance Ordering + 48hr Lead Time
+# Current Task: Session 55 — Comprehensive Systems Audit + Fixes
 
-Started: 2026-03-12
+Started: 2026-03-14
 
 ## Goal
-1. Fix FT timezone bug in `get_available_pickup_dates()` (DONE)
-2. Add advance ordering for FT catering/bulk pre-orders (DONE — migration 079 applied)
-3. Restrict advance ordering to event-approved catering items only (DONE — committed)
-4. Unified browse filter bar with 3 dropdowns (DONE — committed + pushed to staging)
-5. Catering menu filter on browse page (DONE — committed + pushed to staging)
-6. **48-hour lead time for catering orders** (DONE — migration 080 applied, code changes ready)
+Thorough codebase and systems review → prioritized findings → user-directed fixes for 28 items.
 
-## UNCOMMITTED CHANGES — NEED COMMIT + PUSH
+## Status: FIXES IN PROGRESS — Save point before auto-compaction
 
-### 48-Hour Lead Time Implementation (6 touchpoints):
+### What's Complete
 
-1. **Migration 080** — `get_available_pickup_dates()` rewrite: catering items (`advance_order_days > 0`) now get dates from `[local_today+2, local_today+advance_order_days]` instead of `[local_today, local_today+advance_order_days]`. Applied to all 3 envs. Moved to applied/.
+**Audit report**: Written to `.claude/session55_audit_report.md` (2 Critical, 7 High, 12 Medium, 8 Low)
 
-2. **ListingForm.tsx** — Removed "1 day ahead" option (minimum 2 days for catering). Updated help text with 48hr rule.
+**Code changes in working directory (uncommitted, 23 files changed):**
 
-3. **checkout/types.ts** — Added `advance_order_days` to `CheckoutItem` interface.
+| Item | Description | Status | Files Changed |
+|------|-------------|--------|---------------|
+| C1 | COI soft gate for vendors, hard gate for events | ✅ DONE | migration 083, onboarding/status/route.ts, event-approval/route.ts |
+| H1 | Checkout availability re-validation | ✅ NO CHANGE NEEDED | Already validates via `is_listing_accepting_orders()` RPC + `atomic_decrement_inventory` |
+| H4 | Market box payout race condition | ✅ NO CHANGE NEEDED | Already protected by 3 layers (Stripe idempotency key, app check, DB unique index) |
+| H5 | Chargeback webhook handler | ✅ DONE | webhooks.ts, types.ts (charge_dispute_created type added) |
+| H6 | Webhook out-of-order handling | ✅ DONE | webhooks.ts (handlePaymentSuccess graceful when no record) |
+| M1 | Notification deduplication | ✅ DONE | service.ts (10s time-window dedup before all notifications) |
+| M3 | Quality checks vertical filter | ✅ DONE | quality-checks.ts (5 functions), admin/quality-checks/route.ts |
+| M7 | FM category selection in signup | ✅ DONE | submit/route.ts (reads 'categories' alongside 'vendor_type') |
+| M8 | Buyer order placed notification | ✅ DONE | checkout/success/route.ts, types.ts (order_placed type added) |
+| M9 | Market box base price validation | ✅ DONE | checkout/session/route.ts, webhook-utils.ts, checkout/success/route.ts |
+| M11 | Payout record atomicity | ✅ DONE | 6 files: webhooks.ts, fulfill, confirm-handoff, buyer/confirm, checkout/success, cron Phase 5+7 |
+| M12 | Flat fee proration rounding | ✅ DONE | pricing.ts (new proratedFlatFee functions), cancellation-fees.ts, reject/route.ts, cron, checkout/session |
+| L5 | Email logo domain | ✅ NO CHANGE NEEDED | Already parameterized per vertical in email-config.ts |
+| L7 | Timing attack in cron auth | ✅ ALREADY FIXED | All 3 cron routes use timingSafeEqual |
+| L8 | Small order fee tracking | ✅ NO CHANGE NEEDED | Already tracked in orders.small_order_fee_cents |
+| Backlog | L2, L4, L6 updates | ✅ DONE | backlog.md updated, stale items marked resolved |
 
-4. **cart/validate/route.ts** — Added `advance_order_days` to listings select + response so checkout can detect catering items.
+**Research findings delivered (no code changes):**
 
-5. **checkout/page.tsx** — Detects catering items in cart, filters out cash from payment methods, shows info banner: "This order includes catering items. Cash payment is not available for advance orders."
+| Item | Finding |
+|------|---------|
+| C2 | Cancellation fee split uses applicationFeePercent (13%) on fee amount → platform gets $0.70 instead of ~$2.68 on $20 order. Platform being shorted. See session55_audit_report.md |
+| H2 | 3 options: A) restore only after refund, B) current + compensation, C) two-phase pending restore. Each has pros/cons documented. |
+| H3 | Race via: buyer double-click, buyer+vendor simultaneous cancel, cron+manual. No FOR UPDATE lock on order_items. Window is 1-5ms between read and update. |
+| L1 | Health check ALREADY EXISTS at /api/health (created Session 49) |
+| L3 | createVerifiedServiceClient: creates anon client → verifies admin role (both role + roles[]) → returns service client + userId. Used in 26 admin routes. More secure than plain createServiceClient. |
+| M2 | subscription_expired type ALREADY EXISTS in types.ts. No duplication. Not yet called by any code though. |
+| M4 | Two availability systems compared in detail. 5 divergence scenarios found. Recommendation: Replace JS with SQL-backed API (Option A, consolidate on RPC). Post-launch or pre-launch depending on priority. |
+| M6 | buyer_search_log table exists, no code writes to it. 3 use cases proposed: coverage gap detection, geographic expansion planning, search funnel analytics. |
 
-6. **checkout/external/route.ts** — Server-side guard: rejects cash payment for orders containing catering items (advance_order_days > 0).
+### Still Pending (not yet implemented)
 
-7. **listing/[listingId]/page.tsx** — Blue "Advance Order · Prepaid" badge on listings with advance_order_days > 0.
+| Item | Description | Status |
+|------|-------------|--------|
+| H7 | FT no-show timing (pickup_time + 1hr) | `shouldTriggerNoShow()` EXISTS in no-show.ts with correct logic + tests, but Phase 4 cron does NOT use it yet. Need: import it, add preferred_pickup_time to query, relax filter to `.lte('pickup_date', today)`, gate each item with shouldTriggerNoShow() |
+| M5 | Hardcoded America/Chicago timezone | 1 occurrence in listing-availability.ts:176 as fallback. Fix: change to 'UTC'. Low risk since market.timezone is primary. |
+| M10 | Data retention per-vertical | Phase 9 cleanup is global. Both verticals have same retention. Adding vertical filter is structural but wouldn't change results. Optional. |
+| H2 | Inventory-before-refund fix | User said "do not make any changes — explain options" — DONE (options documented above) |
+| H3 | Concurrent cancellation fix | User said "do not make any changes — explain the scenario" — DONE (scenario documented above) |
+| C2 | Cancellation fee split fix | User said "show the calculations" — DONE but no fix authorized yet. Math shows platform is shorted ~$2 per $20 cancellation. |
+| M4 | Availability system consolidation | User said "report back on status & options" — DONE. No fix authorized. |
 
-### Schema/docs updates (also uncommitted):
-- `supabase/SCHEMA_SNAPSHOT.md` — Changelog entries for migrations 079 + 080, updated function description
-- `supabase/migrations/MIGRATION_LOG.md` — Both migrations marked ✅ all 3 envs
-- Migrations 079 + 080 moved to `applied/`
+### Quality Checks
+- **TypeScript**: 0 errors ✅
+- **ESLint**: 0 errors, 366 warnings (all pre-existing) ✅
+- **Tests**: All passing ✅
 
-## ALREADY COMMITTED + PUSHED TO STAGING
+### Migration
+- `supabase/migrations/20260314_083_coi_soft_gate.sql` — CREATED, NOT YET APPLIED
+  - Removes COI check from `can_vendor_publish()` DB function
+  - COI now enforced only in event-approval route (hard gate for events)
 
-### Commit `57d5c9b` — Browse filter bar + catering restriction (pushed to staging)
-- BrowseFilterBar.tsx (NEW), browse page.tsx, SearchFilter.tsx, ListingForm.tsx
+### Key Decisions Made
+- C1: COI is soft gate (vendors publish without COI), hard gate (events require COI) — per user directive
+- H1: No change — existing checkout validation is comprehensive
+- H4: No change — triple protection already exists (Stripe idempotency + app check + DB unique index)
+- L5: No change — email branding already parameterized per vertical
+- L7: No change — timingSafeEqual already in all cron routes
+- L8: No change — small_order_fee_cents already tracked at order level
+- M1: 10-second time-window dedup (per user_id + type) — catches webhook retries without false positives
+- M11: "Insert pending first" pattern applied to ALL 6 payout paths (webhooks, fulfill, confirm-handoff, buyer/confirm, checkout/success, cron Phase 7) + stale pending cleanup in Phase 5
 
-### Commit `692af5e` — Advance order days + timezone fix (pushed to staging)
-- Migration 079, ListingForm, AddToCartButton
+### Files Modified (23 total)
+- `supabase/migrations/20260314_083_coi_soft_gate.sql` — NEW migration
+- `apps/web/.claude/backlog.md` — stale items resolved + L2/L4/L6 added
+- `apps/web/.claude/current_task.md` — this file
+- `apps/web/.claude/session55_audit_report.md` — NEW audit report
+- `apps/web/.claude/session55_audit_research.md` — research notes
+- `apps/web/src/app/api/admin/quality-checks/route.ts` — M3 vertical filter
+- `apps/web/src/app/api/admin/vendors/[id]/event-approval/route.ts` — C1 COI hard gate
+- `apps/web/src/app/api/buyer/orders/[id]/confirm/route.ts` — M11 payout atomicity
+- `apps/web/src/app/api/checkout/session/route.ts` — M12 flat fee + M9 basePriceCents
+- `apps/web/src/app/api/checkout/success/route.ts` — M8 buyer notification + M11 payout
+- `apps/web/src/app/api/cron/expire-orders/route.ts` — M11 Phase 5+7 + M12 flat fee
+- `apps/web/src/app/api/submit/route.ts` — M7 FM category
+- `apps/web/src/app/api/vendor/onboarding/status/route.ts` — C1 COI removed
+- `apps/web/src/app/api/vendor/orders/[id]/confirm-handoff/route.ts` — M11 payout
+- `apps/web/src/app/api/vendor/orders/[id]/fulfill/route.ts` — M11 payout
+- `apps/web/src/app/api/vendor/orders/[id]/reject/route.ts` — M12 flat fee
+- `apps/web/src/lib/__tests__/notification-types.test.ts` — updated counts
+- `apps/web/src/lib/notifications/service.ts` — M1 dedup
+- `apps/web/src/lib/notifications/types.ts` — order_placed + charge_dispute_created
+- `apps/web/src/lib/payments/cancellation-fees.ts` — M12 flat fee
+- `apps/web/src/lib/pricing.ts` — M12 proratedFlatFee functions
+- `apps/web/src/lib/quality-checks.ts` — M3 vertical filter
+- `apps/web/src/lib/stripe/webhook-utils.ts` — M9 base price warning
+- `apps/web/src/lib/stripe/webhooks.ts` — H5+H6+M11
 
-### Earlier Session 52 commits (all pushed to prod + staging):
-1. `e44116c` — 32 of 40 audit fixes (27 files)
-2. `0ad1c57` — Migration 078 applied all 3 envs
-3. `b6ef52d` — Display name mandatory + business rules updates
-4. `1717a19` — Fix /api/health: anon key
-5. `09b8a0a` — CI: add NEXT_PUBLIC_SUPABASE_ANON_KEY
-6. `268180d` — Fix CI lint: require() → ES module imports
-7. `d53fe5e` — Listing detail: Qty Available, force-dynamic, continue shopping nav
-
-## Key Decisions Made
-
-### 48-Hour Lead Time Rules
-- 2 calendar days minimum (not true 48 hours — simpler, always >= 48hr)
-- Hardcoded in SQL function (no per-listing `lead_time_days` column)
-- `advance_order_days > 0` = proxy for "catering item" (accurate since only catering items have this set)
-- Mixed carts allowed — if any catering item, cash is removed from payment options
-- Payment apps (Venmo/CashApp/PayPal) still allowed; only cash is blocked
-- Server-side enforcement in external checkout API (can't bypass via API)
-
-### FT Advance Ordering Architecture
-- `advance_order_days` column on `listings` table (INTEGER, default 0)
-- Default 0 = same-day only (identical to current behavior, zero risk)
-- Values 2-7 extend the FT ordering window for that specific listing
-- SQL date window: `[local_today + 2, local_today + advance_order_days]`
-- Only available for event-approved FT vendors on listings marked "Available for Events"
-- Regular walk-up menu items stay same-day only
-
-### Timezone Bug Root Cause
-- Migration 040 applied to Prod on 2026-03-07 out of order, reverting 054's fix
-- Fix: migration 079 includes both event support AND timezone fix (supersedes both 040 and 054)
-
-### Browse Filter Bar Design
-- 3 dropdowns in outlined box: View, Availability, Menu Type (FT only)
-- Catering filter: `listing_data->>'event_menu_item'`
-- URL param: `?menu=catering` or `?menu=daily`
-
-## Branch Status
-- Main is 4+ ahead of origin/main (several commits not pushed to prod)
-- Staging synced through browse filter bar commit
-- New 48hr changes uncommitted
-
-## Remaining Items
-- **Commit + push to staging** — 48hr lead time changes
-- **M-2**: Vendor confirm 30-sec window — user must review before fix
-- **H-2**: Market box cancellation flow — needs code review
-- **M-16**: Nearby vendors DB-level pagination — deferred
-- **Catering feature backlog**: min_quantity, separate pricing, lead time display to buyers
+### Gotchas
+- Migration 083 needs to be applied BEFORE testing COI changes
+- M11 "insert pending" pattern requires vendor_payouts to accept status='pending' (already supported)
+- M1 dedup uses 10s window — legitimate same-type notifications >10s apart will still send
+- Sales tax feature (Session 54) still 2 commits ahead of origin/main, needs staging verification
+- `shouldTriggerNoShow()` is ready to use but Phase 4 cron doesn't call it yet (H7 pending)
+- M7 fix reads 'categories' field but FM vendor signup form needs 'categories' field added to verticals.config in DB

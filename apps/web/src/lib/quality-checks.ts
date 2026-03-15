@@ -29,12 +29,13 @@ export interface QualityFinding {
 // ── Check 1: Schedule Conflict ────────────────────────────────
 
 export async function checkScheduleConflicts(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  verticalId?: string
 ): Promise<QualityFinding[]> {
   const findings: QualityFinding[] = []
 
   // Get all active vendor market schedules with their market + schedule details
-  const { data: schedules, error } = await supabase
+  let query = supabase
     .from('vendor_market_schedules')
     .select(`
       id,
@@ -51,6 +52,13 @@ export async function checkScheduleConflicts(
       )
     `)
     .eq('is_active', true)
+
+  // M3 FIX: Filter by vertical via the markets join
+  if (verticalId) {
+    query = query.eq('markets.vertical_id', verticalId)
+  }
+
+  const { data: schedules, error } = await query
 
   // Look up which vendors have multiple_trucks enabled (skip conflicts for them)
   // Scoped to vendors that have active schedules (avoids full table scan)
@@ -134,13 +142,14 @@ export async function checkScheduleConflicts(
 // ── Check 2: Low Stock + Event ────────────────────────────────
 
 export async function checkLowStockEvents(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  verticalId?: string
 ): Promise<QualityFinding[]> {
   const findings: QualityFinding[] = []
   const today = new Date().toISOString().split('T')[0]
   const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('listings')
     .select(`
       id, title, quantity, vendor_profile_id, vertical_id,
@@ -155,6 +164,13 @@ export async function checkLowStockEvents(
     .is('deleted_at', null)
     .lte('quantity', LOW_STOCK_THRESHOLD)
     .gt('quantity', 0)
+
+  // M3 FIX: Filter by vertical
+  if (verticalId) {
+    query = query.eq('vertical_id', verticalId)
+  }
+
+  const { data, error } = await query
 
   if (error || !data) {
     await logError(new TracedError('ERR_QC_002', `Low stock + event check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
@@ -195,18 +211,26 @@ export async function checkLowStockEvents(
 // ── Check 3: Price Anomaly ────────────────────────────────────
 
 export async function checkPriceAnomalies(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  verticalId?: string
 ): Promise<QualityFinding[]> {
   const findings: QualityFinding[] = []
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
   // Get recently updated published listings
-  const { data: listings, error } = await supabase
+  let query = supabase
     .from('listings')
     .select('id, title, price_cents, vendor_profile_id, vertical_id')
     .eq('status', 'published')
     .is('deleted_at', null)
     .gte('updated_at', yesterday)
+
+  // M3 FIX: Filter by vertical
+  if (verticalId) {
+    query = query.eq('vertical_id', verticalId)
+  }
+
+  const { data: listings, error } = await query
 
   if (error || !listings) {
     await logError(new TracedError('ERR_QC_003', `Price anomaly check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
@@ -257,13 +281,14 @@ export async function checkPriceAnomalies(
 // ── Check 4: Ghost Listing ────────────────────────────────────
 
 export async function checkGhostListings(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  verticalId?: string
 ): Promise<QualityFinding[]> {
   const findings: QualityFinding[] = []
   const today = new Date().toISOString().split('T')[0]
 
   // Get all published listings with their market associations
-  const { data: listings, error } = await supabase
+  let query = supabase
     .from('listings')
     .select(`
       id, title, vendor_profile_id, vertical_id,
@@ -277,6 +302,13 @@ export async function checkGhostListings(
     `)
     .eq('status', 'published')
     .is('deleted_at', null)
+
+  // M3 FIX: Filter by vertical
+  if (verticalId) {
+    query = query.eq('vertical_id', verticalId)
+  }
+
+  const { data: listings, error } = await query
 
   if (error || !listings) {
     await logError(new TracedError('ERR_QC_004', `Ghost listing check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
@@ -342,13 +374,14 @@ export async function checkGhostListings(
 // ── Check 5: Inventory Velocity ───────────────────────────────
 
 export async function checkInventoryVelocity(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  verticalId?: string
 ): Promise<QualityFinding[]> {
   const findings: QualityFinding[] = []
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   // Get published listings with remaining inventory
-  const { data: listings, error } = await supabase
+  let query = supabase
     .from('listings')
     .select(`
       id, title, quantity, vendor_profile_id, vertical_id,
@@ -363,6 +396,13 @@ export async function checkInventoryVelocity(
     .eq('status', 'published')
     .is('deleted_at', null)
     .gt('quantity', 0)
+
+  // M3 FIX: Filter by vertical
+  if (verticalId) {
+    query = query.eq('vertical_id', verticalId)
+  }
+
+  const { data: listings, error } = await query
 
   if (error || !listings) {
     await logError(new TracedError('ERR_QC_005', `Inventory velocity check failed: ${error?.message}`, { route: '/api/cron/vendor-quality-checks' }))
