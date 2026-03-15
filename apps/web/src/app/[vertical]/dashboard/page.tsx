@@ -18,6 +18,8 @@ import { DashboardNotifications } from '@/components/notifications/DashboardNoti
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import HelpSearchWidget from '@/components/help/HelpSearchWidget'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 
 interface DashboardPageProps {
   params: Promise<{ vertical: string }>
@@ -25,6 +27,7 @@ interface DashboardPageProps {
 
 export default async function DashboardPage({ params }: DashboardPageProps) {
   const { vertical } = await params
+  const locale = await getLocale()
   const supabase = await createClient()
 
   // Check auth + vertical membership
@@ -228,16 +231,16 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             sizes="40px"
             style={{ width: 'auto', height: 32 }}
           />
-          Dashboard
+          {t('dash.title', locale)}
         </h1>
         <span style={{
           color: colors.textMuted,
           fontSize: typography.sizes.sm,
         }}>
-          Welcome back, {user.user_metadata?.full_name || user.email?.split('@')[0]}
+          {t('dash.welcome', locale, { name: user.user_metadata?.full_name || user.email?.split('@')[0] || '' })}
           {isBuyerPremiumEnabled(vertical) && isPremiumBuyer && (
             <span style={{ marginLeft: spacing.xs, color: colors.accent }}>
-              • Premium
+              • {t('dash.premium_badge', locale)}
             </span>
           )}
         </span>
@@ -268,14 +271,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               fontSize: typography.sizes.base,
               color: colors.primaryDark
             }}>
-              Never miss a pickup — turn on text alerts
+              {t('dash.sms_title', locale)}
             </p>
             <p style={{
               margin: `${spacing['3xs']} 0 0`,
               fontSize: typography.sizes.sm,
               color: colors.textSecondary
             }}>
-              Get a text the moment your order is ready for pickup. Quick setup in Settings.
+              {t('dash.sms_desc', locale)}
             </p>
           </div>
         </Link>
@@ -292,7 +295,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           alignItems: 'center',
           gap: spacing['2xs']
         }}>
-          <span>🛒</span> Shopper
+          <span>🛒</span> {t('dash.shopper', locale)}
         </h2>
 
         {/* Ready for Pickup Alert - show prominently if there are orders ready */}
@@ -319,7 +322,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 color: colors.primaryDark,
                 whiteSpace: 'nowrap'
               }}>
-                Ready for Pickup!
+                {t('dash.ready_for_pickup', locale)}
               </h3>
               <span style={{
                 backgroundColor: colors.primary,
@@ -369,8 +372,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     borderBottom: `1px solid ${colors.primary}`
                   }}>
                     {order.ready_item_count < order.total_active_count
-                      ? `${order.ready_item_count} of ${order.total_active_count} items ready`
-                      : `${order.ready_item_count} item${order.ready_item_count !== 1 ? 's' : ''} ready`
+                      ? t('dash.x_of_y_ready', locale, { ready: String(order.ready_item_count), total: String(order.total_active_count) })
+                      : order.ready_item_count !== 1
+                        ? t('dash.x_items_ready', locale, { count: String(order.ready_item_count) })
+                        : t('dash.one_item_ready', locale)
                     }
                   </div>
 
@@ -407,7 +412,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                           marginTop: spacing['3xs']
                         }}>
                           <span style={{ fontSize: typography.sizes.xs }}>
-                            {pickup.market?.market_type === 'event' ? '🎪' : pickup.market?.market_type === 'private_pickup' ? '🏠' : term(vertical, 'market_icon_emoji')}
+                            {pickup.market?.market_type === 'event' ? '🎪' : pickup.market?.market_type === 'private_pickup' ? '🏠' : term(vertical, 'market_icon_emoji', locale)}
                           </span>
                           <span style={{
                             fontWeight: typography.weights.medium,
@@ -454,7 +459,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 textDecoration: 'none'
               }}
             >
-              View all ready orders →
+              {t('dash.view_ready', locale)}
             </Link>
           </div>
         )}
@@ -484,10 +489,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             }}
           >
             <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              {term(vertical, 'browse_products_cta')}
+              {term(vertical, 'browse_products_cta', locale)}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {`Explore ${term(vertical, 'products').toLowerCase()} from local ${term(vertical, 'vendors').toLowerCase()}`}
+              {t('dash.explore', locale, { products: term(vertical, 'products', locale).toLowerCase(), vendors: term(vertical, 'vendors', locale).toLowerCase() })}
             </p>
           </Link>
 
@@ -511,7 +516,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             }}
           >
             <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              My Orders
+              {t('dash.my_orders', locale)}
               {confirmationNeededCount > 0 && (
                 <span style={{
                   marginLeft: spacing.xs,
@@ -523,19 +528,22 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   fontWeight: typography.weights.bold,
                   verticalAlign: 'middle'
                 }}>
-                  Action Needed
+                  {t('dash.action_needed', locale)}
                 </span>
               )}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {orderCount || 0} active order{orderCount !== 1 ? 's' : ''}
+              {orderCount !== 1
+                ? t('dash.active_orders', locale, { count: String(orderCount || 0) })
+                : t('dash.active_order', locale, { count: String(orderCount || 0) })
+              }
               {confirmationNeededCount > 0 && (
                 <span style={{
                   marginLeft: spacing.xs,
                   color: '#ea580c',
                   fontWeight: typography.weights.bold
                 }}>
-                  • {confirmationNeededCount} to confirm
+                  • {t('dash.to_confirm', locale, { count: String(confirmationNeededCount) })}
                 </span>
               )}
               {ordersReadyForPickup.length > 0 && (
@@ -544,7 +552,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   color: colors.primary,
                   fontWeight: typography.weights.semibold
                 }}>
-                  • {ordersReadyForPickup.length} ready
+                  • {t('dash.count_ready', locale, { count: String(ordersReadyForPickup.length) })}
                 </span>
               )}
             </p>
@@ -564,10 +572,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             }}
           >
             <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              ❤️ My Favorites
+              ❤️ {t('dash.my_favorites', locale)}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              {`Your saved ${term(vertical, 'vendors').toLowerCase()}`}
+              {t('dash.saved_vendors', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
             </p>
           </Link>
 
@@ -612,7 +620,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     fontWeight: typography.weights.bold,
                     color: colors.primaryDark
                   }}>
-                    Upgrade Your Shopper Account
+                    {t('dash.upgrade_shopper', locale)}
                   </h3>
                 </div>
                 <p style={{
@@ -620,7 +628,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   color: colors.textSecondary,
                   fontSize: typography.sizes.base
                 }}>
-                  Become a Premium Shopper for just <strong>${(SUBSCRIPTION_PRICES.buyer.monthly.amountCents / 100).toFixed(2)}/month</strong> or <strong>${(SUBSCRIPTION_PRICES.buyer.annual.amountCents / 100).toFixed(2)}/year</strong>{' '}
+                  {t('dash.premium_pitch', locale)} <strong>${(SUBSCRIPTION_PRICES.buyer.monthly.amountCents / 100).toFixed(2)}/month</strong> or <strong>${(SUBSCRIPTION_PRICES.buyer.annual.amountCents / 100).toFixed(2)}/year</strong>{' '}
                   <span style={{
                     backgroundColor: colors.primary,
                     color: colors.textInverse,
@@ -629,7 +637,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     fontSize: typography.sizes.xs,
                     fontWeight: typography.weights.semibold
                   }}>
-                    Save 32%
+                    {t('dash.save_percent', locale, { percent: '32' })}
                   </span>
                 </p>
 
@@ -640,19 +648,19 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                     <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
-                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{`Access to ${term(vertical, 'market_box')} subscriptions`}</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{t('dash.benefit_mbox', locale, { market_box: term(vertical, 'market_box', locale) })}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                     <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
-                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Early access to new listings</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{t('dash.benefit_early', locale)}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                     <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
-                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Priority customer support</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{t('dash.benefit_support', locale)}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
                     <span style={{ color: colors.primaryDark, fontWeight: typography.weights.bold }}>✓</span>
-                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>Premium shopper badge</span>
+                    <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>{t('dash.benefit_badge', locale)}</span>
                   </div>
                 </div>
               </div>
@@ -675,7 +683,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   border: `2px solid ${colors.primary}`
                 }}
               >
-                Upgrade Now →
+                {t('dash.upgrade_now', locale)} →
               </Link>
             </div>
           </div>
@@ -702,7 +710,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               alignItems: 'center',
               gap: spacing['2xs']
             }}>
-              <span>{term(vertical, 'vendor_section_emoji')}</span> {term(vertical, 'vendor')}
+              <span>{term(vertical, 'vendor_section_emoji', locale)}</span> {term(vertical, 'vendor', locale)}
             </h2>
 
             {/* Vendor Signup Card - Encouraging */}
@@ -725,14 +733,14 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     fontWeight: typography.weights.bold,
                     color: colors.primary
                   }}>
-                    Turn Your Passion Into Profit
+                    {t('dash.passion_profit', locale)}
                   </h3>
                   <p style={{
                     margin: `0 0 ${spacing.sm}`,
                     fontSize: typography.sizes.base,
                     color: colors.textSecondary
                   }}>
-                    {`Join local ${term(vertical, 'vendors').toLowerCase()} already selling on our platform.`} Easy setup, flexible schedule, direct connection to customers.
+                    {t('dash.vendor_pitch', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })} {t('dash.vendor_pitch2', locale)}
                   </p>
 
                   <div style={{
@@ -744,25 +752,25 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                       <span style={{ color: colors.primary }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        {`Sell your ${term(vertical, 'product_examples')}`}
+                        {t('dash.sell_your', locale, { product_examples: term(vertical, 'product_examples', locale) })}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                       <span style={{ color: colors.primary }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        Set your own prices and availability
+                        {t('dash.set_prices', locale)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                       <span style={{ color: colors.primary }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        Get paid directly - no complicated setup
+                        {t('dash.get_paid', locale)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                       <span style={{ color: colors.primary }}>✓</span>
                       <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        Reach new customers who order ahead
+                        {t('dash.reach_customers', locale)}
                       </span>
                     </div>
                   </div>
@@ -781,7 +789,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       border: `2px solid ${colors.primary}`
                     }}
                   >
-                    {term(vertical, 'vendor_signup_cta')} →
+                    {term(vertical, 'vendor_signup_cta', locale)} →
                   </Link>
                 </div>
               </div>
@@ -809,7 +817,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               alignItems: 'center',
               gap: spacing['2xs']
             }}>
-              <span>{term(vertical, 'vendor_section_emoji')}</span> {term(vertical, 'vendor')}
+              <span>{term(vertical, 'vendor_section_emoji', locale)}</span> {term(vertical, 'vendor', locale)}
             </h2>
 
           {isApprovedVendor ? (
@@ -832,10 +840,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 }}
               >
                 <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                  {term(vertical, 'vendor_dashboard_nav')}
+                  {term(vertical, 'vendor_dashboard_nav', locale)}
                 </h3>
                 <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                  Manage listings, orders, and payments
+                  {t('dash.manage_vendor', locale)}
                 </p>
               </Link>
 
@@ -871,7 +879,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                         fontSize: typography.sizes.lg,
                         fontWeight: typography.weights.bold
                       }}>
-                        Grow Your Business
+                        {t('dash.grow_business', locale)}
                       </h3>
                     </div>
 
@@ -882,8 +890,8 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                       fontWeight: typography.weights.medium
                     }}>
                       {vertical === 'food_trucks'
-                        ? <>Upgrade to Basic for just <strong>${(SUBSCRIPTION_PRICES.food_truck_vendor.basic_monthly.amountCents / 100).toFixed(0)}/month</strong></>
-                        : <>Upgrade to Premium for just <strong>${(SUBSCRIPTION_PRICES.fm_premium.monthly.amountCents / 100).toFixed(2)}/month</strong></>
+                        ? <>{t('dash.upgrade_basic', locale)} <strong>${(SUBSCRIPTION_PRICES.food_truck_vendor.basic_monthly.amountCents / 100).toFixed(0)}/month</strong></>
+                        : <>{t('dash.upgrade_premium_vendor', locale)} <strong>${(SUBSCRIPTION_PRICES.fm_premium.monthly.amountCents / 100).toFixed(2)}/month</strong></>
                       }
                     </p>
 
@@ -896,18 +904,18 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                     }}>
                       {vertical === 'food_trucks' ? (
                         <>
-                          <li><strong>8 menu items</strong> (vs 4)</li>
-                          <li><strong>3 locations + 3 service locations</strong></li>
-                          <li><strong>{`2 active ${term(vertical, 'market_boxes')}`}</strong> with up to 10 subscribers each</li>
-                          <li><strong>30-day analytics</strong> & order insights</li>
+                          <li><strong>{t('dash.ft_benefit_items', locale, { count: '8' })}</strong> (vs 4)</li>
+                          <li><strong>{t('dash.ft_benefit_locations', locale, { markets: '3', service: '3' })}</strong></li>
+                          <li><strong>{t('dash.ft_benefit_mbox', locale, { count: '2', market_boxes: term(vertical, 'market_boxes', locale) })}</strong> {t('dash.ft_benefit_mbox_subs', locale, { count: '10' })}</li>
+                          <li><strong>{t('dash.ft_benefit_analytics', locale, { days: '30' })}</strong></li>
                         </>
                       ) : (
                         <>
-                          <li><strong>15 listings</strong> (vs 5)</li>
-                          <li><strong>4 markets + 5 private locations</strong></li>
-                          <li><strong>{`4 active ${term(vertical, 'market_boxes')}`}</strong> with up to 20 subscribers each</li>
-                          <li><strong>Priority placement</strong> in search & featured sections</li>
-                          <li><strong>Premium badge</strong> & advanced analytics</li>
+                          <li><strong>{t('dash.fm_benefit_listings', locale, { count: '15' })}</strong> (vs 5)</li>
+                          <li><strong>{t('dash.fm_benefit_locations', locale, { markets: '4', private: '5' })}</strong></li>
+                          <li><strong>{t('dash.ft_benefit_mbox', locale, { count: '4', market_boxes: term(vertical, 'market_boxes', locale) })}</strong> {t('dash.ft_benefit_mbox_subs', locale, { count: '20' })}</li>
+                          <li><strong>{t('dash.fm_benefit_priority', locale)}</strong></li>
+                          <li><strong>{t('dash.fm_benefit_badge', locale)}</strong></li>
                         </>
                       )}
                     </ul>
@@ -926,7 +934,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                         boxShadow: shadows.sm
                       }}
                     >
-                      Upgrade Now
+                      {t('dash.upgrade_now', locale)}
                     </Link>
                   </div>
                 )
@@ -947,16 +955,16 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                 marginBottom: spacing.sm
               }}>
                 <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold, color: colors.accent }}>
-                  ⏳ Pending Approval
+                  ⏳ {t('dash.pending_approval', locale)}
                 </h3>
                 <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                  Your vendor application is being reviewed. We&apos;ll notify you once approved.
+                  {t('dash.pending_msg', locale)}
                 </p>
               </div>
 
               {/* Draft Listings Section */}
               <p style={{ margin: `0 0 ${spacing.xs} 0`, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                While you wait, you can prepare your listings:
+                {t('dash.prepare_listings', locale)}
               </p>
 
               <div style={{
@@ -978,10 +986,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
                   }}
                 >
                   <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-                    Create Draft Listings
+                    {t('dash.create_drafts', locale)}
                   </h3>
                   <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-                    Start adding your products now
+                    {t('dash.start_adding', locale)}
                   </p>
                 </Link>
 
@@ -993,7 +1001,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
               </div>
 
               <p style={{ margin: `${spacing.xs} 0 0 0`, color: colors.accent, fontSize: typography.sizes.sm, fontStyle: 'italic' }}>
-                Listings will be saved as drafts and can be published once your account is approved.
+                {t('dash.drafts_note', locale)}
               </p>
             </div>
           )}
@@ -1013,7 +1021,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             alignItems: 'center',
             gap: spacing['2xs']
           }}>
-            <span>🔧</span> Admin
+            <span>🔧</span> {t('dash.admin', locale)}
           </h2>
 
           <Link
@@ -1030,10 +1038,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             }}
           >
             <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
-              Admin Panel
+              {t('dash.admin_panel', locale)}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              Manage vendors, listings, and users
+              {t('dash.manage_admin', locale)}
             </p>
           </Link>
         </section>

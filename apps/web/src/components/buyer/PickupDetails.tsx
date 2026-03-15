@@ -2,6 +2,8 @@
 
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { formatTimeRangeWithTZ, formatTimeWithTZ } from '@/lib/utils/timezone'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Market {
   id: string
@@ -40,7 +42,7 @@ interface PickupDetailsProps {
   display?: PickupDisplay | null
 }
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const DAY_KEYS = ['pickup.sunday', 'pickup.monday', 'pickup.tuesday', 'pickup.wednesday', 'pickup.thursday', 'pickup.friday', 'pickup.saturday']
 
 // Format time for display (e.g., "8:00 AM")
 function formatTime(timeStr: string | null | undefined): string | null {
@@ -64,6 +66,7 @@ function formatPickupDate(dateStr: string | null | undefined): string | null {
 }
 
 export default function PickupDetails({ market, pickupDate, display }: PickupDetailsProps) {
+  const locale = getClientLocale()
   const isTraditional = market.type === 'traditional'
 
   // Use display data from pickup_snapshot when available (immutable order details)
@@ -85,7 +88,7 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
       marginBottom: 24
     }}>
       <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, marginTop: 0, color: '#374151' }}>
-        📍 Pickup Location
+        📍 {t('pickup.location', locale)}
       </h3>
 
       {/* Market Name */}
@@ -113,7 +116,7 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
       {displayPickupDate && (
         <div style={{ marginBottom: 12 }}>
           <p style={{ margin: '0 0 4px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>
-            Pickup Date:
+            {t('pickup.date', locale)}
           </p>
           <p style={{ margin: 0, fontSize: 14, color: '#1e40af', fontWeight: 500 }}>
             {formatPickupDate(displayPickupDate)}
@@ -130,11 +133,11 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
       {!displayPickupDate && isTraditional && market.schedules && market.schedules.length > 0 && (
         <div style={{ marginBottom: 12 }}>
           <p style={{ margin: '0 0 4px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>
-            Market Hours:
+            {t('pickup.market_hours', locale)}
           </p>
           {market.schedules.map((schedule, idx) => (
             <p key={idx} style={{ margin: '2px 0', fontSize: 14, color: '#6b7280' }}>
-              {DAYS[schedule.day_of_week]}: {formatTimeRangeWithTZ(schedule.start_time, schedule.end_time, idx === 0 ? tz : null)}
+              {t(DAY_KEYS[schedule.day_of_week], locale)}: {formatTimeRangeWithTZ(schedule.start_time, schedule.end_time, idx === 0 ? tz : null)}
             </p>
           ))}
         </div>
@@ -144,7 +147,7 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
       {(market.contact_email || market.contact_phone) && (
         <div>
           <p style={{ margin: '0 0 4px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>
-            Questions? Contact:
+            {t('pickup.contact', locale)}
           </p>
           {market.contact_email && (
             <p style={{ margin: '2px 0', fontSize: 14, color: '#6b7280' }}>

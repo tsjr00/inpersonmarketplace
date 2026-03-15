@@ -1,24 +1,29 @@
 'use client'
 
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
+
 interface OrderTimelineProps {
   status: string
   createdAt: string
   updatedAt: string
 }
 
-// Timeline steps - handed_off inserts between ready and fulfilled
-const TIMELINE_STEPS = [
-  { key: 'pending', label: 'Order Placed' },
-  { key: 'confirmed', label: 'Confirmed by Vendor' },
-  { key: 'ready', label: 'Ready for Pickup' },
-  { key: 'handed_off', label: 'Vendor Handed Off' },
-  { key: 'fulfilled', label: 'Picked Up' }
-]
-
 // Order of statuses for comparison
 const STATUS_ORDER = ['pending', 'confirmed', 'ready', 'handed_off', 'fulfilled', 'completed', 'cancelled', 'expired']
 
 export default function OrderTimeline({ status, createdAt, updatedAt }: OrderTimelineProps) {
+  const locale = getClientLocale()
+
+  // Timeline steps - handed_off inserts between ready and fulfilled
+  const TIMELINE_STEPS = [
+    { key: 'pending', label: t('timeline.placed', locale) },
+    { key: 'confirmed', label: t('timeline.confirmed', locale) },
+    { key: 'ready', label: t('timeline.ready', locale) },
+    { key: 'handed_off', label: t('timeline.handed_off', locale) },
+    { key: 'fulfilled', label: t('timeline.picked_up', locale) }
+  ]
+
   const currentIndex = STATUS_ORDER.indexOf(status)
   const isCancelled = status === 'cancelled'
   const isExpired = status === 'expired'
@@ -33,7 +38,7 @@ export default function OrderTimeline({ status, createdAt, updatedAt }: OrderTim
         marginBottom: 24
       }}>
         <p style={{ margin: 0, fontSize: 14, color: '#991b1b' }}>
-          {isCancelled ? 'Order was cancelled' : 'Pickup window expired'}
+          {isCancelled ? t('timeline.cancelled', locale) : t('timeline.expired', locale)}
         </p>
       </div>
     )
@@ -51,7 +56,7 @@ export default function OrderTimeline({ status, createdAt, updatedAt }: OrderTim
   return (
     <div style={{ marginBottom: 24 }}>
       <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, marginTop: 0, color: '#374151' }}>
-        Order Timeline
+        {t('timeline.title', locale)}
       </h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {visibleSteps.map((step, index) => {
@@ -94,7 +99,7 @@ export default function OrderTimeline({ status, createdAt, updatedAt }: OrderTim
                 </p>
                 {isAwaitingAction && (
                   <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#b45309', fontWeight: 500 }}>
-                    Please confirm you received your items
+                    {t('timeline.confirm_receipt', locale)}
                   </p>
                 )}
               </div>

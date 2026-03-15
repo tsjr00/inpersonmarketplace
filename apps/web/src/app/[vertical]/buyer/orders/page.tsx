@@ -8,18 +8,21 @@ import { colors, spacing, typography, radius, shadows, containers } from '@/lib/
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import ReviewPromptCard from '@/components/buyer/ReviewPromptCard'
 
 // Format payment method for display
-function formatPaymentMethodLabel(method: string | undefined): string | null {
+function formatPaymentMethodLabel(method: string | undefined, locale: string): string | null {
   if (!method || method === 'stripe') return null
-  const labels: Record<string, string> = {
-    venmo: 'Paid via Venmo',
-    cashapp: 'Paid via Cash App',
-    paypal: 'Paid via PayPal',
-    cash: 'Cash at Pickup',
+  const keys: Record<string, string> = {
+    venmo: 'payment.venmo',
+    cashapp: 'payment.cashapp',
+    paypal: 'payment.paypal',
+    cash: 'payment.cash',
   }
-  return labels[method] || null
+  const key = keys[method]
+  return key ? t(key, locale) : null
 }
 
 interface Order {
@@ -132,6 +135,7 @@ export default function BuyerOrdersPage() {
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
+  const locale = getClientLocale()
 
   const [orders, setOrders] = useState<Order[]>([])
   const [markets, setMarkets] = useState<Market[]>([])
@@ -189,19 +193,19 @@ export default function BuyerOrdersPage() {
 
   // Status colors matching vendor OrderCard for consistency
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-    pending: { label: 'Order Placed', color: '#92400e', bgColor: '#fef3c7' },
-    paid: { label: 'Order Placed', color: '#92400e', bgColor: '#fef3c7' },
-    confirmed: { label: 'Confirmed', color: '#1e40af', bgColor: '#dbeafe' },
-    ready: { label: 'Ready for Pickup', color: '#065f46', bgColor: '#d1fae5' },
-    handed_off: { label: 'Acknowledge Your Pickup', color: '#b45309', bgColor: '#fef3c7' },
-    completed: { label: 'Completed', color: '#7e22ce', bgColor: '#f3e8ff' },
-    fulfilled: { label: 'Picked Up', color: '#7e22ce', bgColor: '#f3e8ff' },
-    cancelled: { label: 'Cancelled', color: '#991b1b', bgColor: '#fee2e2' },
-    refunded: { label: 'Refunded', color: '#991b1b', bgColor: '#fee2e2' },
+    pending: { label: t('status.order_placed', locale), color: '#92400e', bgColor: '#fef3c7' },
+    paid: { label: t('status.order_placed', locale), color: '#92400e', bgColor: '#fef3c7' },
+    confirmed: { label: t('status.confirmed', locale), color: '#1e40af', bgColor: '#dbeafe' },
+    ready: { label: t('status.ready', locale), color: '#065f46', bgColor: '#d1fae5' },
+    handed_off: { label: t('status.handed_off', locale), color: '#b45309', bgColor: '#fef3c7' },
+    completed: { label: t('status.completed', locale), color: '#7e22ce', bgColor: '#f3e8ff' },
+    fulfilled: { label: t('status.fulfilled', locale), color: '#7e22ce', bgColor: '#f3e8ff' },
+    cancelled: { label: t('status.cancelled', locale), color: '#991b1b', bgColor: '#fee2e2' },
+    refunded: { label: t('status.refunded', locale), color: '#991b1b', bgColor: '#fee2e2' },
   }
 
   if (loading) {
-    return <FullPageLoading message="Loading orders..." />
+    return <FullPageLoading message={t('orders.loading', locale)} />
   }
 
   return (
@@ -220,11 +224,11 @@ export default function BuyerOrdersPage() {
           href={`/${vertical}/dashboard`}
           style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
         >
-          ← Back to Dashboard
+          {t('nav.back_dashboard', locale)}
         </Link>
-        <h1 style={{ marginTop: spacing.sm, marginBottom: spacing['3xs'], color: colors.textPrimary, fontSize: typography.sizes['2xl'] }}>My Orders</h1>
+        <h1 style={{ marginTop: spacing.sm, marginBottom: spacing['3xs'], color: colors.textPrimary, fontSize: typography.sizes['2xl'] }}>{t('orders.title', locale)}</h1>
         <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
-          View and track your purchases
+          {t('orders.subtitle', locale)}
         </p>
 
         {/* H-4: Review prompt for unrated orders */}
@@ -236,7 +240,7 @@ export default function BuyerOrdersPage() {
         <div style={{ marginTop: spacing.md, display: 'flex', gap: spacing.sm, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center' }}>
             <label style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
-              Status:
+              {t('orders.filter_status', locale)}
             </label>
             <select
               value={statusFilter}
@@ -249,19 +253,19 @@ export default function BuyerOrdersPage() {
                 backgroundColor: colors.surfaceElevated
               }}
             >
-              <option value="">All Orders</option>
-              <option value="pending">Order Placed</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="ready">Ready for Pickup</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="">{t('orders.filter_all', locale)}</option>
+              <option value="pending">{t('status.order_placed', locale)}</option>
+              <option value="confirmed">{t('status.confirmed', locale)}</option>
+              <option value="ready">{t('status.ready', locale)}</option>
+              <option value="completed">{t('status.completed', locale)}</option>
+              <option value="cancelled">{t('status.cancelled', locale)}</option>
             </select>
           </div>
 
           {markets.length > 0 && (
             <div style={{ display: 'flex', gap: spacing['2xs'], alignItems: 'center' }}>
               <label style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: colors.textSecondary }}>
-                {term(vertical, 'market')}:
+                {term(vertical, 'market', locale)}:
               </label>
               <select
                 value={marketFilter}
@@ -274,7 +278,7 @@ export default function BuyerOrdersPage() {
                   backgroundColor: colors.surfaceElevated
                 }}
               >
-                <option value="">All {term(vertical, 'markets')}</option>
+                <option value="">{t('orders.filter_all_markets', locale, { markets: term(vertical, 'markets', locale) })}</option>
                 {markets.map(market => (
                   <option key={market.id} value={market.id}>
                     {market.name}
@@ -309,7 +313,7 @@ export default function BuyerOrdersPage() {
                 cursor: 'pointer',
               }}
             >
-              {tab === 'current' ? 'Current' : 'History'}
+              {tab === 'current' ? t('orders.tab_current', locale) : t('orders.tab_history', locale)}
             </button>
           ))}
         </div>
@@ -338,12 +342,12 @@ export default function BuyerOrdersPage() {
             }}>
               <div style={{ fontSize: 60, marginBottom: spacing.md, opacity: 0.3 }}>📦</div>
               <h3 style={{ marginBottom: spacing.xs, color: colors.textMuted, fontSize: typography.sizes.lg }}>
-                {statusFilter || marketFilter ? 'No matching orders' : 'No orders yet'}
+                {statusFilter || marketFilter ? t('orders.empty_filtered', locale) : t('orders.empty_none', locale)}
               </h3>
               <p style={{ color: colors.textMuted, marginBottom: 0, fontSize: typography.sizes.base }}>
                 {statusFilter || marketFilter
-                  ? 'Try adjusting your filters to see more orders'
-                  : 'Start shopping to see your orders here'
+                  ? t('orders.empty_filtered_hint', locale)
+                  : t('orders.empty_hint', locale)
                 }
               </p>
             </div>
@@ -365,7 +369,7 @@ export default function BuyerOrdersPage() {
                     border: `2px solid ${colors.primary}`,
                   }}
                 >
-                  {term(vertical, 'browse_products_cta')}
+                  {term(vertical, 'browse_products_cta', locale)}
                 </Link>
               </div>
             )}
@@ -412,7 +416,7 @@ export default function BuyerOrdersPage() {
                   {title}
                 </span>
                 <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                  ({count} order{count !== 1 ? 's' : ''})
+                  ({count !== 1 ? t('orders.count', locale, { count: String(count) }) : t('orders.count_one', locale)})
                 </span>
               </div>
             ) : null
@@ -484,7 +488,7 @@ export default function BuyerOrdersPage() {
                       }}>
                         {config.label}
                       </span>
-                      {formatPaymentMethodLabel(order.payment_method) && (
+                      {formatPaymentMethodLabel(order.payment_method, locale) && (
                         <span style={{
                           padding: `1px ${spacing['2xs']}`,
                           backgroundColor: '#fef3c7',
@@ -495,7 +499,7 @@ export default function BuyerOrdersPage() {
                           textTransform: 'uppercase',
                           letterSpacing: 0.3
                         }}>
-                          {formatPaymentMethodLabel(order.payment_method)}
+                          {formatPaymentMethodLabel(order.payment_method, locale)}
                         </span>
                       )}
                     </div>
@@ -519,7 +523,7 @@ export default function BuyerOrdersPage() {
                     border: `2px solid ${config.color}20`
                   }}>
                     <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
-                      Order
+                      {t('orders.order_label', locale)}
                     </span>
                     <span style={{
                       fontSize: typography.sizes.lg,
@@ -538,7 +542,7 @@ export default function BuyerOrdersPage() {
                     textAlign: 'center',
                     fontStyle: 'italic'
                   }}>
-                    Tap for details
+                    {t('orders.tap_details', locale)}
                   </p>
                   {/* Show item names inline for completed/cancelled orders */}
                   {(isCompletedOrder || isCancelledOrder) && itemNames && (
@@ -581,7 +585,7 @@ export default function BuyerOrdersPage() {
                                   {item.listing_title}
                                 </p>
                                 <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                                  {item.vendor_name} • Qty: {item.quantity}
+                                  {item.vendor_name} • {t('orders.qty', locale, { count: String(item.quantity) })}
                                   {(item.display?.market_name || item.market?.name) && ` • ${item.display?.market_name || item.market?.name}`}
                                 </p>
                                 {(item.display?.pickup_date || item.pickup_date) && (
@@ -590,7 +594,7 @@ export default function BuyerOrdersPage() {
                                     fontSize: typography.sizes.sm,
                                     color: '#1e40af',
                                   }}>
-                                    Pickup: {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
+                                    {t('orders.pickup_label', locale)} {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
                                     {formatPickupTime12h(item.preferred_pickup_time)
                                       ? ` at ${formatPickupTime12h(item.preferred_pickup_time)}`
                                       : formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time)
@@ -621,7 +625,7 @@ export default function BuyerOrdersPage() {
                       </div>
                     ) : (
                       <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>
-                        No item details available
+                        {t('orders.no_items', locale)}
                       </p>
                     )}
                   </div>
@@ -645,8 +649,8 @@ export default function BuyerOrdersPage() {
                     }}>
                       <span style={{ fontSize: typography.sizes.xl }}>📍</span>
                       {order.readyCount && order.totalActiveCount && order.readyCount < order.totalActiveCount
-                        ? `${order.readyCount} of ${order.totalActiveCount} items ready for pickup`
-                        : 'Your order is ready for pickup!'
+                        ? t('orders.ready_partial', locale, { ready: String(order.readyCount), total: String(order.totalActiveCount) })
+                        : t('orders.ready_banner', locale)
                       }
                     </p>
                   </div>
@@ -669,7 +673,7 @@ export default function BuyerOrdersPage() {
                       gap: spacing['2xs'],
                     }}>
                       <span style={{ fontSize: typography.sizes.xl }}>🤝</span>
-                      Vendor marked as handed off - please confirm you received it
+                      {t('orders.handed_off_banner', locale)}
                     </p>
                   </div>
                 )}
@@ -690,7 +694,7 @@ export default function BuyerOrdersPage() {
                       gap: spacing['2xs'],
                     }}>
                       <span style={{ fontSize: typography.sizes.lg }}>✓</span>
-                      All items in your order have been confirmed
+                      {t('orders.confirmed_banner', locale)}
                     </p>
                   </div>
                 )}
@@ -709,8 +713,8 @@ export default function BuyerOrdersPage() {
                       color: '#92400e',
                     }}>
                       {order.payment_method === 'cash'
-                        ? 'Bring cash to your pickup — vendor will confirm when you pay'
-                        : `Send payment via ${formatPaymentMethodLabel(order.payment_method)?.replace('Paid via ', '') || order.payment_method} — vendor will confirm once received`
+                        ? t('orders.cash_banner', locale)
+                        : t('orders.external_banner', locale, { method: ({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method!] || order.payment_method! })
                       }
                     </p>
                   </div>
@@ -771,7 +775,7 @@ export default function BuyerOrdersPage() {
                       border: '2px solid #0f766e20'
                     }}>
                       <span style={{ fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.7 }}>
-                        {term(vertical, 'market_box')}
+                        {term(vertical, 'market_box', locale)}
                       </span>
                       <span style={{
                         fontSize: typography.sizes.lg,
@@ -802,7 +806,7 @@ export default function BuyerOrdersPage() {
                           fontSize: typography.sizes.xs,
                           fontWeight: typography.weights.medium,
                         }}>
-                          Week {mb.weeks_completed} of {mb.total_weeks}
+                          {t('orders.week_of', locale, { current: String(mb.weeks_completed), total: String(mb.total_weeks) })}
                         </span>
                         <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>
                           {new Date(order.created_at).toLocaleDateString('en-US', {
@@ -869,7 +873,7 @@ export default function BuyerOrdersPage() {
                         fontSize: typography.sizes.xs,
                         color: colors.textMuted,
                       }}>
-                        {mb.weeks_completed} of {mb.total_weeks} weeks completed
+                        {t('orders.weeks_completed', locale, { completed: String(mb.weeks_completed), total: String(mb.total_weeks) })}
                       </p>
                       {mb.next_pickup && (
                         <p style={{
@@ -878,7 +882,7 @@ export default function BuyerOrdersPage() {
                           color: mb.next_pickup.status === 'ready' ? colors.primaryDark : '#1e40af',
                           fontWeight: typography.weights.medium,
                         }}>
-                          {mb.next_pickup.status === 'ready' ? 'Ready for pickup' : 'Next pickup'}:{' '}
+                          {mb.next_pickup.status === 'ready' ? t('orders.ready_pickup', locale) : t('orders.next_pickup', locale)}:{' '}
                           {formatPickupDate(mb.next_pickup.date)}
                           {formatPickupTime(mb.pickup_start_time, mb.pickup_end_time) &&
                             ` \u2022 ${formatPickupTime(mb.pickup_start_time, mb.pickup_end_time)}`}
@@ -904,7 +908,7 @@ export default function BuyerOrdersPage() {
                       alignItems: 'center',
                       gap: spacing['2xs'],
                     }}>
-                      Your market box is ready for pickup!
+                      {t('orders.mb_ready', locale)}
                     </p>
                   </div>
                 )}
@@ -926,7 +930,7 @@ export default function BuyerOrdersPage() {
                   {readyOrders.length > 0 && (
                     <div style={{ marginBottom: spacing.lg }}>
                       <SectionHeader
-                        title="Ready for Pickup"
+                        title={t('orders.section_ready', locale)}
                         count={readyOrders.length}
                         color={colors.primaryDark}
                         bgColor={colors.primaryLight}
@@ -939,7 +943,7 @@ export default function BuyerOrdersPage() {
                   {pendingOrders.length > 0 && (
                     <div style={{ marginBottom: spacing.lg }}>
                       <SectionHeader
-                        title="In Progress"
+                        title={t('orders.section_progress', locale)}
                         count={pendingOrders.length}
                         color={colors.primaryDark}
                         bgColor={colors.primaryLight}
@@ -957,7 +961,7 @@ export default function BuyerOrdersPage() {
                       textAlign: 'center',
                     }}>
                       <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
-                        No active orders
+                        {t('orders.no_active', locale)}
                       </p>
                     </div>
                   )}
@@ -970,7 +974,7 @@ export default function BuyerOrdersPage() {
                   {completedOrders.length > 0 && (
                     <div style={{ marginBottom: spacing.lg }}>
                       <SectionHeader
-                        title="Completed"
+                        title={t('orders.section_completed', locale)}
                         count={completedOrders.length}
                         color={colors.textMuted}
                         bgColor={colors.surfaceMuted}
@@ -983,7 +987,7 @@ export default function BuyerOrdersPage() {
                   {cancelledOrders.length > 0 && (
                     <div style={{ marginBottom: spacing.lg }}>
                       <SectionHeader
-                        title="Cancelled"
+                        title={t('orders.section_cancelled', locale)}
                         count={cancelledOrders.length}
                         color="#991b1b"
                         bgColor="#fee2e2"
@@ -1001,7 +1005,7 @@ export default function BuyerOrdersPage() {
                       textAlign: 'center',
                     }}>
                       <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.base }}>
-                        No order history yet
+                        {t('orders.no_history', locale)}
                       </p>
                     </div>
                   )}
