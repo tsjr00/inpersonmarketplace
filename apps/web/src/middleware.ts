@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 import { VALID_VERTICALS } from '@/lib/validation/vertical'
+import { LOCALE_COOKIE, isValidLocale } from '@/lib/locale'
 
 // Top-level routes that are NOT verticals (skip allowlist check for these)
 const NON_VERTICAL_PREFIXES = new Set([
@@ -27,6 +28,19 @@ export async function middleware(request: NextRequest) {
 
   if (SENSITIVE_PATHS.some(p => path.includes(p))) {
     response.headers.set('Cache-Control', 'no-store, max-age=0')
+  }
+
+  // Sync locale: if httpOnly cookie exists but client-readable cookie doesn't, copy it
+  const localeCookie = request.cookies.get(LOCALE_COOKIE)?.value
+  const clientCookie = request.cookies.get(`${LOCALE_COOKIE}_client`)?.value
+  if (localeCookie && isValidLocale(localeCookie) && localeCookie !== clientCookie) {
+    response.cookies.set(`${LOCALE_COOKIE}_client`, localeCookie, {
+      path: '/',
+      httpOnly: false,
+      secure: request.nextUrl.protocol === 'https:',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365,
+    })
   }
 
   return response
