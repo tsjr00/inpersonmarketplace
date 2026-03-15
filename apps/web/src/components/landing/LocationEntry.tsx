@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { MapPin, Search } from 'lucide-react'
 import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { t } from '@/lib/locale/messages'
 
 interface LocationEntryProps {
   vertical: string
@@ -62,7 +63,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
 
     const trimmedZip = zipCode.trim()
     if (!validateZipCode(trimmedZip)) {
-      setError('Please enter a valid 5-digit zip code')
+      setError(t('location.error_invalid_zip', locale))
       return
     }
 
@@ -139,7 +140,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
         >
           <MapPin style={{ width: 16, height: 16, color: colors.primary }} />
           <span>
-            Showing results near <strong style={{ color: colors.textPrimary }}>{savedLocation.zipCode}</strong>
+            {t('location.showing_results_near', locale)} <strong style={{ color: colors.textPrimary }}>{savedLocation.zipCode}</strong>
           </span>
           <button
             onClick={() => setIsEditing(true)}
@@ -154,7 +155,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
               marginLeft: spacing['2xs'],
             }}
           >
-            Change
+            {t('location.change', locale)}
           </button>
         </div>
       </div>
@@ -184,7 +185,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
         }}
       >
         <MapPin style={{ width: 16, height: 16, color: colors.primary, flexShrink: 0 }} />
-        {`Enter your zip code to find local ${term(vertical, 'vendors', locale).toLowerCase()} near you`}
+        {t('location.enter_zip_prompt', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
       </p>
 
       {/* Zip code form */}
@@ -204,7 +205,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
             setZipCode(e.target.value)
             setError('')
           }}
-          placeholder="Enter zip code"
+          placeholder={t('location.placeholder', locale)}
           maxLength={10}
           style={{
             padding: `${spacing.xs} ${spacing.sm}`,
@@ -263,7 +264,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
           }}
         >
           <Search style={{ width: 16, height: 16, flexShrink: 0 }} />
-          Find Local
+          {t('location.find_local', locale)}
         </button>
       </form>
 
@@ -288,7 +289,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
           marginTop: spacing.sm,
         }}
       >
-        We store this locally on your device. We don&apos;t track your location.
+        {t('location.privacy_note', locale)}
       </p>
 
       {/* Show IP-based suggestion if available */}
@@ -300,7 +301,11 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
             marginTop: spacing['2xs'],
           }}
         >
-          Or browse all vendors in the <strong>{initialCity}</strong> area
+          {(() => {
+            const msg = t('location.browse_all_in_area', locale, { city: '__CITY__' })
+            const [before, after] = msg.split('__CITY__')
+            return <>{before}<strong>{initialCity}</strong>{after}</>
+          })()}
         </p>
       )}
     </div>
