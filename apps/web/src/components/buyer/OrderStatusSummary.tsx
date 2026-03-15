@@ -1,5 +1,8 @@
 'use client'
 
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
+
 interface OrderStatusSummaryProps {
   status: string
   updatedAt: string
@@ -7,75 +10,77 @@ interface OrderStatusSummaryProps {
   totalActiveCount?: number
 }
 
-const STATUS_INFO: Record<string, { icon: string; color: string; bg: string; title: string; message: string }> = {
-  pending: {
-    icon: '⏳',
-    color: '#f59e0b',
-    bg: '#fef3c7',
-    title: 'Order Pending',
-    message: 'Waiting for vendor confirmation'
-  },
-  confirmed: {
-    icon: '✓',
-    color: '#3b82f6',
-    bg: '#dbeafe',
-    title: 'Order Confirmed',
-    message: 'Vendor is preparing your items'
-  },
-  ready: {
-    icon: '📦',
-    color: '#10b981',
-    bg: '#d1fae5',
-    title: 'Ready for Pickup',
-    message: 'Your order is ready! Pick up at the market'
-  },
-  handed_off: {
-    icon: '🤝',
-    color: '#f59e0b',
-    bg: '#fef3c7',
-    title: 'Acknowledge Your Pickup',
-    message: 'Vendor marked this as handed off. Please acknowledge you received it.'
-  },
-  fulfilled: {
-    icon: '✓',
-    color: '#8b5cf6',
-    bg: '#e0e7ff',
-    title: 'Order Fulfilled',
-    message: 'You picked up your order'
-  },
-  completed: {
-    icon: '✓',
-    color: '#8b5cf6',
-    bg: '#e0e7ff',
-    title: 'Order Complete',
-    message: 'Order has been completed'
-  },
-  cancelled: {
-    icon: '✕',
-    color: '#ef4444',
-    bg: '#fee2e2',
-    title: 'Order Cancelled',
-    message: 'This order was cancelled'
-  },
-  expired: {
-    icon: '⏱',
-    color: '#6b7280',
-    bg: '#f3f4f6',
-    title: 'Pickup Expired',
-    message: 'Pickup window has passed'
-  }
-}
-
 export default function OrderStatusSummary({ status, updatedAt, readyCount, totalActiveCount }: OrderStatusSummaryProps) {
+  const locale = getClientLocale()
+
+  const STATUS_INFO: Record<string, { icon: string; color: string; bg: string; titleKey: string; msgKey: string }> = {
+    pending: {
+      icon: '⏳',
+      color: '#f59e0b',
+      bg: '#fef3c7',
+      titleKey: 'status.pending_title',
+      msgKey: 'status.pending_msg'
+    },
+    confirmed: {
+      icon: '✓',
+      color: '#3b82f6',
+      bg: '#dbeafe',
+      titleKey: 'status.confirmed_title',
+      msgKey: 'status.confirmed_msg'
+    },
+    ready: {
+      icon: '📦',
+      color: '#10b981',
+      bg: '#d1fae5',
+      titleKey: 'status.ready_title',
+      msgKey: 'status.ready_msg'
+    },
+    handed_off: {
+      icon: '🤝',
+      color: '#f59e0b',
+      bg: '#fef3c7',
+      titleKey: 'status.handed_off_title',
+      msgKey: 'status.handed_off_msg'
+    },
+    fulfilled: {
+      icon: '✓',
+      color: '#8b5cf6',
+      bg: '#e0e7ff',
+      titleKey: 'status.fulfilled_title',
+      msgKey: 'status.fulfilled_msg'
+    },
+    completed: {
+      icon: '✓',
+      color: '#8b5cf6',
+      bg: '#e0e7ff',
+      titleKey: 'status.completed_title',
+      msgKey: 'status.completed_msg'
+    },
+    cancelled: {
+      icon: '✕',
+      color: '#ef4444',
+      bg: '#fee2e2',
+      titleKey: 'status.cancelled_title',
+      msgKey: 'status.cancelled_msg'
+    },
+    expired: {
+      icon: '⏱',
+      color: '#6b7280',
+      bg: '#f3f4f6',
+      titleKey: 'status.expired_title',
+      msgKey: 'status.expired_msg'
+    }
+  }
+
   const info = STATUS_INFO[status] || STATUS_INFO.pending
   const lastUpdated = new Date(updatedAt).toLocaleString()
 
   // Override messaging for partial readiness
   const isPartiallyReady = status === 'ready' && readyCount !== undefined && totalActiveCount !== undefined && readyCount < totalActiveCount
-  const displayTitle = isPartiallyReady ? 'Partially Ready' : info.title
+  const displayTitle = isPartiallyReady ? t('status.partially_ready', locale) : t(info.titleKey, locale)
   const displayMessage = isPartiallyReady
-    ? `${readyCount} of ${totalActiveCount} items ready for pickup`
-    : info.message
+    ? t('status.x_of_y_ready', locale, { ready: String(readyCount), total: String(totalActiveCount) })
+    : t(info.msgKey, locale)
 
   return (
     <div style={{
@@ -97,7 +102,7 @@ export default function OrderStatusSummary({ status, updatedAt, readyCount, tota
         </div>
       </div>
       <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>
-        Last updated: {lastUpdated}
+        {t('status.last_updated', locale)} {lastUpdated}
       </p>
     </div>
   )

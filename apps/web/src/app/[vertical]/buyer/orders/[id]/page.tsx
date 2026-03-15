@@ -11,6 +11,8 @@ import PostPurchaseSharePrompt from '@/components/marketing/PostPurchaseSharePro
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES, formatQuantityDisplay } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 // Format confirmed pickup time (HH:MM or HH:MM:SS) to 12h display
 function formatPickupTime12h(time: string | null | undefined): string | null {
@@ -108,6 +110,7 @@ export default function BuyerOrderDetailPage() {
   const router = useRouter()
   const vertical = params.vertical as string
   const orderId = params.id as string
+  const locale = getClientLocale()
 
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -224,9 +227,9 @@ export default function BuyerOrderDetailPage() {
     }
     setConfirmDialog({
       open: true,
-      title: 'Confirm Pickup',
-      message: 'Confirm you have received this item? This cannot be undone.',
-      confirmLabel: 'Confirm Received',
+      title: t('order.confirm_pickup_title', locale),
+      message: t('order.confirm_pickup_msg', locale),
+      confirmLabel: t('order.confirm_received', locale),
       variant: 'default',
       onConfirm: () => {
         setConfirmDialog(prev => ({ ...prev, open: false }))
@@ -238,18 +241,18 @@ export default function BuyerOrderDetailPage() {
   const handleCancelItem = (itemId: string, itemStatus: string) => {
     const isConfirmed = ['confirmed', 'ready'].includes(itemStatus)
     const confirmMessage = isConfirmed
-      ? 'This order has been confirmed by the vendor. A cancellation/restocking fee of up to 50% may apply. Are you sure you want to cancel?'
-      : 'Are you sure you want to cancel this item? You will receive a full refund.'
+      ? t('order.cancel_confirmed_msg', locale)
+      : t('order.cancel_pending_msg', locale)
 
     setConfirmDialog({
       open: true,
-      title: 'Cancel Item',
+      title: t('order.cancel_title', locale),
       message: confirmMessage,
-      confirmLabel: 'Cancel Item',
+      confirmLabel: t('order.cancel_btn', locale),
       variant: 'danger',
       showInput: true,
-      inputLabel: 'Reason (optional)',
-      inputPlaceholder: 'Why do you want to cancel?',
+      inputLabel: t('order.cancel_reason', locale),
+      inputPlaceholder: t('order.cancel_placeholder', locale),
       onConfirm: async (reason?: string) => {
         setConfirmDialog(prev => ({ ...prev, open: false }))
         setCancellingItemId(itemId)
@@ -267,9 +270,9 @@ export default function BuyerOrderDetailPage() {
           }
 
           if (data.cancellation_fee_applied) {
-            showBanner(`Item cancelled. A cancellation fee was applied. Refund: $${(data.refund_amount_cents / 100).toFixed(2)}`, 'success')
+            showBanner(t('order.cancel_fee_applied', locale, { amount: `$${(data.refund_amount_cents / 100).toFixed(2)}` }), 'success')
           } else {
-            showBanner('Item cancelled successfully.', 'success')
+            showBanner(t('order.cancel_success', locale), 'success')
           }
 
           await fetchOrder()
@@ -286,13 +289,13 @@ export default function BuyerOrderDetailPage() {
   const _handleReportIssue = (itemId: string) => {
     setConfirmDialog({
       open: true,
-      title: 'Report Issue',
-      message: 'Describe the issue with this item. Please note: your payment has already been processed and the platform does not automatically issue refunds. Contact the vendor directly to discuss a resolution or refund.',
-      confirmLabel: 'Report Issue',
+      title: t('order.report_title', locale),
+      message: t('order.report_msg', locale),
+      confirmLabel: t('order.report_btn', locale),
       variant: 'danger',
       showInput: true,
-      inputLabel: 'Issue description',
-      inputPlaceholder: 'e.g., "I did not receive this item", "Wrong item received"',
+      inputLabel: t('order.report_label', locale),
+      inputPlaceholder: t('order.report_placeholder', locale),
       onConfirm: async (description?: string) => {
         setConfirmDialog(prev => ({ ...prev, open: false }))
         setReportingItemId(itemId)
@@ -306,7 +309,7 @@ export default function BuyerOrderDetailPage() {
           const data = await res.json()
           if (!res.ok) throw new Error(data.error || 'Failed to report issue')
 
-          showBanner('Issue reported. Please note: your payment has already been processed. The platform does not issue automatic refunds for reported issues. Please contact the vendor directly to discuss a resolution or refund.', 'success')
+          showBanner(t('order.report_submitted', locale), 'success')
           fetchOrder()
         } catch (err) {
           showBanner(err instanceof Error ? err.message : 'Failed to report issue', 'error')
@@ -324,18 +327,18 @@ export default function BuyerOrderDetailPage() {
     // Validate that problem items have descriptions
     for (const itemId of problemItemIds) {
       if (!problemDescriptions[itemId]?.trim()) {
-        showBanner('Please provide a description for each item with a problem.', 'error')
+        showBanner(t('order.problem_desc_required', locale), 'error')
         return
       }
     }
 
     setConfirmDialog({
       open: true,
-      title: 'Submit Receipt Confirmation',
+      title: t('order.receipt_title', locale),
       message: problemItemIds.length > 0
-        ? 'Items marked as problems will be reported to the vendor. Remaining items will be confirmed as received.'
-        : 'Confirm you have received all items?',
-      confirmLabel: 'Submit',
+        ? t('order.receipt_msg_problems', locale)
+        : t('order.receipt_msg', locale),
+      confirmLabel: t('order.submit', locale),
       variant: 'default',
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, open: false }))
@@ -361,7 +364,7 @@ export default function BuyerOrderDetailPage() {
           fetchOrder()
 
           if (problemItemIds.length > 0) {
-            showBanner('Submitted. For items with problems: your payment has already been processed and refunds are not automatic. Please contact the vendor directly to discuss a resolution.', 'success')
+            showBanner(t('order.receipt_submitted_problems', locale), 'success')
           }
         } catch (err) {
           showBanner(err instanceof Error ? err.message : 'Failed to submit', 'error')
@@ -381,7 +384,7 @@ export default function BuyerOrderDetailPage() {
         justifyContent: 'center',
         backgroundColor: colors.surfaceBase
       }}>
-        <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>Loading order details...</p>
+        <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base }}>{t('order.loading', locale)}</p>
       </div>
     )
   }
@@ -401,7 +404,7 @@ export default function BuyerOrderDetailPage() {
         {error ? (
           <ErrorDisplay error={error} verticalId={vertical} />
         ) : (
-          <p style={{ color: '#991b1b', fontSize: typography.sizes.base }}>Order not found</p>
+          <p style={{ color: '#991b1b', fontSize: typography.sizes.base }}>{t('order.not_found', locale)}</p>
         )}
         <Link
           href={`/${vertical}/buyer/orders`}
@@ -416,7 +419,7 @@ export default function BuyerOrderDetailPage() {
             border: '2px solid #737373'
           }}
         >
-          Back to Orders
+          {t('order.back', locale)}
         </Link>
       </div>
     )
@@ -521,7 +524,7 @@ export default function BuyerOrderDetailPage() {
                   href={`/${vertical}/buyer/orders`}
                   style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: typography.sizes.sm }}
                 >
-                  ← Back to Orders
+                  {t('order.back_arrow', locale)}
                 </Link>
               </div>
 
@@ -536,7 +539,7 @@ export default function BuyerOrderDetailPage() {
                 marginBottom: spacing.sm,
                 color: effectiveStatus === 'handed_off' ? '#000' : '#fff',
               }}>
-                {effectiveStatus === 'handed_off' ? 'ACKNOWLEDGE YOUR PICKUP' : 'READY FOR PICKUP'}
+                {effectiveStatus === 'handed_off' ? t('order.status_acknowledge', locale) : t('order.status_ready', locale)}
               </div>
 
               {/* Order Number - very prominent */}
@@ -547,7 +550,7 @@ export default function BuyerOrderDetailPage() {
                 letterSpacing: 2,
                 opacity: 0.8
               }}>
-                Order Number
+                {t('order.order_number', locale)}
               </p>
               <p style={{
                 margin: `0 0 ${spacing.sm} 0`,
@@ -572,7 +575,7 @@ export default function BuyerOrderDetailPage() {
                 fontSize: typography.sizes.lg,
                 opacity: 0.9
               }}>
-                Vendor: {primaryVendor}
+                {t('order.vendor_label', locale, { name: primaryVendor })}
               </p>
 
               {/* Payment method badge for external payments */}
@@ -587,10 +590,10 @@ export default function BuyerOrderDetailPage() {
                   marginBottom: spacing.sm,
                   border: '1px solid rgba(255,255,255,0.3)'
                 }}>
-                  {order.payment_method === 'cash' ? 'Cash at Pickup' :
-                   order.payment_method === 'venmo' ? 'Paid via Venmo' :
-                   order.payment_method === 'cashapp' ? 'Paid via Cash App' :
-                   order.payment_method === 'paypal' ? 'Paid via PayPal' :
+                  {order.payment_method === 'cash' ? t('payment.cash', locale) :
+                   order.payment_method === 'venmo' ? t('payment.venmo', locale) :
+                   order.payment_method === 'cashapp' ? t('payment.cashapp', locale) :
+                   order.payment_method === 'paypal' ? t('payment.paypal', locale) :
                    order.payment_method}
                 </div>
               )}
@@ -602,10 +605,12 @@ export default function BuyerOrderDetailPage() {
                 opacity: 0.8
               }}>
                 {isPartiallyReady
-                  ? `${readyCount} of ${totalActiveCount} items ready for pickup`
-                  : `${totalActiveCount} item${totalActiveCount !== 1 ? 's' : ''} in this order`
+                  ? t('order.items_partial', locale, { ready: String(readyCount), total: String(totalActiveCount) })
+                  : totalActiveCount !== 1
+                    ? t('order.items_count', locale, { count: String(totalActiveCount) })
+                    : t('order.item_count', locale)
                 }
-                {isMultiVendor && ` • ${uniqueVendors} vendors`}
+                {isMultiVendor && ` • ${t('order.vendors_count', locale, { count: String(uniqueVendors) })}`}
               </p>
             </div>
 
@@ -616,9 +621,9 @@ export default function BuyerOrderDetailPage() {
                   onClick={() => {
                     setConfirmDialog({
                       open: true,
-                      title: 'Acknowledge Receipt',
-                      message: 'Confirm you have received all items from this order? This cannot be undone.',
-                      confirmLabel: 'Confirm All Received',
+                      title: t('order.acknowledge_title', locale),
+                      message: t('order.acknowledge_msg', locale),
+                      confirmLabel: t('order.confirm_all', locale),
                       variant: 'default',
                       onConfirm: () => {
                         setConfirmDialog(prev => ({ ...prev, open: false }))
@@ -641,7 +646,10 @@ export default function BuyerOrderDetailPage() {
                     boxShadow: shadows.primary,
                   }}
                 >
-                  {confirmingItemId ? 'Confirming...' : `Acknowledge Receipt (${itemsNeedingConfirm.length} item${itemsNeedingConfirm.length !== 1 ? 's' : ''})`}
+                  {confirmingItemId ? t('order.confirming', locale) : itemsNeedingConfirm.length !== 1
+                    ? t('order.acknowledge_btn', locale, { count: String(itemsNeedingConfirm.length) })
+                    : t('order.acknowledge_btn_one', locale)
+                  }
                 </button>
                 <p style={{
                   margin: `${spacing.xs} 0 0 0`,
@@ -649,7 +657,7 @@ export default function BuyerOrderDetailPage() {
                   color: colors.primaryDark,
                   textAlign: 'center'
                 }}>
-                  Only confirm after you have all items in hand.
+                  {t('order.confirm_hint', locale)}
                 </p>
                 <p style={{
                   margin: `${spacing['2xs']} 0 0 0`,
@@ -657,7 +665,7 @@ export default function BuyerOrderDetailPage() {
                   color: '#6b7280',
                   textAlign: 'center'
                 }}>
-                  The vendor must tap Fulfill on their device within 30 seconds to complete the transaction.
+                  {t('order.vendor_fulfill_hint', locale)}
                 </p>
                 <button
                   onClick={() => setShowProblemSection(true)}
@@ -673,7 +681,7 @@ export default function BuyerOrderDetailPage() {
                     textDecoration: 'underline'
                   }}
                 >
-                  Something missing or a problem?
+                  {t('order.problem_link', locale)}
                 </button>
               </div>
             )}
@@ -683,7 +691,7 @@ export default function BuyerOrderDetailPage() {
               <div style={{ padding: `${spacing.sm} ${spacing.md}`, backgroundColor: '#fef3c7', borderBottom: '2px solid #f59e0b' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
                   <h3 style={{ margin: 0, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: '#92400e' }}>
-                    Indicate which items have a problem
+                    {t('order.problem_title', locale)}
                   </h3>
                   <button
                     onClick={() => {
@@ -701,11 +709,11 @@ export default function BuyerOrderDetailPage() {
                       cursor: 'pointer'
                     }}
                   >
-                    Cancel
+                    {t('order.problem_cancel', locale)}
                   </button>
                 </div>
                 <p style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: typography.sizes.sm, color: '#78350f' }}>
-                  Check any items you did NOT receive or have a problem with. Unchecked items will be marked as received.
+                  {t('order.problem_hint', locale)}
                 </p>
 
                 {/* Simplified Item List */}
@@ -741,7 +749,7 @@ export default function BuyerOrderDetailPage() {
                         <div style={{ marginTop: spacing.xs, marginLeft: 26 }}>
                           <input
                             type="text"
-                            placeholder="Describe the problem..."
+                            placeholder={t('order.problem_placeholder', locale)}
                             value={problemDescriptions[item.id] || ''}
                             onChange={(e) => setProblemDescriptions(prev => ({ ...prev, [item.id]: e.target.value }))}
                             style={{
@@ -776,7 +784,7 @@ export default function BuyerOrderDetailPage() {
                     minHeight: 48
                   }}
                 >
-                  {submittingProblems ? 'Submitting...' : 'Submit'}
+                  {submittingProblems ? t('order.submitting', locale) : t('order.submit', locale)}
                 </button>
               </div>
             )}
@@ -792,7 +800,7 @@ export default function BuyerOrderDetailPage() {
               href={`/${vertical}/buyer/orders`}
               style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
             >
-              ← Back to Orders
+              {t('order.back_arrow', locale)}
             </Link>
 
             {/* Status Info Banner */}
@@ -801,15 +809,15 @@ export default function BuyerOrderDetailPage() {
               const bannerConfig: Record<string, { bg: string; border: string; color: string; text: string }> = {
                 pending: {
                   bg: '#fffbeb', border: '#fde68a', color: '#92400e',
-                  text: `Awaiting confirmation from ${primaryVendorName}. You\u2019ll be notified when confirmed.`
+                  text: t('order.banner_pending', locale, { vendor: primaryVendorName })
                 },
                 confirmed: {
                   bg: '#ecfdf5', border: '#6ee7b7', color: '#065f46',
-                  text: `Order confirmed! ${primaryVendorName} will have your order ready for pickup.`
+                  text: t('order.banner_confirmed', locale, { vendor: primaryVendorName })
                 },
                 ready: {
                   bg: '#eff6ff', border: '#93c5fd', color: '#1e40af',
-                  text: 'Your order is ready for pickup!'
+                  text: t('order.banner_ready', locale)
                 },
                 cancelled: (() => {
                   const buyerCancelled = order.items.some(i => i.cancelled_by === 'buyer')
@@ -818,20 +826,20 @@ export default function BuyerOrderDetailPage() {
                     return {
                       bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
                       text: isExternal
-                        ? 'You cancelled this order.'
-                        : 'You cancelled this order. Any applicable refund has been processed.'
+                        ? t('order.banner_cancelled_buyer', locale)
+                        : t('order.banner_cancelled_buyer_refund', locale)
                     }
                   }
                   return {
                     bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
                     text: isExternal
-                      ? `${primaryVendorName} was unable to fulfill this order. Please contact them regarding your refund.`
-                      : `${primaryVendorName} was unable to fulfill this order. You have been refunded.`
+                      ? t('order.banner_cancelled_vendor', locale, { vendor: primaryVendorName })
+                      : t('order.banner_cancelled_vendor_refund', locale, { vendor: primaryVendorName })
                   }
                 })(),
                 fulfilled: {
                   bg: '#f5f3ff', border: '#c4b5fd', color: '#5b21b6',
-                  text: 'Order complete. Thank you for your purchase!'
+                  text: t('order.banner_fulfilled', locale)
                 },
               }
               const config = bannerConfig[effectiveStatus]
@@ -865,7 +873,7 @@ export default function BuyerOrderDetailPage() {
                 display: 'inline-block'
               }}>
                 <p style={{ margin: 0, fontSize: typography.sizes.xs, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7 }}>
-                  Order Number
+                  {t('order.order_number', locale)}
                 </p>
                 <p style={{
                   margin: `${spacing['3xs']} 0 0 0`,
@@ -888,7 +896,7 @@ export default function BuyerOrderDetailPage() {
 
               {/* Placed + Last Updated dates */}
               <p style={{ color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0`, fontSize: typography.sizes.sm }}>
-                Placed: {new Date(order.created_at).toLocaleDateString('en-US', {
+                {t('order.placed', locale)} {new Date(order.created_at).toLocaleDateString('en-US', {
                   month: 'numeric',
                   day: 'numeric',
                   year: '2-digit'
@@ -898,7 +906,7 @@ export default function BuyerOrderDetailPage() {
                 })}
               </p>
               <p style={{ color: colors.textMuted, margin: 0, fontSize: typography.sizes.sm }}>
-                Last updated: {new Date(order.updated_at).toLocaleDateString('en-US', {
+                {t('order.last_updated', locale)} {new Date(order.updated_at).toLocaleDateString('en-US', {
                   month: 'numeric',
                   day: 'numeric',
                   year: '2-digit'
@@ -938,7 +946,7 @@ export default function BuyerOrderDetailPage() {
               borderRadius: radius.md
             }}>
               <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>
-                Items from {group.display?.market_name || group.market.name}
+                {t('order.items_from', locale, { market: group.display?.market_name || group.market.name })}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                 {group.items.map(item => {
@@ -953,11 +961,11 @@ export default function BuyerOrderDetailPage() {
                   }
 
                   const statusLabel =
-                    effectiveItemStatus === 'cancelled' ? 'Cancelled' :
-                    effectiveItemStatus === 'fulfilled' ? 'Picked Up' :
-                    effectiveItemStatus === 'handed_off' ? 'Vendor Handed Off' :
-                    effectiveItemStatus === 'ready' ? 'Ready for Pickup' :
-                    effectiveItemStatus === 'confirmed' ? 'Preparing' :
+                    effectiveItemStatus === 'cancelled' ? t('order.item_status_cancelled', locale) :
+                    effectiveItemStatus === 'fulfilled' ? t('order.item_status_picked_up', locale) :
+                    effectiveItemStatus === 'handed_off' ? t('order.item_status_handed', locale) :
+                    effectiveItemStatus === 'ready' ? t('order.item_status_ready', locale) :
+                    effectiveItemStatus === 'confirmed' ? t('order.item_status_preparing', locale) :
                     effectiveItemStatus.charAt(0).toUpperCase() + effectiveItemStatus.slice(1)
 
                   const statusColor =
@@ -982,18 +990,18 @@ export default function BuyerOrderDetailPage() {
                       )}
                     </h4>
                     <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                      by {item.vendor_name}
+                      {t('order.by_vendor', locale, { name: item.vendor_name })}
                     </p>
                     {(item.display?.pickup_date || item.pickup_date) && (
                       <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                        Scheduled pickup: {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
+                        {t('order.scheduled_pickup', locale)} {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
                         {formatPickupTime12h(item.preferred_pickup_time)
                           ? ` at ${formatPickupTime12h(item.preferred_pickup_time)}`
                           : ''}
                       </p>
                     )}
                     <p style={{ margin: `0 0 ${spacing.xs} 0`, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                      Quantity: {item.quantity} × {formatPrice(calculateDisplayPrice(item.unit_price_cents))} = <strong>{formatPrice(calculateDisplayPrice(item.subtotal_cents))}</strong>
+                      {t('order.quantity_label', locale)} {item.quantity} × {formatPrice(calculateDisplayPrice(item.unit_price_cents))} = <strong>{formatPrice(calculateDisplayPrice(item.subtotal_cents))}</strong>
                     </p>
 
                     {/* Status + Cancel on same row */}
@@ -1008,7 +1016,7 @@ export default function BuyerOrderDetailPage() {
                         color: statusColor,
                         fontWeight: typography.weights.semibold,
                       }}>
-                        Status: {statusLabel}
+                        {t('order.status_label', locale)} {statusLabel}
                       </span>
 
                       {/* Cancel Button - on same row as status */}
@@ -1031,7 +1039,7 @@ export default function BuyerOrderDetailPage() {
                             marginLeft: 'auto'
                           }}
                         >
-                          {cancellingItemId === item.id ? 'Cancelling...' : 'Cancel Item'}
+                          {cancellingItemId === item.id ? t('order.cancelling', locale) : t('order.cancel_btn', locale)}
                         </button>
                       )}
                     </div>
@@ -1046,7 +1054,7 @@ export default function BuyerOrderDetailPage() {
                         color: '#991b1b',
                         fontStyle: 'italic'
                       }}>
-                        Cancellation/restocking fee may apply
+                        {t('order.cancel_fee_warning', locale)}
                       </span>
                     )}
 
@@ -1061,16 +1069,16 @@ export default function BuyerOrderDetailPage() {
                         marginTop: spacing['2xs']
                       }}>
                         <p style={{ margin: 0, fontWeight: typography.weights.semibold }}>
-                          {item.cancelled_by === 'vendor' ? 'Cancelled by vendor' : 'You cancelled this item'}
+                          {item.cancelled_by === 'vendor' ? t('order.cancelled_by_vendor', locale) : t('order.cancelled_by_you', locale)}
                         </p>
                         {item.cancellation_reason && (
                           <p style={{ margin: `${spacing['3xs']} 0 0 0` }}>
-                            Reason: {item.cancellation_reason}
+                            {t('order.reason', locale)} {item.cancellation_reason}
                           </p>
                         )}
                         {item.refund_amount_cents && (
                           <p style={{ margin: `${spacing['3xs']} 0 0 0`, fontWeight: typography.weights.medium }}>
-                            Refund: {formatPrice(item.refund_amount_cents)}
+                            {t('order.refund', locale)} {formatPrice(item.refund_amount_cents)}
                           </p>
                         )}
                       </div>
@@ -1087,7 +1095,7 @@ export default function BuyerOrderDetailPage() {
                         color: '#92400e',
                         marginTop: spacing['2xs']
                       }}>
-                        Issue reported on {new Date(item.issue_reported_at).toLocaleDateString()}. Your payment has been processed — contact the vendor directly to discuss a resolution or refund.
+                        {t('order.issue_reported', locale, { date: new Date(item.issue_reported_at).toLocaleDateString() })}
                       </div>
                     )}
 
@@ -1100,8 +1108,8 @@ export default function BuyerOrderDetailPage() {
                         fontStyle: 'italic'
                       }}>
                         {item.status === 'fulfilled'
-                          ? 'Vendor marked as handed to you. Use the confirmation section above.'
-                          : 'Ready for pickup. Use the confirmation section above.'}
+                          ? t('order.vendor_handed_hint', locale)
+                          : t('order.ready_hint', locale)}
                       </p>
                     )}
                   </div>
@@ -1137,7 +1145,7 @@ export default function BuyerOrderDetailPage() {
                 borderBottom: `1px solid ${colors.borderMuted}`,
               }}>
                 <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                  Service Fee
+                  {t('order.service_fee', locale)}
                 </span>
                 <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
                   {formatPrice(FEES.buyerFlatFeeCents)}
@@ -1151,7 +1159,7 @@ export default function BuyerOrderDetailPage() {
                   alignItems: 'center',
                 }}>
                   <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                    Tip ({order.tip_percentage}%)
+                    {t('order.tip', locale, { percent: String(order.tip_percentage) })}
                   </span>
                   <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
                     {formatPrice(order.tip_amount)}
@@ -1165,7 +1173,7 @@ export default function BuyerOrderDetailPage() {
                 alignItems: 'center',
               }}>
                 <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-                  Total
+                  {t('order.total', locale)}
                 </span>
                 <span style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                   {formatPrice(itemsSubtotal)}
