@@ -10,7 +10,7 @@ import { formatPrice, LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 import { getTierLimits } from '@/lib/vendor-limits'
-// Availability checked via get_listings_accepting_status() RPC (single SQL source of truth)
+import { deriveVendorAvailabilityStatus } from '@/lib/utils/availability-status'
 
 interface ListingsPageProps {
   params: Promise<{ vertical: string }>
@@ -52,24 +52,8 @@ interface VendorListing {
   listing_markets?: ListingMarket[]
 }
 
-// Derive badge status from RPC availability data
-function deriveAvailabilityStatus(avail: { is_accepting: boolean; hours_until_cutoff: number | null; cutoff_hours: number | null } | undefined, listingStatus: string): {
-  status: 'open' | 'closing-soon' | 'closed'
-  hoursUntilCutoff: number | null
-} {
-  // Only calculate for published listings
-  if (listingStatus !== 'published') {
-    return { status: 'open', hoursUntilCutoff: null }
-  }
-  if (!avail || !avail.is_accepting) {
-    return { status: 'closed', hoursUntilCutoff: null }
-  }
-  if (avail.hours_until_cutoff !== null && avail.cutoff_hours !== null
-      && avail.hours_until_cutoff <= avail.cutoff_hours && avail.hours_until_cutoff > 0) {
-    return { status: 'closing-soon', hoursUntilCutoff: Math.round(avail.hours_until_cutoff * 10) / 10 }
-  }
-  return { status: 'open', hoursUntilCutoff: null }
-}
+// Availability badge status derived from get_listings_accepting_status() RPC
+// via shared utility: src/lib/utils/availability-status.ts
 
 // Low stock threshold (from centralized constants)
 
@@ -499,7 +483,7 @@ export default async function ListingsPage({ params, searchParams }: ListingsPag
 
                 {/* Cutoff Status - from SQL source of truth */}
                 {(() => {
-                  const availability = deriveAvailabilityStatus(availabilityMap.get(listing.id), listing.status)
+                  const availability = deriveVendorAvailabilityStatus(availabilityMap.get(listing.id), listing.status)
                   return (
                     <ListingCutoffStatusBadge
                       listingStatus={listing.status}

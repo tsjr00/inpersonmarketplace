@@ -196,14 +196,19 @@ describe('VJ-R11: FT listings show pickup time in cart', () => {
 // =============================================================================
 
 describe('VJ-R12: listing availability calculation', () => {
-  it('listing-availability utility exists', () => {
-    const exists = fs.existsSync(path.join(webRoot, 'src/lib/utils/listing-availability.ts'))
+  it('listing detail page uses get_available_pickup_dates RPC', () => {
+    const content = readFile('src/app/[vertical]/listing/[listingId]/page.tsx')
+    expect(content).toContain('get_available_pickup_dates')
+  })
+
+  it('availability-status shared utility exists', () => {
+    const exists = fs.existsSync(path.join(webRoot, 'src/lib/utils/availability-status.ts'))
     expect(exists).toBe(true)
   })
 
-  it('availability considers cutoff hours', () => {
-    const content = readFile('src/lib/utils/listing-availability.ts')
-    expect(content).toContain('cutoff')
+  it('browse page imports from availability-status utility', () => {
+    const content = readFile('src/app/[vertical]/browse/page.tsx')
+    expect(content).toContain('availability-status')
   })
 })
 
