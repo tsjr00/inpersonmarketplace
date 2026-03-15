@@ -9,6 +9,8 @@ import { CartButton } from '@/components/cart/CartButton'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import LanguageSelector from '@/components/shared/LanguageSelector'
+import type { Locale } from '@/lib/locale'
 
 interface HeaderProps {
   vertical: string
@@ -26,6 +28,7 @@ interface HeaderProps {
     }
   }
   isLandingPage?: boolean
+  locale?: Locale
 }
 
 export function Header({
@@ -34,7 +37,8 @@ export function Header({
   userProfile,
   vendorProfile,
   branding,
-  isLandingPage = false
+  isLandingPage = false,
+  locale
 }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -212,6 +216,8 @@ export function Header({
 
           {/* Right Side - Cart & User */}
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+            {/* Language Selector */}
+            <LanguageSelector locale={locale} />
             {/* Notifications & Cart - logged in users */}
             {user && <NotificationBell primaryColor={colors.primary} vertical={vertical} />}
             {user && <CartButton primaryColor={colors.primary} />}
@@ -707,6 +713,11 @@ export function Header({
                 </Link>
               </div>
             )}
+
+            {/* Language Selector - Mobile */}
+            <div style={{ padding: `${spacing.xs} 0`, borderTop: `1px solid ${colors.border}`, marginTop: spacing.xs }}>
+              <LanguageSelector locale={locale} variant="full" />
+            </div>
           </div>
         )}
       </div>

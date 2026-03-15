@@ -13,6 +13,7 @@ interface BeforeInstallPromptEvent extends Event {
 interface GetTheAppProps {
   vertical: string
   variant?: 'full' | 'compact'
+  locale?: string
 }
 
 /**
@@ -20,10 +21,10 @@ interface GetTheAppProps {
  * Encourages users to install as PWA (Progressive Web App)
  * Shows "Add to Home Screen" prompt
  */
-export function GetTheApp({ vertical, variant = 'full' }: GetTheAppProps) {
+export function GetTheApp({ vertical, variant = 'full', locale }: GetTheAppProps) {
   const colors = getVerticalColors(vertical)
   const shadows = getVerticalShadows(vertical)
-  const { get_the_app } = getContent(vertical)
+  const { get_the_app } = getContent(vertical, locale)
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showInstallTip, setShowInstallTip] = useState(false)
 

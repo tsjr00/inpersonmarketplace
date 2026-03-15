@@ -537,6 +537,9 @@ export default function ListingForm({
               <><br /><strong>If your product contains potential allergens</strong>, check the allergen box below and list the ingredients.</>
             )}
           </p>
+          <p style={{ fontSize: 12, color: '#888', marginTop: 4, lineHeight: 1.4, fontStyle: 'italic' }}>
+            💡 Tip: Writing your description in both English and Spanish can help attract more buyers in bilingual communities.
+          </p>
         </div>
 
         {/* Product Images */}

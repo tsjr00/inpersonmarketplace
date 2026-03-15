@@ -6,6 +6,7 @@ import { term, getContent } from '@/lib/vertical'
 
 interface FinalCTAProps {
   vertical: string
+  locale?: string
 }
 
 /**
@@ -13,9 +14,9 @@ interface FinalCTAProps {
  * Industry standard: Light gradient background, strong call to action
  * Matches hero for visual bookending
  */
-export function FinalCTA({ vertical }: FinalCTAProps) {
+export function FinalCTA({ vertical, locale }: FinalCTAProps) {
   const colors = getVerticalColors(vertical)
-  const { final_cta } = getContent(vertical)
+  const { final_cta } = getContent(vertical, locale)
 
   return (
     <section
@@ -54,9 +55,9 @@ export function FinalCTA({ vertical }: FinalCTAProps) {
           style={{ gap: spacing.xs }}
         >
           {[
-            { label: term(vertical, 'browse_products_cta'), href: `/${vertical}/browse` },
-            { label: term(vertical, 'find_markets_cta'), href: `/${vertical}/markets` },
-            { label: term(vertical, 'find_vendors_cta'), href: `/${vertical}/vendors` },
+            { label: term(vertical, 'browse_products_cta', locale), href: `/${vertical}/browse` },
+            { label: term(vertical, 'find_markets_cta', locale), href: `/${vertical}/markets` },
+            { label: term(vertical, 'find_vendors_cta', locale), href: `/${vertical}/vendors` },
           ].map((cta) => (
             <Link
               key={cta.label}

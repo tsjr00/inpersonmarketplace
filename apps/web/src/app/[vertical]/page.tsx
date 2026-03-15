@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { getLocale } from '@/lib/locale'
 import {
   Hero,
   TrustStats,
@@ -106,8 +107,9 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
-  // Fetch stats only - FeaturedMarkets is now text-only per Tracy's decision
+  // Fetch stats and locale
   const stats = await getVerticalStats(supabase, vertical)
+  const locale = await getLocale()
 
   // Generate Schema.org structured data
   const structuredData = {
@@ -167,41 +169,41 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
 
       <main>
         {/* Hero Section — FT gets stats inline */}
-        <Hero vertical={vertical} stats={stats} />
+        <Hero vertical={vertical} stats={stats} locale={locale} />
 
         {/* Trust Statistics — FM only (FT renders stats inline inside Hero) */}
         {vertical !== 'food_trucks' && (
-          <TrustStats vertical={vertical} stats={stats} />
+          <TrustStats vertical={vertical} stats={stats} locale={locale} />
         )}
 
         {vertical !== 'food_trucks' && (
           <>
             {/* How It Works — FM only (consolidated into Features for FT) */}
-            <HowItWorks vertical={vertical} />
+            <HowItWorks vertical={vertical} locale={locale} />
 
             {/* Featured Markets — FM only (consolidated for FT) */}
-            <FeaturedMarkets vertical={vertical} />
+            <FeaturedMarkets vertical={vertical} locale={locale} />
           </>
         )}
 
         {/* Platform Features */}
-        <Features vertical={vertical} />
+        <Features vertical={vertical} locale={locale} />
 
         {/* Vendor Pitch */}
-        <VendorPitch vertical={vertical} />
+        <VendorPitch vertical={vertical} locale={locale} />
 
         {vertical !== 'food_trucks' && (
           <>
             {/* Get The App — FM only (simplified phone mockup is inside Features for FT) */}
-            <GetTheApp vertical={vertical} />
+            <GetTheApp vertical={vertical} locale={locale} />
 
             {/* Final CTA — FM only (consolidated for FT) */}
-            <FinalCTA vertical={vertical} />
+            <FinalCTA vertical={vertical} locale={locale} />
           </>
         )}
 
         {/* Footer */}
-        <Footer vertical={vertical} />
+        <Footer vertical={vertical} locale={locale} />
       </main>
     </>
   )

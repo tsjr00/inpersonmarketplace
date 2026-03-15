@@ -9,6 +9,7 @@ interface LocationEntryProps {
   vertical: string
   initialCity?: string | null
   onLocationSet?: (zipCode: string) => void
+  locale?: string
 }
 
 const STORAGE_KEY = 'user_location'
@@ -20,7 +21,7 @@ interface StoredLocation {
   timestamp: number
 }
 
-export function LocationEntry({ vertical, initialCity, onLocationSet }: LocationEntryProps) {
+export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: LocationEntryProps) {
   const colors = getVerticalColors(vertical)
   const shadows = getVerticalShadows(vertical)
   const [savedLocation, setSavedLocation] = useState<StoredLocation | null>(() => {
@@ -183,7 +184,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet }: Location
         }}
       >
         <MapPin style={{ width: 16, height: 16, color: colors.primary, flexShrink: 0 }} />
-        {`Enter your zip code to find local ${term(vertical, 'vendors').toLowerCase()} near you`}
+        {`Enter your zip code to find local ${term(vertical, 'vendors', locale).toLowerCase()} near you`}
       </p>
 
       {/* Zip code form */}

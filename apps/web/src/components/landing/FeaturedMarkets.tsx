@@ -6,11 +6,12 @@ import { getContent } from '@/lib/vertical'
 
 interface FeaturedMarketsProps {
   vertical: string
+  locale?: string
 }
 
-export function FeaturedMarkets({ vertical }: FeaturedMarketsProps) {
+export function FeaturedMarkets({ vertical, locale }: FeaturedMarketsProps) {
   const colors = getVerticalColors(vertical)
-  const { featured_section } = getContent(vertical)
+  const { featured_section } = getContent(vertical, locale)
 
   return (
     <section

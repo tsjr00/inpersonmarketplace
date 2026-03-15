@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { getLocale } from '@/lib/locale'
 import { Header } from './Header'
 
 interface HeaderWrapperProps {
@@ -10,6 +11,7 @@ interface HeaderWrapperProps {
 export async function HeaderWrapper({ vertical, isLandingPage }: HeaderWrapperProps) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const locale = await getLocale()
 
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
@@ -43,6 +45,7 @@ export async function HeaderWrapper({ vertical, isLandingPage }: HeaderWrapperPr
       vendorProfile={vendorProfile}
       branding={branding}
       isLandingPage={isLandingPage}
+      locale={locale}
     />
   )
 }

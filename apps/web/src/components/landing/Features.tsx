@@ -17,6 +17,7 @@ import { DottedSeparator } from './DottedSeparator'
 
 interface FeaturesProps {
   vertical: string
+  locale?: string
 }
 
 /**
@@ -24,10 +25,10 @@ interface FeaturesProps {
  * FM: 2-column card grid with standalone icons
  * FT: Single-column horizontal list (icon-left, text-right) with dotted separators
  */
-export function Features({ vertical }: FeaturesProps) {
+export function Features({ vertical, locale }: FeaturesProps) {
   const colors = getVerticalColors(vertical)
   const shadows = getVerticalShadows(vertical)
-  const { features: f, platform } = getContent(vertical)
+  const { features: f, platform } = getContent(vertical, locale)
   const isFT = vertical === 'food_trucks'
 
   // PWA install prompt (FT only)

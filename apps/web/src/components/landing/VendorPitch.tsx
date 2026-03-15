@@ -8,6 +8,7 @@ import { DottedSeparator } from './DottedSeparator'
 
 interface VendorPitchProps {
   vertical: string
+  locale?: string
 }
 
 /**
@@ -15,10 +16,10 @@ interface VendorPitchProps {
  * FM: Dark green background, white text, white CTA button
  * FT: Red background, gold/yellow heading, gold CTA button
  */
-export function VendorPitch({ vertical }: VendorPitchProps) {
+export function VendorPitch({ vertical, locale }: VendorPitchProps) {
   const colors = getVerticalColors(vertical)
   const shadows = getVerticalShadows(vertical)
-  const { vendor_pitch } = getContent(vertical)
+  const { vendor_pitch } = getContent(vertical, locale)
   const isFT = vertical === 'food_trucks'
 
   const benefits = vendor_pitch.benefits
