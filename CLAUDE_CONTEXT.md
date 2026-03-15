@@ -149,9 +149,10 @@ inpersonmarketplace/
 
 Implemented via RPC function `get_available_pickup_dates()` which JOINs listings → vendor_market_schedules. For FT, requires an attendance record. Uses vendor-specific times via COALESCE.
 
-**Two availability systems must agree:**
-1. `/api/listings/[id]/availability` — RPC-based
-2. `/api/listings/[id]/markets` — JS `processListingMarkets()` from `listing-availability.ts`
+**Single availability system (M4 consolidation complete):**
+- `/api/listings/[id]/availability` — calls `get_available_pickup_dates()` RPC
+- JS utility `listing-availability.ts` deleted — was dead code with zero callers
+- Badge logic extracted to `src/lib/utils/availability-status.ts`
 
 ### 4. User Roles
 

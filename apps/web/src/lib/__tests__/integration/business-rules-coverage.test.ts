@@ -817,11 +817,18 @@ describe('VJ-R15: All surfaces use get_listings_accepting_status RPC', () => {
     expect(listings).toContain('get_listings_accepting_status')
   })
 
-  it('VJ-R15d: listing-availability utility references RPC', () => {
+  it('VJ-R15d: no code imports deprecated listing-availability utility', () => {
+    // listing-availability.ts was deleted (M4 consolidation) — ensure nothing imports it
+    const exists = fs.existsSync(path.join(webRoot, 'src/lib/utils/listing-availability.ts'))
+    expect(exists).toBe(false)
+  })
+
+  it('VJ-R15e: availability-status utility exists as shared source', () => {
     const util = fs.readFileSync(
-      path.join(webRoot, 'src/lib/utils/listing-availability.ts'), 'utf-8'
+      path.join(webRoot, 'src/lib/utils/availability-status.ts'), 'utf-8'
     )
-    expect(util).toContain('get_listings_accepting_status')
+    expect(util).toContain('deriveAvailabilityStatus')
+    expect(util).toContain('deriveVendorAvailabilityStatus')
   })
 })
 

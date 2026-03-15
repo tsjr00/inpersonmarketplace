@@ -14,9 +14,7 @@ import TierBadge from '@/components/shared/TierBadge'
 import type { VendorTierType } from '@/lib/constants'
 import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
-// listing-availability.ts utility is deprecated for availability checks.
-// Availability now uses get_listings_accepting_status() RPC (single SQL source of truth).
-// AvailabilityToggle and BrowseToggle replaced by BrowseFilterBar
+import { deriveAvailabilityStatus } from '@/lib/utils/availability-status'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
 import { getServerLocation } from '@/lib/location/server'
 
@@ -100,20 +98,8 @@ interface Listing {
   }[]
 }
 
-// Derive badge status from RPC availability data
-function deriveAvailabilityStatus(avail: { is_accepting: boolean; hours_until_cutoff: number | null; cutoff_hours: number | null } | undefined): {
-  status: 'open' | 'closing-soon' | 'closed'
-  hoursUntilCutoff: number | null
-} {
-  if (!avail || !avail.is_accepting) {
-    return { status: 'closed', hoursUntilCutoff: null }
-  }
-  if (avail.hours_until_cutoff !== null && avail.cutoff_hours !== null
-      && avail.hours_until_cutoff <= avail.cutoff_hours && avail.hours_until_cutoff > 0) {
-    return { status: 'closing-soon', hoursUntilCutoff: Math.round(avail.hours_until_cutoff * 10) / 10 }
-  }
-  return { status: 'open', hoursUntilCutoff: null }
-}
+// Availability badge status derived from get_listings_accepting_status() RPC
+// via shared utility: src/lib/utils/availability-status.ts
 
 interface MarketBoxOffering {
   id: string

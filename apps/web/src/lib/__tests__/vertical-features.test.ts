@@ -171,10 +171,15 @@ describe('VI-R14: per-vertical order cutoff rules', () => {
     expect(constants).toContain('food_trucks: 0')
   })
 
-  it('listing-availability uses DEFAULT_CUTOFF_HOURS for calculations', () => {
-    const availability = readFile('src/lib/utils/listing-availability.ts')
-    expect(availability).toContain('DEFAULT_CUTOFF_HOURS')
-    expect(availability).toContain('cutoffHours')
+  it('SQL RPC is the source of truth for cutoff calculations (JS utility deleted)', () => {
+    // listing-availability.ts was deleted (M4 consolidation).
+    // Cutoff logic now lives entirely in get_available_pickup_dates() SQL function.
+    // The constants are still exported for reference/documentation.
+    const constants = readFile('src/lib/constants.ts')
+    expect(constants).toContain('DEFAULT_CUTOFF_HOURS')
+    expect(constants).toContain('traditional')
+    expect(constants).toContain('private_pickup')
+    expect(constants).toContain('food_trucks')
   })
 })
 
