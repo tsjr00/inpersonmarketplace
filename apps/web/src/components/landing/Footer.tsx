@@ -8,6 +8,7 @@ import { DottedSeparator } from './DottedSeparator'
 
 interface FooterProps {
   vertical: string
+  locale?: string
 }
 
 /**
@@ -15,7 +16,7 @@ interface FooterProps {
  * FM: Dark green background, text-only brand column, 4-column layout
  * FT: Dark charcoal background, logo+tagline side by side at top, link columns below
  */
-export function Footer({ vertical }: FooterProps) {
+export function Footer({ vertical, locale }: FooterProps) {
   const colors = getVerticalColors(vertical)
   const currentYear = new Date().getFullYear()
   const isFT = vertical === 'food_trucks'
@@ -27,8 +28,8 @@ export function Footer({ vertical }: FooterProps) {
     {
       title: 'For Shoppers',
       links: [
-        { label: `Browse ${term(vertical, 'markets')}`, href: `/${vertical}/markets` },
-        { label: term(vertical, 'browse_products_cta'), href: `/${vertical}/browse` },
+        { label: `Browse ${term(vertical, 'markets', locale)}`, href: `/${vertical}/markets` },
+        { label: term(vertical, 'browse_products_cta', locale), href: `/${vertical}/browse` },
         { label: 'Features & Benefits', href: `/${vertical}/features` },
         { label: 'How It Works', href: `/${vertical}/how-it-works` },
         { label: 'Help & FAQ', href: `/${vertical}/help` },
@@ -161,7 +162,7 @@ export function Footer({ vertical }: FooterProps) {
                 color: colors.accentMuted,
               }}
             >
-              &copy; {currentYear} {term(vertical, 'display_name')}. All rights reserved.
+              &copy; {currentYear} {term(vertical, 'display_name', locale)}. All rights reserved.
             </p>
           </div>
         </div>
@@ -194,7 +195,7 @@ export function Footer({ vertical }: FooterProps) {
                 lineHeight: typography.leading.relaxed,
               }}
             >
-              Connecting neighbors with local {term(vertical, 'vendor_people')}.
+              Connecting neighbors with local {term(vertical, 'vendor_people', locale)}.
             </p>
           </div>
 
@@ -248,7 +249,7 @@ export function Footer({ vertical }: FooterProps) {
               color: colors.accentMuted,
             }}
           >
-            &copy; {currentYear} {term(vertical, 'display_name')}. All rights reserved.
+            &copy; {currentYear} {term(vertical, 'display_name', locale)}. All rights reserved.
           </p>
         </div>
       </div>

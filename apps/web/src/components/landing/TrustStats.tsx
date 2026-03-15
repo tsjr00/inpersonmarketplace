@@ -10,11 +10,12 @@ interface TrustStatsProps {
     vendorCount: number
     marketCount: number
   }
+  locale?: string
 }
 
-export function TrustStats({ vertical, stats }: TrustStatsProps) {
+export function TrustStats({ vertical, stats, locale }: TrustStatsProps) {
   const colors = getVerticalColors(vertical)
-  const { trust_stats } = getContent(vertical)
+  const { trust_stats } = getContent(vertical, locale)
   const isFT = vertical === 'food_trucks'
 
   // Don't show stats section if platform has no real data yet

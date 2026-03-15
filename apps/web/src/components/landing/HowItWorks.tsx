@@ -7,12 +7,13 @@ import { getContent } from '@/lib/vertical'
 
 interface HowItWorksProps {
   vertical: string
+  locale?: string
 }
 
-export function HowItWorks({ vertical }: HowItWorksProps) {
+export function HowItWorks({ vertical, locale }: HowItWorksProps) {
   const colors = getVerticalColors(vertical)
   const shadows = getVerticalShadows(vertical)
-  const { how_it_works } = getContent(vertical)
+  const { how_it_works } = getContent(vertical, locale)
 
   const steps = [
     {

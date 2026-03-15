@@ -3,12 +3,14 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
+import { getLocale } from '@/lib/locale'
 import SettingsForm from './SettingsForm'
 import ChangePasswordForm from './ChangePasswordForm'
 import NotificationPreferences from './NotificationPreferences'
 import DeleteAccountSection from './DeleteAccountSection'
 import VendorTierManager from './VendorTierManager'
 import BuyerTierManager from './BuyerTierManager'
+import LanguageSelector from '@/components/shared/LanguageSelector'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
 interface SettingsPageProps {
@@ -26,8 +28,9 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
     redirect(`/${vertical}/login`)
   }
 
-  // Get branding
+  // Get branding + locale
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const locale = await getLocale()
 
   // Get user profile
   const { data: userProfile } = await supabase
@@ -279,6 +282,31 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           initialPhone={userProfile?.phone || ''}
           initialSmsConsent={Boolean((userProfile?.notification_preferences as Record<string, unknown>)?.sms_order_updates)}
         />
+      </div>
+
+      {/* Language Preference */}
+      <div style={{
+        backgroundColor: colors.surfaceElevated,
+        borderRadius: radius.md,
+        border: `1px solid ${colors.border}`,
+        padding: spacing.md,
+        marginBottom: spacing.md
+      }}>
+        <h2 style={{
+          fontSize: typography.sizes.lg,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+          marginTop: 0,
+          marginBottom: spacing.sm
+        }}>
+          {locale === 'es' ? 'Idioma' : 'Language'}
+        </h2>
+        <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing.sm} 0` }}>
+          {locale === 'es'
+            ? 'Elige tu idioma preferido para la interfaz de la aplicación.'
+            : 'Choose your preferred language for the app interface.'}
+        </p>
+        <LanguageSelector locale={locale} variant="full" />
       </div>
 
       {/* Delete Account */}

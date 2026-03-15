@@ -16,11 +16,12 @@ interface HeroProps {
     vendorCount: number
     marketCount: number
   }
+  locale?: string
 }
 
-export function Hero({ vertical, initialCity, stats }: HeroProps) {
+export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
   const colors = getVerticalColors(vertical)
-  const { hero, trust_stats } = getContent(vertical)
+  const { hero, trust_stats } = getContent(vertical, locale)
   const [userZipCode, setUserZipCode] = useState<string | null>(null)
   const isFT = vertical === 'food_trucks'
 
@@ -229,9 +230,9 @@ export function Hero({ vertical, initialCity, stats }: HeroProps) {
             }}
           >
             {[
-              { label: term(vertical, 'browse_products_cta'), href: browseUrl },
-              { label: term(vertical, 'find_vendors_cta'), href: vendorsUrl },
-              { label: term(vertical, 'find_markets_cta'), href: marketsUrl },
+              { label: term(vertical, 'browse_products_cta', locale), href: browseUrl },
+              { label: term(vertical, 'find_vendors_cta', locale), href: vendorsUrl },
+              { label: term(vertical, 'find_markets_cta', locale), href: marketsUrl },
             ].map((cta) => (
               <Link
                 key={cta.label}
@@ -290,9 +291,9 @@ export function Hero({ vertical, initialCity, stats }: HeroProps) {
               }}
             >
               {[
-                term(vertical, 'trust_vendors'),
-                term(vertical, 'trust_pickup'),
-                term(vertical, 'trust_payments'),
+                term(vertical, 'trust_vendors', locale),
+                term(vertical, 'trust_pickup', locale),
+                term(vertical, 'trust_payments', locale),
               ].map((label) => (
                 <div key={label} className="flex items-center gap-2">
                   <span

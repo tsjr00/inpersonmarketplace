@@ -1,19 +1,34 @@
-import { verticalConfigs } from './configs'
+import { verticalConfigs, localizedConfigs } from './configs'
 import type { TerminologyKey, VerticalContent, VerticalTerminologyConfig } from './types'
 
 const DEFAULT_VERTICAL = 'farmers_market'
+const DEFAULT_LOCALE = 'en'
+
+/**
+ * Resolve the config for a vertical + locale combination.
+ * Falls back: localized config → base config → default vertical config.
+ */
+function resolveConfig(verticalId: string, locale?: string): VerticalTerminologyConfig {
+  // If locale is non-English, check for a localized config
+  if (locale && locale !== DEFAULT_LOCALE) {
+    const localized = localizedConfigs[`${verticalId}:${locale}`]
+    if (localized) return localized
+  }
+  return verticalConfigs[verticalId] ?? verticalConfigs[DEFAULT_VERTICAL]
+}
 
 /**
  * Get a terminology label for a vertical.
  * Synchronous — reads from static config, no DB call.
  *
  * Usage:
- *   term('food_trucks', 'vendor')      → "Food Truck"
- *   term('farmers_market', 'vendor')   → "Vendor"
- *   term('food_trucks', 'vendor_signup_cta') → "List Your Food Truck"
+ *   term('food_trucks', 'vendor')            → "Food Truck"
+ *   term('farmers_market', 'vendor')         → "Vendor"
+ *   term('food_trucks', 'vendor', 'es')      → "Food Truck"
+ *   term('farmers_market', 'vendor', 'es')   → "Vendedor"
  */
-export function term(verticalId: string, key: TerminologyKey): string {
-  const config = verticalConfigs[verticalId] ?? verticalConfigs[DEFAULT_VERTICAL]
+export function term(verticalId: string, key: TerminologyKey, locale?: string): string {
+  const config = resolveConfig(verticalId, locale)
   return config?.terminology[key] ?? key
 }
 
@@ -23,10 +38,10 @@ export function term(verticalId: string, key: TerminologyKey): string {
  *
  * Usage:
  *   const { hero, how_it_works } = getContent('food_trucks')
- *   hero.subtitle → "Find food trucks near you..."
+ *   const { hero } = getContent('food_trucks', 'es')
  */
-export function getContent(verticalId: string): VerticalContent {
-  const config = verticalConfigs[verticalId] ?? verticalConfigs[DEFAULT_VERTICAL]
+export function getContent(verticalId: string, locale?: string): VerticalContent {
+  const config = resolveConfig(verticalId, locale)
   return config.content
 }
 
@@ -34,8 +49,8 @@ export function getContent(verticalId: string): VerticalContent {
  * Get the full terminology config for a vertical (terminology + content).
  * Useful when a component needs both labels and content blocks.
  */
-export function getVerticalTerminologyConfig(verticalId: string): VerticalTerminologyConfig {
-  return verticalConfigs[verticalId] ?? verticalConfigs[DEFAULT_VERTICAL]
+export function getVerticalTerminologyConfig(verticalId: string, locale?: string): VerticalTerminologyConfig {
+  return resolveConfig(verticalId, locale)
 }
 
 /**

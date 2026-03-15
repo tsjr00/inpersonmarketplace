@@ -6,15 +6,16 @@ import { getContent } from '@/lib/vertical'
 
 interface TrustStatsTaglineProps {
   vertical: string
+  locale?: string
 }
 
 /**
  * Client component for TrustStats tagline that shows personalized location.
  * Uses vertical content system for tagline text.
  */
-export function TrustStatsTagline({ vertical }: TrustStatsTaglineProps) {
+export function TrustStatsTagline({ vertical, locale }: TrustStatsTaglineProps) {
   const colors = getVerticalColors(vertical)
-  const { trust_stats } = getContent(vertical)
+  const { trust_stats } = getContent(vertical, locale)
   const { areaName } = useLocationAreaName({ timeout: 5000 })
 
   return (
