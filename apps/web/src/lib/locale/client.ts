@@ -7,9 +7,10 @@ import type { Locale } from './index'
  */
 export function getClientLocale(): Locale {
   if (typeof document === 'undefined') return DEFAULT_LOCALE
+  // Read the non-httpOnly client cookie (the httpOnly one is for server components only)
   const match = document.cookie
     .split('; ')
-    .find(row => row.startsWith(`${LOCALE_COOKIE}=`))
+    .find(row => row.startsWith(`${LOCALE_COOKIE}_client=`))
   const value = match?.split('=')[1]
   if (value && isValidLocale(value)) return value as Locale
   return DEFAULT_LOCALE
