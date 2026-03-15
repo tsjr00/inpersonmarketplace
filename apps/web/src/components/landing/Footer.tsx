@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { spacing, typography, getVerticalColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { t } from '@/lib/locale/messages'
 import { DottedSeparator } from './DottedSeparator'
 
 interface FooterProps {
@@ -26,31 +27,31 @@ export function Footer({ vertical, locale }: FooterProps) {
 
   const footerSections = [
     {
-      title: 'For Shoppers',
+      title: t('footer.for_shoppers', locale),
       links: [
-        { label: `Browse ${term(vertical, 'markets', locale)}`, href: `/${vertical}/markets` },
+        { label: t('footer.browse_markets', locale, { markets: term(vertical, 'markets', locale) }), href: `/${vertical}/markets` },
         { label: term(vertical, 'browse_products_cta', locale), href: `/${vertical}/browse` },
-        { label: 'Features & Benefits', href: `/${vertical}/features` },
-        { label: 'How It Works', href: `/${vertical}/how-it-works` },
-        { label: 'Help & FAQ', href: `/${vertical}/help` },
-        { label: 'Sign Up', href: `/${vertical}/signup` },
+        { label: t('footer.features_benefits', locale), href: `/${vertical}/features` },
+        { label: t('footer.how_it_works', locale), href: `/${vertical}/how-it-works` },
+        { label: t('footer.help_faq', locale), href: `/${vertical}/help` },
+        { label: t('footer.sign_up', locale), href: `/${vertical}/signup` },
       ]
     },
     {
-      title: 'For Vendors',
+      title: t('footer.for_vendors', locale),
       links: [
-        { label: 'Become a Vendor', href: `/${vertical}/vendor-signup` },
-        { label: 'Why Sell With Us', href: `/${vertical}/features#vendors` },
-        { label: 'Vendor FAQ', href: `/${vertical}/help` },
+        { label: t('footer.become_vendor', locale), href: `/${vertical}/vendor-signup` },
+        { label: t('footer.why_sell', locale), href: `/${vertical}/features#vendors` },
+        { label: t('footer.vendor_faq', locale), href: `/${vertical}/help` },
       ]
     },
     {
-      title: 'Company',
+      title: t('footer.company', locale),
       links: [
-        { label: 'About Us', href: `/${vertical}/about` },
-        { label: 'Contact Us', href: `/${vertical}/about#contact` },
-        { label: 'Privacy Policy', href: `/${vertical}/terms#privacy-policy` },
-        { label: 'Terms of Service', href: `/${vertical}/terms` },
+        { label: t('footer.about_us', locale), href: `/${vertical}/about` },
+        { label: t('footer.contact_us', locale), href: `/${vertical}/about#contact` },
+        { label: t('footer.privacy_policy', locale), href: `/${vertical}/terms#privacy-policy` },
+        { label: t('footer.terms_of_service', locale), href: `/${vertical}/terms` },
       ]
     }
   ]
@@ -101,9 +102,9 @@ export function Footer({ vertical, locale }: FooterProps) {
                 lineHeight: typography.leading.relaxed,
               }}
             >
-              <div>Connecting neighbors</div>
-              <div>with local food truck</div>
-              <div>operators and chefs.</div>
+              <div>{t('footer.tagline_ft_line1', locale)}</div>
+              <div>{t('footer.tagline_ft_line2', locale)}</div>
+              <div>{t('footer.tagline_ft_line3', locale)}</div>
             </div>
           </div>
 
@@ -162,7 +163,7 @@ export function Footer({ vertical, locale }: FooterProps) {
                 color: colors.accentMuted,
               }}
             >
-              &copy; {currentYear} {term(vertical, 'display_name', locale)}. All rights reserved.
+              &copy; {currentYear} {term(vertical, 'display_name', locale)}. {t('footer.all_rights_reserved', locale)}
             </p>
           </div>
         </div>
@@ -195,7 +196,7 @@ export function Footer({ vertical, locale }: FooterProps) {
                 lineHeight: typography.leading.relaxed,
               }}
             >
-              Connecting neighbors with local {term(vertical, 'vendor_people', locale)}.
+              {t('footer.tagline_fm', locale, { vendors: term(vertical, 'vendor_people', locale) })}
             </p>
           </div>
 
@@ -249,7 +250,7 @@ export function Footer({ vertical, locale }: FooterProps) {
               color: colors.accentMuted,
             }}
           >
-            &copy; {currentYear} {term(vertical, 'display_name', locale)}. All rights reserved.
+            &copy; {currentYear} {term(vertical, 'display_name', locale)}. {t('footer.all_rights_reserved', locale)}
           </p>
         </div>
       </div>
