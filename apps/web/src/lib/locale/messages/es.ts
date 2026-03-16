@@ -1594,4 +1594,9 @@ export const es: Record<string, string> = {
   'mbd.day_4': 'jueves',
   'mbd.day_5': 'viernes',
   'mbd.day_6': 'sábado',
+
+  // ── BackLink / ConfirmDialog defaults ──
+  'shared.back': 'Volver',
+  'shared.confirm': 'Confirmar',
+  'shared.cancel': 'Cancelar',
 }

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -23,8 +25,8 @@ export default function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   variant = 'default',
   showInput = false,
   inputLabel,
@@ -33,6 +35,9 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const locale = getClientLocale()
+  const confirmText = confirmLabel || t('shared.confirm', locale)
+  const cancelText = cancelLabel || t('shared.cancel', locale)
   const [inputValue, setInputValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -196,7 +201,7 @@ export default function ConfirmDialog({
               minWidth: 80,
             }}
           >
-            {cancelLabel}
+            {cancelText}
           </button>
           <button
             onClick={handleConfirm}
@@ -215,7 +220,7 @@ export default function ConfirmDialog({
               minWidth: 80,
             }}
           >
-            {confirmLabel}
+            {confirmText}
           </button>
         </div>
       </div>

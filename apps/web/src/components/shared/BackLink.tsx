@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface BackLinkProps {
   fallbackHref: string
@@ -11,9 +13,11 @@ interface BackLinkProps {
 
 export default function BackLink({
   fallbackHref,
-  fallbackLabel = 'Back',
+  fallbackLabel,
   style
 }: BackLinkProps) {
+  const locale = getClientLocale()
+  const label = fallbackLabel || t('shared.back', locale)
   const router = useRouter()
 
   const handleClick = (e: React.MouseEvent) => {
@@ -41,7 +45,7 @@ export default function BackLink({
         ...style
       }}
     >
-      ← {fallbackLabel}
+      ← {label}
     </Link>
   )
 }
