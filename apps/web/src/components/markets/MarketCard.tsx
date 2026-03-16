@@ -4,6 +4,8 @@ import Link from 'next/link'
 import ScheduleDisplay from './ScheduleDisplay'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { getMapsUrl } from '@/lib/utils/maps-link'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Schedule {
   id: string
@@ -37,12 +39,13 @@ interface MarketCardProps {
 }
 
 // Format season date (e.g., "2026-03-15" -> "Mar 15")
-function formatSeasonDate(dateStr: string): string {
+function formatSeasonDate(dateStr: string, locale?: string): string {
   const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return date.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })
 }
 
 export default function MarketCard({ market, vertical }: MarketCardProps) {
+  const locale = getClientLocale()
   // Build full address: address, city, state
   const addressParts = [market.address, market.city, market.state].filter(Boolean)
   const fullAddress = addressParts.join(', ')
@@ -90,7 +93,7 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
             fontWeight: typography.weights.semibold,
             marginBottom: spacing['2xs']
           }}>
-            🎪 Event
+            🎪 {t('markets.event_badge', locale)}
           </div>
         )}
 
@@ -162,7 +165,7 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
                 fontWeight: typography.weights.medium,
                 flexShrink: 0
               }}>
-                {market.distance_miles.toFixed(1)} mi
+                {market.distance_miles.toFixed(1)} {t('markets.mi', locale)}
               </span>
             )}
           </div>
@@ -192,8 +195,8 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
           }}>
             <span>📅</span>
             <span>
-              {formatSeasonDate(market.event_start_date)}
-              {market.event_start_date !== market.event_end_date && ` – ${formatSeasonDate(market.event_end_date)}`}
+              {formatSeasonDate(market.event_start_date, locale)}
+              {market.event_start_date !== market.event_end_date && ` – ${formatSeasonDate(market.event_end_date, locale)}`}
             </span>
           </div>
         )}
@@ -207,11 +210,11 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
             flex: 1
           }}>
             {market.season_start && market.season_end ? (
-              <>Season: {formatSeasonDate(market.season_start)} – {formatSeasonDate(market.season_end)}</>
+              <>{t('markets.season', locale, { start: formatSeasonDate(market.season_start, locale), end: formatSeasonDate(market.season_end, locale) })}</>
             ) : market.season_start ? (
-              <>Opens {formatSeasonDate(market.season_start)}</>
+              <>{t('markets.opens', locale, { date: formatSeasonDate(market.season_start, locale) })}</>
             ) : (
-              <>Closes {formatSeasonDate(market.season_end!)}</>
+              <>{t('markets.closes', locale, { date: formatSeasonDate(market.season_end!, locale) })}</>
             )}
           </div>
         )}
@@ -226,7 +229,7 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
           marginTop: 'auto'
         }}>
           <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-            👥 {market.vendor_count || 0} vendor{(market.vendor_count || 0) !== 1 ? 's' : ''}
+            👥 {t('markets.vendor_count', locale, { count: String(market.vendor_count || 0), s: (market.vendor_count || 0) !== 1 ? 's' : '' })}
           </span>
           {!market.active && (
             <span style={{
@@ -237,7 +240,7 @@ export default function MarketCard({ market, vertical }: MarketCardProps) {
               backgroundColor: '#fee2e2',
               color: '#991b1b',
             }}>
-              Inactive
+              {t('markets.inactive', locale)}
             </span>
           )}
         </div>

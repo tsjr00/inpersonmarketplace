@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { AddToCartButton } from '@/components/cart/AddToCartButton'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { type AvailablePickupDate, groupPickupDatesByMarket } from '@/types/pickup'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 /*
  * PICKUP SCHEDULING CONTEXT
@@ -31,6 +33,8 @@ export default function ListingPurchaseSection({
   isPremiumRestricted = false,
   availablePickupDates = []
 }: ListingPurchaseSectionProps) {
+  const locale = getClientLocale()
+
   // Show premium upgrade message instead of add to cart when restricted
   if (isPremiumRestricted) {
     return (
@@ -47,14 +51,14 @@ export default function ListingPurchaseSection({
           color: '#1e40af',
           marginBottom: spacing.xs
         }}>
-          Premium Early-Bird Access
+          {t('listing.premium_title', locale)}
         </div>
         <p style={{
           fontSize: typography.sizes.sm,
           color: '#3b82f6',
           margin: `0 0 ${spacing.sm} 0`
         }}>
-          This listing is in the premium early-bird window. Upgrade to buy now!
+          {t('listing.premium_desc', locale)}
         </p>
         <Link
           href={`/${vertical}/buyer/upgrade`}
@@ -71,7 +75,7 @@ export default function ListingPurchaseSection({
             minHeight: 44
           }}
         >
-          Upgrade to Premium
+          {t('listing.upgrade_btn', locale)}
         </Link>
       </div>
     )

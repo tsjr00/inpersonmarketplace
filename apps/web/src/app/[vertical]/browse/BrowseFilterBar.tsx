@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { VerticalBranding } from '@/lib/branding'
 import { term } from '@/lib/vertical'
 import { colors, spacing, typography, radius, sizing } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface BrowseFilterBarProps {
   vertical: string
@@ -20,6 +22,7 @@ export default function BrowseFilterBar({
   currentMenu,
   branding
 }: BrowseFilterBarProps) {
+  const locale = getClientLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -68,7 +71,7 @@ export default function BrowseFilterBar({
     }}>
       {/* View Type */}
       <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-        <label style={labelStyle}>View:</label>
+        <label style={labelStyle}>{t('browse.view_label', locale)}</label>
         <select
           value={currentView}
           onChange={(e) => navigate({
@@ -76,14 +79,14 @@ export default function BrowseFilterBar({
           })}
           style={selectStyle}
         >
-          <option value="listings">{term(vertical, 'products')} & Bundles</option>
-          <option value="market-boxes">{term(vertical, 'market_boxes')}</option>
+          <option value="listings">{t('browse.products_bundles', locale, { products: term(vertical, 'products', locale) })}</option>
+          <option value="market-boxes">{term(vertical, 'market_boxes', locale)}</option>
         </select>
       </div>
 
       {/* Availability */}
       <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-        <label style={labelStyle}>Show:</label>
+        <label style={labelStyle}>{t('browse.show_label', locale)}</label>
         <select
           value={isAvailableNow ? 'available' : 'all'}
           onChange={(e) => navigate({
@@ -91,15 +94,15 @@ export default function BrowseFilterBar({
           })}
           style={selectStyle}
         >
-          <option value="all">All Listings</option>
-          <option value="available">Available Now</option>
+          <option value="all">{t('browse.all_listings', locale)}</option>
+          <option value="available">{t('browse.available_now', locale)}</option>
         </select>
       </div>
 
       {/* Menu Type — FT only */}
       {isFoodTruck && currentView === 'listings' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-          <label style={labelStyle}>Menu:</label>
+          <label style={labelStyle}>{t('browse.menu_label', locale)}</label>
           <select
             value={currentMenu || 'all'}
             onChange={(e) => navigate({
@@ -107,9 +110,9 @@ export default function BrowseFilterBar({
             })}
             style={selectStyle}
           >
-            <option value="all">All Items</option>
-            <option value="daily">Daily Menu</option>
-            <option value="catering">Catering Menu</option>
+            <option value="all">{t('browse.all_items', locale)}</option>
+            <option value="daily">{t('browse.daily_menu', locale)}</option>
+            <option value="catering">{t('browse.catering_menu', locale)}</option>
           </select>
         </div>
       )}

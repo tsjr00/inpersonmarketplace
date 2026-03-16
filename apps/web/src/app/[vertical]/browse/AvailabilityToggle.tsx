@@ -1,6 +1,8 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface AvailabilityToggleProps {
   vertical: string
@@ -13,6 +15,7 @@ export default function AvailabilityToggle({
   isAvailableNow,
   primaryColor
 }: AvailabilityToggleProps) {
+  const locale = getClientLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -65,13 +68,13 @@ export default function AvailabilityToggle({
           onClick={() => handleToggle(false)}
           style={!isAvailableNow ? activeStyle : inactiveStyle}
         >
-          All Listings
+          {t('browse.all_listings', locale)}
         </button>
         <button
           onClick={() => handleToggle(true)}
           style={isAvailableNow ? activeStyle : inactiveStyle}
         >
-          Available Now
+          {t('browse.available_now', locale)}
         </button>
       </div>
     </div>

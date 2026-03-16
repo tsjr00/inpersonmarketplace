@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Vendor {
   vendor_profile_id: string
@@ -20,6 +22,7 @@ interface MarketVendorsListProps {
 }
 
 export default function MarketVendorsList({ vendors, categories, vertical }: MarketVendorsListProps) {
+  const locale = getClientLocale()
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
   const filteredVendors = selectedCategory === 'all'
@@ -41,7 +44,7 @@ export default function MarketVendorsList({ vendors, categories, vertical }: Mar
               marginBottom: spacing['2xs']
             }}
           >
-            Filter by Category
+            {t('markets.filter_category', locale)}
           </label>
           <select
             id="category-filter"
@@ -59,7 +62,7 @@ export default function MarketVendorsList({ vendors, categories, vertical }: Mar
               cursor: 'pointer'
             }}
           >
-            <option value="all">All Categories ({vendors.length})</option>
+            <option value="all">{t('markets.all_categories_count', locale, { count: String(vendors.length) })}</option>
             {categories.map(cat => {
               const count = vendors.filter(v => v.categories.includes(cat)).length
               return (
@@ -181,8 +184,8 @@ export default function MarketVendorsList({ vendors, categories, vertical }: Mar
       ) : (
         <p style={{ color: colors.textSecondary, margin: 0 }}>
           {selectedCategory === 'all'
-            ? 'No vendors with active listings at this market yet.'
-            : `No vendors selling ${selectedCategory} at this market.`}
+            ? t('markets.no_vendors_active', locale)
+            : t('markets.no_vendors_cat', locale, { category: selectedCategory })}
         </p>
       )}
     </div>

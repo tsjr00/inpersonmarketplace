@@ -6,6 +6,8 @@ import MarketCard from '@/components/markets/MarketCard'
 import { colors, spacing, typography, radius as radiusToken, shadows } from '@/lib/design-tokens'
 import { InlineLoading, Spinner } from '@/components/shared/Spinner'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 const DEFAULT_RADIUS = 25
 const PAGE_SIZE = 35
@@ -59,6 +61,7 @@ export default function MarketsWithLocation({
   radiusOptions,
   filtersSlot
 }: MarketsWithLocationProps) {
+  const locale = getClientLocale()
   // Initialize state from server-provided location (if available)
   const [hasLocation, setHasLocation] = useState<boolean | null>(initialLocation ? true : null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(
@@ -111,7 +114,7 @@ export default function MarketsWithLocation({
       if (data.hasLocation) {
         setHasLocation(true)
         setUserLocation({ lat: data.latitude, lng: data.longitude })
-        setLocationText(data.locationText || 'Your location')
+        setLocationText(data.locationText || t('location.your_location', locale))
         if (data.radius) setRadius(data.radius)
         // Fetch nearby markets and then mark location as checked
         await fetchNearbyMarkets(data.latitude, data.longitude, 0)
@@ -218,9 +221,9 @@ export default function MarketsWithLocation({
       try {
         const response = await fetch('/api/buyer/location')
         const data = await response.json()
-        setLocationText(data.locationText || (source === 'gps' ? 'Current location' : 'Your location'))
+        setLocationText(data.locationText || (source === 'gps' ? t('location.current_location', locale) : t('location.your_location', locale)))
       } catch {
-        setLocationText(source === 'gps' ? 'Current location' : 'Your location')
+        setLocationText(source === 'gps' ? t('location.current_location', locale) : t('location.your_location', locale))
       }
     }
     fetchNearbyMarkets(lat, lng, 0)
@@ -246,7 +249,7 @@ export default function MarketsWithLocation({
           hasLocation={hasLocation || false}
           locationText={locationText}
           onClear={handleClearLocation}
-          labelPrefix="Markets nearby"
+          labelPrefix={t('markets.nearby', locale)}
           radius={radius}
           onRadiusChange={handleRadiusChange}
           radiusOptions={radiusOptions}
@@ -273,7 +276,7 @@ export default function MarketsWithLocation({
             fontSize: typography.sizes.base,
             fontWeight: typography.weights.medium
           }}>
-            Enter your ZIP code above to find markets nearby
+            {t('markets.enter_zip', locale)}
           </p>
         </div>
       )}
@@ -285,7 +288,7 @@ export default function MarketsWithLocation({
           padding: spacing.md,
           color: colors.textMuted
         }}>
-          Loading nearby markets...
+          {t('markets.loading', locale)}
         </div>
       )}
 
@@ -301,19 +304,19 @@ export default function MarketsWithLocation({
       }}>
         {loading && markets.length > 0 ? (
           // Show refining message when we have preliminary results
-          <InlineLoading message="Finding markets near you..." />
+          <InlineLoading message={t('markets.finding', locale)} />
         ) : hasLocationResults && hasLocation ? (
           // Show "Showing X of Y" when we have location results
           <span>
             {totalMarkets > markets.length
-              ? `Showing ${markets.length} of ${totalMarkets} markets within ${radius} miles (closest first)`
-              : `${markets.length} market${markets.length !== 1 ? 's' : ''} found within ${radius} miles`
+              ? t('markets.showing_of', locale, { count: String(markets.length), total: String(totalMarkets), radius: String(radius) })
+              : t('markets.found_within', locale, { count: String(markets.length), s: markets.length !== 1 ? 's' : '', radius: String(radius) })
             }
           </span>
         ) : (
           <span>
-            {markets.length} market{markets.length !== 1 ? 's' : ''} found
-            {!hasLocationResults && markets.length > 0 && !hasLocation && ' (enter ZIP for local results)'}
+            {t('markets.found', locale, { count: String(markets.length), s: markets.length !== 1 ? 's' : '' })}
+            {!hasLocationResults && markets.length > 0 && !hasLocation && ` ${t('markets.enter_zip_suffix', locale)}`}
           </span>
         )}
       </div>
@@ -340,14 +343,14 @@ export default function MarketsWithLocation({
           boxShadow: shadows.sm,
           border: `1px solid ${colors.border}`
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: spacing.sm }}>{term(vertical, 'no_results_market_emoji')}</div>
+          <div style={{ fontSize: '3rem', marginBottom: spacing.sm }}>{term(vertical, 'no_results_market_emoji', locale)}</div>
           <p style={{ color: colors.textSecondary, fontSize: typography.sizes.lg, margin: 0, fontWeight: typography.weights.medium }}>
             {hasLocation
-              ? `No ${term(vertical, 'traditional_markets').toLowerCase()} found within ${radius} miles. Try increasing your search radius.`
-              : `No ${term(vertical, 'traditional_markets').toLowerCase()} found matching your filters`}
+              ? t('markets.no_found_radius', locale, { markets: term(vertical, 'traditional_markets', locale).toLowerCase(), radius: String(radius) })
+              : t('markets.no_found_filters', locale, { markets: term(vertical, 'traditional_markets', locale).toLowerCase() })}
           </p>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, marginTop: spacing.sm, maxWidth: 400, marginLeft: 'auto', marginRight: 'auto' }}>
-            {`Don't worry! Many ${term(vertical, 'vendors').toLowerCase()} offer private pickup locations where you can meet them directly to pick up your order.`}
+            {t('markets.private_note', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
           </p>
           <a
             href={`/${vertical}/browse`}
@@ -367,10 +370,10 @@ export default function MarketsWithLocation({
               minHeight: 44,
             }}
           >
-            Browse Available Products →
+            {t('markets.browse_products', locale)}
           </a>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, marginTop: spacing.md }}>
-            {`Look for listings with "Private Pickup" to connect directly with ${term(vertical, 'vendors').toLowerCase()}`}
+            {t('markets.look_for_private', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
           </p>
         </div>
       ) : null}
@@ -400,9 +403,9 @@ export default function MarketsWithLocation({
             }}
           >
             {loadingMore ? (
-              <InlineLoading message="Loading..." color="#6b7280" />
+              <InlineLoading message={t('markets.loading_more', locale)} color="#6b7280" />
             ) : (
-              `Load ${Math.min(PAGE_SIZE, totalMarkets - markets.length)} More Markets`
+              t('markets.load_more', locale, { count: String(Math.min(PAGE_SIZE, totalMarkets - markets.length)) })
             )}
           </button>
         </div>
