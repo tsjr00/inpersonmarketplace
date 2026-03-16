@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface ActivityEvent {
   id: string
@@ -22,18 +24,18 @@ const FADE_DURATION = 400
 const MIN_EVENTS = 3
 const MAX_AGE_HOURS = 24
 
-function formatEventMessage(event: ActivityEvent): string {
+function formatEventMessage(event: ActivityEvent, locale: string): string {
   switch (event.event_type) {
     case 'purchase':
       return event.city
-        ? `Someone in ${event.city} just bought ${event.item_name || 'something great'}`
-        : `Someone just bought ${event.item_name || 'something great'}`
+        ? t('sp.purchase_city', locale, { city: event.city, item: event.item_name || t('sp.something_great', locale) })
+        : t('sp.purchase', locale, { item: event.item_name || t('sp.something_great', locale) })
     case 'new_vendor':
-      return `${event.vendor_display_name || 'A new vendor'} just joined!`
+      return t('sp.new_vendor', locale, { vendor: event.vendor_display_name || t('sp.new_vendor_fallback', locale) })
     case 'sold_out':
-      return `${event.item_name || 'An item'} just sold out!`
+      return t('sp.sold_out', locale, { item: event.item_name || t('sp.item_fallback', locale) })
     case 'new_listing':
-      return `${event.vendor_display_name || 'A vendor'} just listed ${event.item_name || 'something new'}`
+      return t('sp.new_listing', locale, { vendor: event.vendor_display_name || t('sp.vendor_fallback', locale), item: event.item_name || t('sp.something_new', locale) })
     default:
       return ''
   }
@@ -49,17 +51,18 @@ function getEventIcon(eventType: string): string {
   }
 }
 
-function getTimeAgo(dateStr: string): string {
+function getTimeAgo(dateStr: string, locale: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 2) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 2) return t('sp.just_now', locale)
+  if (minutes < 60) return t('sp.minutes_ago', locale, { n: String(minutes) })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return 'recently'
+  if (hours < 24) return t('sp.hours_ago', locale, { n: String(hours) })
+  return t('sp.recently', locale)
 }
 
 export default function SocialProofToast({ vertical }: SocialProofToastProps) {
+  const locale = getClientLocale()
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [visible, setVisible] = useState(false)
@@ -193,14 +196,14 @@ export default function SocialProofToast({ vertical }: SocialProofToastProps) {
               color: '#374151',
               lineHeight: 1.4,
             }}>
-              {formatEventMessage(currentEvent)}
+              {formatEventMessage(currentEvent, locale)}
             </p>
             <p style={{
               margin: '4px 0 0',
               fontSize: 11,
               color: '#9ca3af',
             }}>
-              {getTimeAgo(currentEvent.created_at)}
+              {getTimeAgo(currentEvent.created_at, locale)}
             </p>
           </div>
         </div>

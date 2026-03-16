@@ -2,6 +2,8 @@
 
 import ShareButton from './ShareButton'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Vendor {
   id: string
@@ -20,6 +22,7 @@ export default function PostPurchaseSharePrompt({
   onClose,
 }: PostPurchaseSharePromptProps) {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const locale = getClientLocale()
 
   return (
     <div
@@ -64,7 +67,7 @@ export default function PostPurchaseSharePrompt({
               color: colors.textPrimary,
             }}
           >
-            Love shopping local?
+            {t('ppsp.title', locale)}
           </h2>
           <p
             style={{
@@ -73,8 +76,9 @@ export default function PostPurchaseSharePrompt({
               color: colors.textSecondary,
             }}
           >
-            Help {vendors.length === 1 ? vendors[0].name : 'your vendors'} get
-            discovered by sharing with friends
+            {vendors.length === 1
+              ? t('ppsp.help_single', locale, { vendor: vendors[0].name })
+              : t('ppsp.help_multiple', locale)}
           </p>
         </div>
 
@@ -111,7 +115,7 @@ export default function PostPurchaseSharePrompt({
                 <ShareButton
                   url={`${baseUrl}/${vertical}/vendor/${vendor.id}/profile`}
                   title={vendor.name}
-                  text={`Check out ${vendor.name} — great local vendor!`}
+                  text={t('ppsp.share_text', locale, { vendor: vendor.name })}
                   variant="compact"
                 />
               </div>
@@ -138,7 +142,7 @@ export default function PostPurchaseSharePrompt({
               cursor: 'pointer',
             }}
           >
-            Not now
+            {t('ppsp.not_now', locale)}
           </button>
         </div>
       </div>

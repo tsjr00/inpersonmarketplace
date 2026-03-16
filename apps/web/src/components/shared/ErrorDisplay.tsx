@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { colors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface ErrorDisplayProps {
   error: string | {
@@ -24,6 +26,7 @@ interface ErrorDisplayProps {
  * - "Report Error" link that copies info to clipboard
  */
 export default function ErrorDisplay({ error, onDismiss }: ErrorDisplayProps) {
+  const locale = getClientLocale()
   const [copied, setCopied] = useState(false)
 
   // Normalize error to object form
@@ -31,7 +34,7 @@ export default function ErrorDisplay({ error, onDismiss }: ErrorDisplayProps) {
     ? { error: error }
     : error
 
-  const message = errorObj.error || errorObj.message || 'An error occurred'
+  const message = errorObj.error || errorObj.message || t('err.default_message', locale)
   const code = errorObj.code
   const traceId = errorObj.traceId
   const details = errorObj.details
@@ -89,9 +92,9 @@ export default function ErrorDisplay({ error, onDismiss }: ErrorDisplayProps) {
               borderRadius: 4,
               display: 'inline-block'
             }}>
-              {code && <span>Code: {code}</span>}
+              {code && <span>{t('err.code_label', locale)} {code}</span>}
               {code && traceId && <span> | </span>}
-              {traceId && <span>Trace: {traceId}</span>}
+              {traceId && <span>{t('err.trace_label', locale)} {traceId}</span>}
             </div>
           )}
 
@@ -112,7 +115,7 @@ export default function ErrorDisplay({ error, onDismiss }: ErrorDisplayProps) {
                 verticalAlign: 'middle'
               }}
             >
-              {copied ? '✓ Copied!' : 'Copy Error Report'}
+              {copied ? t('err.copied', locale) : t('err.copy_report', locale)}
             </button>
           )}
         </div>

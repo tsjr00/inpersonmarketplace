@@ -12,6 +12,8 @@ import { useCart } from '@/lib/hooks/useCart'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
 import { colors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface AvailableTerm {
   weeks: number
@@ -22,12 +24,12 @@ interface AvailableTerm {
   savings_percent: number
 }
 
-const BOX_TYPE_LABELS: Record<string, string> = {
-  weekly_dinner: 'Weekly Dinner',
-  family_kit: 'Family Kit',
-  mystery_box: 'Mystery Box',
-  meal_prep: 'Meal Prep',
-  office_lunch: 'Office Lunch',
+const BOX_TYPE_KEYS: Record<string, string> = {
+  weekly_dinner: 'mbd.box_weekly_dinner',
+  family_kit: 'mbd.box_family_kit',
+  mystery_box: 'mbd.box_mystery_box',
+  meal_prep: 'mbd.box_meal_prep',
+  office_lunch: 'mbd.box_office_lunch',
 }
 
 interface MarketBoxData {
@@ -77,14 +79,14 @@ interface MarketBoxData {
   }
 }
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
 export default function MarketBoxDetailClient() {
   const params = useParams()
   const vertical = params.vertical as string
   const offeringId = params.id as string
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
   const { addMarketBoxToCart } = useCart()
+  const locale = getClientLocale()
+  const dayName = (dow: number) => t(`mbd.day_${dow}` as string, locale)
 
   const [data, setData] = useState<MarketBoxData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -99,7 +101,7 @@ export default function MarketBoxDetailClient() {
 
       if (!res.ok) {
         setError({
-          message: responseData.error || 'Failed to fetch offering',
+          message: responseData.error || t('mbd.fetch_error', locale),
           code: responseData.code,
           traceId: responseData.traceId
         })
@@ -108,7 +110,7 @@ export default function MarketBoxDetailClient() {
 
       setData(responseData)
     } catch (err) {
-      setError({ message: err instanceof Error ? err.message : 'Failed to load offering' })
+      setError({ message: err instanceof Error ? err.message : t('mbd.load_error', locale) })
     } finally {
       setLoading(false)
     }
@@ -126,7 +128,7 @@ export default function MarketBoxDetailClient() {
       await addMarketBoxToCart(offeringId, selectedTermWeeks)
       // Cart drawer opens automatically via addMarketBoxToCart
     } catch (err) {
-      setError({ message: err instanceof Error ? err.message : 'Failed to add to cart' })
+      setError({ message: err instanceof Error ? err.message : t('mbd.cart_error', locale) })
     } finally {
       setSubscribing(false)
     }
@@ -153,7 +155,7 @@ export default function MarketBoxDetailClient() {
     if (daysUntil <= 0) daysUntil += 7
     const nextDate = new Date(today)
     nextDate.setDate(today.getDate() + daysUntil)
-    return nextDate.toLocaleDateString('en-US', {
+    return nextDate.toLocaleDateString(locale === 'es' ? 'es-US' : 'en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -164,7 +166,7 @@ export default function MarketBoxDetailClient() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, padding: 24 }}>
         <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: 100 }}>
-          Loading...
+          {t('mbd.loading', locale)}
         </div>
       </div>
     )
@@ -185,12 +187,12 @@ export default function MarketBoxDetailClient() {
               color: '#991b1b',
               textAlign: 'center'
             }}>
-              {`${term(vertical, 'market_box')} not found`}
+              {t('mbd.not_found', locale, { box: term(vertical, 'market_box', locale) })}
             </div>
           )}
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <Link href={`/${vertical}/browse?view=market-boxes`} style={{ color: branding.colors.primary }}>
-              {`Back to ${term(vertical, 'market_boxes')}`}
+              {t('mbd.back_to', locale, { boxes: term(vertical, 'market_boxes', locale) })}
             </Link>
           </div>
         </div>
@@ -212,12 +214,12 @@ export default function MarketBoxDetailClient() {
             href={`/${vertical}/browse?view=market-boxes`}
             style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
           >
-            {`← Back to ${term(vertical, 'market_boxes')}`}
+            {t('mbd.back_to', locale, { boxes: term(vertical, 'market_boxes', locale) })}
           </Link>
           <ShareButton
             url={`${window.location.origin}/${vertical}/market-box/${offeringId}`}
             title={data?.offering.name || term(vertical, 'market_box')}
-            text={`${data?.offering.name || term(vertical, 'market_box')} from ${data?.vendor.name || 'vendor'}`}
+            text={`${data?.offering.name || term(vertical, 'market_box', locale)} ${t('mbd.from', locale)} ${data?.vendor.name || ''}`}
             variant="compact"
           />
         </div>
@@ -261,7 +263,7 @@ export default function MarketBoxDetailClient() {
           {/* Title & Price */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-              {offering.box_type && BOX_TYPE_LABELS[offering.box_type] && (
+              {offering.box_type && BOX_TYPE_KEYS[offering.box_type] && (
                 <span style={{
                   padding: '4px 12px',
                   backgroundColor: '#fef3c7',
@@ -270,7 +272,7 @@ export default function MarketBoxDetailClient() {
                   fontSize: 12,
                   fontWeight: 600
                 }}>
-                  {BOX_TYPE_LABELS[offering.box_type]}
+                  {t(BOX_TYPE_KEYS[offering.box_type], locale)}
                 </span>
               )}
               <span style={{
@@ -281,7 +283,7 @@ export default function MarketBoxDetailClient() {
                 fontSize: 12,
                 fontWeight: 600
               }}>
-                Prepaid Weekly Subscription
+                {t('mbd.prepaid_sub', locale)}
               </span>
               {isAtCapacity ? (
                 <span style={{
@@ -292,7 +294,7 @@ export default function MarketBoxDetailClient() {
                   fontSize: 12,
                   fontWeight: 600
                 }}>
-                  Currently Full
+                  {t('mbd.currently_full', locale)}
                 </span>
               ) : availability.spots_remaining !== null && (
                 <span style={{
@@ -303,7 +305,9 @@ export default function MarketBoxDetailClient() {
                   fontSize: 12,
                   fontWeight: 600
                 }}>
-                  {availability.spots_remaining} spot{availability.spots_remaining !== 1 ? 's' : ''} left
+                  {availability.spots_remaining !== 1
+                    ? t('mbd.spots_left_plural', locale, { n: String(availability.spots_remaining) })
+                    : t('mbd.spots_left', locale, { n: String(availability.spots_remaining) })}
                 </span>
               )}
             </div>
@@ -320,14 +324,14 @@ export default function MarketBoxDetailClient() {
                 display: 'inline-block'
               }}
             >
-              by <span style={{ fontWeight: 600 }}>{vendor.name}</span> →
+              {t('mbd.by_vendor', locale)} <span style={{ fontWeight: 600 }}>{vendor.name}</span> →
             </Link>
 
             {/* Term Selection - Compact */}
             {hasMultipleTerms ? (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: '#374151', marginBottom: 8 }}>
-                  Choose your subscription length:
+                  {t('mbd.choose_length', locale)}
                 </div>
                 <div className="term-grid" style={{ display: 'grid', gap: 10 }}>
                   {available_terms.map(termOption => (
@@ -360,7 +364,7 @@ export default function MarketBoxDetailClient() {
                           fontSize: 10,
                           fontWeight: 600
                         }}>
-                          Save {formatPrice(termOption.savings_cents)}
+                          {t('mbd.save', locale, { amount: formatPrice(termOption.savings_cents) })}
                         </span>
                       )}
                       <span style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
@@ -371,7 +375,7 @@ export default function MarketBoxDetailClient() {
                           {formatPrice(termOption.price_cents)}
                         </span>
                         <span style={{ fontSize: 11, color: '#6b7280' }}>
-                          ({formatPrice(termOption.price_per_week_cents)}/wk)
+                          ({formatPrice(termOption.price_per_week_cents)}{t('mbd.per_week', locale)})
                         </span>
                       </span>
                     </button>
@@ -389,7 +393,7 @@ export default function MarketBoxDetailClient() {
                   )}
                 </div>
                 <div style={{ fontSize: 14, color: '#6b7280' }}>
-                  for 4 weeks ({formatPrice((selectedTerm?.price_cents || offering.price_cents) / 4)}/week)
+                  {t('mbd.for_weeks', locale, { weeks: '4', price: formatPrice((selectedTerm?.price_cents || offering.price_cents) / 4) })}
                 </div>
               </>
             )}
@@ -403,7 +407,7 @@ export default function MarketBoxDetailClient() {
               border: '1px solid #e5e7eb',
               borderRadius: 8
             }}>
-              <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>Description</h3>
+              <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>{t('mbd.description', locale)}</h3>
               <p style={{ margin: 0, color: '#6b7280', lineHeight: 1.6 }}>{offering.description}</p>
             </div>
           )}
@@ -415,23 +419,23 @@ export default function MarketBoxDetailClient() {
             border: '1px solid #e5e7eb',
             borderRadius: 8
           }}>
-            <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>How It Works</h3>
+            <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>{t('mbd.how_it_works', locale)}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
-                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Pay {formatPrice(selectedTerm?.price_cents || offering.price_cents)} upfront for {selectedTermWeeks} weeks</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>{t('mbd.pay_upfront', locale, { price: formatPrice(selectedTerm?.price_cents || offering.price_cents), weeks: String(selectedTermWeeks) })}</span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
-                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>First pickup: {getNextPickupDate(offering.pickup_day_of_week)}</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>{t('mbd.first_pickup', locale, { date: getNextPickupDate(offering.pickup_day_of_week) })}</span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
-                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>Return {DAYS[offering.pickup_day_of_week]}s for {selectedTermWeeks} weeks</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>{t('mbd.return_weekly', locale, { day: dayName(offering.pickup_day_of_week), weeks: String(selectedTermWeeks) })}</span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>•</span>
-                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>{`${term(vertical, 'market_box')} pickup times may differ from the ${term(vertical, 'vendor').toLowerCase()}'s regular retail hours`}</span>
+                <span style={{ color: '#374151', fontSize: 14, lineHeight: 1.5 }}>{t('mbd.pickup_times_differ', locale, { box: term(vertical, 'market_box', locale), vendor: term(vertical, 'vendor', locale).toLowerCase() })}</span>
               </div>
             </div>
             <div style={{
@@ -444,8 +448,8 @@ export default function MarketBoxDetailClient() {
               lineHeight: 1.5
             }}>
               {vertical === 'food_trucks'
-                ? 'If unforeseen circumstances such as mechanical issues, event cancellations, or weather require your vendor to skip a week, your subscription will automatically be extended by one week at no additional cost.'
-                : 'If unforeseen circumstances such as weather or other agricultural realities require your vendor to skip a week, your subscription will automatically be extended by one week at no additional cost.'
+                ? t('mbd.skip_policy_ft', locale)
+                : t('mbd.skip_policy_fm', locale)
               }
             </div>
           </div>
@@ -459,17 +463,17 @@ export default function MarketBoxDetailClient() {
               border: '1px solid #e5e7eb',
               borderRadius: 8
             }}>
-              <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>Pickup Details</h3>
+              <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>{t('mbd.pickup_details', locale)}</h3>
 
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <span style={{ fontSize: 20 }}>📅</span>
                   <div>
                     <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
-                      Every {DAYS[offering.pickup_day_of_week]}
+                      {t('mbd.every_day', locale, { day: dayName(offering.pickup_day_of_week) })}
                     </div>
                     <div style={{ fontSize: 12, color: '#6b7280' }}>
-                      First: {getNextPickupDate(offering.pickup_day_of_week)}
+                      {t('mbd.first_date', locale, { date: getNextPickupDate(offering.pickup_day_of_week) })}
                     </div>
                   </div>
                 </div>
@@ -479,7 +483,7 @@ export default function MarketBoxDetailClient() {
                   <div>
                     <div style={{ fontWeight: 600, color: '#374151', fontSize: 14 }}>
                       {offering.pickup_start_time === offering.pickup_end_time
-                        ? `Pickup at ${formatTime(offering.pickup_start_time)}`
+                        ? t('mbd.pickup_at', locale, { time: formatTime(offering.pickup_start_time) })
                         : `${formatTime(offering.pickup_start_time)} - ${formatTime(offering.pickup_end_time)}`}
                     </div>
                   </div>
@@ -515,7 +519,7 @@ export default function MarketBoxDetailClient() {
               border: '1px solid #e5e7eb',
               borderRadius: 8
             }}>
-              <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>Sold by</h3>
+              <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>{t('mbd.sold_by', locale)}</h3>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 {vendor.profile_image_url ? (
                   <div style={{
@@ -592,7 +596,7 @@ export default function MarketBoxDetailClient() {
                   textAlign: 'center'
                 }}
               >
-                View Vendor Profile
+                {t('mbd.view_vendor', locale)}
               </Link>
             </div>
           </div>
@@ -628,11 +632,11 @@ export default function MarketBoxDetailClient() {
                 cursor: subscribing || !purchase.can_purchase ? 'not-allowed' : 'pointer'
               }}
             >
-              {subscribing ? 'Adding...' : `Add to Cart — ${formatPrice(selectedTerm?.price_cents || offering.price_cents)}`}
+              {subscribing ? t('mbd.adding', locale) : t('mbd.add_to_cart', locale, { price: formatPrice(selectedTerm?.price_cents || offering.price_cents) })}
             </button>
 
             <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: '#6b7280' }}>
-              {selectedTermWeeks}-week subscription · Full amount charged at checkout
+              {t('mbd.sub_footer', locale, { weeks: String(selectedTermWeeks) })}
             </p>
           </div>
         </div>

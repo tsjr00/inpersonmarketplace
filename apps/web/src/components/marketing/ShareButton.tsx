@@ -10,6 +10,8 @@ import {
   openSharePopup,
   SHARE_PLATFORMS
 } from '@/lib/marketing/share'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface ShareButtonProps {
   url: string
@@ -26,6 +28,7 @@ export default function ShareButton({
   variant = 'button',
   className = ''
 }: ShareButtonProps) {
+  const locale = getClientLocale()
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showNative, setShowNative] = useState(() => {
@@ -144,13 +147,13 @@ export default function ShareButton({
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         style={buttonStyles}
-        title="Share"
-        aria-label="Share"
+        title={t('share.share', locale)}
+        aria-label={t('share.share', locale)}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
         <ShareIcon size={variant === 'icon' ? 16 : variant === 'compact' ? 14 : 16} color={variant === 'action' ? '#ffffff' : 'currentColor'} />
-        {variant !== 'icon' && <span>Share</span>}
+        {variant !== 'icon' && <span>{t('share.share', locale)}</span>}
       </button>
 
       {isOpen && (
@@ -193,7 +196,7 @@ export default function ShareButton({
               role="menuitem"
             >
               <NativeShareIcon />
-              <span>Share...</span>
+              <span>{t('share.share_native', locale)}</span>
             </button>
           )}
 
@@ -218,7 +221,7 @@ export default function ShareButton({
               role="menuitem"
             >
               <PlatformIcon platform={platform.id} color={platform.color} />
-              <span>{platform.id === 'copy' && copied ? 'Copied!' : platform.name}</span>
+              <span>{platform.id === 'copy' && copied ? t('share.copied', locale) : platform.name}</span>
             </button>
           ))}
         </div>
