@@ -1,6 +1,8 @@
 'use client'
 
 import { useCart } from '@/lib/hooks/useCart'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface CartButtonProps {
   primaryColor?: string
@@ -8,6 +10,7 @@ interface CartButtonProps {
 
 export function CartButton({ primaryColor = '#333' }: CartButtonProps) {
   const { itemCount, setIsOpen } = useCart()
+  const locale = getClientLocale()
 
   return (
     <button
@@ -28,7 +31,7 @@ export function CartButton({ primaryColor = '#333' }: CartButtonProps) {
       }}
     >
       <span style={{ fontSize: 18 }}>🛒</span>
-      <span>Cart</span>
+      <span>{t('cart.btn', locale)}</span>
       {itemCount > 0 && (
         <span style={{
           position: 'absolute',

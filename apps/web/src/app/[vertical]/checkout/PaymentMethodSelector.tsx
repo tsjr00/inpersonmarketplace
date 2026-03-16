@@ -1,6 +1,8 @@
 'use client'
 
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import type { PaymentMethod } from './types'
 
 interface PaymentMethodSelectorProps {
@@ -10,6 +12,7 @@ interface PaymentMethodSelectorProps {
 }
 
 export function PaymentMethodSelector({ methods, selected, onSelect }: PaymentMethodSelectorProps) {
+  const locale = getClientLocale()
   if (methods.length <= 1) {
     if (methods.length === 1) {
       return (
@@ -24,7 +27,7 @@ export function PaymentMethodSelector({ methods, selected, onSelect }: PaymentMe
           gap: spacing.xs
         }}>
           <span>{methods[0].icon}</span>
-          <span>Pay with {methods[0].name}</span>
+          <span>{t('payment.pay_with', locale, { method: methods[0].name })}</span>
         </div>
       )
     }
@@ -45,7 +48,7 @@ export function PaymentMethodSelector({ methods, selected, onSelect }: PaymentMe
         fontWeight: typography.weights.semibold,
         color: colors.textPrimary
       }}>
-        Payment Method
+        {t('payment.method_title', locale)}
       </h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
         {methods.map(method => (
@@ -90,8 +93,8 @@ export function PaymentMethodSelector({ methods, selected, onSelect }: PaymentMe
           fontStyle: 'italic'
         }}>
           {selected === 'cash'
-            ? 'You will pay in cash when you pick up your order.'
-            : `You will be redirected to complete payment via ${methods.find(m => m.id === selected)?.name}.`
+            ? t('payment.cash_desc', locale)
+            : t('payment.external_desc', locale, { method: methods.find(m => m.id === selected)?.name || '' })
           }
         </p>
       )}

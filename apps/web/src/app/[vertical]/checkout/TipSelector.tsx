@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { formatPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface TipSelectorProps {
   tipPercentage: number
@@ -11,6 +13,7 @@ interface TipSelectorProps {
 }
 
 export function TipSelector({ tipPercentage, onTipChange, tipAmountCents }: TipSelectorProps) {
+  const locale = getClientLocale()
   const [customTipInput, setCustomTipInput] = useState<string>('')
   const [showCustomTip, setShowCustomTip] = useState(false)
 
@@ -28,14 +31,14 @@ export function TipSelector({ tipPercentage, onTipChange, tipAmountCents }: TipS
         color: colors.textPrimary,
         marginBottom: spacing['2xs'],
       }}>
-        Add a tip
+        {t('tip.add', locale)}
       </div>
       <div style={{
         fontSize: typography.sizes.xs,
         color: colors.textMuted,
         marginBottom: spacing['2xs'],
       }}>
-        Your tip goes directly to the vendor
+        {t('tip.goes_to_vendor', locale)}
       </div>
       <div style={{
         display: 'flex',
@@ -43,7 +46,7 @@ export function TipSelector({ tipPercentage, onTipChange, tipAmountCents }: TipS
         flexWrap: 'wrap',
       }}>
         {[
-          { label: 'No Tip', value: 0 },
+          { label: t('tip.no_tip', locale), value: 0 },
           { label: '10%', value: 10 },
           { label: '15%', value: 15 },
           { label: '20%', value: 20 },
@@ -99,7 +102,7 @@ export function TipSelector({ tipPercentage, onTipChange, tipAmountCents }: TipS
             color: colors.textPrimary,
           }}
         >
-          Custom
+          {t('tip.custom', locale)}
         </button>
       </div>
       {showCustomTip && (
@@ -140,7 +143,7 @@ export function TipSelector({ tipPercentage, onTipChange, tipAmountCents }: TipS
           fontSize: typography.sizes.xs,
           color: colors.textSecondary,
         }}>
-          Tip: {formatPrice(tipAmountCents)}
+          {t('tip.amount', locale, { amount: formatPrice(tipAmountCents) })}
         </div>
       )}
     </div>

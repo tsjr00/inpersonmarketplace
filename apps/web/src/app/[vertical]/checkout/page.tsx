@@ -10,6 +10,8 @@ import { calculateSmallOrderFee, getSmallOrderFeeConfig } from '@/lib/pricing'
 import { colors, statusColors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import { TipSelector } from './TipSelector'
 import { CheckoutMarketBoxItem } from './CheckoutMarketBoxItem'
 import { CheckoutPickupGroup } from './CheckoutPickupGroup'
@@ -21,6 +23,7 @@ export default function CheckoutPage() {
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
+  const locale = getClientLocale()
   const { items, clearCart, removeFromCart, updateQuantity, hasMultiplePickupLocations, hasScheduleIssues, hasMarketBoxItems } = useCart()
 
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([])
@@ -322,7 +325,7 @@ export default function CheckoutPage() {
             const hasStripe = methods.some((m: PaymentMethod) => m.id === 'stripe')
             setSelectedPaymentMethod(hasStripe ? 'stripe' : methods[0].id)
           } else {
-            setError({ message: 'No payment methods available. The vendor may need to set up payments before orders can be placed.' })
+            setError({ message: t('checkout.no_payment_methods', locale) })
           }
         }
       } catch (err) {
@@ -374,7 +377,7 @@ export default function CheckoutPage() {
     }
 
     if (!selectedPaymentMethod) {
-      setError({ message: 'Please select a payment method' })
+      setError({ message: t('checkout.select_payment_method', locale) })
       return
     }
 
@@ -399,7 +402,7 @@ export default function CheckoutPage() {
 
         if (!response.ok) {
           setError({
-            message: data.error || 'Checkout failed',
+            message: data.error || t('checkout.failed', locale),
             code: data.code,
             traceId: data.traceId
           })
@@ -460,7 +463,7 @@ export default function CheckoutPage() {
 
       if (!response.ok) {
         setError({
-          message: data.error || 'Checkout failed',
+          message: data.error || t('checkout.failed', locale),
           code: data.code,
           traceId: data.traceId
         })
@@ -478,7 +481,7 @@ export default function CheckoutPage() {
         router.push(`/${vertical}/checkout/success?order=${data.orderId}`)
       }
     } catch (err: unknown) {
-      setError({ message: err instanceof Error ? err.message : 'Checkout failed' })
+      setError({ message: err instanceof Error ? err.message : t('checkout.failed', locale) })
       isSubmittingRef.current = false
       setProcessing(false)
     }
@@ -519,7 +522,7 @@ export default function CheckoutPage() {
   const checkoutDisabled = processing || validationFailed || hasUnavailableItems || !marketValid || hasScheduleIssues || (hasMultiplePickupLocations && !multiLocationAcknowledged) || !!(user && !selectedPaymentMethod)
 
   // Checkout button label
-  const checkoutLabel = processing ? 'Processing...' : validationFailed ? 'Validation Required' : !marketValid ? 'Fix Market Issues' : hasScheduleIssues ? 'Remove Unavailable Items' : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? 'Acknowledge Multiple Pickups' : !user ? 'Sign In to Checkout' : !selectedPaymentMethod ? 'Select Payment Method' : selectedPaymentMethod === 'stripe' ? 'Pay Now' : selectedPaymentMethod === 'cash' ? 'Place Order' : `Pay with ${paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External'}`
+  const checkoutLabel = processing ? t('checkout.processing', locale) : validationFailed ? t('checkout.validation_required', locale) : !marketValid ? t('checkout.fix_market', locale) : hasScheduleIssues ? t('checkout.remove_unavailable', locale) : (hasMultiplePickupLocations && !multiLocationAcknowledged) ? t('checkout.ack_multi', locale) : !user ? t('checkout.sign_in', locale) : !selectedPaymentMethod ? t('checkout.select_payment', locale) : selectedPaymentMethod === 'stripe' ? t('checkout.pay_now', locale) : selectedPaymentMethod === 'cash' ? t('checkout.place_order', locale) : t('checkout.pay_with', locale, { method: paymentMethods.find(m => m.id === selectedPaymentMethod)?.name || 'External' })
 
   // Item action handlers that bridge cart items ↔ checkout items
   async function handleQuantityChange(listingId: string, newQuantity: number) {
@@ -558,7 +561,7 @@ export default function CheckoutPage() {
   const marketBoxCheckoutItems = checkoutItems.filter(i => i.itemType === 'market_box')
 
   if (loading) {
-    return <FullPageLoading message="Loading checkout..." />
+    return <FullPageLoading message={t('checkout.loading', locale)} />
   }
 
   if (items.length === 0 && !processing) {
@@ -580,9 +583,9 @@ export default function CheckoutPage() {
             marginTop: 0,
             color: colors.textPrimary,
             fontSize: typography.sizes['2xl'],
-          }}>Your cart is empty</h1>
+          }}>{t('checkout.empty_title', locale)}</h1>
           <p style={{ color: colors.textMuted, marginBottom: spacing.lg }}>
-            Add some items to your cart to checkout
+            {t('checkout.empty_desc', locale)}
           </p>
           <Link
             href={`/${vertical}/browse`}
@@ -600,7 +603,7 @@ export default function CheckoutPage() {
               boxShadow: shadows.primary,
             }}
           >
-            {term(vertical, 'browse_products_cta')}
+            {term(vertical, 'browse_products_cta', locale)}
           </Link>
         </div>
       </div>
@@ -630,13 +633,13 @@ export default function CheckoutPage() {
               minHeight: 44,
             }}
           >
-            ← Back to Shopping
+            {t('checkout.back', locale)}
           </Link>
           <h1 style={{
             margin: `${spacing['2xs']} 0 0 0`,
             fontSize: typography.sizes.xl,
             color: colors.textPrimary,
-          }}>Checkout</h1>
+          }}>{t('checkout.title', locale)}</h1>
         </div>
       </div>
 
@@ -654,7 +657,7 @@ export default function CheckoutPage() {
               marginBottom: spacing.sm,
               fontSize: typography.sizes.lg,
               color: colors.textPrimary,
-            }}>Order Items</h2>
+            }}>{t('checkout.order_items', locale)}</h2>
 
             {error && (
               <div style={{ marginBottom: spacing.sm }}>
@@ -676,10 +679,10 @@ export default function CheckoutPage() {
               }}>
                 <div>
                   <p style={{ margin: 0, fontWeight: 600, color: statusColors.dangerDark, fontSize: typography.sizes.sm }}>
-                    Could not verify item availability
+                    {t('checkout.validation_failed_title', locale)}
                   </p>
                   <p style={{ margin: `${spacing['3xs']} 0 0`, color: statusColors.dangerDark, fontSize: typography.sizes.xs }}>
-                    Checkout is disabled until items can be validated. Please retry.
+                    {t('checkout.validation_failed_desc', locale)}
                   </p>
                 </div>
                 <button
@@ -696,7 +699,7 @@ export default function CheckoutPage() {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  Retry
+                  {t('checkout.retry', locale)}
                 </button>
               </div>
             )}
@@ -710,7 +713,7 @@ export default function CheckoutPage() {
                 marginBottom: spacing.sm,
               }}>
                 <p style={{ margin: `0 0 ${spacing['2xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary }}>
-                  {term(vertical, 'market')} Compatibility Issues:
+                  {t('checkout.market_issues', locale, { market: term(vertical, 'market', locale) })}
                 </p>
                 <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary }}>
                   {marketWarnings.map((warning, idx) => (
@@ -731,7 +734,7 @@ export default function CheckoutPage() {
                   color: statusColors.infoDark,
                   fontSize: typography.sizes.xs,
                 }}>
-                  This order includes {term(vertical, 'market_box')} subscriptions. Card payment is required.
+                  {t('checkout.mb_card_required', locale, { market_box: term(vertical, 'market_box', locale) })}
                 </div>
               )}
 
@@ -745,7 +748,7 @@ export default function CheckoutPage() {
                   color: statusColors.infoDark,
                   fontSize: typography.sizes.xs,
                 }}>
-                  This order includes catering items. Cash payment is not available for advance orders.
+                  {t('checkout.catering_no_cash', locale)}
                 </div>
               )}
 
@@ -788,7 +791,7 @@ export default function CheckoutPage() {
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                     }}>
-                      {term(vertical, 'market_box')} Subscriptions
+                      {t('cart.mb_subscriptions', locale, { market_box: term(vertical, 'market_box', locale) })}
                     </div>
                   )}
                   {marketBoxCheckoutItems.map(item => (
@@ -816,7 +819,7 @@ export default function CheckoutPage() {
               top: spacing.md,
               boxShadow: shadows.md,
             }}>
-              <h2 style={{ marginTop: 0, marginBottom: spacing.sm, fontSize: typography.sizes.lg, color: colors.textPrimary }}>Order Summary</h2>
+              <h2 style={{ marginTop: 0, marginBottom: spacing.sm, fontSize: typography.sizes.lg, color: colors.textPrimary }}>{t('checkout.order_summary', locale)}</h2>
 
               <div style={{ marginBottom: spacing.sm }}>
                 <div style={{
@@ -826,7 +829,7 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.sm,
                   color: colors.textMuted,
                 }}>
-                  <span>Subtotal ({checkoutItems.reduce((s, i) => s + (i.itemType === 'market_box' ? 1 : i.quantity), 0)} items)</span>
+                  <span>{t('checkout.subtotal', locale, { count: String(checkoutItems.reduce((s, i) => s + (i.itemType === 'market_box' ? 1 : i.quantity), 0)) })}</span>
                   <span>{formatPrice(displaySubtotal)}</span>
                 </div>
                 <div style={{
@@ -836,7 +839,7 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.sm,
                   color: colors.textMuted,
                 }}>
-                  <span>Service Fee</span>
+                  <span>{t('checkout.service_fee', locale)}</span>
                   <span>{formatPrice(FEES.buyerFlatFeeCents)}</span>
                 </div>
 
@@ -849,7 +852,7 @@ export default function CheckoutPage() {
                     fontSize: typography.sizes.sm,
                     color: colors.textMuted,
                   }}>
-                    <span>Small Order Fee</span>
+                    <span>{t('checkout.small_order_fee', locale)}</span>
                     <span>{formatPrice(smallOrderFeeCents)}</span>
                   </div>
                 )}
@@ -872,7 +875,7 @@ export default function CheckoutPage() {
                     fontSize: typography.sizes.sm,
                     color: colors.textMuted,
                   }}>
-                    <span>Tip ({tipPercentage}%)</span>
+                    <span>{t('checkout.tip_line', locale, { percent: String(tipPercentage) })}</span>
                     <span>{formatPrice(tipAmountCents)}</span>
                   </div>
                 )}
@@ -886,7 +889,7 @@ export default function CheckoutPage() {
                   fontWeight: typography.weights.bold,
                   color: colors.textPrimary,
                 }}>
-                  <span>Total</span>
+                  <span>{t('checkout.total', locale)}</span>
                   <span>{formatPrice(total)}</span>
                 </div>
               </div>
@@ -906,9 +909,9 @@ export default function CheckoutPage() {
                   marginBottom: spacing.sm,
                   fontSize: typography.sizes.sm,
                 }}>
-                  <strong style={{ color: colors.textPrimary }}>Sign in required</strong>
+                  <strong style={{ color: colors.textPrimary }}>{t('checkout.sign_in_required', locale)}</strong>
                   <p style={{ margin: `${spacing['3xs']} 0 0`, color: colors.textSecondary }}>
-                    You&apos;ll need to sign in to complete your purchase
+                    {t('checkout.sign_in_desc', locale)}
                   </p>
                 </div>
               )}
@@ -923,7 +926,7 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.sm,
                   color: statusColors.dangerDark,
                 }}>
-                  Some items in your cart are no longer available. Please remove them to continue.
+                  {t('checkout.unavailable_notice', locale)}
                 </div>
               )}
 
@@ -937,7 +940,7 @@ export default function CheckoutPage() {
                   fontSize: typography.sizes.sm,
                   color: statusColors.infoDark,
                 }}>
-                  A {formatPrice(smallOrderFeeCents)} small order fee applies to orders under {formatPrice(smallOrderFeeConfig.thresholdCents)}. To avoid this fee, add another item.
+                  {t('checkout.small_order_notice', locale, { fee: formatPrice(smallOrderFeeCents), threshold: formatPrice(smallOrderFeeConfig.thresholdCents) })}
                 </div>
               )}
 
@@ -956,14 +959,14 @@ export default function CheckoutPage() {
                     color: statusColors.warningDark,
                     fontSize: typography.sizes.sm,
                   }}>
-                    📍 Multiple Pickup Locations
+                    📍 {t('checkout.multi_location', locale)}
                   </p>
                   <p style={{
                     margin: `0 0 ${spacing.xs} 0`,
                     color: statusColors.warningDark,
                     fontSize: typography.sizes.sm,
                   }}>
-                    Your order has items from different locations. You&apos;ll visit each to collect:
+                    {t('checkout.multi_location_desc', locale)}
                   </p>
                   <div style={{ margin: `0 0 ${spacing.xs} 0`, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {[...new Map(checkoutItems.filter(i => i.market_name).map(i => [i.market_id, i])).values()].map(item => (
@@ -995,7 +998,7 @@ export default function CheckoutPage() {
                       onChange={(e) => setMultiLocationAcknowledged(e.target.checked)}
                       style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
                     />
-                    I understand I&apos;ll visit multiple locations
+                    {t('checkout.multi_location_ack', locale)}
                   </label>
                 </div>
               )}
@@ -1015,7 +1018,7 @@ export default function CheckoutPage() {
                     color: '#065f46',
                     fontSize: typography.sizes.sm,
                   }}>
-                    You have {unresolvedExternalCount} external payment order{unresolvedExternalCount !== 1 ? 's' : ''} awaiting your confirmation.
+                    {t('checkout.unresolved_external', locale, { count: String(unresolvedExternalCount), s: unresolvedExternalCount !== 1 ? 's' : '' })}
                   </p>
                   <Link
                     href={`/${vertical}/buyer/orders`}
@@ -1028,7 +1031,7 @@ export default function CheckoutPage() {
                       textDecoration: 'underline',
                     }}
                   >
-                    Review and confirm your orders →
+                    {t('checkout.review_orders', locale)}
                   </Link>
                 </div>
               )}
@@ -1073,7 +1076,7 @@ export default function CheckoutPage() {
                       fontWeight: typography.weights.semibold,
                       color: colors.textPrimary
                     }}>
-                      Your payment is secure
+                      {t('checkout.secure_title', locale)}
                     </p>
                     <p style={{
                       margin: 0,
@@ -1081,7 +1084,7 @@ export default function CheckoutPage() {
                       color: colors.textSecondary,
                       lineHeight: typography.leading.normal
                     }}>
-                      We use Stripe, trusted by millions worldwide. Your payment info is encrypted and never stored on our servers.
+                      {t('checkout.secure_desc', locale)}
                     </p>
                   </div>
                 </div>

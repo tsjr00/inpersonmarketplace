@@ -2,9 +2,9 @@
 
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
 import { colors, statusColors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import type { CheckoutItem } from './types'
-
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 interface CheckoutMarketBoxItemProps {
   item: CheckoutItem
@@ -12,7 +12,8 @@ interface CheckoutMarketBoxItemProps {
 }
 
 export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemProps) {
-  const termLabel = item.termWeeks === 8 ? '8-week' : '4-week'
+  const locale = getClientLocale()
+  const termParam = String(item.termWeeks === 8 ? 8 : 4)
   const displayPrice = calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
 
   return (
@@ -43,7 +44,7 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
             </h3>
           </div>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: `0 0 ${spacing['2xs']} 0` }}>
-            {item.vendor_name} · {termLabel} subscription
+            {item.vendor_name} · {t('cart.subscription', locale, { term: termParam })}
           </p>
 
           {/* Pickup schedule */}
@@ -59,8 +60,8 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
           }}>
             <span>📅</span>
             <span>
-              <strong>Pickup:</strong>{' '}
-              {item.pickupDayOfWeek != null ? DAY_NAMES[item.pickupDayOfWeek] + 's' : 'TBD'}
+              <strong>{t('cart.pickup', locale)}</strong>{' '}
+              {item.pickupDayOfWeek != null ? t('day.' + item.pickupDayOfWeek, locale) + 's' : 'TBD'}
               {item.pickup_display?.time_formatted && ` · ${item.pickup_display.time_formatted}`}
               {item.market_name && (
                 <span style={{ display: 'block', marginTop: 2, color: colors.textMuted }}>
@@ -70,7 +71,7 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
               )}
               {item.startDate && (
                 <span style={{ display: 'block', marginTop: 2, color: colors.textMuted }}>
-                  Starting {new Date(item.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {t('cart.starting', locale, { date: new Date(item.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })}
                 </span>
               )}
             </span>
@@ -82,7 +83,7 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
             {formatPrice(displayPrice)}
           </p>
           <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: `0 0 ${spacing['2xs']} 0` }}>
-            {termLabel} total
+            {t('cart.week_total', locale, { term: termParam })}
           </p>
           <button
             onClick={() => item.offeringId && onRemove(item.offeringId)}
@@ -97,7 +98,7 @@ export function CheckoutMarketBoxItem({ item, onRemove }: CheckoutMarketBoxItemP
               minHeight: 36,
             }}
           >
-            Remove
+            {t('checkout.remove', locale)}
           </button>
         </div>
       </div>

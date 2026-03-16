@@ -7,12 +7,15 @@ import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
 import { formatPickupDate } from '@/types/pickup'
 import { term } from '@/lib/vertical'
 import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 export function CartDrawer() {
   const router = useRouter()
   const params = useParams()
   const vertical = params?.vertical as string
   const { items, removeFromCart, updateQuantity, itemCount, isOpen, setIsOpen, loading, hasScheduleIssues, hasMarketBoxItems } = useCart()
+  const locale = getClientLocale()
 
   // Calculate display total with percentage fee only
   // Flat fee ($0.15) is added at checkout, not in cart
@@ -81,9 +84,9 @@ export function CartDrawer() {
           alignItems: 'center',
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 20 }}>Shopping Cart</h2>
+            <h2 style={{ margin: 0, fontSize: 20 }}>{t('cart.title', locale)}</h2>
             <p style={{ margin: '5px 0 0', color: '#666', fontSize: 14 }}>
-              {itemCount} {itemCount === 1 ? 'item' : 'items'} in your cart
+              {itemCount} {itemCount === 1 ? t('cart.item_one', locale) : t('cart.items_other', locale)}
             </p>
           </div>
           <button
@@ -113,7 +116,7 @@ export function CartDrawer() {
               padding: '60px 20px',
               color: '#999',
             }}>
-              <p>Loading cart...</p>
+              <p>{t('cart.loading', locale)}</p>
             </div>
           ) : items.length === 0 ? (
             <div style={{
@@ -122,7 +125,7 @@ export function CartDrawer() {
               color: '#999',
             }}>
               <div style={{ fontSize: 60, marginBottom: 15, opacity: 0.3 }}>🛒</div>
-              <p>Your cart is empty</p>
+              <p>{t('cart.empty', locale)}</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
@@ -136,9 +139,9 @@ export function CartDrawer() {
                   color: statusColors.dangerDark,
                   fontSize: typography.sizes.sm,
                 }}>
-                  <strong>Some items need attention</strong>
+                  <strong>{t('cart.schedule_warning_title', locale)}</strong>
                   <p style={{ margin: '4px 0 0', fontSize: 12 }}>
-                    One or more items have pickup time changes. Please remove affected items or select a new pickup date.
+                    {t('cart.schedule_warning_desc', locale)}
                   </p>
                 </div>
               )}
@@ -153,7 +156,7 @@ export function CartDrawer() {
                   color: statusColors.infoDark,
                   fontSize: typography.sizes.xs,
                 }}>
-                  {term(vertical, 'market_box')} subscriptions require card payment. External payment options will not be available for this order.
+                  {t('cart.mb_notice', locale, { market_box: term(vertical, 'market_box', locale) })}
                 </div>
               )}
 
@@ -181,7 +184,7 @@ export function CartDrawer() {
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                     }}>
-                      {term(vertical, 'market_box')} Subscriptions
+                      {t('cart.mb_subscriptions', locale, { market_box: term(vertical, 'market_box', locale) })}
                     </div>
                   )}
                   {marketBoxItems.map(item => (
@@ -211,7 +214,7 @@ export function CartDrawer() {
                 fontSize: 18,
                 fontWeight: 'bold',
               }}>
-                <span>Total</span>
+                <span>{t('cart.total', locale)}</span>
                 <span>{formatPrice(displayTotal)}</span>
               </div>
             </div>
@@ -228,7 +231,7 @@ export function CartDrawer() {
                 cursor: 'pointer',
               }}
             >
-              Proceed to Checkout
+              {t('cart.proceed', locale)}
             </button>
             <button
               onClick={() => { setIsOpen(false); router.push(`/${vertical}/browse`) }}
@@ -244,7 +247,7 @@ export function CartDrawer() {
                 marginTop: spacing['2xs'],
               }}
             >
-              Continue Shopping
+              {t('cart.continue_shopping', locale)}
             </button>
           </div>
         )}
@@ -265,6 +268,7 @@ function CartItemCard({
   onUpdateQuantity: (cartItemId: string, quantity: number) => Promise<void>
 }) {
   const [updatingQty, setUpdatingQty] = useState(false)
+  const locale = getClientLocale()
   const displayPriceCents = calculateDisplayPrice(item.price_cents || 0)
   const itemTotalCents = displayPriceCents * item.quantity
   const hasIssue = Boolean(item.schedule_issue)
@@ -331,7 +335,7 @@ function CartItemCard({
             {item.vendor_name || 'Unknown Vendor'}
           </p>
           <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 500 }}>
-            {formatPrice(displayPriceCents)} each
+            {formatPrice(displayPriceCents)} {t('cart.each', locale)}
           </p>
         </div>
         <button
@@ -344,7 +348,7 @@ function CartItemCard({
             padding: 5,
             fontSize: 18,
           }}
-          title="Remove item"
+          title={t('cart.remove_item', locale)}
         >
           🗑️
         </button>
@@ -360,7 +364,7 @@ function CartItemCard({
           fontSize: 12,
           color: hasIssue ? '#7f1d1d' : '#0369a1',
         }}>
-          <span style={{ fontWeight: 600 }}>Pickup:</span>{' '}
+          <span style={{ fontWeight: 600 }}>{t('cart.pickup', locale)}</span>{' '}
           {item.pickup_date ? formatPickupDate(item.pickup_date) : item.pickup_display.date_formatted}
           {item.pickup_display.time_formatted && (
             <span> · {item.pickup_display.time_formatted}</span>
@@ -437,7 +441,7 @@ function MarketBoxCartItemCard({
   item: CartItem
   onRemove: (cartItemId: string) => Promise<void>
 }) {
-  const termLabel = item.termWeeks === 8 ? '8-week' : '4-week'
+  const locale = getClientLocale()
   const displayPrice = calculateDisplayPrice(item.termPriceCents || item.price_cents || 0)
   const hasIssue = Boolean(item.schedule_issue)
 
@@ -495,7 +499,7 @@ function MarketBoxCartItemCard({
             fontSize: 13,
             color: '#888',
           }}>
-            {item.vendor_name} · {termLabel} subscription
+            {item.vendor_name} · {t('cart.subscription', locale, { term: String(item.termWeeks === 8 ? 8 : 4) })}
           </p>
         </div>
         <button
@@ -508,7 +512,7 @@ function MarketBoxCartItemCard({
             padding: 5,
             fontSize: 18,
           }}
-          title="Remove from cart"
+          title={t('cart.remove_from_cart', locale)}
         >
           🗑️
         </button>
@@ -523,7 +527,7 @@ function MarketBoxCartItemCard({
         fontSize: 12,
         color: '#1e40af',
       }}>
-        <span style={{ fontWeight: 600 }}>Pickup:</span>{' '}
+        <span style={{ fontWeight: 600 }}>{t('cart.pickup', locale)}</span>{' '}
         {item.pickup_display?.day_name || 'TBD'}s
         {item.pickup_display?.time_formatted && (
           <span> · {item.pickup_display.time_formatted}</span>
@@ -535,7 +539,7 @@ function MarketBoxCartItemCard({
         )}
         {item.startDate && (
           <span style={{ display: 'block', marginTop: 2, color: '#6b7280' }}>
-            Starting {new Date(item.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {t('cart.starting', locale, { date: new Date(item.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })}
           </span>
         )}
       </div>
@@ -547,7 +551,7 @@ function MarketBoxCartItemCard({
         alignItems: 'center',
       }}>
         <span style={{ fontSize: 12, color: '#6b7280' }}>
-          {termLabel} total
+          {t('cart.week_total', locale, { term: String(item.termWeeks === 8 ? 8 : 4) })}
         </span>
         <span style={{ fontSize: 16, fontWeight: 'bold' }}>
           {formatPrice(displayPrice)}
