@@ -8,6 +8,8 @@ import { colors, spacing, typography, radius, containers } from '@/lib/design-to
 import { term, getRadiusOptions } from '@/lib/vertical'
 import { getMarketVendorCounts } from '@/lib/db/markets'
 import { getServerLocation } from '@/lib/location/server'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 
 // Cache page for 10 minutes - markets change infrequently
 export const revalidate = 600
@@ -37,6 +39,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   const { city, search, state, type: locationType } = await searchParams
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const locale = await getLocale()
 
   // Build query for traditional markets only (exclude private pickup)
   // Only show approved markets (vendor submissions need admin approval)
@@ -165,7 +168,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
   // Format event date for display
   const formatEventDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00')
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })
   }
 
   return (
@@ -185,7 +188,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
           fontSize: typography.sizes['2xl'],
           fontWeight: typography.weights.bold
         }}>
-          {term(vertical, 'traditional_markets')}
+          {term(vertical, 'traditional_markets', locale)}
         </h1>
         <p style={{
           color: colors.textSecondary,
@@ -193,8 +196,8 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
           fontSize: typography.sizes.base
         }}>
           {vertical === 'food_trucks'
-            ? `Discover ${term(vertical, 'traditional_markets').toLowerCase()} and food trucks in your area`
-            : `Discover local ${term(vertical, 'traditional_markets').toLowerCase()} and shop from ${term(vertical, 'vendors').toLowerCase()} in your area`
+            ? t('markets_page.subtitle_ft', locale, { markets: term(vertical, 'traditional_markets', locale).toLowerCase() })
+            : t('markets_page.subtitle_fm', locale, { markets: term(vertical, 'traditional_markets', locale).toLowerCase(), vendors: term(vertical, 'vendors', locale).toLowerCase() })
           }
         </p>
       </div>
@@ -216,7 +219,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
             fontSize: typography.sizes.xl,
             fontWeight: typography.weights.semibold
           }}>
-            No upcoming events at this time
+            {t('markets_page.no_events_title', locale)}
           </h2>
           <p style={{
             color: colors.textMuted,
@@ -225,7 +228,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
             margin: `0 auto ${spacing.md} auto`,
             lineHeight: 1.5
           }}>
-            Planning an event and need food trucks? We can help you find the perfect vendors for your event.
+            {t('markets_page.no_events_desc', locale)}
           </p>
           <a
             href={`/${vertical}/events`}
@@ -240,7 +243,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
               textDecoration: 'none'
             }}
           >
-            Request Food Trucks for Your Event
+            {t('markets_page.request_trucks', locale)}
           </a>
         </div>
       )}
@@ -253,7 +256,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
             fontSize: typography.sizes.xl,
             fontWeight: typography.weights.semibold
           }}>
-            {'\u{1F3AA}'} Upcoming {term(vertical, 'events')}
+            {'\u{1F3AA}'} {t('markets_page.upcoming', locale, { events: term(vertical, 'events', locale) })}
           </h2>
           <div style={{
             display: 'grid',
@@ -293,7 +296,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
                       fontWeight: typography.weights.semibold,
                       marginBottom: spacing.xs
                     }}>
-                      {'\u{1F3AA}'} Event
+                      {'\u{1F3AA}'} {t('markets_page.event_badge', locale)}
                     </div>
                     <h3 style={{
                       margin: `0 0 ${spacing['2xs']} 0`,
@@ -341,7 +344,7 @@ export default async function MarketsPage({ params, searchParams }: MarketsPageP
                       paddingTop: spacing.xs,
                       borderTop: `1px solid ${colors.borderMuted}`
                     }}>
-                      {'\u{1F465}'} {vendorCount} {term(vertical, vendorCount !== 1 ? 'vendors' : 'vendor').toLowerCase()}
+                      {'\u{1F465}'} {t('markets_page.vendors_count', locale, { count: String(vendorCount), vendors: term(vertical, vendorCount !== 1 ? 'vendors' : 'vendor', locale).toLowerCase() })}
                     </div>
                   </div>
                 </Link>

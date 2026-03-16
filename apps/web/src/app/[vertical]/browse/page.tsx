@@ -17,6 +17,8 @@ import { colors, statusColors, spacing, typography, radius, containers } from '@
 import { deriveAvailabilityStatus } from '@/lib/utils/availability-status'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
 import { getServerLocation } from '@/lib/location/server'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 
 // Cache page for 5 minutes - listings don't change every second
 export const revalidate = 300
@@ -188,6 +190,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const locale = await getLocale()
 
   // Check if user is premium buyer
   const { data: { user } } = await supabase.auth.getUser()
@@ -315,10 +318,10 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               fontSize: typography.sizes['2xl'],
               fontWeight: typography.weights.bold
             }}>
-              Browse
+              {t('browse.title', locale)}
             </h1>
             <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
-              {term(vertical, 'browse_page_subtitle')}
+              {term(vertical, 'browse_page_subtitle', locale)}
             </p>
           </div>
 
@@ -696,7 +699,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               fontSize: typography.sizes['2xl'],
               fontWeight: typography.weights.bold
             }}>
-              Browse
+              {t('browse.title', locale)}
             </h1>
             {hasLocationFilter && locationText && zip && (
               <div style={{
@@ -725,7 +728,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             )}
           </div>
           <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
-            {term(vertical, 'browse_page_subtitle')}
+            {term(vertical, 'browse_page_subtitle', locale)}
           </p>
         </div>
 
@@ -861,6 +864,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                           vertical={vertical}
                           branding={branding}
                           availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id))}
+                          locale={locale}
                         />
                       ))}
                     </div>
@@ -882,6 +886,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                     vertical={vertical}
                     branding={branding}
                     availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id))}
+                    locale={locale}
                   />
                 ))}
               </div>
@@ -953,11 +958,13 @@ function ListingCard({
   listing,
   vertical,
   availabilityStatus,
+  locale,
 }: {
   listing: Listing
   vertical: string
   branding?: { colors: { primary: string; secondary: string } }
   availabilityStatus: { status: 'open' | 'closing-soon' | 'closed'; hoursUntilCutoff: number | null }
+  locale: string
 }) {
   const vendorData = listing.vendor_profiles?.profile_data
   const vendorName = (vendorData?.business_name as string) ||
@@ -1112,7 +1119,7 @@ function ListingCard({
                 const prefix = market?.market_type === 'event' ? term(vertical, 'event') + ': ' : market?.market_type === 'private_pickup' ? term(vertical, 'private_pickup') + ': ' : term(vertical, 'traditional_market') + ': '
                 return prefix + (market?.name || 'Location')
               })()
-            : `${listing.listing_markets.length} pickup locations`
+            : t('browse.pickup_locations', locale, { count: String(listing.listing_markets.length), s: listing.listing_markets.length !== 1 ? 'es' : '' })
           }
         </div>
       )}

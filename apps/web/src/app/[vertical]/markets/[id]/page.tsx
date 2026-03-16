@@ -9,6 +9,8 @@ import MarketVendorsList from './MarketVendorsList'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 import ShareButton from '@/components/marketing/ShareButton'
 
 interface MarketDetailPageProps {
@@ -27,6 +29,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
   const { vertical, id } = await params
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const locale = await getLocale()
 
   // Get market with schedules
   const { data: market, error } = await supabase
@@ -50,7 +53,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
 
   const formatEventDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00')
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    return date.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
   }
 
   // Fetch vendors with listings from API
@@ -176,7 +179,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
-            Back to Markets
+            {t('market_detail.back', locale)}
           </Link>
         </div>
       </div>
@@ -214,7 +217,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 fontSize: typography.sizes.xs,
                 fontWeight: typography.weights.semibold,
               }}>
-                {term(vertical, 'event')}
+                {term(vertical, 'event', locale)}
               </span>
             )}
             <h1 style={{
@@ -307,7 +310,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                       textDecoration: 'underline'
                     }}
                   >
-                    Event website →
+                    {t('market_detail.event_website', locale)}
                   </a>
                 )}
               </div>
@@ -353,15 +356,11 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             marginTop: spacing.xs
           }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-              👥 {vendorsData.vendors.length} vendor{vendorsData.vendors.length !== 1 ? 's' : ''}
+              👥 {t('market_detail.vendors_count', locale, { count: String(vendorsData.vendors.length), s: vendorsData.vendors.length !== 1 ? (locale === 'es' ? 'es' : 's') : '' })}
             </span>
             {!isEvent && nextMarketDate && (
               <span style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-                📅 Next: {nextMarketDate.toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric'
-                })}
+                📅 {t('market_detail.next_date', locale, { date: nextMarketDate.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) })}
               </span>
             )}
           </div>
@@ -379,7 +378,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 color: colors.textSecondary,
                 margin: `0 0 ${spacing['2xs']} 0`
               }}>
-                {isEvent ? 'Event Hours' : term(vertical, 'market_hours')}
+                {isEvent ? t('market_detail.event_hours', locale) : term(vertical, 'market_hours', locale)}
               </h3>
               <ScheduleDisplay schedules={market.market_schedules} grid />
             </div>
@@ -398,7 +397,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 color: colors.textSecondary,
                 margin: `0 0 ${spacing['2xs']} 0`
               }}>
-                Season
+                {t('market_detail.season', locale)}
               </h3>
               <div style={{
                 display: 'flex',
@@ -411,14 +410,14 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
                 <span>
                   {market.season_start && market.season_end ? (
                     <>
-                      {new Date(market.season_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                      {new Date(market.season_start + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'long', day: 'numeric' })}
                       {' '}&ndash;{' '}
-                      {new Date(market.season_end + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                      {new Date(market.season_end + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'long', day: 'numeric' })}
                     </>
                   ) : market.season_start ? (
-                    <>Opens {new Date(market.season_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>
+                    <>{t('market_detail.opens', locale, { date: new Date(market.season_start + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'long', day: 'numeric' }) })}</>
                   ) : (
-                    <>Closes {new Date(market.season_end + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>
+                    <>{t('market_detail.closes', locale, { date: new Date(market.season_end + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'long', day: 'numeric' }) })}</>
                   )}
                 </span>
               </div>
@@ -492,8 +491,8 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             lineHeight: typography.leading.relaxed
           }}>
             {vertical === 'food_trucks'
-              ? `This location is listed as a pickup spot by the food trucks shown below. This platform is not affiliated with the ${term(vertical, 'traditional_market').toLowerCase()} management or property owners.`
-              : 'This market is listed as a pickup location by the vendors shown below. This platform is not affiliated with the market management.'
+              ? t('market_detail.disclaimer_ft', locale, { market: term(vertical, 'traditional_market', locale).toLowerCase() })
+              : t('market_detail.disclaimer_fm', locale)
             }
           </p>
         </div>
@@ -512,7 +511,7 @@ export default async function MarketDetailPage({ params }: MarketDetailPageProps
             fontSize: typography.sizes.xl,
             fontWeight: typography.weights.semibold
           }}>
-            {isEvent ? `${term(vertical, 'vendors')} at This Event` : `${term(vertical, 'vendors')} at ${market.name}`}
+            {isEvent ? t('market_detail.vendors_at_event', locale, { vendors: term(vertical, 'vendors', locale) }) : t('market_detail.vendors_at', locale, { vendors: term(vertical, 'vendors', locale), name: market.name })}
           </h2>
 
           <MarketVendorsList

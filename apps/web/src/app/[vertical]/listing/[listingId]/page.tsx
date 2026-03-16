@@ -11,6 +11,8 @@ import { listingJsonLd } from '@/lib/marketing/json-ld'
 import { getAppUrl } from '@/lib/environment'
 import { formatDisplayPrice, formatQuantityDisplay } from '@/lib/constants'
 import { isBuyerPremiumEnabled } from '@/lib/vertical'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { groupPickupDatesByMarket, type AvailablePickupDate } from '@/types/pickup'
@@ -105,8 +107,9 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
   const { vertical, listingId } = await params
   const supabase = await createClient()
 
-  // Get branding
+  // Get branding + locale
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const locale = await getLocale()
 
   // Phase 1: Run independent queries in parallel
   const [listingResult, availableDatesResult, userResult] = await Promise.all([
@@ -237,7 +240,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
         <div style={{ maxWidth: containers.xl, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <BackLink
             fallbackHref={`/${vertical}/browse`}
-            fallbackLabel="Back to Browse"
+            fallbackLabel={t('listing.back_to_browse', locale)}
             style={{
               color: colors.primary,
               fontSize: typography.sizes.sm
@@ -292,10 +295,10 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               fontWeight: typography.weights.medium
             }}>
               {listing.quantity === null
-                ? 'In Stock'
+                ? t('browse.in_stock', locale)
                 : listing.quantity > 0
-                  ? `Qty Available: ${listing.quantity}`
-                  : 'Sold Out'
+                  ? t('browse.qty_available', locale, { count: String(listing.quantity) })
+                  : t('browse.sold_out', locale)
               }
             </div>
             {!!(listing.listing_data as Record<string, unknown> | null)?.event_menu_item && (
@@ -307,7 +310,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 fontSize: typography.sizes.xs,
                 fontWeight: typography.weights.semibold,
               }}>
-                ✓ Event Ready
+                ✓ {t('browse.event_ready', locale)}
               </span>
             )}
             {(listing.advance_order_days as number) > 0 && (
@@ -319,7 +322,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 fontSize: typography.sizes.xs,
                 fontWeight: typography.weights.semibold,
               }}>
-                Advance Order &middot; Prepaid
+                {t('browse.advance_order', locale)} · {t('browse.prepaid', locale)}
               </span>
             )}
           </div>
@@ -354,7 +357,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 fontSize: typography.sizes.lg,
                 fontWeight: typography.weights.semibold
               }}>
-                Description
+                {t('listing.description', locale)}
               </h2>
               <p style={{
                 color: colors.textSecondary,
@@ -363,7 +366,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 whiteSpace: 'pre-wrap',
                 margin: 0
               }}>
-                {listing.description || 'No description provided.'}
+                {listing.description || t('listing.no_description', locale)}
               </p>
 
               {/* Allergen Warning */}
@@ -382,7 +385,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                     marginBottom: spacing['2xs']
                   }}>
                     <span style={{ fontSize: 18 }}>⚠️</span>
-                    <strong style={{ color: colors.accent }}>Allergen Warning</strong>
+                    <strong style={{ color: colors.accent }}>{t('listing.allergen_warning', locale)}</strong>
                   </div>
                   <p style={{
                     margin: 0,
@@ -390,7 +393,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                     fontSize: typography.sizes.sm,
                     lineHeight: typography.leading.normal
                   }}>
-                    {listing.listing_data?.ingredients || 'This product may contain allergens. Contact the vendor for details.'}
+                    {listing.listing_data?.ingredients || t('listing.allergen_default', locale)}
                   </p>
                 </div>
               )}
@@ -473,7 +476,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold
               }}>
-                Sold by
+                {t('listing.sold_by', locale)}
               </h3>
 
               <Link
@@ -494,10 +497,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
               </Link>
 
               <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, marginBottom: spacing.sm }}>
-                Member since {new Date(vendorProfile.created_at as string).toLocaleDateString('en-US', {
-                  month: 'long',
-                  year: 'numeric'
-                })}
+                {t('listing.member_since', locale, { date: new Date(vendorProfile.created_at as string).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'long', year: 'numeric' }) })}
               </div>
 
               <Link
@@ -516,7 +516,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   minHeight: 44
                 }}
               >
-                View Vendor Profile
+                {t('listing.view_vendor_profile', locale)}
               </Link>
             </div>
 
@@ -535,7 +535,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   fontSize: typography.sizes.base,
                   fontWeight: typography.weights.semibold
                 }}>
-                  More from {vendorName}
+                  {t('listing.more_from', locale, { vendor: vendorName })}
                 </h3>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
