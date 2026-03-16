@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface NotificationPreferencesProps {
   primaryColor: string
@@ -33,6 +35,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
+  const locale = getClientLocale()
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFS)
   const [loading] = useState(false)
   const [pushLoading, setPushLoading] = useState(false)
@@ -147,7 +150,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
         })
 
         if (!res.ok) {
-          setMessage({ type: 'error', text: 'Failed to register push subscription' })
+          setMessage({ type: 'error', text: t('notif_pref.push_register_failed', locale) })
           setPushLoading(false)
           return
         }
@@ -169,7 +172,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
         setPreferences(prev => ({ ...prev, push_enabled: false }))
       }
     } catch {
-      setMessage({ type: 'error', text: 'Failed to update push notifications' })
+      setMessage({ type: 'error', text: t('notif_pref.push_update_failed', locale) })
     } finally {
       setPushLoading(false)
     }
@@ -180,7 +183,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
 
     // Optimistically show success immediately
     const prevPrefs = initialPrefs
-    setMessage({ type: 'success', text: 'Preferences saved!' })
+    setMessage({ type: 'success', text: t('notif_pref.saved', locale) })
     setInitialPrefs(preferences)
     setHasChanges(false)
 
@@ -194,22 +197,22 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
 
       if (!res.ok) {
         setInitialPrefs(prevPrefs)
-        setMessage({ type: 'error', text: 'Failed to save preferences' })
+        setMessage({ type: 'error', text: t('notif_pref.save_failed', locale) })
       }
     } catch {
       setInitialPrefs(prevPrefs)
-      setMessage({ type: 'error', text: 'Error saving preferences' })
+      setMessage({ type: 'error', text: t('notif_pref.save_error', locale) })
     }
   }
 
   // Save phone + SMS consent, then refresh page so SMS toggles unlock
   const handleSmsOptIn = async () => {
     if (!hasValidPhone) {
-      setMessage({ type: 'error', text: 'Please enter a valid phone number' })
+      setMessage({ type: 'error', text: t('notif_pref.phone_invalid', locale) })
       return
     }
     if (!smsConsent) {
-      setMessage({ type: 'error', text: 'Please accept the SMS terms to enable text notifications' })
+      setMessage({ type: 'error', text: t('notif_pref.sms_terms_required', locale) })
       return
     }
 
@@ -231,11 +234,11 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
         router.refresh()
       } else {
         const data = await res.json()
-        setMessage({ type: 'error', text: data.error || 'Failed to save phone number' })
+        setMessage({ type: 'error', text: data.error || t('notif_pref.phone_save_failed', locale) })
         setSmsLoading(false)
       }
     } catch {
-      setMessage({ type: 'error', text: 'Error saving phone number' })
+      setMessage({ type: 'error', text: t('notif_pref.phone_save_error', locale) })
       setSmsLoading(false)
     }
   }
@@ -272,11 +275,11 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
 
   const pushDisabled = !pushSupported || pushPermission === 'denied' || pushLoading
   const pushStatusText = !pushSupported
-    ? 'Not supported in this browser'
+    ? t('notif_pref.not_supported', locale)
     : pushPermission === 'denied'
-      ? 'Blocked in browser settings — see setup guide'
+      ? t('notif_pref.blocked', locale)
       : pushLoading
-        ? 'Setting up...'
+        ? t('notif_pref.setting_up', locale)
         : null
 
   return (
@@ -284,14 +287,14 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
       {/* Email Notifications */}
       <div>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: '0 0 12px 0' }}>
-          Email Notifications
+          {t('notif_pref.email_section', locale)}
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Order Updates</p>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{t('notif_pref.order_updates', locale)}</p>
               <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                Get notified about order status changes
+                {t('notif_pref.order_updates_desc', locale)}
               </p>
             </div>
             <ToggleSwitch
@@ -301,9 +304,9 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Marketing & Promotions</p>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{t('notif_pref.marketing', locale)}</p>
               <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                {`Receive deals and ${term(vertical, 'market').toLowerCase()} updates`}
+                {t('notif_pref.marketing_email_desc', locale, { market: term(vertical, 'market').toLowerCase() })}
               </p>
             </div>
             <ToggleSwitch
@@ -317,16 +320,16 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
       {/* Push Notifications */}
       <div>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: '0 0 12px 0' }}>
-          Push Notifications
+          {t('notif_pref.push_section', locale)}
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: pushDisabled && !pushLoading ? '#9ca3af' : undefined }}>
-                Browser Notifications
+                {t('notif_pref.browser_notif', locale)}
               </p>
               <p style={{ margin: '2px 0 0 0', fontSize: 12, color: pushDisabled && !pushLoading ? '#9ca3af' : '#6b7280' }}>
-                {pushStatusText || 'Get instant alerts for orders and pickups'}
+                {pushStatusText || t('notif_pref.push_desc', locale)}
               </p>
             </div>
             <ToggleSwitch
@@ -342,23 +345,23 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
       {(!pushSupported || pushPermission === 'denied') && (
         <div style={{ padding: '8px 12px', backgroundColor: colors.primaryLight, borderRadius: 6, fontSize: 12 }}>
           <a href={`/${vertical}/help/setup`} style={{ color: colors.primaryDark, fontWeight: 600 }}>
-            View Setup Guide
+            {t('notif_pref.setup_guide', locale)}
           </a>{' '}
-          <span style={{ color: colors.textMuted }}>— step-by-step instructions for enabling notifications and installing the app.</span>
+          <span style={{ color: colors.textMuted }}>{t('notif_pref.setup_guide_desc', locale)}</span>
         </div>
       )}
 
       {/* Sound & Vibration */}
       <div>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: '0 0 12px 0' }}>
-          Sound & Vibration
+          {t('notif_pref.sound_section', locale)}
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Notification Sounds</p>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{t('notif_pref.sound_toggle', locale)}</p>
               <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                Play a sound when new notifications arrive. Vibration is always on.
+                {t('notif_pref.sound_desc', locale)}
               </p>
             </div>
             <ToggleSwitch
@@ -372,14 +375,14 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
       {/* SMS Notifications */}
       <div>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#374151', margin: '0 0 12px 0' }}>
-          SMS Notifications
+          {t('notif_pref.sms_section', locale)}
         </h3>
 
         {!smsEnabled ? (
           /* SMS opt-in flow: phone number + consent */
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>
-              Add your phone number and accept the terms below to enable SMS notifications.
+              {t('notif_pref.sms_intro', locale)}
             </p>
 
             {/* Phone Number */}
@@ -391,7 +394,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
                 marginBottom: 6,
                 fontWeight: typography.weights.medium
               }}>
-                Phone Number
+                {t('notif_pref.phone_label', locale)}
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, maxWidth: 400 }}>
                 <input
@@ -424,7 +427,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
                       cursor: 'pointer'
                     }}
                   >
-                    Clear
+                    {t('notif_pref.clear', locale)}
                   </button>
                 )}
               </div>
@@ -460,13 +463,10 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
                       }}
                     />
                     <span style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, lineHeight: '1.5' }}>
-                      I agree to receive automated SMS/text messages from {term(vertical, 'display_name')} for order
-                      status alerts, pickup notifications, and cancellation notices. Message frequency varies
-                      (typically 1-5 per week during active orders). Message and data rates may apply.
-                      Reply STOP to opt out, HELP for help. See our{' '}
-                      <a href={`/${vertical}/terms#sms-terms`} target="_blank" style={{ color: primaryColor }}>Terms of Service</a>
-                      {' '}and{' '}
-                      <a href={`/${vertical}/terms#privacy-policy`} target="_blank" style={{ color: primaryColor }}>Privacy Policy</a>.
+                      {t('notif_pref.sms_consent_prefix', locale, { display_name: term(vertical, 'display_name') })}{' '}
+                      <a href={`/${vertical}/terms#sms-terms`} target="_blank" style={{ color: primaryColor }}>{t('notif_pref.terms', locale)}</a>
+                      {' '}{t('notif_pref.sms_consent_and', locale)}{' '}
+                      <a href={`/${vertical}/terms#privacy-policy`} target="_blank" style={{ color: primaryColor }}>{t('notif_pref.privacy', locale)}</a>.
                     </span>
                   </label>
                 </div>
@@ -486,7 +486,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
                       cursor: smsLoading || !smsConsent ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {smsLoading ? 'Enabling...' : 'Enable SMS Notifications'}
+                    {smsLoading ? t('notif_pref.enabling', locale) : t('notif_pref.enable_sms', locale)}
                   </button>
                 </div>
               </>
@@ -497,9 +497,9 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Order Updates</p>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{t('notif_pref.order_updates', locale)}</p>
                 <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                  Get text alerts about your orders
+                  {t('notif_pref.sms_order_desc', locale)}
                 </p>
               </div>
               <ToggleSwitch
@@ -509,9 +509,9 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>Marketing & Promotions</p>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{t('notif_pref.marketing', locale)}</p>
                 <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#6b7280' }}>
-                  Receive deals via text message
+                  {t('notif_pref.sms_marketing_desc', locale)}
                 </p>
               </div>
               <ToggleSwitch
@@ -532,7 +532,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
                   textDecoration: 'underline'
                 }}
               >
-                Change number
+                {t('notif_pref.change_number', locale)}
               </button>
             </p>
           </div>
@@ -555,7 +555,7 @@ export default function NotificationPreferences({ primaryColor, initialPhone, in
             cursor: loading || !hasChanges ? 'not-allowed' : 'pointer'
           }}
         >
-          {loading ? 'Saving...' : 'Save Preferences'}
+          {loading ? t('settings.saving', locale) : t('notif_pref.save', locale)}
         </button>
       </div>
 

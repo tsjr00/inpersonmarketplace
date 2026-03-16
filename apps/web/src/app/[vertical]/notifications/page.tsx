@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getNotificationConfig, type NotificationSeverity } from '@/lib/notifications/types'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Notification {
   id: string
@@ -34,24 +36,24 @@ function getNotificationSeverity(type: string): NotificationSeverity {
   return config?.severity || 'info'
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, locale?: string): string {
   const date = new Date(dateStr)
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
 
-  if (date.toDateString() === today.toDateString()) return 'Today'
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  if (date.toDateString() === today.toDateString()) return t('notif_page.today', locale)
+  if (date.toDateString() === yesterday.toDateString()) return t('notif_page.yesterday', locale)
 
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
   })
 }
 
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('en-US', {
+function formatTime(dateStr: string, locale?: string): string {
+  return new Date(dateStr).toLocaleTimeString(locale === 'es' ? 'es-ES' : 'en-US', {
     hour: 'numeric',
     minute: '2-digit',
   })
@@ -60,6 +62,7 @@ function formatTime(dateStr: string): string {
 export default function NotificationsPage() {
   const params = useParams()
   const router = useRouter()
+  const locale = getClientLocale()
   const vertical = params.vertical as string
 
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -134,7 +137,7 @@ export default function NotificationsPage() {
 
   // Group notifications by date
   const grouped = notifications.reduce((acc, notification) => {
-    const dateKey = formatDate(notification.created_at)
+    const dateKey = formatDate(notification.created_at, locale)
     if (!acc[dateKey]) acc[dateKey] = []
     acc[dateKey].push(notification)
     return acc
@@ -152,7 +155,7 @@ export default function NotificationsPage() {
           href={`/${vertical}/dashboard`}
           style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
         >
-          ← Back to Dashboard
+          {t('notif_page.back', locale)}
         </Link>
 
         {/* Header */}
@@ -169,7 +172,7 @@ export default function NotificationsPage() {
             fontWeight: typography.weights.bold,
             color: colors.textPrimary,
           }}>
-            Notifications
+            {t('notif_page.title', locale)}
           </h1>
           {unreadCount > 0 && (
             <button
@@ -187,7 +190,7 @@ export default function NotificationsPage() {
                 opacity: markingAllRead ? 0.6 : 1,
               }}
             >
-              {markingAllRead ? 'Marking...' : `Mark all read (${unreadCount})`}
+              {markingAllRead ? t('notif_page.marking', locale) : t('notif_page.mark_all', locale, { count: String(unreadCount) })}
             </button>
           )}
         </div>
@@ -200,7 +203,7 @@ export default function NotificationsPage() {
             color: colors.textMuted,
             fontSize: typography.sizes.base,
           }}>
-            Loading notifications...
+            {t('notif_page.loading', locale)}
           </div>
         )}
 
@@ -215,10 +218,10 @@ export default function NotificationsPage() {
           }}>
             <p style={{ fontSize: typography.sizes['2xl'], margin: `0 0 ${spacing.xs}` }}>🔔</p>
             <h3 style={{ margin: `0 0 ${spacing['2xs']}`, color: colors.textSecondary }}>
-              No notifications yet
+              {t('notif_page.empty_title', locale)}
             </h3>
             <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-              You&apos;ll see order updates, alerts, and more here.
+              {t('notif_page.empty_desc', locale)}
             </p>
           </div>
         )}
@@ -313,7 +316,7 @@ export default function NotificationsPage() {
                           color: colors.textMuted,
                           flexShrink: 0,
                         }}>
-                          {formatTime(notification.created_at)}
+                          {formatTime(notification.created_at, locale)}
                         </span>
                       </div>
                       {notification.message && (
@@ -352,14 +355,14 @@ export default function NotificationsPage() {
                 opacity: loadingMore ? 0.6 : 1,
               }}
             >
-              {loadingMore ? 'Loading...' : 'Load more'}
+              {loadingMore ? t('notif_page.loading_more', locale) : t('notif_page.load_more', locale)}
             </button>
             <p style={{
               margin: `${spacing['2xs']} 0 0`,
               fontSize: typography.sizes.xs,
               color: colors.textMuted,
             }}>
-              Showing {notifications.length} of {pagination.total}
+              {t('notif_page.showing', locale, { count: String(notifications.length), total: String(pagination.total) })}
             </p>
           </div>
         )}

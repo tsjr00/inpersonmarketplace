@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface SettingsFormProps {
   initialDisplayName: string
   userEmail: string
   primaryColor: string
+  locale?: string
 }
 
 export default function SettingsForm({
@@ -14,12 +17,13 @@ export default function SettingsForm({
   userEmail,
   primaryColor
 }: SettingsFormProps) {
+  const locale = getClientLocale()
   const [displayName, setDisplayName] = useState(initialDisplayName)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const trimmedName = displayName.trim()
-  const nameError = trimmedName.length < 2 ? 'Display name must be at least 2 characters' : null
+  const nameError = trimmedName.length < 2 ? t('settings.display_name_error', locale) : null
   const hasChanges = displayName !== initialDisplayName
 
   const handleSave = async () => {
@@ -43,13 +47,13 @@ export default function SettingsForm({
       })
 
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Profile updated successfully!' })
+        setMessage({ type: 'success', text: t('settings.profile_updated', locale) })
       } else {
         const data = await res.json()
-        setMessage({ type: 'error', text: data.error || 'Failed to update profile' })
+        setMessage({ type: 'error', text: data.error || t('settings.profile_update_failed', locale) })
       }
     } catch {
-      setMessage({ type: 'error', text: 'Error updating profile' })
+      setMessage({ type: 'error', text: t('settings.profile_update_error', locale) })
     } finally {
       setLoading(false)
     }
@@ -66,13 +70,13 @@ export default function SettingsForm({
           marginBottom: 6,
           fontWeight: typography.weights.medium
         }}>
-          Display Name <span style={{ color: '#dc2626' }}>*</span>
+          {t('settings.display_name', locale)} <span style={{ color: '#dc2626' }}>*</span>
         </label>
         <input
           type="text"
           value={displayName}
           onChange={(e) => { setDisplayName(e.target.value); setMessage(null) }}
-          placeholder="Enter your display name"
+          placeholder={t('settings.display_name_placeholder', locale)}
           required
           style={{
             width: '100%',
@@ -102,7 +106,7 @@ export default function SettingsForm({
           marginBottom: 6,
           fontWeight: typography.weights.medium
         }}>
-          Email
+          {t('settings.email', locale)}
         </label>
         <input
           type="email"
@@ -121,7 +125,7 @@ export default function SettingsForm({
           }}
         />
         <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: 4, marginBottom: 0 }}>
-          Email changes are not currently available
+          {t('settings.email_unavailable', locale)}
         </p>
       </div>
 
@@ -141,7 +145,7 @@ export default function SettingsForm({
             cursor: loading || !hasChanges ? 'not-allowed' : 'pointer'
           }}
         >
-          {loading ? 'Saving...' : 'Save Changes'}
+          {loading ? t('settings.saving', locale) : t('settings.save_changes', locale)}
         </button>
       </div>
 
