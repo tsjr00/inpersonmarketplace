@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { getVerticalColors } from '@/lib/design-tokens'
 import { formatPrice } from '@/lib/pricing'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface UnratedOrder {
   id: string
@@ -18,6 +20,7 @@ const DISMISS_KEY = 'review_prompt_dismissed'
 const DISMISS_DAYS = 7
 
 export default function ReviewPromptCard({ vertical }: { vertical: string }) {
+  const locale = getClientLocale()
   const [orders, setOrders] = useState<UnratedOrder[]>([])
   const [dismissed, setDismissed] = useState(true) // Start hidden to prevent flash
   const [loading, setLoading] = useState(true)
@@ -71,7 +74,7 @@ export default function ReviewPromptCard({ vertical }: { vertical: string }) {
       {/* Dismiss button */}
       <button
         onClick={dismiss}
-        aria-label="Dismiss review prompt"
+        aria-label="Dismiss"
         style={{
           position: 'absolute',
           top: spacing.xs,
@@ -94,14 +97,14 @@ export default function ReviewPromptCard({ vertical }: { vertical: string }) {
         color: verticalColors.primary,
         margin: `0 0 ${spacing.xs}`,
       }}>
-        Rate Your Recent Orders
+        {t('review.rate_orders', locale)}
       </h3>
       <p style={{
         fontSize: typography.sizes.sm,
         color: colors.textSecondary,
         margin: `0 0 ${spacing.sm}`,
       }}>
-        Your feedback helps other buyers and supports great vendors!
+        {t('review.helps_vendors', locale)}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
@@ -120,7 +123,7 @@ export default function ReviewPromptCard({ vertical }: { vertical: string }) {
                 fontWeight: typography.weights.semibold,
                 color: colors.textPrimary,
               }}>
-                Order #{order.order_number}
+                {t('review.order_number', locale, { number: order.order_number })}
               </span>
               <span style={{
                 fontSize: typography.sizes.xs,
@@ -142,7 +145,7 @@ export default function ReviewPromptCard({ vertical }: { vertical: string }) {
                 border: `1px solid ${verticalColors.primary}`,
               }}
             >
-              Rate
+              {t('review.rate_btn', locale)}
             </Link>
           </div>
         ))}
@@ -155,7 +158,7 @@ export default function ReviewPromptCard({ vertical }: { vertical: string }) {
           margin: `${spacing.xs} 0 0`,
           textAlign: 'center',
         }}>
-          +{orders.length - 3} more orders to rate
+          {t('review.more_orders', locale, { count: String(orders.length - 3) })}
         </p>
       )}
     </div>

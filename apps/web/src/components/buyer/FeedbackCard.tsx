@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import ShopperFeedbackForm from './ShopperFeedbackForm'
 
 interface FeedbackCardProps {
@@ -10,6 +12,7 @@ interface FeedbackCardProps {
 }
 
 export default function FeedbackCard({ vertical }: FeedbackCardProps) {
+  const locale = getClientLocale()
   const [showFeedbackForm, setShowFeedbackForm] = useState(false)
 
   return (
@@ -38,10 +41,10 @@ export default function FeedbackCard({ vertical }: FeedbackCardProps) {
           alignItems: 'center',
           gap: spacing.xs
         }}>
-          <span>💬</span> Share Feedback
+          <span>💬</span> {t('feedback.share', locale)}
         </h3>
         <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-          {`Suggest a ${term(vertical, 'market').toLowerCase()}, report an issue, or tell us how to improve`}
+          {t('feedback.suggest_desc', locale, { market: term(vertical, 'market', locale).toLowerCase() })}
         </p>
       </button>
 

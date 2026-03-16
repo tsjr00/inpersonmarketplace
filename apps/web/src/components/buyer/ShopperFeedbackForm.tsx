@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 type FeedbackCategory = 'suggest_market' | 'technical_problem' | 'feature_request' | 'vendor_concern' | 'general_feedback'
 
@@ -12,43 +14,44 @@ interface ShopperFeedbackFormProps {
   onSuccess?: () => void
 }
 
-function getCategories(vertical: string): { value: FeedbackCategory; label: string; description: string; icon: string }[] {
+function getCategories(vertical: string, locale: string): { value: FeedbackCategory; label: string; description: string; icon: string }[] {
   return [
     {
       value: 'suggest_market',
-      label: `Suggest a ${term(vertical, 'market')}`,
-      description: `Tell us about a ${term(vertical, 'traditional_market').toLowerCase()} you visit that isn't on our platform yet`,
+      label: t('feedback.cat_suggest', locale, { market: term(vertical, 'market', locale) }),
+      description: t('feedback.cat_suggest_desc', locale, { traditional_market: term(vertical, 'traditional_market', locale).toLowerCase() }),
       icon: vertical === 'food_trucks' ? '📍' : '🏪'
     },
     {
       value: 'technical_problem',
-      label: 'Report a Technical Problem',
-      description: 'Something not working right? Let us know so we can fix it',
+      label: t('feedback.cat_technical', locale),
+      description: t('feedback.cat_technical_desc', locale),
       icon: '🔧'
     },
     {
       value: 'feature_request',
-      label: 'Request a Feature',
-      description: 'Have an idea that would make shopping easier? We\'d love to hear it',
+      label: t('feedback.cat_feature', locale),
+      description: t('feedback.cat_feature_desc', locale),
       icon: '💡'
     },
     {
       value: 'vendor_concern',
-      label: `Report a ${term(vertical, 'vendor')} Concern`,
-      description: `Issues with ${term(vertical, 'vendor').toLowerCase()} communication, product quality, or other concerns`,
+      label: t('feedback.cat_vendor', locale, { vendor: term(vertical, 'vendor', locale) }),
+      description: t('feedback.cat_vendor_desc', locale, { vendor: term(vertical, 'vendor', locale).toLowerCase() }),
       icon: '⚠️'
     },
     {
       value: 'general_feedback',
-      label: 'General Feedback',
-      description: 'Anything else you\'d like to share with us',
+      label: t('feedback.cat_general', locale),
+      description: t('feedback.cat_general_desc', locale),
       icon: '💬'
     }
   ]
 }
 
 export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: ShopperFeedbackFormProps) {
-  const categories = getCategories(vertical)
+  const locale = getClientLocale()
+  const categories = getCategories(vertical, locale)
   const [category, setCategory] = useState<FeedbackCategory | ''>('')
   const [message, setMessage] = useState('')
   const [marketName, setMarketName] = useState('')
@@ -84,12 +87,12 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
       if (!res.ok) {
         const data = await res.json()
         setSuccess(false)
-        setError(data.error || 'Failed to submit feedback')
+        setError(data.error || t('feedback.failed', locale))
       }
     } catch (err) {
       console.error('Error submitting feedback:', err)
       setSuccess(false)
-      setError('Failed to submit feedback. Please try again.')
+      setError(t('feedback.failed_retry', locale))
     }
   }
 
@@ -115,10 +118,10 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
         }}>
           <div style={{ fontSize: '3rem', marginBottom: spacing.md }}>✅</div>
           <h2 style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold }}>
-            Thank You!
+            {t('feedback.thank_you', locale)}
           </h2>
           <p style={{ color: colors.textSecondary, marginBottom: spacing.lg }}>
-            We appreciate you taking the time to share your feedback. Your input helps us improve the platform for everyone.
+            {t('feedback.thank_you_msg', locale)}
           </p>
           <button
             onClick={onClose}
@@ -134,12 +137,16 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               minHeight: 44
             }}
           >
-            Close
+            {t('feedback.close', locale)}
           </button>
         </div>
       </div>
     )
   }
+
+  const marketNamePlaceholder = vertical === 'food_trucks'
+    ? t('feedback.ph_market_name_ft', locale)
+    : t('feedback.ph_market_name_fm', locale)
 
   return (
     <div style={{
@@ -175,7 +182,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
           zIndex: 1
         }}>
           <h2 style={{ margin: 0, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold }}>
-            Share Your Feedback
+            {t('feedback.title', locale)}
           </h2>
           <button
             onClick={onClose}
@@ -207,17 +214,20 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
             marginBottom: spacing.lg
           }}>
             <h4 style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#92400e' }}>
-              Please Note
+              {t('feedback.please_note', locale)}
             </h4>
             <ul style={{ margin: 0, paddingLeft: spacing.lg, fontSize: typography.sizes.sm, color: '#78350f', lineHeight: 1.6 }}>
               <li style={{ marginBottom: spacing.xs }}>
-                <strong>Refunds:</strong> All payments are processed through Stripe. For refunds or payment disputes, please contact the vendor directly. We cannot process refunds on behalf of vendors.
+                <strong>{t('feedback.refunds_label', locale)}</strong> {t('feedback.refunds_notice', locale)}
               </li>
               <li style={{ marginBottom: spacing.xs }}>
-                <strong>{term(vertical, 'market')} Policies:</strong> We are not affiliated with {term(vertical, 'traditional_market').toLowerCase()} management. Questions about location rules, {vertical === 'food_trucks' ? 'parking assignments' : 'vendor booth assignments'}, or local policies should be directed to the {vertical === 'food_trucks' ? 'location' : 'market'} organizers.
+                <strong>{t('feedback.market_policies', locale, { market: term(vertical, 'market', locale) })}</strong>{' '}
+                {vertical === 'food_trucks'
+                  ? t('feedback.market_policies_desc_ft', locale)
+                  : t('feedback.market_policies_desc_fm', locale)}
               </li>
               <li>
-                <strong>Response Time:</strong> We review all feedback but may not be able to respond individually. Your input helps us prioritize improvements.
+                <strong>{t('feedback.response_label', locale)}</strong> {t('feedback.response_notice', locale)}
               </li>
             </ul>
           </div>
@@ -245,7 +255,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               marginBottom: spacing.sm,
               color: colors.textPrimary
             }}>
-              What would you like to share? *
+              {t('feedback.what_share', locale)}
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
               {categories.map(cat => (
@@ -295,18 +305,18 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               marginBottom: spacing.lg
             }}>
               <h4 style={{ margin: `0 0 ${spacing.md} 0`, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: colors.primaryDark }}>
-                {term(vertical, 'market')} Details
+                {t('feedback.market_details', locale, { market: term(vertical, 'market', locale) })}
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                 <div>
                   <label style={{ display: 'block', fontSize: typography.sizes.sm, fontWeight: typography.weights.medium, marginBottom: spacing['3xs'] }}>
-                    {term(vertical, 'market')} Name *
+                    {t('feedback.market_name', locale, { market: term(vertical, 'market', locale) })}
                   </label>
                   <input
                     type="text"
                     value={marketName}
                     onChange={(e) => setMarketName(e.target.value)}
-                    placeholder={vertical === 'food_trucks' ? 'e.g., Central Park Food Truck Lot, Friday Night Trucks' : 'e.g., Downtown Saturday Farmers Market'}
+                    placeholder={marketNamePlaceholder}
                     required
                     style={{
                       width: '100%',
@@ -320,13 +330,13 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: typography.sizes.sm, fontWeight: typography.weights.medium, marginBottom: spacing['3xs'] }}>
-                    Location *
+                    {t('feedback.location', locale)}
                   </label>
                   <input
                     type="text"
                     value={marketLocation}
                     onChange={(e) => setMarketLocation(e.target.value)}
-                    placeholder="e.g., 123 Main St, Austin, TX or City Park parking lot"
+                    placeholder={t('feedback.ph_location', locale)}
                     required
                     style={{
                       width: '100%',
@@ -340,13 +350,13 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: typography.sizes.sm, fontWeight: typography.weights.medium, marginBottom: spacing['3xs'] }}>
-                    When does it operate? (optional)
+                    {t('feedback.when_operate', locale)}
                   </label>
                   <input
                     type="text"
                     value={marketSchedule}
                     onChange={(e) => setMarketSchedule(e.target.value)}
-                    placeholder="e.g., Saturdays 8am-1pm, April through October"
+                    placeholder={t('feedback.ph_schedule', locale)}
                     style={{
                       width: '100%',
                       padding: spacing.sm,
@@ -371,9 +381,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               marginBottom: spacing.lg
             }}>
               <p style={{ margin: 0, fontSize: typography.sizes.sm, color: '#991b1b', lineHeight: 1.6 }}>
-                <strong>Reminder:</strong> For refund requests or payment disputes, please contact the vendor directly.
-                All transactions are processed through Stripe, and vendors manage their own refund policies.
-                We can help with issues like vendor communication problems, misrepresentation, or safety concerns.
+                <strong>{t('feedback.vendor_concern_label', locale)}</strong> {t('feedback.vendor_concern_reminder', locale)}
               </p>
             </div>
           )}
@@ -387,21 +395,21 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
               marginBottom: spacing.sm,
               color: colors.textPrimary
             }}>
-              {category === 'suggest_market' ? 'Additional details (optional)' : 'Your message *'}
+              {category === 'suggest_market' ? t('feedback.additional_details', locale) : t('feedback.your_message', locale)}
             </label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={
                 category === 'suggest_market'
-                  ? 'Any other details about this market that might help us...'
+                  ? t('feedback.ph_suggest', locale)
                   : category === 'technical_problem'
-                  ? 'Please describe the issue you encountered. Include what you were trying to do and what happened instead...'
+                  ? t('feedback.ph_technical', locale)
                   : category === 'feature_request'
-                  ? 'Describe the feature you\'d like to see and how it would help you...'
+                  ? t('feedback.ph_feature', locale)
                   : category === 'vendor_concern'
-                  ? 'Please describe your concern. Include the vendor name and any relevant order details...'
-                  : 'Share your thoughts with us...'
+                  ? t('feedback.ph_vendor', locale)
+                  : t('feedback.ph_general', locale)
               }
               required={category !== 'suggest_market'}
               rows={5}
@@ -435,7 +443,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
                 minHeight: 44
               }}
             >
-              Cancel
+              {t('feedback.cancel', locale)}
             </button>
             <button
               type="submit"
@@ -452,7 +460,7 @@ export default function ShopperFeedbackForm({ vertical, onClose, onSuccess }: Sh
                 minHeight: 44
               }}
             >
-              {submitting ? 'Submitting...' : 'Submit Feedback'}
+              {submitting ? t('feedback.submitting', locale) : t('feedback.submit', locale)}
             </button>
           </div>
         </form>
