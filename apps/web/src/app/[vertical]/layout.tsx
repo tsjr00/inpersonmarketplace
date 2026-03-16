@@ -4,10 +4,6 @@ import { CartProviderWrapper } from '@/components/cart/CartProviderWrapper'
 import { getVerticalCSSVars } from '@/lib/design-tokens'
 import { webSiteJsonLd } from '@/lib/marketing/json-ld'
 
-// Force dynamic rendering to ensure header always reflects current user
-// This prevents caching issues when users switch accounts or duplicate tabs
-export const dynamic = 'force-dynamic'
-
 interface VerticalLayoutProps {
   children: React.ReactNode
   params: Promise<{ vertical: string }>
@@ -37,7 +33,7 @@ const verticalMeta: Record<string, { title: string; description: string; icon: s
 const defaultMeta = {
   title: 'Local Market',
   description: 'Local marketplace platform.',
-  icon: '/logos/logo-icon-color.png',
+  icon: '/logos/farmersmarketing-full-logo.png',
 }
 
 export async function generateMetadata({ params }: VerticalLayoutProps): Promise<Metadata> {

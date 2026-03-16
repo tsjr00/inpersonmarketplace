@@ -129,6 +129,8 @@ export async function GET(
       vendors,
       categories: allCategories,
       vendor_count: vendors.length,
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
     })
   })
 }

@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 // branding import removed — not currently used on analytics page
 import MetricCard from '@/components/analytics/MetricCard'
-import SalesChart from '@/components/analytics/SalesChart'
+import dynamic from 'next/dynamic'
+const SalesChart = dynamic(() => import('@/components/analytics/SalesChart'), { ssr: false })
 import TopProductsTable from '@/components/analytics/TopProductsTable'
 import DateRangePicker from '@/components/analytics/DateRangePicker'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'

@@ -84,6 +84,7 @@
 | 20260304_068_user_agreement_acceptances.sql | ✅ | 2026-03-04 | ✅ | 2026-03-04 | user_agreement_acceptances table for legal agreement tracking. RLS: self-select + self-insert. Applied to all 3 envs. |
 | 20260307_071_catering_help_articles.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | 6 vendor catering help articles under "For Food Truck Operators". Data only. Applied to all 3 envs. |
 | 20260307_070_corporate_catering.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | New `catering_requests` table + columns on `markets` (catering_request_id, headcount) and `market_vendors` (response_status, response_notes, invited_at). RLS, indexes, trigger. Applied to all 3 envs. |
+| 20260316_084_add_vendor_tier_index.sql | ✅ | 2026-03-16 | ✅ | 2026-03-16 | Composite index on vendor_profiles(vertical_id, tier). Applied to all 3 envs. |
 | 20260314_083_coi_soft_gate.sql | ✅ | 2026-03-14 | ✅ | 2026-03-14 | Remove COI check from can_vendor_publish(). COI is soft gate for publishing, hard gate for events only (VJ-R1). Applied to all 3 envs. |
 | 20260314_082_sales_tax_help_article.sql | ✅ | 2026-03-14 | ✅ | 2026-03-14 | Sales tax help article for vendors. Data only. Applied to all 3 envs. |
 | 20260314_081_add_listing_is_taxable.sql | ✅ | 2026-03-14 | ✅ | 2026-03-14 | Add listings.is_taxable BOOLEAN column. Applied to all 3 envs. |

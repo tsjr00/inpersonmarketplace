@@ -99,26 +99,28 @@ export async function POST(request: NextRequest) {
       .not('stripe_checkout_session_id', 'is', null) // Only Stripe orders (not external)
 
     if (expiredPendingOrders && expiredPendingOrders.length > 0) {
-      for (const expired of expiredPendingOrders) {
-        // Restore inventory for expired order
-        await restoreOrderInventory(serviceClient, expired.id)
-        // Cancel the order and its items
-        await serviceClient
-          .from('order_items')
-          .update({
-            status: 'cancelled',
-            cancelled_at: new Date().toISOString(),
-            cancelled_by: 'system',
-            cancellation_reason: 'Payment not completed within 10 minutes'
-          })
-          .eq('order_id', expired.id)
-          .is('cancelled_at', null)
-        await serviceClient
-          .from('orders')
-          .update({ status: 'cancelled' })
-          .eq('id', expired.id)
-      }
-      crumb.logic(`Cleaned up ${expiredPendingOrders.length} expired pending order(s)`)
+      const now = new Date().toISOString()
+      const cleanupResults = await Promise.allSettled(
+        expiredPendingOrders.map(async (expired) => {
+          await restoreOrderInventory(serviceClient, expired.id)
+          await serviceClient
+            .from('order_items')
+            .update({
+              status: 'cancelled',
+              cancelled_at: now,
+              cancelled_by: 'system',
+              cancellation_reason: 'Payment not completed within 10 minutes'
+            })
+            .eq('order_id', expired.id)
+            .is('cancelled_at', null)
+          await serviceClient
+            .from('orders')
+            .update({ status: 'cancelled' })
+            .eq('id', expired.id)
+        })
+      )
+      const failed = cleanupResults.filter(r => r.status === 'rejected').length
+      crumb.logic(`Cleaned up ${expiredPendingOrders.length} expired pending order(s)${failed ? `, ${failed} failed` : ''}`)
     }
 
     // ============================================================

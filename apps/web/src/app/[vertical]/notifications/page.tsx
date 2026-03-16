@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import useSWR from 'swr'
 import Link from 'next/link'
+import { fetcher } from '@/lib/swr'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getNotificationConfig, type NotificationSeverity } from '@/lib/notifications/types'
 import { getClientLocale } from '@/lib/locale/client'
@@ -65,44 +67,35 @@ export default function NotificationsPage() {
   const locale = getClientLocale()
   const vertical = params.vertical as string
 
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [pagination, setPagination] = useState<Pagination | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: swrData, isLoading: loading, mutate } = useSWR(
+    `/api/notifications?page=1&limit=20&vertical=${vertical}`,
+    fetcher,
+    { dedupingInterval: 10000 }
+  )
+  const [extraNotifications, setExtraNotifications] = useState<Notification[]>([])
+  const [extraPagination, setExtraPagination] = useState<Pagination | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [markingAllRead] = useState(false)
 
-  const fetchNotifications = useCallback(async (page = 1, append = false) => {
-    if (page === 1) setLoading(true)
-    else setLoadingMore(true)
-
-    try {
-      const res = await fetch(`/api/notifications?page=${page}&limit=20&vertical=${vertical}`)
-      if (res.ok) {
-        const data = await res.json()
-        if (append) {
-          setNotifications(prev => [...prev, ...(data.notifications || [])])
-        } else {
-          setNotifications(data.notifications || [])
-        }
-        setPagination(data.pagination)
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
+  const notifications: Notification[] = [...(swrData?.notifications || []), ...extraNotifications]
+  const pagination: Pagination | null = extraPagination ?? swrData?.pagination ?? null
 
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read (don't await — navigate immediately for responsiveness)
     if (!notification.read_at) {
       fetch(`/api/notifications/${notification.id}/read`, { method: 'PATCH' })
-      setNotifications(prev =>
+      // Optimistic update via SWR mutate
+      mutate(
+        (current: { notifications: Notification[]; pagination: Pagination } | undefined) => current ? {
+          ...current,
+          notifications: current.notifications.map((n: Notification) =>
+            n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n
+          )
+        } : current,
+        { revalidate: false }
+      )
+      // Also update extra notifications if the clicked one is from a loaded page
+      setExtraNotifications(prev =>
         prev.map(n => n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n)
       )
     }
@@ -119,17 +112,40 @@ export default function NotificationsPage() {
   }
 
   const handleMarkAllRead = () => {
-    // Optimistically mark all as read immediately
-    setNotifications(prev =>
+    // Optimistic update via SWR mutate
+    mutate(
+      (current: { notifications: Notification[]; pagination: Pagination } | undefined) => current ? {
+        ...current,
+        notifications: current.notifications.map((n: Notification) => ({
+          ...n, read_at: n.read_at || new Date().toISOString()
+        }))
+      } : current,
+      { revalidate: false }
+    )
+    setExtraNotifications(prev =>
       prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
     )
     // Fire API in background — no need to await
     fetch(`/api/notifications/read-all?vertical=${vertical}`, { method: 'POST' })
   }
 
-  const handleLoadMore = () => {
-    if (pagination && pagination.page < pagination.totalPages) {
-      fetchNotifications(pagination.page + 1, true)
+  const handleLoadMore = async () => {
+    const currentPage = extraPagination?.page ?? swrData?.pagination?.page ?? 1
+    const totalPages = extraPagination?.totalPages ?? swrData?.pagination?.totalPages ?? 1
+    if (currentPage >= totalPages) return
+
+    setLoadingMore(true)
+    try {
+      const res = await fetch(`/api/notifications?page=${currentPage + 1}&limit=20&vertical=${vertical}`)
+      if (res.ok) {
+        const data = await res.json()
+        setExtraNotifications(prev => [...prev, ...(data.notifications || [])])
+        setExtraPagination(data.pagination)
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setLoadingMore(false)
     }
   }
 

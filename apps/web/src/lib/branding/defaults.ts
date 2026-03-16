@@ -45,7 +45,7 @@ export const defaultBranding: Record<string, VerticalBranding> = {
     domain: 'farmersmarketing.app',
     brand_name: 'Farmers Marketing',
     tagline: 'Farm Fresh, Locally Grown',
-    logo_path: '/logos/logo-full-color.png',
+    logo_path: '/logos/farmersmarketing-full-logo.png',
     favicon: '/branding/farmers-favicon.ico',
     colors: {
       primary: '#2d5016',
