@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { EventRequestForm } from '@/components/events/EventRequestForm'
 import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 
 interface CateringPageProps {
   params: Promise<{ vertical: string }>
@@ -9,6 +11,7 @@ interface CateringPageProps {
 
 export default async function CateringPage({ params }: CateringPageProps) {
   const { vertical } = await params
+  const locale = await getLocale()
 
   const accent = vertical === 'food_trucks' ? '#ff5757' : '#2d5016'
 
@@ -27,7 +30,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
             gap: 4,
           }}
         >
-          ← Back
+          {t('events.back', locale)}
         </Link>
       </div>
 
@@ -41,7 +44,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
             fontSize: typography.sizes['2xl'],
           }}
         >
-          {term(vertical, 'event_feature_name')}
+          {term(vertical, 'event_feature_name', locale)}
         </h1>
         <p
           style={{
@@ -54,7 +57,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
             marginRight: 'auto',
           }}
         >
-          {term(vertical, 'event_hero_subtitle')}
+          {term(vertical, 'event_hero_subtitle', locale)}
         </p>
       </div>
 
@@ -76,7 +79,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
             color: statusColors.neutral800,
           }}
         >
-          How It Works
+          {t('events.how_it_works', locale)}
         </h3>
         <ol
           style={{
@@ -88,17 +91,17 @@ export default async function CateringPage({ params }: CateringPageProps) {
           }}
         >
           {(vertical === 'food_trucks' ? [
-            'Submit your event details below',
-            'We match you with food trucks that fit your needs',
-            'Share the event link with your team',
-            'Employees pre-order and choose a pickup time',
-            'Trucks arrive with meals ready — no long lines',
+            t('events.ft_step1', locale),
+            t('events.ft_step2', locale),
+            t('events.ft_step3', locale),
+            t('events.ft_step4', locale),
+            t('events.ft_step5', locale),
           ] : [
-            'Submit your event details below',
-            'We connect you with local vendors that fit your needs',
-            'Share the event link with your guests',
-            'Guests browse vendor offerings and pre-order their favorites',
-            'Vendors arrive with products ready — a curated market experience',
+            t('events.fm_step1', locale),
+            t('events.fm_step2', locale),
+            t('events.fm_step3', locale),
+            t('events.fm_step4', locale),
+            t('events.fm_step5', locale),
           ]).map((step, i) => (
             <li
               key={i}
@@ -125,37 +128,37 @@ export default async function CateringPage({ params }: CateringPageProps) {
       >
         {(vertical === 'food_trucks' ? [
           {
-            title: 'No Catering Trays',
-            desc: 'Fresh, made-to-order meals your team actually wants.',
+            title: t('events.ft_val1_title', locale),
+            desc: t('events.ft_val1_desc', locale),
           },
           {
-            title: 'Pre-Order System',
-            desc: 'Employees order ahead — trucks prep exactly what\'s needed.',
+            title: t('events.ft_val2_title', locale),
+            desc: t('events.ft_val2_desc', locale),
           },
           {
-            title: 'Time Slot Pickup',
-            desc: 'Staggered pickup times mean no crowds, no waiting.',
+            title: t('events.ft_val3_title', locale),
+            desc: t('events.ft_val3_desc', locale),
           },
           {
-            title: 'Zero Waste',
-            desc: 'Every meal is spoken for. No guessing, no leftovers.',
+            title: t('events.ft_val4_title', locale),
+            desc: t('events.ft_val4_desc', locale),
           },
         ] : [
           {
-            title: 'Fresh & Local',
-            desc: 'Direct from local farms and artisans — the freshest products available.',
+            title: t('events.fm_val1_title', locale),
+            desc: t('events.fm_val1_desc', locale),
           },
           {
-            title: 'Browse & Buy',
-            desc: 'Guests explore vendor offerings at their own pace — a true market experience.',
+            title: t('events.fm_val2_title', locale),
+            desc: t('events.fm_val2_desc', locale),
           },
           {
-            title: 'Curated Selection',
-            desc: 'Hand-picked vendors matched to your event and audience.',
+            title: t('events.fm_val3_title', locale),
+            desc: t('events.fm_val3_desc', locale),
           },
           {
-            title: 'Community Experience',
-            desc: 'More than shopping — it\'s an event your guests will talk about.',
+            title: t('events.fm_val4_title', locale),
+            desc: t('events.fm_val4_desc', locale),
           },
         ]).map((prop, i) => (
           <div
@@ -208,7 +211,7 @@ export default async function CateringPage({ params }: CateringPageProps) {
             color: statusColors.neutral800,
           }}
         >
-          {term(vertical, 'event_request_heading')}
+          {term(vertical, 'event_request_heading', locale)}
         </h2>
         <EventRequestForm vertical={vertical} />
       </div>

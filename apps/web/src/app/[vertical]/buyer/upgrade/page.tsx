@@ -7,11 +7,14 @@ import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import { colors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 export default function BuyerUpgradePage() {
   const params = useParams()
   const router = useRouter()
   const vertical = params.vertical as string
+  const locale = getClientLocale()
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('monthly')
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
@@ -101,7 +104,7 @@ export default function BuyerUpgradePage() {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <p style={{ color: '#666' }}>Loading...</p>
+        <p style={{ color: '#666' }}>{t('upgrade.loading', locale)}</p>
       </div>
     )
   }
@@ -139,7 +142,7 @@ export default function BuyerUpgradePage() {
             color: '#111827',
             margin: '0 0 12px 0'
           }}>
-            You&apos;re Already Premium!
+            {t('upgrade.already_premium', locale)}
           </h1>
           <p style={{
             fontSize: 16,
@@ -147,7 +150,7 @@ export default function BuyerUpgradePage() {
             margin: '0 0 32px 0',
             lineHeight: 1.6
           }}>
-            Your account already has premium membership. You have access to {term(vertical, 'market_box')} subscriptions and all premium features.
+            {t('upgrade.already_desc', locale, { market_box: term(vertical, 'market_box', locale) })}
           </p>
           <Link
             href={`/${vertical}/browse`}
@@ -162,19 +165,19 @@ export default function BuyerUpgradePage() {
               fontSize: 16
             }}
           >
-            Start Shopping
+            {t('upgrade.start_shopping', locale)}
           </Link>
           <p style={{
             marginTop: 24,
             fontSize: 13,
             color: '#9ca3af'
           }}>
-            Manage your subscription in{' '}
+            {t('upgrade.manage_in', locale)}{' '}
             <Link
               href={`/${vertical}/settings`}
               style={{ color: '#2563eb', textDecoration: 'none' }}
             >
-              account settings
+              {t('upgrade.account_settings', locale)}
             </Link>
           </p>
         </div>
@@ -207,7 +210,7 @@ export default function BuyerUpgradePage() {
             padding: '8px 0'
           }}
         >
-          ← Back to Dashboard
+          {t('upgrade.back', locale)}
         </Link>
 
         {/* Header */}
@@ -222,14 +225,14 @@ export default function BuyerUpgradePage() {
             color: '#333',
             margin: '0 0 12px 0'
           }}>
-            Upgrade to Premium
+            {t('upgrade.title', locale)}
           </h1>
           <p style={{
             fontSize: 18,
             color: '#666',
             margin: 0
           }}>
-            Shop smarter with exclusive benefits
+            {t('upgrade.subtitle', locale)}
           </p>
         </div>
 
@@ -247,7 +250,7 @@ export default function BuyerUpgradePage() {
             color: '#333',
             margin: '0 0 24px 0'
           }}>
-            Premium Member Benefits
+            {t('upgrade.benefits_title', locale)}
           </h2>
 
           {/* Featured Benefit - Market Box */}
@@ -276,7 +279,7 @@ export default function BuyerUpgradePage() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.primaryDark }}>
-                    {term(vertical, 'market_box')} Subscriptions
+                    {t('upgrade.mbox_title', locale, { market_box: term(vertical, 'market_box', locale) })}
                   </h3>
                   <span style={{
                     padding: '2px 8px',
@@ -286,11 +289,11 @@ export default function BuyerUpgradePage() {
                     fontSize: 11,
                     fontWeight: 600
                   }}>
-                    EXCLUSIVE
+                    {t('upgrade.mbox_exclusive', locale)}
                   </span>
                 </div>
                 <p style={{ margin: 0, fontSize: 14, color: colors.primaryDark, lineHeight: 1.5 }}>
-                  Subscribe to 4-week prepaid bundles from your favorite vendors. Weekly pickups guaranteed with priority access to limited subscriber spots.
+                  {t('upgrade.mbox_desc', locale)}
                 </p>
               </div>
             </div>
@@ -318,10 +321,10 @@ export default function BuyerUpgradePage() {
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Early Access to Listings
+                  {t('upgrade.early_title', locale)}
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  See new products before standard shoppers. Get first pick on limited and seasonal items.
+                  {t('upgrade.early_desc', locale)}
                 </p>
               </div>
             </div>
@@ -343,10 +346,10 @@ export default function BuyerUpgradePage() {
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Priority Support
+                  {t('upgrade.support_title', locale)}
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  Faster response times with dedicated support for questions and order issues.
+                  {t('upgrade.support_desc', locale)}
                 </p>
               </div>
             </div>
@@ -368,10 +371,10 @@ export default function BuyerUpgradePage() {
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Order Insights Dashboard
+                  {t('upgrade.insights_title', locale)}
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  Track spending trends, view purchase history analytics, and manage favorites.
+                  {t('upgrade.insights_desc', locale)}
                 </p>
               </div>
             </div>
@@ -393,10 +396,10 @@ export default function BuyerUpgradePage() {
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Premium Badge
+                  {t('upgrade.badge_title', locale)}
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  Display badge on your profile showing support for local vendors.
+                  {t('upgrade.badge_desc', locale)}
                 </p>
               </div>
             </div>
@@ -429,7 +432,7 @@ export default function BuyerUpgradePage() {
               marginBottom: 16
             }}>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#333' }}>
-                Monthly
+                {t('upgrade.monthly', locale)}
               </h3>
               {selectedPlan === 'monthly' && (
                 <div style={{
@@ -440,16 +443,16 @@ export default function BuyerUpgradePage() {
                   fontSize: 11,
                   fontWeight: 600
                 }}>
-                  SELECTED
+                  {t('upgrade.selected', locale)}
                 </div>
               )}
             </div>
             <div style={{ marginBottom: 12 }}>
               <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${monthlyPrice}</span>
-              <span style={{ color: '#666', fontSize: 16 }}>/month</span>
+              <span style={{ color: '#666', fontSize: 16 }}>{t('upgrade.per_month', locale)}</span>
             </div>
             <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-              Cancel anytime. No long-term commitment.
+              {t('upgrade.monthly_cancel', locale)}
             </p>
           </div>
 
@@ -477,7 +480,7 @@ export default function BuyerUpgradePage() {
               fontSize: 12,
               fontWeight: 600
             }}>
-              SAVE 32%
+              {t('upgrade.save_percent', locale)}
             </div>
             <div style={{
               display: 'flex',
@@ -486,7 +489,7 @@ export default function BuyerUpgradePage() {
               marginBottom: 16
             }}>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#333' }}>
-                Annual
+                {t('upgrade.annual', locale)}
               </h3>
               {selectedPlan === 'annual' && (
                 <div style={{
@@ -497,16 +500,16 @@ export default function BuyerUpgradePage() {
                   fontSize: 11,
                   fontWeight: 600
                 }}>
-                  SELECTED
+                  {t('upgrade.selected', locale)}
                 </div>
               )}
             </div>
             <div style={{ marginBottom: 12 }}>
               <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${annualPrice}</span>
-              <span style={{ color: '#666', fontSize: 16 }}>/year</span>
+              <span style={{ color: '#666', fontSize: 16 }}>{t('upgrade.per_year', locale)}</span>
             </div>
             <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-              Just ${monthlyEquivalent}/month when billed annually. Save ${annualSavings}!
+              {t('upgrade.annual_savings', locale, { equivalent: monthlyEquivalent, savings: annualSavings })}
             </p>
           </div>
         </div>
@@ -535,14 +538,14 @@ export default function BuyerUpgradePage() {
               minHeight: 56
             }}
           >
-            {isProcessing ? 'Processing...' : `Become a Premium Member - ${selectedPlan === 'monthly' ? `$${monthlyPrice}/mo` : `$${annualPrice}/yr`}`}
+            {isProcessing ? t('upgrade.processing', locale) : `${t('upgrade.become_premium', locale)} - ${selectedPlan === 'monthly' ? `$${monthlyPrice}${t('upgrade.per_month', locale)}` : `$${annualPrice}${t('upgrade.per_year', locale)}`}`}
           </button>
           <p style={{
             marginTop: 16,
             fontSize: 13,
             color: '#666'
           }}>
-            Secure payment powered by Stripe. Cancel anytime.
+            {t('upgrade.secure_stripe', locale)}
           </p>
         </div>
 
@@ -560,32 +563,32 @@ export default function BuyerUpgradePage() {
             fontWeight: 600,
             color: '#333'
           }}>
-            Frequently Asked Questions
+            {t('upgrade.faq_title', locale)}
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What are {term(vertical, 'market_boxes')}?
+                {t('upgrade.faq_q1', locale, { market_boxes: term(vertical, 'market_boxes', locale) })}
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                {term(vertical, 'market_boxes')} are 4-week prepaid subscription bundles from vendors. You get guaranteed weekly pickups with curated items. Only premium shoppers can subscribe!
+                {t('upgrade.faq_a1', locale, { market_boxes: term(vertical, 'market_boxes', locale) })}
               </p>
             </div>
             <div>
               <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                Can I cancel anytime?
+                {t('upgrade.faq_q2', locale)}
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Yes! Cancel your membership anytime. Benefits remain active until your billing period ends. {term(vertical, 'market_box')} subscriptions are separate commitments.
+                {t('upgrade.faq_a2', locale, { market_box: term(vertical, 'market_box', locale) })}
               </p>
             </div>
             <div>
               <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What is early access?
+                {t('upgrade.faq_q3', locale)}
               </h4>
               <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Premium members see new listings before standard shoppers, giving you first pick on limited or seasonal items.
+                {t('upgrade.faq_a3', locale)}
               </p>
             </div>
           </div>

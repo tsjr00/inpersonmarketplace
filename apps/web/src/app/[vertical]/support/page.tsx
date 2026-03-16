@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { SupportForm } from '@/components/support/SupportForm'
 import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 
 interface SupportPageProps {
   params: Promise<{ vertical: string }>
@@ -8,6 +10,7 @@ interface SupportPageProps {
 
 export default async function SupportPage({ params }: SupportPageProps) {
   const { vertical } = await params
+  const locale = await getLocale()
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 20px' }}>
@@ -24,7 +27,7 @@ export default async function SupportPage({ params }: SupportPageProps) {
             gap: 4,
           }}
         >
-          ← Help & FAQ
+          {t('support.back', locale)}
         </Link>
         <h1
           style={{
@@ -34,7 +37,7 @@ export default async function SupportPage({ params }: SupportPageProps) {
             fontSize: typography.sizes['2xl'],
           }}
         >
-          Contact Support
+          {t('support.title', locale)}
         </h1>
         <p
           style={{
@@ -44,8 +47,7 @@ export default async function SupportPage({ params }: SupportPageProps) {
             lineHeight: 1.5,
           }}
         >
-          Have a question or running into an issue? Fill out the form below and
-          we&apos;ll get back to you within 24-48 hours.
+          {t('support.desc', locale)}
         </p>
       </div>
 
@@ -66,15 +68,14 @@ export default async function SupportPage({ params }: SupportPageProps) {
             color: statusColors.neutral600,
           }}
         >
-          Looking for quick answers? Check our{' '}
+          {t('support.quick_answers', locale)}{' '}
           <Link
             href={`/${vertical}/help`}
             style={{ color: statusColors.infoDark, fontWeight: 600 }}
           >
-            Help & FAQ
+            {t('support.help_faq', locale)}
           </Link>{' '}
-          page first — it covers common questions about ordering, pickups, and
-          account management.
+          {t('support.quick_answers_suffix', locale)}
         </p>
       </div>
 
