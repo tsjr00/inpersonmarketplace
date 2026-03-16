@@ -1081,6 +1081,54 @@ export const en: Record<string, string> = {
   'buyer_tier.keep': 'Keep Premium',
   'buyer_tier.processing': 'Processing...',
 
+  // ── Browse page (server) ──────────────────────────────────────────
+  'browse.title': 'Browse',
+  'browse.subtitle_ft': 'Discover menu items and chef boxes from local food trucks near you',
+  'browse.subtitle_fm': 'Discover fresh produce, baked goods, and artisan products from local vendors near you',
+  'browse.in_stock': 'In Stock',
+  'browse.qty_available': 'Qty Available: {count}',
+  'browse.sold_out': 'Sold Out',
+  'browse.pickup_locations': '{count} pickup location{s}',
+  'browse.event_ready': 'Event Ready',
+  'browse.advance_order': 'Advance Order',
+  'browse.prepaid': 'Prepaid',
+
+  // ── Listing detail page ─────────────────────────────────────────
+  'listing.back_to_browse': 'Back to Browse',
+  'listing.description': 'Description',
+  'listing.no_description': 'No description provided.',
+  'listing.allergen_warning': 'Allergen Warning',
+  'listing.allergen_default': 'This product may contain allergens. Contact the vendor for details.',
+  'listing.sold_by': 'Sold by',
+  'listing.member_since': 'Member since {date}',
+  'listing.view_vendor_profile': 'View Vendor Profile',
+  'listing.more_from': 'More from {vendor}',
+
+  // ── Markets page (server) ───────────────────────────────────────
+  'markets_page.subtitle_ft': 'Discover {markets} and food trucks in your area',
+  'markets_page.subtitle_fm': 'Discover local {markets} and shop from {vendors} in your area',
+  'markets_page.no_events_title': 'No upcoming events at this time',
+  'markets_page.no_events_desc': 'Planning an event and need food trucks? We can help you find the perfect vendors for your event.',
+  'markets_page.request_trucks': 'Request Food Trucks for Your Event',
+  'markets_page.upcoming': 'Upcoming {events}',
+  'markets_page.event_badge': 'Event',
+  'markets_page.vendors_count': '{count} {vendors}',
+
+  // ── Market detail page ──────────────────────────────────────────
+  'market_detail.back': 'Back to Markets',
+  'market_detail.applied': 'Applied',
+  'market_detail.event_website': 'Event website →',
+  'market_detail.vendors_count': '{count} vendor{s}',
+  'market_detail.next_date': 'Next: {date}',
+  'market_detail.event_hours': 'Event Hours',
+  'market_detail.season': 'Season',
+  'market_detail.opens': 'Opens {date}',
+  'market_detail.closes': 'Closes {date}',
+  'market_detail.disclaimer_ft': 'This location is listed as a pickup spot by the food trucks shown below. This platform is not affiliated with the {market} management or property owners.',
+  'market_detail.disclaimer_fm': 'This market is listed as a pickup location by the vendors shown below. This platform is not affiliated with the market management.',
+  'market_detail.vendors_at_event': '{vendors} at This Event',
+  'market_detail.vendors_at': '{vendors} at {name}',
+
   // Notifications list page
   'notif_page.back': '← Back to Dashboard',
   'notif_page.title': 'Notifications',
