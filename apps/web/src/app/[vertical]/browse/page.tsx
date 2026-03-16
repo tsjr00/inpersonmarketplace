@@ -16,7 +16,8 @@ import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { deriveAvailabilityStatus } from '@/lib/utils/availability-status'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
-import { getServerLocation } from '@/lib/location/server'
+import { cookies } from 'next/headers'
+import { LOCATION_COOKIE_NAME, DEFAULT_RADIUS, VALID_RADIUS_OPTIONS } from '@/lib/location/server'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
@@ -190,18 +191,30 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
-  const locale = await getLocale()
 
-  // Check if user is premium buyer
-  const { data: { user } } = await supabase.auth.getUser()
+  // A: Parallelize independent queries — auth + locale don't depend on each other
+  const [{ data: { user } }, locale] = await Promise.all([
+    supabase.auth.getUser(),
+    getLocale(),
+  ])
+
+  // B: Combined user_profiles query — buyer_tier + location in one call
+  // (eliminates duplicate auth.getUser + user_profiles queries from getServerLocation)
   let isPremiumBuyer = false
+  let profileLocation: {
+    preferred_latitude: number | null
+    preferred_longitude: number | null
+    location_source: string | null
+    location_text: string | null
+  } | null = null
   if (user) {
     const { data: userProfile } = await supabase
       .from('user_profiles')
-      .select('buyer_tier')
+      .select('buyer_tier, preferred_latitude, preferred_longitude, location_source, location_text')
       .eq('user_id', user.id)
       .single()
     isPremiumBuyer = userProfile?.buyer_tier === 'premium'
+    profileLocation = userProfile
   }
 
   // Determine current view
@@ -573,8 +586,45 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       })
     }
   } else if (!zip && listings && listings.length > 0) {
-    // Source 2: user_location cookie — lat/lng already geocoded (faster, no DB lookup)
-    const serverLocation = await getServerLocation(supabase)
+    // B: Inline location resolution — uses pre-fetched profile data + cookie fallback
+    // (eliminates 2 redundant DB round-trips from getServerLocation)
+    const cookieStore = await cookies()
+    const locationCookie = cookieStore.get(LOCATION_COOKIE_NAME)
+    let cookieRadius = DEFAULT_RADIUS
+
+    if (locationCookie) {
+      try {
+        const cookieData = JSON.parse(locationCookie.value)
+        if (typeof cookieData.radius === 'number' && VALID_RADIUS_OPTIONS.includes(cookieData.radius)) {
+          cookieRadius = cookieData.radius
+        }
+      } catch { /* invalid cookie */ }
+    }
+
+    // Priority: authenticated user profile location → cookie location
+    type LocationData = { latitude: number; longitude: number; locationText: string; radius: number }
+    let serverLocation: LocationData | null = null
+
+    if (profileLocation?.preferred_latitude && profileLocation?.preferred_longitude) {
+      serverLocation = {
+        latitude: profileLocation.preferred_latitude,
+        longitude: profileLocation.preferred_longitude,
+        locationText: profileLocation.location_text || (profileLocation.location_source === 'gps' ? 'Current location' : 'Your location'),
+        radius: cookieRadius,
+      }
+    } else if (locationCookie) {
+      try {
+        const { latitude, longitude, locationText: lt, source } = JSON.parse(locationCookie.value)
+        if (typeof latitude === 'number' && typeof longitude === 'number') {
+          serverLocation = {
+            latitude,
+            longitude,
+            locationText: lt || (source === 'gps' ? 'Current location' : 'Your location'),
+            radius: cookieRadius,
+          }
+        }
+      } catch { /* invalid cookie */ }
+    }
 
     if (serverLocation) {
       locationText = serverLocation.locationText
@@ -628,13 +678,22 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // L-3: Allergen filter removed from browse (kept on listing detail page for warnings)
 
-  // "Available Now" pre-filter — fetch availability for ALL listings before pagination
-  // when ?available=true is set, so we only paginate accepting listings
+  // C: Consolidated availability — single RPC call instead of two
+  // When "Available Now" filter is active, we fetch availability for ALL listings,
+  // filter to accepting ones, paginate, then reuse the data for badges.
+  // When filter is off, we paginate first and only fetch for the page slice.
+  const availabilityMap = new Map<string, { is_accepting: boolean; hours_until_cutoff: number | null; cutoff_hours: number | null }>()
+
   if (isAvailableNow && listings && listings.length > 0) {
+    // Fetch availability for ALL listings (needed to filter before pagination)
     const { data: allAvailData } = await supabase.rpc('get_listings_accepting_status', {
       p_listing_ids: listings.map(l => l.id)
     })
     if (allAvailData) {
+      // Store ALL availability data — we'll reuse it for the paginated slice
+      for (const a of allAvailData) {
+        availabilityMap.set(a.listing_id, a)
+      }
       const acceptingIds = new Set(
         allAvailData.filter((a: { is_accepting: boolean }) => a.is_accepting).map((a: { listing_id: string }) => a.listing_id)
       )
@@ -648,10 +707,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   const safePage = Math.min(currentPage, totalPages)
   const paginatedListings = listings?.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE) || []
 
-  // Fetch availability status from SQL source of truth (uses get_available_pickup_dates internally)
-  // This checks vendor attendance, vendor-specific hours, timezone-aware cutoffs — all in one RPC call
-  const availabilityMap = new Map<string, { is_accepting: boolean; hours_until_cutoff: number | null; cutoff_hours: number | null }>()
-  if (paginatedListings.length > 0) {
+  // Fetch availability for paginated slice — only if not already fetched above
+  if (paginatedListings.length > 0 && !isAvailableNow) {
     const { data: availData } = await supabase.rpc('get_listings_accepting_status', {
       p_listing_ids: paginatedListings.map(l => l.id)
     })

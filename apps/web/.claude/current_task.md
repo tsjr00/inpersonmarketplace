@@ -1,107 +1,89 @@
-# Current Task: Session 59 — Performance Audit Implementation
+# Current Task: Session 59 (continued) — Performance Optimization + Performance Regression Framework
 
 Started: 2026-03-16
 
-## Goal
-Implement all approved items from the performance audit (`apps/web/.claude/performance_audit.md`).
-
 ## Mode
-Fix mode — user approved all items listed below.
+Fix mode — user approved all items.
 
-## What's COMPLETE (all done this session)
+## COMMITS MADE (prior context)
+1. `36ae55e` — perf: comprehensive performance audit (11 items) — PUSHED TO STAGING
+2. `a449813` — feat: ADMIN-R1/R2 business rules (admin account integrity + self-protection) — NOT pushed to staging yet
 
-### Phase 1: Quick Wins
-1. **QW4** — AVIF added to `next.config.ts` image formats ✅
-2. **ME-1** — Removed `force-dynamic` from `src/app/[vertical]/layout.tsx` ✅
-3. **ME-2** — Added 7 `loading.tsx` skeleton files + shared `Skeleton.tsx` component ✅
-   - Files: `browse/`, `listing/[listingId]/`, `vendor/[vendorId]/profile/`, `dashboard/`, `vendor/dashboard/`, `buyer/orders/`, `checkout/`
-4. **ME-3** — Lazy-loaded chart.js via `next/dynamic` on 3 analytics pages ✅
-5. **ME-5** — Batched expired order cleanup with `Promise.allSettled()` in checkout session route ✅
-6. **QW3A** — Cache-Control headers on 3 public API routes ✅
-   - `api/listings/[id]/availability` — `s-maxage=60, stale-while-revalidate=300`
-   - `api/market-boxes` — `s-maxage=300, stale-while-revalidate=600`
-   - `api/markets/[id]/vendors-with-listings` — `s-maxage=300, stale-while-revalidate=600`
-   - Skipped: `api/markets/[id]/vendors` (admin-facing), `api/buyer/location/reverse-geocode` (already has 24hr memory cache), `api/market-boxes/[id]` (user-specific canPurchase)
-7. **QW1** — Compressed `food-truck-lifestyle.png`: 6.6MB PNG → 269KB JPEG (96% reduction) ✅
-   - Converted to `.jpg`, updated Hero.tsx reference
-8. **QW2** — Removed 4 duplicate/unused logo files (saved 2.6MB) ✅
-   - Deleted: `Farmers Marketing Logo.png`, `FastWrks logo.png`, `logo-full-color.png`, `logo-icon-color.png`
-   - Updated: `defaults.ts` (logo_path), `layout.tsx` (default icon)
-   - All confirmed identical via md5sum before deletion
+## What's COMPLETE This Continuation
 
-### Phase 4: Database
-9. **ME-4** — Migration `20260316_084_add_vendor_tier_index.sql` created ✅
-   - `idx_vendor_profiles_vertical_tier ON vendor_profiles(vertical_id, tier)`
-   - Note: `vertical_id + status` index already existed, only tier composite was needed
-   - **NEEDS: Apply to Dev/Staging/Prod, then update schema snapshot**
+### Browse Page Performance Fixes (A, B, C) — CODE DONE, NOT COMMITTED
+Three optimizations to `src/app/[vertical]/browse/page.tsx`:
+- **A: Parallelized** `auth.getUser()` + `getLocale()` via `Promise.all` (were sequential)
+- **B: Eliminated duplicate queries** — Combined `user_profiles` query to fetch both `buyer_tier` AND location fields (`preferred_latitude`, `preferred_longitude`, `location_source`, `location_text`) in single call. Inlined location resolution using pre-fetched data + direct cookie read. Removed `getServerLocation()` import (it was duplicating auth + profile queries). Now imports `cookies` from `next/headers` and `LOCATION_COOKIE_NAME`, `DEFAULT_RADIUS`, `VALID_RADIUS_OPTIONS` from `@/lib/location/server`.
+- **C: Consolidated dual RPC** — `get_listings_accepting_status` is now called once when Available Now filter is active (data reused for badge rendering). Second call only runs when filter is off. Guard: `if (paginatedListings.length > 0 && !isAvailableNow)`.
 
-### Phase 5: Architectural
-10. **AC-2** — Code-split vendor markets page (2583 → 524 lines) ✅
-    - Extracted 3 sections into `src/components/vendor/markets/`:
-      - `MarketSuggestionSection.tsx` (533 lines)
-      - `EventMarketsSection.tsx` (274 lines)
-      - `PrivatePickupSection.tsx` (559 lines)
-      - `types.ts` (65 lines) — shared types
-      - `utils.ts` (33 lines) — shared utility functions (DAYS, formatTime12h, getCutoffDisplay, getDefaultCutoffHours)
-    - All loaded via `next/dynamic` with `ssr: false`
-    - Type check passes (only pre-existing api-route-guards.test.ts error)
+### Performance Regression Framework — ALL DONE, NOT COMMITTED
+User identified critical pattern: sessions undo prior sessions' performance work due to structural bias toward action. Built comprehensive protection system:
 
-11. **AC-5** — SWR client-side caching ✅
-    - `swr` package installed ✅
-    - `src/lib/swr.ts` created (fetcher + swrDefaults) ✅
-    - Notifications page — COMPLETE. Uses `useSWR` for page 1, `extraNotifications` for load-more. Optimistic updates via `mutate()`.
-    - Buyer orders page — COMPLETE. Uses `useSWR` with filter-based key (auto-refetch on filter change). Separate SWR call for markets list (long cache).
+1. **Rule file**: `.claude/rules/no-performance-regression.md` — 5 rules: measure before/after, never increase query count, respect prior sessions, acknowledge limits, loading states are not problems. Strong opening: "Action does not need to be taken just because it can be."
+
+2. **Global CLAUDE.md Rule 1 update**: Added action-bias paragraph under "Scope matching" in `C:\Users\tracy\.claude\CLAUDE.md`
+
+3. **Performance baseline doc**: `.claude/PERFORMANCE_BASELINE.md` — Query structure table for 5 hot-path pages, client bundle sizes (4.3MB, 118 chunks), architectural decisions (ISR not effective, loading.tsx correct, RPC ceiling), known ceilings, change log
+
+4. **Performance regression tests**: `src/lib/__tests__/performance-baseline.test.ts` — **28 tests across 9 groups**:
+   - PERF-R1: Browse page query structure (5 tests — Promise.all, combined profile, no getServerLocation, consolidated RPC)
+   - PERF-R2: Markets page parallelization (2 tests)
+   - PERF-R3: Vendors page parallelization (1 test)
+   - PERF-R4: Listing detail parallelization (2 tests)
+   - PERF-R5: Loading skeletons exist (5 tests — can't be removed)
+   - PERF-R6: Infrastructure files exist (6 tests — self-protecting)
+   - PERF-R7: Bundle size guard (1 test — 150 chunk ceiling)
+   - PERF-R8: Schema snapshot staleness (3 tests — every applied migration must be in changelog)
+   - PERF-R9: Performance baseline staleness (3 tests — date must be within 60 days, change log must have entries)
+
+5. **Schema snapshot updated**: Added 13 previously-undocumented applied migrations to `supabase/SCHEMA_SNAPSHOT.md` changelog (migrations 010-023 and 031 from Sessions 20-27 that pre-dated the changelog system). PERF-R8 test now passes.
+
+6. **Feedback memory saved**: `feedback_action_bias.md` — Records user's directive about structural bias toward action
+
+7. **MEMORY.md updated**: Added action bias reference
+
+### All Tests Pass: 28/28 performance baseline tests, full suite needs final run (was interrupted)
 
 ## What's REMAINING
-- [ ] **Commit all changes** — No commits made yet this session
-- [ ] **Update backlog** if needed (deferred items already added in prior context)
+- [ ] **Run full test suite** — was interrupted, need to confirm all 1230+ tests pass
+- [ ] **Commit all changes** from this continuation (browse perf fixes + performance framework)
+- [ ] **Migration 085** needs application to all 3 envs before committing role enum code changes
+- [ ] **Commit role enum + lazy profile code changes** after migration 085 applied
+- [ ] **Push `a449813` (admin rules) + new commits to staging**
+- [ ] **Update SCHEMA_SNAPSHOT.md** after migration 085 applied
+- [ ] **Browse page Option D** (static shell + client fetch) — deferred to future session
+- [ ] **RPC rewrite** (set-based `get_listings_accepting_status`) — deferred to future session
+- [ ] **Dashboard parallelization** — 6 sequential queries, 0 parallelized. Candidate for future optimization.
+- [ ] **Investigate**: Why did prod admin users disappear? (root cause unknown)
+- [ ] **Dual role columns**: `role` + `roles` on user_profiles — tech debt, future session
 
-## Key Decisions Made
-- **QW3A scope**: Only 3 of 6 candidate routes got Cache-Control. The others were admin-facing or user-specific.
-- **QW2 logo cleanup**: `logo-full-color.png` was identical to `farmersmarketing-full-logo.png` — consolidated to the latter. `logo-icon-color.png` was a fallback default icon — pointed to `farmersmarketing-full-logo.png` instead.
-- **ME-4 index**: Only `vertical_id + tier` needed — `vertical_id + status` already existed since migration 019.
-- **AC-2 approach**: Extracted 3 sections as separate `next/dynamic` components. Traditional Markets section stays inline (always visible first). Each section owns its own form state internally. Shared state (error, selectedMarketForSchedule) passed as props.
-- **AC-5 SWR approach**: Using SWR for initial page load + revalidation. "Load more" pagination stays manual via local state. Not using `useSWRInfinite` to keep it simple.
+## Files Modified This Continuation (not committed)
+- `src/app/[vertical]/browse/page.tsx` — Parallelized auth+locale, combined user_profiles query, inlined location, consolidated RPC
+- `.claude/rules/no-performance-regression.md` — NEW (action bias + regression prevention rules)
+- `.claude/PERFORMANCE_BASELINE.md` — NEW (structural metrics, baselines, ceilings, change log)
+- `src/lib/__tests__/performance-baseline.test.ts` — NEW (28 tests)
+- `C:\Users\tracy\.claude\CLAUDE.md` — Added action-bias paragraph to Rule 1
+- `supabase/SCHEMA_SNAPSHOT.md` — Added 13 missing changelog entries for old applied migrations
 
-## Files Modified This Session
-- `next.config.ts` — AVIF format added
-- `src/app/[vertical]/layout.tsx` — force-dynamic removed, default icon updated
-- `src/components/shared/Skeleton.tsx` — NEW (shared skeleton components)
-- `src/app/[vertical]/browse/loading.tsx` — NEW
-- `src/app/[vertical]/listing/[listingId]/loading.tsx` — NEW
-- `src/app/[vertical]/vendor/[vendorId]/profile/loading.tsx` — NEW
-- `src/app/[vertical]/dashboard/loading.tsx` — NEW
-- `src/app/[vertical]/vendor/dashboard/loading.tsx` — NEW
-- `src/app/[vertical]/buyer/orders/loading.tsx` — NEW
-- `src/app/[vertical]/checkout/loading.tsx` — NEW
-- `src/app/[vertical]/vendor/analytics/page.tsx` — dynamic chart import
-- `src/app/[vertical]/admin/analytics/page.tsx` — dynamic chart import
-- `src/app/admin/analytics/page.tsx` — dynamic chart import
-- `src/app/api/checkout/session/route.ts` — Promise.allSettled batch cleanup
-- `src/app/api/listings/[id]/availability/route.ts` — Cache-Control header
-- `src/app/api/market-boxes/route.ts` — Cache-Control header
-- `src/app/api/markets/[id]/vendors-with-listings/route.ts` — Cache-Control header
-- `public/images/food-truck-lifestyle.jpg` — NEW (compressed replacement)
-- `public/images/food-truck-lifestyle.png` — DELETED
-- `public/Farmers Marketing Logo.png` — DELETED
-- `public/FastWrks logo.png` — DELETED
-- `public/logos/logo-full-color.png` — DELETED
-- `public/logos/logo-icon-color.png` — DELETED
-- `src/components/landing/Hero.tsx` — .png → .jpg reference
-- `src/lib/branding/defaults.ts` — logo_path updated
-- `supabase/migrations/20260316_084_add_vendor_tier_index.sql` — NEW
-- `src/components/vendor/markets/types.ts` — NEW
-- `src/components/vendor/markets/utils.ts` — NEW
-- `src/components/vendor/markets/MarketSuggestionSection.tsx` — NEW
-- `src/components/vendor/markets/EventMarketsSection.tsx` — NEW
-- `src/components/vendor/markets/PrivatePickupSection.tsx` — NEW
-- `src/app/[vertical]/vendor/markets/page.tsx` — REWRITTEN (2583 → 524 lines)
-- `src/lib/swr.ts` — NEW
-- `src/app/[vertical]/notifications/page.tsx` — SWR conversion complete
-- `src/app/[vertical]/buyer/orders/page.tsx` — SWR conversion complete
+## Files Modified From Prior Context (also not committed)
+- `src/lib/supabase/types.ts` — UserRole updated (waiting for migration 085)
+- `src/lib/auth/roles.ts` — isRegionalAdmin, isPlatformAdmin (waiting for migration 085)
+- `src/lib/auth/admin.ts` — UserRole updated (waiting for migration 085)
+- `src/app/[vertical]/login/page.tsx` — Lazy profile creation (waiting for migration 085)
+
+## Key Decisions Made This Continuation
+- **Browse page Option D deferred** — Static shell + client fetch is biggest win but most effort. User chose A/B/C first.
+- **RPC rewrite deferred** — 3 options analyzed (set-based, lightweight boolean, cache table). Deferred.
+- **Action bias rule added to CLAUDE.md** — User's exact words: "Action does not need to be taken just because it can be. Choosing to act or advise the user to act when the action will reduce performance is a failure and breach of responsibility."
+- **60-day staleness window** for PERFORMANCE_BASELINE.md
+- **Schema staleness test** checks every applied migration individually (no grouped references)
 
 ## Gotchas / Watch Out For
-- **Both SWR pages complete and type-clean** — notifications + buyer orders.
-- **Pre-existing type error** in `api-route-guards.test.ts` — RequestInit.signal incompatibility. Not caused by our changes.
-- **Migration 084 needs application** — user must apply to Dev/Staging/Prod before it can be moved to applied/
-- **`getDefaultCutoffHours` signature changed** — old: `(marketType: string)`, new in utils.ts: `(vertical: string, marketType: string)`. The main page.tsx uses the new signature correctly.
+- **ISR on browse page is NOT effective** — `createClient()` calls `cookies()` which opts into dynamic rendering. `revalidate = 300` does nothing.
+- **loading.tsx is NOT the problem** — it reveals existing ~0.5s SSR latency. Don't remove it.
+- **getServerLocation still used** by markets + vendors pages — only removed from browse page
+- **Migration 085 must be applied before** committing role enum code changes
+- **Pre-existing type error** in `api-route-guards.test.ts` — not our fault
+- **Dashboard page has 0 parallelization** — 6 sequential queries, known ceiling documented in baseline
+- **User's core principle**: "find the data then make decisions — don't guess"
