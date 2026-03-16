@@ -757,6 +757,43 @@
 
 ---
 
+## K. Admin Account Integrity
+
+### Required Admin Accounts
+
+**ADMIN-R1:** Platform admin accounts must always exist and maintain admin access. The following accounts are designated platform admins and MUST NOT be deleted, demoted, or have their admin role removed:
+- `jennifer@8fifteenconsulting.com` (role: admin)
+- `tsjr00@gmail.com` (role: admin)
+
+Both accounts must exist in:
+1. The REQUIRED_ADMIN_EMAILS constant in `src/lib/auth/admin-accounts.ts`
+2. Production `auth.users` (with email confirmed)
+3. Production `user_profiles` (with role = 'admin')
+
+No migration, function, trigger, RLS policy, or code change may remove these emails from the required list, delete these users from auth, or demote their role without explicit user approval documented in the decision log.
+  Source: `src/lib/auth/admin-accounts.ts` (REQUIRED_ADMIN_EMAILS)
+  Test type: Unit — assert the constant contains both emails, assert the constant has at least 2 entries
+  Incident: Session 59 — both admin accounts were missing from prod auth.users, causing complete admin lockout
+
+### Self-Protection
+
+**ADMIN-R2:** The admin integrity rule (ADMIN-R1), this rule (ADMIN-R2), and their test file must not be deleted, emptied, or weakened. The following files MUST exist:
+1. This rule (ADMIN-R2) in `business-rules-document.md`
+2. Rule ADMIN-R1 in `business-rules-document.md`
+3. The constant file: `src/lib/auth/admin-accounts.ts`
+4. The test file: `src/lib/__tests__/admin-account-integrity.test.ts`
+
+The test file must contain assertions that verify:
+- ADMIN-R1 required emails exist in the constant
+- The test file itself exists on disk
+- The constant file exists on disk
+- Both ADMIN-R1 and ADMIN-R2 are documented in the business rules spec
+  Source: `src/lib/__tests__/admin-account-integrity.test.ts`
+  Test type: Unit — file existence checks + string content assertions
+  Incident: Session 59 — admin lockout revealed no guardrails existed to prevent admin account loss
+
+---
+
 ## Progress Checklist
 
 - [x] A. Pricing & Fees — PF-001 through PF-027
@@ -771,12 +808,13 @@
 - [x] H. Vendor Onboarding — OB-001 through OB-007
 - [x] I. Payments & Payouts — PP-001 through PP-002
 - [x] J. Cron Jobs — CR-001 through CR-028
+- [x] K. Admin Account Integrity — ADMIN-R1 through ADMIN-R2
 
 ---
 
 ## Summary
 
-**Total business rules extracted: 133**
+**Total business rules extracted: 135**
 
 | Domain | Prefix | Count | Test Type |
 |--------|--------|-------|-----------|
@@ -792,6 +830,7 @@
 | Vendor Onboarding | OB | 7 | Integration |
 | Payments & Payouts | PP | 2 | Unit |
 | Cron Jobs | CR | 28 | Unit |
+| Admin Account Integrity | ADMIN | 2 | Unit |
 
-**Unit-testable:** ~120 rules (pure functions, no DB needed)
+**Unit-testable:** ~122 rules (pure functions, no DB needed)
 **Integration-testable:** ~13 rules (need real Supabase)
