@@ -3,7 +3,11 @@
  *
  * These templates replace Supabase's built-in auth emails with branded versions
  * sent through Resend. Each template returns subject + HTML + plain text.
+ *
+ * i18n: All user-visible strings use t() for locale-aware translation.
  */
+
+import { t } from '@/lib/locale/messages'
 
 interface AuthEmailTemplateInput {
   brandName: string
@@ -11,6 +15,7 @@ interface AuthEmailTemplateInput {
   brandDomain: string
   verificationUrl: string
   vertical?: string
+  locale?: string
 }
 
 interface AuthEmailTemplate {
@@ -41,85 +46,90 @@ export function getAuthEmailTemplate(
   }
 }
 
-function signupTemplate({ brandName, verificationUrl }: AuthEmailTemplateInput): AuthEmailTemplate {
+function signupTemplate({ brandName, verificationUrl, locale }: AuthEmailTemplateInput): AuthEmailTemplate {
+  const vars = { brandName }
   return {
-    subject: `Confirm your ${brandName} account`,
+    subject: t('auth_email.signup_subject', locale, vars),
     htmlBody: `
-      <p style="margin:0 0 12px">Welcome to ${brandName}!</p>
-      <p style="margin:0 0 12px">Click the button below to confirm your email address and get started.</p>
+      <p style="margin:0 0 12px">${t('auth_email.signup_welcome', locale, vars)}</p>
+      <p style="margin:0 0 12px">${t('auth_email.signup_cta', locale)}</p>
       <p style="margin:24px 0;text-align:center">
-        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">Confirm Email</a>
+        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">${t('auth_email.signup_btn', locale)}</a>
       </p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">If the button doesn't work, copy and paste this link into your browser:</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.btn_fallback', locale)}</p>
       <p style="margin:0 0 12px;color:#6b7280;font-size:13px;word-break:break-all">${verificationUrl}</p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">If you didn't create an account, you can safely ignore this email.</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.signup_ignore', locale)}</p>
     `,
-    textBody: `Welcome to ${brandName}!\n\nConfirm your email address by visiting:\n${verificationUrl}\n\nIf you didn't create an account, you can safely ignore this email.`,
+    textBody: `${t('auth_email.signup_welcome', locale, vars)}\n\n${t('auth_email.signup_cta', locale)}\n${verificationUrl}\n\n${t('auth_email.signup_ignore', locale)}`,
   }
 }
 
-function recoveryTemplate({ brandName, verificationUrl }: AuthEmailTemplateInput): AuthEmailTemplate {
+function recoveryTemplate({ brandName, verificationUrl, locale }: AuthEmailTemplateInput): AuthEmailTemplate {
+  const vars = { brandName }
   return {
-    subject: `Reset your ${brandName} password`,
+    subject: t('auth_email.recovery_subject', locale, vars),
     htmlBody: `
-      <p style="margin:0 0 12px">We received a request to reset your ${brandName} password.</p>
-      <p style="margin:0 0 12px">Click the button below to choose a new password.</p>
+      <p style="margin:0 0 12px">${t('auth_email.recovery_intro', locale, vars)}</p>
+      <p style="margin:0 0 12px">${t('auth_email.recovery_cta', locale)}</p>
       <p style="margin:24px 0;text-align:center">
-        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">Reset Password</a>
+        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">${t('auth_email.recovery_btn', locale)}</a>
       </p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">If the button doesn't work, copy and paste this link into your browser:</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.btn_fallback', locale)}</p>
       <p style="margin:0 0 12px;color:#6b7280;font-size:13px;word-break:break-all">${verificationUrl}</p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.recovery_ignore', locale)}</p>
     `,
-    textBody: `We received a request to reset your ${brandName} password.\n\nReset your password by visiting:\n${verificationUrl}\n\nIf you didn't request this, you can safely ignore this email.`,
+    textBody: `${t('auth_email.recovery_intro', locale, vars)}\n\n${t('auth_email.recovery_cta', locale)}\n${verificationUrl}\n\n${t('auth_email.recovery_ignore', locale)}`,
   }
 }
 
-function magiclinkTemplate({ brandName, verificationUrl }: AuthEmailTemplateInput): AuthEmailTemplate {
+function magiclinkTemplate({ brandName, verificationUrl, locale }: AuthEmailTemplateInput): AuthEmailTemplate {
+  const vars = { brandName }
   return {
-    subject: `Your ${brandName} login link`,
+    subject: t('auth_email.magiclink_subject', locale, vars),
     htmlBody: `
-      <p style="margin:0 0 12px">Click the button below to log in to your ${brandName} account.</p>
+      <p style="margin:0 0 12px">${t('auth_email.magiclink_cta', locale, vars)}</p>
       <p style="margin:24px 0;text-align:center">
-        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">Log In</a>
+        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">${t('auth_email.magiclink_btn', locale)}</a>
       </p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">If the button doesn't work, copy and paste this link into your browser:</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.btn_fallback', locale)}</p>
       <p style="margin:0 0 12px;color:#6b7280;font-size:13px;word-break:break-all">${verificationUrl}</p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.magiclink_expire', locale)}</p>
     `,
-    textBody: `Log in to your ${brandName} account by visiting:\n${verificationUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can safely ignore this email.`,
+    textBody: `${t('auth_email.magiclink_cta', locale, vars)}\n${verificationUrl}\n\n${t('auth_email.magiclink_expire', locale)}`,
   }
 }
 
-function emailChangeTemplate({ brandName, verificationUrl }: AuthEmailTemplateInput): AuthEmailTemplate {
+function emailChangeTemplate({ brandName, verificationUrl, locale }: AuthEmailTemplateInput): AuthEmailTemplate {
+  const vars = { brandName }
   return {
-    subject: `Confirm your new email for ${brandName}`,
+    subject: t('auth_email.email_change_subject', locale, vars),
     htmlBody: `
-      <p style="margin:0 0 12px">You requested to change the email address on your ${brandName} account.</p>
-      <p style="margin:0 0 12px">Click the button below to confirm your new email address.</p>
+      <p style="margin:0 0 12px">${t('auth_email.email_change_intro', locale, vars)}</p>
+      <p style="margin:0 0 12px">${t('auth_email.email_change_cta', locale)}</p>
       <p style="margin:24px 0;text-align:center">
-        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">Confirm New Email</a>
+        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">${t('auth_email.email_change_btn', locale)}</a>
       </p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">If the button doesn't work, copy and paste this link into your browser:</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.btn_fallback', locale)}</p>
       <p style="margin:0 0 12px;color:#6b7280;font-size:13px;word-break:break-all">${verificationUrl}</p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">If you didn't make this change, please secure your account immediately.</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.email_change_warn', locale)}</p>
     `,
-    textBody: `You requested to change the email address on your ${brandName} account.\n\nConfirm your new email by visiting:\n${verificationUrl}\n\nIf you didn't make this change, please secure your account immediately.`,
+    textBody: `${t('auth_email.email_change_intro', locale, vars)}\n\n${t('auth_email.email_change_cta', locale)}\n${verificationUrl}\n\n${t('auth_email.email_change_warn', locale)}`,
   }
 }
 
-function inviteTemplate({ brandName, verificationUrl }: AuthEmailTemplateInput): AuthEmailTemplate {
+function inviteTemplate({ brandName, verificationUrl, locale }: AuthEmailTemplateInput): AuthEmailTemplate {
+  const vars = { brandName }
   return {
-    subject: `You've been invited to ${brandName}`,
+    subject: t('auth_email.invite_subject', locale, vars),
     htmlBody: `
-      <p style="margin:0 0 12px">You've been invited to join ${brandName}!</p>
-      <p style="margin:0 0 12px">Click the button below to accept the invitation and set up your account.</p>
+      <p style="margin:0 0 12px">${t('auth_email.invite_welcome', locale, vars)}</p>
+      <p style="margin:0 0 12px">${t('auth_email.invite_cta', locale)}</p>
       <p style="margin:24px 0;text-align:center">
-        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">Accept Invitation</a>
+        <a href="${verificationUrl}" style="display:inline-block;padding:12px 32px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600">${t('auth_email.invite_btn', locale)}</a>
       </p>
-      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">If the button doesn't work, copy and paste this link into your browser:</p>
+      <p style="margin:0 0 12px;color:#6b7280;font-size:13px">${t('auth_email.btn_fallback', locale)}</p>
       <p style="margin:0 0 12px;color:#6b7280;font-size:13px;word-break:break-all">${verificationUrl}</p>
     `,
-    textBody: `You've been invited to join ${brandName}!\n\nAccept the invitation by visiting:\n${verificationUrl}`,
+    textBody: `${t('auth_email.invite_welcome', locale, vars)}\n\n${t('auth_email.invite_cta', locale)}\n${verificationUrl}`,
   }
 }

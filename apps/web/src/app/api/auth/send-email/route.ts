@@ -10,9 +10,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Webhook } from 'standardwebhooks'
 import { withErrorTracing } from '@/lib/errors'
-import { getResendClient, formatEmailHtml } from '@/lib/notifications/service'
+import { getResendClient } from '@/lib/notifications/service'
 import { getEmailFromAddress, getEmailBranding } from '@/lib/notifications/email-config'
 import { getAuthEmailTemplate } from '@/lib/notifications/auth-email-templates'
+import { createServiceClient } from '@/lib/supabase/server'
+import { t } from '@/lib/locale/messages'
 
 const KNOWN_VERTICALS = ['farmers_market', 'food_trucks']
 
@@ -164,6 +166,23 @@ export async function POST(request: NextRequest) {
     const fromAddress = getEmailFromAddress(vertical)
     const { brandName, brandDomain, brandColor, logoUrl } = getEmailBranding(vertical)
 
+    // Look up user's locale preference for i18n
+    let userLocale: string | undefined
+    try {
+      const supabase = createServiceClient()
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('notification_preferences')
+        .eq('user_id', user.id)
+        .single()
+      const prefs = profile?.notification_preferences as Record<string, unknown> | null
+      if (typeof prefs?.locale === 'string') {
+        userLocale = prefs.locale
+      }
+    } catch {
+      // Non-critical: fall back to English
+    }
+
     // Build verification URL with correct redirect for this vertical
     const verificationUrl = buildVerificationUrl(email_data, vertical, brandDomain)
 
@@ -174,6 +193,7 @@ export async function POST(request: NextRequest) {
       brandDomain,
       verificationUrl,
       vertical,
+      locale: userLocale,
     })
 
     // Send via Resend
@@ -199,7 +219,7 @@ export async function POST(request: NextRequest) {
       ${brandName} &middot; <a href="https://${brandDomain}" style="color:#9ca3af">${brandDomain}</a>
     </p>
     <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:8px">
-      This is an automated message. Please do not reply to this email. If you need help, contact us at <a href="https://${brandDomain}${supportPath}" style="color:#9ca3af">${brandDomain}${supportPath}</a>.
+      ${t('email.do_not_reply', userLocale)} <a href="https://${brandDomain}${supportPath}" style="color:#9ca3af">${brandDomain}${supportPath}</a>.
     </p>
   </div>
 </body>
