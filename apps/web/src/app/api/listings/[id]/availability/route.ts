@@ -108,6 +108,8 @@ export async function GET(
         markets,
         closing_soon: closingSoon,
         hours_until_cutoff: hoursUntilCutoff
+      }, {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
       })
     } catch (error) {
       console.error('Availability check error:', error)

@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import useSWR from 'swr'
 import Link from 'next/link'
 import { formatPrice, calculateDisplayPrice, calculateBuyerPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { fetcher } from '@/lib/swr'
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { term } from '@/lib/vertical'
@@ -137,59 +139,40 @@ export default function BuyerOrdersPage() {
   const vertical = params.vertical as string
   const locale = getClientLocale()
 
-  const [orders, setOrders] = useState<Order[]>([])
-  const [markets, setMarkets] = useState<Market[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [marketFilter, setMarketFilter] = useState<string>('')
   const [view, setView] = useState<'current' | 'history'>('current')
 
-  useEffect(() => {
-    fetchOrders()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, marketFilter])
+  // Build SWR key from filters — key changes trigger automatic refetch
+  const queryParams = new URLSearchParams()
+  queryParams.set('vertical', vertical)
+  if (statusFilter) queryParams.set('status', statusFilter)
+  if (marketFilter) queryParams.set('market', marketFilter)
+  const swrKey = `/api/buyer/orders?${queryParams.toString()}`
 
-  async function fetchOrders() {
-    try {
-      setError(null)
-      const queryParams = new URLSearchParams()
-      queryParams.set('vertical', vertical)
-      if (statusFilter) queryParams.set('status', statusFilter)
-      if (marketFilter) queryParams.set('market', marketFilter)
-      const response = await fetch(`/api/buyer/orders?${queryParams.toString()}`)
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push(`/${vertical}/login?redirect=/${vertical}/buyer/orders`)
-          return
-        }
-        // Try to extract error details from response
-        try {
-          const errorData = await response.json()
-          setError({
-            message: errorData.error || 'Failed to fetch orders',
-            code: errorData.code,
-            traceId: errorData.traceId
-          })
-        } catch {
-          setError({ message: 'Failed to fetch orders' })
-        }
-        return
+  const { data: swrData, error: swrError, isLoading: loading } = useSWR(swrKey, fetcher, {
+    dedupingInterval: 10000,
+    onError: (err: Error & { status?: number }) => {
+      if (err.status === 401) {
+        router.push(`/${vertical}/login?redirect=/${vertical}/buyer/orders`)
       }
+    },
+  })
 
-      const data = await response.json()
-      setOrders(data.orders || [])
-      // Only update markets on initial load (no filters) to preserve the full list
-      if (!statusFilter && !marketFilter && data.markets) {
-        setMarkets(data.markets)
-      }
-    } catch (err) {
-      setError({ message: err instanceof Error ? err.message : 'Failed to load orders' })
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Separate SWR call for the unfiltered markets list (only fetched once)
+  const { data: marketsData } = useSWR(
+    `/api/buyer/orders?vertical=${vertical}`,
+    fetcher,
+    { dedupingInterval: 60000, revalidateOnFocus: false }
+  )
+
+  const orders: Order[] = swrData?.orders || []
+  const markets: Market[] = marketsData?.markets || []
+  const error = swrError ? {
+    message: (swrError as Error & { info?: { error?: string } })?.info?.error || 'Failed to fetch orders',
+    code: (swrError as Error & { info?: { code?: string } })?.info?.code,
+    traceId: (swrError as Error & { info?: { traceId?: string } })?.info?.traceId,
+  } : null
 
   // Status colors matching vendor OrderCard for consistency
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {

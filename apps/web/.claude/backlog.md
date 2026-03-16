@@ -1,6 +1,6 @@
 # Backlog
 
-Last updated: 2026-03-05
+Last updated: 2026-03-16
 
 ## Priority 1 — Next Session
 - [x] **FM free tier + tier restructure** — ALREADY DONE (migration 061, code, UI all in place). Confirmed 2026-03-05.
@@ -26,11 +26,20 @@ Last updated: 2026-03-05
   8. **Device/Browser** — PWA, push notifications, mobile quirks, responsive patterns, offline.
   - Process: For each topic, Claude reads all relevant code, writes findings to a `.claude/deep-dive-[topic].md` file, then consolidates into a reference doc in `docs/`.
 
+## Priority 2.6 — Performance Audit Deferred Items (Session 59)
+
+All items below require rules & tests written BEFORE implementation. See `apps/web/.claude/performance_audit.md` for full details.
+
+- [ ] **Backlog #1: ME-6 — Replace `select('*')` with explicit column lists** — `src/lib/db/listings.ts`, `src/lib/db/vendors.ts`, `src/lib/db/verticals.ts`. Write rules defining which columns each caller needs, write tests validating the column sets, then make the changes. No SQL migrations — this is TypeScript code only.
+- [ ] **Backlog #2: AC-4 — Optimize heavy RLS policies on markets table** — Markets SELECT policy has nested EXISTS subquery checking order_items for every row. Write rules defining expected policy behavior, write tests verifying access patterns, then optimize the policy. Migration required.
+- [ ] **Backlog #3: AC-3 — PostGIS spatial indexing for browse page** — Option A (PostGIS) approved. Enable PostGIS extension, add geography column to markets table, create spatial index, rewrite browse queries to use `ST_DWithin()`. Replaces current JS Haversine filtering. Write rules & tests first.
+
 ## Priority 2.7 — Session 55 Deferred Items
 - [ ] **L4: Zod input validation on API routes** — Currently only vendor signup uses Zod. Other routes use manual checks. Gradually add Zod schemas to remaining API routes for consistent validation. Low priority, do incrementally.
 - [ ] **L6: SMS send logic when push enabled** — Verify SMS-skip-when-push logic works correctly in service.ts. A2P 10DLC still pending carrier approval, so this is blocked anyway.
 - [ ] **L2: External cron monitoring** — Integrate free monitoring service (Cronitor/Better Uptime) for cron heartbeat. Deferred post-launch.
-- [ ] **M4: Availability system consolidation** — Two availability systems (SQL RPC `get_available_pickup_dates()` vs JS `processListingMarkets()`) can diverge. 5 scenarios identified. Recommendation: consolidate on SQL RPC. Large refactor — post-launch.
+- [x] **M4: Availability system consolidation** — DONE: commit `3e56fcf` (Session 56). Dead JS availability system deleted, consolidated on SQL RPC. 47 functional tests added.
+- [x] **Sales tax tracking** — DONE: commit `29faa65` (Session 54). is_taxable flag, help article, vendor tax report.
 
 ## Priority 3 — When Time Allows
 - [ ] **Geographic intelligence feature** — Plan exists at `.claude/geographic_intelligence_plan.md`

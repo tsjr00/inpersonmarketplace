@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-03-16 | 20260316_084_add_vendor_tier_index | **New index:** `idx_vendor_profiles_vertical_tier` on `vendor_profiles(vertical_id, tier)`. Composite index for browse/dashboard queries filtering by vertical + tier. Applied to Dev, Staging, & Prod. |
 | 2026-03-14 | 20260314_083_coi_soft_gate | **Function rewrite:** `can_vendor_publish()` — removed COI status check (Gate 3). COI is now a **soft gate** for regular publishing (VJ-R1) — vendors can publish listings without approved COI. COI remains a **hard gate** for event-vendor approval only (enforced in event-approval API route, not DB function). Previously required `coi_status = 'approved'` which blocked all vendors without COI from publishing. No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
 | 2026-03-14 | 20260314_082_sales_tax_help_article | **Data insert:** 1 new global `knowledge_articles` row (vertical_id=NULL) under "For Vendors" category: "Sales Tax: What Vendors Need to Know". TX-specific tax guidance for vendors — taxable vs exempt items, responsibilities, platform tracking features, Comptroller links. sort_order 20. No schema changes — content only. Applied to Dev, Staging, & Prod. |
 | 2026-03-14 | 20260314_081_add_listing_is_taxable | **New column:** `listings.is_taxable` (BOOLEAN NOT NULL DEFAULT false). Vendor-set flag indicating item is subject to sales tax. Used for tax reporting/tracking only — platform does not collect/remit tax. Applied to Dev, Staging, & Prod. |
@@ -1909,6 +1910,7 @@
 | idx_vendor_profiles_home_market_id | btree (home_market_id) |
 | idx_vendor_profiles_coordinates | btree (latitude, longitude) WHERE ((latitude IS NOT NULL) AND (longitude IS NOT NULL)) |
 | idx_vendor_profiles_vertical_status | btree (vertical_id, status) |
+| idx_vendor_profiles_vertical_tier | btree (vertical_id, tier) |
 | vendor_profiles_referral_code_key | UNIQUE btree (referral_code) |
 | idx_vendor_profiles_referral_code | btree (referral_code) |
 | idx_vendor_profiles_referred_by | btree (referred_by_vendor_id) |

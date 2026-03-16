@@ -318,7 +318,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
             width: '100vw',
           }}>
             <Image
-              src="/images/food-truck-lifestyle.png"
+              src="/images/food-truck-lifestyle.jpg"
               alt="Customer ordering at a food truck"
               width={1200}
               height={600}
