@@ -9,6 +9,8 @@ import {
   formatCutoffRemaining,
   getPickupDateColor
 } from '@/types/pickup'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 /*
  * PICKUP SCHEDULING CONTEXT
@@ -28,6 +30,8 @@ export default function PickupLocationsCard({
   marketPickupDates,
   primaryColor = colors.primary
 }: PickupLocationsCardProps) {
+  const locale = getClientLocale()
+
   if (!marketPickupDates || marketPickupDates.length === 0) {
     return null
   }
@@ -53,7 +57,7 @@ export default function PickupLocationsCard({
         statusColor: '#991b1b',
         textColor: '#7f1d1d',
         icon: '✗',
-        statusText: 'Closed'
+        statusText: t('listing.status_closed', locale)
       }
     }
     if (isClosingSoon) {
@@ -74,7 +78,7 @@ export default function PickupLocationsCard({
       statusColor: '#166534',
       textColor: '#15803d',
       icon: '✓',
-      statusText: 'Open'
+      statusText: t('listing.status_open', locale)
     }
   }
 
@@ -99,7 +103,7 @@ export default function PickupLocationsCard({
             color: colors.textPrimary,
             fontSize: typography.sizes.sm
           }}>
-            Pickup Options
+            {t('listing.pickup_options', locale)}
           </span>
         </div>
       </div>
@@ -231,7 +235,7 @@ export default function PickupLocationsCard({
                 color: colors.textMuted,
                 lineHeight: 1.4
               }}>
-                Orders close before each pickup to give vendors time to prepare.
+                {t('listing.orders_close_note', locale)}
               </p>
             </div>
           </div>

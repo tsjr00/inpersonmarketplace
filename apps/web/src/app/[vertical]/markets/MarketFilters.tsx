@@ -4,6 +4,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useState, useCallback } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface MarketFiltersProps {
   vertical?: string
@@ -24,6 +26,7 @@ export default function MarketFilters({
   cities,
   states,
 }: MarketFiltersProps) {
+  const locale = getClientLocale()
   const router = useRouter()
   const pathname = usePathname()
   const [search, setSearch] = useState(currentSearch || '')
@@ -93,14 +96,14 @@ export default function MarketFilters({
             fontWeight: typography.weights.medium,
             color: colors.textSecondary
           }}>
-            Search {vertical ? term(vertical, 'traditional_markets') : 'Markets'}
+            {t('markets.search_label', locale, { markets: vertical ? term(vertical, 'traditional_markets', locale) : t('markets.fm_markets', locale) })}
           </label>
           <div style={{ display: 'flex', gap: spacing['2xs'] }}>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name..."
+              placeholder={t('markets.search_placeholder', locale)}
               style={{
                 flex: 1,
                 padding: `${spacing['2xs']} ${spacing.xs}`,
@@ -126,7 +129,7 @@ export default function MarketFilters({
                 whiteSpace: 'nowrap'
               }}
             >
-              Search
+              {t('markets.search', locale)}
             </button>
           </div>
         </form>
@@ -141,7 +144,7 @@ export default function MarketFilters({
               fontWeight: typography.weights.medium,
               color: colors.textSecondary
             }}>
-              State
+              {t('markets.state_label', locale)}
             </label>
             <select
               value={currentState || ''}
@@ -157,7 +160,7 @@ export default function MarketFilters({
                 cursor: 'pointer'
               }}
             >
-              <option value="">All States</option>
+              <option value="">{t('markets.all_states', locale)}</option>
               {states.map(st => (
                 <option key={st} value={st}>{st}</option>
               ))}
@@ -175,7 +178,7 @@ export default function MarketFilters({
               fontWeight: typography.weights.medium,
               color: colors.textSecondary
             }}>
-              City
+              {t('markets.city_label', locale)}
             </label>
             <select
               value={currentCity || ''}
@@ -191,7 +194,7 @@ export default function MarketFilters({
                 cursor: 'pointer'
               }}
             >
-              <option value="">All Cities</option>
+              <option value="">{t('markets.all_cities', locale)}</option>
               {cities.sort().map(city => (
                 <option key={city} value={city}>{city}</option>
               ))}
@@ -208,7 +211,7 @@ export default function MarketFilters({
             fontWeight: typography.weights.medium,
             color: colors.textSecondary
           }}>
-            Type
+            {t('markets.type_label', locale)}
           </label>
           <select
             value={currentType || ''}
@@ -224,11 +227,11 @@ export default function MarketFilters({
               cursor: 'pointer'
             }}
           >
-            <option value="">All Types</option>
+            <option value="">{t('markets.all_types', locale)}</option>
             <option value="traditional">
-              {vertical === 'food_trucks' ? 'Food Truck Parks' : 'Markets'}
+              {vertical === 'food_trucks' ? t('markets.ft_parks', locale) : t('markets.fm_markets', locale)}
             </option>
-            <option value="event">Events</option>
+            <option value="event">{t('markets.events', locale)}</option>
           </select>
         </div>
 
@@ -250,7 +253,7 @@ export default function MarketFilters({
                 minHeight: 38
               }}
             >
-              Clear
+              {t('markets.clear', locale)}
             </button>
           </div>
         )}

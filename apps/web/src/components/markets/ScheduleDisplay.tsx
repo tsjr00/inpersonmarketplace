@@ -1,6 +1,8 @@
 'use client'
 
 import { formatTimeWithTZ, getTimezoneAbbreviation } from '@/lib/utils/timezone'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Schedule {
   id: string
@@ -29,12 +31,13 @@ function formatTime(time: string): string {
 }
 
 export default function ScheduleDisplay({ schedules, compact = false, grid = false, timezone }: ScheduleDisplayProps) {
+  const locale = getClientLocale()
   const activeSchedules = schedules.filter(s => s.active)
 
   if (activeSchedules.length === 0) {
     return (
       <span style={{ color: '#666', fontStyle: 'italic' }}>
-        No schedule set
+        {t('schedule.no_schedule', locale)}
       </span>
     )
   }
@@ -63,7 +66,7 @@ export default function ScheduleDisplay({ schedules, compact = false, grid = fal
             padding: '4px 2px',
             borderBottom: '1px solid #e0e0e0',
           }}>
-            {DAY_NAMES_SHORT[s.day_of_week]}
+            {t('day.short_' + s.day_of_week, locale)}
           </div>
         ))}
         {/* Time values */}
@@ -100,7 +103,7 @@ export default function ScheduleDisplay({ schedules, compact = false, grid = fal
     const tzAbbr = getTimezoneAbbreviation(timezone)
     const parts = Object.entries(timeGroups).map(([timeKey, days]) => {
       const [start, end] = timeKey.split('-')
-      const dayNames = days.map(d => DAY_NAMES_SHORT[d]).join(', ')
+      const dayNames = days.map(d => t('day.short_' + d, locale)).join(', ')
       return `${dayNames} ${formatTime(start)} - ${formatTime(end)}`
     })
 
@@ -127,7 +130,7 @@ export default function ScheduleDisplay({ schedules, compact = false, grid = fal
           }}
         >
           <span style={{ fontWeight: 500 }}>
-            {DAY_NAMES[schedule.day_of_week]}
+            {t('day.' + schedule.day_of_week, locale)}
           </span>
           <span style={{ color: '#666' }}>
             {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}

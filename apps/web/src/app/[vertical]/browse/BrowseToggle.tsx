@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { VerticalBranding } from '@/lib/branding'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface BrowseToggleProps {
   vertical: string
@@ -15,6 +17,7 @@ export default function BrowseToggle({
   currentView,
   branding
 }: BrowseToggleProps) {
+  const locale = getClientLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -65,7 +68,7 @@ export default function BrowseToggle({
             minWidth: 160
           }}
         >
-          {term(vertical, 'products')} & Bundles
+          {t('browse.products_bundles', locale, { products: term(vertical, 'products', locale) })}
         </button>
         <button
           onClick={() => handleToggle('market-boxes')}
@@ -82,7 +85,7 @@ export default function BrowseToggle({
             minWidth: 160
           }}
         >
-          {term(vertical, 'market_boxes')}
+          {term(vertical, 'market_boxes', locale)}
         </button>
       </div>
     </div>

@@ -8,6 +8,8 @@ import TierBadge from '@/components/shared/TierBadge'
 import { VendorTierType } from '@/lib/constants'
 import { term } from '@/lib/vertical'
 import { colors, spacing, typography, radius as radiusToken } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
 import { createClient } from '@/lib/supabase/client'
 
@@ -120,6 +122,7 @@ export default function VendorsWithLocation({
   filtersSlot,
   initialFavoritesFilter = false
 }: VendorsWithLocationProps) {
+  const locale = getClientLocale()
   // Initialize state from server-provided location (if available)
   const [hasLocation, setHasLocation] = useState<boolean | null>(initialLocation ? true : null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(
@@ -238,7 +241,7 @@ export default function VendorsWithLocation({
       if (data.hasLocation) {
         setHasLocation(true)
         setUserLocation({ lat: data.latitude, lng: data.longitude })
-        setLocationText(data.locationText || 'Your location')
+        setLocationText(data.locationText || t('location.your_location', locale))
         if (data.radius) setRadius(data.radius)
         // Fetch nearby vendors and then mark location as checked
         await fetchNearbyVendors(data.latitude, data.longitude, 0)
@@ -339,9 +342,9 @@ export default function VendorsWithLocation({
       try {
         const response = await fetch('/api/buyer/location')
         const data = await response.json()
-        setLocationText(data.locationText || (source === 'gps' ? 'Current location' : 'Your location'))
+        setLocationText(data.locationText || (source === 'gps' ? t('location.current_location', locale) : t('location.your_location', locale)))
       } catch {
-        setLocationText(source === 'gps' ? 'Current location' : 'Your location')
+        setLocationText(source === 'gps' ? t('location.current_location', locale) : t('location.your_location', locale))
       }
     }
     fetchNearbyVendors(lat, lng, 0)
@@ -367,7 +370,7 @@ export default function VendorsWithLocation({
           hasLocation={hasLocation || false}
           locationText={locationText}
           onClear={handleClearLocation}
-          labelPrefix={`${term(vertical, 'vendors')} nearby`}
+          labelPrefix={`${term(vertical, 'vendors', locale)} nearby`}
           radius={radius}
           onRadiusChange={handleRadiusChange}
           radiusOptions={radiusOptions}
@@ -394,7 +397,7 @@ export default function VendorsWithLocation({
             fontSize: typography.sizes.base,
             fontWeight: typography.weights.medium
           }}>
-            {`Enter your ZIP code above to find ${term(vertical, 'vendors').toLowerCase()} nearby`}
+            {t('vendors.enter_zip', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
           </p>
         </div>
       )}
@@ -406,7 +409,7 @@ export default function VendorsWithLocation({
           padding: spacing.md,
           color: colors.textMuted
         }}>
-          {`Loading nearby ${term(vertical, 'vendors').toLowerCase()}...`}
+          {t('vendors.loading', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
         </div>
       )}
 
@@ -440,7 +443,7 @@ export default function VendorsWithLocation({
             }}
           >
             <span style={{ fontSize: 14 }}>{showFavoritesOnly ? '❤️' : '🤍'}</span>
-            Favorites ({favoriteIds.size})
+            {t('vendors.favorites', locale, { count: String(favoriteIds.size) })}
           </button>
         )}
       </div>
@@ -465,20 +468,20 @@ export default function VendorsWithLocation({
               borderRadius: '50%',
               animation: 'spin 0.8s linear infinite'
             }} />
-            <span>{`Finding ${term(vertical, 'vendors').toLowerCase()} near you...`}</span>
+            <span>{t('vendors.finding', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}</span>
           </>
         ) : hasLocationResults && hasLocation ? (
           // Show "Showing X of Y" when we have location results
           <span>
             {totalVendors > vendors.length
-              ? `Showing ${vendors.length} of ${totalVendors} ${term(vertical, 'vendors').toLowerCase()} within ${radius} miles (closest first)`
-              : `${vendors.length} ${vendors.length !== 1 ? term(vertical, 'vendors').toLowerCase() : term(vertical, 'vendor').toLowerCase()} found within ${radius} miles`
+              ? t('vendors.showing_of', locale, { count: String(vendors.length), total: String(totalVendors), vendors: term(vertical, 'vendors', locale).toLowerCase(), radius: String(radius) })
+              : t('vendors.found_within', locale, { count: String(vendors.length), vendors: (vendors.length !== 1 ? term(vertical, 'vendors', locale) : term(vertical, 'vendor', locale)).toLowerCase(), radius: String(radius) })
             }
           </span>
         ) : (
           <span>
-            {vendors.length} {vendors.length !== 1 ? term(vertical, 'vendors').toLowerCase() : term(vertical, 'vendor').toLowerCase()} found
-            {!hasLocationResults && vendors.length > 0 && !hasLocation && ' (enter ZIP for local results)'}
+            {t('vendors.found', locale, { count: String(vendors.length), vendors: (vendors.length !== 1 ? term(vertical, 'vendors', locale) : term(vertical, 'vendor', locale)).toLowerCase() })}
+            {!hasLocationResults && vendors.length > 0 && !hasLocation && ` ${t('vendors.enter_zip_suffix', locale)}`}
           </span>
         )}
       </div>
@@ -578,7 +581,7 @@ export default function VendorsWithLocation({
                 {isAuthenticated && (
                   <button
                     onClick={(e) => toggleFavorite(vendor.id, e)}
-                    aria-label={favoriteIds.has(vendor.id) ? 'Remove from favorites' : 'Add to favorites'}
+                    aria-label={favoriteIds.has(vendor.id) ? t('vendors.remove_fav', locale) : t('vendors.add_fav', locale)}
                     style={{
                       background: 'none',
                       border: 'none',
@@ -669,7 +672,7 @@ export default function VendorsWithLocation({
                           whiteSpace: 'nowrap',
                           flex: 1
                         }}>
-                          {market.market_type === 'private_pickup' ? 'Private: ' : ''}{market.name}
+                          {market.market_type === 'private_pickup' ? t('vendors.private_prefix', locale) : ''}{market.name}
                         </span>
                         {market.distance_miles !== undefined && market.distance_miles < 999 && (
                           <span style={{
@@ -690,7 +693,7 @@ export default function VendorsWithLocation({
                         color: colors.textMuted,
                         paddingLeft: 20
                       }}>
-                        +{remaining} more location{remaining !== 1 ? 's' : ''}
+                        {t('vendors.more_locations', locale, { count: String(remaining), s: remaining !== 1 ? 's' : '' })}
                       </div>
                     )}
                   </div>
@@ -710,7 +713,7 @@ export default function VendorsWithLocation({
                   fontSize: typography.sizes.xs,
                   color: colors.textMuted
                 }}>
-                  {vendor.listingCount} {vendor.listingCount !== 1 ? term(vertical, 'listings').toLowerCase() : term(vertical, 'listing').toLowerCase()}
+                  {vendor.listingCount} {vendor.listingCount !== 1 ? term(vertical, 'listings', locale).toLowerCase() : term(vertical, 'listing', locale).toLowerCase()}
                 </span>
                 {vendor.tier !== 'standard' && (
                   <TierBadge tier={vendor.tier} size="sm" />
@@ -727,15 +730,15 @@ export default function VendorsWithLocation({
           border: `1px dashed ${colors.border}`,
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: 48, marginBottom: spacing.sm, opacity: 0.5 }}>{term(vertical, 'no_results_vendor_emoji')}</div>
+          <div style={{ fontSize: 48, marginBottom: spacing.sm, opacity: 0.5 }}>{term(vertical, 'no_results_vendor_emoji', locale)}</div>
           <h3 style={{
             margin: `0 0 ${spacing['2xs']} 0`,
             color: colors.textSecondary,
             fontSize: typography.sizes.lg
           }}>
             {showFavoritesOnly
-              ? 'No favorites match current filters'
-              : `No ${term(vertical, 'vendors').toLowerCase()} found`}
+              ? t('vendors.no_favorites', locale)
+              : t('vendors.no_found', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
           </h3>
           <p style={{
             margin: 0,
@@ -743,12 +746,12 @@ export default function VendorsWithLocation({
             fontSize: typography.sizes.base
           }}>
             {showFavoritesOnly
-              ? `Try disabling the favorites filter to see all ${term(vertical, 'vendors').toLowerCase()}`
+              ? t('vendors.try_favorites', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })
               : currentSearch || currentMarket || currentCategory
-                ? `Try adjusting your filters to see more ${term(vertical, 'vendors').toLowerCase()}`
+                ? t('vendors.try_filters', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })
                 : hasLocation
-                  ? `No ${term(vertical, 'vendors').toLowerCase()} found within ${radius} miles. Try increasing your search radius.`
-                  : `Check back soon for local ${term(vertical, 'vendors').toLowerCase()} in your area`}
+                  ? t('vendors.no_within_radius', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase(), radius: String(radius) })
+                  : t('vendors.check_back', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
           </p>
         </div>
       ) : null
@@ -789,10 +792,10 @@ export default function VendorsWithLocation({
                   borderRadius: '50%',
                   animation: 'spin 0.8s linear infinite'
                 }} />
-                Loading...
+                {t('vendors.loading_more', locale)}
               </>
             ) : (
-              `Load ${Math.min(PAGE_SIZE, totalVendors - vendors.length)} More ${term(vertical, 'vendors')}`
+              t('vendors.load_more', locale, { count: String(Math.min(PAGE_SIZE, totalVendors - vendors.length)), vendors: term(vertical, 'vendors', locale) })
             )}
           </button>
         </div>

@@ -1,4 +1,6 @@
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface CutoffBadgeProps {
   /** Pre-calculated status from server-side. If provided, skips client-side fetch. */
@@ -17,6 +19,7 @@ export default function CutoffBadge({
   hoursUntilCutoff,
   style
 }: CutoffBadgeProps) {
+  const locale = getClientLocale()
   const status = preCalculatedStatus || 'open'
   const hoursLeft = hoursUntilCutoff ?? null
 
@@ -50,9 +53,9 @@ export default function CutoffBadge({
           fontWeight: typography.weights.semibold,
           ...style
         }}
-        title="Orders closed for vendor prep time"
+        title={t('listing.badge_closed_title', locale)}
       >
-        <span>Closed</span>
+        <span>{t('listing.badge_closed', locale)}</span>
       </span>
     )
   }
@@ -73,9 +76,9 @@ export default function CutoffBadge({
           fontWeight: typography.weights.semibold,
           ...style
         }}
-        title={`Orders close in ${hoursLeft ? formatTime(hoursLeft) : 'soon'}`}
+        title={t('listing.badge_closes_title', locale, { time: hoursLeft ? formatTime(hoursLeft) : t('listing.badge_closes_soon', locale) })}
       >
-        <span>Closes {hoursLeft ? formatTime(hoursLeft) : 'soon'}</span>
+        <span>{t('listing.badge_closes', locale, { time: hoursLeft ? formatTime(hoursLeft) : t('listing.badge_closes_soon', locale) })}</span>
       </span>
     )
   }

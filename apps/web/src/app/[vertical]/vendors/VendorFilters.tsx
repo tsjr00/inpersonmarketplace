@@ -3,6 +3,8 @@
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useState, useCallback } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface VendorFiltersProps {
   currentMarket?: string
@@ -23,6 +25,7 @@ export default function VendorFilters({
   markets,
   categories
 }: VendorFiltersProps) {
+  const locale = getClientLocale()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -90,7 +93,7 @@ export default function VendorFilters({
         <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: spacing['2xs'], flex: '1 1 180px' }}>
           <input
             type="text"
-            placeholder="Search vendors..."
+            placeholder={t('vendors.search_placeholder', locale)}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             style={{
@@ -116,20 +119,20 @@ export default function VendorFilters({
               cursor: 'pointer'
             }}
           >
-            Search
+            {t('vendors.search', locale)}
           </button>
         </form>
 
         {/* Market Filter */}
         {markets.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <label style={labelStyle}>Market:</label>
+            <label style={labelStyle}>{t('vendors.market_label', locale)}</label>
             <select
               value={currentMarket || ''}
               onChange={(e) => updateFilters({ market: e.target.value || undefined })}
               style={{ ...selectStyle, minWidth: 130 }}
             >
-              <option value="">All Markets</option>
+              <option value="">{t('vendors.all_markets', locale)}</option>
               {markets.map(market => (
                 <option key={market.id} value={market.id}>
                   {market.name}
@@ -142,13 +145,13 @@ export default function VendorFilters({
         {/* Category Filter */}
         {categories.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <label style={labelStyle}>Category:</label>
+            <label style={labelStyle}>{t('vendors.category_label', locale)}</label>
             <select
               value={currentCategory || ''}
               onChange={(e) => updateFilters({ category: e.target.value || undefined })}
               style={{ ...selectStyle, minWidth: 130 }}
             >
-              <option value="">All Categories</option>
+              <option value="">{t('vendors.all_categories', locale)}</option>
               {categories.map(cat => (
                 <option key={cat} value={cat}>
                   {cat}
@@ -168,14 +171,14 @@ export default function VendorFilters({
       }}>
         {/* Payment Method Filter */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <label style={labelStyle}>Payment:</label>
+          <label style={labelStyle}>{t('vendors.payment_label', locale)}</label>
           <select
             value={currentPayment || ''}
             onChange={(e) => updateFilters({ payment: e.target.value || undefined })}
             style={{ ...selectStyle, minWidth: 120 }}
           >
-            <option value="">All Payments</option>
-            <option value="cards">Cards</option>
+            <option value="">{t('vendors.all_payments', locale)}</option>
+            <option value="cards">{t('vendors.cards', locale)}</option>
             <option value="venmo">Venmo</option>
             <option value="cashapp">Cash App</option>
             <option value="paypal">PayPal</option>
@@ -185,15 +188,15 @@ export default function VendorFilters({
 
         {/* Sort */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <label style={labelStyle}>Sort:</label>
+          <label style={labelStyle}>{t('vendors.sort_label', locale)}</label>
           <select
             value={currentSort}
             onChange={(e) => updateFilters({ sort: e.target.value })}
             style={selectStyle}
           >
-            <option value="rating">Top Rated</option>
-            <option value="name">Name A-Z</option>
-            <option value="listings">Most Listings</option>
+            <option value="rating">{t('vendors.sort_rating', locale)}</option>
+            <option value="name">{t('vendors.sort_name', locale)}</option>
+            <option value="listings">{t('vendors.sort_listings', locale)}</option>
           </select>
         </div>
 
@@ -212,7 +215,7 @@ export default function VendorFilters({
               marginLeft: 'auto'
             }}
           >
-            Clear Filters
+            {t('vendors.clear_filters', locale)}
           </button>
         )}
       </div>

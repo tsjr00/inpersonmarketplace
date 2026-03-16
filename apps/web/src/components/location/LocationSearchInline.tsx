@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 const DEFAULT_RADIUS_OPTIONS = [10, 25, 50, 100]
 
@@ -30,6 +32,7 @@ export default function LocationSearchInline({
   onRadiusChange,
   radiusOptions = DEFAULT_RADIUS_OPTIONS
 }: LocationSearchInlineProps) {
+  const locale = getClientLocale()
   const [mode, setMode] = useState<'input' | 'loading'>('input')
   const [zipCode, setZipCode] = useState('')
   const [error, setError] = useState('')
@@ -39,7 +42,7 @@ export default function LocationSearchInline({
     setError('')
 
     if (!navigator.geolocation) {
-      setError('Geolocation not supported')
+      setError(t('location.geo_not_supported', locale))
       setMode('input')
       return
     }
@@ -55,19 +58,19 @@ export default function LocationSearchInline({
               latitude,
               longitude,
               source: 'gps',
-              locationText: 'Current location'
+              locationText: t('location.current_location', locale)
             })
           })
-          if (!response.ok) throw new Error('Failed to save location')
+          if (!response.ok) throw new Error(t('location.failed_save', locale))
           setMode('input')
-          onLocationSet?.(latitude, longitude, 'gps', 'Current location')
+          onLocationSet?.(latitude, longitude, 'gps', t('location.current_location', locale))
         } catch {
-          setError('Failed to save location')
+          setError(t('location.failed_save', locale))
           setMode('input')
         }
       },
       () => {
-        setError('Location denied - enter ZIP')
+        setError(t('location.denied', locale))
         setMode('input')
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
@@ -77,7 +80,7 @@ export default function LocationSearchInline({
   const handleZipSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!/^\d{5}$/.test(zipCode)) {
-      setError('Enter valid ZIP')
+      setError(t('location.enter_valid_zip', locale))
       return
     }
 
@@ -112,7 +115,7 @@ export default function LocationSearchInline({
       setMode('input')
       onLocationSet?.(data.latitude, data.longitude, 'manual', savedZip)
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Invalid ZIP code'
+      const message = err instanceof Error ? err.message : t('location.invalid_zip', locale)
       setError(message)
       setMode('input')
     }
@@ -127,7 +130,7 @@ export default function LocationSearchInline({
     }}>
       {showLabel && (
         <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs, marginRight: spacing['2xs'] }}>
-          Radius:
+          {t('location.radius', locale)}
         </span>
       )}
       {radiusOptions.map((r) => (
@@ -185,7 +188,7 @@ export default function LocationSearchInline({
             padding: 0
           }}
         >
-          Change
+          {t('location.change', locale)}
         </button>
         <div style={{ marginLeft: 'auto' }}>
           <RadiusSelector showLabel={false} />
@@ -212,7 +215,7 @@ export default function LocationSearchInline({
         type="text"
         value={zipCode}
         onChange={(e) => { setZipCode(e.target.value.replace(/\D/g, '').slice(0, 5)); setError(''); }}
-        placeholder="ZIP code"
+        placeholder={t('location.zip_placeholder', locale)}
         disabled={mode === 'loading'}
         style={{
           width: 80,
@@ -237,9 +240,9 @@ export default function LocationSearchInline({
           opacity: mode === 'loading' ? 0.7 : 1
         }}
       >
-        Go
+        {t('location.go', locale)}
       </button>
-      <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>or</span>
+      <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>{t('location.or', locale)}</span>
       <button
         type="button"
         onClick={handleUseMyLocation}
@@ -255,7 +258,7 @@ export default function LocationSearchInline({
           opacity: mode === 'loading' ? 0.7 : 1
         }}
       >
-        {mode === 'loading' ? '...' : 'Use My Location'}
+        {mode === 'loading' ? '...' : t('location.use_my_location', locale)}
       </button>
       <div style={{ marginLeft: 'auto' }}>
         <RadiusSelector />

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, sizing } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface SearchFilterProps {
   vertical: string
@@ -26,6 +28,7 @@ export default function SearchFilter({
   currentMenu,
   branding
 }: SearchFilterProps) {
+  const locale = getClientLocale()
   const router = useRouter()
   const [search, setSearch] = useState(currentSearch || '')
 
@@ -73,7 +76,7 @@ export default function SearchFilter({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search listings..."
+            placeholder={t('browse.search_placeholder', locale)}
             style={{
               flex: 1,
               ...sizing.control,
@@ -93,14 +96,14 @@ export default function SearchFilter({
               cursor: 'pointer'
             }}
           >
-            Search
+            {t('browse.search', locale)}
           </button>
         </div>
       </form>
 
       {/* Category Filter */}
       <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-        <label style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>Category:</label>
+        <label style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{t('browse.category_label', locale)}</label>
         <select
           value={currentCategory || ''}
           onChange={(e) => handleCategoryChange(e.target.value)}
@@ -111,7 +114,7 @@ export default function SearchFilter({
             minWidth: 130
           }}
         >
-          <option value="">All Categories</option>
+          <option value="">{t('browse.all_categories', locale)}</option>
           {categories.map(cat => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
@@ -132,7 +135,7 @@ export default function SearchFilter({
             cursor: 'pointer'
           }}
         >
-          Clear
+          {t('browse.clear', locale)}
         </button>
       )}
     </div>

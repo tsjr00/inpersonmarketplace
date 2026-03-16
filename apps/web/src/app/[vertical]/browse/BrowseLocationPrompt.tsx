@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import LocationSearchInline from '@/components/location/LocationSearchInline'
 import { term, getRadiusOptions } from '@/lib/vertical'
 import { spacing, typography, getVerticalColors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface BrowseLocationPromptProps {
   vertical: string
@@ -17,6 +19,7 @@ interface BrowseLocationPromptProps {
 }
 
 export default function BrowseLocationPrompt({ vertical, hasLocation, locationText, currentRadius }: BrowseLocationPromptProps) {
+  const locale = getClientLocale()
   const router = useRouter()
   const colors = getVerticalColors(vertical)
   const radiusOptions = getRadiusOptions(vertical)
@@ -59,13 +62,13 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
             marginBottom: spacing.xs,
           }}
         >
-          Enter your location to find {term(vertical, 'vendors').toLowerCase()} near you
+          {t('browse.enter_location', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
         </p>
         <LocationSearchInline
           onLocationSet={() => {
             router.refresh()
           }}
-          labelPrefix={`${term(vertical, 'listings')} near`}
+          labelPrefix={t('browse.listings_near', locale, { listings: term(vertical, 'listings', locale) })}
           radiusOptions={radiusOptions}
         />
       </div>
@@ -84,7 +87,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
         }}
         onClear={handleClear}
         onRadiusChange={handleRadiusChange}
-        labelPrefix={`${term(vertical, 'listings')} near`}
+        labelPrefix={t('browse.listings_near', locale, { listings: term(vertical, 'listings', locale) })}
         radiusOptions={radiusOptions}
       />
     </div>
