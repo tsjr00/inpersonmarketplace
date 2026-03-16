@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface ResetPasswordPageProps {
   params: Promise<{ vertical: string }>
@@ -25,6 +27,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
   const [configLoading, setConfigLoading] = useState(true)
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const supabase = createClient()
+  const locale = getClientLocale()
 
   useEffect(() => {
     async function loadConfig() {
@@ -51,7 +54,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
       const { data: { session }, error } = await supabase.auth.getSession()
 
       if (error || !session) {
-        setError('Invalid or expired reset link. Please request a new one.')
+        setError(t('reset.invalid_link', locale))
         setValidatingToken(false)
         return
       }
@@ -68,18 +71,18 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
     setLoading(true)
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('reset.passwords_mismatch', locale))
       setLoading(false)
       return
     }
 
     if (password.length < 9) {
-      setError('Password must be at least 9 characters')
+      setError(t('reset.password_length', locale))
       setLoading(false)
       return
     }
     if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-      setError('Password must include uppercase, lowercase, number, and special character')
+      setError(t('reset.password_complexity', locale))
       setLoading(false)
       return
     }
@@ -113,7 +116,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         backgroundColor: colors.surfaceBase,
         color: colors.textPrimary
       }}>
-        {validatingToken ? 'Validating reset link...' : 'Loading...'}
+        {validatingToken ? t('reset.validating', locale) : t('reset.loading', locale)}
       </div>
     )
   }
@@ -139,10 +142,10 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
           color: colors.textSecondary
         }}>
           <h2 style={{ color: colors.accent, marginBottom: spacing.md, fontSize: typography.sizes.xl }}>
-            Password Reset Successful!
+            {t('reset.success_title', locale)}
           </h2>
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.base }}>
-            Redirecting to login...
+            {t('reset.success_redirect', locale)}
           </p>
         </div>
       </div>
@@ -166,7 +169,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         <Link href={`/${vertical}`} style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primary, textDecoration: 'none' }}>
           {branding.brand_name}
         </Link>
-        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
+        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>{t('nav.home', locale)}</Link>
       </nav>
 
       {/* Logo/Header */}
@@ -201,7 +204,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
           textAlign: 'center',
           fontSize: typography.sizes.xl
         }}>
-          Set New Password
+          {t('reset.title', locale)}
         </h2>
 
         {error && (
@@ -220,7 +223,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
                   href={`/${vertical}/forgot-password`}
                   style={{ color: colors.primary, fontWeight: typography.weights.semibold }}
                 >
-                  Request a new reset link
+                  {t('reset.request_new', locale)}
                 </Link>
               </div>
             )}
@@ -230,7 +233,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         <form onSubmit={handlePasswordReset}>
           <div style={{ marginBottom: spacing.sm }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              New Password (min 9 chars: upper, lower, number, special)
+              {t('reset.new_password_label', locale)}
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -252,7 +255,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('login.hide_password', locale) : t('login.show_password', locale)}
                 style={{
                   position: 'absolute',
                   right: 8,
@@ -279,7 +282,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
 
           <div style={{ marginBottom: spacing.md }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              Confirm Password
+              {t('reset.confirm_label', locale)}
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -300,7 +303,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                aria-label={showConfirmPassword ? t('login.hide_password', locale) : t('login.show_password', locale)}
                 style={{
                   position: 'absolute',
                   right: 8,
@@ -342,7 +345,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
               boxShadow: (loading || !!error) ? 'none' : shadows.primary
             }}
           >
-            {loading ? 'Updating Password...' : 'Update Password'}
+            {loading ? t('reset.updating', locale) : t('reset.submit', locale)}
           </button>
 
           <div style={{ textAlign: 'center' }}>
@@ -350,7 +353,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
               href={`/${vertical}/login`}
               style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}
             >
-              Back to Login
+              {t('reset.back_to_login', locale)}
             </Link>
           </div>
         </form>

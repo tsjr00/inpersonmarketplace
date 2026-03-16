@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface LoginPageProps {
   params: Promise<{ vertical: string }>
@@ -27,6 +29,7 @@ export default function LoginPage({ params }: LoginPageProps) {
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const router = useRouter()
   const supabase = createClient()
+  const locale = getClientLocale()
 
   useEffect(() => {
     async function loadConfig() {
@@ -113,7 +116,7 @@ export default function LoginPage({ params }: LoginPageProps) {
         backgroundColor: colors.surfaceBase,
         color: colors.textPrimary
       }}>
-        Loading...
+        {t('login.loading', locale)}
       </div>
     )
   }
@@ -135,7 +138,7 @@ export default function LoginPage({ params }: LoginPageProps) {
         <Link href={`/${vertical}`} style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primary, textDecoration: 'none' }}>
           {branding.brand_name}
         </Link>
-        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
+        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>{t('nav.home', locale)}</Link>
       </nav>
 
       {/* Logo/Header */}
@@ -170,7 +173,7 @@ export default function LoginPage({ params }: LoginPageProps) {
           textAlign: 'center',
           fontSize: typography.sizes.xl
         }}>
-          Login to Your Account
+          {t('login.title', locale)}
         </h2>
 
         {error && (
@@ -189,7 +192,7 @@ export default function LoginPage({ params }: LoginPageProps) {
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: spacing.sm }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              Email
+              {t('login.email', locale)}
             </label>
             <input
               type="email"
@@ -210,7 +213,7 @@ export default function LoginPage({ params }: LoginPageProps) {
 
           <div style={{ marginBottom: spacing.md }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              Password
+              {t('login.password', locale)}
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -244,7 +247,7 @@ export default function LoginPage({ params }: LoginPageProps) {
                   color: colors.textMuted,
                   fontSize: typography.sizes.lg
                 }}
-                title={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? t('login.hide_password', locale) : t('login.show_password', locale)}
               >
                 {showPassword ? '🙈' : '👁'}
               </button>
@@ -267,14 +270,14 @@ export default function LoginPage({ params }: LoginPageProps) {
               boxShadow: loading ? 'none' : shadows.primary
             }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? t('login.logging_in', locale) : t('login.submit', locale)}
           </button>
         </form>
 
         <p style={{ marginTop: spacing.md, textAlign: 'center', color: colors.textMuted, fontSize: typography.sizes.base }}>
-          Don&apos;t have an account?{' '}
+          {t('login.no_account', locale)}{' '}
           <Link href={`/${vertical}/signup`} style={{ color: colors.primary, fontWeight: typography.weights.semibold }}>
-            Sign up
+            {t('login.signup_link', locale)}
           </Link>
         </p>
 
@@ -283,7 +286,7 @@ export default function LoginPage({ params }: LoginPageProps) {
             href={`/${vertical}/forgot-password`}
             style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}
           >
-            Forgot your password?
+            {t('login.forgot_password', locale)}
           </Link>
         </p>
       </div>
