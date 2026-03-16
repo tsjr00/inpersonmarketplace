@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { getNotificationConfig, type NotificationSeverity } from '@/lib/notifications/types'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Notification {
   id: string
@@ -33,6 +35,7 @@ function getNotificationSeverity(type: string): NotificationSeverity {
 }
 
 export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotificationsProps) {
+  const locale = getClientLocale()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
@@ -95,13 +98,13 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
 
   const formatTimeAgo = (dateStr: string): string => {
     const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-    if (seconds < 60) return 'just now'
+    if (seconds < 60) return t('notif_ui.just_now', locale)
     const minutes = Math.floor(seconds / 60)
-    if (minutes < 60) return `${minutes}m ago`
+    if (minutes < 60) return t('notif_ui.minutes_ago', locale, { count: String(minutes) })
     const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
+    if (hours < 24) return t('notif_ui.hours_ago', locale, { count: String(hours) })
     const days = Math.floor(hours / 24)
-    if (days < 7) return `${days}d ago`
+    if (days < 7) return t('notif_ui.days_ago', locale, { count: String(days) })
     return new Date(dateStr).toLocaleDateString()
   }
 
@@ -127,7 +130,7 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
             fontWeight: typography.weights.semibold,
             color: colors.textPrimary,
           }}>
-            Notifications
+            {t('notif_ui.title', locale)}
           </h3>
         </div>
         <p style={{
@@ -135,7 +138,7 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
           fontSize: typography.sizes.sm,
           color: colors.textMuted,
         }}>
-          Loading...
+          {t('notif_ui.loading', locale)}
         </p>
       </div>
     )
@@ -168,7 +171,7 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
             fontWeight: typography.weights.semibold,
             color: colors.textPrimary,
           }}>
-            Notifications
+            {t('notif_ui.title', locale)}
           </h3>
           {unreadCount > 0 && (
             <span style={{
@@ -198,7 +201,7 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
               padding: spacing['3xs'],
             }}
           >
-            Mark all read
+            {t('notif_ui.mark_all_read', locale)}
           </button>
         )}
       </div>
@@ -210,7 +213,7 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
           fontSize: typography.sizes.sm,
           color: colors.textMuted,
         }}>
-          No notifications yet. You&apos;ll see order updates, alerts, and more here.
+          {t('notif_ui.empty_detail', locale)}
         </p>
       )}
 
@@ -310,7 +313,7 @@ export function DashboardNotifications({ vertical, limit = 4 }: DashboardNotific
             textAlign: 'center',
           }}
         >
-          View all notifications →
+          {t('notif_ui.view_all_arrow', locale)}
         </button>
       )}
     </div>

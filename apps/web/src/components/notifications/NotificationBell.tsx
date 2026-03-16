@@ -5,6 +5,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { getNotificationConfig, type NotificationSeverity, type NotificationUrgency } from '@/lib/notifications/types'
 import { POLLING_INTERVALS, getPollingInterval } from '@/lib/polling-config'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Notification {
   id: string
@@ -74,6 +76,7 @@ function getNotificationSeverity(type: string): NotificationSeverity {
 }
 
 export function NotificationBell({ primaryColor = colors.primary, vertical }: NotificationBellProps) {
+  const locale = getClientLocale()
   const [unreadCount, setUnreadCount] = useState(0)
   const [highestUnreadSeverity, setHighestUnreadSeverity] = useState<NotificationSeverity>('info')
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -270,13 +273,13 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   // Format relative time
   const formatTimeAgo = (dateStr: string): string => {
     const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
-    if (seconds < 60) return 'just now'
+    if (seconds < 60) return t('notif_ui.just_now', locale)
     const minutes = Math.floor(seconds / 60)
-    if (minutes < 60) return `${minutes}m ago`
+    if (minutes < 60) return t('notif_ui.minutes_ago', locale, { count: String(minutes) })
     const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
+    if (hours < 24) return t('notif_ui.hours_ago', locale, { count: String(hours) })
     const days = Math.floor(hours / 24)
-    if (days < 7) return `${days}d ago`
+    if (days < 7) return t('notif_ui.days_ago', locale, { count: String(days) })
     return new Date(dateStr).toLocaleDateString()
   }
 
@@ -306,7 +309,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
           minWidth: 44,
           color: primaryColor,
         }}
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        aria-label={`${t('notif_ui.title', locale)}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
       >
         {/* Bell SVG */}
         <svg
@@ -377,7 +380,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
               fontSize: typography.sizes.sm,
               color: colors.textPrimary,
             }}>
-              Notifications
+              {t('notif_ui.title', locale)}
             </span>
             {unreadCount > 0 && (
               <button
@@ -392,7 +395,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                   padding: `${spacing['3xs']} ${spacing['2xs']}`,
                 }}
               >
-                Mark all read
+                {t('notif_ui.mark_all_read', locale)}
               </button>
             )}
           </div>
@@ -406,7 +409,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                 color: colors.textMuted,
                 fontSize: typography.sizes.sm,
               }}>
-                Loading...
+                {t('notif_ui.loading', locale)}
               </div>
             ) : notifications.length === 0 ? (
               <div style={{
@@ -415,7 +418,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                 color: colors.textMuted,
                 fontSize: typography.sizes.sm,
               }}>
-                No notifications yet
+                {t('notif_ui.empty', locale)}
               </div>
             ) : (
               notifications.map((notification) => {
@@ -530,7 +533,7 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                   padding: spacing['3xs'],
                 }}
               >
-                View all notifications
+                {t('notif_ui.view_all', locale)}
               </button>
             </div>
           )}

@@ -14,6 +14,8 @@
  *   info      → Email only (~$0.001/msg)
  */
 
+import { t } from '@/lib/locale/messages'
+
 // ── Channel & Urgency Types ──────────────────────────────────────────
 
 export type NotificationChannel = 'in_app' | 'email' | 'sms' | 'push'
@@ -135,8 +137,8 @@ export interface NotificationTypeConfig {
   urgency: NotificationUrgency
   severity: NotificationSeverity
   audience: 'buyer' | 'vendor' | 'admin'
-  title: (data: NotificationTemplateData) => string
-  message: (data: NotificationTemplateData) => string
+  title: (data: NotificationTemplateData, locale?: string) => string
+  message: (data: NotificationTemplateData, locale?: string) => string
   /** Returns the path to navigate to when notification is clicked */
   actionUrl: (data: NotificationTemplateData & { vertical?: string }) => string
 }
@@ -150,8 +152,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'buyer',
-    title: () => 'Order Placed',
-    message: (d) => `Your order #${d.orderNumber} has been placed${d.vendorName ? ` with ${d.vendorName}` : ''}.${d.marketName ? ` Pickup at ${d.marketName}` : ''}${d.pickupDate ? ` on ${d.pickupDate}` : ''}. We'll notify you when the vendor confirms it.`,
+    title: (_d, locale) => t('notif.order_placed_title', locale),
+    message: (d, locale) => t('notif.order_placed_msg', locale, {
+      orderNumber: d.orderNumber || '',
+      withVendor: d.vendorName ? ` with ${d.vendorName}` : '',
+      pickupInfo: (d.marketName ? ` Pickup at ${d.marketName}` : '') + (d.pickupDate ? ` on ${d.pickupDate}` : ''),
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -159,8 +165,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'buyer',
-    title: (d) => `Order Confirmed`,
-    message: (d) => `${d.vendorName} confirmed your order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''}. We'll notify you when it's ready for pickup.`,
+    title: (_d, locale) => t('notif.order_confirmed_title', locale),
+    message: (d, locale) => t('notif.order_confirmed_msg', locale, {
+      vendorName: d.vendorName || '',
+      orderNumber: d.orderNumber || '',
+      forItem: d.itemTitle ? ` for ${d.itemTitle}` : '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -168,8 +178,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'immediate',
     severity: 'info',
     audience: 'buyer',
-    title: () => `Order Ready for Pickup`,
-    message: (d) => `Your order #${d.orderNumber} from ${d.vendorName} has been marked ready for pickup${d.marketName ? ` at ${d.marketName}` : ''}. It will be waiting for you during pickup hours — no need to rush.`,
+    title: (_d, locale) => t('notif.order_ready_title', locale),
+    message: (d, locale) => t('notif.order_ready_msg', locale, {
+      orderNumber: d.orderNumber || '',
+      vendorName: d.vendorName || '',
+      atMarket: d.marketName ? ` at ${d.marketName}` : '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -177,8 +191,11 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'info',
     severity: 'info',
     audience: 'buyer',
-    title: () => `Order Complete`,
-    message: (d) => `Order #${d.orderNumber} has been marked as picked up. Thanks for shopping with ${d.vendorName}!`,
+    title: (_d, locale) => t('notif.order_fulfilled_title', locale),
+    message: (d, locale) => t('notif.order_fulfilled_msg', locale, {
+      orderNumber: d.orderNumber || '',
+      vendorName: d.vendorName || '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -186,8 +203,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'immediate',
     severity: 'critical',
     audience: 'buyer',
-    title: () => `Order Cancelled`,
-    message: (d) => `${d.vendorName} cancelled your order #${d.orderNumber}.${d.reason ? ` Reason: ${d.reason}` : ''} A refund will be processed.`,
+    title: (_d, locale) => t('notif.order_cancelled_title', locale),
+    message: (d, locale) => t('notif.order_cancelled_msg', locale, {
+      vendorName: d.vendorName || '',
+      orderNumber: d.orderNumber || '',
+      reason: d.reason ? ` Reason: ${d.reason}` : '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -195,8 +216,11 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'urgent',
     severity: 'info',
     audience: 'buyer',
-    title: () => `Order Refunded`,
-    message: (d) => `A refund${d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : ''} has been issued for order #${d.orderNumber}. It may take 5-10 business days to appear on your statement.`,
+    title: (_d, locale) => t('notif.order_refunded_title', locale),
+    message: (d, locale) => t('notif.order_refunded_msg', locale, {
+      amount: d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : '',
+      orderNumber: d.orderNumber || '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -204,8 +228,11 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'buyer',
-    title: () => `Order Expired`,
-    message: (d) => `Order #${d.orderNumber} has expired because it wasn't confirmed in time.${d.amountCents ? ` A refund of $${(d.amountCents / 100).toFixed(2)} will be processed.` : ''}`,
+    title: (_d, locale) => t('notif.order_expired_title', locale),
+    message: (d, locale) => t('notif.order_expired_msg', locale, {
+      orderNumber: d.orderNumber || '',
+      refundInfo: d.amountCents ? ` A refund of $${(d.amountCents / 100).toFixed(2)} will be processed.` : '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -213,8 +240,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'immediate',
     severity: 'info',
     audience: 'buyer',
-    title: () => `Pickup Not Confirmed`,
-    message: (d) => `Your order #${d.orderNumber}${d.itemTitle ? ` (${d.itemTitle})` : ''} from ${d.vendorName} was not marked as picked up during the scheduled pickup window. If you did pick up your items, please mark it as received in the app now. If there was a miscommunication, please reach out to the vendor directly to clarify.`,
+    title: (_d, locale) => t('notif.pickup_missed_title', locale),
+    message: (d, locale) => t('notif.pickup_missed_msg', locale, {
+      orderNumber: d.orderNumber || '',
+      itemInfo: d.itemTitle ? ` (${d.itemTitle})` : '',
+      vendorName: d.vendorName || '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -222,8 +253,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'warning',
     audience: 'buyer',
-    title: () => `Order Update Needed`,
-    message: (d) => `Your order #${d.orderNumber}${d.itemTitle ? ` for ${d.itemTitle}` : ''} was confirmed by ${d.vendorName} but doesn't appear to have been completed yet. We've reached out to the vendor to resolve this. You can also contact them directly.`,
+    title: (_d, locale) => t('notif.stale_confirmed_title', locale),
+    message: (d, locale) => t('notif.stale_confirmed_msg', locale, {
+      orderNumber: d.orderNumber || '',
+      forItem: d.itemTitle ? ` for ${d.itemTitle}` : '',
+      vendorName: d.vendorName || '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
@@ -231,8 +266,13 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'buyer',
-    title: () => `Market Box Week Skipped`,
-    message: (d) => `${d.vendorName} has skipped your ${d.offeringName || 'Market Box'} pickup scheduled for ${d.pickupDate}. An extension week has been added to your subscription.${d.reason ? ` Reason: ${d.reason}` : ''}`,
+    title: (_d, locale) => t('notif.market_box_skip_title', locale),
+    message: (d, locale) => t('notif.market_box_skip_msg', locale, {
+      vendorName: d.vendorName || '',
+      offeringName: d.offeringName || 'Market Box',
+      pickupDate: d.pickupDate || '',
+      reason: d.reason ? ` Reason: ${d.reason}` : '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/subscriptions`,
   },
 
@@ -240,8 +280,12 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'immediate',
     severity: 'warning',
     audience: 'buyer',
-    title: () => `Market Box Pickup Missed`,
-    message: (d) => `Your ${d.offeringName || 'Market Box'} pickup from ${d.vendorName} scheduled for ${d.pickupDate} was not picked up and has been marked as missed. If you believe this is an error, please contact the vendor.`,
+    title: (_d, locale) => t('notif.market_box_missed_title', locale),
+    message: (d, locale) => t('notif.market_box_missed_msg', locale, {
+      offeringName: d.offeringName || 'Market Box',
+      vendorName: d.vendorName || '',
+      pickupDate: d.pickupDate || '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/subscriptions`,
   },
 
@@ -249,8 +293,11 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'buyer',
-    title: () => `Issue Resolved`,
-    message: (d) => `The issue you reported for order #${d.orderNumber} has been resolved.${d.resolution ? ` Resolution: ${d.resolution}` : ''}`,
+    title: (_d, locale) => t('notif.issue_resolved_title', locale),
+    message: (d, locale) => t('notif.issue_resolved_msg', locale, {
+      orderNumber: d.orderNumber || '',
+      resolution: d.resolution ? ` Resolution: ${d.resolution}` : '',
+    }),
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 

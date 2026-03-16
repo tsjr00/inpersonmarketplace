@@ -12,6 +12,7 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { t } from '@/lib/locale/messages'
 import { Resend } from 'resend'
 import twilio from 'twilio'
 import webpush from 'web-push'
@@ -157,7 +158,8 @@ async function sendEmail(
   userEmail: string,
   subject: string,
   body: string,
-  vertical?: string
+  vertical?: string,
+  locale?: string
 ): Promise<ChannelResult> {
   const resend = getResendClient()
   if (!resend) {
@@ -182,7 +184,7 @@ async function sendEmail(
       from: `${brandName} <${fromAddress}>`,
       to: userEmail,
       subject,
-      html: formatEmailHtml(subject, body, brandName, brandDomain, brandColor, vertical, logoUrl),
+      html: formatEmailHtml(subject, body, brandName, brandDomain, brandColor, vertical, logoUrl, locale),
       text: body,
       headers: {
         'List-Unsubscribe': `<${unsubscribeUrl}>`,
@@ -212,7 +214,8 @@ export function formatEmailHtml(
   brandDomain: string = 'farmersmarketing.app',
   brandColor: string = '#2d5016',
   vertical?: string,
-  logoUrl?: string
+  logoUrl?: string,
+  locale?: string
 ): string {
   const htmlBody = body
     .replace(/&/g, '&amp;')
@@ -242,10 +245,10 @@ export function formatEmailHtml(
       ${brandName} &middot; <a href="https://${brandDomain}" style="color:#9ca3af">${brandDomain}</a>
     </p>
     <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:8px">
-      This is an automated message. Please do not reply to this email. If you need help, contact us at <a href="https://${brandDomain}${supportPath}" style="color:#9ca3af">${brandDomain}${supportPath}</a>.
+      ${t('email.do_not_reply', locale)} <a href="https://${brandDomain}${supportPath}" style="color:#9ca3af">${brandDomain}${supportPath}</a>.
     </p>
     <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:4px">
-      <a href="https://${brandDomain}/${vertical || 'farmers_market'}/settings#notifications" style="color:#9ca3af">Manage notification preferences</a>
+      <a href="https://${brandDomain}/${vertical || 'farmers_market'}/settings#notifications" style="color:#9ca3af">${t('email.manage_prefs', locale)}</a>
     </p>
   </div>
 </body>
@@ -434,9 +437,13 @@ export async function sendNotification(
     // Dedup check failure should not prevent notification delivery
   }
 
-  // Generate content from templates
-  const title = config.title(templateData)
-  const message = config.message(templateData)
+  // Resolve user's preferred locale for buyer-facing notifications
+  // Will be populated from notification_preferences after profile fetch below
+  let userLocale: string | undefined
+
+  // Generate content from templates (locale applied after profile fetch, see below)
+  let title: string
+  let message: string
   const actionUrl = config.actionUrl({ ...templateData, vertical: options?.vertical })
 
   // Determine channels based on per-vertical urgency (NI-R19)
@@ -457,6 +464,11 @@ export async function sendNotification(
 
     if (profile?.notification_preferences) {
       preferences = { ...DEFAULT_PREFERENCES, ...profile.notification_preferences as UserPreferences }
+      // Read user's preferred locale for notification translation
+      const prefs = profile.notification_preferences as Record<string, unknown>
+      if (typeof prefs.locale === 'string') {
+        userLocale = prefs.locale
+      }
     }
     // Auto-resolve email/phone from profile if not provided by caller
     if (!userEmail && profile?.email) {
@@ -486,6 +498,10 @@ export async function sendNotification(
   } catch (prefError) {
     console.warn('[notifications] Failed to fetch user preferences, using defaults:', prefError)
   }
+
+  // Generate localized content from templates (after profile fetch so locale is available)
+  title = config.title(templateData, userLocale)
+  message = config.message(templateData, userLocale)
 
   // Dispatch to each channel
   const results: ChannelResult[] = []
@@ -517,7 +533,7 @@ export async function sendNotification(
       }
       case 'email': {
         if (userEmail) {
-          results.push(await sendEmail(userEmail, title, message, options?.vertical))
+          results.push(await sendEmail(userEmail, title, message, options?.vertical, userLocale))
         } else {
           results.push({
             channel: 'email',
