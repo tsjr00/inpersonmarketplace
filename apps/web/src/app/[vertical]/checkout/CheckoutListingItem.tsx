@@ -2,6 +2,8 @@
 
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
 import { colors, statusColors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import { formatPickupDate, getPickupDateColor } from '@/types/pickup'
 import type { CheckoutItem } from './types'
 
@@ -15,6 +17,7 @@ interface CheckoutListingItemProps {
 }
 
 export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, onRemove, grouped = false }: CheckoutListingItemProps) {
+  const locale = getClientLocale()
   const isUpdating = updatingItemId === item.listingId
 
   // Grouped mode: compact row inside a group box (no outer box, no vendor/pickup)
@@ -31,8 +34,8 @@ export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, on
             marginBottom: spacing['2xs'],
           }}>
             {item.available_quantity === 0
-              ? 'Sold out'
-              : `Only ${item.available_quantity} available`
+              ? t('checkout.sold_out', locale)
+              : t('checkout.only_available', locale, { count: String(item.available_quantity) })
             }
           </div>
         )}
@@ -52,7 +55,7 @@ export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, on
               {item.title}
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-              <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>Qty:</span>
+              <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>{t('checkout.qty', locale)}</span>
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <button
                   onClick={() => item.listingId && onQuantityChange(item.listingId, item.quantity - 1)}
@@ -116,7 +119,7 @@ export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, on
               {formatPrice(calculateDisplayPrice(item.price_cents) * item.quantity)}
             </p>
             <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: `0 0 ${spacing['2xs']} 0` }}>
-              {formatPrice(calculateDisplayPrice(item.price_cents))} each
+              {formatPrice(calculateDisplayPrice(item.price_cents))} {t('cart.each', locale)}
             </p>
             <button
               onClick={() => item.listingId && onRemove(item.listingId)}
@@ -131,7 +134,7 @@ export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, on
                 minHeight: 32,
               }}
             >
-              Remove
+              {t('checkout.remove', locale)}
             </button>
           </div>
         </div>
@@ -183,7 +186,7 @@ export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, on
             }}>
               <span>{item.market_type === 'event' ? '🎪' : item.market_type === 'traditional' ? '🏪' : '📦'}</span>
               <span>
-                <strong>Pickup:</strong> {item.market_name}
+                <strong>{t('cart.pickup', locale)}</strong> {item.market_name}
                 {item.market_city && ` - ${item.market_city}, ${item.market_state}`}
                 {item.pickup_date && (
                   <>
@@ -216,14 +219,14 @@ export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, on
               marginBottom: spacing['2xs'],
             }}>
               {item.available_quantity === 0
-                ? 'Sold out'
-                : `Only ${item.available_quantity} available`
+                ? t('checkout.sold_out', locale)
+                : t('checkout.only_available', locale, { count: String(item.available_quantity) })
               }
             </div>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-            <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>Qty:</span>
+            <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>{t('checkout.qty', locale)}</span>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <button
                 onClick={() => item.listingId && onQuantityChange(item.listingId, item.quantity - 1)}
@@ -287,7 +290,7 @@ export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, on
             {formatPrice(calculateDisplayPrice(item.price_cents) * item.quantity)}
           </p>
           <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: `0 0 ${spacing['2xs']} 0` }}>
-            {formatPrice(calculateDisplayPrice(item.price_cents))} each
+            {formatPrice(calculateDisplayPrice(item.price_cents))} {t('cart.each', locale)}
           </p>
           <button
             onClick={() => item.listingId && onRemove(item.listingId)}
@@ -302,7 +305,7 @@ export function CheckoutListingItem({ item, updatingItemId, onQuantityChange, on
               minHeight: 36,
             }}
           >
-            Remove
+            {t('checkout.remove', locale)}
           </button>
         </div>
       </div>

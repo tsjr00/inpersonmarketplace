@@ -4,6 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { calculateDisplayPrice, formatPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 import type { SuggestedProduct } from './types'
 
 interface CrossSellSectionProps {
@@ -12,6 +14,7 @@ interface CrossSellSectionProps {
 }
 
 export function CrossSellSection({ products, vertical }: CrossSellSectionProps) {
+  const locale = getClientLocale()
   if (products.length === 0) return null
 
   return (
@@ -30,7 +33,7 @@ export function CrossSellSection({ products, vertical }: CrossSellSectionProps) 
           fontWeight: typography.weights.semibold,
           color: colors.textPrimary
         }}>
-          Other items you may enjoy from these vendors
+          {t('cross.title', locale)}
         </h3>
       </div>
       <div style={{
@@ -100,7 +103,7 @@ export function CrossSellSection({ products, vertical }: CrossSellSectionProps) 
                 {formatPrice(calculateDisplayPrice(product.price_cents))}
               </span>
               <span style={{ fontSize: typography.sizes.xs, color: colors.textMuted, fontStyle: 'italic' }}>
-                from {product.vendor_profiles?.business_name || 'Vendor'}
+                {t('cross.from', locale, { vendor: product.vendor_profiles?.business_name || 'Vendor' })}
               </span>
             </p>
 
@@ -120,7 +123,7 @@ export function CrossSellSection({ products, vertical }: CrossSellSectionProps) 
                 textDecoration: 'none'
               }}
             >
-              View Item
+              {t('cross.view', locale)}
             </Link>
           </div>
         ))}

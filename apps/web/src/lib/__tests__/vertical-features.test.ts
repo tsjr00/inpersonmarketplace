@@ -77,12 +77,12 @@ describe('VI-R10: tipping is FT-only with specific presets', () => {
   it('TipSelector has correct preset options: No Tip, 10%, 15%, 20%, Custom', () => {
     const tipSelector = readFile('src/app/[vertical]/checkout/TipSelector.tsx')
     // Preset buttons
-    expect(tipSelector).toContain("'No Tip'")
+    expect(tipSelector).toContain("tip.no_tip")
     expect(tipSelector).toContain('value: 0')
     expect(tipSelector).toContain('value: 10')
     expect(tipSelector).toContain('value: 15')
     expect(tipSelector).toContain('value: 20')
-    expect(tipSelector).toContain('Custom')
+    expect(tipSelector).toContain("tip.custom")
   })
 
   it('custom tip input is integer-only (no decimals)', () => {

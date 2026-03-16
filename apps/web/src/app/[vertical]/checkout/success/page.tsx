@@ -9,6 +9,8 @@ import { formatQuantityDisplay } from '@/lib/constants'
 import { useCart } from '@/lib/hooks/useCart'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 // Format pickup date for display
 function formatPickupDate(dateStr: string | null | undefined): string | null {
@@ -94,6 +96,7 @@ export default function CheckoutSuccessPage() {
   const sessionId = searchParams.get('session_id')
   const orderId = searchParams.get('order')
 
+  const locale = getClientLocale()
   const [order, setOrder] = useState<OrderDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -118,7 +121,7 @@ export default function CheckoutSuccessPage() {
             refreshCart()
           } else {
             const data = await response.json()
-            setError(data.error || 'Could not verify payment')
+            setError(data.error || t('success.verify_failed', locale))
           }
         } else if (orderId) {
           // Direct order ID — fetch from buyer orders API
@@ -130,7 +133,7 @@ export default function CheckoutSuccessPage() {
         }
       } catch (err) {
         console.error('Failed to process success:', err)
-        setError('Could not load order details')
+        setError(t('success.load_failed', locale))
       } finally {
         setLoading(false)
       }
@@ -140,7 +143,7 @@ export default function CheckoutSuccessPage() {
   }, [sessionId, orderId, refreshCart])
 
   if (loading) {
-    return <FullPageLoading message="Processing your order..." />
+    return <FullPageLoading message={t('success.processing', locale)} />
   }
 
   return (
@@ -183,10 +186,10 @@ export default function CheckoutSuccessPage() {
             fontSize: typography.sizes['2xl'],
             color: colors.textPrimary,
           }}>
-            Order Placed!
+            {t('success.title', locale)}
           </h1>
           <p style={{ color: colors.textSecondary, marginBottom: 0, fontSize: typography.sizes.sm }}>
-            Thank you for your purchase. Your order has been submitted and the vendor will be notified.
+            {t('success.subtitle', locale)}
           </p>
         </div>
 
@@ -206,7 +209,7 @@ export default function CheckoutSuccessPage() {
               fontSize: typography.sizes.lg,
               color: colors.textPrimary,
             }}>
-              Order Details
+              {t('success.details', locale)}
             </h2>
 
             <div style={{
@@ -221,11 +224,11 @@ export default function CheckoutSuccessPage() {
               {/* Row 1: Order Number + Date */}
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <div style={{ flex: 1 }}>
-                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Order Number</p>
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>{t('success.order_number', locale)}</p>
                   <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary, fontSize: typography.sizes.base }}>{order.order_number}</p>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Date</p>
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>{t('success.date', locale)}</p>
                   <p style={{ fontWeight: typography.weights.semibold, margin: 0, color: colors.textPrimary }}>
                     {new Date(order.created_at).toLocaleDateString()}
                   </p>
@@ -234,7 +237,7 @@ export default function CheckoutSuccessPage() {
               {/* Row 2: Status + Total */}
               <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
-                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Status</p>
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>{t('success.status', locale)}</p>
                   <span style={{
                     display: 'inline-block',
                     padding: `${spacing['3xs']} ${spacing['2xs']}`,
@@ -244,11 +247,11 @@ export default function CheckoutSuccessPage() {
                     fontSize: typography.sizes.xs,
                     fontWeight: typography.weights.semibold,
                   }}>
-                    Order Placed
+                    {t('success.status_placed', locale)}
                   </span>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>Total</p>
+                  <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>{t('success.total', locale)}</p>
                   <p style={{ fontWeight: typography.weights.semibold, margin: 0, fontSize: typography.sizes.lg, color: colors.primary }}>
                     ${(order.total_cents / 100).toFixed(2)}
                   </p>
@@ -257,14 +260,14 @@ export default function CheckoutSuccessPage() {
               {/* Row 3: Tip info (if applicable) */}
               {order.tip_amount > 0 && (
                 <p style={{ color: colors.textMuted, fontSize: typography.sizes.xs, margin: 0 }}>
-                  Includes ${(order.tip_amount / 100).toFixed(2)} tip ({order.tip_percentage}%)
+                  {t('success.tip_info', locale, { amount: (order.tip_amount / 100).toFixed(2), percent: String(order.tip_percentage) })}
                 </p>
               )}
             </div>
 
             {order.items && order.items.length > 0 && (
               <>
-                <h3 style={{ fontSize: typography.sizes.base, marginBottom: spacing.xs, color: colors.textPrimary }}>Items</h3>
+                <h3 style={{ fontSize: typography.sizes.base, marginBottom: spacing.xs, color: colors.textPrimary }}>{t('success.items', locale)}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                   {order.items.map((item, index) => (
                     <div
@@ -285,7 +288,7 @@ export default function CheckoutSuccessPage() {
                           )}
                         </p>
                         <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                          {item.vendor_name} &bull; Qty: {item.quantity}
+                          {item.vendor_name} &bull; {t('success.qty', locale, { count: String(item.quantity) })}
                         </p>
                       </div>
                       {(item.market_name || item.pickup_date) && (
@@ -299,7 +302,7 @@ export default function CheckoutSuccessPage() {
                           lineHeight: typography.leading.relaxed,
                         }}>
                           <span style={{ marginRight: spacing['3xs'] }}>{item.market_type === 'event' ? '\u{1F3AA}' : item.market_type === 'traditional' ? '\u{1F3EA}' : '\u{1F4E6}'}</span>
-                          <strong>Pickup:</strong> {formatPickupDate(item.pickup_date) || 'Date TBD'}
+                          <strong>{t('success.pickup', locale)}</strong> {formatPickupDate(item.pickup_date) || t('success.date_tbd', locale)}
                           {item.confirmed_pickup_time
                             ? ` at ${formatPickupTime(item.confirmed_pickup_time, null)}`
                             : formatPickupTime(item.pickup_start_time, item.pickup_end_time) ? `, ${formatPickupTime(item.pickup_start_time, item.pickup_end_time)}` : ''
@@ -317,7 +320,7 @@ export default function CheckoutSuccessPage() {
             {order.marketBoxSubscriptions && order.marketBoxSubscriptions.length > 0 && (
               <>
                 <h3 style={{ fontSize: typography.sizes.base, marginTop: spacing.sm, marginBottom: spacing.xs, color: colors.textPrimary }}>
-                  {term(vertical, 'market_box')} Subscriptions
+                  {t('success.mb_subscriptions', locale, { market_box: term(vertical, 'market_box', locale) })}
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
                   {order.marketBoxSubscriptions.map((sub) => (
@@ -334,7 +337,7 @@ export default function CheckoutSuccessPage() {
                         {sub.offering_name}
                       </p>
                       <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
-                        {sub.vendor_name} &bull; {sub.term_weeks}-week subscription &bull; ${(sub.total_paid_cents / 100).toFixed(2)}
+                        {sub.vendor_name} &bull; {t('cart.subscription', locale, { term: String(sub.term_weeks) })} &bull; ${(sub.total_paid_cents / 100).toFixed(2)}
                       </p>
                       <p style={{
                         margin: `${spacing['2xs']} 0 0`,
@@ -346,8 +349,8 @@ export default function CheckoutSuccessPage() {
                         lineHeight: typography.leading.relaxed,
                       }}>
                         <span style={{ marginRight: spacing['3xs'] }}>{'\u{1F4E6}'}</span>
-                        <strong>Starts:</strong> {new Date(sub.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        {sub.pickup_day_of_week !== null && ` \u2022 Every ${DAY_NAMES[sub.pickup_day_of_week]}`}
+                        <strong>{t('success.starts', locale)}</strong> {new Date(sub.start_date + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {sub.pickup_day_of_week !== null && ` \u2022 ${t('success.every', locale, { day: t('day.' + sub.pickup_day_of_week, locale) })}`}
                         {formatPickupTime(sub.pickup_start_time, sub.pickup_end_time) && `, ${formatPickupTime(sub.pickup_start_time, sub.pickup_end_time)}`}
                         {sub.market_name && ` at ${sub.market_name}`}
                         {sub.market_city && `, ${sub.market_city}`}
@@ -401,7 +404,7 @@ export default function CheckoutSuccessPage() {
                   fontSize: typography.sizes.lg,
                   color: locations.length > 1 ? '#856404' : colors.textPrimary,
                 }}>
-                  {locations.length > 1 ? 'Multiple Pickup Locations' : 'Pickup Location'}
+                  {locations.length > 1 ? t('success.multi_pickup', locale) : t('success.pickup_location', locale)}
                 </h2>
               </div>
 
@@ -411,8 +414,7 @@ export default function CheckoutSuccessPage() {
                   color: '#856404',
                   fontSize: typography.sizes.sm,
                 }}>
-                  Your order includes items from <strong>{locations.length} different locations</strong>.
-                  Please visit each location to pick up your items.
+                  {t('success.multi_pickup_desc', locale, { count: String(locations.length) })}
                 </p>
               )}
 
@@ -494,26 +496,26 @@ export default function CheckoutSuccessPage() {
             fontSize: typography.sizes.lg,
             color: colors.textPrimary,
           }}>
-            What&apos;s Next?
+            {t('success.whats_next', locale)}
           </h2>
           <ul style={{ margin: 0, paddingLeft: spacing.md, color: colors.textSecondary, fontSize: typography.sizes.sm, lineHeight: typography.leading.loose, listStyleType: 'disc' }}>
             {order?.items && order.items.length > 0 && (
               <>
-                <li>The vendor will be notified and will confirm your order</li>
-                <li>You&apos;ll receive a notification when your items are ready for pickup</li>
+                <li>{t('success.next_vendor_confirm', locale)}</li>
+                <li>{t('success.next_notification', locale)}</li>
                 {vertical === 'food_trucks' && (
-                  <li>Food trucks may experience unexpected rushes &mdash; if you haven&apos;t received confirmation within 30 minutes of pickup, the order may not be fulfilled this time</li>
+                  <li>{t('success.next_ft_rush', locale)}</li>
                 )}
-                <li>Pick up your items at the designated location{[...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : ''}</li>
+                <li>{t('success.next_pickup', locale, { plural: [...new Set(order.items.map(i => i.market_id).filter(Boolean))].length > 1 ? 's' : '' })}</li>
               </>
             )}
             {order?.marketBoxSubscriptions && order.marketBoxSubscriptions.length > 0 && (
               <>
-                <li>Your market box subscription is now active</li>
-                <li>You&apos;ll receive weekly pickup reminders before each market day</li>
+                <li>{t('success.next_mb_active', locale)}</li>
+                <li>{t('success.next_mb_reminders', locale)}</li>
               </>
             )}
-            <li>Track your order status in your orders page</li>
+            <li>{t('success.next_track', locale)}</li>
           </ul>
         </div>
 
@@ -539,7 +541,7 @@ export default function CheckoutSuccessPage() {
               justifyContent: 'center',
             }}
           >
-            View My Orders
+            {t('success.view_orders', locale)}
           </Link>
           <Link
             href={`/${vertical}/browse`}
@@ -557,7 +559,7 @@ export default function CheckoutSuccessPage() {
               justifyContent: 'center',
             }}
           >
-            Continue Shopping
+            {t('success.continue_shopping', locale)}
           </Link>
         </div>
       </div>

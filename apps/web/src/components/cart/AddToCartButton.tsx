@@ -15,6 +15,8 @@ import {
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { generateTimeSlots, formatTimeSlot } from '@/lib/utils/time-slots'
 import { colors, statusColors, spacing, typography, radius, sizing } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 /*
  * PICKUP SCHEDULING CONTEXT
@@ -54,6 +56,7 @@ export function AddToCartButton({
   availablePickupDates = [],
   showMixedAvailabilityWarning = false
 }: AddToCartButtonProps) {
+  const locale = getClientLocale()
   const { addToCart, items } = useCart()
   const { showToast, ToastContainer } = useToast()
   const [quantity, setQuantity] = useState(1)
@@ -107,17 +110,17 @@ export function AddToCartButton({
 
   async function handleAddToCart() {
     if (availableToAdd <= 0) {
-      showToast('Maximum quantity reached', 'warning')
+      showToast(t('atc.max_reached', locale), 'warning')
       return
     }
 
     if (!selectedPickup) {
-      showToast(isFoodTruck ? 'Please select a pickup location' : 'Please select a pickup date', 'warning')
+      showToast(isFoodTruck ? t('atc.select_loc_warn', locale) : t('atc.select_date_warn', locale), 'warning')
       return
     }
 
     if (vertical === 'food_trucks' && !selectedTimeSlot) {
-      showToast('Please select a pickup time', 'warning')
+      showToast(t('atc.select_time_warn', locale), 'warning')
       return
     }
 
@@ -135,14 +138,14 @@ export function AddToCartButton({
       )
       const dateFormatted = formatPickupDate(selectedPickup.pickupDate)
       const timeStr = selectedTimeSlot ? ` at ${formatTimeSlot(selectedTimeSlot)}` : ''
-      showToast(`Added to cart! Pickup ${dateFormatted}${timeStr} at ${selectedPickup.marketName}`, 'success')
+      showToast(t('atc.added', locale, { date: dateFormatted, time: timeStr, market: selectedPickup.marketName }), 'success')
       setQuantity(1) // Reset quantity after adding
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add to cart'
 
       // Check for unauthorized error
       if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.includes('401')) {
-        showToast('Please log in to add items to your cart', 'info')
+        showToast(t('atc.login_required', locale), 'info')
         // Redirect after brief delay
         setTimeout(() => {
           const currentPath = window.location.pathname
@@ -202,7 +205,7 @@ export function AddToCartButton({
             marginBottom: 6
           }}>
             <span style={{ color: primaryColor }}>✓</span>
-            {isFoodTruck ? 'Select a Pickup Location:' : 'Select a Pickup Date below:'}
+            {isFoodTruck ? t('atc.select_location', locale) : t('atc.select_date', locale)}
           </label>
           <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
 
@@ -487,7 +490,7 @@ export function AddToCartButton({
             color: '#78350f',
             lineHeight: 1.4
           }}>
-            Some pickup dates are no longer accepting orders. Select an available date above.
+            {t('atc.mixed_warning', locale)}
           </p>
         </div>
       )}
@@ -505,7 +508,7 @@ export function AddToCartButton({
             marginBottom: 6
           }}>
             <span style={{ color: primaryColor }}>✓</span>
-            Select a Pickup Time:
+            {t('atc.select_time', locale)}
           </label>
           <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
           <div style={{
@@ -554,7 +557,7 @@ export function AddToCartButton({
           gap: 8,
           marginBottom: 10,
         }}>
-          <span style={{ fontSize: 12, color: '#666' }}>Qty:</span>
+          <span style={{ fontSize: 12, color: '#666' }}>{t('checkout.qty', locale)}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <button
               type="button"
@@ -622,21 +625,21 @@ export function AddToCartButton({
         }}
       >
         {adding ? (
-          'Adding...'
+          t('atc.adding', locale)
         ) : ordersClosed || !hasAcceptingDates ? (
-          'Orders Currently Closed'
+          t('atc.orders_closed', locale)
         ) : isSoldOut ? (
-          'Sold Out'
+          t('atc.sold_out', locale)
         ) : availableToAdd <= 0 ? (
-          'Max in Cart'
+          t('atc.max_in_cart', locale)
         ) : needsSelection ? (
-          isFoodTruck ? 'Select Pickup Location' : 'Select Pickup Date'
+          isFoodTruck ? t('atc.select_pickup_loc', locale) : t('atc.select_pickup_date', locale)
         ) : needsTimeSlot ? (
-          'Select Pickup Time'
+          t('atc.select_pickup_time', locale)
         ) : (
           <>
             <span style={{ fontSize: 20 }}>🛒</span>
-            Add to Cart
+            {t('atc.add', locale)}
           </>
         )}
       </button>
@@ -665,7 +668,7 @@ export function AddToCartButton({
           fontSize: 13
         }}>
           <p style={{ margin: 0, color: colors.primaryDark, fontWeight: 600 }}>
-            In your cart:
+            {t('cart.in_cart', locale)}
           </p>
           {inCartItems.map(item => (
             <p key={item.id} style={{ margin: '4px 0 0 0', color: colors.primaryDark }}>
