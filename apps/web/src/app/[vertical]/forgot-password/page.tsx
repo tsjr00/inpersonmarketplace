@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { defaultBranding, VerticalBranding } from '@/lib/branding'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface ForgotPasswordPageProps {
   params: Promise<{ vertical: string }>
@@ -19,6 +21,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
   const [configLoading, setConfigLoading] = useState(true)
   const [branding, setBranding] = useState<VerticalBranding>(defaultBranding[vertical] || defaultBranding.farmers_market)
   const supabase = createClient()
+  const locale = getClientLocale()
 
   useEffect(() => {
     async function loadConfig() {
@@ -68,7 +71,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
         backgroundColor: colors.surfaceBase,
         color: colors.textPrimary
       }}>
-        Loading...
+        {t('forgot.loading', locale)}
       </div>
     )
   }
@@ -94,13 +97,13 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
           color: colors.textSecondary
         }}>
           <h2 style={{ color: colors.accent, marginBottom: spacing.md, fontSize: typography.sizes.xl }}>
-            Check Your Email
+            {t('forgot.success_title', locale)}
           </h2>
           <p style={{ marginBottom: spacing.md, color: colors.textMuted, fontSize: typography.sizes.base }}>
-            We&apos;ve sent a password reset link to <strong>{email}</strong>
+            {t('forgot.success_sent', locale)} <strong>{email}</strong>
           </p>
           <p style={{ marginBottom: spacing.md, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-            The link will expire in 1 hour.
+            {t('forgot.success_expiry', locale)}
           </p>
           <Link
             href={`/${vertical}/login`}
@@ -116,7 +119,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
               border: `2px solid ${colors.primary}`
             }}
           >
-            Back to Login
+            {t('forgot.back_to_login', locale)}
           </Link>
         </div>
       </div>
@@ -140,7 +143,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
         <Link href={`/${vertical}`} style={{ fontSize: typography.sizes.xl, fontWeight: typography.weights.bold, color: colors.primary, textDecoration: 'none' }}>
           {branding.brand_name}
         </Link>
-        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>Home</Link>
+        <Link href="/" style={{ color: colors.textMuted, textDecoration: 'none' }}>{t('nav.home', locale)}</Link>
       </nav>
 
       {/* Logo/Header */}
@@ -175,11 +178,11 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
           textAlign: 'center',
           fontSize: typography.sizes.xl
         }}>
-          Reset Your Password
+          {t('forgot.title', locale)}
         </h2>
 
         <p style={{ marginBottom: spacing.md, color: colors.textMuted, fontSize: typography.sizes.sm }}>
-          Enter your email address and we&apos;ll send you a link to reset your password.
+          {t('forgot.instructions', locale)}
         </p>
 
         {error && (
@@ -198,7 +201,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
         <form onSubmit={handleResetRequest}>
           <div style={{ marginBottom: spacing.md }}>
             <label style={{ display: 'block', marginBottom: spacing['3xs'], fontWeight: typography.weights.semibold, fontSize: typography.sizes.base }}>
-              Email Address
+              {t('forgot.email_label', locale)}
             </label>
             <input
               type="email"
@@ -235,7 +238,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
               boxShadow: loading ? 'none' : shadows.primary
             }}
           >
-            {loading ? 'Sending...' : 'Send Reset Link'}
+            {loading ? t('forgot.sending', locale) : t('forgot.submit', locale)}
           </button>
 
           <div style={{ textAlign: 'center' }}>
@@ -243,7 +246,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
               href={`/${vertical}/login`}
               style={{ color: colors.textMuted, fontSize: typography.sizes.sm }}
             >
-              Back to Login
+              {t('forgot.back_to_login', locale)}
             </Link>
           </div>
         </form>
