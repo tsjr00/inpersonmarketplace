@@ -1,12 +1,14 @@
 import Link from 'next/link'
 import { colors, spacing, typography, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+import { t } from '@/lib/locale/messages'
 
 interface FooterProps {
   vertical?: string
+  locale?: string
 }
 
-export default function Footer({ vertical }: FooterProps) {
+export default function Footer({ vertical, locale = 'en' }: FooterProps) {
   const currentYear = new Date().getFullYear()
 
   return (
@@ -37,7 +39,7 @@ export default function Footer({ vertical }: FooterProps) {
               fontWeight: typography.weights.semibold,
               color: colors.textPrimary
             }}>
-              Local Market
+              {t('footer.brand', locale)}
             </h4>
             <p style={{
               color: colors.textSecondary,
@@ -45,7 +47,7 @@ export default function Footer({ vertical }: FooterProps) {
               lineHeight: typography.leading.relaxed,
               margin: 0
             }}>
-              Connecting local vendors with their communities through innovative marketplace solutions.
+              {t('footer.description', locale)}
             </p>
           </div>
 
@@ -57,7 +59,7 @@ export default function Footer({ vertical }: FooterProps) {
               fontWeight: typography.weights.semibold,
               color: colors.textPrimary
             }}>
-              Company
+              {t('footer.company', locale)}
             </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               <li style={{ marginBottom: spacing.xs }}>
@@ -69,7 +71,7 @@ export default function Footer({ vertical }: FooterProps) {
                     fontSize: typography.sizes.sm
                   }}
                 >
-                  About Us
+                  {t('footer.about_us', locale)}
                 </Link>
               </li>
               <li style={{ marginBottom: spacing.xs }}>
@@ -81,7 +83,7 @@ export default function Footer({ vertical }: FooterProps) {
                     fontSize: typography.sizes.sm
                   }}
                 >
-                  Help &amp; FAQ
+                  {t('footer.help_faq', locale)}
                 </Link>
               </li>
               <li style={{ marginBottom: spacing.xs }}>
@@ -93,7 +95,7 @@ export default function Footer({ vertical }: FooterProps) {
                     fontSize: typography.sizes.sm
                   }}
                 >
-                  {vertical ? term(vertical, 'event_feature_name') : 'Private Events'}
+                  {vertical ? term(vertical, 'event_feature_name', locale) : t('footer.events_fallback', locale)}
                 </Link>
               </li>
             </ul>
@@ -107,7 +109,7 @@ export default function Footer({ vertical }: FooterProps) {
               fontWeight: typography.weights.semibold,
               color: colors.textPrimary
             }}>
-              Legal
+              {t('footer.legal', locale)}
             </h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               <li style={{ marginBottom: spacing.xs }}>
@@ -119,7 +121,7 @@ export default function Footer({ vertical }: FooterProps) {
                     fontSize: typography.sizes.sm
                   }}
                 >
-                  Terms of Service
+                  {t('footer.terms_of_service', locale)}
                 </Link>
               </li>
               <li style={{ marginBottom: spacing.xs }}>
@@ -131,7 +133,7 @@ export default function Footer({ vertical }: FooterProps) {
                     fontSize: typography.sizes.sm
                   }}
                 >
-                  Privacy Policy
+                  {t('footer.privacy_policy', locale)}
                 </Link>
               </li>
             </ul>
@@ -147,7 +149,7 @@ export default function Footer({ vertical }: FooterProps) {
           }}
         >
           <p style={{ color: colors.textMuted, fontSize: typography.sizes.sm, margin: 0 }}>
-            © {currentYear} Local Market. All rights reserved.
+            {t('footer.copyright', locale, { year: String(currentYear) })}
           </p>
         </div>
       </div>
