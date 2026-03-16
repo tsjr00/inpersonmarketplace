@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 import Toast, { type ToastType } from '@/components/shared/Toast'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface UnratedOrder {
   id: string
@@ -21,6 +23,7 @@ interface RateOrderCardProps {
 }
 
 export default function RateOrderCard({ vertical }: RateOrderCardProps) {
+  const locale = getClientLocale()
   const [orders, setOrders] = useState<UnratedOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [ratingOrder, setRatingOrder] = useState<UnratedOrder | null>(null)
@@ -85,11 +88,11 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
 
       if (!res.ok) {
         const data = await res.json()
-        setToast({ message: data.error || 'Failed to submit rating', type: 'error' })
+        setToast({ message: data.error || t('feedback.failed', locale), type: 'error' })
         fetchUnratedOrders()
       }
     } catch {
-      setToast({ message: 'Failed to submit rating', type: 'error' })
+      setToast({ message: t('feedback.failed', locale), type: 'error' })
       fetchUnratedOrders()
     }
   }
@@ -100,6 +103,15 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
   // Get the first unrated order/vendor combo
   const firstOrder = orders[0]
   const firstVendor = firstOrder?.unrated_vendors[0]
+
+  const ratingLabels: Record<number, string> = {
+    0: t('review.tap_star', locale),
+    1: t('review.poor', locale),
+    2: t('review.fair', locale),
+    3: t('review.good', locale),
+    4: t('review.very_good', locale),
+    5: t('review.excellent', locale),
+  }
 
   return (
     <>
@@ -128,7 +140,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
             fontWeight: typography.weights.semibold,
             color: '#92400e'
           }}>
-            Rate Your Recent Order
+            {t('review.rate_order', locale)}
           </h3>
           {orders.length > 1 && (
             <span style={{
@@ -148,7 +160,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
           fontSize: typography.sizes.sm,
           color: '#92400e'
         }}>
-          How was your order from <strong>{firstVendor?.name}</strong>? Tap to rate.
+          {t('review.how_was', locale, { vendor: firstVendor?.name || '' })}
         </p>
       </div>
 
@@ -197,7 +209,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                     fontWeight: typography.weights.bold,
                     color: colors.textPrimary
                   }}>
-                    Thanks for the great rating!
+                    {t('review.thanks_great', locale)}
                   </h2>
                   <p style={{
                     margin: `${spacing.sm} 0 0`,
@@ -205,7 +217,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                     color: colors.textSecondary,
                     lineHeight: 1.5
                   }}>
-                    {`Would you mind leaving us a quick Google review? It helps local ${term(vertical, 'vendors').toLowerCase()} get discovered.`}
+                    {t('review.google_ask', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
                   </p>
                 </div>
                 <div style={{
@@ -242,7 +254,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                       setShowGoogleReview(false)
                     }}
                   >
-                    Review on Google
+                    {t('review.google_btn', locale)}
                   </a>
                   <button
                     onClick={() => {
@@ -261,7 +273,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                       cursor: 'pointer'
                     }}
                   >
-                    Not now
+                    {t('review.not_now', locale)}
                   </button>
                 </div>
               </>
@@ -280,14 +292,14 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                     fontWeight: typography.weights.bold,
                     color: colors.textPrimary
                   }}>
-                    Rate {ratingVendor.name}
+                    {t('review.rate_vendor', locale, { vendor: ratingVendor.name })}
                   </h2>
                   <p style={{
                     margin: `${spacing.xs} 0 0`,
                     fontSize: typography.sizes.sm,
                     color: colors.textMuted
                   }}>
-                    Order {ratingOrder.order_number}
+                    {t('review.order_label', locale, { number: ratingOrder.order_number })}
                   </p>
                 </div>
 
@@ -326,19 +338,14 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                     color: colors.textSecondary,
                     marginBottom: spacing.md
                   }}>
-                    {selectedRating === 0 && 'Tap a star to rate'}
-                    {selectedRating === 1 && 'Poor'}
-                    {selectedRating === 2 && 'Fair'}
-                    {selectedRating === 3 && 'Good'}
-                    {selectedRating === 4 && 'Very Good'}
-                    {selectedRating === 5 && 'Excellent!'}
+                    {ratingLabels[selectedRating] || ''}
                   </p>
 
                   {/* Optional Comment */}
                   <textarea
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    placeholder="Add a comment (optional)"
+                    placeholder={t('review.comment_placeholder', locale)}
                     rows={3}
                     style={{
                       width: '100%',
@@ -379,7 +386,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                       cursor: 'pointer'
                     }}
                   >
-                    Cancel
+                    {t('feedback.cancel', locale)}
                   </button>
                   <button
                     onClick={handleSubmitRating}
@@ -396,7 +403,7 @@ export default function RateOrderCard({ vertical }: RateOrderCardProps) {
                       cursor: selectedRating === 0 || submitting ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {submitting ? 'Submitting...' : 'Submit Rating'}
+                    {submitting ? t('feedback.submitting', locale) : t('review.submit', locale)}
                   </button>
                 </div>
               </>
