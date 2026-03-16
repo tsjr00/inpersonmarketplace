@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import { SUBSCRIPTION_PRICES } from '@/lib/stripe/config'
 import { colors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface BuyerTierManagerProps {
   vertical: string
@@ -23,6 +25,7 @@ export default function BuyerTierManager({
   primaryColor
 }: BuyerTierManagerProps) {
   const router = useRouter()
+  const locale = getClientLocale()
   const [showDowngradeModal, setShowDowngradeModal] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState('')
@@ -85,13 +88,12 @@ export default function BuyerTierManager({
             fontWeight: 600,
             color: '#1e40af'
           }}>
-            Upgrade to Premium
+            {t('buyer_tier.upgrade_title', locale)}
           </h3>
         </div>
 
         <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#1e3a8a' }}>
-          Get early access to new listings, priority support, and more for just{' '}
-          <strong>${monthlyPrice}/month</strong> or <strong>${annualPrice}/year</strong>.
+          {t('buyer_tier.upgrade_desc', locale, { monthly: monthlyPrice, annual: annualPrice })}
         </p>
 
         <ul style={{
@@ -101,11 +103,11 @@ export default function BuyerTierManager({
           color: '#1e3a8a',
           lineHeight: 1.6
         }}>
-          <li><strong>{term(vertical, 'market_box')} Subscriptions</strong> - exclusive access to vendor bundles</li>
-          <li>Early access to new & seasonal listings</li>
-          <li>Priority customer support</li>
-          <li>Order insights dashboard</li>
-          <li>Premium member badge</li>
+          <li><strong>{t('buyer_tier.mbox_sub', locale, { market_box: term(vertical, 'market_box') })}</strong> - {t('buyer_tier.mbox_desc', locale)}</li>
+          <li>{t('buyer_tier.early_access', locale)}</li>
+          <li>{t('buyer_tier.priority_support', locale)}</li>
+          <li>{t('buyer_tier.insights', locale)}</li>
+          <li>{t('buyer_tier.badge', locale)}</li>
         </ul>
 
         <Link
@@ -121,7 +123,7 @@ export default function BuyerTierManager({
             fontSize: 14
           }}
         >
-          Upgrade Now
+          {t('buyer_tier.upgrade_now', locale)}
         </Link>
       </div>
     )
@@ -149,12 +151,12 @@ export default function BuyerTierManager({
             fontWeight: 600,
             color: colors.primaryDark
           }}>
-            Premium Member
+            {t('buyer_tier.premium_title', locale)}
           </h3>
         </div>
 
         <p style={{ margin: '0 0 8px 0', fontSize: 14, color: colors.primaryDark }}>
-          You&apos;re enjoying all premium benefits:
+          {t('buyer_tier.premium_desc', locale)}
         </p>
 
         <ul style={{
@@ -164,11 +166,11 @@ export default function BuyerTierManager({
           color: colors.primaryDark,
           lineHeight: 1.6
         }}>
-          <li><strong>{term(vertical, 'market_box')} Subscriptions</strong> - exclusive access to vendor bundles</li>
-          <li><strong>Early access</strong> to new and seasonal listings</li>
-          <li><strong>Priority support</strong> for faster response times</li>
-          <li><strong>Order insights</strong> dashboard and purchase analytics</li>
-          <li><strong>Premium badge</strong> on your profile</li>
+          <li><strong>{t('buyer_tier.mbox_sub', locale, { market_box: term(vertical, 'market_box') })}</strong> - {t('buyer_tier.mbox_desc', locale)}</li>
+          <li><strong>{t('buyer_tier.early_benefit', locale)}</strong> {t('buyer_tier.early_detail', locale)}</li>
+          <li><strong>{t('buyer_tier.support_benefit', locale)}</strong> {t('buyer_tier.support_detail', locale)}</li>
+          <li><strong>{t('buyer_tier.insights_benefit', locale)}</strong> {t('buyer_tier.insights_detail', locale)}</li>
+          <li><strong>{t('buyer_tier.badge_benefit', locale)}</strong> {t('buyer_tier.badge_detail', locale)}</li>
         </ul>
 
         {tierExpiresAt && (
@@ -177,8 +179,7 @@ export default function BuyerTierManager({
             fontSize: 13,
             color: colors.primaryDark
           }}>
-            Your membership renews on{' '}
-            <strong>{new Date(tierExpiresAt).toLocaleDateString()}</strong>
+            {t('buyer_tier.renews_on', locale, { date: new Date(tierExpiresAt).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US') })}
           </p>
         )}
 
@@ -194,7 +195,7 @@ export default function BuyerTierManager({
             cursor: 'pointer'
           }}
         >
-          Cancel Membership
+          {t('buyer_tier.cancel_btn', locale)}
         </button>
       </div>
 
@@ -227,12 +228,11 @@ export default function BuyerTierManager({
               fontWeight: 600,
               color: '#111827'
             }}>
-              Cancel Premium Membership?
+              {t('buyer_tier.cancel_title', locale)}
             </h3>
 
             <p style={{ margin: '0 0 16px 0', fontSize: 14, color: '#4b5563' }}>
-              Are you sure you want to cancel your Premium membership?
-              You will lose the following benefits:
+              {t('buyer_tier.cancel_desc', locale)}
             </p>
 
             <ul style={{
@@ -242,14 +242,14 @@ export default function BuyerTierManager({
               color: '#6b7280',
               lineHeight: 1.6
             }}>
-              <li><strong>{term(vertical, 'market_box')} Subscriptions</strong> - no longer able to subscribe</li>
-              <li>Early access to new listings</li>
-              <li>Early access to seasonal products</li>
-              <li>Priority customer support</li>
-              <li>Order insights and analytics</li>
-              <li>Favorites management</li>
-              <li>Premium shopper badge</li>
-              <li>Priority access to limited items</li>
+              <li><strong>{t('buyer_tier.mbox_sub', locale, { market_box: term(vertical, 'market_box') })}</strong> - {t('buyer_tier.cancel_mbox_detail', locale)}</li>
+              <li>{t('buyer_tier.cancel_early', locale)}</li>
+              <li>{t('buyer_tier.cancel_seasonal', locale)}</li>
+              <li>{t('buyer_tier.cancel_support', locale)}</li>
+              <li>{t('buyer_tier.cancel_insights', locale)}</li>
+              <li>{t('buyer_tier.cancel_favorites', locale)}</li>
+              <li>{t('buyer_tier.cancel_badge', locale)}</li>
+              <li>{t('buyer_tier.cancel_priority', locale)}</li>
             </ul>
 
             {hasActiveSubscription && (
@@ -266,8 +266,7 @@ export default function BuyerTierManager({
                   color: '#991b1b',
                   fontWeight: 500
                 }}>
-                  Your benefits will remain active until the end of your current billing period.
-                  No refunds will be issued for unused subscription time.
+                  {t('buyer_tier.billing_notice', locale)}
                 </p>
               </div>
             )}
@@ -301,7 +300,7 @@ export default function BuyerTierManager({
                   cursor: isProcessing ? 'not-allowed' : 'pointer'
                 }}
               >
-                Keep Premium
+                {t('buyer_tier.keep', locale)}
               </button>
               <button
                 onClick={handleDowngrade}
@@ -317,7 +316,7 @@ export default function BuyerTierManager({
                   cursor: isProcessing ? 'not-allowed' : 'pointer'
                 }}
               >
-                {isProcessing ? 'Processing...' : 'Cancel Membership'}
+                {isProcessing ? t('buyer_tier.processing', locale) : t('buyer_tier.cancel_btn', locale)}
               </button>
             </div>
           </div>

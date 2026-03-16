@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 import SettingsForm from './SettingsForm'
 import ChangePasswordForm from './ChangePasswordForm'
 import NotificationPreferences from './NotificationPreferences'
@@ -57,7 +58,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         href={`/${vertical}/dashboard`}
         style={{ color: colors.textMuted, textDecoration: 'none', fontSize: typography.sizes.sm }}
       >
-        ← Back to Dashboard
+        {t('settings.back', locale)}
       </Link>
       <h1 style={{
         fontSize: typography.sizes['2xl'],
@@ -66,7 +67,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         marginBottom: spacing.md,
         marginTop: spacing.xs
       }}>
-        Settings
+        {t('settings.title', locale)}
       </h1>
 
       {/* Account Details */}
@@ -84,28 +85,29 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           marginTop: 0,
           marginBottom: spacing.md
         }}>
-          Account Details
+          {t('settings.account_details', locale)}
         </h2>
 
         <SettingsForm
           initialDisplayName={userProfile?.display_name || ''}
           userEmail={user.email || ''}
           primaryColor={branding.colors.primary}
+          locale={locale}
         />
 
         <div style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTop: `1px solid ${colors.border}` }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
             <div>
-              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>Member Since</p>
+              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>{t('settings.member_since', locale)}</p>
               <p style={{ margin: 0, color: colors.textPrimary, fontSize: typography.sizes.base }}>
                 {userProfile?.created_at
-                  ? new Date(userProfile.created_at).toLocaleDateString()
-                  : 'Unknown'}
+                  ? new Date(userProfile.created_at).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US')
+                  : t('settings.unknown', locale)}
               </p>
             </div>
 
             <div>
-              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>Account ID</p>
+              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>{t('settings.account_id', locale)}</p>
               <p style={{
                 margin: 0,
                 color: colors.textMuted,
@@ -134,7 +136,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           marginTop: 0,
           marginBottom: spacing.md
         }}>
-          Membership
+          {t('settings.membership', locale)}
         </h2>
 
         <BuyerTierManager
@@ -162,12 +164,12 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             marginTop: 0,
             marginBottom: spacing.md
           }}>
-            Vendor Account
+            {t('settings.vendor_account', locale)}
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
             <div>
-              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>Vendor ID</p>
+              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>{t('settings.vendor_id', locale)}</p>
               <p style={{
                 margin: 0,
                 color: colors.textMuted,
@@ -179,7 +181,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             </div>
 
             <div>
-              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>Status</p>
+              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>{t('settings.status', locale)}</p>
               <span style={{
                 display: 'inline-block',
                 padding: `${spacing['3xs']} ${spacing.xs}`,
@@ -193,16 +195,16 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             </div>
 
             <div>
-              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>Tier</p>
+              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>{t('settings.tier', locale)}</p>
               {(() => {
-                const t = vendorProfile.tier || (vertical === 'food_trucks' ? 'free' : 'standard')
+                const tierValue = vendorProfile.tier || (vertical === 'food_trucks' ? 'free' : 'standard')
                 const isFT = vertical === 'food_trucks'
                 const tierBg = isFT
-                  ? (t === 'boss' ? '#fffbeb' : t === 'pro' ? '#fff5f5' : t === 'basic' ? '#f9fafb' : colors.surfaceMuted)
-                  : (t === 'premium' ? colors.surfaceSubtle : t === 'featured' ? colors.primaryLight : colors.surfaceMuted)
+                  ? (tierValue === 'boss' ? '#fffbeb' : tierValue === 'pro' ? '#fff5f5' : tierValue === 'basic' ? '#f9fafb' : colors.surfaceMuted)
+                  : (tierValue === 'premium' ? colors.surfaceSubtle : tierValue === 'featured' ? colors.primaryLight : colors.surfaceMuted)
                 const tierColor = isFT
-                  ? (t === 'boss' ? '#545454' : t === 'pro' ? '#ff3131' : t === 'basic' ? '#737373' : colors.textSecondary)
-                  : (t === 'premium' ? colors.accent : t === 'featured' ? colors.primaryDark : colors.textSecondary)
+                  ? (tierValue === 'boss' ? '#545454' : tierValue === 'pro' ? '#ff3131' : tierValue === 'basic' ? '#737373' : colors.textSecondary)
+                  : (tierValue === 'premium' ? colors.accent : tierValue === 'featured' ? colors.primaryDark : colors.textSecondary)
                 return (
                   <span style={{
                     display: 'inline-block',
@@ -213,16 +215,16 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
                     backgroundColor: tierBg,
                     color: tierColor
                   }}>
-                    {t}
+                    {tierValue}
                   </span>
                 )
               })()}
             </div>
 
             <div>
-              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>Last Updated</p>
+              <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing['3xs']} 0` }}>{t('settings.last_updated', locale)}</p>
               <p style={{ margin: 0, color: colors.textPrimary, fontSize: typography.sizes.base }}>
-                {new Date(vendorProfile.updated_at).toLocaleDateString()}
+                {new Date(vendorProfile.updated_at).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US')}
               </p>
             </div>
           </div>
@@ -253,7 +255,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           marginTop: 0,
           marginBottom: spacing.md
         }}>
-          Change Password
+          {t('settings.change_password', locale)}
         </h2>
 
         <ChangePasswordForm primaryColor={branding.colors.primary} />
@@ -274,7 +276,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           marginTop: 0,
           marginBottom: spacing.md
         }}>
-          Notification Preferences
+          {t('settings.notification_prefs', locale)}
         </h2>
 
         <NotificationPreferences
@@ -299,12 +301,10 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           marginTop: 0,
           marginBottom: spacing.sm
         }}>
-          {locale === 'es' ? 'Idioma' : 'Language'}
+          {t('settings.language', locale)}
         </h2>
         <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing.sm} 0` }}>
-          {locale === 'es'
-            ? 'Elige tu idioma preferido para la interfaz de la aplicación.'
-            : 'Choose your preferred language for the app interface.'}
+          {t('settings.language_desc', locale)}
         </p>
         <LanguageSelector locale={locale} variant="full" />
       </div>
@@ -323,7 +323,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           marginTop: 0,
           marginBottom: spacing.md
         }}>
-          Delete Account
+          {t('settings.delete_account', locale)}
         </h2>
 
         <DeleteAccountSection vertical={vertical} userEmail={user.email || ''} />

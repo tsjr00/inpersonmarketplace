@@ -3,12 +3,15 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { colors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface ChangePasswordFormProps {
   primaryColor: string
 }
 
 export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormProps) {
+  const locale = getClientLocale()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -23,21 +26,21 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
 
     // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setMessage({ type: 'error', text: 'Please fill in all fields' })
+      setMessage({ type: 'error', text: t('password.fill_all', locale) })
       return
     }
 
     if (newPassword.length < 9) {
-      setMessage({ type: 'error', text: 'Password must be at least 9 characters' })
+      setMessage({ type: 'error', text: t('password.min_length', locale) })
       return
     }
     if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
-      setMessage({ type: 'error', text: 'Password must include uppercase, lowercase, number, and special character' })
+      setMessage({ type: 'error', text: t('password.requirements', locale) })
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' })
+      setMessage({ type: 'error', text: t('password.no_match', locale) })
       return
     }
 
@@ -54,18 +57,18 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
       if (error) {
         // Handle specific errors
         if (error.message.includes('same')) {
-          setMessage({ type: 'error', text: 'New password must be different from current password' })
+          setMessage({ type: 'error', text: t('password.same_as_current', locale) })
         } else {
-          setMessage({ type: 'error', text: error.message || 'Failed to change password' })
+          setMessage({ type: 'error', text: error.message || t('password.failed', locale) })
         }
       } else {
-        setMessage({ type: 'success', text: 'Password changed successfully!' })
+        setMessage({ type: 'success', text: t('password.success', locale) })
         setCurrentPassword('')
         setNewPassword('')
         setConfirmPassword('')
       }
     } catch {
-      setMessage({ type: 'error', text: 'Error changing password' })
+      setMessage({ type: 'error', text: t('password.error', locale) })
     } finally {
       setLoading(false)
     }
@@ -82,14 +85,14 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
           marginBottom: 6,
           fontWeight: 500
         }}>
-          Current Password
+          {t('password.current', locale)}
         </label>
         <div style={{ position: 'relative', maxWidth: 400 }}>
           <input
             type={showCurrent ? 'text' : 'password'}
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="Enter current password"
+            placeholder={t('password.current_placeholder', locale)}
             style={{
               width: '100%',
               padding: '10px 40px 10px 12px',
@@ -138,14 +141,14 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
           marginBottom: 6,
           fontWeight: 500
         }}>
-          New Password
+          {t('password.new', locale)}
         </label>
         <div style={{ position: 'relative', maxWidth: 400 }}>
           <input
             type={showNew ? 'text' : 'password'}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Min 9 chars: upper, lower, number, special"
+            placeholder={t('password.new_placeholder', locale)}
             style={{
               width: '100%',
               padding: '10px 40px 10px 12px',
@@ -194,14 +197,14 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
           marginBottom: 6,
           fontWeight: 500
         }}>
-          Confirm New Password
+          {t('password.confirm', locale)}
         </label>
         <div style={{ position: 'relative', maxWidth: 400 }}>
           <input
             type={showConfirm ? 'text' : 'password'}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Re-enter new password"
+            placeholder={t('password.confirm_placeholder', locale)}
             style={{
               width: '100%',
               padding: '10px 40px 10px 12px',
@@ -257,7 +260,7 @@ export default function ChangePasswordForm({ primaryColor }: ChangePasswordFormP
             cursor: loading ? 'not-allowed' : 'pointer'
           }}
         >
-          {loading ? 'Changing...' : 'Change Password'}
+          {loading ? t('password.changing', locale) : t('password.change', locale)}
         </button>
       </div>
 

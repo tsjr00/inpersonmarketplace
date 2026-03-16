@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface DeleteAccountSectionProps {
   vertical: string
@@ -9,6 +11,7 @@ interface DeleteAccountSectionProps {
 }
 
 export default function DeleteAccountSection({ vertical, userEmail }: DeleteAccountSectionProps) {
+  const locale = getClientLocale()
   const router = useRouter()
   const [showConfirm, setShowConfirm] = useState(false)
   const [confirmEmail, setConfirmEmail] = useState('')
@@ -17,7 +20,7 @@ export default function DeleteAccountSection({ vertical, userEmail }: DeleteAcco
 
   const handleDeleteAccount = async () => {
     if (confirmEmail !== userEmail) {
-      setError('Email does not match your account email')
+      setError(t('delete.email_mismatch', locale))
       return
     }
 
@@ -37,10 +40,10 @@ export default function DeleteAccountSection({ vertical, userEmail }: DeleteAcco
         router.refresh()
       } else {
         const data = await res.json()
-        setError(data.error || 'Failed to delete account')
+        setError(data.error || t('delete.failed', locale))
       }
     } catch {
-      setError('Error deleting account')
+      setError(t('delete.error', locale))
     } finally {
       setLoading(false)
     }
@@ -50,7 +53,7 @@ export default function DeleteAccountSection({ vertical, userEmail }: DeleteAcco
     return (
       <div>
         <p style={{ margin: '0 0 12px 0', fontSize: 14, color: '#6b7280' }}>
-          Permanently delete your account and all associated data. This action cannot be undone.
+          {t('delete.warning', locale)}
         </p>
         <button
           onClick={() => setShowConfirm(true)}
@@ -65,7 +68,7 @@ export default function DeleteAccountSection({ vertical, userEmail }: DeleteAcco
             cursor: 'pointer'
           }}
         >
-          Delete My Account
+          {t('delete.btn', locale)}
         </button>
       </div>
     )
@@ -79,17 +82,17 @@ export default function DeleteAccountSection({ vertical, userEmail }: DeleteAcco
       borderRadius: 8
     }}>
       <h3 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 600, color: '#991b1b' }}>
-        Are you sure?
+        {t('delete.confirm_title', locale)}
       </h3>
       <p style={{ margin: '0 0 16px 0', fontSize: 14, color: '#991b1b' }}>
-        This will permanently delete:
+        {t('delete.will_delete', locale)}
       </p>
       <ul style={{ margin: '0 0 16px 0', paddingLeft: 20, fontSize: 14, color: '#991b1b' }}>
-        <li>Your user profile and settings</li>
-        <li>Your order history</li>
-        <li>Your saved payment methods</li>
-        <li>Any vendor profiles you own</li>
-        <li>All listings and data associated with your account</li>
+        <li>{t('delete.item_profile', locale)}</li>
+        <li>{t('delete.item_orders', locale)}</li>
+        <li>{t('delete.item_payments', locale)}</li>
+        <li>{t('delete.item_vendor', locale)}</li>
+        <li>{t('delete.item_data', locale)}</li>
       </ul>
 
       <div style={{ marginBottom: 16 }}>
@@ -100,13 +103,13 @@ export default function DeleteAccountSection({ vertical, userEmail }: DeleteAcco
           marginBottom: 6,
           fontWeight: 500
         }}>
-          Type your email to confirm: <strong>{userEmail}</strong>
+          {t('delete.type_email', locale)} <strong>{userEmail}</strong>
         </label>
         <input
           type="email"
           value={confirmEmail}
           onChange={(e) => setConfirmEmail(e.target.value)}
-          placeholder="Enter your email"
+          placeholder={t('delete.email_placeholder', locale)}
           style={{
             width: '100%',
             maxWidth: 400,
@@ -150,7 +153,7 @@ export default function DeleteAccountSection({ vertical, userEmail }: DeleteAcco
             cursor: 'pointer'
           }}
         >
-          Cancel
+          {t('delete.cancel', locale)}
         </button>
         <button
           onClick={handleDeleteAccount}
@@ -166,7 +169,7 @@ export default function DeleteAccountSection({ vertical, userEmail }: DeleteAcco
             cursor: loading || confirmEmail !== userEmail ? 'not-allowed' : 'pointer'
           }}
         >
-          {loading ? 'Deleting...' : 'Permanently Delete Account'}
+          {loading ? t('delete.deleting', locale) : t('delete.confirm_btn', locale)}
         </button>
       </div>
     </div>
