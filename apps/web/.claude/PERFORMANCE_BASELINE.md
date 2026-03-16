@@ -18,7 +18,7 @@ These metrics are derived from code analysis. They do not depend on network cond
 | `/[vertical]/markets` | 5 | 1 | 4 | 2 | Excellent — 4-way parallel, then vendor counts. |
 | `/[vertical]/vendors` | 4 | 0 | 4 | 2 | Optimal — two parallel phases. |
 | `/[vertical]/listing/[id]` | 5 | 0 | 5 | 2 | Optimal — two parallel phases with data dependencies. |
-| `/[vertical]/dashboard` | 6 | 6 | 0 | 6 | All sequential. Candidate for future parallelization. |
+| `/[vertical]/dashboard` | 7 | 3 | 5 | 3 | Auth guard (enforceVerticalAccess) + auth.getUser sequential, then 5-way parallel (vendorProfile, userProfile, orderCount, readyOrders, ordersNeedingConfirmation), then conditional activeItemCounts. |
 
 **Rules:**
 - Query count must NOT increase without user approval
@@ -57,7 +57,7 @@ These metrics are derived from code analysis. They do not depend on network cond
 | Area | Ceiling | Reason |
 |------|---------|--------|
 | Browse page SSR | ~0.5s on staging | 3+ sequential DB queries + heavy availability RPC. Further improvement requires Option D (static shell + client fetch) or RPC rewrite. |
-| Dashboard page | Sum of 6 sequential queries | No parallelization. Improvement possible but not yet prioritized. |
+| Dashboard page | Auth guard + auth.getUser + 5-way parallel + conditional | Parallelized in Session 59. Remaining sequential: enforceVerticalAccess (auth+profile) + auth.getUser (needed for user.id). |
 
 ---
 
@@ -66,3 +66,5 @@ These metrics are derived from code analysis. They do not depend on network cond
 | Date | Session | Change | Before | After | Method |
 |------|---------|--------|--------|-------|--------|
 | 2026-03-16 | 59 | Parallelize auth+locale, combine user_profiles query, consolidate dual RPC | 4-6 sequential queries, 2 duplicate queries, 2 RPC calls | 3 sequential + 1 parallel, 0 duplicates, 1 RPC call | Code analysis (query count) |
+| 2026-03-16 | 59 | Dashboard: parallelize 5 data queries into Promise.all | 6 sequential, 0 parallel, depth 6 | 3 sequential, 5 parallel, depth 3 | Code analysis (query count) |
+| 2026-03-16 | 59 | Compress oversized logos + hero images | fastwrks 1.2MB, FM 968KB, heroes 761KB+747KB | fastwrks 62KB, FM 93KB, heroes 202KB+194KB | File size measurement |

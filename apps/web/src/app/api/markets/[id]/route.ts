@@ -78,7 +78,9 @@ export async function GET(
       market_vendors: undefined,
     }
 
-    return NextResponse.json({ market: transformedMarket })
+    return NextResponse.json({ market: transformedMarket }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    })
   })
 }
 
