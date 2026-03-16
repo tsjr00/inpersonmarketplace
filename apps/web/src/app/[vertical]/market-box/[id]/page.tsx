@@ -4,6 +4,8 @@ import { formatDisplayPrice } from '@/lib/constants'
 import { marketBoxJsonLd } from '@/lib/marketing/json-ld'
 import MarketBoxDetailClient from './MarketBoxDetailClient'
 import { getAppUrl } from '@/lib/environment'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 import type { Metadata } from 'next'
 
 interface MarketBoxPageProps {
@@ -13,6 +15,7 @@ interface MarketBoxPageProps {
 // Generate Open Graph metadata for social sharing
 export async function generateMetadata({ params }: MarketBoxPageProps): Promise<Metadata> {
   const { vertical, id: offeringId } = await params
+  const locale = await getLocale()
   const supabase = await createClient()
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
@@ -36,14 +39,14 @@ export async function generateMetadata({ params }: MarketBoxPageProps): Promise<
 
   if (!offering) {
     return {
-      title: 'Market Box Not Found',
+      title: t('market_box.not_found', locale),
     }
   }
 
   // vendor_profiles comes back as an object from the inner join
   const vendorProfile = offering.vendor_profiles as unknown as { profile_data: Record<string, unknown> } | null
   const vendorData = vendorProfile?.profile_data
-  const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
+  const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || t('market_box.vendor_fallback', locale)
 
   const imageUrls = offering.image_urls as string[] | null
   const primaryImage = imageUrls?.[0]
@@ -75,6 +78,7 @@ export async function generateMetadata({ params }: MarketBoxPageProps): Promise<
 
 export default async function MarketBoxDetailPage({ params }: MarketBoxPageProps) {
   const { vertical, id: offeringId } = await params
+  const locale = await getLocale()
   const supabase = await createClient()
 
   // Next.js deduplicates this query (same as generateMetadata)
@@ -99,7 +103,7 @@ export default async function MarketBoxDetailPage({ params }: MarketBoxPageProps
   if (offering) {
     const vendorProfile = offering.vendor_profiles as unknown as { profile_data: Record<string, unknown> } | null
     const vendorData = vendorProfile?.profile_data
-    const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || 'Vendor'
+    const vendorName = (vendorData?.business_name as string) || (vendorData?.farm_name as string) || t('market_box.vendor_fallback', locale)
     const imageUrls = offering.image_urls as string[] | null
     const priceCents = offering.price_4week_cents || offering.price_cents
 

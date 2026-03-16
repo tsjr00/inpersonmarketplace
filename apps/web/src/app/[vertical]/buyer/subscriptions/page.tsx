@@ -8,6 +8,8 @@ import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
 import { colors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Pickup {
   id: string
@@ -53,12 +55,11 @@ interface Subscription {
   pickups: Pickup[]
 }
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
 export default function BuyerSubscriptionsPage() {
   const params = useParams()
   const vertical = params.vertical as string
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const locale = getClientLocale()
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,7 +92,7 @@ export default function BuyerSubscriptionsPage() {
   }
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(cents / 100)
@@ -106,7 +107,7 @@ export default function BuyerSubscriptionsPage() {
   }
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -155,7 +156,7 @@ export default function BuyerSubscriptionsPage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, padding: 24 }}>
         <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: 100 }}>
-          Loading...
+          {t('subs.loading', locale)}
         </div>
       </div>
     )
@@ -170,13 +171,13 @@ export default function BuyerSubscriptionsPage() {
             href={`/${vertical}/buyer/orders`}
             style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
           >
-            ← Back to Orders
+            {t('subs.back_to_orders', locale)}
           </Link>
           <h1 style={{ color: branding.colors.primary, margin: '16px 0 8px 0', fontSize: 28 }}>
-            My Subscriptions
+            {t('subs.title', locale)}
           </h1>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            {`Manage your ${term(vertical, 'market_box')} subscriptions and view upcoming pickups`}
+            {t('subs.manage_desc', locale, { market_box: term(vertical, 'market_box', locale) })}
           </p>
         </div>
 
@@ -191,7 +192,7 @@ export default function BuyerSubscriptionsPage() {
           const pickup = upcomingPickups[0]
           const sub = pickup.subscription
           const market = sub.market
-          const dateStr = new Date(pickup.scheduled_date + 'T00:00:00').toLocaleDateString('en-US', {
+          const dateStr = new Date(pickup.scheduled_date + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
             weekday: 'long',
             month: 'long',
             day: 'numeric'
@@ -227,7 +228,7 @@ export default function BuyerSubscriptionsPage() {
                 }}
               >
                 <span style={{ fontWeight: 700, color: '#1e40af', fontSize: 15 }}>
-                  Next Pickup:
+                  {t('subs.next_pickup', locale)}
                 </span>
                 <span style={{ fontWeight: 600, color: '#1e40af', fontSize: 15 }}>
                   {dateStr} {timeStr}
@@ -241,7 +242,7 @@ export default function BuyerSubscriptionsPage() {
                     fontSize: 12,
                     fontWeight: 600
                   }}>
-                    Ready for Pickup!
+                    {t('subs.ready_for_pickup', locale)}
                   </span>
                 )}
               </div>
@@ -284,7 +285,7 @@ export default function BuyerSubscriptionsPage() {
               fontSize: 14
             }}
           >
-            {`Browse ${term(vertical, 'market_boxes')}`}
+            {`Browse ${term(vertical, 'market_boxes', locale)}`}
           </Link>
         </div>
 
@@ -298,9 +299,9 @@ export default function BuyerSubscriptionsPage() {
             textAlign: 'center'
           }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
-            <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>No Subscriptions Yet</h3>
+            <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>{t('subs.no_subs_title', locale)}</h3>
             <p style={{ color: '#6b7280', margin: '0 0 24px 0' }}>
-              {`Subscribe to a ${term(vertical, 'market_box').toLowerCase()} for weekly pickups.`}
+              {t('subs.no_subs_desc', locale, { market_box: term(vertical, 'market_box', locale).toLowerCase() })}
             </p>
             <Link
               href={`/${vertical}/browse?view=market-boxes`}
@@ -314,7 +315,7 @@ export default function BuyerSubscriptionsPage() {
                 fontWeight: 600
               }}
             >
-              {`Browse ${term(vertical, 'market_boxes')}`}
+              {`Browse ${term(vertical, 'market_boxes', locale)}`}
             </Link>
           </div>
         ) : (
@@ -352,7 +353,7 @@ export default function BuyerSubscriptionsPage() {
                         </span>
                       </div>
                       <div style={{ fontSize: 13, color: '#6b7280' }}>
-                        by {subscription.vendor?.name || 'Vendor'}
+                        {t('subs.by_vendor', locale, { name: subscription.vendor?.name || 'Vendor' })}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -360,10 +361,10 @@ export default function BuyerSubscriptionsPage() {
                         {formatPrice(subscription.total_paid_cents)}
                       </div>
                       <div style={{ fontSize: 12, color: '#6b7280' }}>
-                        {subscription.weeks_completed} of {subscription.total_weeks || subscription.term_weeks || 4} weeks
+                        {t('subs.weeks_progress', locale, { completed: String(subscription.weeks_completed), total: String(subscription.total_weeks || subscription.term_weeks || 4) })}
                         {subscription.extended_weeks > 0 && (
                           <span style={{ display: 'block', fontSize: 11, color: colors.primary }}>
-                            (+{subscription.extended_weeks} extended)
+                            {t('subs.extended', locale, { count: String(subscription.extended_weeks) })}
                           </span>
                         )}
                       </div>
@@ -372,9 +373,9 @@ export default function BuyerSubscriptionsPage() {
 
                   {/* Pickup Info */}
                   <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
-                    {DAYS[subscription.offering.pickup_day_of_week]}s {formatTime(subscription.offering.pickup_start_time)}-{formatTime(subscription.offering.pickup_end_time)}
+                    {t('day.' + subscription.offering.pickup_day_of_week, locale)}s {formatTime(subscription.offering.pickup_start_time)}-{formatTime(subscription.offering.pickup_end_time)}
                     {subscription.market && (
-                      <> at {subscription.market.name}</>
+                      <> {t('subs.at_market', locale, { name: subscription.market.name })}</>
                     )}
                   </div>
 
@@ -407,9 +408,9 @@ export default function BuyerSubscriptionsPage() {
                           }}
                         >
                           <div style={{ fontSize: 11, color: pickup.is_extension ? colors.primaryDark : pickupColor.text, fontWeight: 600 }}>
-                            Week {pickup.week_number}
+                            {t('subs.week', locale, { number: String(pickup.week_number) })}
                             {pickup.is_extension && (
-                              <span style={{ fontSize: 9, display: 'block', color: colors.primaryDark }}>Extension</span>
+                              <span style={{ fontSize: 9, display: 'block', color: colors.primaryDark }}>{t('subs.extension', locale)}</span>
                             )}
                           </div>
                           <div style={{ fontSize: 12, color: pickupColor.text }}>
@@ -417,7 +418,7 @@ export default function BuyerSubscriptionsPage() {
                           </div>
                           {pickup.status === 'ready' && (
                             <div style={{ fontSize: 10, marginTop: 2, color: '#92400e', fontWeight: 600 }}>
-                              READY
+                              {t('subs.ready', locale)}
                             </div>
                           )}
                           {pickup.status === 'picked_up' && (
@@ -427,7 +428,7 @@ export default function BuyerSubscriptionsPage() {
                             <div style={{ fontSize: 10, marginTop: 2 }}>✗</div>
                           )}
                           {pickup.status === 'skipped' && (
-                            <div style={{ fontSize: 10, marginTop: 2, color: '#991b1b', fontWeight: 600 }}>SKIPPED</div>
+                            <div style={{ fontSize: 10, marginTop: 2, color: '#991b1b', fontWeight: 600 }}>{t('subs.skipped', locale)}</div>
                           )}
                         </div>
                       )
@@ -445,7 +446,7 @@ export default function BuyerSubscriptionsPage() {
                         textDecoration: 'none'
                       }}
                     >
-                      View Details →
+                      {t('subs.view_details', locale)}
                     </Link>
                   </div>
                 </div>

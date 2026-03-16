@@ -7,6 +7,8 @@ import { defaultBranding } from '@/lib/branding'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { getMapsUrl } from '@/lib/utils/maps-link'
 import { colors } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface Pickup {
   id: string
@@ -58,13 +60,12 @@ interface Subscription {
   pickups?: Pickup[]
 }
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
 export default function BuyerSubscriptionDetailPage() {
   const params = useParams()
   const vertical = params.vertical as string
   const subscriptionId = params.id as string
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const locale = getClientLocale()
 
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
@@ -117,7 +118,7 @@ export default function BuyerSubscriptionDetailPage() {
         const pickup = subscription?.pickups?.find(p => p.id === waitingForVendor)
         if (pickup?.status === 'picked_up') {
           setWaitingForVendor(null)
-          setConfirmMessage('Pickup confirmed by both parties!')
+          setConfirmMessage(t('sub_detail.both_confirmed', locale))
           setTimeout(() => setConfirmMessage(null), 5000)
         }
       })
@@ -147,11 +148,11 @@ export default function BuyerSubscriptionDetailPage() {
       }
 
       if (data.completed) {
-        setConfirmMessage('Pickup confirmed by both parties!')
+        setConfirmMessage(t('sub_detail.both_confirmed', locale))
         fetchSubscription()
         setTimeout(() => setConfirmMessage(null), 5000)
       } else {
-        setConfirmMessage('Waiting for vendor to confirm handoff (30 seconds)...')
+        setConfirmMessage(t('sub_detail.waiting_30s', locale))
         setWaitingForVendor(pickupId)
       }
     } catch (err) {
@@ -162,7 +163,7 @@ export default function BuyerSubscriptionDetailPage() {
   }
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(cents / 100)
@@ -176,8 +177,10 @@ export default function BuyerSubscriptionDetailPage() {
     return `${displayHour}:${minutes} ${ampm}`
   }
 
+  const dateLocale = locale === 'es' ? 'es-ES' : 'en-US'
+
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString(dateLocale, {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -186,7 +189,7 @@ export default function BuyerSubscriptionDetailPage() {
   }
 
   const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('en-US', {
+    return new Date(dateStr).toLocaleString(dateLocale, {
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
@@ -203,14 +206,14 @@ export default function BuyerSubscriptionDetailPage() {
     }
   }
 
-  const getPickupStatusColor = (status: string) => {
+  const getPickupStatusColor = (status: string, loc: string) => {
     switch (status) {
-      case 'scheduled': return { bg: '#f3f4f6', text: '#374151', label: 'Scheduled' }
-      case 'ready': return { bg: '#fef3c7', text: '#92400e', label: 'Ready for Pickup' }
-      case 'picked_up': return { bg: '#dcfce7', text: '#166534', label: 'Picked Up' }
-      case 'missed': return { bg: '#fee2e2', text: '#991b1b', label: 'Missed' }
-      case 'skipped': return { bg: '#fee2e2', text: '#991b1b', label: 'Skipped' }
-      case 'rescheduled': return { bg: '#f3e8ff', text: '#6b21a8', label: 'Rescheduled' }
+      case 'scheduled': return { bg: '#f3f4f6', text: '#374151', label: t('sub_detail.status_scheduled', loc) }
+      case 'ready': return { bg: '#fef3c7', text: '#92400e', label: t('sub_detail.status_ready', loc) }
+      case 'picked_up': return { bg: '#dcfce7', text: '#166534', label: t('sub_detail.status_picked_up', loc) }
+      case 'missed': return { bg: '#fee2e2', text: '#991b1b', label: t('sub_detail.status_missed', loc) }
+      case 'skipped': return { bg: '#fee2e2', text: '#991b1b', label: t('sub_detail.status_skipped', loc) }
+      case 'rescheduled': return { bg: '#f3e8ff', text: '#6b21a8', label: t('sub_detail.status_rescheduled', loc) }
       default: return { bg: '#f3f4f6', text: '#374151', label: status }
     }
   }
@@ -219,7 +222,7 @@ export default function BuyerSubscriptionDetailPage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: branding.colors.background, padding: 24 }}>
         <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center', paddingTop: 100 }}>
-          Loading...
+          {t('subs.loading', locale)}
         </div>
       </div>
     )
@@ -241,13 +244,13 @@ export default function BuyerSubscriptionDetailPage() {
               textAlign: 'center'
             }}>
               {subscription && !subscription.offering
-                ? 'Subscription data incomplete - offering not found'
-                : 'Subscription not found'}
+                ? t('sub_detail.data_incomplete', locale)
+                : t('sub_detail.not_found', locale)}
             </div>
           )}
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             <Link href={`/${vertical}/buyer/subscriptions`} style={{ color: branding.colors.primary }}>
-              Back to Subscriptions
+              {t('sub_detail.back', locale)}
             </Link>
           </div>
         </div>
@@ -272,7 +275,7 @@ export default function BuyerSubscriptionDetailPage() {
             href={`/${vertical}/buyer/subscriptions`}
             style={{ color: branding.colors.primary, textDecoration: 'none', fontSize: 14 }}
           >
-            ← Back to Subscriptions
+            {t('sub_detail.back', locale)}
           </Link>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 16, flexWrap: 'wrap', gap: 16 }}>
             <div>
@@ -293,7 +296,7 @@ export default function BuyerSubscriptionDetailPage() {
                 </span>
               </div>
               <p style={{ color: '#666', margin: '8px 0 0 0', fontSize: 14 }}>
-                by {subscription.offering.vendor?.name || 'Vendor'}
+                {t('subs.by_vendor', locale, { name: subscription.offering.vendor?.name || 'Vendor' })}
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -301,7 +304,7 @@ export default function BuyerSubscriptionDetailPage() {
                 {formatPrice(subscription.total_paid_cents)}
               </div>
               <div style={{ fontSize: 13, color: '#6b7280' }}>
-                {subscription.weeks_completed} of {totalWeeks} weeks completed
+                {t('sub_detail.weeks_completed', locale, { completed: String(subscription.weeks_completed), total: String(totalWeeks) })}
               </div>
             </div>
           </div>
@@ -319,14 +322,14 @@ export default function BuyerSubscriptionDetailPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
                 <div style={{ fontSize: 13, color: nextPickup.status === 'ready' ? '#92400e' : '#1e40af', marginBottom: 4 }}>
-                  {nextPickup.status === 'ready' ? 'Ready for Pickup!' : 'Next Pickup'}
+                  {nextPickup.status === 'ready' ? t('sub_detail.ready_for_pickup', locale) : t('sub_detail.next_pickup', locale)}
                 </div>
                 <div style={{ fontWeight: 600, color: nextPickup.status === 'ready' ? '#92400e' : '#1e40af', fontSize: 20 }}>
                   {formatDate(nextPickup.scheduled_date)}
                 </div>
                 <div style={{ fontSize: 14, color: nextPickup.status === 'ready' ? '#b45309' : '#3b82f6', marginTop: 4 }}>
                   {subscription.offering.pickup_start_time === subscription.offering.pickup_end_time
-                    ? `Pickup at ${formatTime(subscription.offering.pickup_start_time)}`
+                    ? t('sub_detail.pickup_at', locale, { time: formatTime(subscription.offering.pickup_start_time) })
                     : `${formatTime(subscription.offering.pickup_start_time)} - ${formatTime(subscription.offering.pickup_end_time)}`}
                 </div>
               </div>
@@ -338,7 +341,7 @@ export default function BuyerSubscriptionDetailPage() {
                 fontWeight: 600,
                 color: '#374151'
               }}>
-                Week {nextPickup.week_number} of {totalWeeks}
+                {t('sub_detail.week_of', locale, { current: String(nextPickup.week_number), total: String(totalWeeks) })}
               </div>
             </div>
           </div>
@@ -353,7 +356,7 @@ export default function BuyerSubscriptionDetailPage() {
             border: '1px solid #e5e7eb',
             borderRadius: 8
           }}>
-            <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>Pickup Location</h3>
+            <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>{t('sub_detail.pickup_location', locale)}</h3>
             <div style={{ fontSize: 16, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
               {subscription.offering.market.name}
             </div>
@@ -370,8 +373,8 @@ export default function BuyerSubscriptionDetailPage() {
               {subscription.offering.market.city}, {subscription.offering.market.state}
             </a>
             <div style={{ marginTop: 12, fontSize: 14, color: '#6b7280' }}>
-              Every {DAYS[subscription.offering.pickup_day_of_week]}, {subscription.offering.pickup_start_time === subscription.offering.pickup_end_time
-                ? `pickup at ${formatTime(subscription.offering.pickup_start_time)}`
+              {t('sub_detail.every_day', locale, { day: t('day.' + subscription.offering.pickup_day_of_week, locale) })}, {subscription.offering.pickup_start_time === subscription.offering.pickup_end_time
+                ? t('sub_detail.pickup_at', locale, { time: formatTime(subscription.offering.pickup_start_time) })
                 : `${formatTime(subscription.offering.pickup_start_time)} - ${formatTime(subscription.offering.pickup_end_time)}`}
             </div>
           </div>
@@ -400,10 +403,10 @@ export default function BuyerSubscriptionDetailPage() {
           border: '1px solid #e5e7eb',
           borderRadius: 8
         }}>
-          <h3 style={{ margin: '0 0 16px 0', color: '#374151', fontSize: 16 }}>Pickup Schedule</h3>
+          <h3 style={{ margin: '0 0 16px 0', color: '#374151', fontSize: 16 }}>{t('sub_detail.pickup_schedule', locale)}</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(subscription.pickups || []).map(pickup => {
-              const pickupStatus = getPickupStatusColor(pickup.status)
+              const pickupStatus = getPickupStatusColor(pickup.status, locale)
               const isToday = pickup.scheduled_date === today
               const isPast = pickup.scheduled_date < today
               // Extension weeks get green tint, skipped weeks get red tint
@@ -428,7 +431,7 @@ export default function BuyerSubscriptionDetailPage() {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontWeight: 600, color: pickupStatus.text }}>
-                          Week {pickup.week_number}
+                          {t('subs.week', locale, { number: String(pickup.week_number) })}
                         </span>
                         {pickup.is_extension && (
                           <span style={{
@@ -439,7 +442,7 @@ export default function BuyerSubscriptionDetailPage() {
                             fontSize: 11,
                             fontWeight: 600
                           }}>
-                            Extension
+                            {t('subs.extension', locale)}
                           </span>
                         )}
                         {isToday && (
@@ -451,7 +454,7 @@ export default function BuyerSubscriptionDetailPage() {
                             fontSize: 11,
                             fontWeight: 600
                           }}>
-                            TODAY
+                            {t('sub_detail.today', locale)}
                           </span>
                         )}
                       </div>
@@ -460,12 +463,12 @@ export default function BuyerSubscriptionDetailPage() {
                       </div>
                       {pickup.rescheduled_to && (
                         <div style={{ fontSize: 13, color: '#6b21a8', marginTop: 4 }}>
-                          Rescheduled to {formatDate(pickup.rescheduled_to)}
+                          {t('sub_detail.rescheduled_to', locale, { date: formatDate(pickup.rescheduled_to) })}
                         </div>
                       )}
                       {pickup.status === 'skipped' && pickup.skip_reason && (
                         <div style={{ fontSize: 13, color: '#991b1b', marginTop: 4 }}>
-                          Reason: {pickup.skip_reason}
+                          {t('sub_detail.reason', locale, { reason: pickup.skip_reason! })}
                         </div>
                       )}
                     </div>
@@ -482,12 +485,12 @@ export default function BuyerSubscriptionDetailPage() {
                       </span>
                       {pickup.picked_up_at && (
                         <div style={{ fontSize: 12, color: colors.primaryDark }}>
-                          Picked up {formatDateTime(pickup.picked_up_at)}
+                          {t('sub_detail.picked_up', locale, { date: formatDateTime(pickup.picked_up_at!) })}
                         </div>
                       )}
                       {pickup.missed_at && (
                         <div style={{ fontSize: 12, color: '#991b1b' }}>
-                          Marked missed {formatDateTime(pickup.missed_at)}
+                          {t('sub_detail.marked_missed', locale, { date: formatDateTime(pickup.missed_at!) })}
                         </div>
                       )}
                       {/* Confirm Pickup button for ready pickups */}
@@ -506,15 +509,15 @@ export default function BuyerSubscriptionDetailPage() {
                             cursor: confirmingPickup === pickup.id ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          {confirmingPickup === pickup.id ? 'Confirming...'
-                            : waitingForVendor === pickup.id ? 'Waiting for vendor...'
-                            : 'Confirm Pickup'}
+                          {confirmingPickup === pickup.id ? t('sub_detail.confirming', locale)
+                            : waitingForVendor === pickup.id ? t('sub_detail.waiting_vendor', locale)
+                            : t('sub_detail.confirm_pickup', locale)}
                         </button>
                       )}
                       {/* Waiting state after buyer confirmed */}
                       {pickup.status === 'ready' && pickup.buyer_confirmed_at && !pickup.vendor_confirmed_at && (
                         <div style={{ fontSize: 12, color: '#92400e', fontWeight: 500 }}>
-                          Waiting for vendor to confirm...
+                          {t('sub_detail.waiting_vendor_confirm', locale)}
                         </div>
                       )}
                       {/* Vendor confirmed first, waiting for buyer */}
@@ -533,7 +536,7 @@ export default function BuyerSubscriptionDetailPage() {
                             cursor: 'pointer',
                           }}
                         >
-                          {confirmingPickup === pickup.id ? 'Confirming...' : 'Vendor is waiting — Confirm Now!'}
+                          {confirmingPickup === pickup.id ? t('sub_detail.confirming', locale) : t('sub_detail.vendor_waiting', locale)}
                         </button>
                       )}
                     </div>
@@ -552,18 +555,18 @@ export default function BuyerSubscriptionDetailPage() {
           border: '1px solid #e5e7eb',
           borderRadius: 8
         }}>
-          <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>Subscription Details</h3>
+          <h3 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: 16 }}>{t('sub_detail.details_title', locale)}</h3>
           <div style={{ display: 'grid', gap: 8, fontSize: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6b7280' }}>Started</span>
+              <span style={{ color: '#6b7280' }}>{t('sub_detail.started', locale)}</span>
               <span style={{ color: '#374151' }}>{formatDate(subscription.start_date)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6b7280' }}>Total Paid</span>
+              <span style={{ color: '#6b7280' }}>{t('sub_detail.total_paid', locale)}</span>
               <span style={{ color: '#374151', fontWeight: 600 }}>{formatPrice(subscription.total_paid_cents)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6b7280' }}>Per Week</span>
+              <span style={{ color: '#6b7280' }}>{t('sub_detail.per_week', locale)}</span>
               <span style={{ color: '#374151' }}>{formatPrice(subscription.total_paid_cents / termWeeks)}</span>
             </div>
           </div>

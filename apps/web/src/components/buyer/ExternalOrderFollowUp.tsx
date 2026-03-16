@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface ExternalOrderItem {
   id: string
@@ -27,6 +29,7 @@ export default function ExternalOrderFollowUp({ vertical }: ExternalOrderFollowU
   const [orders, setOrders] = useState<ExternalOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [confirmingId] = useState<string | null>(null)
+  const locale = getClientLocale()
 
   useEffect(() => {
     fetchExternalOrders()
@@ -112,7 +115,7 @@ export default function ExternalOrderFollowUp({ vertical }: ExternalOrderFollowU
                 fontWeight: typography.weights.semibold,
                 color: '#065f46',
               }}>
-                Did you get your order?
+                {t('ext_order.did_you_get', locale)}
               </h3>
             </div>
             <p style={{
@@ -120,7 +123,7 @@ export default function ExternalOrderFollowUp({ vertical }: ExternalOrderFollowU
               fontSize: typography.sizes.sm,
               color: '#065f46',
             }}>
-              Your order <strong>{order.order_number}</strong> from <strong>{vendorName}</strong> (paid via {methodLabel}) was marked as complete. Did everything go well?
+              {t('ext_order.complete_msg', locale, { orderNumber: order.order_number, vendor: vendorName, method: methodLabel })}
             </p>
 
             <div style={{
@@ -143,7 +146,7 @@ export default function ExternalOrderFollowUp({ vertical }: ExternalOrderFollowU
                   minHeight: 44,
                 }}
               >
-                {isConfirming ? 'Confirming...' : 'Yes, everything was great!'}
+                {isConfirming ? t('ext_order.confirming', locale) : t('ext_order.yes_great', locale)}
               </button>
 
               <Link
@@ -162,7 +165,7 @@ export default function ExternalOrderFollowUp({ vertical }: ExternalOrderFollowU
                   minHeight: 44,
                 }}
               >
-                I have an issue
+                {t('ext_order.have_issue', locale)}
               </Link>
             </div>
           </div>

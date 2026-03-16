@@ -7,12 +7,15 @@ import { colors } from '@/lib/design-tokens'
 import { FullPageLoading } from '@/components/shared/Spinner'
 import { getFtTierLabel, FT_TIER_LIMITS, type FoodTruckTier } from '@/lib/vendor-limits'
 import { term } from '@/lib/vertical'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 export default function SubscriptionSuccessPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const vertical = params.vertical as string
   const sessionId = searchParams.get('session_id')
+  const locale = getClientLocale()
 
   const [loading, setLoading] = useState(true)
   const [subscriptionType, setSubscriptionType] = useState<'vendor' | 'buyer' | 'food_truck_vendor' | null>(null)
@@ -45,7 +48,7 @@ export default function SubscriptionSuccessPage() {
   }, [sessionId])
 
   if (loading) {
-    return <FullPageLoading message="Confirming your subscription..." />
+    return <FullPageLoading message={t('sub_success.confirming', locale)} />
   }
 
   const isFtVendor = subscriptionType === 'food_truck_vendor'
@@ -57,18 +60,18 @@ export default function SubscriptionSuccessPage() {
   // FT tier-specific title
   const isFreeDowngrade = isFtVendor && tier === 'free'
   const title = isFreeDowngrade
-    ? 'You\'re on the Free Plan'
+    ? t('sub_success.free_plan', locale)
     : isFtVendor && tier
-      ? `Welcome to ${getFtTierLabel(tier)}!`
-      : 'Welcome to Premium!'
+      ? t('sub_success.welcome_tier', locale, { tier: getFtTierLabel(tier) })
+      : t('sub_success.welcome_premium', locale)
 
   const subtitle = isFreeDowngrade
-    ? 'Your plan has been changed to Free. You can upgrade anytime to unlock more features.'
+    ? t('sub_success.free_desc', locale)
     : isFtVendor && tier
-      ? `Your ${getFtTierLabel(tier)} plan is now active. You can start using all your ${getFtTierLabel(tier)} features right away.`
+      ? t('sub_success.ft_desc', locale, { tier: getFtTierLabel(tier) })
       : isVendor
-        ? 'Your premium subscription is now active. You can now access all premium vendor features.'
-        : `Your premium subscription is now active. You can now access ${term(vertical, 'market_box')} subscriptions and other premium features.`
+        ? t('sub_success.vendor_desc', locale)
+        : t('sub_success.buyer_desc', locale, { market_box: term(vertical, 'market_box', locale) })
 
   // FT tier-specific benefits
   const ftTierKey = (tier || 'free') as FoodTruckTier
@@ -141,41 +144,41 @@ export default function SubscriptionSuccessPage() {
             textTransform: 'uppercase',
             letterSpacing: 0.5
           }}>
-            {isFtVendor ? `Your ${getFtTierLabel(tier || 'free')} Benefits` : 'Your Premium Benefits'}
+            {isFtVendor ? t('sub_success.your_benefits', locale, { tier: getFtTierLabel(tier || 'free') }) : t('sub_success.your_premium', locale)}
           </h3>
 
           {isFtVendor && ftLimits ? (
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: colors.primaryDark, lineHeight: 1.8 }}>
-              <li><strong>{ftLimits.productListings} menu items</strong></li>
-              <li><strong>{ftLimits.privatePickupLocations} service locations</strong></li>
-              <li><strong>{ftLimits.totalMarketBoxes} Chef Box offerings</strong></li>
-              <li><strong>{ftLimits.analyticsDays}-day analytics</strong>{ftLimits.analyticsExport ? ' with export' : ''}</li>
+              <li><strong>{t('sub_success.menu_items', locale, { count: String(ftLimits.productListings) })}</strong></li>
+              <li><strong>{t('sub_success.service_locations', locale, { count: String(ftLimits.privatePickupLocations) })}</strong></li>
+              <li><strong>{t('sub_success.chef_box', locale, { count: String(ftLimits.totalMarketBoxes) })}</strong></li>
+              <li><strong>{t('sub_success.analytics_days', locale, { count: String(ftLimits.analyticsDays) })}</strong>{ftLimits.analyticsExport ? t('sub_success.with_export', locale) : ''}</li>
               {ftLimits.priorityPlacement > 0 && (
-                <li><strong>{ftLimits.priorityPlacement === 2 ? '1st' : '2nd'} priority placement</strong> in search results</li>
+                <li><strong>{ftLimits.priorityPlacement === 2 ? t('sub_success.priority_1st', locale) : t('sub_success.priority_2nd', locale)}</strong> {t('sub_success.in_search', locale)}</li>
               )}
               {ftLimits.notificationChannels.includes('email') && (
-                <li><strong>Email notifications</strong> for orders</li>
+                <li><strong>{t('sub_success.email_notif', locale)}</strong> {t('sub_success.for_orders', locale)}</li>
               )}
               {ftLimits.notificationChannels.includes('sms') && (
-                <li><strong>SMS notifications</strong> for orders</li>
+                <li><strong>{t('sub_success.sms_notif', locale)}</strong> {t('sub_success.for_orders', locale)}</li>
               )}
             </ul>
           ) : isVendor ? (
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: colors.primaryDark, lineHeight: 1.8 }}>
-              <li><strong>15 product listings</strong> (was 5)</li>
-              <li><strong>4 traditional markets</strong> (was 1)</li>
-              <li><strong>5 private pickup locations</strong> (was 1)</li>
-              <li><strong>6 {term(vertical, 'market_box')} offerings</strong> with unlimited subscribers</li>
-              <li><strong>Priority placement</strong> in search results</li>
-              <li><strong>Premium badge</strong> on your profile</li>
-              <li><strong>Advanced analytics</strong></li>
+              <li><strong>{t('sub_success.vendor_listings', locale, { count: '15' })}</strong> {t('sub_success.vendor_listings_was', locale, { count: '5' })}</li>
+              <li><strong>{t('sub_success.vendor_markets', locale, { count: '4' })}</strong> {t('sub_success.vendor_listings_was', locale, { count: '1' })}</li>
+              <li><strong>{t('sub_success.vendor_private', locale, { count: '5' })}</strong> {t('sub_success.vendor_listings_was', locale, { count: '1' })}</li>
+              <li><strong>{t('sub_success.vendor_mbox', locale, { count: '6', market_box: term(vertical, 'market_box', locale) })}</strong> {t('sub_success.vendor_unlimited_subs', locale)}</li>
+              <li><strong>{t('sub_success.vendor_priority', locale)}</strong> {t('sub_success.in_search', locale)}</li>
+              <li><strong>{t('sub_success.vendor_badge', locale)}</strong></li>
+              <li><strong>{t('sub_success.vendor_analytics', locale)}</strong></li>
             </ul>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: colors.primaryDark, lineHeight: 1.8 }}>
-              <li><strong>{term(vertical, 'market_box')} Subscriptions</strong> - exclusive access to vendor bundles</li>
-              <li><strong>Early access</strong> to new and seasonal listings</li>
-              <li><strong>Priority support</strong> for faster response times</li>
-              <li><strong>Premium member badge</strong></li>
+              <li><strong>{t('sub_success.buyer_mbox', locale, { market_box: term(vertical, 'market_box', locale) })}</strong> - {t('sub_success.buyer_mbox_desc', locale)}</li>
+              <li><strong>{t('sub_success.buyer_early', locale)}</strong> {t('sub_success.buyer_early_desc', locale)}</li>
+              <li><strong>{t('sub_success.buyer_support', locale)}</strong> {t('sub_success.buyer_support_desc', locale)}</li>
+              <li><strong>{t('sub_success.buyer_badge', locale)}</strong></li>
             </ul>
           )}
         </div>
@@ -194,16 +197,16 @@ export default function SubscriptionSuccessPage() {
             minHeight: 48
           }}
         >
-          {isVendor ? 'Go to Dashboard' : 'Start Shopping'}
+          {isVendor ? t('sub_success.go_dashboard', locale) : t('upgrade.start_shopping', locale)}
         </Link>
 
         <p style={{ marginTop: 24, fontSize: 13, color: '#9ca3af' }}>
-          You can manage your subscription in your{' '}
+          {t('sub_success.manage_sub', locale)}{' '}
           <Link
             href={`/${vertical}/settings`}
             style={{ color: '#2563eb', textDecoration: 'none' }}
           >
-            account settings
+            {t('upgrade.account_settings', locale)}
           </Link>
         </p>
       </div>
