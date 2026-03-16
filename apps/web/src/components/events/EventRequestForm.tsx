@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+import { getClientLocale } from '@/lib/locale/client'
+import { t } from '@/lib/locale/messages'
 
 interface EventRequestFormProps {
   vertical: string
@@ -77,6 +79,7 @@ const rowStyle: React.CSSProperties = {
 
 export function EventRequestForm({ vertical }: EventRequestFormProps) {
   const accent = verticalAccent[vertical] || verticalAccent.farmers_market
+  const locale = getClientLocale()
   const [form, setForm] = useState<FormData>({
     company_name: '',
     contact_name: '',
@@ -123,18 +126,18 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
       !form.state.trim() ||
       !form.zip.trim()
     ) {
-      setError('Please fill in all required fields.')
+      setError(t('erf.required_fields', locale))
       return
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email)) {
-      setError('Please enter a valid email address.')
+      setError(t('erf.invalid_email', locale))
       return
     }
 
     const hc = parseInt(form.headcount, 10)
     if (isNaN(hc) || hc < 10 || hc > 5000) {
-      setError('Headcount must be between 10 and 5,000.')
+      setError(t('erf.headcount_range', locale))
       return
     }
 
@@ -170,14 +173,14 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
 
       if (!res.ok) {
         const result = await res.json()
-        setError(result.error || 'Submission failed. Please try again.')
+        setError(result.error || t('erf.submit_failed', locale))
         setSubmitting(false)
         return
       }
 
       setSubmitted(true)
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('erf.network_error', locale))
       setSubmitting(false)
     }
   }
@@ -201,7 +204,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
             marginBottom: spacing['2xs'],
           }}
         >
-          Request Received!
+          {t('erf.success_title', locale)}
         </p>
         <p
           style={{
@@ -211,9 +214,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
             margin: 0,
           }}
         >
-          Thank you for your request. We&apos;ll review your event
-          details and reach out within 24 hours to discuss {term(vertical, 'event_success_message')}
-          {' '}and next steps.
+          {t('erf.success_msg', locale, { details: term(vertical, 'event_success_message', locale) })}
         </p>
       </div>
     )
@@ -223,13 +224,13 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
     <form onSubmit={handleSubmit}>
       {/* Section: Company & Contact */}
       <div style={sectionStyle}>
-        <h3 style={sectionTitleStyle}>Company & Contact</h3>
+        <h3 style={sectionTitleStyle}>{t('erf.section_contact', locale)}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           <div>
-            <label style={labelStyle}>Company / Organization Name *</label>
+            <label style={labelStyle}>{t('erf.company_name', locale)}</label>
             <input
               type="text"
-              placeholder="Acme Corp"
+              placeholder={t('erf.company_placeholder', locale)}
               value={form.company_name}
               onChange={(e) => updateField('company_name', e.target.value)}
               style={inputStyle}
@@ -238,10 +239,10 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
           </div>
           <div style={rowStyle}>
             <div>
-              <label style={labelStyle}>Contact Name *</label>
+              <label style={labelStyle}>{t('erf.contact_name', locale)}</label>
               <input
                 type="text"
-                placeholder="Jane Smith"
+                placeholder={t('erf.contact_placeholder', locale)}
                 value={form.contact_name}
                 onChange={(e) => updateField('contact_name', e.target.value)}
                 style={inputStyle}
@@ -249,10 +250,10 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
               />
             </div>
             <div>
-              <label style={labelStyle}>Email *</label>
+              <label style={labelStyle}>{t('erf.email', locale)}</label>
               <input
                 type="email"
-                placeholder="jane@acme.com"
+                placeholder={t('erf.email_placeholder', locale)}
                 value={form.contact_email}
                 onChange={(e) => updateField('contact_email', e.target.value)}
                 style={inputStyle}
@@ -261,10 +262,10 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
             </div>
           </div>
           <div>
-            <label style={labelStyle}>Phone (optional)</label>
+            <label style={labelStyle}>{t('erf.phone', locale)}</label>
             <input
               type="tel"
-              placeholder="(555) 123-4567"
+              placeholder={t('erf.phone_placeholder', locale)}
               value={form.contact_phone}
               onChange={(e) => updateField('contact_phone', e.target.value)}
               style={inputStyle}
@@ -275,11 +276,11 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
 
       {/* Section: Event Details */}
       <div style={sectionStyle}>
-        <h3 style={sectionTitleStyle}>Event Details</h3>
+        <h3 style={sectionTitleStyle}>{t('erf.section_event', locale)}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           <div style={rowStyle}>
             <div>
-              <label style={labelStyle}>Event Date *</label>
+              <label style={labelStyle}>{t('erf.event_date', locale)}</label>
               <input
                 type="date"
                 value={form.event_date}
@@ -289,7 +290,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
               />
             </div>
             <div>
-              <label style={labelStyle}>End Date (if multi-day)</label>
+              <label style={labelStyle}>{t('erf.end_date', locale)}</label>
               <input
                 type="date"
                 value={form.event_end_date}
@@ -300,7 +301,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
           </div>
           <div style={rowStyle}>
             <div>
-              <label style={labelStyle}>Start Time</label>
+              <label style={labelStyle}>{t('erf.start_time', locale)}</label>
               <input
                 type="time"
                 value={form.event_start_time}
@@ -309,7 +310,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
               />
             </div>
             <div>
-              <label style={labelStyle}>End Time</label>
+              <label style={labelStyle}>{t('erf.end_time', locale)}</label>
               <input
                 type="time"
                 value={form.event_end_time}
@@ -320,7 +321,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
           </div>
           <div style={rowStyle}>
             <div>
-              <label style={labelStyle}>Expected Headcount *</label>
+              <label style={labelStyle}>{t('erf.headcount', locale)}</label>
               <input
                 type="number"
                 placeholder="50"
@@ -338,11 +339,11 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
                   color: statusColors.neutral400,
                 }}
               >
-                Minimum 10 people
+                {t('erf.min_people', locale)}
               </p>
             </div>
             <div>
-              <label style={labelStyle}>{term(vertical, 'event_vendor_count_label')}</label>
+              <label style={labelStyle}>{term(vertical, 'event_vendor_count_label', locale)}</label>
               <select
                 value={form.vendor_count}
                 onChange={(e) => updateField('vendor_count', e.target.value)}
@@ -350,7 +351,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20].map((n) => (
                   <option key={n} value={n}>
-                    {n} {term(vertical, 'event_vendor_unit')}{n > 1 ? 's' : ''}
+                    {n} {term(vertical, 'event_vendor_unit', locale)}{n > 1 ? 's' : ''}
                   </option>
                 ))}
               </select>
@@ -361,13 +362,13 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
 
       {/* Section: Location */}
       <div style={sectionStyle}>
-        <h3 style={sectionTitleStyle}>Event Location</h3>
+        <h3 style={sectionTitleStyle}>{t('erf.section_location', locale)}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           <div>
-            <label style={labelStyle}>Street Address *</label>
+            <label style={labelStyle}>{t('erf.street', locale)}</label>
             <input
               type="text"
-              placeholder="123 Corporate Blvd"
+              placeholder={t('erf.street_placeholder', locale)}
               value={form.address}
               onChange={(e) => updateField('address', e.target.value)}
               style={inputStyle}
@@ -376,10 +377,10 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: spacing.sm }}>
             <div>
-              <label style={labelStyle}>City *</label>
+              <label style={labelStyle}>{t('erf.city', locale)}</label>
               <input
                 type="text"
-                placeholder="Springfield"
+                placeholder={t('erf.city_placeholder', locale)}
                 value={form.city}
                 onChange={(e) => updateField('city', e.target.value)}
                 style={inputStyle}
@@ -387,10 +388,10 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
               />
             </div>
             <div>
-              <label style={labelStyle}>State *</label>
+              <label style={labelStyle}>{t('erf.state', locale)}</label>
               <input
                 type="text"
-                placeholder="IL"
+                placeholder={t('erf.state_placeholder', locale)}
                 maxLength={2}
                 value={form.state}
                 onChange={(e) => updateField('state', e.target.value.toUpperCase())}
@@ -399,10 +400,10 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
               />
             </div>
             <div>
-              <label style={labelStyle}>ZIP *</label>
+              <label style={labelStyle}>{t('erf.zip', locale)}</label>
               <input
                 type="text"
-                placeholder="62701"
+                placeholder={t('erf.zip_placeholder', locale)}
                 maxLength={10}
                 value={form.zip}
                 onChange={(e) => updateField('zip', e.target.value)}
@@ -416,33 +417,33 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
 
       {/* Section: Preferences */}
       <div style={sectionStyle}>
-        <h3 style={sectionTitleStyle}>Preferences (Optional)</h3>
+        <h3 style={sectionTitleStyle}>{t('erf.section_prefs', locale)}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           <div>
-            <label style={labelStyle}>{term(vertical, 'event_preference_label')}</label>
+            <label style={labelStyle}>{term(vertical, 'event_preference_label', locale)}</label>
             <input
               type="text"
-              placeholder={term(vertical, 'event_preference_placeholder')}
+              placeholder={term(vertical, 'event_preference_placeholder', locale)}
               value={form.cuisine_preferences}
               onChange={(e) => updateField('cuisine_preferences', e.target.value)}
               style={inputStyle}
             />
           </div>
           <div>
-            <label style={labelStyle}>Dietary Considerations</label>
+            <label style={labelStyle}>{t('erf.dietary', locale)}</label>
             <input
               type="text"
-              placeholder="Vegetarian options needed, nut-free, gluten-free, etc."
+              placeholder={t('erf.dietary_placeholder', locale)}
               value={form.dietary_notes}
               onChange={(e) => updateField('dietary_notes', e.target.value)}
               style={inputStyle}
             />
           </div>
           <div>
-            <label style={labelStyle}>Budget Notes</label>
+            <label style={labelStyle}>{t('erf.budget', locale)}</label>
             <input
               type="text"
-              placeholder="~$15 per person, flexible on pricing, etc."
+              placeholder={t('erf.budget_placeholder', locale)}
               value={form.budget_notes}
               onChange={(e) => updateField('budget_notes', e.target.value)}
               style={inputStyle}
@@ -453,21 +454,21 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
 
       {/* Section: Setup & Notes */}
       <div style={sectionStyle}>
-        <h3 style={sectionTitleStyle}>Setup & Additional Info (Optional)</h3>
+        <h3 style={sectionTitleStyle}>{t('erf.section_setup', locale)}</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           <div>
-            <label style={labelStyle}>Setup Instructions</label>
+            <label style={labelStyle}>{t('erf.setup_label', locale)}</label>
             <textarea
-              placeholder={vertical === 'food_trucks' ? 'Where should trucks park? Is there power available? Any access restrictions?' : 'Where should vendors set up? Is there power/water available? Tables provided? Any access restrictions?'}
+              placeholder={vertical === 'food_trucks' ? t('erf.setup_ft_placeholder', locale) : t('erf.setup_fm_placeholder', locale)}
               value={form.setup_instructions}
               onChange={(e) => updateField('setup_instructions', e.target.value)}
               style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
             />
           </div>
           <div>
-            <label style={labelStyle}>Anything Else?</label>
+            <label style={labelStyle}>{t('erf.anything_else', locale)}</label>
             <textarea
-              placeholder="Special requests, recurring event interest, past catering experience, etc."
+              placeholder={t('erf.anything_placeholder', locale)}
               value={form.additional_notes}
               onChange={(e) => updateField('additional_notes', e.target.value)}
               style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
@@ -505,7 +506,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
           cursor: submitting ? 'not-allowed' : 'pointer',
         }}
       >
-        {submitting ? 'Submitting...' : term(vertical, 'event_submit_button')}
+        {submitting ? t('erf.submitting', locale) : term(vertical, 'event_submit_button', locale)}
       </button>
 
       <p
@@ -517,8 +518,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
           lineHeight: 1.5,
         }}
       >
-        We&apos;ll review your request and reach out within 24 hours.
-        No commitment until we confirm details together.
+        {t('erf.footer_text', locale)}
       </p>
     </form>
   )
