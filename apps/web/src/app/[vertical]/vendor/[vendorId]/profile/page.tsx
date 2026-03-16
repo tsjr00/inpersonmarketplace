@@ -14,6 +14,8 @@ import PickupScheduleGrid from '@/components/vendor/PickupScheduleGrid'
 import { isBuyerPremiumEnabled, term } from '@/lib/vertical'
 import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
 import { colors } from '@/lib/design-tokens'
+import { getLocale } from '@/lib/locale/server'
+import { t } from '@/lib/locale/messages'
 import type { Metadata } from 'next'
 
 interface VendorProfilePageProps {
@@ -35,19 +37,21 @@ export async function generateMetadata({ params }: VendorProfilePageProps): Prom
     .eq('status', 'approved')
     .single()
 
+  const locale = await getLocale()
+
   if (!vendor) {
     return {
-      title: 'Vendor Not Found',
+      title: t('vp.not_found', locale),
     }
   }
 
   const profileData = vendor.profile_data as Record<string, unknown>
-  const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+  const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || t('vp.vendor_fallback', locale)
   const vendorDescription = vendor.description as string | null
   const vendorImageUrl = vendor.profile_image_url as string | null
 
   const title = `${vendorName} - ${branding.brand_name}`
-  const description = vendorDescription || `Shop fresh products from ${vendorName} on ${branding.brand_name}`
+  const description = vendorDescription || t('vp.og_description', locale, { vendor: vendorName, brand: branding.brand_name })
 
   return {
     title,
@@ -127,8 +131,10 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
 
   const vendorStatus = vendor.status as string
 
+  const locale = await getLocale()
+
   const profileData = vendor.profile_data as Record<string, unknown>
-  const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Vendor'
+  const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || t('vp.vendor_fallback', locale)
   const vendorTier = (vendor.tier || 'free') as VendorTierType
   const vendorDescription = vendor.description as string | null
   const vendorImageUrl = vendor.profile_image_url as string | null
@@ -440,16 +446,16 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               fontWeight: 600,
               color: vendorStatus === 'rejected' ? '#991b1b' : '#92400e'
             }}>
-              Admin View — Vendor Status: {vendorStatus.toUpperCase()}
+              {t('vp.admin_banner', locale, { status: vendorStatus.toUpperCase() })}
             </span>
             <span style={{
               marginLeft: 12,
               color: vendorStatus === 'rejected' ? '#b91c1c' : '#a16207',
               fontSize: 14
             }}>
-              {vendorStatus === 'submitted' && 'This vendor application is awaiting review.'}
-              {vendorStatus === 'draft' && 'This vendor has not completed their application.'}
-              {vendorStatus === 'rejected' && 'This vendor application was rejected.'}
+              {vendorStatus === 'submitted' && t('vp.status_submitted', locale)}
+              {vendorStatus === 'draft' && t('vp.status_draft', locale)}
+              {vendorStatus === 'rejected' && t('vp.status_rejected', locale)}
             </span>
           </div>
         </div>
@@ -464,7 +470,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
         <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <BackLink
             fallbackHref={`/${vertical}/browse`}
-            fallbackLabel="Back"
+            fallbackLabel={t('vp.back', locale)}
             style={{
               color: branding.colors.primary,
               fontSize: 14,
@@ -474,7 +480,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           <ShareButton
             url={`${getAppUrl(vertical)}/${vertical}/vendor/${vendorId}/profile`}
             title={vendorName}
-            text={`Check out ${vendorName} on ${branding.brand_name}`}
+            text={t('vp.share_text', locale, { vendor: vendorName, brand: branding.brand_name })}
             variant="compact"
           />
         </div>
@@ -537,20 +543,20 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     {(averageRating || 0).toFixed(1)} ({ratingCount})
                   </span>
                 ) : (
-                  <span style={{ fontSize: 11, color: '#6b7280' }}>No reviews</span>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>{t('vp.no_reviews', locale)}</span>
                 )}
               </div>
               {/* Verified + Listings compact */}
               <div style={{ fontSize: 13, color: '#666', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {vendorStatus === 'approved' ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>✓ Verified</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{t('vp.verified', locale)}</span>
                 ) : isAdmin && (
                   <span style={{ color: vendorStatus === 'rejected' ? '#dc2626' : '#d97706' }}>
-                    ⏳ {vendorStatus === 'submitted' ? 'Pending' : vendorStatus === 'rejected' ? 'Rejected' : 'Draft'}
+                    ⏳ {vendorStatus === 'submitted' ? t('vp.pending', locale) : vendorStatus === 'rejected' ? t('vp.rejected', locale) : t('vp.draft', locale)}
                   </span>
                 )}
                 <span>•</span>
-                <span>{listings?.length || 0} listing{listings?.length !== 1 ? 's' : ''}</span>
+                <span>{(listings?.length || 0) !== 1 ? t('vp.listing_count_plural', locale, { count: String(listings?.length || 0) }) : t('vp.listing_count', locale, { count: '1' })}</span>
               </div>
             </div>
           </div>
@@ -593,7 +599,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     fontSize: 14,
                     fontWeight: 600,
                   }}>
-                    ✓ Event Approved
+                    {t('vp.event_approved', locale)}
                   </span>
                 )}
                 {/* Rating Display - Always show stars */}
@@ -653,7 +659,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         fontSize: 12,
                         color: '#b45309'
                       }}>
-                        ({ratingCount} review{ratingCount !== 1 ? 's' : ''})
+                        ({ratingCount !== 1 ? t('vp.review_count_plural', locale, { count: String(ratingCount) }) : t('vp.review_count', locale, { count: '1' })})
                       </span>
                     </>
                   ) : (
@@ -662,7 +668,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       color: '#6b7280',
                       marginLeft: 4
                     }}>
-                      No reviews yet
+                      {t('vp.no_reviews_yet', locale)}
                     </span>
                   )}
                 </div>
@@ -690,7 +696,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               }}>
                 {vendorStatus === 'approved' ? (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    ✓ Verified Vendor
+                    {t('vp.verified_vendor', locale)}
                   </span>
                 ) : isAdmin && (
                   <span style={{
@@ -699,11 +705,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     gap: 4,
                     color: vendorStatus === 'rejected' ? '#dc2626' : '#d97706'
                   }}>
-                    ⏳ {vendorStatus === 'submitted' ? 'Pending Approval' : vendorStatus === 'rejected' ? 'Rejected' : 'Draft'}
+                    ⏳ {vendorStatus === 'submitted' ? t('vp.pending_approval', locale) : vendorStatus === 'rejected' ? t('vp.rejected', locale) : t('vp.draft', locale)}
                   </span>
                 )}
                 <span>
-                  {listings?.length || 0} listing{listings?.length !== 1 ? 's' : ''}
+                  {(listings?.length || 0) !== 1 ? t('vp.listing_count_plural', locale, { count: String(listings?.length || 0) }) : t('vp.listing_count', locale, { count: '1' })}
                 </span>
               </div>
 
@@ -730,7 +736,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         fontWeight: 600
                       }}
                     >
-                      Facebook
+                      {t('vp.facebook', locale)}
                     </a>
                   )}
                   {socialLinks.instagram && (
@@ -748,7 +754,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         fontWeight: 600
                       }}
                     >
-                      Instagram
+                      {t('vp.instagram', locale)}
                     </a>
                   )}
                   {websiteUrl && (
@@ -766,7 +772,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         fontWeight: 600
                       }}
                     >
-                      Website
+                      {t('vp.website', locale)}
                     </a>
                   )}
                 </div>
@@ -842,7 +848,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       fontWeight: 600
                     }}
                   >
-                    Facebook
+                    {t('vp.facebook', locale)}
                   </a>
                 )}
                 {socialLinks.instagram && (
@@ -860,7 +866,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       fontWeight: 600
                     }}
                   >
-                    Instagram
+                    {t('vp.instagram', locale)}
                   </a>
                 )}
                 {websiteUrl && (
@@ -878,7 +884,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       fontWeight: 600
                     }}
                   >
-                    Website
+                    {t('vp.website', locale)}
                   </a>
                 )}
               </div>
@@ -897,7 +903,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               color: '#374151',
               margin: '0 0 12px 0'
             }}>
-              Accepted Payments
+              {t('vp.accepted_payments', locale)}
             </h3>
             <PaymentMethodBadges
               venmoUsername={vendor.venmo_username as string | null}
@@ -921,7 +927,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 color: '#374151',
                 margin: '0 0 12px 0'
               }}>
-                Listing Categories
+                {t('vp.listing_categories', locale)}
               </h3>
               <div style={{
                 display: 'flex',
@@ -954,7 +960,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       fontWeight: 600
                     }}
                   >
-                    📦 {term(vertical, 'market_box')}
+                    📦 {term(vertical, 'market_box', locale)}
                   </span>
                 )}
               </div>
@@ -974,7 +980,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 color: '#374151',
                 margin: '0 0 12px 0'
               }}>
-                Registrations & Certifications
+                {t('vp.registrations', locale)}
               </h3>
               <div style={{
                 display: 'flex',
@@ -1025,7 +1031,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               fontSize: 20,
               fontWeight: 600
             }}>
-              📦 {term(vertical, 'market_box')} Subscriptions
+              📦 {term(vertical, 'market_box', locale)} {t('vp.subscriptions', locale)}
             </h2>
 
             <div className="listings-grid" style={{
@@ -1042,7 +1048,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const boxStartTime = box.pickup_start_time as string
                 const rawMarket = box.market as { id: string; name: string; city: string; state: string } | { id: string; name: string; city: string; state: string }[] | null
                 const boxMarket = Array.isArray(rawMarket) ? rawMarket[0] : rawMarket
-                const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+                const DAYS = [t('day.0', locale), t('day.1', locale), t('day.2', locale), t('day.3', locale), t('day.4', locale), t('day.5', locale), t('day.6', locale)]
                 const boxPremiumWindowEndsAt = box.premium_window_ends_at as string | null
                 const boxInPremiumWindow = premiumEnabled && boxPremiumWindowEndsAt && boxPremiumWindowEndsAt > now
                 const showBoxPremiumRestriction = boxInPremiumWindow && !isPremiumBuyer
@@ -1086,7 +1092,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         borderRadius: '6px 6px 0 0',
                         zIndex: 2
                       }}>
-                        ⭐ Premium Early-Bird — Upgrade to Buy Now
+                        {t('vp.premium_early_bird', locale)}
                       </div>
                     )}
 
@@ -1104,7 +1110,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         fontWeight: 600,
                         zIndex: 1
                       }}>
-                        📦 {term(vertical, 'market_box')}
+                        📦 {term(vertical, 'market_box', locale)}
                       </span>
 
                       {boxImageUrls && boxImageUrls.length > 0 ? (
@@ -1180,7 +1186,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       color: branding.colors.primary
                     }}>
                       {formatDisplayPrice(boxPriceCents)}
-                      <span style={{ fontSize: 12, fontWeight: 'normal', color: '#6b7280' }}> / 4 weeks</span>
+                      <span style={{ fontSize: 12, fontWeight: 'normal', color: '#6b7280' }}> {t('vp.per_4_weeks', locale)}</span>
                     </div>
                   </Link>
                 )
@@ -1197,7 +1203,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             fontSize: 20,
             fontWeight: 600
           }}>
-            Listings from {vendorName}
+            {t('vp.listings_from', locale, { vendor: vendorName })}
           </h2>
 
           {listings && listings.length > 0 ? (
@@ -1250,7 +1256,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         borderRadius: '6px 6px 0 0',
                         zIndex: 2
                       }}>
-                        ⭐ Premium Early-Bird — Upgrade to Buy Now
+                        {t('vp.premium_early_bird', locale)}
                       </div>
                     )}
 
@@ -1351,10 +1357,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                         {listingMarkets.length === 1
                           ? (() => {
                               const market = listingMarkets[0].markets
-                              const prefix = market?.market_type === 'private_pickup' ? 'Private Pickup: ' : 'Market: '
-                              return prefix + (market?.name || 'Location')
+                              return market?.market_type === 'private_pickup'
+                                ? t('vp.private_pickup', locale, { name: market?.name || t('vp.location_fallback', locale) })
+                                : t('vp.market_label', locale, { name: market?.name || t('vp.location_fallback', locale) })
                             })()
-                          : `${listingMarkets.length} pickup locations`
+                          : t('vp.pickup_locations', locale, { count: String(listingMarkets.length) })
                         }
                       </div>
                     )}
@@ -1370,7 +1377,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               textAlign: 'center',
               color: '#666'
             }}>
-              This vendor hasn&apos;t listed any products yet.
+              {t('vp.no_products', locale)}
             </div>
           )}
         </div>
