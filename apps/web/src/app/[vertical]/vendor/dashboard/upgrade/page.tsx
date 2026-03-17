@@ -460,7 +460,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
             <FtFeatureRow label="Multi-Truck Locations" free={String(f.traditionalMarkets)} basic={String(b.traditionalMarkets)} pro={String(p.traditionalMarkets)} boss={String(bo.traditionalMarkets)} />
             <FtFeatureRow label="Chef Boxes" free={String(f.totalMarketBoxes)} basic={String(b.totalMarketBoxes)} pro={String(p.totalMarketBoxes)} boss={String(bo.totalMarketBoxes)} />
             <FtFeatureRow label="Subscribers/Box" free={String(f.maxSubscribersPerOffering)} basic={String(b.maxSubscribersPerOffering)} pro={String(p.maxSubscribersPerOffering)} boss={String(bo.maxSubscribersPerOffering)} />
-            <FtFeatureRow label="Analytics" free="—" basic={`${b.analyticsDays}-day`} pro={`${p.analyticsDays}-day`} boss={`${bo.analyticsDays}-day + Export`} />
+            <FtFeatureRow label="Analytics" free={`${f.analyticsDays}-day`} basic={`${b.analyticsDays}-day`} pro={`${p.analyticsDays}-day`} boss={`${bo.analyticsDays}-day + Export`} />
             <FtFeatureRow label="Priority Placement" free="—" basic="—" pro="2nd" boss="1st" />
             <FtFeatureRow label="Notifications" free="In-App" basic="App, Email" pro="App, Push, Email" boss="All (incl SMS)" />
           </div>
