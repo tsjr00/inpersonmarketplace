@@ -70,13 +70,17 @@ function FtTierManager({ vertical, currentTier }: { vertical: string; currentTie
 
       <ul style={{ margin: '0 0 16px 0', paddingLeft: 20, fontSize: 13, color: c.text, lineHeight: 1.8 }}>
         <li><strong>{limits.productListings}</strong> menu items</li>
-        <li><strong>{limits.privatePickupLocations}</strong> service locations</li>
-        <li><strong>{limits.totalMarketBoxes}</strong> Chef Box offerings</li>
-        <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' with export' : ''}</li>
+        <li><strong>{limits.privatePickupLocations}</strong> single truck location{limits.privatePickupLocations !== 1 ? 's' : ''}</li>
+        <li><strong>{limits.traditionalMarkets}</strong> multi-truck location{limits.traditionalMarkets !== 1 ? 's' : ''}</li>
+        <li><strong>{limits.totalMarketBoxes}</strong> Chef Box{limits.totalMarketBoxes !== 1 ? 'es' : ''} (up to {limits.maxSubscribersPerOffering} subscribers)</li>
+        {limits.analyticsDays > 0 ? (
+          <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' + export' : ''}</li>
+        ) : (
+          <li style={{ opacity: 0.6 }}>No analytics</li>
+        )}
         {limits.priorityPlacement > 0 && (
           <li><strong>{limits.priorityPlacement === 2 ? '1st' : '2nd'} priority</strong> placement in search</li>
         )}
-        <li>Notifications: {limits.notificationChannels.map(ch => ch === 'in_app' ? 'In-App' : ch === 'email' ? 'Email' : 'SMS').join(', ')}</li>
       </ul>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -205,11 +209,14 @@ function FmTierManager({
 
         <ul style={{ margin: '0 0 16px 0', paddingLeft: 20, fontSize: 13, color: c.text, lineHeight: 1.8 }}>
           <li><strong>{limits.productListings}</strong> product listings</li>
-          <li><strong>{limits.traditionalMarkets}</strong> traditional market{limits.traditionalMarkets > 1 ? 's' : ''}</li>
-          <li><strong>{limits.privatePickupLocations}</strong> private pickup location{limits.privatePickupLocations > 1 ? 's' : ''}</li>
-          <li><strong>{limits.pickupWindowsPerLocation}</strong> pickup windows per location</li>
-          <li><strong>{limits.totalMarketBoxes}</strong> {term(vertical, 'market_box')} offerings ({limits.activeMarketBoxes} active)</li>
-          <li><strong>{limits.maxSubscribersPerOffering}</strong> max subscribers per offering</li>
+          <li><strong>{limits.traditionalMarkets}</strong> {term(vertical, limits.traditionalMarkets > 1 ? 'traditional_markets' : 'traditional_market').toLowerCase()}</li>
+          <li><strong>{limits.privatePickupLocations}</strong> {term(vertical, limits.privatePickupLocations > 1 ? 'private_pickups' : 'private_pickup').toLowerCase()}</li>
+          <li><strong>{limits.totalMarketBoxes}</strong> {term(vertical, 'market_box')} offerings ({limits.activeMarketBoxes} active, up to {limits.maxSubscribersPerOffering} subscribers)</li>
+          {limits.analyticsDays > 0 ? (
+            <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' + export' : ''}</li>
+          ) : (
+            <li style={{ opacity: 0.6 }}>No analytics</li>
+          )}
         </ul>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
