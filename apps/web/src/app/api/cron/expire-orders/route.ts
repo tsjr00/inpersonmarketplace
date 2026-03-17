@@ -1021,6 +1021,10 @@ export async function GET(request: NextRequest) {
     let payoutsCancelled = 0
     try {
       const MAX_PAYOUTS_PER_RUN = 10
+      // Global Stripe transfer budget across all Phase 5 sub-queries.
+      // Each Stripe API call takes 1-2s. 15 max keeps Phase 5 under 30s.
+      const MAX_STRIPE_TRANSFERS_TOTAL = 15
+      let stripeTransfersUsed = 0
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - PAYOUT_RETRY_MAX_DAYS)
 
@@ -1051,6 +1055,7 @@ export async function GET(request: NextRequest) {
         console.error('[Phase 5] Query error:', payoutFetchError)
       } else if (failedPayouts && failedPayouts.length > 0) {
         for (const payout of failedPayouts) {
+          if (stripeTransfersUsed >= MAX_STRIPE_TRANSFERS_TOTAL) break
           const vendorProfile = payout.vendor_profiles as unknown as {
             stripe_account_id: string | null
             stripe_payouts_enabled: boolean
@@ -1064,6 +1069,7 @@ export async function GET(request: NextRequest) {
           }
 
           payoutsRetried++
+          stripeTransfersUsed++
 
           try {
             const transfer = await transferToVendor({
@@ -1120,6 +1126,7 @@ export async function GET(request: NextRequest) {
 
       if (pendingStripePayouts && pendingStripePayouts.length > 0) {
         for (const payout of pendingStripePayouts) {
+          if (stripeTransfersUsed >= MAX_STRIPE_TRANSFERS_TOTAL) break
           const vp = payout.vendor_profiles as unknown as {
             stripe_account_id: string | null
             stripe_payouts_enabled: boolean
@@ -1132,6 +1139,7 @@ export async function GET(request: NextRequest) {
           }
 
           payoutsRetried++
+          stripeTransfersUsed++
           try {
             const transfer = await transferToVendor({
               amount: payout.amount_cents,
@@ -1189,6 +1197,7 @@ export async function GET(request: NextRequest) {
 
       if (failedMbPayouts && failedMbPayouts.length > 0) {
         for (const payout of failedMbPayouts) {
+          if (stripeTransfersUsed >= MAX_STRIPE_TRANSFERS_TOTAL) break
           const vp = payout.vendor_profiles as unknown as {
             stripe_account_id: string | null
             stripe_payouts_enabled: boolean
@@ -1198,6 +1207,7 @@ export async function GET(request: NextRequest) {
           if (!vp?.stripe_account_id || !vp.stripe_payouts_enabled) continue
 
           payoutsRetried++
+          stripeTransfersUsed++
           try {
             const transfer = await transferMarketBoxPayout({
               amount: payout.amount_cents,
@@ -1249,6 +1259,7 @@ export async function GET(request: NextRequest) {
 
       if (pendingMbPayouts && pendingMbPayouts.length > 0) {
         for (const payout of pendingMbPayouts) {
+          if (stripeTransfersUsed >= MAX_STRIPE_TRANSFERS_TOTAL) break
           const vp = payout.vendor_profiles as unknown as {
             stripe_account_id: string | null
             stripe_payouts_enabled: boolean
@@ -1258,6 +1269,7 @@ export async function GET(request: NextRequest) {
           if (!vp?.stripe_account_id || !vp.stripe_payouts_enabled) continue
 
           payoutsRetried++
+          stripeTransfersUsed++
           try {
             const transfer = await transferMarketBoxPayout({
               amount: payout.amount_cents,

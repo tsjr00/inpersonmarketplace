@@ -516,11 +516,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     query = query.eq('category', category)
   }
 
-  // Apply search filter — M-11: extended to include category, sanitized input
+  // Apply search filter — uses full-text search (GIN-indexed tsvector) for performance
+  // Falls back to ILIKE if textSearch fails (e.g., before migration 087 is applied)
   if (search) {
     const sanitized = search.replace(/[%_]/g, '')
     if (sanitized) {
-      query = query.or(`title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,category.ilike.%${sanitized}%`)
+      query = query.textSearch('search_vector', sanitized, { type: 'plain', config: 'english' })
     }
   }
 
