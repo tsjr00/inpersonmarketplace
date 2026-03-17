@@ -49,9 +49,9 @@ describe('VJ-R4/VI-R12: Vendor Tier Limits — Cross-Vertical Isolation', () => 
     it('free FT tier returns FT limits', () => {
       const limits = getTierLimits('free', 'food_trucks')
       expect(limits.productListings).toBe(5)
-      // FT free gets 0 market boxes (Chef Boxes)
-      expect(limits.totalMarketBoxes).toBe(0)
-      expect(limits.activeMarketBoxes).toBe(0)
+      // FT free gets 1 chef box with 5 max subscribers (updated per user feedback)
+      expect(limits.totalMarketBoxes).toBe(1)
+      expect(limits.activeMarketBoxes).toBe(1)
     })
 
     it('boss FT tier returns FT limits with highest listings', () => {
@@ -211,8 +211,8 @@ describe('VJ-R4: Subscriber Defaults', () => {
     expect(premium).toBeGreaterThan(standard)
   })
 
-  it('FT free gets 0 subscribers (no Chef Boxes)', () => {
-    expect(getSubscriberDefault('free', 'food_trucks')).toBe(0)
+  it('FT free gets 5 subscribers (1 Chef Box with up to 5 clients)', () => {
+    expect(getSubscriberDefault('free', 'food_trucks')).toBe(5)
   })
 
   it('FT boss gets highest subscriber default', () => {
@@ -289,9 +289,9 @@ describe('VJ-R8: FT traditional market limits (confirmed values)', () => {
 })
 
 describe('VJ-R4: Market box limits (confirmed values)', () => {
-  it('FT free = 0 chef boxes (no access)', () => {
-    expect(FT_TIER_LIMITS.free.totalMarketBoxes).toBe(0)
-    expect(FT_TIER_LIMITS.free.activeMarketBoxes).toBe(0)
+  it('FT free = 1 chef box (1 active, up to 5 subscribers)', () => {
+    expect(FT_TIER_LIMITS.free.totalMarketBoxes).toBe(1)
+    expect(FT_TIER_LIMITS.free.activeMarketBoxes).toBe(1)
   })
   it('FT basic = 2 total, 2 active chef boxes', () => {
     expect(FT_TIER_LIMITS.basic.totalMarketBoxes).toBe(2)
@@ -316,8 +316,8 @@ describe('VJ-R4: Market box limits (confirmed values)', () => {
 })
 
 describe('VJ-R4: Subscriber caps (confirmed values)', () => {
-  it('FT free = 0 subscribers/offering', () => {
-    expect(FT_TIER_LIMITS.free.maxSubscribersPerOffering).toBe(0)
+  it('FT free = 5 subscribers/offering', () => {
+    expect(FT_TIER_LIMITS.free.maxSubscribersPerOffering).toBe(5)
   })
   it('FT basic = 10 subscribers/offering', () => {
     expect(FT_TIER_LIMITS.basic.maxSubscribersPerOffering).toBe(10)

@@ -522,77 +522,59 @@ export default function PaymentMethodsCard({
             )}
           </div>
 
-          {/* Sales Tax Info link */}
+          {/* Fee Balance (only when balance > 0) — compact single-row layout */}
+          {feeBalance && (
+            <div style={{
+              marginTop: spacing['2xs'],
+              padding: `${spacing['3xs']} ${spacing.xs}`,
+              backgroundColor: feeBalance.requires_payment ? '#fef3c7' : colors.surfaceMuted,
+              borderRadius: radius.sm,
+              border: feeBalance.requires_payment ? '1px solid #f59e0b' : 'none',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span style={{
+                fontSize: typography.sizes.xs,
+                color: feeBalance.requires_payment ? '#92400e' : colors.textSecondary,
+              }}>
+                {feeBalance.requires_payment ? 'Fees due:' : 'Fees:'} <strong>${(feeBalance.balance_cents / 100).toFixed(2)}</strong>
+                {!feeBalance.requires_payment && <span style={{ color: colors.textMuted }}> · auto-deducted</span>}
+              </span>
+              <button
+                onClick={handlePayFees}
+                disabled={feePaying}
+                style={{
+                  padding: `2px ${spacing.xs}`,
+                  backgroundColor: feeBalance.requires_payment ? '#f59e0b' : 'transparent',
+                  color: feeBalance.requires_payment ? 'white' : colors.textSecondary,
+                  border: feeBalance.requires_payment ? 'none' : `1px solid ${colors.border}`,
+                  borderRadius: radius.sm,
+                  fontSize: typography.sizes.xs,
+                  cursor: feePaying ? 'wait' : 'pointer',
+                  opacity: feePaying ? 0.7 : 1
+                }}
+              >
+                {feePaying ? '...' : 'Pay Now'}
+              </button>
+            </div>
+          )}
+
+          {/* Sales Tax Info link — at bottom */}
           <Link
             href={`/${vertical}/help?q=Sales+Tax`}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: spacing['2xs'],
+              gap: spacing['3xs'],
               fontSize: typography.sizes.xs,
-              color: colors.textSecondary,
+              color: colors.textMuted,
               textDecoration: 'none',
-              padding: `${spacing['2xs']} 0`,
+              marginTop: spacing['2xs'],
             }}
           >
-            <span>Sales Tax Info</span>
-            <span style={{ color: colors.textMuted }}>→</span>
+            Sales Tax Info →
           </Link>
-
-          {/* Fee Balance (only when balance > 0) */}
-          {feeBalance && (
-            <div style={{
-              marginTop: spacing.xs,
-              padding: spacing.xs,
-              backgroundColor: feeBalance.requires_payment ? '#fef3c7' : colors.surfaceMuted,
-              borderRadius: radius.sm,
-              border: feeBalance.requires_payment ? '1px solid #f59e0b' : 'none'
-            }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <div style={{
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.medium,
-                    color: feeBalance.requires_payment ? '#92400e' : colors.textSecondary
-                  }}>
-                    {feeBalance.requires_payment ? 'Platform fees due' : 'Platform fees'}
-                  </div>
-                  <div style={{
-                    fontSize: typography.sizes.base,
-                    fontWeight: typography.weights.bold,
-                    color: feeBalance.requires_payment ? '#92400e' : colors.textPrimary
-                  }}>
-                    ${(feeBalance.balance_cents / 100).toFixed(2)}
-                  </div>
-                </div>
-                <button
-                  onClick={handlePayFees}
-                  disabled={feePaying}
-                  style={{
-                    padding: `${spacing['3xs']} ${spacing.xs}`,
-                    backgroundColor: feeBalance.requires_payment ? '#f59e0b' : colors.surfaceMuted,
-                    color: feeBalance.requires_payment ? 'white' : colors.textSecondary,
-                    border: feeBalance.requires_payment ? 'none' : `1px solid ${colors.border}`,
-                    borderRadius: radius.sm,
-                    fontSize: typography.sizes.xs,
-                    cursor: feePaying ? 'wait' : 'pointer',
-                    opacity: feePaying ? 0.7 : 1
-                  }}
-                >
-                  {feePaying ? '...' : 'Pay Now'}
-                </button>
-              </div>
-              {!feeBalance.requires_payment && (
-                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginTop: spacing['3xs'] }}>
-                  Auto-deducted from your next card sale
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>
