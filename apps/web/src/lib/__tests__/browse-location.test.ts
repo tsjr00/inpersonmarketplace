@@ -81,6 +81,13 @@ describe('LOC-1: Browse page reads location cookie and filters by Haversine dist
     expect(source).toContain('profileLocation?.preferred_latitude')
     expect(source).toContain('profileLocation?.preferred_longitude')
   })
+
+  it('does NOT export revalidate (CDN caching breaks cookie-dependent filtering)', () => {
+    const source = browsePage()
+    // revalidate causes Vercel CDN to cache the page, serving stale results
+    // that ignore cookie changes (radius, location). This page is dynamic.
+    expect(source).not.toMatch(/export\s+const\s+revalidate\s*=/)
+  })
 })
 
 // ─── LOC-2: BrowseLocationPrompt receives server-side location props ────────
@@ -139,11 +146,15 @@ describe('LOC-3: Radius change handler is wired in BrowseLocationPrompt', () => 
     expect(source).toContain('radius: newRadius')
   })
 
-  it('handleRadiusChange triggers page reload after PATCH', () => {
+  it('handleRadiusChange triggers router.refresh() after PATCH', () => {
     const source = prompt()
-    // After radius change, must reload so server re-reads cookie with new radius
-    const match = source.match(/handleRadiusChange[\s\S]*?window\.location\.reload\(\)/)
+    // After radius change, router.refresh() re-fetches RSC payload so server re-reads cookie
+    // Must NOT use window.location.reload() — causes flash/bounce/slowness
+    const match = source.match(/handleRadiusChange[\s\S]*?router\.refresh\(\)/)
     expect(match).toBeTruthy()
+    // Verify window.location.reload is NOT used for radius changes
+    const reloadInHandler = source.match(/handleRadiusChange[\s\S]*?window\.location\.reload/)
+    expect(reloadInHandler).toBeFalsy()
   })
 
   it('passes onRadiusChange to LocationSearchInline in green bar mode (hasLocation=true)', () => {
