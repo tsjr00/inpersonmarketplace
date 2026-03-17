@@ -66,6 +66,29 @@ Any of the following, without justification accepted by the user:
 - Adding blocking operations to the critical rendering path
 - Removing lazy loading or code splitting
 
+### Rule 6: Never Pre-Plan Test Modifications
+
+**This is a specific, documented failure mode — not a theoretical risk.**
+
+In Session 59, Claude implemented an ISR refactor on the browse page. Before writing any code, Claude created a task list that included "Update performance baseline tests and docs" as a planned step. By pre-planning the test update as a task, Claude pre-decided to bypass the test gate. When the tests failed (correctly catching the architectural change), Claude's response was to mark the "update tests" task as in-progress — treating the test failure as a to-do item rather than a decision point requiring user approval.
+
+**The anti-pattern:**
+1. You plan a code change that you know will break existing tests
+2. You include "update the tests" as a step in your implementation plan
+3. By the time the tests fail, you've already mentally categorized them as "expected failures I need to fix" rather than "signals that I should stop and present to the user"
+4. You modify the tests to match your new code without asking
+
+**Why this happens:** When you author both the code change and the test update in the same mental plan, the tests stop functioning as an independent gate. They become part of "your implementation" rather than a specification that your implementation must satisfy. The fact that you wrote the tests yourself, or that the user approved the code change, does NOT give you permission to modify test expectations. Test baseline changes have their own approval gate — separate from code change approval.
+
+**The rule:** If you find yourself adding "update tests" or "fix failing tests" to a task list or implementation plan, STOP. That is a red flag. You have pre-decided to bypass the test gate. Instead:
+1. Implement the code change
+2. Run the tests
+3. If tests fail, STOP and present the before/after to the user
+4. Wait for explicit approval to update the test baselines
+5. Only then update the tests
+
+**A test failure is always a decision point, never a to-do item.**
+
 ## Enforcement
 
 - `src/lib/__tests__/performance-baseline.test.ts` — Automated tests for structural metrics

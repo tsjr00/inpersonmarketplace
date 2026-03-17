@@ -82,6 +82,16 @@ If you discover that the code does X but the business rule says Y:
 
 No autonomy mode, no auto-continue prompt, no time pressure, no "just make the tests pass" instruction overrides this rule. If the user explicitly says "change the test to match the code," confirm that they understand the business rule conflict first. If they confirm, document the change in the business rules file with the reason.
 
+### Never Pre-Plan Test Modifications
+
+**If "update tests" appears in your task list or implementation plan, you have already failed.**
+
+When you plan a code change and include "update the tests to match" as a planned step, you have pre-decided to bypass the test gate. By the time the tests fail, you treat the failure as a to-do item ("expected, just update them") rather than a decision point ("stop, present to user"). The tests stop functioning as an independent safety gate and become part of your implementation — defeating their entire purpose.
+
+This applies to ALL test types — business rules, performance baselines, integration tests. Approval to change code is NOT approval to change test expectations. Test baseline changes have their own approval gate.
+
+**In Session 59, Claude created a 5-step task list for an ISR refactor. Step 4 was "Update performance baseline tests and docs." When the tests failed (correctly catching the architecture change), Claude's response was to start executing Step 4 — not to stop and ask. The user caught this. See `.claude/rules/no-performance-regression.md` Rule 6 for the full incident.**
+
 ### Tests Must Never Be Skipped, Conditional, or Soft-Failed
 
 **A test that doesn't run is not a test. It is a lie.**
