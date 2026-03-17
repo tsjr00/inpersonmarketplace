@@ -486,7 +486,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   // Priority: 1) ?zip= URL param  2) user_location cookie  3) no filtering
   let locationText: string | null = null
   let hasLocationFilter = false
-  let currentRadius = 25 // default radius in miles
+  const currentRadius = 25 // default radius in miles
 
   // Haversine distance calculation (reused for both sources)
   const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
