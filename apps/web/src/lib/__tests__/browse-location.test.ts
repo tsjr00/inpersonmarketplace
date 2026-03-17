@@ -88,6 +88,18 @@ describe('LOC-1: Browse page reads location cookie and filters by Haversine dist
     // that ignore cookie changes (radius, location). This page is dynamic.
     expect(source).not.toMatch(/export\s+const\s+revalidate\s*=/)
   })
+
+  it('exports dynamic = force-dynamic (ensures no server-side caching)', () => {
+    const source = browsePage()
+    expect(source).toMatch(/export\s+const\s+dynamic\s*=\s*['"]force-dynamic['"]/)
+  })
+
+  it('reads radius from ?r= URL param as priority over cookie radius', () => {
+    const source = browsePage()
+    // URL param ?r= is set by client-side radius change for reliable re-render
+    expect(source).toContain('urlRadius')
+    expect(source).toContain('parsedUrlRadius')
+  })
 })
 
 // ─── LOC-2: BrowseLocationPrompt receives server-side location props ────────
@@ -146,12 +158,13 @@ describe('LOC-3: Radius change handler is wired in BrowseLocationPrompt', () => 
     expect(source).toContain('radius: newRadius')
   })
 
-  it('handleRadiusChange triggers router.refresh() after PATCH', () => {
+  it('handleRadiusChange navigates with ?r= URL param via router.replace (forces server re-render)', () => {
     const source = prompt()
-    // After radius change, router.refresh() re-fetches RSC payload so server re-reads cookie
+    // After radius change, navigate with ?r= param to force Next.js server re-render
+    // router.refresh() doesn't reliably re-read cookies on Vercel CDN
     // Must NOT use window.location.reload() — causes flash/bounce/slowness
-    const match = source.match(/handleRadiusChange[\s\S]*?router\.refresh\(\)/)
-    expect(match).toBeTruthy()
+    expect(source).toMatch(/searchParams\.set\(['"]r['"]/)
+    expect(source).toContain('router.replace(')
     // Verify window.location.reload is NOT used for radius changes
     const reloadInHandler = source.match(/handleRadiusChange[\s\S]*?window\.location\.reload/)
     expect(reloadInHandler).toBeFalsy()
