@@ -33,7 +33,7 @@ export default function BrowseBuyerOverlay({
   useEffect(() => {
     // No premium-window items or premium not enabled — nothing to do
     if (!premiumEnabled || premiumWindowIds.length === 0) {
-      setCheckedAuth(true)
+      queueMicrotask(() => setCheckedAuth(true))
       return
     }
 
