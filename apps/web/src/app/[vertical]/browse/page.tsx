@@ -992,40 +992,40 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           </>
         ) : (
           <div style={{
-            padding: spacing['3xl'],
             backgroundColor: colors.surfaceElevated,
             color: colors.textPrimary,
             borderRadius: radius.md,
-            textAlign: 'center'
           }}>
-            <h3 style={{ marginBottom: spacing.sm, marginTop: 0, color: colors.textSecondary }}>No Listings Found</h3>
-            <p style={{ color: colors.textMuted, marginBottom: spacing.sm }}>
-              {search || category
-                ? 'Try adjusting your search or filters'
-                : hasLocationFilter
-                  ? `No ${term(vertical, 'vendors').toLowerCase()} found near ${locationText || 'your location'} yet.`
-                  : `No ${term(vertical, 'vendors').toLowerCase()} available yet.`
-              }
-            </p>
             {(search || category) ? (
-              <Link
-                href={`/${vertical}/browse`}
-                style={{
-                  display: 'inline-block',
-                  padding: `${spacing.xs} ${spacing.md}`,
-                  backgroundColor: 'transparent',
-                  color: '#737373',
-                  textDecoration: 'none',
-                  borderRadius: radius.sm,
-                  fontWeight: typography.weights.semibold,
-                  minHeight: 44,
-                  border: '2px solid #737373'
-                }}
-              >
-                Clear Filters
-              </Link>
+              <div style={{ padding: spacing['3xl'], textAlign: 'center' }}>
+                <p style={{ color: colors.textMuted, margin: `0 0 ${spacing.sm} 0` }}>
+                  No results found. Try adjusting your search or filters.
+                </p>
+                <Link
+                  href={`/${vertical}/browse`}
+                  style={{
+                    display: 'inline-block',
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    backgroundColor: 'transparent',
+                    color: '#737373',
+                    textDecoration: 'none',
+                    borderRadius: radius.sm,
+                    fontWeight: typography.weights.semibold,
+                    minHeight: 44,
+                    border: '2px solid #737373'
+                  }}
+                >
+                  Clear Filters
+                </Link>
+              </div>
             ) : (
-              <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'left' }}>
+              <div style={{ padding: spacing.md }}>
+                <p style={{ color: colors.textMuted, margin: `0 0 ${spacing.sm} 0`, textAlign: 'center' }}>
+                  {hasLocationFilter
+                    ? `No ${term(vertical, 'vendors').toLowerCase()} found near ${locationText || 'your location'} yet.`
+                    : `No ${term(vertical, 'vendors').toLowerCase()} available yet.`
+                  }
+                </p>
                 <NotifyMeCapture
                   vertical={vertical}
                   zipCode={zip || null}

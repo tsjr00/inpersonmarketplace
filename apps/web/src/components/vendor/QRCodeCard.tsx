@@ -148,21 +148,30 @@ export default function QRCodeCard({ vertical, vendorId, vendorName }: QRCodeCar
               border: '2px solid #e5e7eb',
               borderRadius: 16,
             }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {branding.brand_name}
-              </div>
-              <div style={{ marginBottom: 16 }}>
+              {/* Logo + URL header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrDataUrl} alt="QR Code" style={{ width: 240, height: 240 }} />
+                <img src={branding.logo_path} alt="" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                <span style={{ fontSize: 15, fontWeight: 600, color: isFT ? '#ff5757' : '#166534' }}>
+                  {branding.domain ? `www.${branding.domain}` : branding.brand_name}
+                </span>
               </div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a', marginBottom: 4 }}>
-                {vendorName}
+              {/* QR Code */}
+              <div style={{ marginBottom: 20 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={qrDataUrl} alt="QR Code" style={{ width: 260, height: 260 }} />
               </div>
-              <div style={{ fontSize: 16, color: '#4b5563', marginBottom: 16 }}>
+              {/* Call to action — bold, primary */}
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#1a1a1a', marginBottom: 8 }}>
                 Skip the line — pre-order online!
               </div>
-              <div style={{ fontSize: 11, color: '#9ca3af' }}>
-                Scan with your phone camera to view menu &amp; order
+              {/* Vendor name — branded color */}
+              <div style={{ fontSize: 18, fontWeight: 600, color: isFT ? '#ff5757' : '#166534', marginBottom: 6 }}>
+                {vendorName}
+              </div>
+              {/* Vendor tagline */}
+              <div style={{ fontSize: 14, color: '#4b5563', fontStyle: 'italic' }}>
+                Great food, ready when you are
               </div>
             </div>
           </div>
