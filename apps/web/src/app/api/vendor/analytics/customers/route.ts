@@ -48,23 +48,26 @@ export async function GET(request: NextRequest) {
     if (startDate < earliest) startDate = earliest
 
     // C7 FIX: Query order_items joined with orders for buyer_user_id
-    const { data: currentItems, error } = await supabase
-      .from('order_items')
-      .select('id, order:orders!inner(buyer_user_id)')
-      .eq('vendor_profile_id', vendorId)
-      .gte('created_at', `${startDate}T00:00:00`)
-      .lte('created_at', `${endDate}T23:59:59`)
+    // Both queries are independent — run in parallel
+    const [currentResult, previousResult] = await Promise.all([
+      supabase
+        .from('order_items')
+        .select('id, order:orders!inner(buyer_user_id)')
+        .eq('vendor_profile_id', vendorId)
+        .gte('created_at', `${startDate}T00:00:00`)
+        .lte('created_at', `${endDate}T23:59:59`),
+      supabase
+        .from('order_items')
+        .select('order:orders!inner(buyer_user_id)')
+        .eq('vendor_profile_id', vendorId)
+        .lt('created_at', `${startDate}T00:00:00`),
+    ])
 
+    const { data: currentItems, error } = currentResult
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-
-    // Get order items before the start date to identify returning customers
-    const { data: previousItems } = await supabase
-      .from('order_items')
-      .select('order:orders!inner(buyer_user_id)')
-      .eq('vendor_profile_id', vendorId)
-      .lt('created_at', `${startDate}T00:00:00`)
+    const { data: previousItems } = previousResult
 
     const previousCustomers = new Set(
       (previousItems || []).map((item: any) => {

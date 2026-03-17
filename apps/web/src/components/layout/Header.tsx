@@ -6,7 +6,12 @@ import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { CartButton } from '@/components/cart/CartButton'
-import { NotificationBell } from '@/components/notifications/NotificationBell'
+import dynamic from 'next/dynamic'
+
+const NotificationBell = dynamic(
+  () => import('@/components/notifications/NotificationBell').then(mod => ({ default: mod.NotificationBell })),
+  { ssr: false }
+)
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 import { t } from '@/lib/locale/messages'

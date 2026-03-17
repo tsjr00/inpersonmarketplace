@@ -68,6 +68,7 @@ export default function HowItWorksPage() {
           alt={branding.brand_name}
           width={64}
           height={64}
+          sizes="64px"
           style={{ marginBottom: spacing.sm, borderRadius: radius.full, background: 'white', padding: '6px' }}
         />
         <h1 style={{

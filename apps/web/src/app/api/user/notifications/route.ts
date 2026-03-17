@@ -27,10 +27,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      // Get user profile (use * to avoid schema cache dependency on new columns)
+      // Get notification preferences only
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select('notification_preferences')
         .eq('user_id', user.id)
         .single()
 

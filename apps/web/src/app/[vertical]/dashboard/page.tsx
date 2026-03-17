@@ -48,17 +48,17 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     { data: readyOrders },
     { data: ordersNeedingConfirmation },
   ] = await Promise.all([
-    // Get vendor profile for THIS vertical (if exists)
+    // Get vendor profile for THIS vertical (if exists) — only need status + tier
     supabase
       .from('vendor_profiles')
-      .select('*')
+      .select('id, status, tier')
       .eq('user_id', user.id)
       .eq('vertical_id', vertical)
       .single(),
     // Get user profile to check for admin role, buyer tier, and tutorial status
     supabase
       .from('user_profiles')
-      .select('*')
+      .select('role, roles, buyer_tier, notification_preferences, phone, tutorial_completed_at, tutorial_skipped_at')
       .eq('user_id', user.id)
       .single(),
     // Get active orders count (as buyer) — only current/in-progress orders

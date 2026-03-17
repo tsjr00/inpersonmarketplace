@@ -81,6 +81,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
                   alt="Food Truck'n"
                   width={260}
                   height={260}
+                  sizes="260px"
                   style={{ margin: '0 auto' }}
                   priority
                 />
@@ -322,6 +323,7 @@ export function Hero({ vertical, initialCity, stats, locale }: HeroProps) {
               alt="Customer ordering at a food truck"
               width={1200}
               height={600}
+              sizes="100vw"
               style={{
                 width: '100%',
                 height: 'auto',

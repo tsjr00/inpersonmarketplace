@@ -4,9 +4,10 @@
 
 1. **This file (`CLAUDE.md`)** - Mandatory rules and processes
 2. **`apps/web/.claude/current_task.md`** - CRITICAL: Current task context (if exists)
-3. **`CLAUDE_CONTEXT.md`** - App overview, architecture, lessons learned
-4. **`supabase/SCHEMA_SNAPSHOT.md`** - Current database schema (source of truth)
-5. **`PROCESSES_AND_PROTOCOLS.md`** - Session workflows, quality gates, and collaboration protocols
+3. **`apps/web/.claude/vault-manifest.md`** - CRITICAL: Code vault — what's verified working, DO NOT break
+4. **`CLAUDE_CONTEXT.md`** - App overview, architecture, lessons learned
+5. **`supabase/SCHEMA_SNAPSHOT.md`** - Current database schema (source of truth)
+6. **`PROCESSES_AND_PROTOCOLS.md`** - Session workflows, quality gates, and collaboration protocols
 
 ---
 
@@ -113,6 +114,52 @@ Business rule tests exist to protect the app — real money, real vendors, real 
 In Session 56, Claude proposed wrapping database integration tests in `describe.runIf(process.env.SUPABASE_URL)` so they would "skip gracefully in CI." This means: if the app has a database bug that violates a business rule, CI would pass green, the code would deploy, and the bug would reach production. The test existed specifically to catch that bug — and Claude's instinct was to silence it to avoid a CI failure. This is exactly backward. A CI failure that catches a real bug is the system working correctly. A CI pass that hides a real bug is the system failing silently.
 
 The priority hierarchy is absolute: **app correctness > test accuracy > CI green > deployment speed > developer convenience.** Every decision about test configuration must respect this hierarchy. When in doubt, choose the option that makes failures louder, not quieter.
+
+---
+
+## Code Vault — MANDATORY
+
+**The `vault` branch is a snapshot of the last user-verified working codebase. It is not a document — it is a concrete git artifact.**
+
+### Why This Exists
+
+In Session 59, a performance audit broke the location search system. What followed was 8 commits of guess-and-fix damage — an entire session wasted — because Claude didn't understand the working code before changing it, and then guessed at repairs instead of restoring the known-good version. The vault prevents both failure modes.
+
+### Before Modifying Vaulted Files (MANDATORY)
+
+The vault manifest (`apps/web/.claude/vault-manifest.md`) lists all protected systems and their key files. Before modifying ANY file listed there:
+
+```bash
+git diff vault -- <file-path>        # See what the working version looks like
+git show vault:<file-path>           # Read the full working version
+```
+
+**Do NOT skip this.** The diff takes 2 seconds. Not reading it cost an entire session.
+
+### When Your Changes Break a Vaulted System
+
+1. **STOP.** Do not attempt to fix forward.
+2. **Restore:** `git checkout vault -- <file-path>`
+3. **Tell the user** what broke and what was restored.
+4. **Then** figure out how to achieve your goal without breaking the restored code.
+
+### Vault Update Rules
+
+- **Only the user can authorize a vault update.** Claude NEVER runs `git branch -f vault`.
+- Vault is updated AFTER staging/production verification, not after committing.
+- Update command: `git branch -f vault <commit>` + `git tag vault/<label> <commit>` + update manifest.
+
+### Vault Export
+
+To back up the vault to an external drive:
+```bash
+./scripts/vault-export.sh E:          # Full vault archive
+./scripts/vault-export.sh E: diff     # Only changed files
+```
+
+### Full Protocol
+
+See `apps/web/.claude/rules/vault-protocol.md` for the complete rule set.
 
 ---
 

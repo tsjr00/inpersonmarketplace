@@ -125,6 +125,7 @@ export default async function ComingSoonPage({ params }: ComingSoonPageProps) {
           alt="Food Truck'n"
           width={40}
           height={40}
+          sizes="40px"
           style={{ borderRadius: '50%' }}
         />
         <span style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>
@@ -141,6 +142,7 @@ export default async function ComingSoonPage({ params }: ComingSoonPageProps) {
             alt="Grow Your Food Truck Business"
             width={1200}
             height={500}
+            sizes="(max-width: 1200px) 100vw, 1200px"
             style={{ width: '100%', height: 'auto', display: 'block' }}
             priority
           />
@@ -250,6 +252,7 @@ export default async function ComingSoonPage({ params }: ComingSoonPageProps) {
             alt="Food Truck'n"
             width={80}
             height={80}
+            sizes="80px"
             style={{ borderRadius: '50%' }}
           />
           <h2

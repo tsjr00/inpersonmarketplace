@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest) {
     if (sms_consent !== undefined) {
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select('notification_preferences')
         .eq('user_id', user.id)
         .is('deleted_at', null)
         .single()
