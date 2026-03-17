@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import LocationSearchInline from '@/components/location/LocationSearchInline'
 import { term, getRadiusOptions } from '@/lib/vertical'
@@ -18,13 +18,42 @@ interface BrowseLocationPromptProps {
   currentRadius?: number
 }
 
-export default function BrowseLocationPrompt({ vertical, hasLocation, locationText, currentRadius }: BrowseLocationPromptProps) {
+export default function BrowseLocationPrompt({ vertical, hasLocation: serverHasLocation, locationText: serverLocationText, currentRadius: serverRadius }: BrowseLocationPromptProps) {
   const locale = getClientLocale()
   const router = useRouter()
   const colors = getVerticalColors(vertical)
   const radiusOptions = getRadiusOptions(vertical)
-  // Local state for optimistic UI — shows selected radius immediately
-  const [radius, setRadius] = useState(currentRadius ?? 25)
+
+  // Client-side location state — fetched from GET /api/buyer/location
+  // This is needed because the ISR-cached server can't read the httpOnly location cookie.
+  const [hasLocation, setHasLocation] = useState(serverHasLocation ?? false)
+  const [locationText, setLocationText] = useState(serverLocationText)
+  const [radius, setRadius] = useState(serverRadius ?? 25)
+  const [loaded, setLoaded] = useState(!!serverHasLocation)
+
+  // On mount: fetch location from API (reads httpOnly cookie server-side)
+  useEffect(() => {
+    // If server already provided location data (e.g. via ?zip= param), skip
+    if (serverHasLocation) return
+
+    async function fetchLocation() {
+      try {
+        const res = await fetch('/api/buyer/location')
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.hasLocation) {
+          setHasLocation(true)
+          setLocationText(data.locationText)
+          setRadius(data.radius ?? 25)
+        }
+      } catch {
+        // No location available, stay in input mode
+      }
+      setLoaded(true)
+    }
+
+    fetchLocation()
+  }, [serverHasLocation])
 
   const handleRadiusChange = async (newRadius: number) => {
     setRadius(newRadius) // Optimistic update
@@ -48,6 +77,8 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
     } catch {
       // Ignore
     }
+    setHasLocation(false)
+    setLocationText(undefined)
     router.refresh()
   }
 
@@ -66,7 +97,8 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
         </p>
         <LocationSearchInline
           onLocationSet={() => {
-            router.refresh()
+            // After setting location, reload to apply server-side filtering
+            window.location.reload()
           }}
           labelPrefix={t('browse.listings_near', locale, { listings: term(vertical, 'listings', locale) })}
           radiusOptions={radiusOptions}
@@ -83,7 +115,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
         locationText={locationText}
         radius={radius}
         onLocationSet={() => {
-          router.refresh()
+          window.location.reload()
         }}
         onClear={handleClear}
         onRadiusChange={handleRadiusChange}
