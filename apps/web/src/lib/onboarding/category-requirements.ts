@@ -107,16 +107,26 @@ const CATEGORY_REQUIREMENTS: Record<Category, CategoryRequirement> = {
  */
 export const JURISDICTION_DISCLAIMER = 'Permit requirements shown are based on Texas state regulations. Requirements may differ in other states.'
 
+// Safe default for categories not in the lookup (e.g., new categories added to DB but not to code)
+const DEFAULT_REQUIREMENT: CategoryRequirement = {
+  level: 'none',
+  label: 'Unknown Category',
+  description: 'This category does not have specific permit requirements configured.',
+  acceptedDocTypes: [],
+}
+
 export function getCategoryRequirement(category: Category): CategoryRequirement {
-  return CATEGORY_REQUIREMENTS[category]
+  return CATEGORY_REQUIREMENTS[category] || DEFAULT_REQUIREMENT
 }
 
 export function getRequiredDocTypes(category: Category): DocType[] {
-  return CATEGORY_REQUIREMENTS[category].acceptedDocTypes
+  return (CATEGORY_REQUIREMENTS[category] || DEFAULT_REQUIREMENT).acceptedDocTypes
 }
 
 export function requiresDocuments(category: Category): boolean {
-  return CATEGORY_REQUIREMENTS[category].level !== 'none'
+  const req = CATEGORY_REQUIREMENTS[category]
+  if (!req) return false
+  return req.level !== 'none'
 }
 
 export function getCategoriesRequiringDocs(): Category[] {

@@ -442,8 +442,7 @@ export async function sendNotification(
   let userLocale: string | undefined
 
   // Generate content from templates (locale applied after profile fetch, see below)
-  let title: string
-  let message: string
+  // title + message assigned after profile fetch so locale is available
   const actionUrl = config.actionUrl({ ...templateData, vertical: options?.vertical })
 
   // Determine channels based on per-vertical urgency (NI-R19)
@@ -500,8 +499,8 @@ export async function sendNotification(
   }
 
   // Generate localized content from templates (after profile fetch so locale is available)
-  title = config.title(templateData, userLocale)
-  message = config.message(templateData, userLocale)
+  const title = config.title(templateData, userLocale)
+  const message = config.message(templateData, userLocale)
 
   // Dispatch to each channel
   const results: ChannelResult[] = []
