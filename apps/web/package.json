@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "analyze": "ANALYZE=true next build",
+    "e2e": "npx playwright test",
+    "e2e:staging": "PLAYWRIGHT_BASE_URL=https://inpersonmarketplace-git-staging-tsjr00s-projects.vercel.app npx playwright test",
     "qa": "npx tsx ../../scripts/qa-checklist.ts"
   },
   "dependencies": {
@@ -36,6 +38,7 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.1.6",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
