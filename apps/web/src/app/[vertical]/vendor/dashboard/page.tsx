@@ -371,234 +371,62 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             </div>
           </Link>
 
-          {/* Upcoming Pickups - shows orders by date */}
-          <div style={{
-            padding: spacing.sm,
-            backgroundColor: upcomingPickups.length > 0 ? colors.primaryLight : colors.surfaceElevated,
-            color: colors.textPrimary,
-            border: upcomingPickups.length > 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
-            borderRadius: radius.md,
-            boxShadow: shadows.sm
-          }}>
-            <div style={{ marginBottom: spacing.xs }}>
-              <Link
-                href={`/${vertical}/vendor/orders`}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  textDecoration: 'none',
-                }}
-              >
-                <h3 style={{
-                  color: upcomingPickups.length > 0 ? colors.primaryDark : colors.primary,
-                  margin: 0,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.semibold
-                }}>
-                  Upcoming Pickups
-                </h3>
-                <span style={{
-                  fontSize: typography.sizes.sm,
-                  color: colors.primary,
-                }}>
-                  →
-                </span>
-              </Link>
-            </div>
-
-            {vendorProfile.status !== 'approved' ? (
-              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                Available after approval
-              </p>
-            ) : upcomingPickups.length === 0 ? (
-              /* Empty state skeleton — shows the structure so vendors learn
-                 the prep workflow even before their first order arrives */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'], opacity: 0.55 }}>
-                <div style={{
-                  fontSize: typography.sizes.xs,
-                  fontWeight: typography.weights.bold,
-                  color: colors.primaryDark,
-                  textTransform: 'uppercase' as const,
-                  letterSpacing: '0.05em',
-                }}>
-                  Today — Prep &amp; Pack
-                </div>
-                {/* Skeleton pickup item */}
-                <div style={{
-                  padding: spacing.xs,
-                  backgroundColor: colors.primaryLight,
-                  borderRadius: radius.md,
-                  border: `2px dashed ${colors.primary}`,
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: spacing['2xs'],
-                  }}>
-                    <span style={{
-                      fontSize: typography.sizes.sm,
-                      fontWeight: typography.weights.bold,
-                      color: colors.primaryDark,
-                    }}>
-                      📍 Your pickup location
-                    </span>
-                    <span style={{
-                      fontSize: typography.sizes.xs,
-                      fontWeight: typography.weights.bold,
-                      color: colors.primaryDark,
-                      backgroundColor: 'white',
-                      padding: `2px ${spacing.xs}`,
-                      borderRadius: radius.full,
-                    }}>
-                      — items
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: spacing['2xs'] }}>
-                    <div style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: spacing['2xs'],
-                      padding: `${spacing['2xs']} ${spacing.xs}`,
-                      backgroundColor: 'white',
-                      color: colors.primaryDark,
-                      borderRadius: radius.sm,
-                      border: `1px solid ${colors.primary}`,
-                      fontSize: typography.sizes.xs,
-                      fontWeight: typography.weights.semibold,
-                    }}>
-                      📋 Prep List
-                    </div>
-                    <div style={{
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: spacing['2xs'],
-                      padding: `${spacing['2xs']} ${spacing.xs}`,
-                      backgroundColor: 'white',
-                      color: colors.primaryDark,
-                      borderRadius: radius.sm,
-                      border: `1px solid ${colors.primary}`,
-                      fontSize: typography.sizes.xs,
-                      fontWeight: typography.weights.semibold,
-                    }}>
-                      🧾 Orders
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{
-                  fontSize: typography.sizes.xs,
-                  fontWeight: typography.weights.semibold,
-                  color: colors.textMuted,
-                  marginTop: spacing['2xs'],
-                }}>
-                  Coming Up
-                </div>
-                {/* Skeleton future row */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: `${spacing['2xs']} ${spacing.xs}`,
-                  backgroundColor: 'white',
-                  borderRadius: radius.sm,
-                  border: `1px dashed ${colors.borderMuted}`,
-                }}>
-                  <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                    Tomorrow · Market name
-                  </span>
-                  <span style={{
-                    fontSize: typography.sizes.xs,
-                    color: colors.textMuted,
-                  }}>
-                    📋
-                  </span>
-                </div>
-
-                <p style={{
-                  margin: `${spacing.xs} 0 0 0`,
-                  fontSize: typography.sizes.xs,
-                  color: colors.textMuted,
-                  textAlign: 'center',
-                  fontStyle: 'italic',
-                }}>
-                  Orders will appear here as customers place them
+          {/* Upcoming Pickups — compact card, links to full prep workflow page */}
+          <Link
+            href={`/${vertical}/vendor/upcoming`}
+            style={{ textDecoration: 'none' }}
+          >
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: upcomingPickups.length > 0 ? colors.primaryLight : colors.surfaceElevated,
+              color: colors.textPrimary,
+              border: upcomingPickups.length > 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              cursor: 'pointer',
+              height: '100%',
+              boxShadow: shadows.sm
+            }}>
+              <h3 style={{
+                color: upcomingPickups.length > 0 ? colors.primaryDark : colors.primary,
+                margin: `0 0 ${spacing['2xs']} 0`,
+                fontSize: typography.sizes.base,
+                fontWeight: typography.weights.semibold
+              }}>
+                Upcoming Pickups
+              </h3>
+              {vendorProfile.status !== 'approved' ? (
+                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                  Available after approval
                 </p>
-              </div>
-            ) : (() => {
-              const today = new Date().toISOString().split('T')[0]
-              const todayPickups = upcomingPickups.filter(p => p.pickup_date === today)
-              const futurePickups = upcomingPickups.filter(p => p.pickup_date !== today)
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-                  {/* TODAY section — morning prep workflow */}
-                  {todayPickups.length > 0 && (
-                    <>
-                      <div style={{
-                        fontSize: typography.sizes.xs,
+              ) : upcomingPickups.length === 0 ? (
+                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                  Prep lists, pick tickets &amp; order details for each pickup day
+                </p>
+              ) : (() => {
+                const today = new Date().toISOString().split('T')[0]
+                const todayCount = upcomingPickups.filter(p => p.pickup_date === today)
+                const totalItems = upcomingPickups.reduce((sum, p) => sum + p.item_count, 0)
+                const locationCount = new Set(upcomingPickups.map(p => p.market_id)).size
+                return (
+                  <div>
+                    {todayCount.length > 0 && (
+                      <p style={{
+                        margin: `0 0 ${spacing['3xs']} 0`,
+                        fontSize: typography.sizes.sm,
                         fontWeight: typography.weights.bold,
                         color: colors.primaryDark,
-                        textTransform: 'uppercase' as const,
-                        letterSpacing: '0.05em',
                       }}>
-                        Today — Prep &amp; Pack
-                      </div>
-                      {todayPickups.map(pickup => (
-                        <UpcomingPickupItem
-                          key={`${pickup.pickup_date}-${pickup.market_id}`}
-                          vertical={vertical}
-                          pickup_date={pickup.pickup_date}
-                          market_id={pickup.market_id}
-                          market_name={pickup.market_name}
-                          item_count={pickup.item_count}
-                        />
-                      ))}
-                    </>
-                  )}
-
-                  {/* UPCOMING section */}
-                  {futurePickups.length > 0 && (
-                    <>
-                      {todayPickups.length > 0 && (
-                        <div style={{
-                          fontSize: typography.sizes.xs,
-                          fontWeight: typography.weights.semibold,
-                          color: colors.textMuted,
-                          marginTop: spacing['2xs'],
-                        }}>
-                          Coming Up
-                        </div>
-                      )}
-                      {futurePickups.slice(0, 4).map(pickup => (
-                        <UpcomingPickupItem
-                          key={`${pickup.pickup_date}-${pickup.market_id}`}
-                          vertical={vertical}
-                          pickup_date={pickup.pickup_date}
-                          market_id={pickup.market_id}
-                          market_name={pickup.market_name}
-                          item_count={pickup.item_count}
-                        />
-                      ))}
-                      {futurePickups.length > 4 && (
-                        <Link
-                          href={`/${vertical}/vendor/orders`}
-                          style={{ fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'none', textAlign: 'center' }}
-                        >
-                          +{futurePickups.length - 4} more pickup dates
-                        </Link>
-                      )}
-                    </>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
+                        Today: {todayCount.reduce((s, p) => s + p.item_count, 0)} item{todayCount.reduce((s, p) => s + p.item_count, 0) !== 1 ? 's' : ''} at {todayCount.length} location{todayCount.length !== 1 ? 's' : ''}
+                      </p>
+                    )}
+                    <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
+                      {upcomingPickups.length} pickup{upcomingPickups.length !== 1 ? 's' : ''} · {locationCount} location{locationCount !== 1 ? 's' : ''} · {totalItems} item{totalItems !== 1 ? 's' : ''} this week
+                    </p>
+                  </div>
+                )
+              })()}
+            </div>
+          </Link>
 
           {/* Manage Locations - shows list of locations */}
           <div style={{
