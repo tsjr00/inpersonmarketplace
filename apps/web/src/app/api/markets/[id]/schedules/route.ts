@@ -39,7 +39,9 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ schedules })
+    return NextResponse.json({ schedules }, {
+      headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=1200' },
+    })
   })
 }
 

@@ -40,23 +40,94 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   // Get branding from defaults
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
-  // Get vendor profile for THIS vertical (if exists)
-  const { data: vendorProfile } = await supabase
-    .from('vendor_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('vertical_id', vertical)
-    .single()
+  // Phase 2: Parallel data queries — all need user.id + vertical, none depend on each other
+  const [
+    { data: vendorProfile },
+    { data: userProfile },
+    { count: orderCount },
+    { data: readyOrders },
+    { data: ordersNeedingConfirmation },
+  ] = await Promise.all([
+    // Get vendor profile for THIS vertical (if exists)
+    supabase
+      .from('vendor_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vertical_id', vertical)
+      .single(),
+    // Get user profile to check for admin role, buyer tier, and tutorial status
+    supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single(),
+    // Get active orders count (as buyer) — only current/in-progress orders
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('buyer_user_id', user.id)
+      .eq('vertical_id', vertical)
+      .in('status', ['pending', 'paid', 'confirmed', 'ready']),
+    // Get orders with items ready for pickup (up to 3)
+    supabase
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        created_at,
+        order_items!inner (
+          id,
+          status,
+          pickup_date,
+          pickup_snapshot,
+          market:markets (
+            id,
+            name,
+            market_type,
+            city,
+            state
+          ),
+          listing:listings (
+            id,
+            title,
+            vendor_profiles (
+              id,
+              profile_data
+            )
+          )
+        )
+      `)
+      .eq('buyer_user_id', user.id)
+      .eq('vertical_id', vertical)
+      .eq('order_items.status', 'ready')
+      .is('order_items.cancelled_at', null)
+      .is('order_items.issue_reported_at', null)
+      .is('order_items.buyer_confirmed_at', null)
+      .order('created_at', { ascending: false })
+      .limit(3),
+    // Get orders needing buyer confirmation (vendor handed off but buyer hasn't confirmed)
+    supabase
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        order_items!inner (
+          id,
+          status,
+          buyer_confirmed_at
+        )
+      `)
+      .eq('buyer_user_id', user.id)
+      .eq('vertical_id', vertical)
+      .eq('order_items.status', 'fulfilled')
+      .is('order_items.buyer_confirmed_at', null)
+      .is('order_items.cancelled_at', null)
+      .is('order_items.issue_reported_at', null)
+      .limit(10),
+  ])
 
   const isVendor = !!vendorProfile
   const isApprovedVendor = vendorProfile?.status === 'approved'
-
-  // Get user profile to check for admin role, buyer tier, and tutorial status
-  const { data: userProfile } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
 
   const isAdmin = userProfile ? hasAdminRole(userProfile) : false
   const buyerTier = (userProfile?.buyer_tier as string) || 'free'
@@ -69,72 +140,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   // Show tutorial for new users who haven't completed or skipped it
   const hasSeenTutorial = !!(userProfile?.tutorial_completed_at || userProfile?.tutorial_skipped_at)
   const showTutorial = !hasSeenTutorial
-
-  // Get active orders count (as buyer) — only current/in-progress orders
-  const { count: orderCount } = await supabase
-    .from('orders')
-    .select('id', { count: 'exact', head: true })
-    .eq('buyer_user_id', user.id)
-    .eq('vertical_id', vertical)
-    .in('status', ['pending', 'paid', 'confirmed', 'ready'])
-
-  // Get orders with items ready for pickup (up to 3)
-  const { data: readyOrders } = await supabase
-    .from('orders')
-    .select(`
-      id,
-      order_number,
-      created_at,
-      order_items!inner (
-        id,
-        status,
-        pickup_date,
-        pickup_snapshot,
-        market:markets (
-          id,
-          name,
-          market_type,
-          city,
-          state
-        ),
-        listing:listings (
-          id,
-          title,
-          vendor_profiles (
-            id,
-            profile_data
-          )
-        )
-      )
-    `)
-    .eq('buyer_user_id', user.id)
-    .eq('vertical_id', vertical)
-    .eq('order_items.status', 'ready')
-    .is('order_items.cancelled_at', null)
-    .is('order_items.issue_reported_at', null)
-    .is('order_items.buyer_confirmed_at', null)
-    .order('created_at', { ascending: false })
-    .limit(3)
-
-  // Get orders needing buyer confirmation (vendor handed off but buyer hasn't confirmed)
-  const { data: ordersNeedingConfirmation } = await supabase
-    .from('orders')
-    .select(`
-      id,
-      order_number,
-      order_items!inner (
-        id,
-        status,
-        buyer_confirmed_at
-      )
-    `)
-    .eq('buyer_user_id', user.id)
-    .eq('vertical_id', vertical)
-    .eq('order_items.status', 'fulfilled')
-    .is('order_items.buyer_confirmed_at', null)
-    .is('order_items.cancelled_at', null)
-    .is('order_items.issue_reported_at', null)
-    .limit(10)
 
   const confirmationNeededCount = ordersNeedingConfirmation?.length || 0
 

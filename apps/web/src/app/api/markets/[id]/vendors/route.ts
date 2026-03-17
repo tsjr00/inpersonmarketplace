@@ -80,7 +80,9 @@ export async function GET(
       }
     })
 
-    return NextResponse.json({ vendors })
+    return NextResponse.json({ vendors }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    })
   })
 }
 
