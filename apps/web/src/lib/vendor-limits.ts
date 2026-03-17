@@ -81,13 +81,13 @@ export interface FtTierExtras {
 export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = {
   free: {
     productListings: 5,
-    totalMarketBoxes: 0,
-    activeMarketBoxes: 0,
+    totalMarketBoxes: 1,
+    activeMarketBoxes: 1,
     traditionalMarkets: 1,
     privatePickupLocations: 2,
     pickupWindowsPerLocation: 4,
-    maxSubscribersPerOffering: 0,
-    defaultSubscribersPerOffering: 0,
+    maxSubscribersPerOffering: 5,
+    defaultSubscribersPerOffering: 5,
     analyticsDays: 0,
     analyticsExport: false,
     priorityPlacement: 0,

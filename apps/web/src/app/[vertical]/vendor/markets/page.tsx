@@ -189,7 +189,20 @@ export default function VendorMarketsPage() {
           </div>
         )}
 
-        {/* Traditional Markets Section (inline — always visible first) */}
+        {/* Single Truck Locations first for FT (vendors toggle these most frequently) */}
+        {isFoodTruck && (
+          <PrivatePickupSection
+            vertical={vertical}
+            isFoodTruck={isFoodTruck}
+            privatePickupMarkets={privatePickupMarkets}
+            limits={limits}
+            isPremium={isPremium}
+            setError={setError}
+            fetchMarkets={fetchMarkets}
+          />
+        )}
+
+        {/* Traditional Markets Section */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: 8,
@@ -509,15 +522,18 @@ export default function VendorMarketsPage() {
           setSelectedMarketForSchedule={setSelectedMarketForSchedule}
         />
 
-        <PrivatePickupSection
-          vertical={vertical}
-          isFoodTruck={isFoodTruck}
-          privatePickupMarkets={privatePickupMarkets}
-          limits={limits}
-          isPremium={isPremium}
-          setError={setError}
-          fetchMarkets={fetchMarkets}
-        />
+        {/* Private pickups at bottom for FM (FT renders them at top) */}
+        {!isFoodTruck && (
+          <PrivatePickupSection
+            vertical={vertical}
+            isFoodTruck={isFoodTruck}
+            privatePickupMarkets={privatePickupMarkets}
+            limits={limits}
+            isPremium={isPremium}
+            setError={setError}
+            fetchMarkets={fetchMarkets}
+          />
+        )}
       </div>
     </div>
   )
