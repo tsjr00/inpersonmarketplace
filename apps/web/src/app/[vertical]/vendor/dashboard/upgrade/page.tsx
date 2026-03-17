@@ -348,12 +348,9 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                 {/* Feature list */}
                 <ul style={{ margin: '0 0 24px', paddingLeft: 20, fontSize: 14, color: '#4b5563', lineHeight: 2, flex: 1 }}>
                   <li><strong>{limits.productListings}</strong> menu items</li>
-                  <li><strong>{limits.privatePickupLocations}</strong> service location{limits.privatePickupLocations !== 1 ? 's' : ''}</li>
-                  {limits.totalMarketBoxes > 0 ? (
-                    <li><strong>{limits.totalMarketBoxes}</strong> Chef Box offerings</li>
-                  ) : (
-                    <li style={{ color: '#9ca3af' }}>No Chef Boxes</li>
-                  )}
+                  <li><strong>{limits.privatePickupLocations}</strong> single truck location{limits.privatePickupLocations !== 1 ? 's' : ''}</li>
+                  <li><strong>{limits.traditionalMarkets}</strong> multi-truck location{limits.traditionalMarkets !== 1 ? 's' : ''}</li>
+                  <li><strong>{limits.totalMarketBoxes}</strong> Chef Box{limits.totalMarketBoxes !== 1 ? 'es' : ''} (up to {limits.maxSubscribersPerOffering} subscribers)</li>
                   {limits.analyticsDays > 0 ? (
                     <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' + export' : ''}</li>
                   ) : (
@@ -362,7 +359,6 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                   {limits.priorityPlacement > 0 && (
                     <li><strong>{limits.priorityPlacement === 2 ? '1st' : '2nd'} priority</strong> placement</li>
                   )}
-                  <li>Notifications: {limits.notificationChannels.map(c => c === 'in_app' ? 'In-App' : c === 'push' ? 'Push' : c === 'email' ? 'Email' : 'SMS').join(', ')}</li>
                 </ul>
 
                 {/* Action button */}
@@ -460,13 +456,13 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
             <div style={{ padding: '10px 16px', backgroundColor: '#fef2f2', fontWeight: 600, color: '#991b1b', textAlign: 'center', fontSize: 13 }}>Boss</div>
 
             <FtFeatureRow label="Menu Items" free={String(f.productListings)} basic={String(b.productListings)} pro={String(p.productListings)} boss={String(bo.productListings)} />
-            <FtFeatureRow label="Service Locations" free={String(f.privatePickupLocations)} basic={String(b.privatePickupLocations)} pro={String(p.privatePickupLocations)} boss={String(bo.privatePickupLocations)} />
-            <FtFeatureRow label="Chef Boxes" free="—" basic={String(b.totalMarketBoxes)} pro={String(p.totalMarketBoxes)} boss={String(bo.totalMarketBoxes)} />
-            <FtFeatureRow label="Subscribers/Box" free="—" basic={String(b.maxSubscribersPerOffering)} pro={String(p.maxSubscribersPerOffering)} boss={String(bo.maxSubscribersPerOffering)} />
-            <FtFeatureRow label="Analytics" free="—" basic="30-day" pro="90-day" boss="90-day + Export" />
-            <FtFeatureRow label="Prep Sheet" free="—" basic="Yes" pro="Yes" boss="Yes" />
+            <FtFeatureRow label="Single Truck Locations" free={String(f.privatePickupLocations)} basic={String(b.privatePickupLocations)} pro={String(p.privatePickupLocations)} boss={String(bo.privatePickupLocations)} />
+            <FtFeatureRow label="Multi-Truck Locations" free={String(f.traditionalMarkets)} basic={String(b.traditionalMarkets)} pro={String(p.traditionalMarkets)} boss={String(bo.traditionalMarkets)} />
+            <FtFeatureRow label="Chef Boxes" free={String(f.totalMarketBoxes)} basic={String(b.totalMarketBoxes)} pro={String(p.totalMarketBoxes)} boss={String(bo.totalMarketBoxes)} />
+            <FtFeatureRow label="Subscribers/Box" free={String(f.maxSubscribersPerOffering)} basic={String(b.maxSubscribersPerOffering)} pro={String(p.maxSubscribersPerOffering)} boss={String(bo.maxSubscribersPerOffering)} />
+            <FtFeatureRow label="Analytics" free="—" basic={`${b.analyticsDays}-day`} pro={`${p.analyticsDays}-day`} boss={`${bo.analyticsDays}-day + Export`} />
             <FtFeatureRow label="Priority Placement" free="—" basic="—" pro="2nd" boss="1st" />
-            <FtFeatureRow label="Notifications" free="In-App" basic="In-App" pro="App, Push, Email" boss="All (incl SMS)" />
+            <FtFeatureRow label="Notifications" free="In-App" basic="App, Email" pro="App, Push, Email" boss="All (incl SMS)" />
           </div>
         </div>
 
