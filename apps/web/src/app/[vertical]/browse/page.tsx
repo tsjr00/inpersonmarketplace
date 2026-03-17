@@ -800,14 +800,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         </div>
 
         {/* Location bar — input mode when no location, radius controls when location is set */}
-        {!zip && (
-          <BrowseLocationPrompt
-            vertical={vertical}
-            hasLocation={hasLocationFilter}
-            locationText={locationText || undefined}
-            currentRadius={currentRadius}
-          />
-        )}
+        {/* Always render: when ?zip= is in URL but zip_codes table is empty,
+            the cookie fallback path still needs radius controls visible */}
+        <BrowseLocationPrompt
+          vertical={vertical}
+          hasLocation={hasLocationFilter}
+          locationText={locationText || undefined}
+          currentRadius={currentRadius}
+        />
 
         {/* Filter Bar — View + Availability + Menu Type (FT) */}
         <BrowseFilterBar
