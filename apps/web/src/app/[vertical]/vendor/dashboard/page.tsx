@@ -412,9 +412,124 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
                 Available after approval
               </p>
             ) : upcomingPickups.length === 0 ? (
-              <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
-                No upcoming orders this week
-              </p>
+              /* Empty state skeleton — shows the structure so vendors learn
+                 the prep workflow even before their first order arrives */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'], opacity: 0.55 }}>
+                <div style={{
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.bold,
+                  color: colors.primaryDark,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.05em',
+                }}>
+                  Today — Prep &amp; Pack
+                </div>
+                {/* Skeleton pickup item */}
+                <div style={{
+                  padding: spacing.xs,
+                  backgroundColor: colors.primaryLight,
+                  borderRadius: radius.md,
+                  border: `2px dashed ${colors.primary}`,
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: spacing['2xs'],
+                  }}>
+                    <span style={{
+                      fontSize: typography.sizes.sm,
+                      fontWeight: typography.weights.bold,
+                      color: colors.primaryDark,
+                    }}>
+                      📍 Your pickup location
+                    </span>
+                    <span style={{
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.bold,
+                      color: colors.primaryDark,
+                      backgroundColor: 'white',
+                      padding: `2px ${spacing.xs}`,
+                      borderRadius: radius.full,
+                    }}>
+                      — items
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: spacing['2xs'] }}>
+                    <div style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: spacing['2xs'],
+                      padding: `${spacing['2xs']} ${spacing.xs}`,
+                      backgroundColor: 'white',
+                      color: colors.primaryDark,
+                      borderRadius: radius.sm,
+                      border: `1px solid ${colors.primary}`,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                    }}>
+                      📋 Prep List
+                    </div>
+                    <div style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: spacing['2xs'],
+                      padding: `${spacing['2xs']} ${spacing.xs}`,
+                      backgroundColor: 'white',
+                      color: colors.primaryDark,
+                      borderRadius: radius.sm,
+                      border: `1px solid ${colors.primary}`,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.semibold,
+                    }}>
+                      🧾 Orders
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold,
+                  color: colors.textMuted,
+                  marginTop: spacing['2xs'],
+                }}>
+                  Coming Up
+                </div>
+                {/* Skeleton future row */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: `${spacing['2xs']} ${spacing.xs}`,
+                  backgroundColor: 'white',
+                  borderRadius: radius.sm,
+                  border: `1px dashed ${colors.borderMuted}`,
+                }}>
+                  <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                    Tomorrow · Market name
+                  </span>
+                  <span style={{
+                    fontSize: typography.sizes.xs,
+                    color: colors.textMuted,
+                  }}>
+                    📋
+                  </span>
+                </div>
+
+                <p style={{
+                  margin: `${spacing.xs} 0 0 0`,
+                  fontSize: typography.sizes.xs,
+                  color: colors.textMuted,
+                  textAlign: 'center',
+                  fontStyle: 'italic',
+                }}>
+                  Orders will appear here as customers place them
+                </p>
+              </div>
             ) : (() => {
               const today = new Date().toISOString().split('T')[0]
               const todayPickups = upcomingPickups.filter(p => p.pickup_date === today)
