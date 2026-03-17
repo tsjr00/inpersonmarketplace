@@ -28,7 +28,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
 
   const handleRadiusChange = async (newRadius: number) => {
     setRadius(newRadius) // Optimistic update
-    // Save radius to cookie via PATCH, then hard reload to bypass ISR cache
+    // Save radius to cookie via PATCH for persistence across sessions
     try {
       await fetch('/api/buyer/location', {
         method: 'PATCH',
@@ -38,7 +38,20 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
     } catch {
       // Ignore errors - radius will still work on next page load
     }
-    router.refresh()
+    // Navigate with ?r= param to force server re-render with new radius
+    // (router.refresh() doesn't reliably re-read cookies on Vercel)
+    const url = new URL(window.location.href)
+    url.searchParams.set('r', String(newRadius))
+    url.searchParams.delete('page') // Reset pagination
+    router.replace(url.pathname + url.search)
+  }
+
+  // Force a server re-render by navigating (strips ?r= since cookie has the data)
+  const forceRerender = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('r')
+    url.searchParams.delete('page')
+    router.replace(url.pathname + url.search)
   }
 
   const handleClear = async () => {
@@ -47,7 +60,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
     } catch {
       // Ignore
     }
-    router.refresh()
+    forceRerender()
   }
 
   // No location set — show ZIP/GPS input
@@ -65,7 +78,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
         </p>
         <LocationSearchInline
           onLocationSet={() => {
-            router.refresh()
+            forceRerender()
           }}
           labelPrefix={t('browse.listings_near', locale, { listings: term(vertical, 'listings', locale) })}
           radiusOptions={radiusOptions}
@@ -82,7 +95,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
         locationText={locationText}
         radius={radius}
         onLocationSet={() => {
-          router.refresh()
+          forceRerender()
         }}
         onClear={handleClear}
         onRadiusChange={handleRadiusChange}
