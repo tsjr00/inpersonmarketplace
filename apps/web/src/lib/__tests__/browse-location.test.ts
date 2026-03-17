@@ -135,9 +135,12 @@ describe('LOC-2: BrowseLocationPrompt receives location props from server', () =
     expect(source).toMatch(/<BrowseLocationPrompt[\s\S]*?currentRadius=\{/)
   })
 
-  it('BrowseLocationPrompt is NOT rendered when ?zip= param is present', () => {
+  it('BrowseLocationPrompt is ALWAYS rendered (even with ?zip= param, since zip_codes may be empty)', () => {
     const source = browsePage()
-    expect(source).toMatch(/\{!zip\s*&&[\s\S]*?<BrowseLocationPrompt/)
+    // Must NOT be gated behind {!zip && ...} — when zip_codes table is empty,
+    // the ?zip= path fails silently and the user needs radius controls from the cookie path
+    expect(source).not.toMatch(/\{!zip\s*&&[\s\S]*?<BrowseLocationPrompt/)
+    expect(source).toMatch(/<BrowseLocationPrompt/)
   })
 })
 
