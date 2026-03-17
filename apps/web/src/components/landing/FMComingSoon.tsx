@@ -119,6 +119,7 @@ export function FMComingSoon({ vertical }: { vertical: string }) {
             alt="Farmers Marketing"
             width={40}
             height={40}
+            sizes="40px"
           />
           <span style={{ fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>
             FARMERS MARKETING
@@ -137,6 +138,7 @@ export function FMComingSoon({ vertical }: { vertical: string }) {
             alt="Make Your Market Day Easier"
             width={1200}
             height={630}
+            sizes="(max-width: 1200px) 100vw, 1200px"
             style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '400px', objectFit: 'contain' }}
             priority
           />
@@ -246,6 +248,7 @@ export function FMComingSoon({ vertical }: { vertical: string }) {
             alt="Farmers Marketing"
             width={100}
             height={100}
+            sizes="100px"
           />
           <h2
             style={{

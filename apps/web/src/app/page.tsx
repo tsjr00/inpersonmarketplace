@@ -26,10 +26,10 @@ export default async function HomePage() {
 async function MultiVerticalHome() {
   const supabase = await createClient()
 
-  // Get all active verticals
+  // Get all active verticals — only need slug, name, and branding config
   const { data: verticals } = await supabase
     .from('verticals')
-    .select('*')
+    .select('vertical_id, name_public, config')
     .eq('is_active', true)
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -94,6 +94,7 @@ async function MultiVerticalHome() {
                     alt={brandName}
                     width={180}
                     height={50}
+                    sizes="180px"
                     style={{ objectFit: 'contain' }}
                   />
                 </div>

@@ -45,6 +45,7 @@ export default function VendorAvatar({ imageUrl, name, size = 48, tier }: Props)
           src={imageUrl}
           alt={name}
           fill
+          sizes={`${size}px`}
           style={{ objectFit: 'cover' }}
         />
       ) : (

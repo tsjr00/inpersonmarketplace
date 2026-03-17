@@ -33,20 +33,20 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
   const locale = await getLocale()
 
-  // Get user profile
-  const { data: userProfile } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
-
-  // Get vendor profile if exists
-  const { data: vendorProfile } = await supabase
-    .from('vendor_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('vertical_id', vertical)
-    .single()
+  // Get user profile + vendor profile in parallel
+  const [{ data: userProfile }, { data: vendorProfile }] = await Promise.all([
+    supabase
+      .from('user_profiles')
+      .select('display_name, created_at, buyer_tier, tier_expires_at, stripe_subscription_id, phone, notification_preferences')
+      .eq('user_id', user.id)
+      .single(),
+    supabase
+      .from('vendor_profiles')
+      .select('id, status, tier, updated_at, stripe_subscription_id')
+      .eq('user_id', user.id)
+      .eq('vertical_id', vertical)
+      .single(),
+  ])
 
   return (
     <div style={{
