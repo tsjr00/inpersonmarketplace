@@ -28,7 +28,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
 
   const handleRadiusChange = async (newRadius: number) => {
     setRadius(newRadius) // Optimistic update
-    // Save radius to cookie via PATCH for persistence across sessions
+    // Save radius to cookie via PATCH — cookie is the source of truth
     try {
       await fetch('/api/buyer/location', {
         method: 'PATCH',
@@ -38,12 +38,9 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
     } catch {
       // Ignore errors - radius will still work on next page load
     }
-    // Navigate with ?r= param to force server re-render with new radius
-    // Cookie PATCH + router.refresh() was unreliable on Vercel CDN
-    const url = new URL(window.location.href)
-    url.searchParams.set('r', String(newRadius))
-    url.searchParams.delete('page') // Reset pagination
-    router.replace(url.pathname + url.search)
+    // Re-fetch server component — reads updated cookie for new radius
+    // Page uses force-dynamic so no ISR cache to worry about
+    router.refresh()
   }
 
   const handleClear = async () => {

@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<{ vertical:
 
 interface BrowsePageProps {
   params: Promise<{ vertical: string }>
-  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; page?: string; available?: string; menu?: string; r?: string }>
+  searchParams: Promise<{ category?: string; search?: string; view?: string; zip?: string; page?: string; available?: string; menu?: string }>
 }
 
 interface MarketSchedule {
@@ -185,7 +185,7 @@ function groupListingsByCategory(listings: Listing[], vertical: string): Record<
 
 export default async function BrowsePage({ params, searchParams }: BrowsePageProps) {
   const { vertical } = await params
-  const { category, search, view, zip, page, available, menu, r: urlRadius } = await searchParams
+  const { category, search, view, zip, page, available, menu } = await searchParams
   const isAvailableNow = available === 'true'
   const currentPage = Math.max(1, parseInt(page || '1', 10))
   const PAGE_SIZE = 50
@@ -598,11 +598,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     const locationCookie = cookieStore.get(LOCATION_COOKIE_NAME)
     let cookieRadius = DEFAULT_RADIUS
 
-    // URL ?r= param takes priority (set by client-side radius change for reliable re-render)
-    const parsedUrlRadius = urlRadius ? parseInt(urlRadius, 10) : NaN
-    if (!isNaN(parsedUrlRadius) && VALID_RADIUS_OPTIONS.includes(parsedUrlRadius)) {
-      cookieRadius = parsedUrlRadius
-    } else if (locationCookie) {
+    if (locationCookie) {
       try {
         const cookieData = JSON.parse(locationCookie.value)
         if (typeof cookieData.radius === 'number' && VALID_RADIUS_OPTIONS.includes(cookieData.radius)) {
