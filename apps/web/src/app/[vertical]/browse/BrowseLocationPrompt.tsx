@@ -39,18 +39,10 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
       // Ignore errors - radius will still work on next page load
     }
     // Navigate with ?r= param to force server re-render with new radius
-    // (router.refresh() doesn't reliably re-read cookies on Vercel)
+    // Cookie PATCH + router.refresh() was unreliable on Vercel CDN
     const url = new URL(window.location.href)
     url.searchParams.set('r', String(newRadius))
     url.searchParams.delete('page') // Reset pagination
-    router.replace(url.pathname + url.search)
-  }
-
-  // Force a server re-render by navigating (strips ?r= since cookie has the data)
-  const forceRerender = () => {
-    const url = new URL(window.location.href)
-    url.searchParams.delete('r')
-    url.searchParams.delete('page')
     router.replace(url.pathname + url.search)
   }
 
@@ -60,7 +52,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
     } catch {
       // Ignore
     }
-    forceRerender()
+    router.refresh()
   }
 
   // No location set — show ZIP/GPS input
@@ -78,7 +70,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
         </p>
         <LocationSearchInline
           onLocationSet={() => {
-            forceRerender()
+            router.refresh()
           }}
           labelPrefix={t('browse.listings_near', locale, { listings: term(vertical, 'listings', locale) })}
           radiusOptions={radiusOptions}
@@ -95,7 +87,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
         locationText={locationText}
         radius={radius}
         onLocationSet={() => {
-          forceRerender()
+          router.refresh()
         }}
         onClear={handleClear}
         onRadiusChange={handleRadiusChange}

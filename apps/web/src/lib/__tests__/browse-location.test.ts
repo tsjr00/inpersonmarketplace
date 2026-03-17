@@ -67,12 +67,12 @@ describe('LOC-1: Browse page reads location cookie and filters by Haversine dist
     expect(source).toMatch(/1\.609/) // miles-to-km conversion factor
   })
 
-  it('supports both ?zip= param and cookie-based location (two code paths)', () => {
+  it('supports both ?zip= param and cookie-based location (with fallthrough)', () => {
     const source = browsePage()
-    // Path 1: ?zip= URL param
+    // Path 1: ?zip= URL param (tries zip_codes table first)
     expect(source).toContain("if (zip && listings")
-    // Path 2: cookie-based location (else if !zip)
-    expect(source).toMatch(/else if \(!zip && listings/)
+    // Path 2: cookie-based location (runs as fallback if zip_codes fails OR no ?zip=)
+    expect(source).toContain('if (!hasLocationFilter && listings')
   })
 
   it('checks authenticated user profile location before cookie fallback', () => {
