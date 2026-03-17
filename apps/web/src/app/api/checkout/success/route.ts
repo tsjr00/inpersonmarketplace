@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/config'
 import { createRefund, transferMarketBoxPayout } from '@/lib/stripe/payments'
@@ -106,100 +106,97 @@ export async function GET(request: NextRequest) {
         crumb.logic('Payment record created')
       }
 
-      // Inventory was already decremented at checkout time (checkout/session route).
-      // Check stock levels and send notifications to vendors if needed.
-      crumb.supabase('select', 'order_items')
-      const { data: orderItems, error: orderItemsError } = await serviceClient
-        .from('order_items')
-        .select('listing_id, quantity')
-        .eq('order_id', orderId)
-
-      if (orderItemsError) {
-        crumb.logic('Failed to fetch order items for stock notifications')
-      } else if (orderItems && orderItems.length > 0) {
-        // Group quantities by listing_id
-        const quantityByListing = new Map<string, number>()
-        for (const item of orderItems) {
-          const current = quantityByListing.get(item.listing_id) || 0
-          quantityByListing.set(item.listing_id, current + item.quantity)
-        }
-
-        // Batch fetch all listings to check stock levels + activity event data
-        const listingIds = Array.from(quantityByListing.keys())
-        crumb.supabase('select', 'listings (batch)')
-        const { data: listings } = await serviceClient
-          .from('listings')
-          .select('id, quantity, title, category, vendor_profile_id, vendor_profiles(user_id, profile_data, vertical_id)')
-          .in('id', listingIds)
-
-        if (listings && listings.length > 0) {
-          // Send stock notifications for low/out-of-stock items (parallel)
-          const stockNotifications: Promise<unknown>[] = []
-          for (const listing of listings) {
-            if (listing.quantity === null) continue // Unlimited inventory
-            const vendorProfile = listing.vendor_profiles as unknown as { user_id: string; vertical_id?: string } | null
-            const vendorUserId = vendorProfile?.user_id
-            if (!vendorUserId) continue
-            const vendorVertical = vendorProfile?.vertical_id || order.vertical_id
-
-            if (listing.quantity === 0) {
-              stockNotifications.push(sendNotification(vendorUserId, 'inventory_out_of_stock', {
-                listingTitle: listing.title,
-              }, { vertical: vendorVertical }))
-            } else if (listing.quantity <= LOW_STOCK_THRESHOLD) {
-              stockNotifications.push(sendNotification(vendorUserId, 'inventory_low_stock', {
-                listingTitle: listing.title,
-                quantity: listing.quantity,
-              }, { vertical: vendorVertical }))
-            }
-          }
-          await Promise.all(stockNotifications)
-
-          // Log public activity events for social proof toasts
-          // Fetch market city for purchase events
-          const { data: orderItemsWithMarket } = await serviceClient
+      // Stock notifications + activity events — deferred via after() so the
+      // success page response returns immediately. These are non-critical and
+      // idempotent (sendNotification deduplicates within 10s windows).
+      after(async () => {
+        try {
+          const { data: deferredItems } = await serviceClient
             .from('order_items')
-            .select('listing_id, markets!market_id(city)')
+            .select('listing_id, quantity')
             .eq('order_id', orderId)
 
-          const marketCityByListing = new Map<string, string>()
-          if (orderItemsWithMarket) {
-            for (const oi of orderItemsWithMarket) {
-              const m = oi.markets as unknown as { city?: string } | null
-              if (m?.city) marketCityByListing.set(oi.listing_id, m.city)
+          if (deferredItems && deferredItems.length > 0) {
+            const quantityByListing = new Map<string, number>()
+            for (const item of deferredItems) {
+              const current = quantityByListing.get(item.listing_id) || 0
+              quantityByListing.set(item.listing_id, current + item.quantity)
+            }
+
+            const listingIds = Array.from(quantityByListing.keys())
+            const { data: listings } = await serviceClient
+              .from('listings')
+              .select('id, quantity, title, category, vendor_profile_id, vendor_profiles(user_id, profile_data, vertical_id)')
+              .in('id', listingIds)
+
+            if (listings && listings.length > 0) {
+              const stockNotifications: Promise<unknown>[] = []
+              for (const listing of listings) {
+                if (listing.quantity === null) continue
+                const vendorProfile = listing.vendor_profiles as unknown as { user_id: string; vertical_id?: string } | null
+                const vendorUserId = vendorProfile?.user_id
+                if (!vendorUserId) continue
+                const vendorVertical = vendorProfile?.vertical_id || order.vertical_id
+
+                if (listing.quantity === 0) {
+                  stockNotifications.push(sendNotification(vendorUserId, 'inventory_out_of_stock', {
+                    listingTitle: listing.title,
+                  }, { vertical: vendorVertical }))
+                } else if (listing.quantity <= LOW_STOCK_THRESHOLD) {
+                  stockNotifications.push(sendNotification(vendorUserId, 'inventory_low_stock', {
+                    listingTitle: listing.title,
+                    quantity: listing.quantity,
+                  }, { vertical: vendorVertical }))
+                }
+              }
+              await Promise.all(stockNotifications)
+
+              // Activity events for social proof
+              const { data: itemsWithMarket } = await serviceClient
+                .from('order_items')
+                .select('listing_id, markets!market_id(city)')
+                .eq('order_id', orderId)
+
+              const marketCityByListing = new Map<string, string>()
+              if (itemsWithMarket) {
+                for (const oi of itemsWithMarket) {
+                  const m = oi.markets as unknown as { city?: string } | null
+                  if (m?.city) marketCityByListing.set(oi.listing_id, m.city)
+                }
+              }
+
+              const activityPromises: Promise<unknown>[] = []
+              for (const listing of listings) {
+                const vp = listing.vendor_profiles as unknown as { user_id: string; profile_data: Record<string, unknown>; vertical_id: string } | null
+                const vpData = vp?.profile_data
+                const vName = (vpData?.business_name as string) || (vpData?.farm_name as string) || undefined
+                const verticalId = vp?.vertical_id || 'farmers-market'
+
+                activityPromises.push(logPublicActivityEvent({
+                  vertical_id: verticalId,
+                  event_type: 'purchase',
+                  city: marketCityByListing.get(listing.id) || undefined,
+                  item_name: listing.title || undefined,
+                  vendor_display_name: vName,
+                  item_category: listing.category || undefined,
+                }))
+
+                if (listing.quantity === 0) {
+                  activityPromises.push(logPublicActivityEvent({
+                    vertical_id: verticalId,
+                    event_type: 'sold_out',
+                    item_name: listing.title || undefined,
+                    vendor_display_name: vName,
+                  }))
+                }
+              }
+              await Promise.all(activityPromises)
             }
           }
-
-          // Log activity events in parallel
-          const activityPromises: Promise<unknown>[] = []
-          for (const listing of listings) {
-            const vp = listing.vendor_profiles as unknown as { user_id: string; profile_data: Record<string, unknown>; vertical_id: string } | null
-            const vpData = vp?.profile_data
-            const vName = (vpData?.business_name as string) || (vpData?.farm_name as string) || undefined
-            const verticalId = vp?.vertical_id || 'farmers-market'
-
-            activityPromises.push(logPublicActivityEvent({
-              vertical_id: verticalId,
-              event_type: 'purchase',
-              city: marketCityByListing.get(listing.id) || undefined,
-              item_name: listing.title || undefined,
-              vendor_display_name: vName,
-              item_category: listing.category || undefined,
-            }))
-
-            // If item sold out from this purchase
-            if (listing.quantity === 0) {
-              activityPromises.push(logPublicActivityEvent({
-                vertical_id: verticalId,
-                event_type: 'sold_out',
-                item_name: listing.title || undefined,
-                vendor_display_name: vName,
-              }))
-            }
-          }
-          await Promise.all(activityPromises)
+        } catch {
+          // Deferred notifications are best-effort — don't crash the response
         }
-      }
+      })
       // Process market box subscriptions if this order includes them
       if (session.metadata?.has_market_boxes === 'true' && session.metadata?.market_box_items) {
         crumb.logic('Processing market box subscriptions from unified checkout')
@@ -282,133 +279,123 @@ export async function GET(request: NextRequest) {
       crumb.logic('Payment record already exists (skipping duplicate processing)')
     }
 
-    // Vendor notifications — OUTSIDE payment idempotency guard
-    // Webhook may insert payment first, causing the guard above to skip.
-    // Own idempotency: check if notifications already exist for this order.
-    const { count: existingNotifCount } = await serviceClient
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('type', 'new_paid_order')
-      .contains('data', { orderNumber: order.order_number })
+    // Vendor + buyer notifications — deferred via after() so the success page
+    // returns immediately. Each has its own idempotency guard (checks existing
+    // notifications before sending), so re-runs from webhook are safe.
+    const capturedOrderNumber = order.order_number || ''
+    const capturedVerticalId = order.vertical_id
+    const capturedUserId = user.id
 
-    if ((existingNotifCount || 0) === 0) {
-      crumb.supabase('select', 'order_items (vendor notifications)')
-      const { data: notifyItems, error: notifyItemsError } = await serviceClient
-        .from('order_items')
-        .select(`
-          vendor_profile_id,
-          market_id,
-          listing:listings(title),
-          markets!market_id(name),
-          vendor_profiles!vendor_profile_id(user_id)
-        `)
-        .eq('order_id', orderId)
+    after(async () => {
+      try {
+        // Vendor notifications
+        const { count: existingNotifCount } = await serviceClient
+          .from('notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('type', 'new_paid_order')
+          .contains('data', { orderNumber: capturedOrderNumber })
 
-      if (notifyItemsError) {
-        crumb.logic('Failed to fetch order items for vendor notifications', { error: notifyItemsError.message })
-      } else if (notifyItems && notifyItems.length > 0) {
-        const orderNumber = order.order_number || ''
+        if ((existingNotifCount || 0) === 0) {
+          const { data: notifyItems } = await serviceClient
+            .from('order_items')
+            .select(`
+              vendor_profile_id,
+              market_id,
+              listing:listings(title),
+              markets!market_id(name),
+              vendor_profiles!vendor_profile_id(user_id)
+            `)
+            .eq('order_id', orderId)
 
-        const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
-        for (const item of notifyItems) {
-          const vp = item.vendor_profiles as unknown as { user_id: string } | null
-          const vendorUserId = vp?.user_id
-          if (!vendorUserId) {
-            crumb.logic('Skipping vendor notification — no user_id', {
-              vendorProfileId: item.vendor_profile_id
-            })
-            continue
-          }
-          const listing = item.listing as unknown as { title: string } | null
-          const market = item.markets as unknown as { name: string } | null
-          const existing = vendorNotifications.get(vendorUserId)
-          if (existing) {
-            existing.items.push(listing?.title || 'Item')
-          } else {
-            vendorNotifications.set(vendorUserId, {
-              userId: vendorUserId,
-              items: [listing?.title || 'Item'],
-              marketName: market?.name || '',
-            })
+          if (notifyItems && notifyItems.length > 0) {
+            const vendorNotifications = new Map<string, { userId: string; items: string[]; marketName: string }>()
+            for (const item of notifyItems) {
+              const vp = item.vendor_profiles as unknown as { user_id: string } | null
+              const vendorUserId = vp?.user_id
+              if (!vendorUserId) continue
+              const listing = item.listing as unknown as { title: string } | null
+              const market = item.markets as unknown as { name: string } | null
+              const existing = vendorNotifications.get(vendorUserId)
+              if (existing) {
+                existing.items.push(listing?.title || 'Item')
+              } else {
+                vendorNotifications.set(vendorUserId, {
+                  userId: vendorUserId,
+                  items: [listing?.title || 'Item'],
+                  marketName: market?.name || '',
+                })
+              }
+            }
+            await Promise.all(
+              Array.from(vendorNotifications).map(([vendorUserId, info]) =>
+                sendNotification(vendorUserId, 'new_paid_order', {
+                  orderNumber: capturedOrderNumber,
+                  itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
+                  marketName: info.marketName,
+                }, { vertical: capturedVerticalId })
+              )
+            )
           }
         }
-        crumb.logic(`Sending notifications to ${vendorNotifications.size} vendor(s)`)
-        await Promise.all(
-          Array.from(vendorNotifications).map(([vendorUserId, info]) =>
-            sendNotification(vendorUserId, 'new_paid_order', {
-              orderNumber,
-              itemTitle: info.items.length === 1 ? info.items[0] : `${info.items.length} items`,
-              marketName: info.marketName,
-            }, { vertical: order.vertical_id })
-          )
-        )
-      }
-    } else {
-      crumb.logic('Vendor notifications already sent for this order')
-    }
 
-    // M8: Buyer order placement notification — OUTSIDE payment idempotency guard
-    // Own idempotency: check if notification already exists for this order
-    const { count: existingBuyerNotifCount } = await serviceClient
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('type', 'order_placed')
-      .contains('data', { orderNumber: order.order_number })
+        // Buyer order placement notification
+        const { count: existingBuyerNotifCount } = await serviceClient
+          .from('notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', capturedUserId)
+          .eq('type', 'order_placed')
+          .contains('data', { orderNumber: capturedOrderNumber })
 
-    if ((existingBuyerNotifCount || 0) === 0) {
-      // Build summary from order items already fetched for vendor notifications
-      // Re-fetch if vendor notification was skipped (notifyItems may not be in scope)
-      const { data: buyerNotifyItems } = await serviceClient
-        .from('order_items')
-        .select(`
-          listing:listings(title, vendor_profiles(profile_data)),
-          markets!market_id(name),
-          pickup_date
-        `)
-        .eq('order_id', orderId)
+        if ((existingBuyerNotifCount || 0) === 0) {
+          const { data: buyerNotifyItems } = await serviceClient
+            .from('order_items')
+            .select(`
+              listing:listings(title, vendor_profiles(profile_data)),
+              markets!market_id(name),
+              pickup_date
+            `)
+            .eq('order_id', orderId)
 
-      const items = buyerNotifyItems as unknown as Array<{
-        listing: { title: string; vendor_profiles: { profile_data: Record<string, unknown> } | null } | null
-        markets: { name: string } | null
-        pickup_date: string | null
-      }> | null
+          const items = buyerNotifyItems as unknown as Array<{
+            listing: { title: string; vendor_profiles: { profile_data: Record<string, unknown> } | null } | null
+            markets: { name: string } | null
+            pickup_date: string | null
+          }> | null
 
-      // Aggregate vendor name(s) and pickup info
-      const vendorNames = new Set<string>()
-      let marketName = ''
-      let pickupDate = ''
-      const itemTitles: string[] = []
+          const vendorNames = new Set<string>()
+          let marketName = ''
+          let pickupDate = ''
+          const itemTitles: string[] = []
 
-      if (items) {
-        for (const item of items) {
-          const vpData = item.listing?.vendor_profiles?.profile_data
-          const vName = (vpData?.business_name as string) || (vpData?.farm_name as string)
-          if (vName) vendorNames.add(vName)
-          if (item.listing?.title) itemTitles.push(item.listing.title)
-          if (!marketName && item.markets?.name) marketName = item.markets.name
-          if (!pickupDate && item.pickup_date) pickupDate = item.pickup_date
+          if (items) {
+            for (const item of items) {
+              const vpData = item.listing?.vendor_profiles?.profile_data
+              const vName = (vpData?.business_name as string) || (vpData?.farm_name as string)
+              if (vName) vendorNames.add(vName)
+              if (item.listing?.title) itemTitles.push(item.listing.title)
+              if (!marketName && item.markets?.name) marketName = item.markets.name
+              if (!pickupDate && item.pickup_date) pickupDate = item.pickup_date
+            }
+          }
+
+          const vendorName = vendorNames.size === 1
+            ? Array.from(vendorNames)[0]
+            : vendorNames.size > 1
+              ? `${vendorNames.size} vendors`
+              : undefined
+
+          await sendNotification(capturedUserId, 'order_placed', {
+            orderNumber: capturedOrderNumber,
+            vendorName,
+            itemTitle: itemTitles.length === 1 ? itemTitles[0] : `${itemTitles.length} items`,
+            marketName,
+            pickupDate,
+          }, { vertical: capturedVerticalId })
         }
+      } catch {
+        // Deferred notifications are best-effort
       }
-
-      const vendorName = vendorNames.size === 1
-        ? Array.from(vendorNames)[0]
-        : vendorNames.size > 1
-          ? `${vendorNames.size} vendors`
-          : undefined
-
-      await sendNotification(user.id, 'order_placed', {
-        orderNumber: order.order_number || '',
-        vendorName,
-        itemTitle: itemTitles.length === 1 ? itemTitles[0] : `${itemTitles.length} items`,
-        marketName,
-        pickupDate,
-      }, { vertical: order.vertical_id })
-
-      crumb.logic('Buyer order_placed notification sent')
-    } else {
-      crumb.logic('Buyer order_placed notification already sent for this order')
-    }
+    })
 
     // Clear the buyer's cart after successful payment (idempotent — safe on every hit)
     // Uses serviceClient to bypass RLS and avoid auth-context issues after long execution.
