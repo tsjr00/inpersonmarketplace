@@ -173,9 +173,9 @@ describe('Tier Sort Priority', () => {
 })
 
 describe('FT Tier Extras', () => {
-  it('free tier gets minimal extras', () => {
+  it('free tier gets basic extras (30-day analytics, no export)', () => {
     const extras = getFtTierExtras('free')
-    expect(extras.analyticsDays).toBe(0)
+    expect(extras.analyticsDays).toBe(30)
     expect(extras.analyticsExport).toBe(false)
     expect(extras.priorityPlacement).toBe(0)
     expect(extras.notificationChannels).toEqual(['in_app'])
