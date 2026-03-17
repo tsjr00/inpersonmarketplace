@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { anonSupabase } from '@/lib/supabase/anon'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -7,6 +7,7 @@ import SearchFilter from './SearchFilter'
 import BrowseFilterBar from './BrowseFilterBar'
 import BrowsePagination from './BrowsePagination'
 import BrowseLocationPrompt from './BrowseLocationPrompt'
+import BrowseBuyerOverlay from './BrowseBuyerOverlay'
 import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
 import { term, isBuyerPremiumEnabled } from '@/lib/vertical'
 import { getTierSortPriority } from '@/lib/vendor-limits'
@@ -16,12 +17,11 @@ import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { deriveAvailabilityStatus } from '@/lib/utils/availability-status'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
-import { cookies } from 'next/headers'
-import { LOCATION_COOKIE_NAME, DEFAULT_RADIUS, VALID_RADIUS_OPTIONS } from '@/lib/location/server'
-import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
-// Cache page for 5 minutes - listings don't change every second
+// ISR: Cache page for 5 minutes at CDN edge.
+// This WORKS because we use anonSupabase (no cookies() call).
+// User-specific data (auth, tier, location cookie) handled by BrowseBuyerOverlay client component.
 export const revalidate = 300
 
 export async function generateMetadata({ params }: { params: Promise<{ vertical: string }> }): Promise<Metadata> {
@@ -187,35 +187,13 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   const isAvailableNow = available === 'true'
   const currentPage = Math.max(1, parseInt(page || '1', 10))
   const PAGE_SIZE = 50
-  const supabase = await createClient()
+  // ISR: Use anonymous client (no cookies) so page can be CDN-cached
+  const supabase = anonSupabase
+  // Default locale — user-specific locale handled client-side if needed
+  const locale = 'en'
 
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
-
-  // A: Parallelize independent queries — auth + locale don't depend on each other
-  const [{ data: { user } }, locale] = await Promise.all([
-    supabase.auth.getUser(),
-    getLocale(),
-  ])
-
-  // B: Combined user_profiles query — buyer_tier + location in one call
-  // (eliminates duplicate auth.getUser + user_profiles queries from getServerLocation)
-  let isPremiumBuyer = false
-  let profileLocation: {
-    preferred_latitude: number | null
-    preferred_longitude: number | null
-    location_source: string | null
-    location_text: string | null
-  } | null = null
-  if (user) {
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('buyer_tier, preferred_latitude, preferred_longitude, location_source, location_text')
-      .eq('user_id', user.id)
-      .single()
-    isPremiumBuyer = userProfile?.buyer_tier === 'premium'
-    profileLocation = userProfile
-  }
 
   // Determine current view
   const currentView = view === 'market-boxes' ? 'market-boxes' : 'listings'
@@ -296,21 +274,16 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       }
     })
 
-    // Filter out offerings in premium window for standard buyers
-    // Skip premium filtering entirely for verticals with premium disabled
+    // ISR: Premium window filtering handled client-side by BrowseBuyerOverlay.
+    // Server renders all offerings; premium-window items get CSS class for client-side hiding.
     const now = new Date().toISOString()
-    let offeringsWithSubs = allOfferingsWithSubs
-    let marketBoxPremiumWindowCount = 0
+    const offeringsWithSubs = allOfferingsWithSubs
     const premiumEnabled = isBuyerPremiumEnabled(vertical)
-
-    if (premiumEnabled && !isPremiumBuyer) {
-      marketBoxPremiumWindowCount = allOfferingsWithSubs.filter(
-        offering => offering.premium_window_ends_at && offering.premium_window_ends_at > now
-      ).length
-      offeringsWithSubs = allOfferingsWithSubs.filter(
-        offering => !offering.premium_window_ends_at || offering.premium_window_ends_at <= now
-      )
-    }
+    const premiumWindowMarketBoxIds = premiumEnabled
+      ? allOfferingsWithSubs
+          .filter(o => o.premium_window_ends_at && o.premium_window_ends_at > now)
+          .map(o => o.id)
+      : []
 
     return (
       <div
@@ -369,43 +342,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           </div>
 
           {/* Premium Window Info Box - show for standard buyers when items are in window */}
-          {premiumEnabled && !isPremiumBuyer && marketBoxPremiumWindowCount > 0 && (
-            <div style={{
-              padding: spacing.sm,
-              marginBottom: spacing.md,
-              backgroundColor: colors.surfaceSubtle,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: spacing.sm,
-              flexWrap: 'wrap'
-            }}>
-              <p style={{
-                margin: 0,
-                fontSize: typography.sizes.sm,
-                color: colors.textSecondary,
-                flex: 1,
-                minWidth: 200
-              }}>
-                {marketBoxPremiumWindowCount} {term(vertical, marketBoxPremiumWindowCount !== 1 ? 'market_boxes' : 'market_box').toLowerCase()} {marketBoxPremiumWindowCount !== 1 ? 'are' : 'is'} in the premium early-bird window.
-                More will be visible soon.
-              </p>
-              <Link
-                href={`/${vertical}/buyer/upgrade`}
-                style={{
-                  fontSize: typography.sizes.sm,
-                  color: colors.primary,
-                  textDecoration: 'none',
-                  fontWeight: typography.weights.medium,
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                Upgrade to Premium →
-              </Link>
-            </div>
-          )}
+          {/* Premium window banner — rendered by BrowseBuyerOverlay client component */}
+          <BrowseBuyerOverlay
+            vertical={vertical}
+            premiumWindowIds={premiumWindowMarketBoxIds}
+            premiumEnabled={premiumEnabled}
+          />
 
           {/* Market Boxes Grid */}
           {offeringsWithSubs.length > 0 ? (
@@ -416,6 +358,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                   offering={offering}
                   vertical={vertical}
                   branding={branding}
+                  isPremiumWindow={premiumWindowMarketBoxIds.includes(offering.id)}
                 />
               ))}
             </div>
@@ -435,11 +378,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           )}
         </div>
 
-        {/* Responsive Grid - cards fill available space with minimum width */}
-        <style>{`
+        {/* Responsive Grid + premium window hide (client overlay removes for premium users) */}
+        <style id="premium-window-hide-style">{`
           .browse-page .listings-grid {
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
           }
+          .premium-window-item { display: none !important; }
         `}</style>
       </div>
     )
@@ -527,24 +471,16 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
   // Type assertion for listings
   const allListings = rawListings as unknown as Listing[] | null
 
-  // Filter out listings in premium window for standard buyers
-  // Skip premium filtering entirely for verticals with premium disabled
+  // ISR: Premium window filtering handled client-side by BrowseBuyerOverlay.
+  // Server renders all listings; premium-window items get CSS class for client-side hiding.
   const now = new Date().toISOString()
   let listings: Listing[] | null = allListings
-  let premiumWindowCount = 0
   const premiumEnabled = isBuyerPremiumEnabled(vertical)
-
-  if (premiumEnabled && allListings && !isPremiumBuyer) {
-    // Count listings in premium window
-    premiumWindowCount = allListings.filter(
-      listing => listing.premium_window_ends_at && listing.premium_window_ends_at > now
-    ).length
-
-    // Filter to only show listings NOT in premium window
-    listings = allListings.filter(
-      listing => !listing.premium_window_ends_at || listing.premium_window_ends_at <= now
-    )
-  }
+  const premiumWindowListingIds = premiumEnabled && allListings
+    ? allListings
+        .filter(l => l.premium_window_ends_at && l.premium_window_ends_at > now)
+        .map(l => l.id)
+    : []
 
   // Location-based proximity filtering
   // Priority: 1) ?zip= URL param  2) user_location cookie  3) no filtering
@@ -585,63 +521,9 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         })
       })
     }
-  } else if (!zip && listings && listings.length > 0) {
-    // B: Inline location resolution — uses pre-fetched profile data + cookie fallback
-    // (eliminates 2 redundant DB round-trips from getServerLocation)
-    const cookieStore = await cookies()
-    const locationCookie = cookieStore.get(LOCATION_COOKIE_NAME)
-    let cookieRadius = DEFAULT_RADIUS
-
-    if (locationCookie) {
-      try {
-        const cookieData = JSON.parse(locationCookie.value)
-        if (typeof cookieData.radius === 'number' && VALID_RADIUS_OPTIONS.includes(cookieData.radius)) {
-          cookieRadius = cookieData.radius
-        }
-      } catch { /* invalid cookie */ }
-    }
-
-    // Priority: authenticated user profile location → cookie location
-    type LocationData = { latitude: number; longitude: number; locationText: string; radius: number }
-    let serverLocation: LocationData | null = null
-
-    if (profileLocation?.preferred_latitude && profileLocation?.preferred_longitude) {
-      serverLocation = {
-        latitude: profileLocation.preferred_latitude,
-        longitude: profileLocation.preferred_longitude,
-        locationText: profileLocation.location_text || (profileLocation.location_source === 'gps' ? 'Current location' : 'Your location'),
-        radius: cookieRadius,
-      }
-    } else if (locationCookie) {
-      try {
-        const { latitude, longitude, locationText: lt, source } = JSON.parse(locationCookie.value)
-        if (typeof latitude === 'number' && typeof longitude === 'number') {
-          serverLocation = {
-            latitude,
-            longitude,
-            locationText: lt || (source === 'gps' ? 'Current location' : 'Your location'),
-            radius: cookieRadius,
-          }
-        }
-      } catch { /* invalid cookie */ }
-    }
-
-    if (serverLocation) {
-      locationText = serverLocation.locationText
-      hasLocationFilter = true
-      currentRadius = serverLocation.radius
-      const maxDistKm = serverLocation.radius * 1.609 // convert miles to km
-
-      listings = listings.filter(listing => {
-        const markets = listing.listing_markets || []
-        return markets.some(lm => {
-          const m = lm.markets as unknown as { latitude?: number; longitude?: number }
-          if (!m?.latitude || !m?.longitude) return false
-          return distanceKm(serverLocation.latitude, serverLocation.longitude, Number(m.latitude), Number(m.longitude)) <= maxDistKm
-        })
-      })
-    }
   }
+  // ISR: Cookie-based location filtering removed (cookies() forces dynamic rendering).
+  // Users can filter by location via ?zip= URL param. BrowseLocationPrompt handles UI.
 
   // Get categories - use CATEGORIES constant for farmers_market, or fall back to config
   let uniqueCategories: readonly string[] | string[] = []
@@ -831,44 +713,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           </p>
         </div>
 
-        {/* Premium Window Info Box - show for standard buyers when items are in window */}
-        {premiumEnabled && !isPremiumBuyer && premiumWindowCount > 0 && (
-          <div style={{
-            padding: spacing.sm,
-            marginBottom: spacing.md,
-            backgroundColor: colors.surfaceSubtle,
-            border: `1px solid ${colors.border}`,
-            borderRadius: radius.md,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: spacing.sm,
-            flexWrap: 'wrap'
-          }}>
-            <p style={{
-              margin: 0,
-              fontSize: typography.sizes.sm,
-              color: colors.textSecondary,
-              flex: 1,
-              minWidth: 200
-            }}>
-              {premiumWindowCount} listing{premiumWindowCount !== 1 ? 's are' : ' is'} in the premium early-bird window.
-              More items will be visible soon.
-            </p>
-            <Link
-              href={`/${vertical}/buyer/upgrade`}
-              style={{
-                fontSize: typography.sizes.sm,
-                color: colors.primary,
-                textDecoration: 'none',
-                fontWeight: typography.weights.medium,
-                whiteSpace: 'nowrap'
-              }}
-            >
-              Upgrade to Premium →
-            </Link>
-          </div>
-        )}
+        {/* Premium window banner — rendered by BrowseBuyerOverlay client component */}
+        <BrowseBuyerOverlay
+          vertical={vertical}
+          premiumWindowIds={premiumWindowListingIds}
+          premiumEnabled={premiumEnabled}
+        />
 
         {/* Listings Display */}
         {paginatedListings.length > 0 ? (
@@ -922,6 +772,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                           branding={branding}
                           availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id))}
                           locale={locale}
+                          isPremiumWindow={premiumWindowListingIds.includes(listing.id)}
                         />
                       ))}
                     </div>
@@ -944,6 +795,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                     branding={branding}
                     availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id))}
                     locale={locale}
+                    isPremiumWindow={premiumWindowListingIds.includes(listing.id)}
                   />
                 ))}
               </div>
@@ -1000,11 +852,12 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       {/* Social Proof Toast — shows anonymized recent activity */}
       <SocialProofToast vertical={vertical} />
 
-      {/* Responsive Grid - cards fill available space with minimum width */}
-      <style>{`
+      {/* Responsive Grid + premium window hide (client overlay removes for premium users) */}
+      <style id="premium-window-hide-style">{`
         .browse-page .listings-grid {
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
+        .premium-window-item { display: none !important; }
       `}</style>
     </div>
   )
@@ -1016,12 +869,14 @@ function ListingCard({
   vertical,
   availabilityStatus,
   locale,
+  isPremiumWindow,
 }: {
   listing: Listing
   vertical: string
   branding?: { colors: { primary: string; secondary: string } }
   availabilityStatus: { status: 'open' | 'closing-soon' | 'closed'; hoursUntilCutoff: number | null }
   locale: string
+  isPremiumWindow?: boolean
 }) {
   const vendorData = listing.vendor_profiles?.profile_data
   const vendorName = (vendorData?.business_name as string) ||
@@ -1037,6 +892,7 @@ function ListingCard({
   return (
     <Link
       href={`/${vertical}/listing/${listing.id}`}
+      className={isPremiumWindow ? 'premium-window-item' : undefined}
       style={{
         display: 'block',
         padding: spacing.sm,
@@ -1215,10 +1071,12 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 function MarketBoxCard({
   offering,
   vertical,
+  isPremiumWindow,
 }: {
   offering: MarketBoxOffering
   vertical: string
   branding?: { colors: { primary: string; secondary: string } }
+  isPremiumWindow?: boolean
 }) {
   const vendorData = offering.vendor_profiles?.profile_data
   const vendorName = (vendorData?.business_name as string) ||
@@ -1236,6 +1094,7 @@ function MarketBoxCard({
   return (
     <Link
       href={`/${vertical}/market-box/${offering.id}`}
+      className={isPremiumWindow ? 'premium-window-item' : undefined}
       style={{
         display: 'block',
         padding: spacing.sm,
