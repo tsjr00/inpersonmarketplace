@@ -46,20 +46,16 @@ function fileExists(relativePath: string): boolean {
 describe('PERF-R1: Browse page query structure', () => {
   const browsePage = () => readPage('app/[vertical]/browse/page.tsx')
 
-  // ISR baseline (Session 59): auth, locale, and user_profiles moved to client overlay.
-  // Browse page uses anonSupabase (no cookies) so ISR caching works.
-  // Approved for update: user confirmed 2026-03-16.
-
-  it('uses anonSupabase instead of createClient (enables ISR — no cookies)', () => {
+  it('parallelizes auth.getUser() with getLocale() via Promise.all', () => {
     const source = browsePage()
-    expect(source).toMatch(/import\s*\{[^}]*anonSupabase[^}]*\}\s*from\s*['"]@\/lib\/supabase\/anon['"]/)
-    expect(source).not.toMatch(/import\s*\{[^}]*createClient[^}]*\}\s*from\s*['"]@\/lib\/supabase\/server['"]/)
+    // Must have a Promise.all containing both auth.getUser and getLocale
+    expect(source).toMatch(/Promise\.all\(\[[\s\S]*?auth\.getUser\(\)[\s\S]*?getLocale\(\)[\s\S]*?\]\)/)
   })
 
-  it('does NOT call cookies() directly (would break ISR caching)', () => {
+  it('fetches buyer_tier and location fields in a single user_profiles query', () => {
     const source = browsePage()
-    // Must not import cookies from next/headers
-    expect(source).not.toMatch(/import\s*\{[^}]*cookies[^}]*\}\s*from\s*['"]next\/headers['"]/)
+    // The user_profiles query must select both buyer_tier and location fields
+    expect(source).toMatch(/\.from\('user_profiles'\)[\s\S]*?\.select\([^)]*buyer_tier[^)]*preferred_latitude[^)]*\)/)
   })
 
   it('does NOT call getServerLocation (eliminated duplicate auth + profile queries)', () => {
