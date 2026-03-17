@@ -12,6 +12,7 @@
 
 | Date | Migration | Changes |
 |------|-----------|---------|
+| 2026-03-17 | 20260317_086_get_listings_within_radius | **New RPC function:** `get_listings_within_radius(user_lat, user_lng, radius_miles, vertical_filter, category_filter, search_term, page_size, page_offset)`. PostGIS-based distance filtering for browse page listings. JOINs listings → listing_markets → markets, uses `ST_DWithin()` on market coordinates. Returns listing + vendor data + `nearest_market_distance_miles` + `total_count` for pagination. Includes LIMIT/OFFSET for server-side pagination. `SECURITY DEFINER SET search_path = public`. Granted to `authenticated` + `anon`. Applied to Dev, Staging, & Prod. |
 | 2026-03-16 | 20260316_084_add_vendor_tier_index | **New index:** `idx_vendor_profiles_vertical_tier` on `vendor_profiles(vertical_id, tier)`. Composite index for browse/dashboard queries filtering by vertical + tier. Applied to Dev, Staging, & Prod. |
 | 2026-03-14 | 20260314_083_coi_soft_gate | **Function rewrite:** `can_vendor_publish()` — removed COI status check (Gate 3). COI is now a **soft gate** for regular publishing (VJ-R1) — vendors can publish listings without approved COI. COI remains a **hard gate** for event-vendor approval only (enforced in event-approval API route, not DB function). Previously required `coi_status = 'approved'` which blocked all vendors without COI from publishing. No schema changes — function logic only. Applied to Dev, Staging, & Prod. |
 | 2026-03-14 | 20260314_082_sales_tax_help_article | **Data insert:** 1 new global `knowledge_articles` row (vertical_id=NULL) under "For Vendors" category: "Sales Tax: What Vendors Need to Know". TX-specific tax guidance for vendors — taxable vs exempt items, responsibilities, platform tracking features, Comptroller links. sort_order 20. No schema changes — content only. Applied to Dev, Staging, & Prod. |
@@ -2107,6 +2108,7 @@
 | get_listing_markets_summary | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text,... | DEFINER |
 | get_listing_open_markets | p_listing_id uuid | TABLE(market_id uuid, market_name text, market_type text,... | DEFINER |
 | get_market_cutoff | p_market_id uuid | timestamp with time zone | INVOKER |
+| get_listings_within_radius | user_lat numeric, user_lng numeric, radius_miles numeric DEFAULT 25, vertical_filter text, category_filter text, search_term text, page_size int DEFAULT 50, page_offset int DEFAULT 0 | TABLE(listing_id uuid, title text, ..., nearest_market_distance_miles numeric, total_count bigint) | DEFINER |
 | get_markets_within_radius | user_lat numeric, user_lng numeric, radius_meters numeric, vertical_filter te... | TABLE(id uuid, name text, description text, address text,... | DEFINER |
 | get_nearby_zip_codes | user_lat numeric, user_lng numeric, limit_count integer DEFAULT 5 | TABLE(zip character varying, city character varying, stat... | DEFINER |
 | get_next_market_datetime | p_day_of_week integer, p_start_time time without time zone, p_timezone text D... | timestamp with time zone | INVOKER |
