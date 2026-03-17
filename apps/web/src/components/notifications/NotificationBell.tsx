@@ -194,21 +194,76 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
     fetchCount()
   }, [pathname, fetchCount])
 
-  // Slow safety net polling — 15min active, 30min off-peak.
-  // Push notifications alert users; tab-focus + page navigation give instant badge updates.
-  // This just catches edge cases where badge count drifts.
+  // Supabase Realtime subscription — instant badge updates when new notifications arrive.
+  // Falls back to polling if subscription fails.
   useEffect(() => {
-    const pollMs = getPollingInterval(
-      POLLING_INTERVALS.notificationCount,
-      POLLING_INTERVALS.notificationCountOffPeak
-    )
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') fetchCount()
-    }, pollMs)
-    return () => clearInterval(interval)
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let channel: any = null
+
+    async function setupRealtime() {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
+
+        // Get current user ID for filtering
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        channel = supabase
+          .channel('notifications-bell')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'notifications',
+              filter: `user_id=eq.${user.id}`,
+            },
+            () => {
+              // New notification arrived — refresh count
+              fetchCount()
+            }
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              // Realtime connected — no polling needed
+            } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              // Realtime failed — fall back to polling
+              startPollingFallback()
+            }
+          })
+      } catch {
+        // Realtime setup failed — fall back to polling
+        startPollingFallback()
+      }
+    }
+
+    function startPollingFallback() {
+      if (fallbackInterval) return // already polling
+      const pollMs = getPollingInterval(
+        POLLING_INTERVALS.notificationCount,
+        POLLING_INTERVALS.notificationCountOffPeak
+      )
+      fallbackInterval = setInterval(() => {
+        if (document.visibilityState === 'visible') fetchCount()
+      }, pollMs)
+    }
+
+    setupRealtime()
+
+    return () => {
+      if (channel) {
+        // Unsubscribe from Realtime
+        import('@/lib/supabase/client').then(({ createClient }) => {
+          createClient().removeChannel(channel!)
+        }).catch(() => { /* cleanup best-effort */ })
+      }
+      if (fallbackInterval) clearInterval(fallbackInterval)
+    }
   }, [fetchCount])
 
-  // Refresh count when user returns to the tab
+  // Refresh count when user returns to the tab (catch up on missed notifications)
   useEffect(() => {
     function handleVisibilityChange() {
       if (!document.hidden) {

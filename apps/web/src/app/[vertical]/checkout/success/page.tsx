@@ -11,6 +11,7 @@ import { getMapsUrl } from '@/lib/utils/maps-link'
 import { term } from '@/lib/vertical'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
+import PushOptInCard from '@/components/notifications/PushOptInCard'
 
 // Format pickup date for display
 function formatPickupDate(dateStr: string | null | undefined): string | null {
@@ -482,6 +483,9 @@ export default function CheckoutSuccessPage() {
         })()}
 
         {/* Next Steps */}
+        {/* Push notification opt-in — show after successful order */}
+        <PushOptInCard vertical={vertical} />
+
         <div style={{
           backgroundColor: colors.surfaceElevated,
           borderRadius: radius.md,
