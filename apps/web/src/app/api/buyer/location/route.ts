@@ -254,12 +254,32 @@ export async function PATCH(request: NextRequest) {
   })
 }
 
-// DELETE - Clear location cookie
+// DELETE - Clear location (cookie + profile)
 export async function DELETE(request: NextRequest) {
   return withErrorTracing('/api/buyer/location', 'DELETE', async () => {
     const clientIp = getClientIp(request)
     const rateLimitResult = await checkRateLimit(`buyer-location-delete:${clientIp}`, rateLimits.api)
     if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
+    // Clear profile location if authenticated (POST saves to both profile + cookie)
+    try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase
+          .from('user_profiles')
+          .update({
+            preferred_latitude: null,
+            preferred_longitude: null,
+            location_source: null,
+            location_text: null,
+            location_updated_at: null
+          })
+          .eq('user_id', user.id)
+      }
+    } catch {
+      // Best effort — cookie clear below still works for anonymous users
+    }
 
     const response = NextResponse.json({ success: true })
     response.cookies.set(LOCATION_COOKIE_NAME, '', {
