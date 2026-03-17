@@ -70,9 +70,20 @@ describe('LOC-1: Browse page reads location cookie and filters by Haversine dist
   it('supports both ?zip= param and cookie-based location (with fallthrough)', () => {
     const source = browsePage()
     // Path 1: ?zip= URL param (tries zip_codes table first)
-    expect(source).toContain("if (zip && listings")
-    // Path 2: cookie-based location (runs as fallback if zip_codes fails OR no ?zip=)
-    expect(source).toContain('if (!hasLocationFilter && listings')
+    expect(source).toContain("if (zip)")
+    expect(source).toContain("zip_codes")
+    // Path 2: cookie-based location (runs as fallback if zip lookup fails OR no ?zip=)
+    expect(source).toContain('if (!resolvedLocation)')
+    expect(source).toContain('LOCATION_COOKIE_NAME')
+  })
+
+  it('uses PostGIS RPC for distance filtering with JS Haversine as fallback', () => {
+    const source = browsePage()
+    // PostGIS RPC is the primary path (database-level filtering, scales to 50k+ listings)
+    expect(source).toContain("get_listings_within_radius")
+    // JS Haversine is the fallback when PostGIS fails or returns empty
+    expect(source).toContain('distanceKm')
+    expect(source).toContain('// PostGIS failed or returned empty')
   })
 
   it('checks authenticated user profile location before cookie fallback', () => {

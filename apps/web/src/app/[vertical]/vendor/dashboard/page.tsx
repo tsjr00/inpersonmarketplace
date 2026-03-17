@@ -491,7 +491,12 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               </Link>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {activeMarkets.slice(0, 8).map(market => (
+                {/* Service locations first, events last */}
+                {[...activeMarkets].sort((a, b) => {
+                  if (a.market_type === 'event' && b.market_type !== 'event') return 1
+                  if (a.market_type !== 'event' && b.market_type === 'event') return -1
+                  return 0
+                }).slice(0, 8).map(market => (
                   <Link
                     key={market.id}
                     href={`/${vertical}/vendor/markets`}

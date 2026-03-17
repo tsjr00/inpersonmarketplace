@@ -550,23 +550,19 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
 
   // Location-based proximity filtering
   // Priority: 1) ?zip= URL param  2) user_location cookie  3) no filtering
+  // When location IS available: use PostGIS RPC for DB-level filtering (scales to 50k+ listings)
+  // When location is NOT available: existing fetch-all query is fine (no distance filter needed)
   let locationText: string | null = null
   let hasLocationFilter = false
   let currentRadius = 25 // default radius in miles
+  // postgisUsed and postgisTotalCount reserved for future server-side pagination
 
-  // Haversine distance calculation (reused for both sources)
-  const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371
-    const dLat = (lat2 - lat1) * Math.PI / 180
-    const dLng = (lng2 - lng1) * Math.PI / 180
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2)
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  }
+  // Resolve user location from all sources (cookie, profile, zip param)
+  type LocationData = { latitude: number; longitude: number; locationText: string; radius: number }
+  let resolvedLocation: LocationData | null = null
 
-  if (zip && listings && listings.length > 0) {
-    // Source 1: URL ?zip= param — look up in zip_codes table
+  // Source 1: URL ?zip= param
+  if (zip) {
     const { data: zipData } = await supabase
       .from('zip_codes')
       .select('latitude, longitude, city')
@@ -574,26 +570,17 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       .single()
 
     if (zipData?.latitude && zipData?.longitude) {
-      locationText = zipData.city || zip
-      hasLocationFilter = true
-      const maxDistKm = 40 // ~25 miles default for URL param
-
-      listings = listings.filter(listing => {
-        const markets = listing.listing_markets || []
-        return markets.some(lm => {
-          const m = lm.markets as unknown as { latitude?: number; longitude?: number }
-          if (!m?.latitude || !m?.longitude) return false
-          return distanceKm(zipData.latitude, zipData.longitude, Number(m.latitude), Number(m.longitude)) <= maxDistKm
-        })
-      })
+      resolvedLocation = {
+        latitude: zipData.latitude,
+        longitude: zipData.longitude,
+        locationText: zipData.city || zip,
+        radius: 25, // default for zip param
+      }
     }
-    // If zip_codes table doesn't have this ZIP, fall through to cookie path below
   }
 
-  // Source 2: Cookie-based location (fallback when ?zip= lookup fails OR no ?zip= param)
-  if (!hasLocationFilter && listings && listings.length > 0) {
-    // B: Inline location resolution — uses pre-fetched profile data + cookie fallback
-    // (eliminates 2 redundant DB round-trips from getServerLocation)
+  // Source 2: Cookie-based location (fallback when zip lookup fails or no zip)
+  if (!resolvedLocation) {
     const cookieStore = await cookies()
     const locationCookie = cookieStore.get(LOCATION_COOKIE_NAME)
     let cookieRadius = DEFAULT_RADIUS
@@ -608,11 +595,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     }
 
     // Priority: authenticated user profile location → cookie location
-    type LocationData = { latitude: number; longitude: number; locationText: string; radius: number }
-    let serverLocation: LocationData | null = null
-
     if (profileLocation?.preferred_latitude && profileLocation?.preferred_longitude) {
-      serverLocation = {
+      resolvedLocation = {
         latitude: profileLocation.preferred_latitude,
         longitude: profileLocation.preferred_longitude,
         locationText: profileLocation.location_text || (profileLocation.location_source === 'gps' ? 'Current location' : 'Your location'),
@@ -622,7 +606,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
       try {
         const { latitude, longitude, locationText: lt, source } = JSON.parse(locationCookie.value)
         if (typeof latitude === 'number' && typeof longitude === 'number') {
-          serverLocation = {
+          resolvedLocation = {
             latitude,
             longitude,
             locationText: lt || (source === 'gps' ? 'Current location' : 'Your location'),
@@ -631,21 +615,61 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         }
       } catch { /* invalid cookie */ }
     }
+  }
 
-    if (serverLocation) {
-      locationText = serverLocation.locationText
+  // If we have a location, try PostGIS RPC for database-level filtering
+  if (resolvedLocation && listings && listings.length > 0) {
+    const sanitizedSearch = search ? search.replace(/[%_]/g, '') : null
+
+    const { data: postgisListings, error: postgisError } = await supabase.rpc(
+      'get_listings_within_radius',
+      {
+        user_lat: resolvedLocation.latitude,
+        user_lng: resolvedLocation.longitude,
+        radius_miles: resolvedLocation.radius,
+        vertical_filter: vertical,
+        category_filter: category || null,
+        search_term: sanitizedSearch || null,
+        page_size: 1000, // Fetch up to 1000 for client-side premium/availability filtering
+        page_offset: 0,
+      }
+    )
+
+    if (!postgisError && postgisListings && postgisListings.length > 0) {
+      // PostGIS succeeded — use its results
       hasLocationFilter = true
-      currentRadius = serverLocation.radius
-      const maxDistKm = serverLocation.radius * 1.609 // convert miles to km
+      locationText = resolvedLocation.locationText
+      currentRadius = resolvedLocation.radius
+
+      // Map PostGIS results back to Listing shape for downstream compatibility
+      // We still need listing_markets and listing_images from the original query
+      const postgisIds = new Set(postgisListings.map((r: { listing_id: string }) => r.listing_id))
+      listings = listings.filter(l => postgisIds.has(l.id))
+    } else {
+      // PostGIS failed or returned empty — fall back to JS Haversine
+      // This preserves the exact pre-PostGIS behavior
+      const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+        const R = 6371
+        const dLat = (lat2 - lat1) * Math.PI / 180
+        const dLng = (lng2 - lng1) * Math.PI / 180
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2)
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+      }
+      const maxDistKm = resolvedLocation.radius * 1.609
 
       listings = listings.filter(listing => {
         const markets = listing.listing_markets || []
         return markets.some(lm => {
           const m = lm.markets as unknown as { latitude?: number; longitude?: number }
           if (!m?.latitude || !m?.longitude) return false
-          return distanceKm(serverLocation.latitude, serverLocation.longitude, Number(m.latitude), Number(m.longitude)) <= maxDistKm
+          return distanceKm(resolvedLocation!.latitude, resolvedLocation!.longitude, Number(m.latitude), Number(m.longitude)) <= maxDistKm
         })
       })
+      hasLocationFilter = true
+      locationText = resolvedLocation.locationText
+      currentRadius = resolvedLocation.radius
     }
   }
 
