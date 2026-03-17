@@ -587,7 +587,11 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
         })
       })
     }
-  } else if (!zip && listings && listings.length > 0) {
+    // If zip_codes table doesn't have this ZIP, fall through to cookie path below
+  }
+
+  // Source 2: Cookie-based location (fallback when ?zip= lookup fails OR no ?zip= param)
+  if (!hasLocationFilter && listings && listings.length > 0) {
     // B: Inline location resolution — uses pre-fetched profile data + cookie fallback
     // (eliminates 2 redundant DB round-trips from getServerLocation)
     const cookieStore = await cookies()
