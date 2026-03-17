@@ -94,11 +94,12 @@ describe('LOC-1: Browse page reads location cookie and filters by Haversine dist
     expect(source).toMatch(/export\s+const\s+dynamic\s*=\s*['"]force-dynamic['"]/)
   })
 
-  it('reads radius from ?r= URL param as priority over cookie radius', () => {
+  it('reads radius from cookie (cookie is the source of truth for radius)', () => {
     const source = browsePage()
-    // URL param ?r= is set by client-side radius change for reliable re-render
-    expect(source).toContain('urlRadius')
-    expect(source).toContain('parsedUrlRadius')
+    // Radius comes from the httpOnly cookie, NOT from URL params
+    // Cookie is set by PATCH /api/buyer/location from the client
+    expect(source).toContain('cookieRadius')
+    expect(source).toContain('VALID_RADIUS_OPTIONS')
   })
 })
 
@@ -161,16 +162,17 @@ describe('LOC-3: Radius change handler is wired in BrowseLocationPrompt', () => 
     expect(source).toContain('radius: newRadius')
   })
 
-  it('handleRadiusChange navigates with ?r= URL param via router.replace (forces server re-render)', () => {
+  it('handleRadiusChange uses router.refresh() after PATCH (cookie is source of truth)', () => {
     const source = prompt()
-    // After radius change, navigate with ?r= param to force Next.js server re-render
-    // router.refresh() doesn't reliably re-read cookies on Vercel CDN
+    // After saving radius to cookie via PATCH, router.refresh() re-fetches
+    // the server component which reads the updated cookie.
+    // Page uses force-dynamic so no ISR cache to worry about.
     // Must NOT use window.location.reload() — causes flash/bounce/slowness
-    expect(source).toMatch(/searchParams\.set\(['"]r['"]/)
-    expect(source).toContain('router.replace(')
-    // Verify window.location.reload is NOT used for radius changes
+    // Must NOT use URL params for radius — cookie is the source of truth
+    expect(source).toContain('router.refresh()')
     const reloadInHandler = source.match(/handleRadiusChange[\s\S]*?window\.location\.reload/)
     expect(reloadInHandler).toBeFalsy()
+    expect(source).not.toMatch(/searchParams\.set\(['"]r['"]/)
   })
 
   it('passes onRadiusChange to LocationSearchInline in green bar mode (hasLocation=true)', () => {
