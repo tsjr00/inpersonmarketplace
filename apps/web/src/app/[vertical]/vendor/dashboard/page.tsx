@@ -412,28 +412,74 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textSecondary }}>
                 No upcoming orders this week
               </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-                {upcomingPickups.slice(0, 5).map(pickup => (
-                  <UpcomingPickupItem
-                    key={`${pickup.pickup_date}-${pickup.market_id}`}
-                    vertical={vertical}
-                    pickup_date={pickup.pickup_date}
-                    market_id={pickup.market_id}
-                    market_name={pickup.market_name}
-                    item_count={pickup.item_count}
-                  />
-                ))}
-                {upcomingPickups.length > 5 && (
-                  <Link
-                    href={`/${vertical}/vendor/orders`}
-                    style={{ fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'none', textAlign: 'center' }}
-                  >
-                    +{upcomingPickups.length - 5} more pickup dates
-                  </Link>
-                )}
-              </div>
-            )}
+            ) : (() => {
+              const today = new Date().toISOString().split('T')[0]
+              const todayPickups = upcomingPickups.filter(p => p.pickup_date === today)
+              const futurePickups = upcomingPickups.filter(p => p.pickup_date !== today)
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                  {/* TODAY section — morning prep workflow */}
+                  {todayPickups.length > 0 && (
+                    <>
+                      <div style={{
+                        fontSize: typography.sizes.xs,
+                        fontWeight: typography.weights.bold,
+                        color: colors.primaryDark,
+                        textTransform: 'uppercase' as const,
+                        letterSpacing: '0.05em',
+                      }}>
+                        Today — Prep &amp; Pack
+                      </div>
+                      {todayPickups.map(pickup => (
+                        <UpcomingPickupItem
+                          key={`${pickup.pickup_date}-${pickup.market_id}`}
+                          vertical={vertical}
+                          pickup_date={pickup.pickup_date}
+                          market_id={pickup.market_id}
+                          market_name={pickup.market_name}
+                          item_count={pickup.item_count}
+                        />
+                      ))}
+                    </>
+                  )}
+
+                  {/* UPCOMING section */}
+                  {futurePickups.length > 0 && (
+                    <>
+                      {todayPickups.length > 0 && (
+                        <div style={{
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
+                          color: colors.textMuted,
+                          marginTop: spacing['2xs'],
+                        }}>
+                          Coming Up
+                        </div>
+                      )}
+                      {futurePickups.slice(0, 4).map(pickup => (
+                        <UpcomingPickupItem
+                          key={`${pickup.pickup_date}-${pickup.market_id}`}
+                          vertical={vertical}
+                          pickup_date={pickup.pickup_date}
+                          market_id={pickup.market_id}
+                          market_name={pickup.market_name}
+                          item_count={pickup.item_count}
+                        />
+                      ))}
+                      {futurePickups.length > 4 && (
+                        <Link
+                          href={`/${vertical}/vendor/orders`}
+                          style={{ fontSize: typography.sizes.xs, color: colors.primary, textDecoration: 'none', textAlign: 'center' }}
+                        >
+                          +{futurePickups.length - 4} more pickup dates
+                        </Link>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {/* Manage Locations - shows list of locations */}
