@@ -16,6 +16,7 @@ import CutoffBadge from '@/components/listings/CutoffBadge'
 import { colors, statusColors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 import { deriveAvailabilityStatus } from '@/lib/utils/availability-status'
 import SocialProofToast from '@/components/marketing/SocialProofToast'
+import NotifyMeCapture from '@/components/browse/NotifyMeCapture'
 import { cookies } from 'next/headers'
 import { LOCATION_COOKIE_NAME, DEFAULT_RADIUS, VALID_RADIUS_OPTIONS } from '@/lib/location/server'
 import { getLocale } from '@/lib/locale/server'
@@ -1002,11 +1003,11 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               {search || category
                 ? 'Try adjusting your search or filters'
                 : hasLocationFilter
-                  ? `No ${term(vertical, 'vendors').toLowerCase()} found near ${locationText || 'your location'}. Try a different zip code or expand your search.`
-                  : `Be the first to list on ${branding.brand_name}!`
+                  ? `No ${term(vertical, 'vendors').toLowerCase()} found near ${locationText || 'your location'} yet.`
+                  : `No ${term(vertical, 'vendors').toLowerCase()} available yet.`
               }
             </p>
-            {(search || category) && (
+            {(search || category) ? (
               <Link
                 href={`/${vertical}/browse`}
                 style={{
@@ -1023,6 +1024,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               >
                 Clear Filters
               </Link>
+            ) : (
+              <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'left' }}>
+                <NotifyMeCapture
+                  vertical={vertical}
+                  zipCode={zip || null}
+                  locationText={locationText}
+                />
+              </div>
             )}
           </div>
         )}

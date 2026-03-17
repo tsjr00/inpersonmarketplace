@@ -8,6 +8,7 @@ import EditProfileButton from './EditProfileButton'
 
 import PaymentMethodsCard from './PaymentMethodsCard'
 import PromoteCard from './PromoteCard'
+import QRCodeCard from '@/components/vendor/QRCodeCard'
 import TutorialWrapper from '@/components/onboarding/TutorialWrapper'
 import OnboardingChecklist from '@/components/vendor/OnboardingChecklist'
 import { DashboardNotifications } from '@/components/notifications/DashboardNotifications'
@@ -906,6 +907,12 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
               vendorId={vendorProfile.id}
               vendorName={(profileData.business_name as string) || (profileData.farm_name as string) || 'My Business'}
               vertical={vertical}
+            />
+            {/* QR Code — printable card for truck/table */}
+            <QRCodeCard
+              vertical={vertical}
+              vendorId={vendorProfile.id}
+              vendorName={(profileData.business_name as string) || (profileData.farm_name as string) || 'My Business'}
             />
           </div>
         )}
