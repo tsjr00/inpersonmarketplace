@@ -380,27 +380,30 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             borderRadius: radius.md,
             boxShadow: shadows.sm
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
-              <h3 style={{
-                color: upcomingPickups.length > 0 ? colors.primaryDark : colors.primary,
-                margin: 0,
-                fontSize: typography.sizes.base,
-                fontWeight: typography.weights.semibold
-              }}>
-                Upcoming Pickups
-              </h3>
+            <div style={{ marginBottom: spacing.xs }}>
               <Link
                 href={`/${vertical}/vendor/orders`}
                 style={{
-                  fontSize: typography.sizes.xs,
-                  color: colors.primary,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   textDecoration: 'none',
-                  padding: `${spacing['3xs']} ${spacing.xs}`,
-                  backgroundColor: colors.surfaceMuted,
-                  borderRadius: radius.sm
                 }}
               >
-                All Orders
+                <h3 style={{
+                  color: upcomingPickups.length > 0 ? colors.primaryDark : colors.primary,
+                  margin: 0,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold
+                }}>
+                  Upcoming Pickups
+                </h3>
+                <span style={{
+                  fontSize: typography.sizes.sm,
+                  color: colors.primary,
+                }}>
+                  →
+                </span>
               </Link>
             </div>
 
