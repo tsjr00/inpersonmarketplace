@@ -21,8 +21,9 @@ import { LOCATION_COOKIE_NAME, DEFAULT_RADIUS, VALID_RADIUS_OPTIONS } from '@/li
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
-// Cache page for 5 minutes - listings don't change every second
-export const revalidate = 300
+// This page is DYNAMIC — it reads cookies (user_location) for distance filtering.
+// Do NOT add export const revalidate here — it would cause CDN caching that
+// ignores cookie changes (radius, location), breaking the search feature.
 
 export async function generateMetadata({ params }: { params: Promise<{ vertical: string }> }): Promise<Metadata> {
   const { vertical } = await params

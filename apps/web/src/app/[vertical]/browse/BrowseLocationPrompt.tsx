@@ -38,8 +38,7 @@ export default function BrowseLocationPrompt({ vertical, hasLocation, locationTe
     } catch {
       // Ignore errors - radius will still work on next page load
     }
-    // Full reload bypasses revalidate=300 ISR cache
-    window.location.reload()
+    router.refresh()
   }
 
   const handleClear = async () => {
