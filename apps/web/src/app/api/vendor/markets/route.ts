@@ -203,6 +203,7 @@ export async function GET(request: NextRequest) {
       limits: {
         traditionalMarkets: tierLimits.traditionalMarkets,
         privatePickupLocations: tierLimits.privatePickupLocations,
+        pickupWindowsPerLocation: tierLimits.pickupWindowsPerLocation,
         currentFixedMarketCount,
         currentPrivatePickupCount: vendorMarkets.length,
         canAddFixed: currentFixedMarketCount < tierLimits.traditionalMarkets,

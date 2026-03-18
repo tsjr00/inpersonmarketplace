@@ -48,7 +48,7 @@ describe('VJ-R4/VI-R12: Vendor Tier Limits — Cross-Vertical Isolation', () => 
   describe('FT tiers should never return FM limits', () => {
     it('free FT tier returns FT limits', () => {
       const limits = getTierLimits('free', 'food_trucks')
-      expect(limits.productListings).toBe(5)
+      expect(limits.productListings).toBe(7)
       // FT free gets 1 chef box with 5 max subscribers (updated per user feedback)
       expect(limits.totalMarketBoxes).toBe(1)
       expect(limits.activeMarketBoxes).toBe(1)
@@ -56,7 +56,7 @@ describe('VJ-R4/VI-R12: Vendor Tier Limits — Cross-Vertical Isolation', () => 
 
     it('boss FT tier returns FT limits with highest listings', () => {
       const limits = getTierLimits('boss', 'food_trucks')
-      expect(limits.productListings).toBe(45)
+      expect(limits.productListings).toBe(50)
       expect(limits.traditionalMarkets).toBe(8)
       expect(limits.totalMarketBoxes).toBe(8)
     })
@@ -244,17 +244,17 @@ describe('VJ-R4: FM tier listing limits (confirmed values)', () => {
 })
 
 describe('VJ-R4: FT tier listing limits (confirmed values)', () => {
-  it('free = 5 listings', () => {
-    expect(FT_TIER_LIMITS.free.productListings).toBe(5)
+  it('free = 7 menu items', () => {
+    expect(FT_TIER_LIMITS.free.productListings).toBe(7)
   })
-  it('basic = 10 listings', () => {
-    expect(FT_TIER_LIMITS.basic.productListings).toBe(10)
+  it('basic = 15 menu items', () => {
+    expect(FT_TIER_LIMITS.basic.productListings).toBe(15)
   })
-  it('pro = 20 listings', () => {
-    expect(FT_TIER_LIMITS.pro.productListings).toBe(20)
+  it('pro = 30 menu items', () => {
+    expect(FT_TIER_LIMITS.pro.productListings).toBe(30)
   })
-  it('boss = 45 listings', () => {
-    expect(FT_TIER_LIMITS.boss.productListings).toBe(45)
+  it('boss = 50 menu items', () => {
+    expect(FT_TIER_LIMITS.boss.productListings).toBe(50)
   })
 })
 

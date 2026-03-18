@@ -54,24 +54,24 @@ describe('getTierLimits — FM tiers', () => {
 })
 
 describe('getTierLimits — FT tiers', () => {
-  it('free FT tier has 5 product listings', () => {
+  it('free FT tier has 7 menu items', () => {
     const limits = getTierLimits('free', 'food_trucks')
-    expect(limits.productListings).toBe(5)
+    expect(limits.productListings).toBe(7)
   })
 
-  it('basic FT tier has 10 product listings', () => {
+  it('basic FT tier has 15 menu items', () => {
     const limits = getTierLimits('basic', 'food_trucks')
-    expect(limits.productListings).toBe(10)
+    expect(limits.productListings).toBe(15)
   })
 
-  it('pro FT tier has 20 product listings', () => {
+  it('pro FT tier has 30 menu items', () => {
     const limits = getTierLimits('pro', 'food_trucks')
-    expect(limits.productListings).toBe(20)
+    expect(limits.productListings).toBe(30)
   })
 
-  it('boss FT tier has 45 product listings', () => {
+  it('boss FT tier has 50 menu items', () => {
     const limits = getTierLimits('boss', 'food_trucks')
-    expect(limits.productListings).toBe(45)
+    expect(limits.productListings).toBe(50)
   })
 
   it('unknown FT tier → falls back to FT free', () => {

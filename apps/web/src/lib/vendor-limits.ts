@@ -80,7 +80,7 @@ export interface FtTierExtras {
 
 export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = {
   free: {
-    productListings: 5,
+    productListings: 7,
     totalMarketBoxes: 1,
     activeMarketBoxes: 1,
     traditionalMarkets: 1,
@@ -95,12 +95,12 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     locationInsights: 'none',
   },
   basic: {
-    productListings: 10,
+    productListings: 15,
     totalMarketBoxes: 2,
     activeMarketBoxes: 2,
     traditionalMarkets: 3,
     privatePickupLocations: 3,
-    pickupWindowsPerLocation: 5,
+    pickupWindowsPerLocation: 7,
     maxSubscribersPerOffering: 10,
     defaultSubscribersPerOffering: 10,
     analyticsDays: 30,
@@ -110,12 +110,12 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     locationInsights: 'basic',
   },
   pro: {
-    productListings: 20,
+    productListings: 30,
     totalMarketBoxes: 4,
     activeMarketBoxes: 4,
     traditionalMarkets: 5,
     privatePickupLocations: 5,
-    pickupWindowsPerLocation: 6,
+    pickupWindowsPerLocation: 14,
     maxSubscribersPerOffering: 20,
     defaultSubscribersPerOffering: 20,
     analyticsDays: 60,
@@ -125,12 +125,12 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     locationInsights: 'pro',
   },
   boss: {
-    productListings: 45,
+    productListings: 50,
     totalMarketBoxes: 8,
     activeMarketBoxes: 8,
     traditionalMarkets: 8,
     privatePickupLocations: 15,
-    pickupWindowsPerLocation: 7,
+    pickupWindowsPerLocation: 21,
     maxSubscribersPerOffering: 50,
     defaultSubscribersPerOffering: 50,
     analyticsDays: 90,
