@@ -891,130 +891,24 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             )}
           </div>
 
-          {/* Payment Methods */}
-          <div style={{
-            marginTop: 20,
-            paddingTop: 20,
-            borderTop: '1px solid #f3f4f6'
-          }}>
-            <h3 style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: '#374151',
-              margin: '0 0 12px 0'
-            }}>
-              {t('vp.accepted_payments', locale)}
-            </h3>
-            <PaymentMethodBadges
-              venmoUsername={vendor.venmo_username as string | null}
-              cashappCashtag={vendor.cashapp_cashtag as string | null}
-              paypalUsername={vendor.paypal_username as string | null}
-              acceptsCashAtPickup={vendor.accepts_cash_at_pickup as boolean}
-              size="md"
-            />
+          {/* View Menu CTA — prominent button for QR code visitors */}
+          <div style={{ marginTop: 16, textAlign: 'center' }}>
+            <a
+              href="#menu"
+              style={{
+                display: 'inline-block',
+                padding: '10px 32px',
+                backgroundColor: branding.colors.primary,
+                color: 'white',
+                borderRadius: 8,
+                fontSize: 16,
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              View Menu
+            </a>
           </div>
-
-          {/* Categories - show ALL categories vendor sells */}
-          {(allCategories.length > 0 || hasActiveMarketBoxes) && (
-            <div style={{
-              marginTop: 20,
-              paddingTop: 20,
-              borderTop: '1px solid #f3f4f6'
-            }}>
-              <h3 style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#374151',
-                margin: '0 0 12px 0'
-              }}>
-                {t('vp.listing_categories', locale)}
-              </h3>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 8
-              }}>
-                {allCategories.sort().map(category => (
-                  <span
-                    key={category}
-                    style={{
-                      padding: '6px 14px',
-                      backgroundColor: colors.primaryLight,
-                      color: colors.primaryDark,
-                      borderRadius: 16,
-                      fontSize: 13,
-                      fontWeight: 600
-                    }}
-                  >
-                    {category}
-                  </span>
-                ))}
-                {hasActiveMarketBoxes && (
-                  <span
-                    style={{
-                      padding: '6px 14px',
-                      backgroundColor: '#dbeafe',
-                      color: '#1e40af',
-                      borderRadius: 16,
-                      fontSize: 13,
-                      fontWeight: 600
-                    }}
-                  >
-                    📦 {term(vertical, 'market_box', locale)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Registrations & Certifications */}
-          {certifications.length > 0 && (
-            <div style={{
-              marginTop: 20,
-              paddingTop: 20,
-              borderTop: '1px solid #f3f4f6'
-            }}>
-              <h3 style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#374151',
-                margin: '0 0 12px 0'
-              }}>
-                {t('vp.registrations', locale)}
-              </h3>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8
-              }}>
-                {certifications.map((cert, index) => {
-                  const style = certificationStyles[cert.type] || certificationStyles.other
-                  return (
-                    <div
-                      key={index}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        fontSize: 14
-                      }}
-                    >
-                      <span style={{ fontSize: 16 }}>{style.icon}</span>
-                      <span style={{ color: style.color, fontWeight: 600 }}>
-                        {cert.label}
-                      </span>
-                      <span style={{ color: '#6b7280' }}>
-                        #{cert.registration_number}
-                      </span>
-                      <span style={{ color: '#9ca3af', fontSize: 13 }}>
-                        ({cert.state})
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Vendor Availability Schedule - Calendar Grid */}
@@ -1203,7 +1097,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             fontSize: 20,
             fontWeight: 600
           }}>
-            {t('vp.listings_from', locale, { vendor: vendorName })}
+            <span id="menu">{t('vp.listings_from', locale, { vendor: vendorName })}</span>
           </h2>
 
           {listings && listings.length > 0 ? (
@@ -1378,6 +1272,89 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               color: '#666'
             }}>
               {t('vp.no_products', locale)}
+            </div>
+          )}
+        </div>
+
+        {/* Vendor Details — metadata moved below menu for better conversion flow */}
+        <div style={{
+          padding: 16,
+          backgroundColor: 'white',
+          borderRadius: 8,
+          border: '1px solid #e5e7eb',
+          marginBottom: 24,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}>
+          {/* Payment Methods */}
+          <div>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
+              {t('vp.accepted_payments', locale)}
+            </h3>
+            <PaymentMethodBadges
+              venmoUsername={vendor.venmo_username as string | null}
+              cashappCashtag={vendor.cashapp_cashtag as string | null}
+              paypalUsername={vendor.paypal_username as string | null}
+              acceptsCashAtPickup={vendor.accepts_cash_at_pickup as boolean}
+              size="md"
+            />
+          </div>
+
+          {/* Categories */}
+          {(allCategories.length > 0 || hasActiveMarketBoxes) && (
+            <div style={{ paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
+                {t('vp.listing_categories', locale)}
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {allCategories.sort().map(category => (
+                  <span key={category} style={{
+                    padding: '4px 12px',
+                    backgroundColor: colors.primaryLight,
+                    color: colors.primaryDark,
+                    borderRadius: 16,
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}>
+                    {category}
+                  </span>
+                ))}
+                {hasActiveMarketBoxes && (
+                  <span style={{
+                    padding: '4px 12px',
+                    backgroundColor: '#dbeafe',
+                    color: '#1e40af',
+                    borderRadius: 16,
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}>
+                    📦 {term(vertical, 'market_box', locale)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Certifications */}
+          {certifications.length > 0 && (
+            <div style={{ paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
+                {t('vp.registrations', locale)}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {certifications.map((cert, index) => {
+                  const style = certificationStyles[cert.type] || certificationStyles.other
+                  return (
+                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                      <span style={{ fontSize: 14 }}>{style.icon}</span>
+                      <span style={{ color: style.color, fontWeight: 600 }}>{cert.label}</span>
+                      <span style={{ color: '#6b7280' }}>#{cert.registration_number}</span>
+                      <span style={{ color: '#9ca3af', fontSize: 12 }}>({cert.state})</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
