@@ -189,6 +189,60 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
         {/* Platform Features */}
         <Features vertical={vertical} locale={locale} />
 
+        {/* Private Events CTA — FT only */}
+        {vertical === 'food_trucks' && (
+          <section style={{
+            padding: '48px 24px',
+            backgroundColor: '#1a1a1a',
+            color: 'white',
+            textAlign: 'center',
+          }}>
+            <div style={{ maxWidth: 800, margin: '0 auto' }}>
+              <h2 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 12px 0', color: '#ff5757' }}>
+                🎪 Private Events &amp; Corporate Catering
+              </h2>
+              <p style={{ fontSize: 18, margin: '0 0 24px 0', lineHeight: 1.6, color: '#d1d5db' }}>
+                Bring food trucks to your office, celebration, or company event.
+                We handle the planning — you enjoy the food.
+              </p>
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                gap: 24,
+                marginBottom: 32,
+              }}>
+                {[
+                  { icon: '🍕', label: 'Tacos, BBQ, Asian, Pizza & more' },
+                  { icon: '👥', label: 'Events from 10 to 5,000 guests' },
+                  { icon: '📋', label: 'We match trucks to your needs' },
+                  { icon: '📱', label: 'Guests pre-order online' },
+                ].map(item => (
+                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, color: '#e5e7eb' }}>
+                    <span style={{ fontSize: 20 }}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+              <a
+                href={`/${vertical}/events`}
+                style={{
+                  display: 'inline-block',
+                  padding: '14px 40px',
+                  backgroundColor: '#ff5757',
+                  color: 'white',
+                  borderRadius: 8,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                }}
+              >
+                Request a Quote
+              </a>
+            </div>
+          </section>
+        )}
+
         {/* Vendor Pitch */}
         <VendorPitch vertical={vertical} locale={locale} />
 

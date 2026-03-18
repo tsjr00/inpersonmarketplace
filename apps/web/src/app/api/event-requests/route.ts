@@ -131,24 +131,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send admin notification email
-    await sendAdminEmail(
-      String(company_name),
-      String(contact_name),
-      String(contact_email),
-      contact_phone ? String(contact_phone) : '',
-      event_date,
-      hc,
-      String(address),
-      String(city),
-      String(state),
-      verticalId
-    )
+    // Send admin notification email + organizer confirmation email (parallel)
+    await Promise.all([
+      sendAdminEmail(
+        String(company_name),
+        String(contact_name),
+        String(contact_email),
+        contact_phone ? String(contact_phone) : '',
+        event_date,
+        hc,
+        String(address),
+        String(city),
+        String(state),
+        verticalId
+      ),
+      sendOrganizerConfirmation(
+        String(contact_name),
+        String(contact_email),
+        String(company_name),
+        event_date,
+        hc,
+        String(city),
+        String(state),
+        verticalId
+      ),
+    ])
 
     return NextResponse.json({
       ok: true,
       message:
-        "Thank you! We've received your catering request and will be in touch within 24 hours.",
+        "Thank you! We've received your event request. Check your email for a confirmation.",
     })
   })
 }
@@ -201,6 +213,67 @@ async function sendAdminEmail(
     })
   } catch (err) {
     console.error('[catering-requests] Failed to send admin email:', err)
+  }
+}
+
+async function sendOrganizerConfirmation(
+  contactName: string,
+  contactEmail: string,
+  companyName: string,
+  eventDate: string,
+  headcount: number,
+  city: string,
+  state: string,
+  verticalId: string
+) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+
+  const isFM = verticalId === 'farmers_market'
+  const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+  const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+  const accentColor = isFM ? '#2d5016' : '#ff5757'
+  const serviceName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+  const eventType = isFM ? 'pop-up market' : 'food truck event'
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+
+    await resend.emails.send({
+      from: `${senderName} <updates@${senderDomain}>`,
+      to: contactEmail,
+      subject: `We received your ${eventType} request — ${companyName}`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
+          <h2 style="color:${accentColor};margin:0 0 8px">We received your request!</h2>
+          <p style="color:#374151;margin:0 0 20px;font-size:16px">Hi ${escapeHtml(contactName)},</p>
+          <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
+            Thank you for reaching out to ${serviceName} about your upcoming event. Here&rsquo;s a summary of what we received:
+          </p>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 20px">
+            <table style="border-collapse:collapse;width:100%">
+              <tr><td style="padding:6px 0;font-weight:600;color:#374151;width:120px">Company</td><td style="padding:6px 0;color:#4b5563">${escapeHtml(companyName)}</td></tr>
+              <tr><td style="padding:6px 0;font-weight:600;color:#374151">Event Date</td><td style="padding:6px 0;color:#4b5563">${escapeHtml(eventDate)}</td></tr>
+              <tr><td style="padding:6px 0;font-weight:600;color:#374151">Headcount</td><td style="padding:6px 0;color:#4b5563">${headcount} people</td></tr>
+              <tr><td style="padding:6px 0;font-weight:600;color:#374151">Location</td><td style="padding:6px 0;color:#4b5563">${escapeHtml(city)}, ${escapeHtml(state)}</td></tr>
+            </table>
+          </div>
+          <h3 style="color:${accentColor};margin:0 0 8px;font-size:16px">What happens next?</h3>
+          <ol style="color:#4b5563;line-height:1.8;padding-left:20px;margin:0 0 20px">
+            <li>Our team reviews your request (typically within 24 hours)</li>
+            <li>We match event-approved food trucks to your needs</li>
+            <li>You&rsquo;ll receive vendor recommendations with menus and pricing</li>
+            <li>Once confirmed, your guests can pre-order online for a seamless experience</li>
+          </ol>
+          <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
+            Questions? Reply to this email or visit our <a href="https://${isFM ? 'farmersmarketing.app' : 'foodtruckn.app'}/${verticalId}/support" style="color:${accentColor}">support page</a>.
+          </p>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.error('[catering-requests] Failed to send organizer confirmation:', err)
   }
 }
 
