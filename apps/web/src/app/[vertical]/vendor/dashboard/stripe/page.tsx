@@ -28,7 +28,13 @@ export default function VendorStripePage() {
 
   async function checkStatus() {
     try {
-      const response = await fetch('/api/vendor/stripe/status')
+      const response = await fetch(`/api/vendor/stripe/status?vertical=${vertical}`)
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        console.error('Stripe status check failed:', errData)
+        setStatus({ connected: false })
+        return
+      }
       const data = await response.json()
       setStatus(data)
     } catch {
@@ -43,7 +49,7 @@ export default function VendorStripePage() {
     setError(null)
 
     try {
-      const response = await fetch('/api/vendor/stripe/onboard', {
+      const response = await fetch(`/api/vendor/stripe/onboard?vertical=${vertical}`, {
         method: 'POST',
       })
 

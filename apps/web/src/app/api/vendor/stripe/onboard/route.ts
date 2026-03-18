@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createConnectAccount, createAccountLink } from '@/lib/stripe/connect'
+import { createConnectAccount, createAccountLink, getAccountStatus } from '@/lib/stripe/connect'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/stripe/onboard', 'POST', async () => {
@@ -35,9 +36,36 @@ export async function POST(request: NextRequest) {
     try {
       let stripeAccountId = vendorProfile.stripe_account_id
 
-      // Create Stripe account if doesn't exist
+      if (stripeAccountId) {
+        // Validate existing account still exists on Stripe
+        try {
+          await getAccountStatus(stripeAccountId)
+        } catch (validationError) {
+          if (
+            validationError instanceof Stripe.errors.StripeInvalidRequestError &&
+            validationError.statusCode === 404
+          ) {
+            // Account doesn't exist on Stripe — clear it so we create a fresh one
+            console.error(`Stripe account ${stripeAccountId} not found — clearing and creating new account`)
+            stripeAccountId = null
+            await supabase
+              .from('vendor_profiles')
+              .update({
+                stripe_account_id: null,
+                stripe_charges_enabled: false,
+                stripe_payouts_enabled: false,
+                stripe_onboarding_complete: false,
+              })
+              .eq('id', vendorProfile.id)
+          } else {
+            throw validationError
+          }
+        }
+      }
+
+      // Create Stripe account if doesn't exist (or was just cleared)
       if (!stripeAccountId) {
-        const account = await createConnectAccount(user.email!)
+        const account = await createConnectAccount(user.email!, vendorProfile.id)
         stripeAccountId = account.id
 
         // Save to database
@@ -49,9 +77,9 @@ export async function POST(request: NextRequest) {
 
       // Create account link
       const baseUrl = request.nextUrl.origin
-      const vertical = vendorProfile.vertical_id || 'farmers_market'
-      const refreshUrl = `${baseUrl}/${vertical}/vendor/dashboard/stripe/refresh`
-      const returnUrl = `${baseUrl}/${vertical}/vendor/dashboard/stripe/complete`
+      const vpVertical = vendorProfile.vertical_id || 'farmers_market'
+      const refreshUrl = `${baseUrl}/${vpVertical}/vendor/dashboard/stripe/refresh`
+      const returnUrl = `${baseUrl}/${vpVertical}/vendor/dashboard/stripe/complete`
 
       const accountLink = await createAccountLink(
         stripeAccountId,

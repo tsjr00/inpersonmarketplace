@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getAccountStatus } from '@/lib/stripe/connect'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import Stripe from 'stripe'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/vendor/stripe/status', 'GET', async () => {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     try {
       const status = await getAccountStatus(vendorProfile.stripe_account_id)
 
-      // Update database
+      // Update database with latest Stripe state
       await supabase
         .from('vendor_profiles')
         .update({
@@ -48,9 +49,29 @@ export async function GET(request: NextRequest) {
         ...status,
       })
     } catch (error) {
+      // If Stripe says the account doesn't exist, clear the invalid ID
+      // so the vendor can re-onboard with a fresh account
+      if (
+        error instanceof Stripe.errors.StripeInvalidRequestError &&
+        error.statusCode === 404
+      ) {
+        console.error(`Stripe account ${vendorProfile.stripe_account_id} not found on Stripe — clearing invalid reference`)
+        await supabase
+          .from('vendor_profiles')
+          .update({
+            stripe_account_id: null,
+            stripe_charges_enabled: false,
+            stripe_payouts_enabled: false,
+            stripe_onboarding_complete: false,
+          })
+          .eq('id', vendorProfile.id)
+
+        return NextResponse.json({ connected: false })
+      }
+
       console.error('Stripe status check error:', error)
       return NextResponse.json(
-        { error: 'Failed to check status' },
+        { error: 'Failed to check Stripe account status. Please try again.' },
         { status: 500 }
       )
     }

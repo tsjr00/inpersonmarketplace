@@ -17,7 +17,7 @@ export default function StripeCompletePage() {
 
   async function checkStatus() {
     try {
-      const response = await fetch('/api/vendor/stripe/status')
+      const response = await fetch(`/api/vendor/stripe/status?vertical=${vertical}`)
       const data = await response.json()
 
       if (data.connected && data.chargesEnabled && data.payoutsEnabled) {
