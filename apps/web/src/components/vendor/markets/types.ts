@@ -51,6 +51,7 @@ export type MarketSuggestion = {
 export type MarketLimits = {
   traditionalMarkets: number
   privatePickupLocations: number
+  pickupWindowsPerLocation: number
   currentFixedMarketCount: number
   currentPrivatePickupCount: number
   canAddFixed: boolean

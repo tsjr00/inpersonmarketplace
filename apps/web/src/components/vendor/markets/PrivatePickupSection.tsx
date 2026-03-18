@@ -47,7 +47,7 @@ export default function PrivatePickupSection({
     pickup_windows: [{ day_of_week: '', start_time: '09:00', end_time: '12:00' }] as { day_of_week: string; start_time: string; end_time: string }[]
   })
 
-  const maxPickupWindows = isPremium ? 6 : 2
+  const maxPickupWindows = limits?.pickupWindowsPerLocation ?? (isPremium ? 14 : 4)
 
   const addPickupWindow = () => {
     if (formData.pickup_windows.length < maxPickupWindows) {
