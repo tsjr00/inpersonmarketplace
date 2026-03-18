@@ -76,17 +76,17 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
   const prohibitedAck = !!(verification?.prohibited_items_acknowledged_at)
   const onboardingComplete = !!(verification?.onboarding_completed_at)
 
-  const gateStyle = (passed: boolean) => ({
-    display: 'inline-block' as const,
+  const gateStyle = (passed: boolean): React.CSSProperties => ({
+    display: 'inline-block',
     padding: `2px ${spacing.xs}`,
     borderRadius: radius.full,
     fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
+    fontWeight: typography.weights.semibold as React.CSSProperties['fontWeight'],
     backgroundColor: passed ? '#d1fae5' : '#fef3c7',
     color: passed ? '#065f46' : '#92400e',
   })
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (status: string): React.CSSProperties => {
     const map: Record<string, { bg: string; color: string }> = {
       approved: { bg: '#d1fae5', color: '#065f46' },
       submitted: { bg: '#fef3c7', color: '#92400e' },
@@ -96,11 +96,11 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
     }
     const s = map[status] || map.draft
     return {
-      display: 'inline-block' as const,
+      display: 'inline-block',
       padding: `${spacing['3xs']} ${spacing.sm}`,
       borderRadius: radius.full,
       fontSize: typography.sizes.sm,
-      fontWeight: typography.weights.semibold,
+      fontWeight: typography.weights.semibold as React.CSSProperties['fontWeight'],
       backgroundColor: s.bg,
       color: s.color,
     }
@@ -126,7 +126,7 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
     ...(eventReadiness.additional_notes ? [{ label: 'Notes', value: eventReadiness.additional_notes as string }] : []),
   ] : []
 
-  const cardStyle = {
+  const cardStyle: React.CSSProperties = {
     backgroundColor: colors.surfaceElevated,
     borderRadius: radius.md,
     padding: spacing.lg,
@@ -135,7 +135,7 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
     boxShadow: shadows.sm,
   }
 
-  const sectionTitle = {
+  const sectionTitle: React.CSSProperties = {
     fontSize: typography.sizes.lg,
     fontWeight: typography.weights.semibold,
     color: colors.textPrimary,
@@ -143,8 +143,8 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
     marginBottom: spacing.sm,
   }
 
-  const fieldRow = {
-    display: 'flex' as const,
+  const fieldRow: React.CSSProperties = {
+    display: 'flex',
     borderBottom: `1px solid ${colors.borderMuted}`,
     paddingBottom: spacing.xs,
     marginBottom: spacing.xs,
