@@ -89,7 +89,53 @@ export default async function CateringPage({ params, searchParams }: CateringPag
         >
           {term(vertical, 'event_hero_subtitle', locale)}
         </p>
+        {isFT && (
+          <p style={{
+            marginTop: 12,
+            fontSize: 13,
+            color: '#6b7280',
+            fontStyle: 'italic',
+          }}>
+            Trusted by local businesses for corporate lunches, team celebrations, and company events
+          </p>
+        )}
       </div>
+
+      {/* Cuisine showcase — shows breadth without exposing specific vendors */}
+      {isFT && (
+        <div style={{
+          marginBottom: spacing.lg,
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: 8,
+        }}>
+          {[
+            '🌮 Tacos & Mexican',
+            '🍖 BBQ & Smokehouse',
+            '🍕 Pizza',
+            '🍔 Burgers & Sliders',
+            '🥡 Asian Fusion',
+            '🍗 Southern & Soul Food',
+            '🥙 Mediterranean',
+            '🌯 Tex-Mex',
+            '🧁 Desserts & Sweets',
+            '☕ Coffee & Beverages',
+          ].map(cuisine => (
+            <span key={cuisine} style={{
+              padding: '6px 14px',
+              backgroundColor: '#fff5f5',
+              color: '#991b1b',
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+            }}>
+              {cuisine}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* How it works */}
       <div
