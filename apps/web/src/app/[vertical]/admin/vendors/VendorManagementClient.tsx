@@ -544,7 +544,7 @@ function VendorRow({
         <td style={{ ...tdStyle, textAlign: 'right' }}>
           <div style={{ display: 'flex', gap: spacing.xs, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <Link
-              href={`/${vertical}/vendor/${vendor.id}/profile`}
+              href={`/${vertical}/admin/vendors/${vendor.id}`}
               style={{
                 padding: `${spacing['3xs']} ${spacing.xs}`,
                 fontSize: typography.sizes.sm,
@@ -555,7 +555,7 @@ function VendorRow({
                 borderRadius: radius.sm
               }}
             >
-              View
+              Details
             </Link>
 
             <button
