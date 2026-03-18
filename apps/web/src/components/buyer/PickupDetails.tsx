@@ -1,7 +1,7 @@
 'use client'
 
 import { getMapsUrl } from '@/lib/utils/maps-link'
-import { formatTimeRangeWithTZ, formatTimeWithTZ } from '@/lib/utils/timezone'
+import { formatTimeRangeWithTZ } from '@/lib/utils/timezone'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
 
@@ -38,11 +38,10 @@ interface PickupDisplay {
 interface PickupDetailsProps {
   market: Market
   pickupDate: string | null
+  preferredPickupTime?: string | null
   // Optional display data from pickup_snapshot (takes precedence when available)
   display?: PickupDisplay | null
 }
-
-const DAY_KEYS = ['pickup.sunday', 'pickup.monday', 'pickup.tuesday', 'pickup.wednesday', 'pickup.thursday', 'pickup.friday', 'pickup.saturday']
 
 // Format time for display (e.g., "8:00 AM")
 function formatTime(timeStr: string | null | undefined): string | null {
@@ -65,9 +64,8 @@ function formatPickupDate(dateStr: string | null | undefined): string | null {
   })
 }
 
-export default function PickupDetails({ market, pickupDate, display }: PickupDetailsProps) {
+export default function PickupDetails({ market, pickupDate, preferredPickupTime, display }: PickupDetailsProps) {
   const locale = getClientLocale()
-  const isTraditional = market.type === 'traditional'
 
   // Use display data from pickup_snapshot when available (immutable order details)
   const displayName = display?.market_name || market.name
@@ -112,34 +110,21 @@ export default function PickupDetails({ market, pickupDate, display }: PickupDet
         </div>
       )}
 
-      {/* Pickup Date and Time - show when we have specific pickup info from snapshot */}
+      {/* Scheduled Pickup Date and Time */}
       {displayPickupDate && (
         <div style={{ marginBottom: 12 }}>
           <p style={{ margin: '0 0 4px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>
-            {t('pickup.date', locale)}
+            {t('pickup.scheduled', locale)}
           </p>
           <p style={{ margin: 0, fontSize: 14, color: '#1e40af', fontWeight: 500 }}>
             {formatPickupDate(displayPickupDate)}
-            {displayStartTime && (
-              <span>
-                {' '}{formatTimeRangeWithTZ(displayStartTime, displayEndTime, tz)}
-              </span>
-            )}
+            {preferredPickupTime
+              ? ` at ${formatTime(preferredPickupTime)}`
+              : displayStartTime
+                ? ` ${formatTimeRangeWithTZ(displayStartTime, displayEndTime, tz)}`
+                : ''
+            }
           </p>
-        </div>
-      )}
-
-      {/* Hours (Traditional Market) - only show if no specific pickup date from snapshot */}
-      {!displayPickupDate && isTraditional && market.schedules && market.schedules.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ margin: '0 0 4px 0', fontSize: 13, fontWeight: 600, color: '#374151' }}>
-            {t('pickup.market_hours', locale)}
-          </p>
-          {market.schedules.map((schedule, idx) => (
-            <p key={idx} style={{ margin: '2px 0', fontSize: 14, color: '#6b7280' }}>
-              {t(DAY_KEYS[schedule.day_of_week], locale)}: {formatTimeRangeWithTZ(schedule.start_time, schedule.end_time, idx === 0 ? tz : null)}
-            </p>
-          ))}
         </div>
       )}
 

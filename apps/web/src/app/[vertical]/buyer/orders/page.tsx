@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import Link from 'next/link'
-import { formatPrice, calculateDisplayPrice, calculateBuyerPrice } from '@/lib/constants'
+import { formatPrice } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { fetcher } from '@/lib/swr'
 import { FullPageLoading } from '@/components/shared/Spinner'
@@ -412,9 +412,7 @@ export default function BuyerOrdersPage() {
             const itemNames = order.items?.map(item => item.listing_title).join(', ') || ''
             // Calculate buyer-facing total from items (excluding cancelled items)
             // Sum subtotals first, then apply buyer price (includes flat fee once)
-            const activeItemsSubtotal = order.items?.reduce((sum, item) =>
-              item.cancelled_at ? sum : sum + item.subtotal_cents, 0) || 0
-            const orderTotal = calculateBuyerPrice(activeItemsSubtotal)
+            const orderTotal = order.total_cents
 
             // Determine visual urgency styling
             const isReady = order.status === 'ready'
@@ -543,74 +541,53 @@ export default function BuyerOrdersPage() {
                   )}
                 </div>
 
-                {/* Order Items - Only show for active orders (not completed/cancelled) */}
-                {!isCompletedOrder && !isCancelledOrder && (
-                  <div style={{ padding: `${spacing.md} ${spacing.md}` }}>
-                    {order.items && order.items.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-                        {order.items.map((item, index) => {
-                          const itemConfig = statusConfig[item.status] || statusConfig.pending
+                {/* Order Items Summary - Compact: names + location, no per-item prices */}
+                {!isCompletedOrder && !isCancelledOrder && order.items && order.items.length > 0 && (
+                  <div style={{ padding: `${spacing.sm} ${spacing.md}` }}>
+                    {order.items.filter(item => !item.cancelled_at).map((item, index) => {
+                      const locationName = item.display?.market_name || item.market?.name
+                      const pickupDate = item.display?.pickup_date || item.pickup_date
+                      const pickupTimeStr = formatPickupTime12h(item.preferred_pickup_time)
 
-                          return (
-                            <div
-                              key={item.id || index}
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: `${spacing.xs} ${spacing.sm}`,
-                                backgroundColor: colors.surfaceMuted,
-                                borderRadius: radius.sm,
-                              }}
-                            >
-                              <div>
-                                <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary, fontSize: typography.sizes.base }}>
-                                  {item.listing_title}
-                                </p>
-                                <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                                  {item.vendor_name} • {t('orders.qty', locale, { count: String(item.quantity) })}
-                                  {(item.display?.market_name || item.market?.name) && ` • ${item.display?.market_name || item.market?.name}`}
-                                </p>
-                                {(item.display?.pickup_date || item.pickup_date) && (
-                                  <p style={{
-                                    margin: `${spacing['3xs']} 0 0`,
-                                    fontSize: typography.sizes.sm,
-                                    color: '#1e40af',
-                                  }}>
-                                    {t('orders.pickup_label', locale)} {formatPickupDate(item.display?.pickup_date || item.pickup_date)}
-                                    {formatPickupTime12h(item.preferred_pickup_time)
-                                      ? ` at ${formatPickupTime12h(item.preferred_pickup_time)}`
-                                      : formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time)
-                                        ? ` • ${formatPickupTime(item.display?.start_time || item.pickup_start_time, item.display?.end_time || item.pickup_end_time)}`
-                                        : ''
-                                    }
-                                  </p>
-                                )}
-                              </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <p style={{ margin: `0 0 ${spacing['3xs']} 0`, fontWeight: typography.weights.semibold, color: colors.textPrimary, fontSize: typography.sizes.base }}>
-                                  {formatPrice(calculateDisplayPrice(item.subtotal_cents))}
-                                </p>
-                                <span style={{
-                                  padding: `2px ${spacing['2xs']}`,
-                                  backgroundColor: itemConfig.bgColor,
-                                  color: itemConfig.color,
-                                  borderRadius: radius.full,
-                                  fontSize: typography.sizes.xs,
-                                  fontWeight: typography.weights.medium,
-                                }}>
-                                  {itemConfig.label}
-                                </span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <p style={{ color: colors.textMuted, margin: 0, fontStyle: 'italic', fontSize: typography.sizes.sm }}>
-                        {t('orders.no_items', locale)}
-                      </p>
-                    )}
+                      return (
+                        <div
+                          key={item.id || index}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: `${spacing['2xs']} 0`,
+                            borderBottom: index < order.items.filter(i => !i.cancelled_at).length - 1
+                              ? `1px solid ${colors.borderMuted}`
+                              : 'none',
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontWeight: typography.weights.medium, color: colors.textPrimary, fontSize: typography.sizes.sm }}>
+                              {item.listing_title}{item.quantity > 1 ? ` x${item.quantity}` : ''}
+                              {locationName ? ` \u2022 ${locationName}` : ''}
+                            </p>
+                            {pickupDate && (
+                              <p style={{ margin: 0, fontSize: typography.sizes.xs, color: '#1e40af' }}>
+                                {formatPickupDate(pickupDate)}{pickupTimeStr ? ` at ${pickupTimeStr}` : ''}
+                              </p>
+                            )}
+                          </div>
+                          <span style={{
+                            padding: `1px ${spacing['2xs']}`,
+                            backgroundColor: (statusConfig[item.status] || statusConfig.pending).bgColor,
+                            color: (statusConfig[item.status] || statusConfig.pending).color,
+                            borderRadius: radius.full,
+                            fontSize: 10,
+                            fontWeight: typography.weights.medium,
+                            flexShrink: 0,
+                            marginLeft: spacing.xs,
+                          }}>
+                            {(statusConfig[item.status] || statusConfig.pending).label}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
 

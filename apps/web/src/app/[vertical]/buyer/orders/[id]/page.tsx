@@ -9,7 +9,7 @@ import PickupDetails from '@/components/buyer/PickupDetails'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import PostPurchaseSharePrompt from '@/components/marketing/PostPurchaseSharePrompt'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import { formatPrice, calculateDisplayPrice, calculateBuyerPrice, FEES, formatQuantityDisplay } from '@/lib/constants'
+import { formatPrice, calculateDisplayPrice, FEES, formatQuantityDisplay } from '@/lib/constants'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
@@ -98,6 +98,7 @@ interface OrderDetail {
   status: string
   payment_method?: string
   total_cents: number
+  small_order_fee_cents: number
   tip_percentage: number
   tip_amount: number
   created_at: string
@@ -470,13 +471,14 @@ export default function BuyerOrderDetailPage() {
         market: item.market,
         items: [],
         pickupDate: item.pickup_date,
+        preferredPickupTime: item.preferred_pickup_time,
         // Use display data from first item (from pickup_snapshot when available)
         display: item.display
       }
     }
     acc[marketId].items.push(item)
     return acc
-  }, {} as Record<string, { market: Market; items: OrderItem[]; pickupDate: string | null; display: OrderItem['display'] }>)
+  }, {} as Record<string, { market: Market; items: OrderItem[]; pickupDate: string | null; preferredPickupTime: string | null; display: OrderItem['display'] }>)
 
   // Count metadata for partial readiness display
   const activeItems = order.items.filter(i => !i.cancelled_at)
@@ -811,10 +813,6 @@ export default function BuyerOrderDetailPage() {
                   bg: '#fffbeb', border: '#fde68a', color: '#92400e',
                   text: t('order.banner_pending', locale, { vendor: primaryVendorName })
                 },
-                confirmed: {
-                  bg: '#ecfdf5', border: '#6ee7b7', color: '#065f46',
-                  text: t('order.banner_confirmed', locale, { vendor: primaryVendorName })
-                },
                 ready: {
                   bg: '#eff6ff', border: '#93c5fd', color: '#1e40af',
                   text: t('order.banner_ready', locale)
@@ -935,6 +933,7 @@ export default function BuyerOrderDetailPage() {
             <PickupDetails
               market={group.market}
               pickupDate={group.pickupDate}
+              preferredPickupTime={group.preferredPickupTime}
               display={group.display}
             />
 
@@ -1121,67 +1120,75 @@ export default function BuyerOrderDetailPage() {
         ))}
 
         {/* Service Fee + Order Total */}
-        {(() => {
-          // Calculate totals from items (using buyer-facing prices, excluding cancelled)
-          // Sum subtotals first, then apply buyer price (includes flat fee once)
-          const activeItemsSubtotal = order.items.reduce((sum, item) =>
-            item.cancelled_at ? sum : sum + item.subtotal_cents, 0
-          )
-          const itemsSubtotal = calculateBuyerPrice(activeItemsSubtotal)
-          return (
+        <div style={{
+          padding: spacing.md,
+          backgroundColor: colors.surfaceElevated,
+          border: `1px solid ${colors.border}`,
+          borderRadius: radius.md,
+        }}>
+          {/* Service Fee */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingBottom: spacing.xs,
+            marginBottom: spacing.xs,
+            borderBottom: `1px solid ${colors.borderMuted}`,
+          }}>
+            <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+              {t('order.service_fee', locale)}
+            </span>
+            <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+              {formatPrice(FEES.buyerFlatFeeCents)}
+            </span>
+          </div>
+          {/* Small Order Fee (if any) */}
+          {order.small_order_fee_cents > 0 && (
             <div style={{
-              padding: spacing.md,
-              backgroundColor: colors.surfaceElevated,
-              border: `1px solid ${colors.border}`,
-              borderRadius: radius.md,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingBottom: spacing.xs,
+              marginBottom: spacing.xs,
+              borderBottom: `1px solid ${colors.borderMuted}`,
             }}>
-              {/* Service Fee */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingBottom: spacing.xs,
-                marginBottom: spacing.xs,
-                borderBottom: `1px solid ${colors.borderMuted}`,
-              }}>
-                <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                  {t('order.service_fee', locale)}
-                </span>
-                <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                  {formatPrice(FEES.buyerFlatFeeCents)}
-                </span>
-              </div>
-              {/* Tip (if any) */}
-              {order.tip_amount > 0 && (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}>
-                  <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                    {t('order.tip', locale, { percent: String(order.tip_percentage) })}
-                  </span>
-                  <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
-                    {formatPrice(order.tip_amount)}
-                  </span>
-                </div>
-              )}
-              {/* Total */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-                  {t('order.total', locale)}
-                </span>
-                <span style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-                  {formatPrice(itemsSubtotal)}
-                </span>
-              </div>
+              <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                {t('order.small_order_fee', locale)}
+              </span>
+              <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                {formatPrice(order.small_order_fee_cents)}
+              </span>
             </div>
-          )
-        })()}
+          )}
+          {/* Tip (if any) */}
+          {order.tip_amount > 0 && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                {t('order.tip', locale, { percent: String(order.tip_percentage) })}
+              </span>
+              <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                {formatPrice(order.tip_amount)}
+              </span>
+            </div>
+          )}
+          {/* Total */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <span style={{ fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+              {t('order.total', locale)}
+            </span>
+            <span style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+              {formatPrice(order.total_cents)}
+            </span>
+          </div>
+        </div>
         </div>{/* end content padding wrapper */}
 
       </div>

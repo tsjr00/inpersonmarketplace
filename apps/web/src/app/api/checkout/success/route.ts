@@ -8,6 +8,8 @@ import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { sendNotification } from '@/lib/notifications'
 import { logPublicActivityEvent } from '@/lib/marketing/activity-events'
 import { calculateVendorPayout } from '@/lib/pricing'
+import { defaultBranding } from '@/lib/branding/defaults'
+import { formatPickupTime } from '@/types/pickup'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/checkout/success', 'GET', async () => {
@@ -351,20 +353,24 @@ export async function GET(request: NextRequest) {
             .from('order_items')
             .select(`
               listing:listings(title, vendor_profiles(profile_data)),
-              markets!market_id(name),
-              pickup_date
+              markets!market_id(name, address, city, state),
+              pickup_date,
+              preferred_pickup_time
             `)
             .eq('order_id', orderId)
 
           const items = buyerNotifyItems as unknown as Array<{
             listing: { title: string; vendor_profiles: { profile_data: Record<string, unknown> } | null } | null
-            markets: { name: string } | null
+            markets: { name: string; address: string | null; city: string | null; state: string | null } | null
             pickup_date: string | null
+            preferred_pickup_time: string | null
           }> | null
 
           const vendorNames = new Set<string>()
           let marketName = ''
+          let marketAddress = ''
           let pickupDate = ''
+          let pickupTime = ''
           const itemTitles: string[] = []
 
           if (items) {
@@ -374,7 +380,17 @@ export async function GET(request: NextRequest) {
               if (vName) vendorNames.add(vName)
               if (item.listing?.title) itemTitles.push(item.listing.title)
               if (!marketName && item.markets?.name) marketName = item.markets.name
-              if (!pickupDate && item.pickup_date) pickupDate = item.pickup_date
+              if (!marketAddress && item.markets) {
+                const parts = [item.markets.address, item.markets.city, item.markets.state].filter(Boolean)
+                marketAddress = parts.join(', ')
+              }
+              if (!pickupDate && item.pickup_date) {
+                const d = new Date(item.pickup_date + 'T00:00:00')
+                pickupDate = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+              }
+              if (!pickupTime && item.preferred_pickup_time) {
+                pickupTime = formatPickupTime(item.preferred_pickup_time)
+              }
             }
           }
 
@@ -384,12 +400,17 @@ export async function GET(request: NextRequest) {
               ? `${vendorNames.size} vendors`
               : undefined
 
+          const branding = defaultBranding[capturedVerticalId as keyof typeof defaultBranding]
+
           await sendNotification(capturedUserId, 'order_placed', {
             orderNumber: capturedOrderNumber,
             vendorName,
+            brandName: branding?.brand_name || "Food Truck'n",
             itemTitle: itemTitles.length === 1 ? itemTitles[0] : `${itemTitles.length} items`,
             marketName,
+            marketAddress,
             pickupDate,
+            pickupTime,
           }, { vertical: capturedVerticalId })
         }
       } catch {
