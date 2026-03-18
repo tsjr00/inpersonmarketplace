@@ -129,6 +129,10 @@ export interface NotificationTemplateData {
   eventAddress?: string
   responseAction?: string  // 'accepted' | 'declined'
   vertical?: string
+  // Order confirmation email enrichment
+  brandName?: string
+  marketAddress?: string
+  pickupTime?: string
 }
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info'
