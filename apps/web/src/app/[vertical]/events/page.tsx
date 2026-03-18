@@ -1,19 +1,49 @@
+import { Metadata } from 'next'
 import Link from 'next/link'
 import { EventRequestForm } from '@/components/events/EventRequestForm'
 import { statusColors, spacing, typography, radius } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+import { defaultBranding } from '@/lib/branding'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 
 interface CateringPageProps {
   params: Promise<{ vertical: string }>
+  searchParams: Promise<{ vendor?: string }>
 }
 
-export default async function CateringPage({ params }: CateringPageProps) {
+export async function generateMetadata({ params }: CateringPageProps): Promise<Metadata> {
   const { vertical } = await params
-  const locale = await getLocale()
+  const branding = defaultBranding[vertical] || defaultBranding.farmers_market
+  const isFT = vertical === 'food_trucks'
 
-  const accent = vertical === 'food_trucks' ? '#ff5757' : '#2d5016'
+  return {
+    title: isFT
+      ? `Book Food Trucks for Your Event | ${branding.brand_name}`
+      : `Book a Pop-Up Market | ${branding.brand_name}`,
+    description: isFT
+      ? 'Bring food trucks to your corporate event, office lunch, or celebration. We match event-approved trucks to your needs — tacos, BBQ, Asian fusion, pizza, and more. Pre-orders, professional service, hassle-free.'
+      : 'Host a pop-up farmers market at your venue. Fresh local produce, artisan goods, and cottage foods — curated for your event.',
+    keywords: isFT
+      ? 'food truck catering, corporate food truck event, book food trucks, office lunch catering, food truck rental, private event catering'
+      : 'pop-up market, farmers market event, local food event, artisan market booking',
+    openGraph: {
+      title: isFT ? 'Book Food Trucks for Your Event' : 'Book a Pop-Up Market',
+      description: isFT
+        ? 'Professional food truck catering for corporate events, office lunches, and celebrations. We handle the planning — you enjoy the food.'
+        : 'Curated pop-up farmers market for your venue or event.',
+      type: 'website',
+    },
+  }
+}
+
+export default async function CateringPage({ params, searchParams }: CateringPageProps) {
+  const { vertical } = await params
+  const { vendor: vendorPreference } = await searchParams
+  const locale = await getLocale()
+  const isFT = vertical === 'food_trucks'
+
+  const accent = isFT ? '#ff5757' : '#2d5016'
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 20px' }}>
@@ -213,8 +243,37 @@ export default async function CateringPage({ params }: CateringPageProps) {
         >
           {term(vertical, 'event_request_heading', locale)}
         </h2>
-        <EventRequestForm vertical={vertical} />
+        <EventRequestForm vertical={vertical} vendorPreference={vendorPreference} />
       </div>
+
+      {/* Why work with us — social proof + trust signals */}
+      {isFT && (
+        <div style={{
+          marginTop: 32,
+          padding: spacing.md,
+          backgroundColor: '#1a1a1a',
+          borderRadius: radius.lg,
+          color: 'white',
+        }}>
+          <h3 style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes.base, fontWeight: 700, color: '#ff5757' }}>
+            Why Event Managers Choose Us
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              { icon: '✅', text: 'Every truck is verified, insured, and event-approved' },
+              { icon: '🍽️', text: 'Diverse cuisines — tacos, BBQ, Asian, pizza, Mediterranean, and more' },
+              { icon: '📱', text: 'Guests pre-order online so food is ready when they arrive' },
+              { icon: '📋', text: 'We handle truck coordination — you focus on your event' },
+              { icon: '💰', text: 'Transparent pricing with no hidden fees' },
+            ].map(item => (
+              <div key={item.text} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{item.icon}</span>
+                <span style={{ fontSize: 14, color: '#d1d5db', lineHeight: 1.5 }}>{item.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
