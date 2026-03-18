@@ -204,20 +204,6 @@ export default function EventReadinessForm({
         </div>
       )}
 
-      {/* Message */}
-      {message && (
-        <div style={{
-          padding: spacing.sm,
-          marginBottom: spacing.md,
-          borderRadius: radius.sm,
-          backgroundColor: message.type === 'success' ? colors.primaryLight : '#fef2f2',
-          color: message.type === 'success' ? colors.primaryDark : '#991b1b',
-          fontSize: typography.sizes.sm,
-        }}>
-          {message.text}
-        </div>
-      )}
-
       {/* ── Vehicle & Setup ── */}
       <h3 style={{
         margin: `0 0 ${spacing.sm} 0`,
@@ -569,6 +555,20 @@ export default function EventReadinessForm({
           }}
         />
       </div>
+
+      {/* Message — shown near submit button where user is looking */}
+      {message && (
+        <div style={{
+          padding: spacing.sm,
+          marginBottom: spacing.xs,
+          borderRadius: radius.sm,
+          backgroundColor: message.type === 'success' ? colors.primaryLight : '#fef2f2',
+          color: message.type === 'success' ? colors.primaryDark : '#991b1b',
+          fontSize: typography.sizes.sm,
+        }}>
+          {message.text}
+        </div>
+      )}
 
       {/* Submit Button */}
       <button

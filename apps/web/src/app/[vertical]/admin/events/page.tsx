@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
+import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 
@@ -72,6 +73,11 @@ export default function AdminCateringPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
+  // Pending event applications
+  const [pendingApplications, setPendingApplications] = useState<Array<{
+    id: string; business_name: string; submitted_at: string
+  }>>([])
+
   // Vendor invite state
   const [vendors, setVendors] = useState<VendorOption[]>([])
   const [mvMap, setMvMap] = useState<Record<string, MarketVendor[]>>({})
@@ -95,12 +101,19 @@ export default function AdminCateringPage() {
   async function fetchData() {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/events?vertical=${vertical}`)
-      if (res.ok) {
-        const data = await res.json()
+      const [eventsRes, appsRes] = await Promise.all([
+        fetch(`/api/admin/events?vertical=${vertical}`),
+        fetch(`/api/admin/vendors/pending-event-applications?vertical=${vertical}`),
+      ])
+      if (eventsRes.ok) {
+        const data = await eventsRes.json()
         setRequests(data.requests || [])
         setVendors(data.vendors || [])
         setMvMap(data.marketVendorsMap || {})
+      }
+      if (appsRes.ok) {
+        const data = await appsRes.json()
+        setPendingApplications(data.applications || [])
       }
     } catch {
       // silent
@@ -220,6 +233,51 @@ export default function AdminCateringPage() {
       >
         {term(vertical, 'event_feature_name')}
       </h1>
+
+      {/* Pending Event Applications */}
+      {pendingApplications.length > 0 && (
+        <div style={{
+          marginBottom: spacing.md,
+          padding: spacing.md,
+          backgroundColor: statusColors.warningLight,
+          border: `1px solid ${statusColors.warningBorder}`,
+          borderRadius: radius.md,
+        }}>
+          <h3 style={{
+            fontSize: typography.sizes.base,
+            fontWeight: typography.weights.semibold,
+            color: statusColors.warningDark,
+            margin: `0 0 ${spacing.xs}`,
+          }}>
+            Pending Vendor Event Applications ({pendingApplications.length})
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            {pendingApplications.map(app => (
+              <Link
+                key={app.id}
+                href={`/${vertical}/admin/vendors/${app.id}`}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: 'white',
+                  borderRadius: radius.sm,
+                  textDecoration: 'none',
+                  border: `1px solid ${statusColors.warningBorder}`,
+                }}
+              >
+                <span style={{ fontWeight: typography.weights.medium, color: statusColors.neutral900, fontSize: typography.sizes.sm }}>
+                  {app.business_name}
+                </span>
+                <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral600 }}>
+                  Applied {new Date(app.submitted_at).toLocaleDateString()} →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Status filter */}
       <div
