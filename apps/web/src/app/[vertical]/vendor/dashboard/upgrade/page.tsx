@@ -312,7 +312,7 @@ function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
                 {/* Price */}
                 <div style={{ textAlign: 'center', marginBottom: 20 }}>
                   {displayPrice === 0 ? (
-                    <span style={{ fontSize: 28, fontWeight: 'bold', color: '#333' }}>Free forever</span>
+                    <span style={{ fontSize: 28, fontWeight: 'bold', color: '#333' }}>Free</span>
                   ) : isAnnual ? (
                     <div>
                       <div>
@@ -796,7 +796,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
                 {/* Price */}
                 <div style={{ textAlign: 'center', marginBottom: 20 }}>
                   {displayPrice === 0 ? (
-                    <span style={{ fontSize: 28, fontWeight: 'bold', color: '#333' }}>Free forever</span>
+                    <span style={{ fontSize: 28, fontWeight: 'bold', color: '#333' }}>Free</span>
                   ) : isAnnual ? (
                     <div>
                       <div>
