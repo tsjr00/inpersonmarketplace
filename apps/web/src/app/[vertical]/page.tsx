@@ -190,60 +190,6 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
         {/* Platform Features */}
         <Features vertical={vertical} locale={locale} />
 
-        {/* Private Events CTA — FT only */}
-        {vertical === 'food_trucks' && (
-          <section style={{
-            padding: '48px 24px',
-            backgroundColor: '#1a1a1a',
-            color: 'white',
-            textAlign: 'center',
-          }}>
-            <div style={{ maxWidth: 800, margin: '0 auto' }}>
-              <h2 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 12px 0', color: '#ff5757' }}>
-                🎪 Private Events &amp; Corporate Catering
-              </h2>
-              <p style={{ fontSize: 18, margin: '0 0 24px 0', lineHeight: 1.6, color: '#d1d5db' }}>
-                Bring food trucks to your office, celebration, or company event.
-                We handle the planning — you enjoy the food.
-              </p>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                gap: 24,
-                marginBottom: 32,
-              }}>
-                {[
-                  { icon: '🍕', label: 'Tacos, BBQ, Asian, Pizza & more' },
-                  { icon: '👥', label: 'Events from 10 to 5,000 guests' },
-                  { icon: '📋', label: 'We match trucks to your needs' },
-                  { icon: '📱', label: 'Guests pre-order online' },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, color: '#e5e7eb' }}>
-                    <span style={{ fontSize: 20 }}>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-              <a
-                href={`/${vertical}/events`}
-                style={{
-                  display: 'inline-block',
-                  padding: '14px 40px',
-                  backgroundColor: '#ff5757',
-                  color: 'white',
-                  borderRadius: 8,
-                  fontSize: 18,
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                }}
-              >
-                Request a Quote
-              </a>
-            </div>
-          </section>
-        )}
-
         {/* Vendor Pitch */}
         <VendorPitch vertical={vertical} locale={locale} />
 
@@ -257,7 +203,7 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
           </>
         )}
 
-        {/* Events strip — thin section matching TrustStats style, FT only */}
+        {/* Events strip — matching TrustStats style, FT only */}
         {vertical === 'food_trucks' && (
           <section
             className="flex justify-center"
@@ -289,25 +235,28 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                 Private Events &amp; Corporate Catering
               </p>
               <div
-                className="grid grid-cols-3"
-                style={{ gap: spacing.md, textAlign: 'center' }}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: spacing.md,
+                }}
               >
-                <div>
-                  <div style={{ fontSize: 24, marginBottom: 4 }}>🍽️</div>
-                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.5 }}>
-                    Feed your team with local food trucks — perfect for office lunches and company events
+                <div style={{ maxWidth: 260 }}>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>🍽️</div>
+                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.6, textAlign: 'left' }}>
+                    Feed your staff or clients from local food trucks. Great for meetings, lunches, or events.
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 24, marginBottom: 4 }}>📋</div>
-                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.5 }}>
-                    We match verified, insured trucks to your event — you just pick the date
+                <div style={{ maxWidth: 260 }}>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>📋</div>
+                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.6, textAlign: 'left' }}>
+                    We match verified and insured trucks to your event. You just pick the date &amp; menu.
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 24, marginBottom: 4 }}>📱</div>
-                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.5 }}>
-                    Your guests pre-order online so food is ready when they arrive — no long lines
+                <div style={{ maxWidth: 260 }}>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>📱</div>
+                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.6, textAlign: 'left' }}>
+                    No long lines. Our ordering system keeps service organized, fast &amp; fresh.
                   </div>
                 </div>
               </div>
