@@ -153,11 +153,22 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     severity: 'info',
     audience: 'buyer',
     title: (_d, locale) => t('notif.order_placed_title', locale),
-    message: (d, locale) => t('notif.order_placed_msg', locale, {
-      orderNumber: d.orderNumber || '',
-      withVendor: d.vendorName ? ` with ${d.vendorName}` : '',
-      pickupInfo: (d.marketName ? ` Pickup at ${d.marketName}` : '') + (d.pickupDate ? ` on ${d.pickupDate}` : ''),
-    }),
+    message: (d, locale) => {
+      const signOffs: Record<string, string> = {
+        food_trucks: "Thanks again, and keep on truck'n!",
+        farmers_market: 'Thanks again for shopping local!',
+      }
+      return t('notif.order_placed_msg', locale, {
+        orderNumber: d.orderNumber || '',
+        vendorName: d.vendorName || 'your vendor',
+        brandName: d.brandName || "Food Truck'n",
+        marketName: d.marketName || 'your pickup location',
+        marketAddress: d.marketAddress || '',
+        pickupTime: d.pickupTime || 'your scheduled time',
+        pickupDate: d.pickupDate || 'your scheduled date',
+        signOff: signOffs[d.vertical as string] || 'Thanks again!',
+      })
+    },
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 

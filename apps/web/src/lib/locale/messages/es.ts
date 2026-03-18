@@ -316,6 +316,7 @@ export const es: Record<string, string> = {
   // Pickup details
   'pickup.location': 'Lugar de Recogida',
   'pickup.date': 'Fecha de Recogida:',
+  'pickup.scheduled': 'Recogida Programada:',
   'pickup.market_hours': 'Horario del Mercado:',
   'pickup.contact': '¿Preguntas? Contacta:',
   'pickup.sunday': 'Domingo',
@@ -503,12 +504,13 @@ export const es: Record<string, string> = {
   'order.vendor_handed_hint': 'El vendedor marcó como entregado. Usa la sección de confirmación arriba.',
   'order.ready_hint': 'Listo para recoger. Usa la sección de confirmación arriba.',
   'order.service_fee': 'Cargo por Servicio',
+  'order.small_order_fee': 'Cargo por Pedido Peque\u00f1o',
   'order.tip': 'Propina ({percent}%)',
   'order.total': 'Total',
 
   // ── Notification titles & messages (buyer-facing) ──────────────────
   'notif.order_placed_title': 'Pedido Realizado',
-  'notif.order_placed_msg': 'Tu pedido #{orderNumber} ha sido realizado{withVendor}.{pickupInfo} Te notificaremos cuando el vendedor lo confirme.',
+  'notif.order_placed_msg': '\u00a1Gracias por usar {brandName}!\n\n\u2022 Tu pedido #{orderNumber} ha sido realizado con {vendorName}.\n\u2022 Has seleccionado {marketName} en {marketAddress} como tu lugar de recogida.\n\u2022 Programaste tus art\u00edculos para estar listos a las {pickupTime} el {pickupDate}.\n\nTe notificaremos cuando {vendorName} confirme tu pedido. {signOff}',
   'notif.order_confirmed_title': 'Pedido Confirmado',
   'notif.order_confirmed_msg': '{vendorName} confirmó tu pedido #{orderNumber}{forItem}. Te notificaremos cuando esté listo para recoger.',
   'notif.order_ready_title': 'Pedido Listo para Recoger',

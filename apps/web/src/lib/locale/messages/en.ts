@@ -316,6 +316,7 @@ export const en: Record<string, string> = {
   // Pickup details
   'pickup.location': 'Pickup Location',
   'pickup.date': 'Pickup Date:',
+  'pickup.scheduled': 'Scheduled Pickup:',
   'pickup.market_hours': 'Market Hours:',
   'pickup.contact': 'Questions? Contact:',
   'pickup.sunday': 'Sunday',
@@ -503,12 +504,13 @@ export const en: Record<string, string> = {
   'order.vendor_handed_hint': 'Vendor marked as handed to you. Use the confirmation section above.',
   'order.ready_hint': 'Ready for pickup. Use the confirmation section above.',
   'order.service_fee': 'Service Fee',
+  'order.small_order_fee': 'Small Order Fee',
   'order.tip': 'Tip ({percent}%)',
   'order.total': 'Total',
 
   // ── Notification titles & messages (buyer-facing) ──────────────────
   'notif.order_placed_title': 'Order Placed',
-  'notif.order_placed_msg': 'Your order #{orderNumber} has been placed{withVendor}.{pickupInfo} We\'ll notify you when the vendor confirms it.',
+  'notif.order_placed_msg': 'Thank you for using {brandName}!\n\n\u2022 Your order #{orderNumber} has been placed with {vendorName}.\n\u2022 You have selected {marketName} at {marketAddress} as your pickup location.\n\u2022 You scheduled your items to be ready for pickup at {pickupTime} on {pickupDate}.\n\nWe will notify you when your order has been confirmed by {vendorName}. {signOff}',
   'notif.order_confirmed_title': 'Order Confirmed',
   'notif.order_confirmed_msg': '{vendorName} confirmed your order #{orderNumber}{forItem}. We\'ll notify you when it\'s ready for pickup.',
   'notif.order_ready_title': 'Order Ready for Pickup',
