@@ -8,6 +8,7 @@ import { t } from '@/lib/locale/messages'
 
 interface EventRequestFormProps {
   vertical: string
+  vendorPreference?: string | null
 }
 
 interface FormData {
@@ -77,7 +78,7 @@ const rowStyle: React.CSSProperties = {
   gap: spacing.sm,
 }
 
-export function EventRequestForm({ vertical }: EventRequestFormProps) {
+export function EventRequestForm({ vertical, vendorPreference }: EventRequestFormProps) {
   const accent = verticalAccent[vertical] || verticalAccent.farmers_market
   const locale = getClientLocale()
   const [form, setForm] = useState<FormData>({
@@ -99,7 +100,7 @@ export function EventRequestForm({ vertical }: EventRequestFormProps) {
     budget_notes: '',
     vendor_count: '2',
     setup_instructions: '',
-    additional_notes: '',
+    additional_notes: vendorPreference ? `Preferred vendor: ${vendorPreference}` : '',
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
