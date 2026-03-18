@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
+import { spacing, typography, containers } from '@/lib/design-tokens'
 import { getLocale } from '@/lib/locale/server'
 import {
   Hero,
