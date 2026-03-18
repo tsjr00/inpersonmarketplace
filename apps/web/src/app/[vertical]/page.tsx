@@ -256,6 +256,82 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
           </>
         )}
 
+        {/* Events strip — thin section matching TrustStats style, FT only */}
+        {vertical === 'food_trucks' && (
+          <section
+            className="flex justify-center"
+            style={{
+              backgroundColor: '#6b6b6b',
+              padding: `${spacing.lg} 0`,
+            }}
+          >
+            <div
+              className="w-full"
+              style={{
+                maxWidth: containers.lg,
+                paddingLeft: 'clamp(20px, 5vw, 60px)',
+                paddingRight: 'clamp(20px, 5vw, 60px)',
+              }}
+            >
+              <p
+                className="text-center"
+                style={{
+                  fontSize: typography.sizes.sm,
+                  fontWeight: typography.weights.semibold,
+                  color: '#ffffff',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: spacing.md,
+                  marginTop: 0,
+                }}
+              >
+                Private Events &amp; Corporate Catering
+              </p>
+              <div
+                className="grid grid-cols-3"
+                style={{ gap: spacing.md, textAlign: 'center' }}
+              >
+                <div>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>🍽️</div>
+                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.5 }}>
+                    Feed your team with local food trucks — perfect for office lunches and company events
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>📋</div>
+                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.5 }}>
+                    We match verified, insured trucks to your event — you just pick the date
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>📱</div>
+                  <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.5 }}>
+                    Your guests pre-order online so food is ready when they arrive — no long lines
+                  </div>
+                </div>
+              </div>
+              <div className="text-center" style={{ marginTop: spacing.md }}>
+                <a
+                  href={`/${vertical}/events`}
+                  style={{
+                    display: 'inline-block',
+                    padding: '10px 28px',
+                    backgroundColor: 'transparent',
+                    color: '#ffffff',
+                    border: '2px solid #ffffff',
+                    borderRadius: 6,
+                    fontSize: typography.sizes.sm,
+                    fontWeight: typography.weights.semibold,
+                    textDecoration: 'none',
+                  }}
+                >
+                  Request a Quote
+                </a>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Footer */}
         <Footer vertical={vertical} locale={locale} />
       </main>
