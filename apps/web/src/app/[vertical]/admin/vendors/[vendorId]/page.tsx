@@ -206,36 +206,36 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
                 <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Business Name</div>
                 <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{businessName}</div>
               </div>
-              {profileData.legal_name && (profileData.legal_name as string) !== businessName && (
+              {!!profileData.legal_name && String(profileData.legal_name) !== businessName && (
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Legal Name</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{profileData.legal_name as string}</div>
+                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.legal_name)}</div>
                 </div>
               )}
-              {profileData.email && (
+              {!!profileData.email && (
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Email</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{profileData.email as string}</div>
+                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.email)}</div>
                 </div>
               )}
-              {profileData.phone && (
+              {!!profileData.phone && (
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Phone</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{profileData.phone as string}</div>
+                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.phone)}</div>
                 </div>
               )}
-              {profileData.vendor_type && (
+              {!!profileData.vendor_type && (
                 <div style={fieldRow}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Type</div>
                   <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>
-                    {Array.isArray(profileData.vendor_type) ? (profileData.vendor_type as string[]).join(', ') : profileData.vendor_type as string}
+                    {Array.isArray(profileData.vendor_type) ? (profileData.vendor_type as string[]).join(', ') : String(profileData.vendor_type)}
                   </div>
                 </div>
               )}
-              {profileData.description && (
+              {!!profileData.description && (
                 <div style={{ ...fieldRow, borderBottom: 'none' }}>
                   <div style={{ width: 160, color: colors.textMuted, fontSize: typography.sizes.sm }}>Description</div>
-                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{profileData.description as string}</div>
+                  <div style={{ flex: 1, color: colors.textPrimary, fontSize: typography.sizes.sm }}>{String(profileData.description)}</div>
                 </div>
               )}
               {/* Link to public profile */}
@@ -251,7 +251,7 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
             </div>
 
             {/* Event Readiness Application */}
-            {eventReadiness && eventReadiness.application_status && eventReadiness.application_status !== 'not_applied' && (
+            {eventReadiness && !!eventReadiness.application_status && eventReadiness.application_status !== 'not_applied' && (
               <div style={{
                 ...cardStyle,
                 borderColor: eventReadiness.application_status === 'pending_review' ? '#fde68a' : colors.border,

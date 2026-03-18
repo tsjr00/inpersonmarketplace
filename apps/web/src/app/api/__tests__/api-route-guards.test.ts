@@ -101,7 +101,7 @@ import { GET as checkoutSuccessGet } from '@/app/api/checkout/success/route'
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-function makeRequest(url: string, options?: RequestInit): NextRequest {
+function makeRequest(url: string, options?: { method?: string; headers?: HeadersInit; body?: BodyInit }): NextRequest {
   return new NextRequest(url, options)
 }
 
