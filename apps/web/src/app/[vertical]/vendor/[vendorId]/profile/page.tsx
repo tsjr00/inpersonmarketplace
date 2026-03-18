@@ -891,8 +891,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             )}
           </div>
 
-          {/* View Menu CTA — prominent button for QR code visitors */}
-          <div style={{ marginTop: 16, textAlign: 'center' }}>
+          {/* CTAs — View Menu + Event booking */}
+          <div style={{ marginTop: 16, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <a
               href="#menu"
               style={{
@@ -908,6 +908,24 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             >
               View Menu
             </a>
+            {vendor.event_approved && vertical === 'food_trucks' && (
+              <Link
+                href={`/${vertical}/events?vendor=${vendorId}`}
+                style={{
+                  display: 'inline-block',
+                  padding: '10px 24px',
+                  backgroundColor: 'transparent',
+                  color: branding.colors.primary,
+                  border: `2px solid ${branding.colors.primary}`,
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                }}
+              >
+                🎪 Want this vendor at your event?
+              </Link>
+            )}
           </div>
         </div>
 
