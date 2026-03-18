@@ -47,6 +47,7 @@ export default function VendorAdminActions({
   }
 
   const executeEventApproval = async (approve: boolean) => {
+    setConfirmDialog(prev => ({ ...prev, open: false }))
     setLoading(true)
     setMessage(null)
     try {
