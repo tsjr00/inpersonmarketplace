@@ -26,13 +26,15 @@ export async function PUT(request: NextRequest) {
       throw traced.validation('ERR_VALIDATION_001', validation.error!)
     }
 
-    // Get vendor profile
+    // Get vendor profile — H13 FIX: add vertical filter for multi-vertical safety
+    const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.supabase('select', 'vendor_profiles')
-    const { data: vendor, error: vpError } = await supabase
+    let vpQuery = supabase
       .from('vendor_profiles')
-      .select('id, user_id, vertical_id, profile_data, business_name')
+      .select('id, user_id, vertical_id, profile_data')
       .eq('user_id', user.id)
-      .single()
+    if (vertical) vpQuery = vpQuery.eq('vertical_id', vertical)
+    const { data: vendor, error: vpError } = await vpQuery.single()
 
     if (vpError || !vendor) {
       throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
@@ -83,7 +85,7 @@ export async function PUT(request: NextRequest) {
         user.id,
         'vendor_event_application_submitted',
         {
-          vendorName: vendor.business_name || 'A vendor',
+          vendorName: (existingProfileData.business_name as string) || (existingProfileData.farm_name as string) || 'A vendor',
           vendorId: vendor.id,
         },
         { vertical: vendor.vertical_id }

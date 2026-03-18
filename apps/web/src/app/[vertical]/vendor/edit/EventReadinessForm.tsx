@@ -63,6 +63,7 @@ const hintStyle = {
 }
 
 export default function EventReadinessForm({
+  vertical,
   initialData,
   eventApproved,
 }: EventReadinessFormProps) {
@@ -103,7 +104,7 @@ export default function EventReadinessForm({
     setMessage(null)
 
     try {
-      const res = await fetch('/api/vendor/event-readiness', {
+      const res = await fetch(`/api/vendor/event-readiness?vertical=${vertical}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
