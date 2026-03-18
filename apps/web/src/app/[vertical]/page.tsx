@@ -223,8 +223,8 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
               <p
                 className="text-center"
                 style={{
-                  fontSize: typography.sizes.sm,
-                  fontWeight: typography.weights.semibold,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.bold,
                   color: '#ffffff',
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
@@ -242,19 +242,19 @@ export default async function VerticalHomePage({ params }: VerticalHomePageProps
                 }}
               >
                 <div style={{ maxWidth: 260 }}>
-                  <div style={{ fontSize: 24, marginBottom: 6 }}>🍽️</div>
+                  <div style={{ fontSize: 24, marginBottom: 6, textAlign: 'center' }}>🍽️</div>
                   <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.6, textAlign: 'left' }}>
                     Feed your staff or clients from local food trucks. Great for meetings, lunches, or events.
                   </div>
                 </div>
                 <div style={{ maxWidth: 260 }}>
-                  <div style={{ fontSize: 24, marginBottom: 6 }}>📋</div>
+                  <div style={{ fontSize: 24, marginBottom: 6, textAlign: 'center' }}>✓</div>
                   <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.6, textAlign: 'left' }}>
                     We match verified and insured trucks to your event. You just pick the date &amp; menu.
                   </div>
                 </div>
                 <div style={{ maxWidth: 260 }}>
-                  <div style={{ fontSize: 24, marginBottom: 6 }}>📱</div>
+                  <div style={{ fontSize: 24, marginBottom: 6, textAlign: 'center' }}>📋</div>
                   <div style={{ fontSize: typography.sizes.sm, color: '#ffffff', fontWeight: typography.weights.medium, lineHeight: 1.6, textAlign: 'left' }}>
                     No long lines. Our ordering system keeps service organized, fast &amp; fresh.
                   </div>
