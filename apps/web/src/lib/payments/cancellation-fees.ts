@@ -38,6 +38,7 @@ export interface CancellationInput {
   orderStatus: string
   orderCreatedAt: Date
   vertical?: string // per-vertical grace period
+  smallOrderFeeCents?: number // order-level small order fee, prorated across items
   now?: Date // injectable for testing
 }
 
@@ -67,7 +68,9 @@ export function calculateCancellationFee(input: CancellationInput): Cancellation
   // M12 FIX: Use floor-based proration to avoid off-by-one (remainder goes to last item at checkout)
   const flatFeePerItem = proratedFlatFeeSimple(STRIPE_CONFIG.buyerFlatFeeCents, totalItemsInOrder)
   const buyerFeeOnItem = Math.round(subtotalCents * (STRIPE_CONFIG.buyerFeePercent / 100)) + flatFeePerItem
-  const buyerPaidForItem = subtotalCents + buyerFeeOnItem
+  // Prorate small order fee across items so buyer gets true 75% of total paid
+  const smallOrderFeePerItem = Math.round((input.smallOrderFeeCents || 0) / totalItemsInOrder)
+  const buyerPaidForItem = subtotalCents + buyerFeeOnItem + smallOrderFeePerItem
 
   // Determine grace period (per-vertical) and vendor confirmation status
   const gracePeriodMs = getGracePeriodMs(input.vertical)

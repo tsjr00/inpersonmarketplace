@@ -53,6 +53,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         buyer_user_id,
         status,
         total_cents,
+        small_order_fee_cents,
         created_at,
         order_number,
         vertical_id,
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       orderStatus: orderItem.status,
       orderCreatedAt,
       vertical: order.vertical_id,
+      smallOrderFeeCents: (order as Record<string, unknown>).small_order_fee_cents as number || 0,
     })
 
     // H3 FIX: Conditional UPDATE — only succeeds if cancelled_at IS NULL.
