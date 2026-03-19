@@ -205,21 +205,6 @@ export function Header({
               {term(vertical, 'vendors', locale)}
             </Link>
 
-            {vertical === 'food_trucks' && (
-              <Link
-                href={`/${vertical}/events`}
-                style={{
-                  color: pathname?.includes('/events') ? colors.primary : colors.textSecondary,
-                  textDecoration: 'none',
-                  borderBottom: 'none',
-                  fontWeight: pathname?.includes('/events') ? typography.weights.semibold : typography.weights.normal,
-                  fontSize: typography.sizes.sm
-                }}
-              >
-                Events
-              </Link>
-            )}
-
             {user && (
               <Link
                 href={`/${vertical}/dashboard`}
@@ -569,23 +554,6 @@ export function Header({
             >
               {term(vertical, 'vendors', locale)}
             </Link>
-
-            {vertical === 'food_trucks' && (
-              <Link
-                href={`/${vertical}/events`}
-                onClick={() => setMobileMenuOpen(false)}
-                style={{
-                  display: 'block',
-                  padding: `${spacing.xs} 0`,
-                  textDecoration: 'none',
-                  color: colors.textPrimary,
-                  fontSize: typography.sizes.base,
-                  fontWeight: typography.weights.medium
-                }}
-              >
-                Events
-              </Link>
-            )}
 
             {user ? (
               <>

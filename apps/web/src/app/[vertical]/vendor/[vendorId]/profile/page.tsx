@@ -592,11 +592,12 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                   <span style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    padding: '4px 10px',
-                    backgroundColor: '#d1fae5',
-                    color: '#065f46',
+                    padding: '3px 10px',
+                    backgroundColor: 'transparent',
+                    color: '#545454',
+                    border: '1.5px solid #545454',
                     borderRadius: 16,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: 600,
                   }}>
                     {t('vp.event_approved', locale)}
@@ -801,11 +802,12 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  padding: '3px 8px',
-                  backgroundColor: '#d1fae5',
-                  color: '#065f46',
+                  padding: '2px 8px',
+                  backgroundColor: 'transparent',
+                  color: '#545454',
+                  border: '1.5px solid #545454',
                   borderRadius: 12,
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 600,
                 }}>
                   ✓ Event Approved
@@ -908,24 +910,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             >
               View Menu
             </a>
-            {vendor.event_approved && vertical === 'food_trucks' && (
-              <Link
-                href={`/${vertical}/events?vendor=${vendorId}`}
-                style={{
-                  display: 'inline-block',
-                  padding: '10px 24px',
-                  backgroundColor: 'transparent',
-                  color: branding.colors.primary,
-                  border: `2px solid ${branding.colors.primary}`,
-                  borderRadius: 8,
-                  fontSize: 14,
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                }}
-              >
-                🎪 Want this vendor at your event?
-              </Link>
-            )}
           </div>
         </div>
 
@@ -1373,6 +1357,34 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                   )
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Event / Catering */}
+          {vendor.event_approved && vertical === 'food_trucks' && (
+            <div style={{ paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
+                Event Catering
+              </h3>
+              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px 0' }}>
+                This vendor is approved for private events and corporate catering.
+              </p>
+              <Link
+                href={`/${vertical}/events?vendor=${vendorId}`}
+                style={{
+                  display: 'inline-block',
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#545454',
+                  border: '1.5px solid #545454',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                Book for Your Event
+              </Link>
             </div>
           )}
         </div>

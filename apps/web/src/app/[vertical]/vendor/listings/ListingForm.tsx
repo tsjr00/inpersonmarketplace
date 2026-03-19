@@ -53,7 +53,7 @@ export default function ListingForm({
   const isPendingVendor = vendorStatus !== 'approved'
 
   // Onboarding gate check - fetched on mount
-  const [canPublish, setCanPublish] = useState<boolean | null>(false)
+  const [canPublish, setCanPublish] = useState<boolean | null>(null)
   const [publishBlockReason, setPublishBlockReason] = useState<string | null>(null)
 
   useEffect(() => {
