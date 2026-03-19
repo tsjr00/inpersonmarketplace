@@ -127,3 +127,125 @@ export async function GET(request: NextRequest) {
     })
   })
 }
+
+// POST - Admin creates event directly (skips public form, goes straight to approved)
+export async function POST(request: NextRequest) {
+  return withErrorTracing('/api/admin/events', 'POST', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await checkRateLimit(`admin:${clientIp}`, rateLimits.admin)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('role, roles')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!hasAdminRole(userProfile || {})) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const { company_name, contact_name, contact_email, contact_phone, event_date, event_end_date,
+      event_start_time, event_end_time, headcount, address, city, state, zip, vendor_count,
+      cuisine_preferences, dietary_notes, budget_notes, setup_instructions, additional_notes, vertical } = body
+
+    if (!company_name || !event_date || !headcount || !address || !city || !state) {
+      return NextResponse.json({ error: 'Missing required fields: company_name, event_date, headcount, address, city, state' }, { status: 400 })
+    }
+
+    const serviceClient = createServiceClient()
+
+    // Generate event token
+    const tokenBase = company_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30)
+    const tokenSuffix = Date.now().toString(36).slice(-6)
+    const eventToken = `${tokenBase}-${tokenSuffix}`
+
+    const { data: created, error: insertError } = await serviceClient
+      .from('catering_requests')
+      .insert({
+        vertical_id: vertical || 'food_trucks',
+        status: 'approved',
+        company_name,
+        contact_name: contact_name || 'Admin-created',
+        contact_email: contact_email || user.email,
+        contact_phone: contact_phone || null,
+        event_date,
+        event_end_date: event_end_date || event_date,
+        event_start_time: event_start_time || '11:00:00',
+        event_end_time: event_end_time || '14:00:00',
+        headcount: parseInt(headcount),
+        address,
+        city,
+        state,
+        zip: zip || null,
+        vendor_count: vendor_count || 2,
+        cuisine_preferences: cuisine_preferences || null,
+        dietary_notes: dietary_notes || null,
+        budget_notes: budget_notes || null,
+        setup_instructions: setup_instructions || null,
+        additional_notes: additional_notes || null,
+        admin_notes: 'Created by admin',
+        event_token: eventToken,
+      })
+      .select('*')
+      .single()
+
+    if (insertError || !created) {
+      console.error('[admin/events] Create error:', insertError)
+      return NextResponse.json({ error: 'Failed to create event' }, { status: 500 })
+    }
+
+    // Auto-create event market (same logic as approval in PATCH)
+    const eventSuffix = (vertical || 'food_trucks') === 'farmers_market' ? 'Pop-Up Market' : 'Private Event'
+    const eventName = `${company_name} ${eventSuffix}`
+    const dayOfWeek = new Date(event_date + 'T00:00:00').getDay()
+
+    const { data: market } = await serviceClient
+      .from('markets')
+      .insert({
+        vertical_id: vertical || 'food_trucks',
+        vendor_profile_id: null,
+        name: eventName,
+        market_type: 'event',
+        event_start_date: event_date,
+        event_end_date: event_end_date || event_date,
+        is_private: true,
+        address,
+        city,
+        state,
+        zip: zip || null,
+        headcount: parseInt(headcount),
+        cutoff_hours: 48,
+        status: 'active',
+        catering_request_id: created.id,
+      })
+      .select('id')
+      .single()
+
+    if (market) {
+      // Create schedule
+      await serviceClient.from('market_schedules').insert({
+        market_id: market.id,
+        day_of_week: dayOfWeek,
+        start_time: event_start_time || '11:00:00',
+        end_time: event_end_time || '14:00:00',
+        active: true,
+      })
+
+      // Link market to catering request
+      await serviceClient
+        .from('catering_requests')
+        .update({ market_id: market.id })
+        .eq('id', created.id)
+    }
+
+    return NextResponse.json({ success: true, request: { ...created, market_id: market?.id || null } })
+  })
+}
