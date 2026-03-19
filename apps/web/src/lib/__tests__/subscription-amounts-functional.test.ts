@@ -21,28 +21,28 @@ import { calculateCancellationFee, CANCELLATION_FEE_PERCENT } from '@/lib/paymen
 // PF-023: FM subscription amounts
 // =============================================================================
 
-describe('PF-023: FM subscription pricing', () => {
-  it('FM Standard monthly = $10.00 (1000 cents)', () => {
-    expect(SUBSCRIPTION_AMOUNTS.fm_standard_monthly_cents).toBe(1000)
+describe('PF-023: FM subscription pricing (legacy aliases)', () => {
+  it('FM Standard monthly = $0 (free tier)', () => {
+    expect(SUBSCRIPTION_AMOUNTS.fm_standard_monthly_cents).toBe(0)
   })
 
-  it('FM Standard annual = $81.50 (8150 cents)', () => {
-    expect(SUBSCRIPTION_AMOUNTS.fm_standard_annual_cents).toBe(8150)
+  it('FM Standard annual = $0 (free tier)', () => {
+    expect(SUBSCRIPTION_AMOUNTS.fm_standard_annual_cents).toBe(0)
   })
 
-  it('FM Premium monthly = $25.00 (2500 cents)', () => {
+  it('FM Premium monthly = $25.00 (2500 cents, alias for pro)', () => {
     expect(SUBSCRIPTION_AMOUNTS.fm_premium_monthly_cents).toBe(2500)
   })
 
-  it('FM Premium annual = $208.15 (20815 cents)', () => {
+  it('FM Premium annual = $208.15 (20815 cents, alias for pro)', () => {
     expect(SUBSCRIPTION_AMOUNTS.fm_premium_annual_cents).toBe(20815)
   })
 
-  it('FM Featured monthly = $50.00 (5000 cents)', () => {
+  it('FM Featured monthly = $50.00 (5000 cents, alias for boss)', () => {
     expect(SUBSCRIPTION_AMOUNTS.fm_featured_monthly_cents).toBe(5000)
   })
 
-  it('FM Featured annual = $481.50 (48150 cents)', () => {
+  it('FM Featured annual = $481.50 (48150 cents, alias for boss)', () => {
     expect(SUBSCRIPTION_AMOUNTS.fm_featured_annual_cents).toBe(48150)
   })
 })
@@ -51,13 +51,13 @@ describe('PF-023: FM subscription pricing', () => {
 // PF-024: FT subscription amounts
 // =============================================================================
 
-describe('PF-024: FT subscription pricing', () => {
-  it('FT Basic monthly = $10.00 (1000 cents)', () => {
-    expect(SUBSCRIPTION_AMOUNTS.ft_basic_monthly_cents).toBe(1000)
+describe('PF-024: FT subscription pricing (legacy aliases)', () => {
+  it('FT Basic monthly = $0 (free tier)', () => {
+    expect(SUBSCRIPTION_AMOUNTS.ft_basic_monthly_cents).toBe(0)
   })
 
-  it('FT Basic annual = $81.50 (8150 cents)', () => {
-    expect(SUBSCRIPTION_AMOUNTS.ft_basic_annual_cents).toBe(8150)
+  it('FT Basic annual = $0 (free tier)', () => {
+    expect(SUBSCRIPTION_AMOUNTS.ft_basic_annual_cents).toBe(0)
   })
 
   it('FT Pro monthly = $25.00 (2500 cents)', () => {

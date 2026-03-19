@@ -18,8 +18,8 @@ export default function VendorAvatar({ imageUrl, name, size = 48, tier }: Props)
     .slice(0, 2)
 
   // Border color based on tier
-  const borderColor = tier === 'premium' ? '#3b82f6' :
-                      tier === 'featured' ? '#f59e0b' : '#d1d5db'
+  const borderColor = tier === 'pro' ? '#3b82f6' :
+                      tier === 'boss' ? '#f59e0b' : '#d1d5db'
 
   return (
     <div

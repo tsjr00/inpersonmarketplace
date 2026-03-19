@@ -5,550 +5,34 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ErrorDisplay } from '@/components/ErrorFeedback'
 import { colors } from '@/lib/design-tokens'
-import { FT_TIER_LIMITS, TIER_LIMITS, getFtTierLabel, type FoodTruckTier, type VendorTier } from '@/lib/vendor-limits'
+import { TIER_LIMITS, normalizeTier, getVendorTierLabel, type VendorTier } from '@/lib/vendor-limits'
 import { SUBSCRIPTION_AMOUNTS } from '@/lib/pricing'
 import { term } from '@/lib/vertical'
 
-// ── Food Truck 3-Tier Upgrade Page ──────────────────────────────────────
+// ── Unified 3-Tier Upgrade Page ──────────────────────────────────────
 
-const FT_TIERS: { key: FoodTruckTier; monthlyPrice: number; annualPrice: number; popular?: boolean }[] = [
+const TIERS: { key: VendorTier; monthlyPrice: number; annualPrice: number; popular?: boolean }[] = [
   { key: 'free', monthlyPrice: 0, annualPrice: 0 },
-  { key: 'basic', monthlyPrice: SUBSCRIPTION_AMOUNTS.ft_basic_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.ft_basic_annual_cents / 100 },
-  { key: 'pro', monthlyPrice: SUBSCRIPTION_AMOUNTS.ft_pro_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.ft_pro_annual_cents / 100, popular: true },
-  { key: 'boss', monthlyPrice: SUBSCRIPTION_AMOUNTS.ft_boss_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.ft_boss_annual_cents / 100 },
+  { key: 'pro', monthlyPrice: SUBSCRIPTION_AMOUNTS.pro_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.pro_annual_cents / 100, popular: true },
+  { key: 'boss', monthlyPrice: SUBSCRIPTION_AMOUNTS.boss_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.boss_annual_cents / 100 },
 ]
 
-function FtFeatureRow({ label, free, basic, pro, boss }: { label: string; free: string; basic: string; pro: string; boss: string }) {
+function FeatureRow({ label, free, pro, boss }: { label: string; free: string; pro: string; boss: string }) {
   return (
     <>
       <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563', fontSize: 13 }}>{label}</div>
       <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#9ca3af', textAlign: 'center', fontSize: 13 }}>{free}</div>
-      <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center', fontSize: 13 }}>{basic}</div>
       <div style={{ padding: '8px 16px', backgroundColor: '#fef2f2', color: '#991b1b', textAlign: 'center', fontSize: 13, fontWeight: 600 }}>{pro}</div>
       <div style={{ padding: '8px 16px', backgroundColor: '#fef2f2', color: '#991b1b', textAlign: 'center', fontSize: 13, fontWeight: 700 }}>{boss}</div>
     </>
   )
 }
 
-function FoodTruckUpgradePage({ vertical }: { vertical: string }) {
-  const [currentTier, setCurrentTier] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isProcessing, setIsProcessing] = useState<string | null>(null) // tier being processed
-  const [error, setError] = useState<{ message: string; code?: string; traceId?: string } | null>(null)
-  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState<string | null>(null)
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
+export default function UpgradePage() {
+  const params = useParams()
+  const vertical = params.vertical as string
+  const isFoodTruck = vertical === 'food_trucks'
 
-  useEffect(() => {
-    async function checkSubscription() {
-      try {
-        const res = await fetch(`/api/vendor/subscription/status?vertical=${vertical}`)
-        if (res.ok) {
-          const data = await res.json()
-          setCurrentTier(data.tier || 'free')
-        } else {
-          setCurrentTier('free')
-        }
-      } catch {
-        setCurrentTier('free')
-      } finally {
-        setLoading(false)
-      }
-    }
-    checkSubscription()
-  }, [vertical])
-
-  const handleSelectTier = async (tier: string) => {
-    if (tier === currentTier) return
-
-    // Check if downgrade
-    const tierOrder: Record<string, number> = { free: 0, basic: 1, pro: 2, boss: 3 }
-    const isDowngrade = (tierOrder[tier] || 0) < (tierOrder[currentTier || 'free'] || 0)
-
-    if (isDowngrade && showDowngradeConfirm !== tier) {
-      setShowDowngradeConfirm(tier)
-      return
-    }
-
-    setIsProcessing(tier)
-    setError(null)
-    setShowDowngradeConfirm(null)
-
-    try {
-      // Free tier: cancel subscription and set tier directly (no Stripe checkout)
-      if (tier === 'free') {
-        const res = await fetch('/api/vendor/subscription/downgrade-free', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vertical }),
-        })
-
-        const data = await res.json()
-
-        if (!res.ok) {
-          setError({
-            message: data.error || 'Failed to downgrade',
-            code: data.code,
-            traceId: data.traceId,
-          })
-          setIsProcessing(null)
-          return
-        }
-
-        setCurrentTier('free')
-        setIsProcessing(null)
-        return
-      }
-
-      const res = await fetch('/api/subscriptions/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'vendor',
-          cycle: billingCycle,
-          vertical,
-          tier,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError({
-          message: data.error || 'Failed to create checkout session',
-          code: data.code,
-          traceId: data.traceId,
-        })
-        setIsProcessing(null)
-        return
-      }
-
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        setError({ message: 'No checkout URL returned' })
-        setIsProcessing(null)
-      }
-    } catch (err) {
-      setError({ message: err instanceof Error ? err.message : 'Failed to start checkout' })
-      setIsProcessing(null)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#666' }}>Loading...</p>
-      </div>
-    )
-  }
-
-  const f = FT_TIER_LIMITS.free
-  const b = FT_TIER_LIMITS.basic
-  const p = FT_TIER_LIMITS.pro
-  const bo = FT_TIER_LIMITS.boss
-
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '24px 16px' }}>
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        {/* Back Link */}
-        <Link
-          href={`/${vertical}/vendor/dashboard`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#666', textDecoration: 'none', fontSize: 14, marginBottom: 24 }}
-        >
-          &larr; Back to Dashboard
-        </Link>
-
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <h1 style={{ fontSize: 32, fontWeight: 'bold', color: '#333', margin: '0 0 12px 0' }}>
-            Choose Your Plan
-          </h1>
-          <p style={{ fontSize: 18, color: '#666', margin: 0 }}>
-            All plans include access to the Food Truck&apos;n platform. Upgrade for more features.
-          </p>
-        </div>
-
-        {/* Billing Cycle Toggle */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <div style={{
-            display: 'inline-flex',
-            backgroundColor: '#f3f4f6',
-            borderRadius: 10,
-            padding: 4,
-          }}>
-            <button
-              onClick={() => setBillingCycle('monthly')}
-              style={{
-                padding: '10px 24px',
-                fontSize: 14,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: billingCycle === 'monthly' ? 'white' : 'transparent',
-                color: billingCycle === 'monthly' ? '#333' : '#666',
-                boxShadow: billingCycle === 'monthly' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              }}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingCycle('annual')}
-              style={{
-                padding: '10px 24px',
-                fontSize: 14,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: billingCycle === 'annual' ? 'white' : 'transparent',
-                color: billingCycle === 'annual' ? '#333' : '#666',
-                boxShadow: billingCycle === 'annual' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              Annual
-              <span style={{
-                backgroundColor: '#ff3131',
-                color: 'white',
-                padding: '2px 8px',
-                borderRadius: 12,
-                fontSize: 11,
-                fontWeight: 700,
-              }}>
-                Save up to 32%
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div style={{ marginBottom: 16 }}>
-            <ErrorDisplay error={error} verticalId={vertical} />
-          </div>
-        )}
-
-        {/* Tier Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-          gap: 20,
-          marginBottom: 40,
-        }}>
-          {FT_TIERS.map(({ key, monthlyPrice, annualPrice, popular }) => {
-            const limits = FT_TIER_LIMITS[key]
-            const isCurrent = currentTier === key
-            const tierOrder: Record<string, number> = { free: 0, basic: 1, pro: 2, boss: 3 }
-            const isUpgrade = (tierOrder[key] || 0) > (tierOrder[currentTier || 'free'] || 0)
-            const isDowngrade = (tierOrder[key] || 0) < (tierOrder[currentTier || 'free'] || 0)
-            const processing = isProcessing === key
-
-            const isAnnual = billingCycle === 'annual'
-            const displayPrice = isAnnual ? annualPrice : monthlyPrice
-            const monthlySavings = monthlyPrice > 0 && isAnnual
-              ? Math.round((1 - annualPrice / (monthlyPrice * 12)) * 100)
-              : 0
-
-            return (
-              <div
-                key={key}
-                style={{
-                  backgroundColor: 'white',
-                  borderRadius: 16,
-                  padding: 24,
-                  border: popular ? '2px solid #ff3131' : isCurrent ? '2px solid #4A4A4A' : '2px solid #e5e7eb',
-                  boxShadow: popular ? '0 8px 24px rgba(255, 49, 49, 0.15)' : '0 1px 3px rgba(0,0,0,0.1)',
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                {/* Popular badge */}
-                {popular && !isCurrent && (
-                  <div style={{
-                    position: 'absolute',
-                    top: -12,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    backgroundColor: '#ff3131',
-                    color: 'white',
-                    padding: '4px 16px',
-                    borderRadius: 20,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                  }}>
-                    MOST POPULAR
-                  </div>
-                )}
-
-                {/* Current plan badge */}
-                {isCurrent && (
-                  <div style={{
-                    position: 'absolute',
-                    top: -12,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    backgroundColor: '#4A4A4A',
-                    color: 'white',
-                    padding: '4px 16px',
-                    borderRadius: 20,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                  }}>
-                    CURRENT PLAN
-                  </div>
-                )}
-
-                {/* Tier name */}
-                <h3 style={{ margin: '8px 0 4px', fontSize: 22, fontWeight: 700, color: '#333', textAlign: 'center' }}>
-                  {getFtTierLabel(key)}
-                </h3>
-
-                {/* Price */}
-                <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  {displayPrice === 0 ? (
-                    <span style={{ fontSize: 28, fontWeight: 'bold', color: '#333' }}>Free</span>
-                  ) : isAnnual ? (
-                    <div>
-                      <div>
-                        <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${displayPrice.toFixed(2)}</span>
-                        <span style={{ color: '#666', fontSize: 16 }}>/yr</span>
-                      </div>
-                      <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-                        ${(displayPrice / 12).toFixed(2)}/mo
-                      </div>
-                      {monthlySavings > 0 && (
-                        <div style={{
-                          display: 'inline-block',
-                          marginTop: 4,
-                          padding: '2px 8px',
-                          backgroundColor: '#fef2f2',
-                          color: '#ff3131',
-                          borderRadius: 12,
-                          fontSize: 11,
-                          fontWeight: 600,
-                        }}>
-                          Save {monthlySavings}%
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${displayPrice.toFixed(2)}</span>
-                      <span style={{ color: '#666', fontSize: 16 }}>/mo</span>
-                    </>
-                  )}
-                </div>
-
-                {/* Feature list */}
-                <ul style={{ margin: '0 0 24px', paddingLeft: 20, fontSize: 14, color: '#4b5563', lineHeight: 2, flex: 1 }}>
-                  <li><strong>{limits.productListings}</strong> menu items</li>
-                  <li><strong>{limits.privatePickupLocations}</strong> single truck location{limits.privatePickupLocations !== 1 ? 's' : ''}</li>
-                  <li><strong>{limits.traditionalMarkets}</strong> multi-truck location{limits.traditionalMarkets !== 1 ? 's' : ''}</li>
-                  <li><strong>{limits.totalMarketBoxes}</strong> Chef Box{limits.totalMarketBoxes !== 1 ? 'es' : ''} (up to {limits.maxSubscribersPerOffering} subscribers)</li>
-                  {limits.analyticsDays > 0 ? (
-                    <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' + export' : ''}</li>
-                  ) : (
-                    <li style={{ color: '#9ca3af' }}>No analytics</li>
-                  )}
-                  {limits.priorityPlacement > 0 && (
-                    <li><strong>{limits.priorityPlacement === 2 ? '1st' : '2nd'} priority</strong> placement</li>
-                  )}
-                </ul>
-
-                {/* Action button */}
-                {isCurrent ? (
-                  <button
-                    disabled
-                    style={{
-                      width: '100%',
-                      padding: '10px 0',
-                      fontSize: 16,
-                      fontWeight: 600,
-                      backgroundColor: '#f3f4f6',
-                      color: '#9ca3af',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 8,
-                      cursor: 'not-allowed',
-                    }}
-                  >
-                    Current Plan
-                  </button>
-                ) : isUpgrade ? (
-                  <button
-                    onClick={() => handleSelectTier(key)}
-                    disabled={!!isProcessing}
-                    style={{
-                      width: '100%',
-                      padding: '10px 0',
-                      fontSize: 16,
-                      fontWeight: 600,
-                      backgroundColor: processing ? '#f5f5f5' : 'transparent',
-                      color: processing ? '#9ca3af' : '#ff3131',
-                      border: processing ? '2px solid #9ca3af' : '2px solid #ff3131',
-                      borderRadius: 8,
-                      cursor: processing ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {processing ? 'Processing...' : `Upgrade to ${getFtTierLabel(key)}`}
-                  </button>
-                ) : isDowngrade ? (
-                  <>
-                    <button
-                      onClick={() => handleSelectTier(key)}
-                      disabled={!!isProcessing}
-                      style={{
-                        width: '100%',
-                        padding: '10px 0',
-                        fontSize: 16,
-                        fontWeight: 600,
-                        backgroundColor: showDowngradeConfirm === key ? '#dc2626' : processing ? '#9ca3af' : 'white',
-                        color: showDowngradeConfirm === key ? 'white' : '#666',
-                        border: showDowngradeConfirm === key ? 'none' : '1px solid #d1d5db',
-                        borderRadius: 8,
-                        cursor: processing ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {processing ? 'Processing...' : showDowngradeConfirm === key ? 'Confirm Downgrade' : `Downgrade to ${getFtTierLabel(key)}`}
-                    </button>
-                    {showDowngradeConfirm === key && (
-                      <p style={{ margin: '8px 0 0', fontSize: 12, color: '#dc2626', textAlign: 'center' }}>
-                        You will lose access to {getFtTierLabel(currentTier || 'free')} features. Click again to confirm.
-                      </p>
-                    )}
-                  </>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Feature Comparison Table */}
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: 12,
-          padding: 32,
-          marginBottom: 32,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600, color: '#333', margin: '0 0 24px 0' }}>
-            Compare Plans
-          </h2>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr 1fr 1fr 1fr',
-            gap: 1,
-            backgroundColor: '#e5e7eb',
-            borderRadius: 8,
-            overflow: 'hidden',
-          }}>
-            {/* Header */}
-            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#374151', fontSize: 13 }}>Feature</div>
-            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#9ca3af', textAlign: 'center', fontSize: 13 }}>Free</div>
-            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#374151', textAlign: 'center', fontSize: 13 }}>Basic</div>
-            <div style={{ padding: '10px 16px', backgroundColor: '#fef2f2', fontWeight: 600, color: '#991b1b', textAlign: 'center', fontSize: 13 }}>Pro</div>
-            <div style={{ padding: '10px 16px', backgroundColor: '#fef2f2', fontWeight: 600, color: '#991b1b', textAlign: 'center', fontSize: 13 }}>Boss</div>
-
-            <FtFeatureRow label="Menu Items" free={String(f.productListings)} basic={String(b.productListings)} pro={String(p.productListings)} boss={String(bo.productListings)} />
-            <FtFeatureRow label="Single Truck Locations" free={String(f.privatePickupLocations)} basic={String(b.privatePickupLocations)} pro={String(p.privatePickupLocations)} boss={String(bo.privatePickupLocations)} />
-            <FtFeatureRow label="Multi-Truck Locations" free={String(f.traditionalMarkets)} basic={String(b.traditionalMarkets)} pro={String(p.traditionalMarkets)} boss={String(bo.traditionalMarkets)} />
-            <FtFeatureRow label="Chef Boxes" free={String(f.totalMarketBoxes)} basic={String(b.totalMarketBoxes)} pro={String(p.totalMarketBoxes)} boss={String(bo.totalMarketBoxes)} />
-            <FtFeatureRow label="Subscribers/Box" free={String(f.maxSubscribersPerOffering)} basic={String(b.maxSubscribersPerOffering)} pro={String(p.maxSubscribersPerOffering)} boss={String(bo.maxSubscribersPerOffering)} />
-            <FtFeatureRow label="Analytics" free={`${f.analyticsDays}-day`} basic={`${b.analyticsDays}-day`} pro={`${p.analyticsDays}-day`} boss={`${bo.analyticsDays}-day + Export`} />
-            <FtFeatureRow label="Priority Placement" free="—" basic="—" pro="2nd" boss="1st" />
-            <FtFeatureRow label="Notifications" free="In-App" basic="App, Email" pro="App, Push, Email" boss="All (incl SMS)" />
-          </div>
-        </div>
-
-        {/* FAQ */}
-        <div style={{
-          padding: 24,
-          backgroundColor: 'white',
-          borderRadius: 12,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600, color: '#333' }}>
-            Frequently Asked Questions
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What are Chef Boxes?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Chef Boxes let you offer 4-week prepaid meal subscriptions — like Weekly Dinner Boxes, Family Kits, or Mystery Boxes. Customers get guaranteed meals, and you get guaranteed recurring revenue.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                Can I change plans anytime?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Yes! Upgrade or downgrade anytime. When you change plans, your current subscription is canceled and you start fresh on the new plan.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What happens if I downgrade?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                If you exceed the lower plan&apos;s limits, you&apos;ll need to deactivate extra menu items, locations, or Chef Boxes to stay within your new plan&apos;s limits.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What is priority placement?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Boss members appear first in search results, Pro members appear second. Priority only applies within matching search results — it doesn&apos;t override category or location filters.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <p style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: '#666' }}>
-          Secure payment powered by Stripe. {billingCycle === 'annual' ? 'Annual plans billed once per year.' : 'Cancel or change plans anytime.'}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// ── Farmers Market 4-Tier Upgrade Page ──────────────────────────────────
-
-const FM_TIERS: { key: VendorTier; monthlyPrice: number; annualPrice: number; popular?: boolean }[] = [
-  { key: 'free', monthlyPrice: 0, annualPrice: 0 },
-  { key: 'standard', monthlyPrice: SUBSCRIPTION_AMOUNTS.fm_standard_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.fm_standard_annual_cents / 100 },
-  { key: 'premium', monthlyPrice: SUBSCRIPTION_AMOUNTS.fm_premium_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.fm_premium_annual_cents / 100, popular: true },
-  { key: 'featured', monthlyPrice: SUBSCRIPTION_AMOUNTS.fm_featured_monthly_cents / 100, annualPrice: SUBSCRIPTION_AMOUNTS.fm_featured_annual_cents / 100 },
-]
-
-const FM_TIER_LABELS: Record<string, string> = {
-  free: 'Free',
-  standard: 'Standard',
-  premium: 'Premium',
-  featured: 'Featured',
-}
-
-function FmFeatureRow({ label, free, standard, premium, featured }: { label: string; free: string; standard: string; premium: string; featured: string }) {
-  return (
-    <>
-      <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#4b5563', fontSize: 13 }}>{label}</div>
-      <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#9ca3af', textAlign: 'center', fontSize: 13 }}>{free}</div>
-      <div style={{ padding: '8px 16px', backgroundColor: 'white', color: '#6b7280', textAlign: 'center', fontSize: 13 }}>{standard}</div>
-      <div style={{ padding: '8px 16px', backgroundColor: '#f0fdf4', color: '#166534', textAlign: 'center', fontSize: 13, fontWeight: 600 }}>{premium}</div>
-      <div style={{ padding: '8px 16px', backgroundColor: '#fffbeb', color: '#92400e', textAlign: 'center', fontSize: 13, fontWeight: 700 }}>{featured}</div>
-    </>
-  )
-}
-
-function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
   const [currentTier, setCurrentTier] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState<string | null>(null)
@@ -562,7 +46,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
         const res = await fetch(`/api/vendor/subscription/status?vertical=${vertical}`)
         if (res.ok) {
           const data = await res.json()
-          setCurrentTier(data.tier || 'free')
+          setCurrentTier(normalizeTier(data.tier))
         } else {
           setCurrentTier('free')
         }
@@ -578,7 +62,7 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
   const handleSelectTier = async (tier: string) => {
     if (tier === currentTier) return
 
-    const tierOrder: Record<string, number> = { free: 0, standard: 1, premium: 2, featured: 3 }
+    const tierOrder: Record<string, number> = { free: 0, pro: 1, boss: 2 }
     const isDowngrade = (tierOrder[tier] || 0) < (tierOrder[currentTier || 'free'] || 0)
 
     if (isDowngrade && showDowngradeConfirm !== tier) {
@@ -592,305 +76,232 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
 
     try {
       if (tier === 'free') {
-        const res = await fetch('/api/vendor/subscription/downgrade-free', {
+        // Downgrade to free
+        const res = await fetch('/api/vendor/tier/downgrade', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vertical }),
+          body: JSON.stringify({ vertical })
         })
-        const data = await res.json()
-        if (!res.ok) {
-          setError({ message: data.error || 'Failed to downgrade', code: data.code, traceId: data.traceId })
-          setIsProcessing(null)
-          return
+        if (res.ok) {
+          setCurrentTier('free')
+        } else {
+          const data = await res.json()
+          setError({ message: data.error || 'Failed to downgrade' })
         }
-        setCurrentTier('free')
-        setIsProcessing(null)
-        return
-      }
-
-      const res = await fetch('/api/subscriptions/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'vendor', cycle: billingCycle, vertical, tier }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError({ message: data.error || 'Failed to create checkout session', code: data.code, traceId: data.traceId })
-        setIsProcessing(null)
-        return
-      }
-      if (data.url) {
-        window.location.href = data.url
       } else {
-        setError({ message: 'No checkout URL returned' })
-        setIsProcessing(null)
+        // Upgrade — redirect to Stripe checkout
+        const res = await fetch('/api/subscriptions/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tier,
+            cycle: billingCycle,
+            vertical,
+            subscriptionType: 'vendor',
+          })
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          if (data.url) window.location.href = data.url
+        } else {
+          const data = await res.json()
+          setError({ message: data.error || 'Failed to start checkout' })
+        }
       }
     } catch (err) {
-      setError({ message: err instanceof Error ? err.message : 'Failed to start checkout' })
+      setError({ message: err instanceof Error ? err.message : 'An error occurred' })
+    } finally {
       setIsProcessing(null)
     }
   }
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#666' }}>Loading...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' }}>
+        <p style={{ color: '#6b7280' }}>Loading...</p>
       </div>
     )
   }
 
-  const fr = TIER_LIMITS.free
-  const st = TIER_LIMITS.standard
-  const pr = TIER_LIMITS.premium
-  const fe = TIER_LIMITS.featured
+  const normalizedCurrent = normalizeTier(currentTier)
+  const tierOrder: Record<string, number> = { free: 0, pro: 1, boss: 2 }
+  const limits = TIER_LIMITS
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '24px 16px' }}>
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        {/* Back Link */}
-        <Link
-          href={`/${vertical}/vendor/dashboard`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#666', textDecoration: 'none', fontSize: 14, marginBottom: 24 }}
-        >
-          &larr; Back to Dashboard
-        </Link>
-
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <h1 style={{ fontSize: 32, fontWeight: 'bold', color: '#333', margin: '0 0 12px 0' }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <Link href={`/${vertical}/vendor/dashboard`} style={{ color: colors.primary, textDecoration: 'none', fontSize: 14 }}>
+            ← Back to Dashboard
+          </Link>
+          <h1 style={{ marginTop: 12, marginBottom: 8, fontSize: 28, fontWeight: 700, color: '#111827' }}>
             Choose Your Plan
           </h1>
-          <p style={{ fontSize: 18, color: '#666', margin: 0 }}>
-            Grow your business with the right plan for you.
+          <p style={{ color: '#6b7280', fontSize: 15, margin: 0 }}>
+            Scale your {isFoodTruck ? 'food truck' : 'vendor'} business with the right plan
           </p>
         </div>
 
-        {/* Billing Cycle Toggle */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <div style={{
-            display: 'inline-flex',
-            backgroundColor: '#f3f4f6',
-            borderRadius: 10,
-            padding: 4,
-          }}>
-            <button
-              onClick={() => setBillingCycle('monthly')}
-              style={{
-                padding: '10px 24px',
-                fontSize: 14,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: billingCycle === 'monthly' ? 'white' : 'transparent',
-                color: billingCycle === 'monthly' ? '#333' : '#666',
-                boxShadow: billingCycle === 'monthly' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              }}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingCycle('annual')}
-              style={{
-                padding: '10px 24px',
-                fontSize: 14,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: billingCycle === 'annual' ? 'white' : 'transparent',
-                color: billingCycle === 'annual' ? '#333' : '#666',
-                boxShadow: billingCycle === 'annual' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              Annual
-              <span style={{
-                backgroundColor: '#166534',
-                color: 'white',
-                padding: '2px 8px',
-                borderRadius: 12,
-                fontSize: 11,
-                fontWeight: 700,
-              }}>
-                Save up to 32%
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Error */}
         {error && (
-          <div style={{ marginBottom: 16 }}>
-            <ErrorDisplay error={error} verticalId={vertical} />
+          <div style={{ marginBottom: 24 }}>
+            <ErrorDisplay error={error} />
           </div>
         )}
 
+        {/* Billing Cycle Toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 32, backgroundColor: '#e5e7eb', padding: 4, borderRadius: 8, width: 'fit-content', margin: '0 auto 32px' }}>
+          <button
+            onClick={() => setBillingCycle('monthly')}
+            style={{
+              padding: '8px 20px',
+              backgroundColor: billingCycle === 'monthly' ? 'white' : 'transparent',
+              border: 'none',
+              borderRadius: 6,
+              fontSize: 14,
+              fontWeight: billingCycle === 'monthly' ? 600 : 400,
+              color: billingCycle === 'monthly' ? '#111827' : '#6b7280',
+              cursor: 'pointer',
+              boxShadow: billingCycle === 'monthly' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+            }}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingCycle('annual')}
+            style={{
+              padding: '8px 20px',
+              backgroundColor: billingCycle === 'annual' ? 'white' : 'transparent',
+              border: 'none',
+              borderRadius: 6,
+              fontSize: 14,
+              fontWeight: billingCycle === 'annual' ? 600 : 400,
+              color: billingCycle === 'annual' ? '#111827' : '#6b7280',
+              cursor: 'pointer',
+              boxShadow: billingCycle === 'annual' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+            }}
+          >
+            Annual <span style={{ fontSize: 11, color: '#059669' }}>Save ~30%</span>
+          </button>
+        </div>
+
         {/* Tier Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-          gap: 20,
-          marginBottom: 40,
-        }}>
-          {FM_TIERS.map(({ key, monthlyPrice, annualPrice, popular }) => {
-            const limits = TIER_LIMITS[key]
-            const isCurrent = currentTier === key
-            const tierOrder: Record<string, number> = { free: 0, standard: 1, premium: 2, featured: 3 }
-            const isUpgrade = (tierOrder[key] || 0) > (tierOrder[currentTier || 'free'] || 0)
-            const isDowngrade = (tierOrder[key] || 0) < (tierOrder[currentTier || 'free'] || 0)
-            const processing = isProcessing === key
-
-            const isAnnual = billingCycle === 'annual'
-            const displayPrice = isAnnual ? annualPrice : monthlyPrice
-            const monthlySavings = monthlyPrice > 0 && isAnnual
-              ? Math.round((1 - annualPrice / (monthlyPrice * 12)) * 100)
-              : 0
-
-            const borderColor = popular ? '#166534' : isCurrent ? '#4A4A4A' : key === 'featured' ? '#f59e0b' : '#e5e7eb'
-            const shadowStyle = popular ? '0 8px 24px rgba(22, 101, 52, 0.15)' : '0 1px 3px rgba(0,0,0,0.1)'
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 40 }}>
+          {TIERS.map(t => {
+            const isCurrent = normalizedCurrent === t.key
+            const isUpgrade = (tierOrder[t.key] || 0) > (tierOrder[normalizedCurrent] || 0)
+            const isDowngrade = (tierOrder[t.key] || 0) < (tierOrder[normalizedCurrent] || 0)
+            const price = billingCycle === 'annual' ? t.annualPrice : t.monthlyPrice
+            const monthlyEquiv = billingCycle === 'annual' && t.annualPrice > 0 ? (t.annualPrice / 12).toFixed(2) : null
 
             return (
               <div
-                key={key}
+                key={t.key}
                 style={{
                   backgroundColor: 'white',
-                  borderRadius: 16,
+                  borderRadius: 12,
+                  border: t.popular ? '2px solid #ff3131' : isCurrent ? '2px solid #059669' : '1px solid #e5e7eb',
                   padding: 24,
-                  border: `2px solid ${borderColor}`,
-                  boxShadow: shadowStyle,
                   position: 'relative',
                   display: 'flex',
                   flexDirection: 'column',
                 }}
               >
-                {/* Popular badge */}
-                {popular && !isCurrent && (
+                {t.popular && (
                   <div style={{
                     position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-                    backgroundColor: '#166534', color: 'white', padding: '4px 16px', borderRadius: 20,
-                    fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                    backgroundColor: '#ff3131', color: 'white', padding: '4px 16px', borderRadius: 12,
+                    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5,
                   }}>
-                    MOST POPULAR
+                    Most Popular
                   </div>
                 )}
 
-                {/* Current plan badge */}
-                {isCurrent && (
-                  <div style={{
-                    position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-                    backgroundColor: '#4A4A4A', color: 'white', padding: '4px 16px', borderRadius: 20,
-                    fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
-                  }}>
-                    CURRENT PLAN
-                  </div>
-                )}
-
-                {/* Tier name */}
-                <h3 style={{ margin: '8px 0 4px', fontSize: 20, fontWeight: 700, color: '#333', textAlign: 'center' }}>
-                  {FM_TIER_LABELS[key]}
+                <h3 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827' }}>
+                  {getVendorTierLabel(t.key)}
                 </h3>
 
-                {/* Price */}
-                <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                  {displayPrice === 0 ? (
-                    <span style={{ fontSize: 28, fontWeight: 'bold', color: '#333' }}>Free</span>
-                  ) : isAnnual ? (
-                    <div>
-                      <div>
-                        <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${displayPrice.toFixed(2)}</span>
-                        <span style={{ color: '#666', fontSize: 16 }}>/yr</span>
-                      </div>
-                      <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
-                        ${(displayPrice / 12).toFixed(2)}/mo
-                      </div>
-                      {monthlySavings > 0 && (
-                        <div style={{
-                          display: 'inline-block',
-                          marginTop: 4,
-                          padding: '2px 8px',
-                          backgroundColor: '#f0fdf4',
-                          color: '#166534',
-                          borderRadius: 12,
-                          fontSize: 11,
-                          fontWeight: 600,
-                        }}>
-                          Save {monthlySavings}%
-                        </div>
-                      )}
-                    </div>
+                {isCurrent && (
+                  <span style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>
+                    Current Plan
+                  </span>
+                )}
+
+                <div style={{ marginBottom: 16, marginTop: 8 }}>
+                  {price === 0 ? (
+                    <span style={{ fontSize: 32, fontWeight: 700, color: '#111827' }}>Free</span>
                   ) : (
                     <>
-                      <span style={{ fontSize: 36, fontWeight: 'bold', color: '#333' }}>${displayPrice.toFixed(2)}</span>
-                      <span style={{ color: '#666', fontSize: 16 }}>/mo</span>
+                      <span style={{ fontSize: 32, fontWeight: 700, color: '#111827' }}>
+                        ${billingCycle === 'annual' ? monthlyEquiv : price.toFixed(0)}
+                      </span>
+                      <span style={{ fontSize: 14, color: '#6b7280' }}>/mo</span>
+                      {billingCycle === 'annual' && (
+                        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                          ${price.toFixed(2)}/year
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
 
-                {/* Feature list */}
-                <ul style={{ margin: '0 0 24px', paddingLeft: 18, fontSize: 13, color: '#4b5563', lineHeight: 2, flex: 1 }}>
-                  <li><strong>{limits.productListings}</strong> product listings</li>
-                  <li><strong>{limits.traditionalMarkets}</strong> traditional market{limits.traditionalMarkets > 1 ? 's' : ''}</li>
-                  <li><strong>{limits.privatePickupLocations}</strong> private pickup{limits.privatePickupLocations > 1 ? 's' : ''}</li>
-                  <li><strong>{limits.totalMarketBoxes}</strong> {term(vertical, 'market_box')} offering{limits.totalMarketBoxes > 1 ? 's' : ''}</li>
-                  <li><strong>{limits.maxSubscribersPerOffering}</strong> max subscribers</li>
-                  {limits.analyticsDays > 0 ? (
-                    <li><strong>{limits.analyticsDays}-day</strong> analytics{limits.analyticsExport ? ' + export' : ''}</li>
-                  ) : (
-                    <li style={{ color: '#9ca3af' }}>No analytics</li>
+                <ul style={{ margin: '0 0 auto', padding: '0 0 0 16px', fontSize: 13, color: '#4b5563', lineHeight: 2 }}>
+                  <li>{TIER_LIMITS[t.key].productListings} {isFoodTruck ? 'menu items' : 'listings'}</li>
+                  <li>{TIER_LIMITS[t.key].traditionalMarkets} {term(vertical, 'markets').toLowerCase()}</li>
+                  <li>{TIER_LIMITS[t.key].marketBoxes} {term(vertical, 'market_boxes').toLowerCase()}</li>
+                  <li>{TIER_LIMITS[t.key].analyticsDays}-day analytics</li>
+                  {TIER_LIMITS[t.key].priorityPlacement > 0 && (
+                    <li>{TIER_LIMITS[t.key].priorityPlacement === 2 ? '1st' : '2nd'} priority placement</li>
                   )}
                 </ul>
 
-                {/* Action button */}
-                {isCurrent ? (
-                  <button
-                    disabled
-                    style={{
-                      width: '100%', padding: '12px 0', fontSize: 15, fontWeight: 600,
-                      backgroundColor: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb',
-                      borderRadius: 8, cursor: 'not-allowed',
-                    }}
-                  >
-                    Current Plan
-                  </button>
-                ) : isUpgrade ? (
-                  <button
-                    onClick={() => handleSelectTier(key)}
-                    disabled={!!isProcessing}
-                    style={{
-                      width: '100%', padding: '12px 0', fontSize: 15, fontWeight: 600,
-                      backgroundColor: processing ? '#f5f5f5' : '#166534',
-                      color: processing ? '#9ca3af' : 'white',
-                      border: 'none', borderRadius: 8,
-                      cursor: processing ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {processing ? 'Processing...' : `Upgrade to ${FM_TIER_LABELS[key]}`}
-                  </button>
-                ) : isDowngrade ? (
-                  <>
+                <div style={{ marginTop: 16 }}>
+                  {isCurrent ? (
+                    <div style={{
+                      padding: '10px 0', textAlign: 'center',
+                      color: '#059669', fontWeight: 600, fontSize: 14,
+                    }}>
+                      ✓ Active
+                    </div>
+                  ) : isUpgrade ? (
                     <button
-                      onClick={() => handleSelectTier(key)}
+                      onClick={() => handleSelectTier(t.key)}
                       disabled={!!isProcessing}
                       style={{
-                        width: '100%', padding: '12px 0', fontSize: 15, fontWeight: 600,
-                        backgroundColor: showDowngradeConfirm === key ? '#dc2626' : processing ? '#9ca3af' : 'white',
-                        color: showDowngradeConfirm === key ? 'white' : '#666',
-                        border: showDowngradeConfirm === key ? 'none' : '1px solid #d1d5db',
-                        borderRadius: 8, cursor: processing ? 'not-allowed' : 'pointer',
+                        width: '100%', padding: '10px 0',
+                        backgroundColor: isProcessing === t.key ? '#d1d5db' : '#ff3131',
+                        color: 'white', border: 'none', borderRadius: 8,
+                        fontSize: 14, fontWeight: 600,
+                        cursor: isProcessing ? 'not-allowed' : 'pointer',
                       }}
                     >
-                      {processing ? 'Processing...' : showDowngradeConfirm === key ? 'Confirm Downgrade' : `Downgrade to ${FM_TIER_LABELS[key]}`}
+                      {isProcessing === t.key ? 'Processing...' : `Upgrade to ${getVendorTierLabel(t.key)}`}
                     </button>
-                    {showDowngradeConfirm === key && (
-                      <p style={{ margin: '8px 0 0', fontSize: 12, color: '#dc2626', textAlign: 'center' }}>
-                        You will lose access to {FM_TIER_LABELS[currentTier || 'free']} features. Click again to confirm.
-                      </p>
-                    )}
-                  </>
-                ) : null}
+                  ) : isDowngrade ? (
+                    <>
+                      <button
+                        onClick={() => handleSelectTier(t.key)}
+                        disabled={!!isProcessing}
+                        style={{
+                          width: '100%', padding: '10px 0',
+                          backgroundColor: showDowngradeConfirm === t.key ? '#ef4444' : 'transparent',
+                          color: showDowngradeConfirm === t.key ? 'white' : '#6b7280',
+                          border: `1px solid ${showDowngradeConfirm === t.key ? '#ef4444' : '#d1d5db'}`,
+                          borderRadius: 8, fontSize: 14, fontWeight: 500,
+                          cursor: isProcessing ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {isProcessing === t.key ? 'Processing...' : showDowngradeConfirm === t.key ? 'Confirm Downgrade' : 'Downgrade'}
+                      </button>
+                      {showDowngradeConfirm === t.key && (
+                        <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0', textAlign: 'center' }}>
+                          Click again to confirm
+                        </p>
+                      )}
+                    </>
+                  ) : null}
+                </div>
               </div>
             )
           })}
@@ -898,96 +309,41 @@ function FarmersMarketUpgradePage({ vertical }: { vertical: string }) {
 
         {/* Feature Comparison Table */}
         <div style={{
-          backgroundColor: 'white', borderRadius: 12, padding: 32, marginBottom: 32,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          backgroundColor: 'white',
+          borderRadius: 12,
+          border: '1px solid #e5e7eb',
+          overflow: 'hidden',
         }}>
-          <h2 style={{ fontSize: 20, fontWeight: 600, color: '#333', margin: '0 0 24px 0' }}>
+          <h2 style={{ padding: '16px 16px 8px', margin: 0, fontSize: 18, fontWeight: 700, color: '#111827' }}>
             Compare Plans
           </h2>
 
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr 1fr', gap: 1,
-            backgroundColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden',
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr' }}>
             {/* Header */}
-            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#374151', fontSize: 13 }}>Feature</div>
-            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#9ca3af', textAlign: 'center', fontSize: 13 }}>Free</div>
-            <div style={{ padding: '10px 16px', backgroundColor: '#f3f4f6', fontWeight: 600, color: '#374151', textAlign: 'center', fontSize: 13 }}>Standard</div>
-            <div style={{ padding: '10px 16px', backgroundColor: '#f0fdf4', fontWeight: 600, color: '#166534', textAlign: 'center', fontSize: 13 }}>Premium</div>
-            <div style={{ padding: '10px 16px', backgroundColor: '#fffbeb', fontWeight: 600, color: '#92400e', textAlign: 'center', fontSize: 13 }}>Featured</div>
+            <div style={{ padding: '12px 16px', fontWeight: 700, fontSize: 13, color: '#374151', borderBottom: '2px solid #e5e7eb' }}>Feature</div>
+            <div style={{ padding: '12px 16px', fontWeight: 700, fontSize: 13, color: '#9ca3af', textAlign: 'center', borderBottom: '2px solid #e5e7eb' }}>Free</div>
+            <div style={{ padding: '12px 16px', fontWeight: 700, fontSize: 13, color: '#991b1b', textAlign: 'center', borderBottom: '2px solid #e5e7eb', backgroundColor: '#fef2f2' }}>Pro</div>
+            <div style={{ padding: '12px 16px', fontWeight: 700, fontSize: 13, color: '#991b1b', textAlign: 'center', borderBottom: '2px solid #e5e7eb', backgroundColor: '#fef2f2' }}>Boss</div>
 
-            <FmFeatureRow label="Product Listings" free={String(fr.productListings)} standard={String(st.productListings)} premium={String(pr.productListings)} featured={String(fe.productListings)} />
-            <FmFeatureRow label="Traditional Markets" free={String(fr.traditionalMarkets)} standard={String(st.traditionalMarkets)} premium={String(pr.traditionalMarkets)} featured={String(fe.traditionalMarkets)} />
-            <FmFeatureRow label="Private Pickups" free={String(fr.privatePickupLocations)} standard={String(st.privatePickupLocations)} premium={String(pr.privatePickupLocations)} featured={String(fe.privatePickupLocations)} />
-            <FmFeatureRow label="Windows/Location" free={String(fr.pickupWindowsPerLocation)} standard={String(st.pickupWindowsPerLocation)} premium={String(pr.pickupWindowsPerLocation)} featured={String(fe.pickupWindowsPerLocation)} />
-            <FmFeatureRow label={`${term(vertical, 'market_box')} Offerings`} free={String(fr.totalMarketBoxes)} standard={String(st.totalMarketBoxes)} premium={String(pr.totalMarketBoxes)} featured={String(fe.totalMarketBoxes)} />
-            <FmFeatureRow label="Active Offerings" free={String(fr.activeMarketBoxes)} standard={String(st.activeMarketBoxes)} premium={String(pr.activeMarketBoxes)} featured={String(fe.activeMarketBoxes)} />
-            <FmFeatureRow label="Max Subscribers" free={String(fr.maxSubscribersPerOffering)} standard={String(st.maxSubscribersPerOffering)} premium={String(pr.maxSubscribersPerOffering)} featured={String(fe.maxSubscribersPerOffering)} />
-            <FmFeatureRow label="Analytics" free="—" standard="30-day" premium="60-day" featured="90-day + Export" />
+            <FeatureRow label={isFoodTruck ? 'Menu Items' : 'Product Listings'} free={String(limits.free.productListings)} pro={String(limits.pro.productListings)} boss={String(limits.boss.productListings)} />
+            <FeatureRow label={term(vertical, 'markets')} free={String(limits.free.traditionalMarkets)} pro={String(limits.pro.traditionalMarkets)} boss={String(limits.boss.traditionalMarkets)} />
+            <FeatureRow label="Private Pickups" free={String(limits.free.privatePickupLocations)} pro={String(limits.pro.privatePickupLocations)} boss={String(limits.boss.privatePickupLocations)} />
+            <FeatureRow label="Pickup Windows / Location" free={String(limits.free.pickupWindowsPerLocation)} pro={String(limits.pro.pickupWindowsPerLocation)} boss={String(limits.boss.pickupWindowsPerLocation)} />
+            <FeatureRow label={term(vertical, 'market_boxes')} free={String(limits.free.marketBoxes)} pro={String(limits.pro.marketBoxes)} boss={String(limits.boss.marketBoxes)} />
+            <FeatureRow label="Subscribers / Offering" free={String(limits.free.maxSubscribersPerOffering)} pro={String(limits.pro.maxSubscribersPerOffering)} boss={String(limits.boss.maxSubscribersPerOffering)} />
+            <FeatureRow label="Analytics" free={`${limits.free.analyticsDays} days`} pro={`${limits.pro.analyticsDays} days`} boss={`${limits.boss.analyticsDays} days + export`} />
+            <FeatureRow label="Priority Placement" free="—" pro="2nd priority" boss="1st priority" />
+            <FeatureRow label="Notifications" free="In-app + Email" pro="+ Push" boss="+ SMS" />
           </div>
         </div>
 
-        {/* FAQ */}
-        <div style={{
-          padding: 24, backgroundColor: 'white', borderRadius: 12,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 600, color: '#333' }}>
-            Frequently Asked Questions
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What are {term(vertical, 'market_boxes')}?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                {term(vertical, 'market_boxes')} let you offer 4-week prepaid subscription bundles to buyers. You get guaranteed recurring revenue and can build customer loyalty with weekly pickups.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                Can I change plans anytime?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Yes! Upgrade or downgrade anytime. When you change plans, your current subscription is canceled and you start fresh on the new plan.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What happens if I downgrade?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                If you exceed the lower plan&apos;s limits, you&apos;ll need to deactivate extra listings, markets, or {term(vertical, 'market_boxes')} to stay within your new plan&apos;s limits.
-              </p>
-            </div>
-            <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: '#333' }}>
-                What&apos;s the difference between Premium and Featured?
-              </h4>
-              <p style={{ margin: 0, fontSize: 14, color: '#666' }}>
-                Featured vendors get more listings, more markets, more {term(vertical, 'market_box')} offerings, and higher subscriber caps. It&apos;s our top-tier plan for established vendors.
-              </p>
-            </div>
-          </div>
+        {/* Back link */}
+        <div style={{ textAlign: 'center', marginTop: 24 }}>
+          <Link href={`/${vertical}/vendor/dashboard`} style={{ color: '#6b7280', textDecoration: 'none', fontSize: 14 }}>
+            ← Back to Dashboard
+          </Link>
         </div>
-
-        <p style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: '#666' }}>
-          Secure payment powered by Stripe. {billingCycle === 'annual' ? 'Annual plans billed once per year.' : 'Cancel or change plans anytime.'}
-        </p>
       </div>
     </div>
   )
-}
-
-// ── Route Component ──────────────────────────────────────────────────────
-
-export default function VendorUpgradePage() {
-  const params = useParams()
-  const vertical = params.vertical as string
-
-  if (vertical === 'food_trucks') {
-    return <FoodTruckUpgradePage vertical={vertical} />
-  }
-
-  return <FarmersMarketUpgradePage vertical={vertical} />
 }

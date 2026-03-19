@@ -105,60 +105,39 @@ export function formatQuantityDisplay(amount: number | null, unit: string | null
 // FT tiers (pro/boss) use brand-specific colors from the FT brand kit
 import { statusColors } from './design-tokens'
 
-export const TIER_BADGES = {
-  free: {
-    label: 'Free',
-    icon: '',
-    color: statusColors.neutral500,
-    bgColor: statusColors.neutral100,
-    borderColor: statusColors.neutral300
-  },
-  premium: {
-    label: 'Premium',
-    icon: '⭐',
-    color: statusColors.info,
-    bgColor: statusColors.infoLight,
-    borderColor: statusColors.infoBorder
-  },
-  featured: {
-    label: 'Featured',
-    icon: '✨',
-    color: statusColors.warning,
-    bgColor: statusColors.warningLight,
-    borderColor: statusColors.warningBorder
-  },
-  standard: {
-    label: 'Standard',
-    icon: '',
-    color: statusColors.neutral500,
-    bgColor: statusColors.neutral100,
-    borderColor: statusColors.neutral300
-  },
-  // Food truck tiers
-  basic: {
-    label: 'Basic',
-    icon: '',
-    color: statusColors.neutral500,
-    bgColor: statusColors.neutral100,
-    borderColor: statusColors.neutral300
-  },
+// Unified tier badges — Free / Pro / Boss (both verticals)
+const FREE_BADGE = {
+  label: 'Free',
+  icon: '',
+  color: statusColors.neutral500,
+  bgColor: statusColors.neutral100,
+  borderColor: statusColors.neutral300
+} as const
+
+export const TIER_BADGES: Record<string, { label: string; icon: string; color: string; bgColor: string; borderColor: string }> = {
+  free: FREE_BADGE,
   pro: {
     label: 'Pro',
     icon: '🔥',
-    color: '#ff3131',       // FT brand primaryDark
-    bgColor: '#fff5f5',     // FT brand primaryLight
-    borderColor: '#ff8f8f'  // FT brand accent border
+    color: '#ff3131',
+    bgColor: '#fff5f5',
+    borderColor: '#ff8f8f'
   },
   boss: {
     label: 'Boss',
     icon: '👑',
-    color: '#545454',       // FT brand textSecondary
-    bgColor: '#ffe38f',     // FT brand boss yellow
-    borderColor: '#ffd54f'  // FT brand boss border
-  }
-} as const
+    color: '#545454',
+    bgColor: '#ffe38f',
+    borderColor: '#ffd54f'
+  },
+  // Legacy aliases → free
+  basic: FREE_BADGE,
+  standard: FREE_BADGE,
+  premium: FREE_BADGE,
+  featured: FREE_BADGE,
+}
 
-export type VendorTierType = keyof typeof TIER_BADGES
+export type VendorTierType = 'free' | 'pro' | 'boss'
 
 // Vendor tier type — re-export from vendor-limits.ts (source of truth)
 export type { VendorTier } from './vendor-limits'

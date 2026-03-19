@@ -626,7 +626,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
 
           {/* Market Boxes */}
           {(() => {
-            const mbLimit = getTierLimits(vendorProfile.tier || 'free', vertical).totalMarketBoxes
+            const mbLimit = getTierLimits(vendorProfile.tier || 'free', vertical).marketBoxes
             const isLocked = mbLimit === 0
             return (
               <Link
@@ -789,7 +789,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             const insightsLevel = vertical === 'food_trucks'
               ? getFtTierExtras(vendorProfile.tier || 'free').locationInsights
               : 'basic' // FM vendors get basic by default
-            const isInsightsLocked = insightsLevel === 'none'
+            const isInsightsLocked = false // All tiers get at least 'basic' insights
             return (
               <div style={{
                 padding: spacing.sm,

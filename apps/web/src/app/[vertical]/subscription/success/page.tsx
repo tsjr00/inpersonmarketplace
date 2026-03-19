@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors } from '@/lib/design-tokens'
 import { FullPageLoading } from '@/components/shared/Spinner'
-import { getFtTierLabel, FT_TIER_LIMITS, type FoodTruckTier } from '@/lib/vendor-limits'
+import { getVendorTierLabel, TIER_LIMITS, normalizeTier } from '@/lib/vendor-limits'
 import { term } from '@/lib/vertical'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
@@ -58,24 +58,25 @@ export default function SubscriptionSuccessPage() {
     : `/${vertical}/browse`
 
   // FT tier-specific title
-  const isFreeDowngrade = isFtVendor && tier === 'free'
+  const isFreeDowngrade = isVendor && tier === 'free'
   const title = isFreeDowngrade
     ? t('sub_success.free_plan', locale)
-    : isFtVendor && tier
-      ? t('sub_success.welcome_tier', locale, { tier: getFtTierLabel(tier) })
+    : isVendor && tier
+      ? t('sub_success.welcome_tier', locale, { tier: getVendorTierLabel(tier || 'free') })
       : t('sub_success.welcome_premium', locale)
 
   const subtitle = isFreeDowngrade
     ? t('sub_success.free_desc', locale)
-    : isFtVendor && tier
-      ? t('sub_success.ft_desc', locale, { tier: getFtTierLabel(tier) })
+    : isVendor && tier
+      ? t('sub_success.ft_desc', locale, { tier: getVendorTierLabel(tier || 'free') })
       : isVendor
         ? t('sub_success.vendor_desc', locale)
         : t('sub_success.buyer_desc', locale, { market_box: term(vertical, 'market_box', locale) })
 
-  // FT tier-specific benefits
-  const ftTierKey = (tier || 'free') as FoodTruckTier
-  const ftLimits = isFtVendor ? FT_TIER_LIMITS[ftTierKey] || FT_TIER_LIMITS.free : null
+  // Vendor tier-specific benefits
+  const normalizedTier = normalizeTier(tier)
+  const tierLabel = getVendorTierLabel(normalizedTier)
+  const vendorLimits = isVendor ? TIER_LIMITS[normalizedTier] : null
 
   return (
     <div style={{
@@ -144,22 +145,22 @@ export default function SubscriptionSuccessPage() {
             textTransform: 'uppercase',
             letterSpacing: 0.5
           }}>
-            {isFtVendor ? t('sub_success.your_benefits', locale, { tier: getFtTierLabel(tier || 'free') }) : t('sub_success.your_premium', locale)}
+            {isFtVendor ? t('sub_success.your_benefits', locale, { tier: getVendorTierLabel(tier || 'free') }) : t('sub_success.your_premium', locale)}
           </h3>
 
-          {isFtVendor && ftLimits ? (
+          {isVendor && vendorLimits ? (
             <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: colors.primaryDark, lineHeight: 1.8 }}>
-              <li><strong>{t('sub_success.menu_items', locale, { count: String(ftLimits.productListings) })}</strong></li>
-              <li><strong>{t('sub_success.service_locations', locale, { count: String(ftLimits.privatePickupLocations) })}</strong></li>
-              <li><strong>{t('sub_success.chef_box', locale, { count: String(ftLimits.totalMarketBoxes) })}</strong></li>
-              <li><strong>{t('sub_success.analytics_days', locale, { count: String(ftLimits.analyticsDays) })}</strong>{ftLimits.analyticsExport ? t('sub_success.with_export', locale) : ''}</li>
-              {ftLimits.priorityPlacement > 0 && (
-                <li><strong>{ftLimits.priorityPlacement === 2 ? t('sub_success.priority_1st', locale) : t('sub_success.priority_2nd', locale)}</strong> {t('sub_success.in_search', locale)}</li>
+              <li><strong>{t('sub_success.menu_items', locale, { count: String(vendorLimits.productListings) })}</strong></li>
+              <li><strong>{t('sub_success.service_locations', locale, { count: String(vendorLimits.privatePickupLocations) })}</strong></li>
+              <li><strong>{t('sub_success.chef_box', locale, { count: String(vendorLimits.marketBoxes) })}</strong></li>
+              <li><strong>{t('sub_success.analytics_days', locale, { count: String(vendorLimits.analyticsDays) })}</strong>{vendorLimits.analyticsExport ? t('sub_success.with_export', locale) : ''}</li>
+              {vendorLimits.priorityPlacement > 0 && (
+                <li><strong>{vendorLimits.priorityPlacement === 2 ? t('sub_success.priority_1st', locale) : t('sub_success.priority_2nd', locale)}</strong> {t('sub_success.in_search', locale)}</li>
               )}
-              {ftLimits.notificationChannels.includes('email') && (
+              {vendorLimits.notificationChannels.includes('email') && (
                 <li><strong>{t('sub_success.email_notif', locale)}</strong> {t('sub_success.for_orders', locale)}</li>
               )}
-              {ftLimits.notificationChannels.includes('sms') && (
+              {vendorLimits.notificationChannels.includes('sms') && (
                 <li><strong>{t('sub_success.sms_notif', locale)}</strong> {t('sub_success.for_orders', locale)}</li>
               )}
             </ul>

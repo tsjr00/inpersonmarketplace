@@ -62,35 +62,41 @@ describe('AV-010: Event cutoff is 24 hours', () => {
 // VT-012: FM tier sort priority
 // =============================================================================
 
-describe('VT-012: FM tier sort priority (featured first)', () => {
-  it('featured = 0 (highest priority)', () => {
-    expect(getTierSortPriority('featured', 'farmers_market')).toBe(0)
+describe('VT-012: FM tier sort priority (unified: boss first)', () => {
+  it('boss = 0 (highest priority)', () => {
+    expect(getTierSortPriority('boss', 'farmers_market')).toBe(0)
   })
 
-  it('premium = 1', () => {
-    expect(getTierSortPriority('premium', 'farmers_market')).toBe(1)
+  it('pro = 1', () => {
+    expect(getTierSortPriority('pro', 'farmers_market')).toBe(1)
   })
 
-  it('standard = 2', () => {
+  it('free = 2', () => {
+    expect(getTierSortPriority('free', 'farmers_market')).toBe(2)
+  })
+
+  it('undefined tier = 2 (same as free)', () => {
+    expect(getTierSortPriority(undefined, 'farmers_market')).toBe(2)
+  })
+
+  it('legacy "featured" normalizes to free = 2', () => {
+    expect(getTierSortPriority('featured', 'farmers_market')).toBe(2)
+  })
+
+  it('legacy "premium" normalizes to free = 2', () => {
+    expect(getTierSortPriority('premium', 'farmers_market')).toBe(2)
+  })
+
+  it('legacy "standard" normalizes to free = 2', () => {
     expect(getTierSortPriority('standard', 'farmers_market')).toBe(2)
   })
 
-  it('free = 3', () => {
-    expect(getTierSortPriority('free', 'farmers_market')).toBe(3)
-  })
-
-  it('undefined tier = 3 (same as free)', () => {
-    expect(getTierSortPriority(undefined, 'farmers_market')).toBe(3)
-  })
-
   it('higher tier always has lower number (shown first)', () => {
-    const featured = getTierSortPriority('featured', 'farmers_market')
-    const premium = getTierSortPriority('premium', 'farmers_market')
-    const standard = getTierSortPriority('standard', 'farmers_market')
+    const boss = getTierSortPriority('boss', 'farmers_market')
+    const pro = getTierSortPriority('pro', 'farmers_market')
     const free = getTierSortPriority('free', 'farmers_market')
-    expect(featured).toBeLessThan(premium)
-    expect(premium).toBeLessThan(standard)
-    expect(standard).toBeLessThan(free)
+    expect(boss).toBeLessThan(pro)
+    expect(pro).toBeLessThan(free)
   })
 })
 
@@ -98,7 +104,7 @@ describe('VT-012: FM tier sort priority (featured first)', () => {
 // VT-013: FT tier sort priority
 // =============================================================================
 
-describe('VT-013: FT tier sort priority (boss first)', () => {
+describe('VT-013: FT tier sort priority (unified: boss first)', () => {
   it('boss = 0 (highest priority)', () => {
     expect(getTierSortPriority('boss', 'food_trucks')).toBe(0)
   })
@@ -107,26 +113,30 @@ describe('VT-013: FT tier sort priority (boss first)', () => {
     expect(getTierSortPriority('pro', 'food_trucks')).toBe(1)
   })
 
-  it('basic = 2', () => {
+  it('free = 2', () => {
+    expect(getTierSortPriority('free', 'food_trucks')).toBe(2)
+  })
+
+  it('legacy "basic" normalizes to free = 2', () => {
     expect(getTierSortPriority('basic', 'food_trucks')).toBe(2)
   })
 
-  it('free = 3', () => {
-    expect(getTierSortPriority('free', 'food_trucks')).toBe(3)
-  })
-
-  it('undefined tier = 4 (unknown)', () => {
-    expect(getTierSortPriority(undefined, 'food_trucks')).toBe(4)
+  it('undefined tier = 2 (same as free)', () => {
+    expect(getTierSortPriority(undefined, 'food_trucks')).toBe(2)
   })
 
   it('higher tier always has lower number (shown first)', () => {
     const boss = getTierSortPriority('boss', 'food_trucks')
     const pro = getTierSortPriority('pro', 'food_trucks')
-    const basic = getTierSortPriority('basic', 'food_trucks')
     const free = getTierSortPriority('free', 'food_trucks')
     expect(boss).toBeLessThan(pro)
-    expect(pro).toBeLessThan(basic)
-    expect(basic).toBeLessThan(free)
+    expect(pro).toBeLessThan(free)
+  })
+
+  it('FM and FT sort priorities are identical', () => {
+    expect(getTierSortPriority('boss', 'farmers_market')).toBe(getTierSortPriority('boss', 'food_trucks'))
+    expect(getTierSortPriority('pro', 'farmers_market')).toBe(getTierSortPriority('pro', 'food_trucks'))
+    expect(getTierSortPriority('free', 'farmers_market')).toBe(getTierSortPriority('free', 'food_trucks'))
   })
 })
 

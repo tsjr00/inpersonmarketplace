@@ -82,7 +82,7 @@ describe('Component Render Tests', () => {
   // ── TierBadge ───────────────────────────────────────────────────
 
   describe('TierBadge', () => {
-    const tiers = ['free', 'standard', 'basic', 'pro', 'premium', 'boss', 'featured']
+    const tiers = ['free', 'pro', 'boss']
 
     it.each(tiers)('renders %s tier', (tier) => {
       const { container } = render(<TierBadge tier={tier as any} />)
@@ -98,7 +98,7 @@ describe('Component Render Tests', () => {
     it('renders all size variants', () => {
       const sizes = ['sm', 'md', 'lg'] as const
       sizes.forEach(size => {
-        const { unmount } = render(<TierBadge tier="basic" size={size} />)
+        const { unmount } = render(<TierBadge tier="free" size={size} />)
         unmount()
       })
     })
@@ -401,13 +401,13 @@ describe('Component Render Tests', () => {
 
     it('renders with tier border colors', () => {
       // jsdom converts hex to rgb format
-      const { container: premium } = render(<VendorAvatar name="A" tier="premium" />)
-      const premiumBorder = (premium.firstChild as HTMLElement).style.borderColor
-      expect(premiumBorder).toMatch(/59.*130.*246|#3b82f6/)
+      const { container: pro } = render(<VendorAvatar name="A" tier="pro" />)
+      const proBorder = (pro.firstChild as HTMLElement).style.borderColor
+      expect(proBorder).toMatch(/59.*130.*246|#3b82f6/)
 
-      const { container: featured } = render(<VendorAvatar name="B" tier="featured" />)
-      const featuredBorder = (featured.firstChild as HTMLElement).style.borderColor
-      expect(featuredBorder).toMatch(/245.*158.*11|#f59e0b/)
+      const { container: boss } = render(<VendorAvatar name="B" tier="boss" />)
+      const bossBorder = (boss.firstChild as HTMLElement).style.borderColor
+      expect(bossBorder).toMatch(/245.*158.*11|#f59e0b/)
     })
   })
 })

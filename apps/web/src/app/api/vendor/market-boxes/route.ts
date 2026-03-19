@@ -131,16 +131,16 @@ export async function GET(request: NextRequest) {
       offerings: offeringsWithCounts,
       limits: {
         tier,
-        // Total market boxes (active + inactive)
-        max_total: tierLimits.totalMarketBoxes,
+        // Total market boxes (no separate active limit — vendors can activate all)
+        max_total: tierLimits.marketBoxes,
         current_total: totalCount,
-        can_create_more: totalCount < tierLimits.totalMarketBoxes,
-        // Active market boxes
-        max_active: tierLimits.activeMarketBoxes,
+        can_create_more: totalCount < tierLimits.marketBoxes,
+        // Active market boxes (same limit as total)
+        max_active: tierLimits.marketBoxes,
         current_active: activeCount,
-        can_activate_more: activeCount < tierLimits.activeMarketBoxes,
+        can_activate_more: activeCount < tierLimits.marketBoxes,
         // Legacy fields for backwards compatibility
-        max_offerings: tierLimits.activeMarketBoxes,
+        max_offerings: tierLimits.marketBoxes,
         current_offerings: activeCount,
         subscriber_limit: getSubscriberDefault(tier),
       },

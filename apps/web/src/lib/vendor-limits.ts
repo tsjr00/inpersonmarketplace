@@ -3,104 +3,52 @@ import { SupabaseClient } from '@supabase/supabase-js'
 /**
  * Vendor Tier Limits - Centralized limit definitions and enforcement
  *
- * FM Tiers: free → standard ($10/mo) → premium ($25/mo) → featured ($50/mo)
- * FT Tiers: free → basic ($10/mo) → pro ($25/mo) → boss ($50/mo)
+ * Unified tiers (both verticals): free → pro ($25/mo) → boss ($50/mo)
+ *
+ * Legacy tier names (basic, standard, premium, featured) map to free in code.
+ * Existing DB values are preserved for backward compat until migrated.
  *
  * Note: Product listings are counted per-account (total), not per-market.
  * A listing at multiple markets counts as 1 listing.
  */
 
-export type VendorTier = 'free' | 'standard' | 'premium' | 'featured'
-export type FoodTruckTier = 'free' | 'basic' | 'pro' | 'boss'
+export type VendorTier = 'free' | 'pro' | 'boss'
 
-// ── Farmers Market Tiers ─────────────────────────────────────────────
-export const TIER_LIMITS = {
-  free: {
-    traditionalMarkets: 1,
-    privatePickupLocations: 1,
-    pickupWindowsPerLocation: 2,
-    totalMarketBoxes: 2,
-    activeMarketBoxes: 1,
-    maxSubscribersPerOffering: 5,
-    defaultSubscribersPerOffering: 5,
-    productListings: 5,
-    analyticsDays: 30,
-    analyticsExport: false,
-    notificationChannels: ['in_app'] as readonly string[],
-  },
-  standard: {
-    traditionalMarkets: 2,
-    privatePickupLocations: 2,
-    pickupWindowsPerLocation: 2,
-    totalMarketBoxes: 3,
-    activeMarketBoxes: 2,
-    maxSubscribersPerOffering: 10,
-    defaultSubscribersPerOffering: 10,
-    productListings: 10,
-    analyticsDays: 30,
-    analyticsExport: false,
-    notificationChannels: ['in_app', 'email'] as readonly string[],
-  },
-  premium: {
-    traditionalMarkets: 3,
-    privatePickupLocations: 3,
-    pickupWindowsPerLocation: 6,
-    totalMarketBoxes: 6,
-    activeMarketBoxes: 4,
-    maxSubscribersPerOffering: 20,
-    defaultSubscribersPerOffering: 20,
-    productListings: 20,
-    analyticsDays: 60,
-    analyticsExport: false,
-    notificationChannels: ['in_app', 'email', 'push'] as readonly string[],
-  },
-  featured: {
-    traditionalMarkets: 5,
-    privatePickupLocations: 5,
-    pickupWindowsPerLocation: 12,
-    totalMarketBoxes: 10,
-    activeMarketBoxes: 8,
-    maxSubscribersPerOffering: 30,
-    defaultSubscribersPerOffering: 30,
-    productListings: 30,
-    analyticsDays: 90,
-    analyticsExport: true,
-    notificationChannels: ['in_app', 'email', 'push', 'sms'] as readonly string[],
-  },
-} as const
+// Legacy tier names that map to free
+const LEGACY_FREE_TIERS = ['basic', 'standard', 'premium', 'featured']
 
-// ── Food Truck Tiers ─────────────────────────────────────────────────
-export interface FtTierExtras {
-  analyticsDays: number
-  analyticsExport: boolean
-  priorityPlacement: number  // 0=none, 1=2nd priority, 2=1st priority
-  notificationChannels: readonly string[]
-  locationInsights: 'none' | 'basic' | 'pro' | 'boss'
+/** Normalize any tier name to the unified Free/Pro/Boss system */
+export function normalizeTier(tier: string | null | undefined): VendorTier {
+  const t = (tier || 'free').toLowerCase()
+  if (t === 'pro') return 'pro'
+  if (t === 'boss') return 'boss'
+  return 'free' // free, basic, standard, premium, featured, unknown → all free
 }
 
-export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = {
+// ── Unified Tier Limits (both verticals) ─────────────────────────────
+
+export interface TierLimits {
+  traditionalMarkets: number
+  privatePickupLocations: number
+  pickupWindowsPerLocation: number
+  marketBoxes: number           // No separate total/active split — vendors can activate all
+  maxSubscribersPerOffering: number
+  defaultSubscribersPerOffering: number
+  productListings: number
+  analyticsDays: number
+  analyticsExport: boolean
+  priorityPlacement: number     // 0=none, 1=2nd priority, 2=1st priority
+  notificationChannels: readonly string[]
+  locationInsights: 'basic' | 'pro' | 'boss'
+}
+
+export const TIER_LIMITS: Record<VendorTier, TierLimits> = {
   free: {
-    productListings: 7,
-    totalMarketBoxes: 1,
-    activeMarketBoxes: 1,
-    traditionalMarkets: 1,
-    privatePickupLocations: 2,
-    pickupWindowsPerLocation: 4,
-    maxSubscribersPerOffering: 5,
-    defaultSubscribersPerOffering: 5,
-    analyticsDays: 30,
-    analyticsExport: false,
-    priorityPlacement: 0,
-    notificationChannels: ['in_app'],
-    locationInsights: 'none',
-  },
-  basic: {
-    productListings: 15,
-    totalMarketBoxes: 2,
-    activeMarketBoxes: 2,
+    productListings: 20,
     traditionalMarkets: 3,
     privatePickupLocations: 3,
     pickupWindowsPerLocation: 7,
+    marketBoxes: 3,
     maxSubscribersPerOffering: 10,
     defaultSubscribersPerOffering: 10,
     analyticsDays: 30,
@@ -110,12 +58,11 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     locationInsights: 'basic',
   },
   pro: {
-    productListings: 30,
-    totalMarketBoxes: 4,
-    activeMarketBoxes: 4,
+    productListings: 50,
     traditionalMarkets: 5,
     privatePickupLocations: 5,
     pickupWindowsPerLocation: 14,
+    marketBoxes: 6,
     maxSubscribersPerOffering: 20,
     defaultSubscribersPerOffering: 20,
     analyticsDays: 60,
@@ -125,12 +72,11 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
     locationInsights: 'pro',
   },
   boss: {
-    productListings: 50,
-    totalMarketBoxes: 8,
-    activeMarketBoxes: 8,
+    productListings: 100,
     traditionalMarkets: 8,
     privatePickupLocations: 15,
     pickupWindowsPerLocation: 21,
+    marketBoxes: 10,
     maxSubscribersPerOffering: 50,
     defaultSubscribersPerOffering: 50,
     analyticsDays: 90,
@@ -143,97 +89,67 @@ export const FT_TIER_LIMITS: Record<FoodTruckTier, TierLimits & FtTierExtras> = 
 
 // ── Tier Helpers ─────────────────────────────────────────────────────
 
-/** Check if tier is a food truck tier (free/basic/pro/boss) */
-export function isFoodTruckTier(tier: string): tier is FoodTruckTier {
+/** @deprecated Use normalizeTier() instead */
+export type FoodTruckTier = VendorTier
+
+/** @deprecated Use normalizeTier() instead */
+export function isFoodTruckTier(tier: string): boolean {
   return ['free', 'basic', 'pro', 'boss'].includes(tier?.toLowerCase())
 }
 
-/** Get display label for a food truck tier */
+/** Get display label for a tier */
+export function getVendorTierLabel(tier: string, _vertical?: string): string {
+  const normalized = normalizeTier(tier)
+  const labels: Record<VendorTier, string> = { free: 'Free', pro: 'Pro', boss: 'Boss' }
+  return labels[normalized]
+}
+
+/** @deprecated Use getVendorTierLabel */
 export function getFtTierLabel(tier: string): string {
-  const labels: Record<string, string> = { free: 'Free', basic: 'Basic', pro: 'Pro', boss: 'Boss' }
-  return labels[tier?.toLowerCase()] || 'Free'
+  return getVendorTierLabel(tier)
 }
 
-/** Get the FT-specific extras for a tier (analytics, priority, notifications) */
-export function getFtTierExtras(tier: string): FtTierExtras {
-  const normalized = tier?.toLowerCase() as FoodTruckTier
-  return FT_TIER_LIMITS[normalized] || FT_TIER_LIMITS.free
+/** Get the extras for a tier (analytics, priority, notifications) */
+export function getFtTierExtras(tier: string) {
+  return getTierLimits(tier)
 }
 
-/** Get notification channels allowed for a vendor tier (both verticals) */
-export function getTierNotificationChannels(tier: string, vertical?: string): readonly string[] {
-  const limits = getTierLimits(tier, vertical)
-  return (limits as Record<string, unknown>).notificationChannels as readonly string[] || ['in_app']
+/** Get notification channels allowed for a vendor tier */
+export function getTierNotificationChannels(tier: string, _vertical?: string): readonly string[] {
+  return getTierLimits(tier).notificationChannels
 }
 
-/** Get analytics limits for any vendor tier (both verticals) */
-export function getAnalyticsLimits(tier: string, vertical?: string): { analyticsDays: number; analyticsExport: boolean } {
-  if (vertical === 'food_trucks') {
-    const extras = getFtTierExtras(tier)
-    return { analyticsDays: extras.analyticsDays, analyticsExport: extras.analyticsExport }
-  }
-  const fmTier = (tier || 'free').toLowerCase() as VendorTier
-  const limits = TIER_LIMITS[fmTier] || TIER_LIMITS.free
+/** Get analytics limits for any vendor tier */
+export function getAnalyticsLimits(tier: string, _vertical?: string): { analyticsDays: number; analyticsExport: boolean } {
+  const limits = getTierLimits(tier)
   return { analyticsDays: limits.analyticsDays, analyticsExport: limits.analyticsExport }
-}
-
-/** Get display label for a vendor tier (both verticals) */
-export function getVendorTierLabel(tier: string, vertical?: string): string {
-  if (vertical === 'food_trucks') return getFtTierLabel(tier)
-  const labels: Record<string, string> = { free: 'Free', standard: 'Standard', premium: 'Premium', featured: 'Featured' }
-  return labels[tier?.toLowerCase()] || 'Free'
 }
 
 /**
  * Sort priority for browse page — lower number = shown first.
- * Works for both verticals.
  */
-export function getTierSortPriority(tier: string | undefined, vertical: string): number {
-  const t = (tier || '').toLowerCase()
-  if (vertical === 'food_trucks') {
-    if (t === 'boss') return 0
-    if (t === 'pro') return 1
-    if (t === 'basic') return 2
-    if (t === 'free') return 3
-    return 4 // unknown
-  }
-  // Farmers market / other
-  if (t === 'featured') return 0
-  if (t === 'premium') return 1
-  if (t === 'standard') return 2
-  return 3 // free
+export function getTierSortPriority(tier: string | undefined, _vertical?: string): number {
+  const normalized = normalizeTier(tier)
+  if (normalized === 'boss') return 0
+  if (normalized === 'pro') return 1
+  return 2 // free
 }
 
 /**
  * Get subscriber limits for a tier.
- * - `max`: Hard cap on subscribers per offering
- * - `default`: Default value when vendor hasn't set max_subscribers
  */
-export function getSubscriberDefault(tier: string, vertical?: string): number {
-  const limits = getTierLimits(tier, vertical)
-  return limits.defaultSubscribersPerOffering
+export function getSubscriberDefault(tier: string, _vertical?: string): number {
+  return getTierLimits(tier).defaultSubscribersPerOffering
 }
 
-export function getTierLimits(tier: string, vertical?: string) {
-  const normalized = (tier || 'free').toLowerCase()
-  // Food truck tiers
-  if (vertical === 'food_trucks') {
-    if (isFoodTruckTier(normalized)) return FT_TIER_LIMITS[normalized as FoodTruckTier]
-    return FT_TIER_LIMITS.free // FT vendor with 'standard' or unknown tier → free limits
-  }
-  // Farmers market / other verticals
-  const fmTier = normalized as VendorTier
-  return TIER_LIMITS[fmTier] || TIER_LIMITS.free
+export function getTierLimits(tier: string, _vertical?: string): TierLimits {
+  const normalized = normalizeTier(tier)
+  return TIER_LIMITS[normalized]
 }
 
-export function isPremiumTier(tier: string, vertical?: string): boolean {
-  const normalized = (tier || 'free').toLowerCase()
-  // Food trucks: pro and boss are "premium" (basic is the lowest paid tier)
-  if (vertical === 'food_trucks') {
-    return normalized === 'pro' || normalized === 'boss'
-  }
-  // FM: premium and featured
-  return normalized === 'premium' || normalized === 'featured'
+export function isPremiumTier(tier: string, _vertical?: string): boolean {
+  const normalized = normalizeTier(tier)
+  return normalized === 'pro' || normalized === 'boss'
 }
 
 // ============================================================================
@@ -248,7 +164,6 @@ export async function getTraditionalMarketUsage(
   supabase: SupabaseClient,
   vendorProfileId: string
 ): Promise<{ count: number; marketIds: string[] }> {
-  // Get markets from active listings (JOIN to get market_type in one query)
   const { data: listingMarkets } = await supabase
     .from('listings')
     .select('market_id, markets!inner(market_type)')
@@ -256,17 +171,14 @@ export async function getTraditionalMarketUsage(
     .eq('status', 'published')
     .not('market_id', 'is', null)
 
-  // Get markets from active market boxes
   const { data: boxMarkets } = await supabase
     .from('market_box_offerings')
     .select('pickup_market_id, markets!inner(market_type)')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('active', true)
 
-  // Combine and dedupe market IDs, filtering for traditional markets only
   const marketIds = new Set<string>()
 
-  // Add listing markets (market_type available from JOIN)
   if (listingMarkets) {
     for (const listing of listingMarkets) {
       const market = listing.markets as unknown as { market_type: string } | null
@@ -276,7 +188,6 @@ export async function getTraditionalMarketUsage(
     }
   }
 
-  // Add market box markets (already filtered for traditional in query)
   if (boxMarkets) {
     for (const box of boxMarkets) {
       const market = box.markets as unknown as { market_type: string } | null
@@ -286,15 +197,11 @@ export async function getTraditionalMarketUsage(
     }
   }
 
-  return {
-    count: marketIds.size,
-    marketIds: Array.from(marketIds),
-  }
+  return { count: marketIds.size, marketIds: Array.from(marketIds) }
 }
 
 /**
  * Get count of private pickup locations owned by vendor
- * Note: Private pickups are in the markets table with vendor_id referencing vendor_profiles.id
  */
 export async function getPrivatePickupUsage(
   supabase: SupabaseClient,
@@ -306,18 +213,13 @@ export async function getPrivatePickupUsage(
     .eq('vendor_id', vendorProfileId)
     .eq('market_type', 'private_pickup')
 
-  if (error || !markets) {
-    return { count: 0, marketIds: [] }
-  }
+  if (error || !markets) return { count: 0, marketIds: [] }
 
-  return {
-    count: markets.length,
-    marketIds: markets.map(m => m.id),
-  }
+  return { count: markets.length, marketIds: markets.map(m => m.id) }
 }
 
 /**
- * Get count of market boxes (total and active)
+ * Get count of market boxes
  */
 export async function getMarketBoxUsage(
   supabase: SupabaseClient,
@@ -328,14 +230,9 @@ export async function getMarketBoxUsage(
     .select('id, active')
     .eq('vendor_profile_id', vendorProfileId)
 
-  if (error || !boxes) {
-    return { total: 0, active: 0 }
-  }
+  if (error || !boxes) return { total: 0, active: 0 }
 
-  return {
-    total: boxes.length,
-    active: boxes.filter(b => b.active).length,
-  }
+  return { total: boxes.length, active: boxes.filter(b => b.active).length }
 }
 
 /**
@@ -366,40 +263,32 @@ export interface LimitCheckResult {
   upgradeMessage?: string
 }
 
-/**
- * Check if vendor can add another traditional market
- */
 export async function canAddTraditionalMarket(
   supabase: SupabaseClient,
   vendorProfileId: string,
   tier: string,
-  vertical?: string
+  _vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier, vertical)
+  const limits = getTierLimits(tier)
   const usage = await getTraditionalMarketUsage(supabase, vendorProfileId)
-
   const allowed = usage.count < limits.traditionalMarkets
   return {
     allowed,
     current: usage.count,
     limit: limits.traditionalMarkets,
-    message: allowed ? undefined : `Limit reached: ${usage.count} of ${limits.traditionalMarkets} traditional markets used.`,
-    upgradeMessage: allowed ? undefined : 'Upgrade to join multiple markets.',
+    message: allowed ? undefined : `Limit reached: ${usage.count} of ${limits.traditionalMarkets} locations used.`,
+    upgradeMessage: allowed ? undefined : 'Upgrade to join more locations.',
   }
 }
 
-/**
- * Check if vendor can create another private pickup location
- */
 export async function canAddPrivatePickup(
   supabase: SupabaseClient,
   vendorProfileId: string,
   tier: string,
-  vertical?: string
+  _vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier, vertical)
+  const limits = getTierLimits(tier)
   const usage = await getPrivatePickupUsage(supabase, vendorProfileId)
-
   const allowed = usage.count < limits.privatePickupLocations
   return {
     allowed,
@@ -410,68 +299,47 @@ export async function canAddPrivatePickup(
   }
 }
 
-/**
- * Check if vendor can create another market box
- */
 export async function canCreateMarketBox(
   supabase: SupabaseClient,
   vendorProfileId: string,
   tier: string,
-  vertical?: string
+  _vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier, vertical)
+  const limits = getTierLimits(tier)
   const usage = await getMarketBoxUsage(supabase, vendorProfileId)
-
-  const allowed = usage.total < limits.totalMarketBoxes
+  const allowed = usage.total < limits.marketBoxes
   return {
     allowed,
     current: usage.total,
-    limit: limits.totalMarketBoxes,
-    message: allowed ? undefined : `Limit reached: ${usage.total} of ${limits.totalMarketBoxes} Market Boxes maximum.`,
+    limit: limits.marketBoxes,
+    message: allowed ? undefined : `Limit reached: ${usage.total} of ${limits.marketBoxes} boxes maximum.`,
     upgradeMessage: allowed ? undefined : 'Upgrade to create more boxes.',
   }
 }
 
 /**
- * Check if vendor can activate another market box
- * Note: excludeBoxId allows excluding the current box from the count (for reactivation checks)
+ * Check if vendor can activate another market box.
+ * With unified tiers, there's no separate active limit — same as total.
  */
 export async function canActivateMarketBox(
   supabase: SupabaseClient,
   vendorProfileId: string,
   tier: string,
   _excludeBoxId?: string,
-  vertical?: string
+  _vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier, vertical)
-  const usage = await getMarketBoxUsage(supabase, vendorProfileId)
-
-  // If we're checking for reactivation, the box being reactivated is currently inactive
-  // so the current count doesn't include it - we compare against the limit directly
-  const currentActive = usage.active
-  const allowed = currentActive < limits.activeMarketBoxes
-
-  return {
-    allowed,
-    current: currentActive,
-    limit: limits.activeMarketBoxes,
-    message: allowed ? undefined : `Cannot activate: ${currentActive} of ${limits.activeMarketBoxes} active boxes limit reached.`,
-    upgradeMessage: allowed ? undefined : 'Upgrade to run multiple boxes simultaneously.',
-  }
+  // No separate active limit — vendors can activate all their boxes
+  return canCreateMarketBox(supabase, vendorProfileId, tier)
 }
 
-/**
- * Check if vendor can create another listing
- */
 export async function canCreateListing(
   supabase: SupabaseClient,
   vendorProfileId: string,
   tier: string,
-  vertical?: string
+  _vertical?: string
 ): Promise<LimitCheckResult> {
-  const limits = getTierLimits(tier, vertical)
+  const limits = getTierLimits(tier)
   const usage = await getListingUsage(supabase, vendorProfileId)
-
   const allowed = usage.count < limits.productListings
   return {
     allowed,
@@ -486,9 +354,6 @@ export async function canCreateListing(
 // HOME MARKET FUNCTIONS
 // ============================================================================
 
-/**
- * Get vendor's home market ID (for standard vendors)
- */
 export async function getHomeMarket(
   supabase: SupabaseClient,
   vendorProfileId: string
@@ -502,9 +367,6 @@ export async function getHomeMarket(
   return vendor?.home_market_id || null
 }
 
-/**
- * Set vendor's home market (only if not already set or if allowed to change)
- */
 export async function setHomeMarket(
   supabase: SupabaseClient,
   vendorProfileId: string,
@@ -515,27 +377,17 @@ export async function setHomeMarket(
     .update({ home_market_id: marketId })
     .eq('id', vendorProfileId)
 
-  if (error) {
-    return { success: false, error: error.message }
-  }
-
+  if (error) return { success: false, error: error.message }
   return { success: true }
 }
 
-/**
- * Check if vendor can change their home market
- * (Only allowed if no active listings or market boxes at current home market)
- */
 export async function canChangeHomeMarket(
   supabase: SupabaseClient,
   vendorProfileId: string,
   currentHomeMarketId: string | null
 ): Promise<{ allowed: boolean; reason?: string }> {
-  if (!currentHomeMarketId) {
-    return { allowed: true }
-  }
+  if (!currentHomeMarketId) return { allowed: true }
 
-  // Check for active listings at home market
   const { count: listingCount } = await supabase
     .from('listings')
     .select('*', { count: 'exact', head: true })
@@ -546,11 +398,10 @@ export async function canChangeHomeMarket(
   if (listingCount && listingCount > 0) {
     return {
       allowed: false,
-      reason: `Cannot change home market: ${listingCount} published listing(s) at current home market. Unpublish or move them first.`,
+      reason: `Cannot change home location: ${listingCount} published listing(s) at current home location. Unpublish or move them first.`,
     }
   }
 
-  // Check for active market boxes at home market
   const { count: boxCount } = await supabase
     .from('market_box_offerings')
     .select('*', { count: 'exact', head: true })
@@ -561,16 +412,13 @@ export async function canChangeHomeMarket(
   if (boxCount && boxCount > 0) {
     return {
       allowed: false,
-      reason: `Cannot change home market: ${boxCount} active Market Box(es) at current home market. Deactivate them first.`,
+      reason: `Cannot change home location: ${boxCount} active box(es) at current home location. Deactivate them first.`,
     }
   }
 
   return { allowed: true }
 }
 
-/**
- * Check if a market is the vendor's home market
- */
 export async function isHomeMarket(
   supabase: SupabaseClient,
   vendorProfileId: string,
@@ -580,37 +428,29 @@ export async function isHomeMarket(
   return homeMarketId === marketId
 }
 
-/**
- * For standard vendors, check if they can use a specific traditional market
- * (must be their home market, or they must not have a home market yet)
- */
 export async function canUseTraditionalMarket(
   supabase: SupabaseClient,
   vendorProfileId: string,
   marketId: string,
   tier: string
 ): Promise<{ allowed: boolean; reason?: string; isHomeMarket: boolean; shouldSetAsHome: boolean }> {
-  // Premium vendors can use any market (up to their limit)
   if (isPremiumTier(tier)) {
     return { allowed: true, isHomeMarket: false, shouldSetAsHome: false }
   }
 
-  // Standard vendors must use their home market
   const homeMarketId = await getHomeMarket(supabase, vendorProfileId)
 
-  // If no home market set, this will become the home market
   if (!homeMarketId) {
     return { allowed: true, isHomeMarket: true, shouldSetAsHome: true }
   }
 
-  // If already have a home market, can only use that one
   if (homeMarketId === marketId) {
     return { allowed: true, isHomeMarket: true, shouldSetAsHome: false }
   }
 
   return {
     allowed: false,
-    reason: 'Your current plan only allows one traditional market. Upgrade to join multiple markets.',
+    reason: 'Your current plan allows 3 locations. Upgrade to Pro for more.',
     isHomeMarket: false,
     shouldSetAsHome: false,
   }
@@ -620,41 +460,25 @@ export async function canUseTraditionalMarket(
 // COMPREHENSIVE USAGE SUMMARY
 // ============================================================================
 
-// Type for tier limits (allows any tier's values, not just standard)
-export type TierLimits = {
-  traditionalMarkets: number
-  privatePickupLocations: number
-  pickupWindowsPerLocation: number
-  totalMarketBoxes: number
-  activeMarketBoxes: number
-  maxSubscribersPerOffering: number
-  defaultSubscribersPerOffering: number
-  productListings: number
-}
-
 export interface VendorUsageSummary {
   tier: string
   limits: TierLimits
   usage: {
     traditionalMarkets: { current: number; limit: number; marketIds: string[] }
     privatePickups: { current: number; limit: number; marketIds: string[] }
-    totalMarketBoxes: { current: number; limit: number }
-    activeMarketBoxes: { current: number; limit: number }
+    marketBoxes: { current: number; limit: number }
     listings: { current: number; limit: number }
   }
   homeMarketId: string | null
 }
 
-/**
- * Get comprehensive usage summary for a vendor
- */
 export async function getVendorUsageSummary(
   supabase: SupabaseClient,
   vendorProfileId: string,
   tier: string,
-  vertical?: string
+  _vertical?: string
 ): Promise<VendorUsageSummary> {
-  const limits = getTierLimits(tier, vertical)
+  const limits = getTierLimits(tier)
 
   const [traditionalMarkets, privatePickups, marketBoxes, listings, homeMarketId] = await Promise.all([
     getTraditionalMarketUsage(supabase, vendorProfileId),
@@ -678,13 +502,9 @@ export async function getVendorUsageSummary(
         limit: limits.privatePickupLocations,
         marketIds: privatePickups.marketIds,
       },
-      totalMarketBoxes: {
+      marketBoxes: {
         current: marketBoxes.total,
-        limit: limits.totalMarketBoxes,
-      },
-      activeMarketBoxes: {
-        current: marketBoxes.active,
-        limit: limits.activeMarketBoxes,
+        limit: limits.marketBoxes,
       },
       listings: {
         current: listings.count,
@@ -695,15 +515,13 @@ export async function getVendorUsageSummary(
   }
 }
 
-/**
- * Format a limit check result into a user-friendly error message with upgrade prompt
- */
 export function formatLimitError(result: LimitCheckResult): string {
   if (result.allowed) return ''
-
   let message = result.message || 'Limit reached.'
-  if (result.upgradeMessage) {
-    message += ` ${result.upgradeMessage}`
-  }
+  if (result.upgradeMessage) message += ` ${result.upgradeMessage}`
   return message
 }
+
+// Legacy exports for backward compatibility
+/** @deprecated Use FtTierExtras type from TierLimits */
+export type FtTierExtras = TierLimits
