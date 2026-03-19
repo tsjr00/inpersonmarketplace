@@ -91,6 +91,14 @@ export default function VendorOrdersPage() {
     fetchMarkets()
   }, [statusFilter, marketFilter, pickupDateFilter, dateRangeFilter])
 
+  // Auto-refresh orders every 10 seconds so status changes appear quickly
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchOrders()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [statusFilter, marketFilter, pickupDateFilter, dateRangeFilter])
+
   const fetchOrders = async () => {
     try {
       const params = new URLSearchParams()
