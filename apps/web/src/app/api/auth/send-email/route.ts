@@ -112,9 +112,11 @@ function buildVerificationUrl(
     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured')
   }
 
-  // Build correct redirect URL from detected vertical + brand domain
+  // Build correct redirect URL — use NEXT_PUBLIC_APP_URL for environment awareness
+  // (staging → staging URL, production → production domain)
   const redirectPath = ACTION_REDIRECT_PATHS[emailData.email_action_type] || 'dashboard'
-  const correctRedirectTo = `https://${brandDomain}/${vertical}/${redirectPath}`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${brandDomain}`
+  const correctRedirectTo = `${appUrl}/${vertical}/${redirectPath}`
 
   const params = new URLSearchParams({
     token: emailData.token_hash,
