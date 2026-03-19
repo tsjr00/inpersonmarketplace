@@ -122,9 +122,9 @@ export default function BrowseFiltersPopup({
           alignItems: 'center',
           gap: spacing['2xs'],
           padding: `${spacing['2xs']} ${spacing.sm}`,
-          backgroundColor: open || activeCount > 0 ? branding.colors.primary : 'white',
+          backgroundColor: open || activeCount > 0 ? colors.textSecondary : 'white',
           color: open || activeCount > 0 ? 'white' : colors.textPrimary,
-          border: `1px solid ${branding.colors.secondary}`,
+          border: `1px solid ${open || activeCount > 0 ? colors.textSecondary : branding.colors.secondary}`,
           borderRadius: radius.md,
           fontSize: typography.sizes.sm,
           fontWeight: typography.weights.medium,
@@ -136,7 +136,7 @@ export default function BrowseFiltersPopup({
         {activeCount > 0 && (
           <span style={{
             backgroundColor: 'white',
-            color: branding.colors.primary,
+            color: colors.textSecondary,
             borderRadius: radius.full,
             width: 18,
             height: 18,
@@ -151,9 +151,9 @@ export default function BrowseFiltersPopup({
         )}
         {/* 3-dot icon */}
         <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: open || activeCount > 0 ? 'white' : colors.textMuted }} />
-          <span style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: open || activeCount > 0 ? 'white' : colors.textMuted }} />
-          <span style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: open || activeCount > 0 ? 'white' : colors.textMuted }} />
+          <span style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: open || activeCount > 0 ? 'white' : colors.textSecondary }} />
+          <span style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: open || activeCount > 0 ? 'white' : colors.textSecondary }} />
+          <span style={{ width: 3, height: 3, borderRadius: '50%', backgroundColor: open || activeCount > 0 ? 'white' : colors.textSecondary }} />
         </span>
       </button>
 
@@ -162,7 +162,7 @@ export default function BrowseFiltersPopup({
         <div style={{
           position: 'absolute',
           top: '100%',
-          left: 0,
+          right: 0,
           marginTop: spacing['2xs'],
           backgroundColor: 'white',
           borderRadius: radius.md,
@@ -216,7 +216,7 @@ export default function BrowseFiltersPopup({
                           width: 16,
                           height: 16,
                           borderRadius: '50%',
-                          border: `2px solid ${isSelected ? branding.colors.primary : colors.textMuted}`,
+                          border: `2px solid ${isSelected ? colors.textSecondary : colors.textMuted}`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -227,7 +227,7 @@ export default function BrowseFiltersPopup({
                               width: 8,
                               height: 8,
                               borderRadius: '50%',
-                              backgroundColor: branding.colors.primary,
+                              backgroundColor: colors.textSecondary,
                             }} />
                           )}
                         </span>
@@ -269,7 +269,7 @@ export default function BrowseFiltersPopup({
               onClick={() => setOpen(false)}
               style={{
                 padding: `${spacing['3xs']} ${spacing.sm}`,
-                backgroundColor: branding.colors.primary,
+                backgroundColor: colors.textSecondary,
                 color: 'white',
                 border: 'none',
                 borderRadius: radius.sm,

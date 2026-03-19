@@ -334,7 +334,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               fontSize: typography.sizes['2xl'],
               fontWeight: typography.weights.bold
             }}>
-              {t('browse.title', locale)}
+              {vertical === 'food_trucks' ? 'Menu' : t('browse.title', locale)}
             </h1>
             <p style={{ color: colors.textSecondary, fontSize: typography.sizes.base, margin: 0 }}>
               {term(vertical, 'browse_page_subtitle', locale)}
@@ -790,7 +790,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               fontSize: typography.sizes['2xl'],
               fontWeight: typography.weights.bold
             }}>
-              {t('browse.title', locale)}
+              {vertical === 'food_trucks' ? 'Menu' : t('browse.title', locale)}
             </h1>
             {hasLocationFilter && locationText && zip && (
               <div style={{
