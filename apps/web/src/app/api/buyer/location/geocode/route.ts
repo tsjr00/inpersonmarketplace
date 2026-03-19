@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { ZIP_LOOKUP } from '@/lib/geocode'
@@ -18,7 +19,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid ZIP code format' }, { status: 400 })
       }
 
-      // Check static lookup first
+      // 1. Check zip_codes table first (indexed PK lookup — sub-millisecond)
+      const supabase = await createClient()
+      const { data: dbZip } = await supabase
+        .from('zip_codes')
+        .select('latitude, longitude, city, state')
+        .eq('zip', zipCode)
+        .single()
+
+      if (dbZip?.latitude && dbZip?.longitude) {
+        return NextResponse.json({
+          latitude: Number(dbZip.latitude),
+          longitude: Number(dbZip.longitude),
+          locationText: `${dbZip.city}, ${dbZip.state}`,
+          source: 'database'
+        })
+      }
+
+      // 2. Check static lookup (hardcoded fallback for key zips)
       const staticResult = ZIP_LOOKUP[zipCode]
       if (staticResult) {
         return NextResponse.json({
@@ -29,7 +47,7 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Try Census Geocoding API (free, no API key)
+      // 3. Try Census Geocoding API (free, no API key)
       try {
         const censusUrl = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${zipCode}&benchmark=Public_AR_Current&format=json`
 
