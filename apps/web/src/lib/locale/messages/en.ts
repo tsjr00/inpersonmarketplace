@@ -817,6 +817,7 @@ export const en: Record<string, string> = {
   'browse.category_label': 'Category:',
   'browse.all_categories': 'All Categories',
   'browse.clear': 'Clear',
+  'browse.filters': 'Filters',
   'browse.view_label': 'View:',
   'browse.products_bundles': '{products} & Bundles',
   'browse.show_label': 'Show:',

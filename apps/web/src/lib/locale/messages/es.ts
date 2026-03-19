@@ -817,6 +817,7 @@ export const es: Record<string, string> = {
   'browse.category_label': 'Categoría:',
   'browse.all_categories': 'Todas las Categorías',
   'browse.clear': 'Limpiar',
+  'browse.filters': 'Filtros',
   'browse.view_label': 'Ver:',
   'browse.products_bundles': '{products} y Paquetes',
   'browse.show_label': 'Mostrar:',
