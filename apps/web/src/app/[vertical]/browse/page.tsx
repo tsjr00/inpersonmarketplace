@@ -1023,8 +1023,8 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
               <div style={{ padding: spacing.md }}>
                 <p style={{ color: colors.textMuted, margin: `0 0 ${spacing.sm} 0`, textAlign: 'center' }}>
                   {hasLocationFilter
-                    ? `No ${term(vertical, 'vendors').toLowerCase()} found near ${locationText || 'your location'} yet.`
-                    : `No ${term(vertical, 'vendors').toLowerCase()} available yet.`
+                    ? `No items available near ${locationText || 'your location'} right now. Vendors update their menus frequently — check back soon!`
+                    : `No items available right now. Vendors update their menus frequently — check back soon!`
                   }
                 </p>
                 <NotifyMeCapture
