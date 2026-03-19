@@ -51,12 +51,6 @@ const CATEGORY_REQUIREMENTS: Record<Category, CategoryRequirement> = {
     description: 'Art, crafts, and decorative items do not require food safety permits.',
     acceptedDocTypes: [],
   },
-  'Clothing & Fashion': {
-    level: 'none',
-    label: 'No permits required',
-    description: 'Clothing and fashion items do not require food safety permits.',
-    acceptedDocTypes: [],
-  },
   'Home & Functional': {
     level: 'none',
     label: 'No permits required',

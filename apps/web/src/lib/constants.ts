@@ -63,7 +63,6 @@ export const CATEGORIES = [
   'Prepared Foods',
   'Plants & Flowers',
   'Health & Wellness',
-  'Clothing & Fashion',
   'Art & Decor',
   'Home & Functional'
 ] as const

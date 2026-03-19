@@ -385,8 +385,8 @@ describe('CR-020: shouldTriggerNoShow FM date-based', () => {
 // =============================================================================
 
 describe('CR-027: Category counts', () => {
-  it('FM has 11 product categories', () => {
-    expect(CATEGORIES).toHaveLength(11)
+  it('FM has 10 product categories', () => {
+    expect(CATEGORIES).toHaveLength(10)
   })
 
   it('FT has 11 cuisine categories', () => {
