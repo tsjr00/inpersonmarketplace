@@ -90,8 +90,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (status) updates.status = status
     if (admin_notes !== undefined) updates.admin_notes = admin_notes
 
-    // On APPROVE: auto-create an event market from the request data
+    // On APPROVE: generate event token + auto-create event market
     if (status === 'approved' && cateringReq.status !== 'approved') {
+      // Generate unique event token for shareable URL
+      const tokenBase = cateringReq.company_name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 30)
+      const tokenSuffix = Date.now().toString(36).slice(-6)
+      updates.event_token = `${tokenBase}-${tokenSuffix}`
       // Create event market
       const eventSuffix = cateringReq.vertical_id === 'farmers_market' ? 'Pop-Up Market' : 'Private Event'
       const eventName = `${cateringReq.company_name} ${eventSuffix}`

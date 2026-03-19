@@ -85,6 +85,16 @@ export default function AdminCateringPage() {
   const [inviting, setInviting] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
+  // Create event state
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createForm, setCreateForm] = useState({
+    company_name: '', contact_name: '', contact_email: '', contact_phone: '',
+    event_date: '', event_end_date: '', event_start_time: '11:00', event_end_time: '14:00',
+    headcount: '50', address: '', city: '', state: '', zip: '', vendor_count: '2',
+    cuisine_preferences: '', setup_instructions: '', additional_notes: '',
+  })
+
   // Repeat event state
   const [showRepeatForm, setShowRepeatForm] = useState(false)
   const [repeatDate, setRepeatDate] = useState('')
@@ -211,6 +221,36 @@ export default function AdminCateringPage() {
     setRepeating(false)
   }
 
+  async function handleCreateEvent(e: React.FormEvent) {
+    e.preventDefault()
+    setCreating(true)
+    setActionMessage(null)
+    try {
+      const res = await fetch('/api/admin/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...createForm, vertical }),
+      })
+      if (res.ok) {
+        setShowCreateForm(false)
+        setCreateForm({
+          company_name: '', contact_name: '', contact_email: '', contact_phone: '',
+          event_date: '', event_end_date: '', event_start_time: '11:00', event_end_time: '14:00',
+          headcount: '50', address: '', city: '', state: '', zip: '', vendor_count: '2',
+          cuisine_preferences: '', setup_instructions: '', additional_notes: '',
+        })
+        fetchData()
+        setActionMessage('Event created successfully')
+      } else {
+        const err = await res.json()
+        setActionMessage(`Error: ${err.error}`)
+      }
+    } catch {
+      setActionMessage('Failed to create event')
+    }
+    setCreating(false)
+  }
+
   const selected = requests.find((r) => r.id === selectedId)
   const filtered =
     statusFilter === 'all'
@@ -223,16 +263,79 @@ export default function AdminCateringPage() {
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
       <AdminNav type="vertical" vertical={vertical} />
 
-      <h1
-        style={{
-          fontSize: typography.sizes['2xl'],
-          fontWeight: typography.weights.bold,
-          color: statusColors.neutral900,
-          marginBottom: spacing.sm,
-        }}
-      >
-        {term(vertical, 'event_feature_name')}
-      </h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+        <h1 style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: statusColors.neutral900, margin: 0 }}>
+          {term(vertical, 'event_feature_name')}
+        </h1>
+        <button
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          style={{
+            padding: `${spacing.xs} ${spacing.md}`,
+            backgroundColor: showCreateForm ? statusColors.neutral400 : statusColors.successDark,
+            color: 'white',
+            border: 'none',
+            borderRadius: radius.md,
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.semibold,
+            cursor: 'pointer',
+          }}
+        >
+          {showCreateForm ? 'Cancel' : '+ Create Event'}
+        </button>
+      </div>
+
+      {/* Create Event Form */}
+      {showCreateForm && (
+        <form onSubmit={handleCreateEvent} style={{
+          padding: spacing.md,
+          backgroundColor: 'white',
+          border: `1px solid ${statusColors.neutral200}`,
+          borderRadius: radius.md,
+          marginBottom: spacing.md,
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: spacing.xs,
+        }}>
+          <h3 style={{ gridColumn: '1 / -1', margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
+            New Event
+          </h3>
+          <input placeholder="Company / Org Name *" required value={createForm.company_name} onChange={e => setCreateForm(f => ({ ...f, company_name: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <input placeholder="Contact Name" value={createForm.contact_name} onChange={e => setCreateForm(f => ({ ...f, contact_name: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <input placeholder="Contact Email" type="email" value={createForm.contact_email} onChange={e => setCreateForm(f => ({ ...f, contact_email: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <input placeholder="Contact Phone" value={createForm.contact_phone} onChange={e => setCreateForm(f => ({ ...f, contact_phone: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <div>
+            <label style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>Event Date *</label>
+            <input type="date" required value={createForm.event_date} onChange={e => setCreateForm(f => ({ ...f, event_date: e.target.value }))} style={{ width: '100%', padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>End Date</label>
+            <input type="date" value={createForm.event_end_date} onChange={e => setCreateForm(f => ({ ...f, event_end_date: e.target.value }))} style={{ width: '100%', padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>Start Time</label>
+            <input type="time" value={createForm.event_start_time} onChange={e => setCreateForm(f => ({ ...f, event_start_time: e.target.value }))} style={{ width: '100%', padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>End Time</label>
+            <input type="time" value={createForm.event_end_time} onChange={e => setCreateForm(f => ({ ...f, event_end_time: e.target.value }))} style={{ width: '100%', padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, boxSizing: 'border-box' }} />
+          </div>
+          <input placeholder="Headcount *" type="number" required value={createForm.headcount} onChange={e => setCreateForm(f => ({ ...f, headcount: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <input placeholder="# of Vendors" type="number" value={createForm.vendor_count} onChange={e => setCreateForm(f => ({ ...f, vendor_count: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <input placeholder="Address *" required value={createForm.address} onChange={e => setCreateForm(f => ({ ...f, address: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <input placeholder="City *" required value={createForm.city} onChange={e => setCreateForm(f => ({ ...f, city: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <input placeholder="State *" required value={createForm.state} onChange={e => setCreateForm(f => ({ ...f, state: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <input placeholder="ZIP" value={createForm.zip} onChange={e => setCreateForm(f => ({ ...f, zip: e.target.value }))} style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }} />
+          <textarea placeholder="Setup instructions" value={createForm.setup_instructions} onChange={e => setCreateForm(f => ({ ...f, setup_instructions: e.target.value }))} rows={2} style={{ gridColumn: '1 / -1', padding: spacing.xs, border: `1px solid ${statusColors.neutral200}`, borderRadius: radius.sm, fontSize: typography.sizes.sm, resize: 'vertical' }} />
+          <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: spacing.xs }}>
+            <button type="button" onClick={() => setShowCreateForm(false)} style={{ padding: `${spacing.xs} ${spacing.md}`, backgroundColor: statusColors.neutral100, border: 'none', borderRadius: radius.sm, cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={creating} style={{ padding: `${spacing.xs} ${spacing.md}`, backgroundColor: creating ? statusColors.neutral400 : statusColors.successDark, color: 'white', border: 'none', borderRadius: radius.sm, cursor: creating ? 'not-allowed' : 'pointer', fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold }}>
+              {creating ? 'Creating...' : 'Create Event (Approved)'}
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Pending Event Applications */}
       {pendingApplications.length > 0 && (
