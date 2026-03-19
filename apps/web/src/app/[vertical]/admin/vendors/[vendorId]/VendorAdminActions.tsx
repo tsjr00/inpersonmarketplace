@@ -70,7 +70,7 @@ export default function VendorAdminActions({
     setLoading(false)
   }
 
-  const isFoodTruck = vertical === 'food_trucks'
+  const isEventEnabled = vertical === 'food_trucks' || vertical === 'farmers_market'
   const isApproved = currentStatus === 'approved'
 
   return (
@@ -90,7 +90,7 @@ export default function VendorAdminActions({
       )}
 
       {/* Event Approval — FT approved vendors only */}
-      {isFoodTruck && isApproved && (
+      {isEventEnabled && isApproved && (
         <div>
           {!eventApproved ? (
             <button
@@ -142,7 +142,7 @@ export default function VendorAdminActions({
       )}
 
       {/* Not eligible message */}
-      {isFoodTruck && !isApproved && (
+      {isEventEnabled && !isApproved && (
         <p style={{ fontSize: typography.sizes.xs, color: colors.textMuted, margin: 0 }}>
           Vendor must be approved before event eligibility.
         </p>

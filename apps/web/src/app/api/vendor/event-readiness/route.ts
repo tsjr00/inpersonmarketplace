@@ -40,8 +40,9 @@ export async function PUT(request: NextRequest) {
       throw traced.notFound('ERR_VENDOR_001', 'Vendor profile not found')
     }
 
-    if (vendor.vertical_id !== 'food_trucks') {
-      throw traced.validation('ERR_VALIDATION_001', 'Event readiness is currently available for food truck vendors only')
+    const { isEventEnabled } = await import('@/lib/vertical')
+    if (!isEventEnabled(vendor.vertical_id)) {
+      throw traced.validation('ERR_VALIDATION_001', 'Event readiness is not available for this vertical')
     }
 
     const existingProfileData = (vendor.profile_data as Record<string, unknown>) || {}

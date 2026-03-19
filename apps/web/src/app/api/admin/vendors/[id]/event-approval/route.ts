@@ -67,9 +67,10 @@ export async function PATCH(
       )
     }
 
-    if (vendor.vertical_id !== 'food_trucks') {
+    const { isEventEnabled } = await import('@/lib/vertical')
+    if (!isEventEnabled(vendor.vertical_id)) {
       return NextResponse.json(
-        { error: 'Event approval is currently available for food truck vendors only' },
+        { error: 'Event approval is not available for this vertical' },
         { status: 400 }
       )
     }

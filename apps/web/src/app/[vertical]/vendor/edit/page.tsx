@@ -135,8 +135,8 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         />
       </div>
 
-      {/* Event Readiness Section — FT only */}
-      {vertical === 'food_trucks' && (
+      {/* Event Readiness Section — event-enabled verticals */}
+      {(vertical === 'food_trucks' || vertical === 'farmers_market') && (
         <div style={{ marginTop: 20 }}>
           <EventReadinessForm
             vendorId={vendorProfile.id}
