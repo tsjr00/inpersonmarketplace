@@ -621,7 +621,14 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
     }
   }
 
-  // If we have a location, try PostGIS RPC for database-level filtering
+  // If we have a location, set the location display regardless of listing count
+  if (resolvedLocation) {
+    hasLocationFilter = true
+    locationText = resolvedLocation.locationText
+    currentRadius = resolvedLocation.radius
+  }
+
+  // If we have both a location AND listings, apply distance filtering
   if (resolvedLocation && listings && listings.length > 0) {
     const sanitizedSearch = search ? search.replace(/[%_]/g, '') : null
 
