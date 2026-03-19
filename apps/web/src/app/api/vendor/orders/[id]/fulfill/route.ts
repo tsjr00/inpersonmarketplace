@@ -328,11 +328,9 @@ export async function POST(
             }
           }
 
-          // Notify vendor that payout failed but will retry
-          await sendNotification(user.id, 'payout_failed', {
-            orderNumber: orderData?.order_number || orderItemId.slice(0, 8),
-            amountCents: actualPayoutCents,
-          }, { vertical: orderData?.vertical_id })
+          // Don't notify vendor about payout failure during fulfill — it's confusing.
+          // Phase 5 cron will retry the transfer and notify if it keeps failing.
+          console.warn(`[PAYOUT] Transfer failed for order ${orderData?.order_number}, will retry via Phase 5 cron`)
 
           // Atomically mark order completed — fulfillment succeeded even though payout failed
           await supabase.rpc('atomic_complete_order_if_ready', { p_order_id: orderItem.order_id })

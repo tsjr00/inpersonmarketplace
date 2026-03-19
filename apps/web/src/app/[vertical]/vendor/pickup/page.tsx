@@ -326,9 +326,13 @@ export default function VendorPickupPage() {
         method: 'POST'
       })
       if (res.ok) {
-        // Refresh orders
-        fetchOrders()
-        fetchNeedsFulfillmentCallback()
+        // Show success before item disappears from list
+        showBanner('success', 'Successfully fulfilled!')
+        // Refresh orders after brief delay so vendor sees the message
+        setTimeout(() => {
+          fetchOrders()
+          fetchNeedsFulfillmentCallback()
+        }, 1500)
       } else {
         const error = await res.json()
         const errorMessage = error.error || 'Failed to fulfill item'
