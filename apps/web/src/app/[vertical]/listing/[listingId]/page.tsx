@@ -301,30 +301,6 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   : t('browse.sold_out', locale)
               }
             </div>
-            {!!(listing.listing_data as Record<string, unknown> | null)?.event_menu_item && (
-              <span style={{
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: '#d1fae5',
-                color: '#065f46',
-                borderRadius: radius.lg,
-                fontSize: typography.sizes.xs,
-                fontWeight: typography.weights.semibold,
-              }}>
-                ✓ {t('browse.event_ready', locale)}
-              </span>
-            )}
-            {(listing.advance_order_days as number) > 0 && (
-              <span style={{
-                padding: `${spacing['3xs']} ${spacing.xs}`,
-                backgroundColor: '#dbeafe',
-                color: '#1e40af',
-                borderRadius: radius.lg,
-                fontSize: typography.sizes.xs,
-                fontWeight: typography.weights.semibold,
-              }}>
-                {t('browse.advance_order', locale)} · {t('browse.prepaid', locale)}
-              </span>
-            )}
           </div>
         </div>
 
@@ -398,6 +374,30 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                 </div>
               )}
             </div>
+
+            {/* Event / Catering Eligible Badge */}
+            {!!(listing.listing_data as Record<string, unknown> | null)?.event_menu_item && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                marginBottom: spacing.sm,
+              }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: `${spacing['3xs']} ${spacing.xs}`,
+                  backgroundColor: 'transparent',
+                  color: '#545454',
+                  border: '1.5px solid #545454',
+                  borderRadius: radius.lg,
+                  fontSize: typography.sizes.xs,
+                  fontWeight: typography.weights.semibold,
+                }}>
+                  ✓ Event / Catering Eligible
+                </span>
+              </div>
+            )}
 
             {/* Pickup Section */}
             {marketPickupDates.length > 0 && (
