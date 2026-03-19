@@ -91,7 +91,7 @@ export default function SearchFilter({
             style={{
               ...sizing.control,
               padding: `${spacing['2xs']} ${spacing.sm}`,
-              backgroundColor: branding.colors.primary,
+              backgroundColor: colors.textMuted,
               color: 'white',
               border: 'none',
               fontWeight: typography.weights.semibold,
