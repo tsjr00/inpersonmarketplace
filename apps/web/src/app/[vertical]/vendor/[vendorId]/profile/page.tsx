@@ -588,7 +588,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 {(vendorTier as string) !== 'standard' && (
                   <TierBadge tier={vendorTier} size="lg" />
                 )}
-                {vendor.event_approved && vertical === 'food_trucks' && (
+                {vendor.event_approved && (vertical === 'food_trucks' || vertical === 'farmers_market') && (
                   <span style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -798,7 +798,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               {(vendorTier as string) !== 'standard' && (
                 <TierBadge tier={vendorTier} size="md" />
               )}
-              {vendor.event_approved && vertical === 'food_trucks' && (
+              {vendor.event_approved && (vertical === 'food_trucks' || vertical === 'farmers_market') && (
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -1361,7 +1361,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           )}
 
           {/* Event / Catering */}
-          {vendor.event_approved && vertical === 'food_trucks' && (
+          {vendor.event_approved && (vertical === 'food_trucks' || vertical === 'farmers_market') && (
             <div style={{ paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
               <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
                 Event Catering
