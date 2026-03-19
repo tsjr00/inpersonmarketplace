@@ -109,7 +109,7 @@ export default function VendorMarketsPage() {
         justifyContent: 'center',
         backgroundColor: statusColors.neutral50
       }}>
-        <p>Loading markets...</p>
+        <p>Loading {term(vertical, 'markets').toLowerCase()}...</p>
       </div>
     )
   }
@@ -221,7 +221,7 @@ export default function VendorMarketsPage() {
               {limits && ` You can join ${limits.traditionalMarkets} ${limits.traditionalMarkets > 1 ? term(vertical, 'traditional_markets').toLowerCase() : term(vertical, 'traditional_market').toLowerCase()} (${limits.currentFixedMarketCount} of ${limits.traditionalMarkets} used).`}
               {limits && !limits.canAddFixed && (
                 <span style={{ color: statusColors.danger, marginLeft: 8 }}>
-                  Limit reached. <a href={`/${vertical}/settings`} style={{ color: statusColors.info }}>Upgrade</a> for more markets.
+                  Limit reached. <a href={`/${vertical}/settings`} style={{ color: statusColors.info }}>Upgrade</a> for more {term(vertical, 'markets').toLowerCase()}.
                 </span>
               )}
             </p>
