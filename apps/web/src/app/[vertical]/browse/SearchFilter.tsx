@@ -16,6 +16,7 @@ interface SearchFilterProps {
   currentAvailable?: string
   currentMenu?: string
   branding: VerticalBranding
+  children?: React.ReactNode
 }
 
 export default function SearchFilter({
@@ -26,7 +27,8 @@ export default function SearchFilter({
   currentZip,
   currentAvailable,
   currentMenu,
-  branding
+  branding,
+  children,
 }: SearchFilterProps) {
   const locale = getClientLocale()
   const router = useRouter()
@@ -138,6 +140,9 @@ export default function SearchFilter({
           {t('browse.clear', locale)}
         </button>
       )}
+
+      {/* Additional filters (popup) */}
+      {children}
     </div>
   )
 }

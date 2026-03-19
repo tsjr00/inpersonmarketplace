@@ -4,7 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import Image from 'next/image'
 import SearchFilter from './SearchFilter'
-import BrowseFilterBar from './BrowseFilterBar'
+import BrowseFiltersPopup from './BrowseFiltersPopup'
 import BrowsePagination from './BrowsePagination'
 import BrowseLocationPrompt from './BrowseLocationPrompt'
 import { formatDisplayPrice, formatQuantityDisplay, CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
@@ -341,14 +341,16 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
             </p>
           </div>
 
-          {/* Filter Bar */}
-          <BrowseFilterBar
-            vertical={vertical}
-            currentView={currentView}
-            isAvailableNow={isAvailableNow}
-            currentMenu={menu}
-            branding={branding}
-          />
+          {/* Filters */}
+          <div style={{ marginBottom: spacing.md }}>
+            <BrowseFiltersPopup
+              vertical={vertical}
+              currentView={currentView}
+              isAvailableNow={isAvailableNow}
+              currentMenu={menu}
+              branding={branding}
+            />
+          </div>
 
           {/* Market Boxes Info */}
           <div style={{
@@ -831,16 +833,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           currentRadius={currentRadius}
         />
 
-        {/* Filter Bar — View + Availability + Menu Type (FT) */}
-        <BrowseFilterBar
-          vertical={vertical}
-          currentView={currentView}
-          isAvailableNow={isAvailableNow}
-          currentMenu={menu}
-          branding={branding}
-        />
-
-        {/* Search & Filter */}
+        {/* Search + Category + Filters */}
         <SearchFilter
           vertical={vertical}
           categories={uniqueCategories as string[]}
@@ -850,7 +843,15 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
           currentAvailable={available}
           currentMenu={menu}
           branding={branding}
-        />
+        >
+          <BrowseFiltersPopup
+            vertical={vertical}
+            currentView={currentView}
+            isAvailableNow={isAvailableNow}
+            currentMenu={menu}
+            branding={branding}
+          />
+        </SearchFilter>
 
         {/* Results Count */}
         <div style={{ marginBottom: spacing.sm }}>
