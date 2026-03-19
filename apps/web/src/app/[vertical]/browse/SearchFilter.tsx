@@ -104,24 +104,23 @@ export default function SearchFilter({
       </form>
 
       {/* Category Filter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
-        <label style={{ fontWeight: typography.weights.semibold, color: colors.textPrimary }}>{t('browse.category_label', locale)}</label>
-        <select
-          value={currentCategory || ''}
-          onChange={(e) => handleCategoryChange(e.target.value)}
-          style={{
-            ...sizing.control,
-            border: `1px solid ${branding.colors.secondary}`,
-            backgroundColor: 'white',
-            minWidth: 130
-          }}
-        >
-          <option value="">{t('browse.all_categories', locale)}</option>
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
-      </div>
+      <select
+        value={currentCategory || ''}
+        onChange={(e) => handleCategoryChange(e.target.value)}
+        aria-label={t('browse.category_label', locale)}
+        style={{
+          ...sizing.control,
+          border: `1px solid ${branding.colors.secondary}`,
+          backgroundColor: 'white',
+          minWidth: 0,
+          flex: '0 1 auto',
+        }}
+      >
+        <option value="">{t('browse.all_categories', locale)}</option>
+        {categories.map(cat => (
+          <option key={cat} value={cat}>{cat}</option>
+        ))}
+      </select>
 
       {/* Clear Filters */}
       {(currentSearch || currentCategory) && (
