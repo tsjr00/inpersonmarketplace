@@ -153,9 +153,7 @@ export default function MarketSuggestionSection({
           {term(vertical, 'suggest_market_cta')}
         </h2>
         <p style={{ margin: '0 0 8px 0', fontSize: 14, color: statusColors.neutral500 }}>
-          {isFoodTruck
-            ? "Know of a food truck park or event location that isn't listed? Submit it for review and help grow our community."
-            : "Know of a farmers market that isn't listed? Submit it for review and help grow our community."}
+          {`Know of a ${term(vertical, 'traditional_market').toLowerCase()} that isn't listed? Submit it for review and help grow our community.`}
         </p>
         {!showSuggestionForm && (
           <button
@@ -185,12 +183,10 @@ export default function MarketSuggestionSection({
         marginBottom: 20
       }}>
         <h4 style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 600, color: colors.primaryDark }}>
-          {'ℹ️'} How Market Suggestions Work
+          {'ℹ️'} How {term(vertical, 'market')} Suggestions Work
         </h4>
         <p style={{ margin: 0, fontSize: 13, color: colors.primaryDark, lineHeight: 1.5 }}>
-          {isFoodTruck
-            ? 'When you suggest a location, our team will review it to verify the information. Once approved, the location will appear in the public list and all truck operators can join it. This helps ensure we only list real, verified locations.'
-            : 'When you suggest a farmers market, our team will review it to verify the information. Once approved, the market will appear in the public markets list and all vendors can join it. This helps ensure we only list real, verified markets.'}
+          {`When you suggest a ${term(vertical, 'traditional_market').toLowerCase()}, our team will review it to verify the information. Once approved, it will appear in the public ${term(vertical, 'traditional_markets').toLowerCase()} list and all ${term(vertical, 'vendors').toLowerCase()} can join it. This helps ensure we only list real, verified ${term(vertical, 'traditional_markets').toLowerCase()}.`}
         </p>
       </div>
 
@@ -240,7 +236,7 @@ export default function MarketSuggestionSection({
               borderRadius: 8
             }}>
               <label style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 12, color: statusColors.neutral700 }}>
-                Do you sell at this market? *
+                Do you sell at this {term(vertical, 'market').toLowerCase()}? *
               </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <label style={{
@@ -261,8 +257,8 @@ export default function MarketSuggestionSection({
                     style={{ width: 18, height: 18, cursor: 'pointer' }}
                   />
                   <div>
-                    <div style={{ fontWeight: 500, color: colors.primaryDark }}>Yes, I sell at this market</div>
-                    <div style={{ fontSize: 12, color: statusColors.neutral500 }}>I&apos;ll be associated with this market when approved</div>
+                    <div style={{ fontWeight: 500, color: colors.primaryDark }}>Yes, I sell at this {term(vertical, 'market').toLowerCase()}</div>
+                    <div style={{ fontSize: 12, color: statusColors.neutral500 }}>I&apos;ll be associated with this {term(vertical, 'market').toLowerCase()} when approved</div>
                   </div>
                 </label>
                 <label style={{
@@ -371,7 +367,7 @@ export default function MarketSuggestionSection({
               <textarea
                 value={suggestionFormData.description}
                 onChange={(e) => setSuggestionFormData({ ...suggestionFormData, description: e.target.value })}
-                placeholder="Any additional details about this market..."
+                placeholder={`Any additional details about this ${term(vertical, 'market').toLowerCase()}...`}
                 rows={3}
                 style={{ width: '100%', padding: '10px 12px', border: `1px solid ${statusColors.neutral300}`, borderRadius: 6, fontSize: 14, boxSizing: 'border-box', resize: 'vertical' }}
               />
@@ -398,7 +394,7 @@ export default function MarketSuggestionSection({
                   onChange={(e) => setSuggestionFormData({ ...suggestionFormData, season_start: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', border: `1px solid ${statusColors.neutral300}`, borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }}
                 />
-                <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.neutral500 }}>When does this market&apos;s season begin?</p>
+                <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.neutral500 }}>When does this {term(vertical, 'market').toLowerCase()}&apos;s season begin?</p>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
@@ -408,17 +404,17 @@ export default function MarketSuggestionSection({
                   onChange={(e) => setSuggestionFormData({ ...suggestionFormData, season_end: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', border: `1px solid ${statusColors.neutral300}`, borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }}
                 />
-                <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.neutral500 }}>When does this market&apos;s season end?</p>
+                <p style={{ margin: '4px 0 0 0', fontSize: 12, color: statusColors.neutral500 }}>When does this {term(vertical, 'market').toLowerCase()}&apos;s season end?</p>
               </div>
             </div>
             <p style={{ margin: '4px 0 12px 0', fontSize: 13, color: statusColors.neutral500, fontStyle: 'italic' }}>
-              Leave blank if the market operates year-round.
+              Leave blank if the {term(vertical, 'market').toLowerCase()} operates year-round.
             </p>
 
             {/* Market Schedule Section */}
             <div style={{ marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label style={{ fontSize: 14, fontWeight: 500 }}>Market Days/Times *</label>
+                <label style={{ fontSize: 14, fontWeight: 500 }}>{term(vertical, 'market')} Days/Times *</label>
                 {suggestionFormData.schedules.length < 7 && (
                   <button type="button" onClick={addSuggestionSchedule}
                     style={{ padding: '4px 12px', backgroundColor: statusColors.infoLight, color: statusColors.infoDark, border: 'none', borderRadius: 4, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
