@@ -10,7 +10,6 @@ import {
 import {
   getTierNotificationChannels,
   TIER_LIMITS,
-  FT_TIER_LIMITS,
 } from '@/lib/vendor-limits'
 
 // ── Existing structural tests ────────────────────────────────────────
@@ -275,16 +274,16 @@ describe('NI-R19-R27: Per-vertical urgency', () => {
 // ══════════════════════════════════════════════════════════════════════
 
 describe('NI-Q5: Tier-based channel gating — both verticals', () => {
-  describe('FT channel ladder', () => {
-    it('free tier = in_app only', () => {
+  describe('FT channel ladder (unified)', () => {
+    it('free tier = in_app + email', () => {
       const channels = getTierNotificationChannels('free', 'food_trucks')
       expect(channels).toContain('in_app')
-      expect(channels).not.toContain('email')
+      expect(channels).toContain('email')
       expect(channels).not.toContain('push')
       expect(channels).not.toContain('sms')
     })
 
-    it('basic tier = in_app + email', () => {
+    it('legacy "basic" maps to free = in_app + email', () => {
       const channels = getTierNotificationChannels('basic', 'food_trucks')
       expect(channels).toContain('in_app')
       expect(channels).toContain('email')
@@ -309,16 +308,16 @@ describe('NI-Q5: Tier-based channel gating — both verticals', () => {
     })
   })
 
-  describe('FM channel ladder (NI-Q5 confirmed: same as FT)', () => {
-    it('free tier = in_app only', () => {
+  describe('FM channel ladder (unified — same as FT)', () => {
+    it('free tier = in_app + email', () => {
       const channels = getTierNotificationChannels('free', 'farmers_market')
       expect(channels).toContain('in_app')
-      expect(channels).not.toContain('email')
+      expect(channels).toContain('email')
       expect(channels).not.toContain('push')
       expect(channels).not.toContain('sms')
     })
 
-    it('standard tier = in_app + email', () => {
+    it('legacy "standard" maps to free = in_app + email', () => {
       const channels = getTierNotificationChannels('standard', 'farmers_market')
       expect(channels).toContain('in_app')
       expect(channels).toContain('email')
@@ -326,39 +325,38 @@ describe('NI-Q5: Tier-based channel gating — both verticals', () => {
       expect(channels).not.toContain('sms')
     })
 
-    it('premium tier = in_app + email + push', () => {
+    it('legacy "premium" maps to free = in_app + email', () => {
       const channels = getTierNotificationChannels('premium', 'farmers_market')
       expect(channels).toContain('in_app')
       expect(channels).toContain('email')
-      expect(channels).toContain('push')
+      expect(channels).not.toContain('push')
       expect(channels).not.toContain('sms')
     })
 
-    it('featured tier = all channels', () => {
+    it('legacy "featured" maps to free = in_app + email', () => {
       const channels = getTierNotificationChannels('featured', 'farmers_market')
       expect(channels).toContain('in_app')
       expect(channels).toContain('email')
-      expect(channels).toContain('push')
-      expect(channels).toContain('sms')
+      expect(channels).not.toContain('push')
+      expect(channels).not.toContain('sms')
     })
   })
 
-  describe('Channel ladder progresses monotonically', () => {
-    it('FT: each tier has >= channels of the tier below', () => {
-      const tiers = ['free', 'basic', 'pro', 'boss'] as const
+  describe('Channel ladder progresses monotonically (unified tiers)', () => {
+    it('each tier has >= channels of the tier below', () => {
+      const tiers = ['free', 'pro', 'boss'] as const
       for (let i = 1; i < tiers.length; i++) {
-        const lower = getTierNotificationChannels(tiers[i - 1], 'food_trucks')
-        const higher = getTierNotificationChannels(tiers[i], 'food_trucks')
+        const lower = getTierNotificationChannels(tiers[i - 1])
+        const higher = getTierNotificationChannels(tiers[i])
         expect(higher.length, `${tiers[i]} should have >= ${tiers[i-1]} channels`).toBeGreaterThanOrEqual(lower.length)
       }
     })
 
-    it('FM: each tier has >= channels of the tier below', () => {
-      const tiers = ['free', 'standard', 'premium', 'featured'] as const
-      for (let i = 1; i < tiers.length; i++) {
-        const lower = getTierNotificationChannels(tiers[i - 1], 'farmers_market')
-        const higher = getTierNotificationChannels(tiers[i], 'farmers_market')
-        expect(higher.length, `${tiers[i]} should have >= ${tiers[i-1]} channels`).toBeGreaterThanOrEqual(lower.length)
+    it('FM and FT have identical channel ladders', () => {
+      for (const tier of ['free', 'pro', 'boss']) {
+        const fm = getTierNotificationChannels(tier, 'farmers_market')
+        const ft = getTierNotificationChannels(tier, 'food_trucks')
+        expect(fm).toEqual(ft)
       }
     })
   })

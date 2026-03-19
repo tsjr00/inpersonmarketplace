@@ -263,15 +263,18 @@ describe('SL-R13: cannot change pickup location with active subs', () => {
 })
 
 describe('SL-R14: reactivation checks tier limit', () => {
-  it('canActivateMarketBox function exists in vendor-limits', () => {
+  it('canActivateMarketBox delegates to canCreateMarketBox (unified limit)', () => {
     const limits = getTierLimits('free', 'farmers_market')
-    expect(limits).toHaveProperty('activeMarketBoxes')
+    // Unified tiers use 'marketBoxes' (no separate active limit)
+    expect(limits).toHaveProperty('marketBoxes')
+    expect(limits.marketBoxes).toBe(3)
   })
 })
 
 describe('SL-R15: maxSubscribersPerOffering enforced', () => {
   it('tier limits include subscriber caps', () => {
-    const limits = getTierLimits('standard', 'farmers_market')
+    const limits = getTierLimits('free', 'farmers_market')
     expect(limits).toHaveProperty('maxSubscribersPerOffering')
+    expect(limits.maxSubscribersPerOffering).toBe(10)
   })
 })

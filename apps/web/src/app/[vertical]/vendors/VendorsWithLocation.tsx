@@ -715,7 +715,7 @@ export default function VendorsWithLocation({
                 }}>
                   {vendor.listingCount} {vendor.listingCount !== 1 ? term(vertical, 'listings', locale).toLowerCase() : term(vertical, 'listing', locale).toLowerCase()}
                 </span>
-                {vendor.tier !== 'standard' && (
+                {(vendor.tier as string) !== 'standard' && (
                   <TierBadge tier={vendor.tier} size="sm" />
                 )}
               </div>

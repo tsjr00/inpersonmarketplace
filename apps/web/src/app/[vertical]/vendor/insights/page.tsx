@@ -203,7 +203,7 @@ export default function VendorInsightsPage() {
 
   const isFt = vertical === 'food_trucks'
   const extras = getFtTierExtras(vendorTier)
-  const insightsBlocked = isFt && extras.locationInsights === 'none'
+  const insightsBlocked = false // All tiers get at least 'basic' insights
 
   // Free tier — full page block
   if (insightsBlocked || data?.blocked) {

@@ -1865,7 +1865,7 @@ export async function GET(request: NextRequest) {
           // Use vertical-aware free tier limits
           const freeLimits = getTierLimits('free', vendor.vertical_id)
           const freeListingLimit = freeLimits.productListings
-          const freeActiveBoxLimit = freeLimits.activeMarketBoxes
+          const freeActiveBoxLimit = freeLimits.marketBoxes
           let unpublishedCount = 0
           let deactivatedBoxCount = 0
 

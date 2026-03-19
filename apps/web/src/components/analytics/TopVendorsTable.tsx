@@ -85,8 +85,8 @@ export default function TopVendorsTable({
               <td style={tdStyle}>
                 <span style={{
                   padding: `${spacing['3xs']} ${spacing['2xs']}`,
-                  backgroundColor: vendor.tier === 'premium' ? '#dbeafe' : vendor.tier === 'featured' ? '#fef3c7' : colors.surfaceMuted,
-                  color: vendor.tier === 'premium' ? '#1e40af' : vendor.tier === 'featured' ? '#92400e' : colors.textSecondary,
+                  backgroundColor: vendor.tier === 'boss' ? '#fef3c7' : vendor.tier === 'pro' ? '#dbeafe' : colors.surfaceMuted,
+                  color: vendor.tier === 'boss' ? '#92400e' : vendor.tier === 'pro' ? '#1e40af' : colors.textSecondary,
                   borderRadius: radius.sm,
                   fontSize: typography.sizes.xs,
                   fontWeight: typography.weights.semibold

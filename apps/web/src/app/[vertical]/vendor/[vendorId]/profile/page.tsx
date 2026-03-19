@@ -585,7 +585,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 }}>
                   {vendorName}
                 </h1>
-                {vendorTier !== 'standard' && (
+                {(vendorTier as string) !== 'standard' && (
                   <TierBadge tier={vendorTier} size="lg" />
                 )}
                 {vendor.event_approved && vertical === 'food_trucks' && (
@@ -794,7 +794,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               }}>
                 {vendorName}
               </h1>
-              {vendorTier !== 'standard' && (
+              {(vendorTier as string) !== 'standard' && (
                 <TierBadge tier={vendorTier} size="md" />
               )}
               {vendor.event_approved && vertical === 'food_trucks' && (

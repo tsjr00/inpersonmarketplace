@@ -89,8 +89,6 @@ import {
 import {
   getTierLimits,
   TIER_LIMITS,
-  FT_TIER_LIMITS,
-  isFoodTruckTier,
   isPremiumTier,
 } from '@/lib/vendor-limits'
 import { DEFAULT_CUTOFF_HOURS } from '@/lib/constants'
@@ -610,14 +608,18 @@ describe('VI: Vertical Isolation — coverage check', () => {
     expect(isTippingEnabled('food_trucks')).toBe(true)
   })
 
-  // ── VI-R12: Tier names differ per vertical ────────────────────────
+  // ── VI-R12: Unified tiers (both verticals use free/pro/boss) ──────
   // COVERED: vendor-tier-limits.test.ts
-  it('VI-R12: FM and FT use different tier names', () => {
-    // FM has standard/premium/featured, FT has basic/pro/boss
-    expect(isFoodTruckTier('standard')).toBe(false) // standard is FM-only
-    expect(isFoodTruckTier('basic')).toBe(true) // basic is FT-only
-    expect('standard' in TIER_LIMITS).toBe(true) // FM has standard
-    expect('basic' in FT_TIER_LIMITS).toBe(true) // FT has basic
+  it('VI-R12: FM and FT use same unified tier names (free/pro/boss)', () => {
+    // Unified tiers: free, pro, boss — same for both verticals
+    expect(Object.keys(TIER_LIMITS)).toContain('free')
+    expect(Object.keys(TIER_LIMITS)).toContain('pro')
+    expect(Object.keys(TIER_LIMITS)).toContain('boss')
+    // Legacy names are NOT in TIER_LIMITS — they map to free via normalizeTier()
+    expect('standard' in TIER_LIMITS).toBe(false)
+    expect('premium' in TIER_LIMITS).toBe(false)
+    expect('featured' in TIER_LIMITS).toBe(false)
+    expect('basic' in TIER_LIMITS).toBe(false)
   })
 
   // ── VI-R13: Chef Box types FT-only ────────────────────────────────
@@ -711,7 +713,7 @@ describe('VJ: Vendor Journey — coverage check', () => {
   // ── VJ-R6: New vendors get free tier ──────────────────────────────
   it('VJ-R6: free tier exists in tier limits', () => {
     expect('free' in TIER_LIMITS).toBe(true)
-    expect('free' in FT_TIER_LIMITS).toBe(true)
+    expect('free' in TIER_LIMITS).toBe(true)
   })
 
   // ── VJ-R7: 5 vendor acknowledgments required ─────────────────────
@@ -977,29 +979,35 @@ describe('Cross-domain: per-vertical configuration consistency', () => {
     expect('fire_works' in SMALL_ORDER_FEE_DEFAULTS).toBe(true)
   })
 
-  it('tier limits exist for both FM and FT verticals', () => {
+  it('unified tier limits exist (free/pro/boss)', () => {
     expect(Object.keys(TIER_LIMITS)).toContain('free')
-    expect(Object.keys(TIER_LIMITS)).toContain('standard')
-    expect(Object.keys(TIER_LIMITS)).toContain('premium')
-    expect(Object.keys(TIER_LIMITS)).toContain('featured')
-    expect(Object.keys(FT_TIER_LIMITS)).toContain('free')
-    expect(Object.keys(FT_TIER_LIMITS)).toContain('basic')
-    expect(Object.keys(FT_TIER_LIMITS)).toContain('pro')
-    expect(Object.keys(FT_TIER_LIMITS)).toContain('boss')
+    expect(Object.keys(TIER_LIMITS)).toContain('pro')
+    expect(Object.keys(TIER_LIMITS)).toContain('boss')
+    // Legacy names no longer in TIER_LIMITS
+    expect(Object.keys(TIER_LIMITS)).not.toContain('standard')
+    expect(Object.keys(TIER_LIMITS)).not.toContain('premium')
+    expect(Object.keys(TIER_LIMITS)).not.toContain('featured')
+    expect(Object.keys(TIER_LIMITS)).not.toContain('basic')
   })
 
-  it('FM premium tiers are premium/featured', () => {
-    expect(isPremiumTier('premium', 'farmers_market')).toBe(true)
-    expect(isPremiumTier('featured', 'farmers_market')).toBe(true)
-    expect(isPremiumTier('standard', 'farmers_market')).toBe(false)
-    expect(isPremiumTier('free', 'farmers_market')).toBe(false)
+  it('isPremiumTier returns true only for pro and boss', () => {
+    expect(isPremiumTier('pro')).toBe(true)
+    expect(isPremiumTier('boss')).toBe(true)
+    expect(isPremiumTier('free')).toBe(false)
+    // Legacy names all map to free → not premium
+    expect(isPremiumTier('premium')).toBe(false)
+    expect(isPremiumTier('featured')).toBe(false)
+    expect(isPremiumTier('standard')).toBe(false)
+    expect(isPremiumTier('basic')).toBe(false)
   })
 
-  it('FT premium tiers are pro/boss', () => {
+  it('isPremiumTier is vertical-agnostic (same result for FM and FT)', () => {
     expect(isPremiumTier('pro', 'food_trucks')).toBe(true)
+    expect(isPremiumTier('pro', 'farmers_market')).toBe(true)
     expect(isPremiumTier('boss', 'food_trucks')).toBe(true)
-    expect(isPremiumTier('basic', 'food_trucks')).toBe(false)
+    expect(isPremiumTier('boss', 'farmers_market')).toBe(true)
     expect(isPremiumTier('free', 'food_trucks')).toBe(false)
+    expect(isPremiumTier('free', 'farmers_market')).toBe(false)
   })
 })
 

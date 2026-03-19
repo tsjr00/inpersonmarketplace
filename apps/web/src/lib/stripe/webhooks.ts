@@ -710,7 +710,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         }
 
         // Also deactivate excess market boxes
-        const maxActiveBoxes = limits.activeMarketBoxes
+        const maxActiveBoxes = limits.marketBoxes
         const { count: activeBoxCount } = await supabase
           .from('market_box_offerings')
           .select('id', { count: 'exact', head: true })

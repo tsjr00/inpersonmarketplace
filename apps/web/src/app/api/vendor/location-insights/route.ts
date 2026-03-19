@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const extras = getFtTierExtras(vendorProfile.tier || 'free')
     const insightLevel = extras.locationInsights
 
-    if (insightLevel === 'none') {
+    if (insightLevel !== 'basic' && insightLevel !== 'pro' && insightLevel !== 'boss') {
       return NextResponse.json({ blocked: true, tier: vendorProfile.tier || 'free' })
     }
 
