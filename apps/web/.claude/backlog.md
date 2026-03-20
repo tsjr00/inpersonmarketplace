@@ -1,8 +1,43 @@
 # Backlog
 
-Last updated: 2026-03-16
+Last updated: 2026-03-19
 
-## Priority 1 — Next Session
+## Priority 1 — Next Session (from Session 61 testing)
+
+### Buyer Dashboard & Orders
+- [ ] **Fix "active orders" count on dashboard** — Currently counts all non-cancelled orders including fulfilled. Should only count pending, confirmed, ready. Fulfilled and cancelled should NOT be counted. This was fixed before but appears reverted.
+
+### Buyer Premium Upgrade Page
+- [ ] **Remove "access to market box subscriptions" from upgrade pitch** — No longer accurate; anyone can purchase market/chef box subscriptions regardless of tier.
+- [ ] **Remove "Market Box Subscriptions Exclusive" heading** from upgrade page.
+- [ ] **Rewrite premium buyer value proposition** — Focus on early access to listings (premium window). Messaging: "Get the items you want before non-premium members. Great for restaurants, food trucks, and anyone buying local in quantity." Remove "premium support" claim (we don't offer it). Keep premium badge — explain that vendors see a notation on orders from premium buyers, encouraging best-quality items for premium customers.
+
+### Vendor Profile (FM)
+- [ ] **"View Menu" → "View Products"** for FM vertical — FM vendors have products, not menus.
+- [ ] **Hide "Free" tier badge** on vendor profile — showing "Free" hurts vendor credibility. Only show Pro/Boss badges (they add value). Free tier = no badge.
+- [ ] **Show tier badge on FM vendor cards** — FT vendor cards show Pro/Boss badge but FM cards do not. Both should show paid tier badges on browse/discovery cards AND on the profile page.
+- [ ] **Resize social buttons on vendor profile** — Reduce Facebook/Website button size ~10%. Desktop: name on first line, Event Approved + reviews on second line, Website + Facebook on third line (or same row as reviews). Mobile: wraps naturally. View Menu button should be the clear primary CTA.
+
+### Notification Click Behavior
+- [ ] **Order notifications → orders page (correct). Non-order notifications → notifications page.** Currently ALL notification taps go to the orders page regardless of notification type. Options to investigate: (1) Route based on notification type — order-related → orders, everything else → notifications page. (2) Route all to notifications page and let user navigate from there. (3) Deep-link order notifications to the specific order detail. Check `actionUrl` in notification type registry — each type already has an `actionUrl` function that may just need fixing.
+
+### Translation Gaps
+- [ ] **Page-by-page translation audit** — Many items not translated to Spanish on both verticals. Known gaps: "View Menu" button, schedule days/times, payment type pill labels (Venmo/Cash App/PayPal/Cash), category names (Dairy & Eggs, Produce, etc.), "Event Catering" label + subtext on vendor profile. Rule: all platform-generated text (not vendor-entered) should be translated. Add to near-term TODO for systematic review.
+
+### Order Lifecycle Monitoring
+- [ ] **Admin dashboard: stuck orders card** — Show orders older than 24hrs still in `paid` or `confirmed` status. These are likely stuck due to fulfillment issues. Simple count + list on admin dashboard.
+- [ ] **Integration test: full order lifecycle** — Test that `atomic_complete_order_if_ready` works, and that an order transitions pending → paid → confirmed → ready → completed. Run against real DB. Would have caught the boolean/integer type mismatch in migration 011.
+- [ ] **Backfill stuck orders** — Run `atomic_complete_order_if_ready()` against all orders in `paid`/`confirmed`/`ready` status where all items have both confirmations. One-time cleanup.
+
+### Event System (continued from Session 61)
+- [ ] **Event Phase 1 completion** — Per-event listing connections, event page lifecycle
+- [ ] **Event Phase 2** — Wave-based ordering system
+- [ ] **Stripe payouts_enabled flag sync** — Investigate why DB flags don't stay current after vendor completes Stripe setup
+
+### Stripe Cleanup
+- [ ] **Delete old pebble02 webhook endpoint** — `https://pebble02.bubbleapps.io/api/1.1/wf/invoice_paid` in Stripe Dashboard → Developers → Webhooks. Old Bubble.io app, generates error emails.
+
+## Priority 1 — Previous (carried forward)
 - [x] **FM free tier + tier restructure** — ALREADY DONE (migration 061, code, UI all in place). Confirmed 2026-03-05.
 - [x] **Commit password validation fix** — DONE 2026-03-05 (commit `b7d4616`)
 
@@ -12,6 +47,8 @@ Last updated: 2026-03-16
 - [ ] **Playwright automated smoke tests** — See detailed implementation plan below
 - [ ] **Test push notifications on staging** — Verify web push works end-to-end (subscribe → trigger → receive). Instructions drafted Session 49.
 - [ ] **Stripe live mode activation** — Switch from test keys to live keys when ready for real payments
+- [x] **Event readiness form: move success/error message next to submit button** — DONE Session 61.
+- [ ] **Browse page: consolidate filters into single 3-dot menu** — Three separate dropdowns intimidate new users (confirmed by vendor demos). Replace with one "Filters" button (label + 3-dot icon in circle). Opens a popup with all filter groups in a single vertical list separated by thin lines. Groups: menu type (All / Daily Menu / Catering — pick one), sort, category, etc. Checkboxes with mutual exclusion rules within groups. Closes on submit. First impression becomes: radius search + one clean filter button. Priority: high — this is a conversion issue.
 - [x] **Set Dev/Staging password policy** — DONE by user 2026-03-05
 
 ## Priority 2.5 — Documentation Deep Dives
@@ -30,9 +67,9 @@ Last updated: 2026-03-16
 
 All items below require rules & tests written BEFORE implementation. See `apps/web/.claude/performance_audit.md` for full details.
 
-- [ ] **Backlog #1: ME-6 — Replace `select('*')` with explicit column lists** — `src/lib/db/listings.ts`, `src/lib/db/vendors.ts`, `src/lib/db/verticals.ts`. Write rules defining which columns each caller needs, write tests validating the column sets, then make the changes. No SQL migrations — this is TypeScript code only.
-- [ ] **Backlog #2: AC-4 — Optimize heavy RLS policies on markets table** — Markets SELECT policy has nested EXISTS subquery checking order_items for every row. Write rules defining expected policy behavior, write tests verifying access patterns, then optimize the policy. Migration required.
-- [ ] **Backlog #3: AC-3 — PostGIS spatial indexing for browse page** — Option A (PostGIS) approved. Enable PostGIS extension, add geography column to markets table, create spatial index, rewrite browse queries to use `ST_DWithin()`. Replaces current JS Haversine filtering. Write rules & tests first.
+- [x] **Backlog #1: ME-6** — MOOT: `src/lib/db/listings.ts` is dead code (zero imports). `vendors.ts` and `verticals.ts` don't exist. File should be deleted. Verified 2026-03-16.
+- [ ] **Backlog #2: AC-4 — Optimize heavy RLS policies on markets table** — Markets SELECT policy has 2 nested EXISTS subqueries checking order_items+orders for every row. Write rules defining expected policy behavior, write tests verifying access patterns, then optimize the policy. Migration required. User approved 2026-03-16.
+- [x] **Backlog #3: AC-3 — PostGIS** — ALREADY DONE: PostGIS extension enabled, `get_nearby_zip_codes` uses `ST_DWithin()`. Verified 2026-03-16.
 
 ## Priority 2.7 — Session 55 Deferred Items
 - [ ] **L4: Zod input validation on API routes** — Currently only vendor signup uses Zod. Other routes use manual checks. Gradually add Zod schemas to remaining API routes for consistent validation. Low priority, do incrementally.
