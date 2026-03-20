@@ -714,12 +714,12 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 </span>
               </div>
 
-              {/* Social Links (Premium only) - Desktop */}
+              {/* Social Links - Desktop (compact, secondary to View Menu/Products) */}
               {socialLinks && Object.keys(socialLinks).some(key => socialLinks[key]) && (
                 <div style={{
                   display: 'flex',
-                  gap: 12,
-                  marginTop: 16,
+                  gap: 8,
+                  marginTop: 12,
                   flexWrap: 'wrap'
                 }}>
                   {socialLinks.facebook && (
@@ -728,13 +728,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#1877f2',
-                        color: 'white',
+                        padding: '5px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#1877f2',
+                        border: '1px solid #1877f2',
                         textDecoration: 'none',
-                        borderRadius: 6,
-                        fontSize: 14,
-                        fontWeight: 600
+                        borderRadius: 4,
+                        fontSize: 12,
+                        fontWeight: 500
                       }}
                     >
                       {t('vp.facebook', locale)}
@@ -746,13 +747,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#e4405f',
-                        color: 'white',
+                        padding: '5px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#e4405f',
+                        border: '1px solid #e4405f',
                         textDecoration: 'none',
-                        borderRadius: 6,
-                        fontSize: 14,
-                        fontWeight: 600
+                        borderRadius: 4,
+                        fontSize: 12,
+                        fontWeight: 500
                       }}
                     >
                       {t('vp.instagram', locale)}
@@ -764,13 +766,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#6b7280',
-                        color: 'white',
+                        padding: '5px 12px',
+                        backgroundColor: 'transparent',
+                        color: '#6b7280',
+                        border: '1px solid #6b7280',
                         textDecoration: 'none',
-                        borderRadius: 6,
-                        fontSize: 14,
-                        fontWeight: 600
+                        borderRadius: 4,
+                        fontSize: 12,
+                        fontWeight: 500
                       }}
                     >
                       {t('vp.website', locale)}
@@ -828,11 +831,11 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               </p>
             )}
 
-            {/* Social Links - Mobile */}
+            {/* Social Links - Mobile (compact, outlined) */}
             {socialLinks && Object.keys(socialLinks).some(key => socialLinks[key]) && (
               <div style={{
                 display: 'flex',
-                gap: 8,
+                gap: 6,
                 flexWrap: 'wrap'
               }}>
                 {socialLinks.facebook && (
@@ -841,13 +844,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#1877f2',
-                      color: 'white',
+                      padding: '4px 10px',
+                      backgroundColor: 'transparent',
+                      color: '#1877f2',
+                      border: '1px solid #1877f2',
                       textDecoration: 'none',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 600
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 500
                     }}
                   >
                     {t('vp.facebook', locale)}
@@ -859,13 +863,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#e4405f',
-                      color: 'white',
+                      padding: '4px 10px',
+                      backgroundColor: 'transparent',
+                      color: '#e4405f',
+                      border: '1px solid #e4405f',
                       textDecoration: 'none',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 600
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 500
                     }}
                   >
                     {t('vp.instagram', locale)}
@@ -877,13 +882,14 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#6b7280',
-                      color: 'white',
+                      padding: '4px 10px',
+                      backgroundColor: 'transparent',
+                      color: '#6b7280',
+                      border: '1px solid #6b7280',
                       textDecoration: 'none',
-                      borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 600
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 500
                     }}
                   >
                     {t('vp.website', locale)}
