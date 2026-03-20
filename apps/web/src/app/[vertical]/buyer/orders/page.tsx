@@ -712,11 +712,14 @@ export default function BuyerOrdersPage() {
                     {/* Penalty-free cancel for app-based external payments (not cash) */}
                     {order.payment_method !== 'cash' && (
                       <button
-                        onClick={() => setCancelPaymentDialog({
-                          open: true,
-                          orderId: order.id,
-                          method: ({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method!] || order.payment_method!
-                        })}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setCancelPaymentDialog({
+                            open: true,
+                            orderId: order.id,
+                            method: ({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method!] || order.payment_method!
+                          })
+                        }}
                         style={{
                           marginTop: 8,
                           padding: 0,

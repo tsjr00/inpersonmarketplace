@@ -932,7 +932,7 @@ export default function BuyerOrderDetailPage() {
 
         {/* External Payment Action Box — penalty-free cancel for payment issues */}
         {order.payment_method && order.payment_method !== 'stripe' && order.payment_method !== 'cash' &&
-         effectiveStatus === 'pending' && (
+         (effectiveStatus === 'pending' || order.status === 'pending') && (
           <div style={{
             margin: `0 ${isPickupReady ? spacing.md : '0'} ${spacing.sm}`,
             padding: spacing.sm,
