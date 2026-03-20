@@ -240,9 +240,11 @@ export default function ListingForm({
       return
     }
 
-    // Prepare data - force draft status for pending vendors or vendors who can't publish
-    // Gate check: if vendor can't publish, force draft
-    const canPublishListing = !isPendingVendor && canPublish !== false
+    // Gate check: if vendor can't publish NEW listings, force draft
+    // But if editing an existing published listing AND vendor is still approved,
+    // preserve published status (gates were passed at first publish — edits shouldn't demote)
+    const isAlreadyPublished = mode === 'edit' && listing?.status === 'published' && vendorStatus === 'approved'
+    const canPublishListing = isAlreadyPublished || (!isPendingVendor && canPublish !== false)
     const submitData = {
       vendor_profile_id: vendorProfileId,
       vertical_id: vertical,
