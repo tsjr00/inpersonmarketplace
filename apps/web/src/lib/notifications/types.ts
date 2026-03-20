@@ -156,7 +156,13 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'buyer',
-    title: (_d, locale) => t('notif.order_placed_title', locale),
+    title: (d, locale) => {
+      const base = t('notif.order_placed_title', locale)
+      if (d.paymentMethod && d.paymentMethod !== 'Card') {
+        return `${base} — pay via ${d.paymentMethod}`
+      }
+      return base
+    },
     message: (d, locale) => {
       const signOffs: Record<string, string> = {
         food_trucks: "Thanks again, and keep on truck'n!",
@@ -352,6 +358,24 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `External Payment Auto-Confirmed`,
     message: (d) => `Order #${d.orderNumber} was auto-confirmed because the pickup date has passed. If you did not receive payment, please dispute within 7 days by contacting support.`,
     actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/dashboard/orders`,
+  },
+
+  external_payment_not_received: {
+    urgency: 'immediate',
+    severity: 'warning',
+    audience: 'buyer',
+    title: () => `Payment Not Received`,
+    message: (d) => `${d.vendorName || 'The vendor'} has not received your ${d.paymentMethod || 'external'} payment for order #${d.orderNumber}. Please send the payment or cancel the order if needed.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+  },
+
+  order_cancelled_nonpayment: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'buyer',
+    title: () => `Order Cancelled — Payment Not Received`,
+    message: (d) => `Order #${d.orderNumber} was cancelled because ${d.paymentMethod || 'external'} payment was not received. You can place a new order with a different payment method.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   order_cancelled_by_buyer: {

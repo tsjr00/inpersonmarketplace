@@ -114,6 +114,8 @@ interface OrderCardProps {
   onConfirmExternalPayment?: (orderId: string) => void
   onResolveStaleOrder?: (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => void
   onResolveIssue?: (itemId: string, action: 'confirm_delivery' | 'issue_refund', notes?: string) => void
+  onPaymentNotReceived?: (orderId: string) => void
+  onCancelNonpayment?: (orderId: string) => void
 }
 
 function formatPrice(cents: number): string {
@@ -139,7 +141,7 @@ function getMostUrgentStatus(items: OrderItem[]): string {
   return 'cancelled'
 }
 
-export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onResolveStaleOrder, onResolveIssue }: OrderCardProps) {
+export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onResolveStaleOrder, onResolveIssue, onPaymentNotReceived, onCancelNonpayment }: OrderCardProps) {
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
   const [externalConfirmDialog, setExternalConfirmDialog] = useState(false)
   const [staleResolveDialog, setStaleResolveDialog] = useState<{ open: boolean; resolution: 'fulfilled' | 'problem' } | null>(null)
@@ -346,22 +348,60 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               : `Check your ${formatPaymentMethod(order.payment_method!)} account for a payment of ${formatPrice(order.total_cents)}. Once verified, confirm below to start preparing the order.`
             }
           </p>
-          <button
-            onClick={() => setExternalConfirmDialog(true)}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: isCash ? '#3b82f6' : '#f59e0b',
-              color: isCash ? 'white' : '#78350f',
-              border: 'none',
-              borderRadius: 6,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: 'pointer',
-              minHeight: 40
-            }}
-          >
-            {isCash ? 'Confirm Order' : 'Confirm Payment Received'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              onClick={() => setExternalConfirmDialog(true)}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: isCash ? '#3b82f6' : '#f59e0b',
+                color: isCash ? 'white' : '#78350f',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: 'pointer',
+                minHeight: 40
+              }}
+            >
+              {isCash ? 'Confirm Order' : 'Confirm Payment Received'}
+            </button>
+            {!isCash && onPaymentNotReceived && (
+              <button
+                onClick={() => onPaymentNotReceived(order.id)}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: 'white',
+                  color: '#92400e',
+                  border: '1px solid #f59e0b',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  minHeight: 40
+                }}
+              >
+                Payment Not Received
+              </button>
+            )}
+            {onCancelNonpayment && (
+              <button
+                onClick={() => onCancelNonpayment(order.id)}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'transparent',
+                  color: '#dc2626',
+                  border: '1px solid #dc2626',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  minHeight: 36
+                }}
+              >
+                Cancel for Non-Payment
+              </button>
+            )}
+          </div>
         </div>
       )}
 

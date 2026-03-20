@@ -1,214 +1,638 @@
 # Session 62 — Independent Comprehensive Codebase Audit
 
 **Date:** 2026-03-20
-**Scope:** Full codebase audit — errors/conflicts, missing business rules, missing tests, high-value opportunities
-**Method:** Systematic section-by-section deep dive with no reference to prior audit reports
-**Areas Covered:** Auth, pricing, checkout/Stripe, order lifecycle, notifications, cron jobs, vendor onboarding, events/catering, market boxes, browse/location, cart/inventory, test suite, API security, code-DB alignment
+**Commit:** `114dcc0` (fixes) + migration 085a/085b (all 3 envs)
+**Scope:** Errors, missing business rules, missing tests, high-value opportunities
+**Method:** Systematic deep dive — no prior audit reports referenced
 
 ---
 
-## SECTION 1: ERRORS & CONFLICTS
+## Status Key
 
-### CRITICAL (Financial Impact / Data Integrity)
+    FIXED ........... Code change applied this session
+    NOT A BUG ....... Investigated, working as designed
+    DOCUMENTED ...... Business rule now in decisions.md
+    ACCEPTED ........ User confirmed, no change needed
+    BACKLOG ......... Queued for future session
+    OPEN ............ Still needs attention
 
-| # | Finding | Location | Impact |
-|---|---------|----------|--------|
-| E-1 | **External payment orders don't deduct vendor fees** | `api/checkout/external/route.ts:276` | `vendor_payout_cents: itemSubtotal` gives vendor 100% — platform absorbs all fees. Stripe orders correctly deduct 6.5% + $0.15. Same item, different payout depending on payment method. |
-| E-2 | **External payment vendor fees never recorded in ledger** | `api/checkout/external/route.ts:290-407` | `recordExternalPaymentFee()` exists in `vendor-fees.ts` but is never called. Fee balance is always $0, invoicing is broken for external orders. |
-| E-3 | **Resolve-issue refund missing buyer fees** | `api/vendor/orders/[id]/resolve-issue/route.ts:138,163` | Refunds `subtotal_cents` only — buyer paid subtotal + 6.5% + prorated $0.15. Buyer loses $0.80+ per refund on a $10 item. |
-| E-4 | **3 different refund calculation methods** | reject (correct), buyer-cancel (correct), resolve-issue (wrong), cron-expire (correct) | Same business operation (refund) uses inconsistent math across 4 code paths. |
-| E-5 | **Admin approval sets legacy tier names** | `api/admin/vendors/[id]/approve/route.ts:85` | Sets `tier = 'basic'` (FT) or `'standard'` (FM) instead of unified `'free'`. Every new vendor gets a tier name that doesn't match the Free/Pro/Boss system. |
-| E-6 | **Market box missed pickup doesn't process refund** | `api/cron/expire-orders/route.ts:968-1005` | Marks pickup as `'missed'` but no financial processing. Regular order no-shows DO trigger refunds (lines 655-718). Financial inconsistency. |
+---
+---
 
-### HIGH (Functional / Security)
-
-| # | Finding | Location | Impact |
-|---|---------|----------|--------|
-| E-7 | **Admin can invite non-event-approved vendors to events** | `api/admin/events/[id]/invite/route.ts:97-108` | Query selects vendors by ID without `.eq('event_approved', true)`. Admin could invite a vendor who hasn't passed event readiness. |
-| E-8 | **Cart validation endpoints missing vertical scope** | `api/cart/validate/route.ts` GET + POST | Neither endpoint validates that cart items match the requested vertical. Cross-vertical cart could pass validation. |
-| E-9 | **Market box add-to-cart doesn't validate vertical** | `api/cart/items/route.ts:299-327` | FM cart can receive FT market box offering. No `offering.vertical_id == request.vertical` check. |
-| E-10 | **Admin vendor table tier filter uses legacy names** | `admin/vendors/VendorsTableClient.tsx:223-225` | Dropdown offers Standard/Premium/Featured — names that no longer exist in DB after tier unification. Filtering returns zero results. |
-| E-11 | **Admin vendor tier badge colors reference legacy names** | `admin/vendors/VendorsTableClient.tsx:352-356` | Colors keyed on 'premium'/'featured'. Pro/Boss vendors show grey fallback instead of blue/yellow. |
-
-### MEDIUM (Edge Cases / UX)
-
-| # | Finding | Location | Impact |
-|---|---------|----------|--------|
-| E-12 | **Migration 085 not in migration log** | `supabase/migrations/20260316_085_*.sql` | `ensure_user_profile` RPC used by login page may not be applied to all environments. Login for users without profiles would silently fail. |
-| E-13 | **Resolve-issue restores inventory after fulfillment** | `resolve-issue/route.ts:146-149` | Calls restoreInventory without checking if buyer already has the item (status='fulfilled'). Inventory inflated incorrectly. |
-| E-14 | **Order expiration cron doesn't notify vendor** | `cron/expire-orders/route.ts:235-251` | Phase 1 (vendor didn't confirm) notifies buyer only. Vendor doesn't know the order disappeared. |
-| E-15 | **Event requests accept past dates** | `api/event-requests/route.ts` | No validation that `event_date >= today`. Past-date events can be created. |
-| E-16 | **Stale notification dedup key uses unreliable data** | `cron/expire-orders/route.ts:805` | Dedup set built from `n.data?.orderItemId` which could be undefined if notification data is corrupted. |
-| E-17 | **External buyer flat fee constant undocumented** | `settlement/route.ts:280` | Uses `EXTERNAL_BUYER_FEE_FIXED_CENTS` — not in pricing.ts, no business rule. |
-| E-18 | **JSONB race condition on document upload** | `onboarding/category-documents, coi, documents` | Read→modify→write pattern without row locking. Concurrent uploads could lose a document. |
-| E-19 | **Cart remove endpoint is a stub** | `api/cart/remove/route.ts:5-18` | Returns `{ success: true }` without removing anything. Dead code. |
-| E-20 | **20+ vendor notification titles hardcoded in English** | `notifications/types.ts:325-642` | Vendor notifications use string literals while buyer notifications use `t()` for i18n. Breaks multi-language for vendors. |
-| E-21 | **Timezone issues in cron date calculations** | `expire-orders:919-921,995` | Uses `new Date().setHours(h-2)` which on UTC Vercel can cross midnight. `toLocaleDateString()` formats in UTC, potentially showing wrong day. |
-| E-22 | **Silent geocode failure on browse** | Browse page + geocode API | If `?zip=` geocoding fails, browse silently falls back to cookie location. User thinks they see results for entered ZIP. |
-| E-23 | **Tip split ambiguity** | `checkout/session/route.ts:541-547` | Caps vendor tip at `subtotalCents * tipPercentage / 100`. If buyer tips flat amount larger than percentage cap, platform keeps the difference. |
-| E-24 | **`/api/trucks/where-today` missing rate limit** | `api/trucks/where-today/route.ts` | Public endpoint with no rate limiting. Low risk (read-only) but should be added. |
-| E-25 | **Duplicate `UserRole` type definition** | `auth/roles.ts:9` and `auth/admin.ts:5` | Same type defined in two places. Could drift. |
-| E-26 | **FT doc type validation loose** | `onboarding/category-documents/route.ts:66` | Checks `docType !== category` but doesn't validate against `FOOD_TRUCK_DOC_TYPES` list independently. |
+# SECTION 1: ERRORS & CONFLICTS
 
 ---
 
-## SECTION 2: MISSING BUSINESS RULES
-
-These are business functions in code that lack documented rules to prevent future sessions from breaking them.
-
-| # | Business Function | What's Missing | Risk |
-|---|-------------------|----------------|------|
-| BR-1 | **External payment fee structure** | 3.5% vendor fee defined in `vendor-fees.ts:15` — not in pricing.ts, no documented reason for 6.5% vs 3.5% split. No rule specifying when/why external fees differ from Stripe. | Future session could "fix" this to 6.5% without understanding the intentional difference. |
-| BR-2 | **Refund amount per cancellation path** | No documented rule for: reject=100%, buyer-cancel=X%, resolve-issue=Y%, cron-expire=Z%. Each path calculates independently. | Already caused E-3 (resolve-issue using wrong amount). |
-| BR-3 | **Tip allocation between vendor and platform** | No documented rule for how tip is split. Code caps vendor tip at `subtotalCents * tipPercentage / 100` with remainder going to platform. | Future session could change tip logic without understanding the split intent. |
-| BR-4 | **Event approval prerequisites** | Schema says COI is "hard gate for events" but code doesn't enforce during invite. Event-approved flag exists but no documented criteria for granting it. | Admin could approve a vendor for events who doesn't have proper insurance. |
-| BR-5 | **Market box missed pickup financial handling** | No rule for whether missed pickups warrant refund, credit, or nothing. Regular orders have clear expiration/refund logic; market boxes don't. | Financial inconsistency between product types. |
-| BR-6 | **Trial tier assignment** | Code assigns 'basic' (FT) or 'standard' (FM) as trial tiers — but unified system only has 'free'. No rule specifying what tier a trial vendor should get. | Currently broken (E-5). |
-| BR-7 | **Cancellation fee allocation** | When buyer cancels after vendor confirmed, vendor gets a fee share. No documented percentage or rule. | Future session could change the split without understanding the business intent. |
-| BR-8 | **Event headcount range (10-5000)** | Hardcoded in event request validation. No documented justification for minimum or maximum. | Could be changed without understanding why the range was chosen. |
-| BR-9 | **Cross-vertical cart isolation** | No documented rule preventing FM items + FT items in same cart. Code partially enforces via cart creation but not validation. | Cross-vertical orders could slip through if validation code changes. |
-| BR-10 | **Radius persistence behavior** | Radius stored in cookie only (not profile). No documented decision on whether this is session-state or persistent preference. | Future session might "fix" by persisting to profile, changing user experience. |
+## CRITICAL — Financial Impact / Data Integrity
 
 ---
 
-## SECTION 3: MISSING TESTS
+### E-1 — External payment orders don't deduct vendor fees  [NOT A BUG]
 
-### Critical Test Gaps (Zero Coverage)
+**File:** `api/checkout/external/route.ts:276`
 
-| # | What's Untested | Why It Matters |
-|---|-----------------|----------------|
-| T-1 | **Event system lifecycle** | Zero tests for invites, RSVPs, settlement, cancellation, capacity. Entire feature is unprotected. |
-| T-2 | **Refund calculation across all paths** | 4 refund paths with different amounts. Already has a bug (E-3). No test would catch it. |
-| T-3 | **Tip splitting logic** | No test for how tip is divided between vendor and platform. Business rule undocumented. |
-| T-4 | **Cart cross-vertical isolation** | No test preventing FM + FT items in same cart. |
-| T-5 | **Market box payout lifecycle** | Subscription integration tests exist but have many `.todo()` placeholders. No test for skip-refund, cancellation-refund, or missed-pickup handling. |
-| T-6 | **Concurrent order race conditions** | No test for two buyers trying to buy last item simultaneously. Atomic decrement is the safety net but untested. |
-| T-7 | **External payment fee calculation vs Stripe** | Existing test validates external buyer fee = 6.5% (correct) but doesn't compare with Stripe path side-by-side. Doesn't test that vendor gets proper deduction. |
-| T-8 | **Order status transition state machine** | Tests verify valid transitions exist but NOT via API routes. No test for route handlers performing transitions. |
-| T-9 | **Admin-only endpoint access control** | Tests verify role constants exist but no test that admin endpoints reject non-admin users. |
-| T-10 | **Trial system lifecycle** | No test for trial expiry cron, grace period enforcement, or trial → paid conversion. |
+**Original concern:** `vendor_payout_cents: itemSubtotal` gives vendor 100%.
 
-### Partially Covered (Has Tests But Gaps)
+**Resolution:** By design. Vendor fees (3.5%) are recorded LATER when vendor
+confirms payment received. Non-cash: `confirm-external-payment` route.
+Cash: `fulfill` route. Full 5-file flow documented in decisions.md.
 
-| # | What's Partially Tested | What's Missing |
-|---|-------------------------|----------------|
-| T-11 | **Notification channel filtering by tier** | Tests verify tier-channel mapping constants but no integration test that sendNotification actually filters by tier. |
-| T-12 | **Vendor tier limits** | Limits tested for free/pro/boss constants. No test for DB trigger `enforce_listing_tier_limit()` matching code. |
-| T-13 | **Subscription lifecycle** | Integration tests created but many `.todo()` markers. No auto-renewal test, no cancellation-refund proration test. |
-| T-14 | **Stripe idempotency keys** | Tests reference key format but don't verify determinism (same inputs = same key) or uniqueness. |
+> Needs protective tests — see T-7.
 
 ---
 
-## SECTION 4: HIGH-VALUE OPPORTUNITIES
+### E-2 — External payment vendor fees never recorded in ledger  [NOT A BUG]
 
-### Opportunity 1: Buyer Interest Geographic Intelligence Dashboard
+**File:** `api/checkout/external/route.ts:290-407`
 
-**Current state:** `buyer_interests` table (migration 088) captures demand signals — email, phone, zip code from buyers who visit browse pages with zero results. Data is collected but completely invisible.
+**Original concern:** `recordExternalPaymentFee()` never called from checkout.
 
-**Value:** This is your vendor recruitment intelligence. Every row says "a real buyer wanted to buy from [ZIP] but no vendors are there." This data could:
-- Identify underserved zip codes by demand density
-- Provide sales ammunition when recruiting vendors ("We have 47 buyers in your area looking for food trucks")
-- Create automated outreach ("You're the first vendor in [city] — 23 buyers are waiting")
-- Generate geographic heatmaps for expansion planning
+**Resolution:** Called downstream — `confirm-external-payment/route.ts:106-123`
+(non-cash) and `fulfill/route.ts:153` (cash). Documented in decisions.md.
 
-**What's needed:** Admin dashboard page showing buyer interests by vertical, sortable by zip/count/date. Export button for CSV. Alert when any zip hits 5+ interests.
-
-**Estimated impact:** Directly accelerates vendor acquisition — the hardest part of a marketplace.
+> User said "if it breaks we lose money" — highest priority for tests.
 
 ---
 
-### Opportunity 2: Vendor Quality System Activation
+### E-3 — Resolve-issue refund missing buyer fees  [FIXED]
 
-**Current state:** Nightly cron generates quality findings (5 types: schedule_conflict, low_stock_event, price_anomaly, ghost_listing, inventory_velocity). API routes exist for both vendor and admin to read findings. But NO UI component displays them anywhere.
+**File:** `api/vendor/orders/[id]/resolve-issue/route.ts`
 
-**Value:** This is a fully built quality engine with zero visibility. Activating it would:
-- Catch ghost listings (published but no inventory) before buyers see them
-- Alert vendors to schedule conflicts before they double-book
-- Surface low-stock items before events (preventing buyer disappointment)
-- Provide admin with quality oversight without manual auditing
+**Bug:** Refunded `subtotal_cents` only. Buyer paid subtotal + 6.5% +
+prorated $0.15 but only got base price back.
 
-**What's needed:** Vendor dashboard card showing top 3 action-required findings with dismiss/fix buttons. Admin page showing all active findings sortable by severity.
+**Example:** $10 item in 2-item order — buyer paid $10.72, got refunded
+$10.00, lost $0.72.
 
-**Estimated impact:** Reduces buyer frustration from stale listings, improves vendor operations, reduces admin support burden.
-
----
-
-### Opportunity 3: Trial-to-Paid Conversion Funnel
-
-**Current state:** Trial system exists (90 days, grace 14 days, cron handles expiry) but vendors have zero awareness of their trial status. No dashboard banner, no upgrade urgency, no "days remaining" indicator. Vendor discovers trial expired only when listings get auto-unpublished.
-
-**Value:** Trial-to-paid conversion is the primary revenue lever for vendor subscriptions. Without awareness:
-- Vendors are surprised by trial expiry (bad experience, churn risk)
-- No urgency drives upgrade decisions
-- Admin has no visibility into trial cohorts or conversion rates
-
-**What's needed:**
-- Vendor dashboard banner: "Day X of 90 — Upgrade to keep your listings live"
-- Upgrade page trial context: "Your trial includes Pro features. Upgrade to keep them."
-- Auto-notification 7 days before expiry (in-app + email)
-- Admin trial cohort view: which vendors expire when, bulk outreach tools
-
-**Estimated impact:** Direct revenue impact. Every converted trial = $25-50/month recurring.
+**Fix:** Now calculates `subtotal + buyerPercentFee + proratedFlatFee`.
+Platform absorbs Stripe processing fee. Both documented in decisions.md.
 
 ---
 
-### Opportunity 4: Vendor Leads Management UI
+### E-4 — Inconsistent refund calculation methods  [PARTIALLY FIXED]
 
-**Current state:** Vendor lead capture form works (`/api/vendor-leads`), stores leads in `vendor_leads` table with status tracking, sends admin email. But admin has no management interface — leads are handled via email and manual DB updates.
+**Files:** reject (correct), buyer-cancel (?), resolve-issue (was wrong),
+cron-expire (?)
 
-**Value:** Pre-launch leads are the warmest pipeline. Without a management UI:
-- No tracking of follow-up status
-- No lead scoring (demo-interested leads get same treatment as casual inquiries)
-- No automated follow-up sequences
-- No conversion tracking (lead → signed-up vendor)
+**Fix:** Resolve-issue now matches reject route formula.
 
-**What's needed:** Admin leads page with sortable table, status dropdown (new/contacted/converted), one-click "send demo link" button, filter by vertical, auto-flag "hot leads" (interested_in_demo=true).
-
-**Estimated impact:** Reduces lead-to-vendor conversion time, prevents leads from going cold.
+**Still open:** Need to verify buyer-cancel and cron-expire paths use
+identical math. Needs tests (see T-2).
 
 ---
 
-## PRIORITIZED ACTION PLAN
+### E-5 — Admin approval sets legacy tier names  [FIXED]
 
-### Tier 1 — Fix Now (Financial / Data Integrity)
+**File:** `api/admin/vendors/[id]/approve/route.ts:85`
 
-1. **Fix E-5: Admin approval tier assignment** — Change `'basic'`/`'standard'` to `'free'` in approve route. Every new vendor is getting the wrong tier.
-2. **Fix E-3/E-4: Standardize refund calculations** — Create a single `calculateRefundAmount()` function used by all 4 refund paths. Document the business rule.
-3. **Fix E-1/E-2: External payment vendor fee handling** — Either deduct vendor fees and record in ledger, or document why external orders are fee-free. Current state is silently wrong.
-4. **Fix E-6: Market box missed pickup financials** — Decide on business rule (refund? credit? nothing?) and implement.
+**Bug:** Set `tier = 'basic'` (FT) or `'standard'` (FM) instead of `'free'`.
+Every newly approved vendor got a tier that doesn't exist in the unified system.
 
-### Tier 2 — Add Rules & Tests (Regression Prevention)
-
-5. **Document BR-1 through BR-10** — Write business rules for all 10 undocumented areas.
-6. **Add T-1: Event system tests** — Minimum: invite validation, response flow, settlement calculation.
-7. **Add T-2: Refund calculation tests** — Test all 4 paths against documented business rules.
-8. **Add T-4: Cart cross-vertical isolation test** — Prevent mixed-vertical carts.
-9. **Fix E-7: Add event_approved check on invite** — Prevent inviting non-approved vendors.
-10. **Fix E-8/E-9: Add vertical validation to cart** — Prevent cross-vertical leakage.
-
-### Tier 3 — Activate Value (Revenue / Growth)
-
-11. **Opportunity 1: Buyer interest dashboard** — Surface geographic demand intelligence.
-12. **Opportunity 3: Trial conversion funnel** — Add trial awareness to vendor dashboard + upgrade page.
-13. **Opportunity 2: Quality findings visibility** — Surface findings to vendors and admins.
-14. **Opportunity 4: Leads management UI** — CRM-like interface for vendor lead tracking.
-
-### Tier 4 — Polish (Admin UX / Minor)
-
-15. **Fix E-10/E-11: Admin vendor table tier names** — Update to Free/Pro/Boss naming + colors.
-16. **Fix E-12: Verify migration 085 applied** — Confirm `ensure_user_profile` RPC exists in all environments.
-17. **Fix E-20: Vendor notification i18n** — Add translation keys for vendor-facing notifications.
-18. **Fix E-19: Remove dead cart/remove endpoint** — Delete the stub.
+**Fix:** Now sets `'free'` for all verticals. Notification label updated.
 
 ---
 
-## STATISTICS
+### E-6 — Market box missed pickup doesn't process refund  [ACCEPTED]
 
-- **Total findings:** 55
-- **Critical errors (financial):** 6
-- **High errors (functional/security):** 5
-- **Medium errors (edge cases):** 15
-- **Missing business rules:** 10
-- **Missing test categories:** 14
-- **High-value opportunities:** 4
-- **Areas audited:** 10 (auth, pricing, checkout/Stripe, order lifecycle, notifications/cron, vendor onboarding, events, market boxes, browse/location/cart, test suite, API security, code-DB alignment)
+**File:** `api/cron/expire-orders/route.ts:968-1005`
+
+**Original concern:** Missed pickups don't trigger refunds like regular
+orders do.
+
+**Resolution:** User confirmed — desired behavior. Buyer makes a 4-week
+prepaid commitment. Missed pickups are the buyer's responsibility.
+
+> Needs decision log entry.
+
+---
+---
+
+## HIGH — Functional / Security
+
+---
+
+### E-7 — Admin can invite non-event-approved vendors  [FIXED]
+
+**File:** `api/admin/events/[id]/invite/route.ts:97-108`
+
+**Bug:** Vendor query selected by ID without checking `event_approved = true`.
+
+**Fix:** Added `.eq('event_approved', true)` filter.
+
+---
+
+### E-8 — Cart validation missing vertical scope  [OPEN]
+
+**File:** `api/cart/validate/route.ts` — GET + POST
+
+Neither endpoint validates cart items match the requested vertical.
+Cross-vertical cart could theoretically pass validation.
+
+User said explore carefully before changing. Needs investigation of whether
+cross-vertical carts can actually be created through the UI.
+
+---
+
+### E-9 — Market box add-to-cart doesn't validate vertical  [OPEN]
+
+**File:** `api/cart/items/route.ts:299-327`
+
+FM cart could receive FT market box offering. No
+`offering.vertical_id == request.vertical` check. Same as E-8 — needs
+careful exploration.
+
+---
+
+### E-10 — Admin vendor table tier filter uses legacy names  [FIXED]
+
+**File:** `admin/vendors/VendorsTableClient.tsx:221-225`
+
+**Bug:** Dropdown offered Standard/Premium/Featured — removed after tier
+unification. Filtering returned zero results.
+
+**Fix:** Now shows Free / Pro / Boss.
+
+---
+
+### E-11 — Admin vendor + listing tier badge colors wrong  [FIXED]
+
+**Files:** `VendorsTableClient.tsx:352-356` + `ListingsTableClient.tsx:301-312`
+
+**Bug:** Colors keyed on `'premium'`/`'featured'`. Pro/Boss vendors displayed
+with grey fallback.
+
+**Fix:** Both tables use `'pro'`/`'boss'` color keys. Tier names capitalized.
+
+---
+---
+
+## MEDIUM — Edge Cases / UX
+
+---
+
+### E-12 — Migration 085 not applied  [FIXED]
+
+**File:** `supabase/migrations/20260316_085_*.sql`
+
+**Issue:** `ensure_user_profile` RPC, `platform_admin` enum, `regional_admin`
+enum — all missing from every environment.
+
+**Fix:** Split into 085a (enum values) + 085b (functions). PostgreSQL
+requires enum ADD VALUE to commit before use. Applied to Dev, Staging, & Prod.
+Schema snapshot updated.
+
+---
+
+### E-13 — Inventory restore ignores vertical + status  [FIXED]
+
+**File:** `resolve-issue/route.ts:146-149`
+
+**Bug:** Unconditionally restored inventory on refund. FT cooked food can't
+be resold after fulfillment.
+
+**Fix:** Now checks vertical + status:
+
+    FM + fulfilled  -->  restore (goods can be resold)
+    FT + fulfilled  -->  NO restore (cooked food is gone)
+    Any + confirmed -->  restore (item never left vendor)
+    Any + pending   -->  restore (item never left vendor)
+
+> Needs protective test — see T-11.
+
+---
+
+### E-14 — Order expiration doesn't notify vendor  [BACKLOG]
+
+**File:** `cron/expire-orders/route.ts:235-251`
+
+Phase 1 only notifies buyer. Vendor doesn't know the order disappeared.
+User confirmed vendor should be notified.
+
+---
+
+### E-15 — Event requests accept past dates  [FIXED]
+
+**File:** `api/event-requests/route.ts`
+
+**Bug:** No validation that `event_date >= today`.
+
+**Fix:** Added date validation before insert.
+
+---
+
+### E-16 — Stale notification dedup uses unreliable key  [ACCEPTED]
+
+**File:** `cron/expire-orders/route.ts:805`
+
+Worst case: duplicate "needs attention" notification. User reviewed,
+acceptable risk.
+
+---
+
+### E-17 — External buyer flat fee constant  [NOT A BUG]
+
+**File:** `settlement/route.ts:280`
+
+`EXTERNAL_BUYER_FEE_FIXED_CENTS` is set to `0`. Exists for structural
+completeness. No math impact.
+
+---
+
+### E-18 — JSONB race condition on document upload  [FIXED]
+
+**File:** `onboarding/category-documents/route.ts`
+
+**Bug:** Read-modify-write on JSONB without locking. Concurrent uploads
+could overwrite each other.
+
+**Fix:** Optimistic concurrency — reads `updated_at`, conditionally updates
+with match check, retries up to 3 times on conflict.
+
+---
+
+### E-19 — Cart remove endpoint is a stub  [OPEN]
+
+**File:** `api/cart/remove/route.ts:5-18`
+
+Returns `{ success: true }` without doing anything. Dead code — no callers.
+Real removal uses `DELETE /api/cart/items/[id]`. User wants more context
+before authorizing deletion.
+
+---
+
+### E-20 — Vendor notification titles hardcoded in English  [BACKLOG]
+
+**File:** `notifications/types.ts:325-642`
+
+20+ vendor notifications use string literals. Buyer notifications correctly
+use `t()` for i18n.
+
+---
+
+### E-21 — Timezone issues in cron date calculations  [OPEN]
+
+**File:** `expire-orders:919-921,995`
+
+UTC Vercel + `new Date().setHours(h-2)` can cross midnight boundary.
+Needs design for centralized timezone utility.
+
+---
+
+### E-22 — Silent geocode failure on browse  [OPEN]
+
+**Files:** Browse page + geocode API
+
+If `?zip=` geocoding fails, browse silently falls back to cookie location.
+User sees results for old location. Important system — needs careful
+investigation. zip_codes table populated (~33,800 zips).
+
+---
+
+### E-23 — Tip split ambiguity  [NOT A BUG]
+
+**File:** `checkout/session/route.ts:541-547`
+
+Working as designed. Vendor gets tip on food cost. Platform keeps tip on
+its fee portion to offset Stripe processing. Documented in Session 40
+decisions.md.
+
+---
+
+### E-24 — Where-today missing rate limit  [FIXED]
+
+**File:** `api/trucks/where-today/route.ts`
+
+**Fix:** Added `checkRateLimit()` with `rateLimits.api`.
+
+---
+
+### E-25 — Duplicate UserRole type definition  [OPEN]
+
+**Files:** `auth/roles.ts:9` and `auth/admin.ts:5`
+
+Same type in two files. Simple fix: import from `roles.ts`. Not yet
+authorized.
+
+---
+
+### E-26 — FT doc type validation loose  [NOT A BUG]
+
+**File:** `onboarding/category-documents/route.ts:62-66`
+
+Line 62 validates against `FOOD_TRUCK_DOC_TYPES.includes()`. Validation
+is correct.
+
+---
+---
+---
+
+# SECTION 2: MISSING BUSINESS RULES
+
+---
+
+### BR-1 — External payment fee structure  [DOCUMENTED]
+
+Full 5-file flow documented in decisions.md. Rationale: no Stripe processing
+cost on external payments = lower fees (3.5% vendor vs 6.5% Stripe).
+
+---
+
+### BR-2 — Refund amount formula  [DOCUMENTED]
+
+Documented in decisions.md:
+`subtotal + round(subtotal * 6.5%) + floor($0.15 / totalItems)`.
+Still need to verify buyer-cancel and cron-expire match.
+
+---
+
+### BR-3 — Tip allocation  [DOCUMENTED]
+
+Already documented (Session 40 decisions.md). Confirmed correct.
+
+---
+
+### BR-4 — Event approval prerequisites  [OPEN]
+
+E-7 fixed the invite check, but no documented criteria for what grants
+`event_approved`. Is COI required? What's the checklist?
+
+---
+
+### BR-5 — Market box missed pickup handling  [ACCEPTED]
+
+Resolved: 4-week prepaid commitment, no refund for missed pickups.
+Needs decision log entry.
+
+---
+
+### BR-6 — Trial tier assignment  [FIXED]
+
+Fixed: trial grants `'free'` tier. Needs decision log entry.
+
+---
+
+### BR-7 — Cancellation fee allocation  [OPEN]
+
+No documented percentage for vendor's share when buyer cancels after
+confirmation.
+
+---
+
+### BR-8 — Event headcount range (10-5000)  [OPEN]
+
+Hardcoded, no documented justification.
+
+---
+
+### BR-9 — Cross-vertical cart isolation  [OPEN]
+
+Tied to E-8/E-9. No documented rule.
+
+---
+
+### BR-10 — Radius persistence behavior  [OPEN]
+
+Cookie-only vs profile. No documented decision.
+
+---
+
+### BR-11 — FT fulfilled items don't restore inventory  [OPEN — NEW]
+
+Implemented in E-13 but not yet documented. FM items restore after
+fulfillment; FT items don't. Needs decision log entry + test.
+
+---
+---
+---
+
+# SECTION 3: MISSING TESTS
+
+---
+
+## Highest Priority — Protect Revenue and Recent Fixes
+
+---
+
+### T-7 — External payment fee flow  [HIGHEST PRIORITY]
+
+User said "if it breaks we lose money."
+
+Test should cover the full deferred fee flow:
+
+    1. Checkout creates order with vendor_payout_cents = subtotal
+    2. confirm-external-payment records fee in vendor_fee_ledger
+    3. Cash path records fee at fulfill time
+    4. Fee balance accumulates correctly
+    5. Auto-deduction caps at 50% of Stripe payouts
+
+---
+
+### T-2 — Refund calculation consistency  [HIGH PRIORITY]
+
+Already had a real bug (E-3).
+
+Test all 4 refund paths produce identical amounts for the same item:
+
+    - reject route
+    - buyer-cancel route
+    - resolve-issue route (fixed this session)
+    - cron-expire route
+
+---
+
+### T-11 — Inventory restore vertical awareness  [HIGH PRIORITY — NEW]
+
+New logic from E-13, zero test protection.
+
+    FT + fulfilled  -->  should NOT restore
+    FT + confirmed  -->  should restore
+    FM + fulfilled  -->  should restore
+    FM + confirmed  -->  should restore
+
+---
+
+### T-3 — Tip split protection
+
+Confirmed correct, but easy to accidentally break.
+
+    vendor tip   = min(tipAmount, subtotal * tipPercent / 100)
+    platform tip = tipAmount - vendorTip
+    sum must always equal original tip
+
+---
+---
+
+## Standard Priority — Coverage Gaps
+
+    T-1  ... Event system lifecycle (zero tests — invites, RSVPs, settlement)
+    T-4  ... Cart cross-vertical isolation (tied to E-8/E-9)
+    T-5  ... Market box payout lifecycle (.todo() placeholders)
+    T-6  ... Concurrent order race conditions (two buyers, last item)
+    T-8  ... Order status transitions via API routes
+    T-9  ... Admin endpoint access control (reject non-admins)
+    T-10 ... Trial system lifecycle (expiry, grace period, conversion)
+
+---
+
+## Partial Coverage — Has Tests But Gaps
+
+    T-12 ... Notification channel filtering (no sendNotification integration test)
+    T-13 ... Vendor tier limits (DB trigger not tested against code constants)
+    T-14 ... Subscription lifecycle (many .todo() markers remain)
+    T-15 ... Stripe idempotency keys (no determinism verification)
+
+---
+---
+---
+
+# SECTION 4: HIGH-VALUE OPPORTUNITIES
+
+---
+
+## Opportunity 1 — Buyer Interest Geographic Intelligence
+
+**Impact:** Directly accelerates vendor acquisition
+
+`buyer_interests` table captures demand signals (zip codes with zero vendor
+results). Data collected, never surfaced.
+
+What it enables:
+
+    - Geographic demand heatmaps
+    - Sales ammunition: "47 buyers in your area looking for food trucks"
+    - Automated vendor recruitment targeting
+
+Build: Admin dashboard page, sortable by zip/count/date, CSV export,
+alerts at 5+ interests per zip.
+
+---
+
+## Opportunity 2 — Vendor Quality System Activation
+
+**Impact:** Reduces buyer frustration, improves vendor ops
+
+Nightly cron generates quality findings (schedule conflicts, ghost listings,
+low stock, price anomalies). API routes built. Zero UI visibility.
+
+Build: Vendor dashboard card (top 3 findings + fix buttons). Admin findings
+page (sortable, bulk actions).
+
+---
+
+## Opportunity 3 — Trial-to-Paid Conversion Funnel
+
+**Impact:** Direct revenue — every conversion = $25-50/month recurring
+
+Trial system exists but vendors have zero awareness of their status. No
+"Day X of 90" banner, no upgrade urgency, no pre-expiry notification.
+
+Build: Dashboard trial banner, upgrade page context, 7-day pre-expiry
+notification, admin cohort view.
+
+---
+
+## Opportunity 4 — Vendor Leads Management UI
+
+**Impact:** Prevents warm leads from going cold
+
+Lead capture works, admin gets email, but no management interface. No status
+tracking, no follow-up sequences, no conversion tracking.
+
+Build: Admin leads page with sortable table, status dropdown, one-click
+outreach, hot-lead flagging.
+
+---
+---
+---
+
+# SECTION 5: NEW UI BUILT THIS SESSION
+
+---
+
+## Vendor Resolve-Issue UI
+
+**Files:** `components/vendor/OrderCard.tsx` + `[vertical]/vendor/orders/page.tsx`
+
+Red alert box appears on order items with buyer-reported issues. Shows issue
+timestamp, description, and "Resolve Issue" button. Dialog offers two paths:
+
+    "I Did Deliver This"  -->  disputes claim, notifies admin
+    "Issue Refund"        -->  cancels item, refunds full buyer amount, notifies buyer
+
+Resolved issues show green confirmation with timestamp.
+
+---
+
+## Admin Order Issues Page
+
+**File:** `app/admin/order-issues/page.tsx` — linked from admin sidebar
+
+    - Status filter tabs with counts (New / In Review / Resolved / All)
+    - Issue cards: order number, vertical, buyer, vendor, market, amount
+    - Issue description highlighted
+    - Admin notes display + inline edit
+    - Status dropdown (New / In Review / Resolved / Closed)
+
+---
+---
+---
+
+# ACTION PLAN
+
+---
+
+## Done This Session
+
+    [FIXED]      E-3  -- Resolve-issue refund math
+    [FIXED]      E-5  -- Admin approval tier names
+    [FIXED]      E-7  -- Event invite event_approved check
+    [FIXED]      E-10 -- Admin vendor table tier filter
+    [FIXED]      E-11 -- Admin vendor + listing badge colors
+    [FIXED]      E-12 -- Migration 085 applied (all 3 envs)
+    [FIXED]      E-13 -- Inventory restore vertical logic
+    [FIXED]      E-15 -- Event request past date validation
+    [FIXED]      E-18 -- JSONB race condition fix
+    [FIXED]      E-24 -- Where-today rate limit
+    [BUILT]      Vendor resolve-issue UI
+    [BUILT]      Admin order issues page
+    [DOCUMENTED] External payment fee flow
+    [DOCUMENTED] Refund formula
+    [DOCUMENTED] Stripe fee absorption policy
+
+---
+
+## Next Priority
+
+    1. T-7  .... External payment fee flow test (protects revenue)
+    2. T-2  .... Refund calculation consistency test (had real bug)
+    3. T-11 .... Inventory restore vertical test (new logic, unprotected)
+    4. T-3  .... Tip split protective test
+    5. BR-5, BR-6, BR-11 ... Decision log entries
+    6. E-4  .... Verify buyer-cancel + cron-expire refund math
+    7. E-8/E-9 . Cart cross-vertical investigation
+
+---
+
+## Later
+
+    E-21 ....... Timezone centralization (design needed)
+    E-22 ....... Geocode/browse flow (careful investigation)
+    E-25 ....... UserRole type dedup
+    E-19 ....... Cart remove stub cleanup
+    E-14, E-20 . Backlog items
+    BR-4,7,8,9,10 .. Remaining business rules
+    Opps 1-4 ... Feature builds
+
+---
+---
+
+# SCORECARD
+
+    Total findings ............. 58
+    Resolved this session ...... 19
+    Still open ................. 21
+    Backlog .................... 3
+    New items discovered ....... 3 (BR-11, T-11, T-7 reprioritized)
+    Files changed .............. 17
+    New pages built ............ 2
+    Migrations applied ......... 085a + 085b (all 3 environments)
