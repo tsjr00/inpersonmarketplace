@@ -584,6 +584,29 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             </p>
           </Link>
 
+          {/* Where Are Trucks Today Card */}
+          <Link
+            href={`/${vertical}/where-today`}
+            style={{
+              display: 'block',
+              padding: spacing.md,
+              backgroundColor: '#fffbeb',
+              color: colors.textPrimary,
+              border: `2px solid #fbbf24`,
+              borderRadius: radius.md,
+              textDecoration: 'none'
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: spacing['2xs'], fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
+              📍 {vertical === 'food_trucks' ? 'Where Are Trucks Today?' : 'What Markets Are Open?'}
+            </h3>
+            <p style={{ margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm }}>
+              {vertical === 'food_trucks'
+                ? 'See which food trucks are serving near you right now'
+                : 'Find open markets and vendors near you today'}
+            </p>
+          </Link>
+
           {/* Notifications Card */}
           <DashboardNotifications vertical={vertical} limit={3} />
 
