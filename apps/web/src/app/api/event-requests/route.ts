@@ -74,6 +74,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate event_date is not in the past
+    const eventDateObj = new Date(event_date + 'T00:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (isNaN(eventDateObj.getTime()) || eventDateObj < today) {
+      return NextResponse.json(
+        { error: 'Event date must be today or in the future' },
+        { status: 400 }
+      )
+    }
+
     // Validate headcount
     const hc = parseInt(headcount, 10)
     if (isNaN(hc) || hc < 10 || hc > 5000) {

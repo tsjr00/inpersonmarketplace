@@ -1,89 +1,80 @@
-# Current Task: Session 59 (continued) — Performance Optimization + Performance Regression Framework
+# Current Task: Session 62 — Independent Audit + Fixes
+Started: 2026-03-20
 
-Started: 2026-03-16
+## Goal
+Comprehensive independent audit → fix authorized items
 
-## Mode
-Fix mode — user approved all items.
+## Completed Fixes
 
-## COMMITS MADE (prior context)
-1. `36ae55e` — perf: comprehensive performance audit (11 items) — PUSHED TO STAGING
-2. `a449813` — feat: ADMIN-R1/R2 business rules (admin account integrity + self-protection) — NOT pushed to staging yet
+### E-3: Resolve-issue refund now includes buyer fees (FIXED)
+- `api/vendor/orders/[id]/resolve-issue/route.ts` — refund amount now calculates `subtotal + 6.5% + prorated $0.15` (matches reject route)
+- Added imports for `FEES` and `proratedFlatFeeSimple`
+- Documented in decisions.md: platform absorbs Stripe processing fee on refunds
 
-## What's COMPLETE This Continuation
+### E-5: Admin approval tier assignment (FIXED)
+- `api/admin/vendors/[id]/approve/route.ts:85` — changed `'basic'`/`'standard'` → `'free'`
+- Notification label changed to `'Free'`
 
-### Browse Page Performance Fixes (A, B, C) — CODE DONE, NOT COMMITTED
-Three optimizations to `src/app/[vertical]/browse/page.tsx`:
-- **A: Parallelized** `auth.getUser()` + `getLocale()` via `Promise.all` (were sequential)
-- **B: Eliminated duplicate queries** — Combined `user_profiles` query to fetch both `buyer_tier` AND location fields (`preferred_latitude`, `preferred_longitude`, `location_source`, `location_text`) in single call. Inlined location resolution using pre-fetched data + direct cookie read. Removed `getServerLocation()` import (it was duplicating auth + profile queries). Now imports `cookies` from `next/headers` and `LOCATION_COOKIE_NAME`, `DEFAULT_RADIUS`, `VALID_RADIUS_OPTIONS` from `@/lib/location/server`.
-- **C: Consolidated dual RPC** — `get_listings_accepting_status` is now called once when Available Now filter is active (data reused for badge rendering). Second call only runs when filter is off. Guard: `if (paginatedListings.length > 0 && !isAvailableNow)`.
+### E-7: Event invite now checks event_approved (FIXED)
+- `api/admin/events/[id]/invite/route.ts:101` — added `.eq('event_approved', true)` filter
 
-### Performance Regression Framework — ALL DONE, NOT COMMITTED
-User identified critical pattern: sessions undo prior sessions' performance work due to structural bias toward action. Built comprehensive protection system:
+### E-10: Admin vendor table tier filter (FIXED)
+- `admin/vendors/VendorsTableClient.tsx:221-225` — dropdown now shows Free/Pro/Boss instead of Standard/Premium/Featured
 
-1. **Rule file**: `.claude/rules/no-performance-regression.md` — 5 rules: measure before/after, never increase query count, respect prior sessions, acknowledge limits, loading states are not problems. Strong opening: "Action does not need to be taken just because it can be."
+### E-11: Admin vendor/listing tier badge colors (FIXED)
+- `admin/vendors/VendorsTableClient.tsx:351-357` — colors keyed on 'pro'/'boss' instead of 'premium'/'featured'
+- `admin/listings/ListingsTableClient.tsx:301-312` — same fix, hide badge for 'free' instead of 'standard'
+- Both tables now capitalize tier name for display
 
-2. **Global CLAUDE.md Rule 1 update**: Added action-bias paragraph under "Scope matching" in `C:\Users\tracy\.claude\CLAUDE.md`
+### E-13: Inventory restore vertical-aware (FIXED)
+- `api/vendor/orders/[id]/resolve-issue/route.ts:146-149` — FT fulfilled items no longer restore inventory (cooked food can't be resold). FM items and non-fulfilled items still restore.
 
-3. **Performance baseline doc**: `.claude/PERFORMANCE_BASELINE.md` — Query structure table for 5 hot-path pages, client bundle sizes (4.3MB, 118 chunks), architectural decisions (ISR not effective, loading.tsx correct, RPC ceiling), known ceilings, change log
+### E-15: Event requests reject past dates (FIXED)
+- `api/event-requests/route.ts` — validates `event_date >= today` before inserting
 
-4. **Performance regression tests**: `src/lib/__tests__/performance-baseline.test.ts` — **28 tests across 9 groups**:
-   - PERF-R1: Browse page query structure (5 tests — Promise.all, combined profile, no getServerLocation, consolidated RPC)
-   - PERF-R2: Markets page parallelization (2 tests)
-   - PERF-R3: Vendors page parallelization (1 test)
-   - PERF-R4: Listing detail parallelization (2 tests)
-   - PERF-R5: Loading skeletons exist (5 tests — can't be removed)
-   - PERF-R6: Infrastructure files exist (6 tests — self-protecting)
-   - PERF-R7: Bundle size guard (1 test — 150 chunk ceiling)
-   - PERF-R8: Schema snapshot staleness (3 tests — every applied migration must be in changelog)
-   - PERF-R9: Performance baseline staleness (3 tests — date must be within 60 days, change log must have entries)
+### E-18: JSONB race condition on doc upload (FIXED)
+- `api/vendor/onboarding/category-documents/route.ts` — optimistic concurrency with `updated_at` check + retry (max 3 attempts)
 
-5. **Schema snapshot updated**: Added 13 previously-undocumented applied migrations to `supabase/SCHEMA_SNAPSHOT.md` changelog (migrations 010-023 and 031 from Sessions 20-27 that pre-dated the changelog system). PERF-R8 test now passes.
+### E-24: Where-today rate limit (FIXED)
+- `api/trucks/where-today/route.ts` — added `checkRateLimit()` with `rateLimits.api`
 
-6. **Feedback memory saved**: `feedback_action_bias.md` — Records user's directive about structural bias toward action
+### E-3 UI: Vendor resolve-issue UI (BUILT)
+- `components/vendor/OrderCard.tsx` — issue alert box with "Resolve Issue" button, plus resolved display
+- `app/[vertical]/vendor/orders/page.tsx` — `handleResolveIssue` handler + passed to OrderCard
+- `api/vendor/orders/route.ts` — added `issue_status` and `issue_resolved_at` to API response
 
-7. **MEMORY.md updated**: Added action bias reference
+### E-4: Admin order issues page (BUILT)
+- `app/admin/order-issues/page.tsx` — new page with status filter tabs, issue cards, inline edit (status + notes)
+- `app/admin/layout.tsx` — added "Order Issues" nav link
 
-### All Tests Pass: 28/28 performance baseline tests, full suite needs final run (was interrupted)
+## Documented
+- External payment fee flow documented in `decisions.md` with all 5 file paths
+- Refund policy (platform absorbs Stripe fee) documented in `decisions.md`
+- Refund amount formula documented in `decisions.md`
 
-## What's REMAINING
-- [ ] **Run full test suite** — was interrupted, need to confirm all 1230+ tests pass
-- [ ] **Commit all changes** from this continuation (browse perf fixes + performance framework)
-- [ ] **Migration 085** needs application to all 3 envs before committing role enum code changes
-- [ ] **Commit role enum + lazy profile code changes** after migration 085 applied
-- [ ] **Push `a449813` (admin rules) + new commits to staging**
-- [ ] **Update SCHEMA_SNAPSHOT.md** after migration 085 applied
-- [ ] **Browse page Option D** (static shell + client fetch) — deferred to future session
-- [ ] **RPC rewrite** (set-based `get_listings_accepting_status`) — deferred to future session
-- [ ] **Dashboard parallelization** — 6 sequential queries, 0 parallelized. Candidate for future optimization.
-- [ ] **Investigate**: Why did prod admin users disappear? (root cause unknown)
-- [ ] **Dual role columns**: `role` + `roles` on user_profiles — tech debt, future session
+## Files Modified
+- `src/app/api/admin/vendors/[id]/approve/route.ts` — tier fix
+- `src/app/api/admin/events/[id]/invite/route.ts` — event_approved check
+- `src/app/api/vendor/orders/[id]/resolve-issue/route.ts` — refund math + inventory logic
+- `src/app/api/vendor/orders/route.ts` — issue fields in response
+- `src/app/api/event-requests/route.ts` — past date validation
+- `src/app/api/trucks/where-today/route.ts` — rate limit
+- `src/app/api/vendor/onboarding/category-documents/route.ts` — JSONB race fix
+- `src/app/admin/vendors/VendorsTableClient.tsx` — tier names + colors
+- `src/app/admin/listings/ListingsTableClient.tsx` — tier names + colors
+- `src/components/vendor/OrderCard.tsx` — issue UI
+- `src/app/[vertical]/vendor/orders/page.tsx` — resolve handler
+- `src/app/admin/order-issues/page.tsx` — NEW admin page
+- `src/app/admin/layout.tsx` — nav link
+- `.claude/decisions.md` — 3 new entries + flow documentation
 
-## Files Modified This Continuation (not committed)
-- `src/app/[vertical]/browse/page.tsx` — Parallelized auth+locale, combined user_profiles query, inlined location, consolidated RPC
-- `.claude/rules/no-performance-regression.md` — NEW (action bias + regression prevention rules)
-- `.claude/PERFORMANCE_BASELINE.md` — NEW (structural metrics, baselines, ceilings, change log)
-- `src/lib/__tests__/performance-baseline.test.ts` — NEW (28 tests)
-- `C:\Users\tracy\.claude\CLAUDE.md` — Added action-bias paragraph to Rule 1
-- `supabase/SCHEMA_SNAPSHOT.md` — Added 13 missing changelog entries for old applied migrations
-
-## Files Modified From Prior Context (also not committed)
-- `src/lib/supabase/types.ts` — UserRole updated (waiting for migration 085)
-- `src/lib/auth/roles.ts` — isRegionalAdmin, isPlatformAdmin (waiting for migration 085)
-- `src/lib/auth/admin.ts` — UserRole updated (waiting for migration 085)
-- `src/app/[vertical]/login/page.tsx` — Lazy profile creation (waiting for migration 085)
-
-## Key Decisions Made This Continuation
-- **Browse page Option D deferred** — Static shell + client fetch is biggest win but most effort. User chose A/B/C first.
-- **RPC rewrite deferred** — 3 options analyzed (set-based, lightweight boolean, cache table). Deferred.
-- **Action bias rule added to CLAUDE.md** — User's exact words: "Action does not need to be taken just because it can be. Choosing to act or advise the user to act when the action will reduce performance is a failure and breach of responsibility."
-- **60-day staleness window** for PERFORMANCE_BASELINE.md
-- **Schema staleness test** checks every applied migration individually (no grouped references)
-
-## Gotchas / Watch Out For
-- **ISR on browse page is NOT effective** — `createClient()` calls `cookies()` which opts into dynamic rendering. `revalidate = 300` does nothing.
-- **loading.tsx is NOT the problem** — it reveals existing ~0.5s SSR latency. Don't remove it.
-- **getServerLocation still used** by markets + vendors pages — only removed from browse page
-- **Migration 085 must be applied before** committing role enum code changes
-- **Pre-existing type error** in `api-route-guards.test.ts` — not our fault
-- **Dashboard page has 0 parallelization** — 6 sequential queries, known ceiling documented in baseline
-- **User's core principle**: "find the data then make decisions — don't guess"
+## Still Pending from Audit
+- E-12: Migration 085 verification (user to run query)
+- E-14: Vendor expiration notification (backlog)
+- E-20: Vendor notification i18n (backlog)
+- E-21: Timezone centralization (needs design discussion)
+- E-22: Geocode/browse silent failure (needs investigation with user)
+- E-25: UserRole dedup (simple fix, not yet authorized)
+- BR-1 through BR-10: Business rules documentation
+- T-1 through T-10: Missing test coverage
+- Opportunities 1-4: Feature builds

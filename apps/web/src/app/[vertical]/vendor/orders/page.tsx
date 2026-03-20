@@ -261,6 +261,57 @@ export default function VendorOrdersPage() {
 
 
 
+  const handlePaymentNotReceived = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/vendor/orders/${orderId}/payment-not-received`, { method: 'POST' })
+      if (res.ok) {
+        setToast({ message: 'Buyer notified that payment was not received.', type: 'success' })
+      } else {
+        const data = await res.json()
+        setToast({ message: data.error || 'Failed to notify buyer', type: 'error' })
+      }
+    } catch {
+      setToast({ message: 'An error occurred', type: 'error' })
+    }
+  }
+
+  const handleCancelNonpayment = async (orderId: string) => {
+    try {
+      const res = await fetch(`/api/vendor/orders/${orderId}/cancel-nonpayment`, { method: 'POST' })
+      if (res.ok) {
+        setToast({ message: 'Order cancelled for non-payment. Buyer has been notified.', type: 'success' })
+        fetchOrders()
+      } else {
+        const data = await res.json()
+        setToast({ message: data.error || 'Failed to cancel order', type: 'error' })
+      }
+    } catch {
+      setToast({ message: 'An error occurred', type: 'error' })
+    }
+  }
+
+  const handleResolveIssue = async (itemId: string, action: 'confirm_delivery' | 'issue_refund', notes?: string) => {
+    try {
+      const res = await fetch(`/api/vendor/orders/${itemId}/resolve-issue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, notes })
+      })
+      if (res.ok) {
+        const msg = action === 'issue_refund'
+          ? 'Refund issued and issue resolved.'
+          : 'Delivery confirmed. Admin has been notified for review.'
+        setToast({ message: msg, type: 'success' })
+        fetchOrders()
+      } else {
+        const data = await res.json()
+        setToast({ message: data.error || 'Failed to resolve issue', type: 'error' })
+      }
+    } catch {
+      setToast({ message: 'An error occurred while resolving the issue', type: 'error' })
+    }
+  }
+
   const handleResolveStaleOrder = async (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => {
     if (resolution === 'fulfilled') {
       let allOk = true
@@ -543,6 +594,9 @@ export default function VendorOrdersPage() {
                   onRejectItem={handleRejectItem}
                   onConfirmExternalPayment={handleConfirmExternalPayment}
                   onResolveStaleOrder={handleResolveStaleOrder}
+                  onResolveIssue={handleResolveIssue}
+                  onPaymentNotReceived={handlePaymentNotReceived}
+                  onCancelNonpayment={handleCancelNonpayment}
                 />
               </div>
             )

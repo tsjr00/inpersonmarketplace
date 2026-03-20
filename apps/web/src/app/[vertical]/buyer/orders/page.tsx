@@ -13,6 +13,7 @@ import { term } from '@/lib/vertical'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
 import ReviewPromptCard from '@/components/buyer/ReviewPromptCard'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 // Format payment method for display
 function formatPaymentMethodLabel(method: string | undefined, locale: string): string | null {
@@ -142,6 +143,8 @@ export default function BuyerOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [marketFilter, setMarketFilter] = useState<string>('')
   const [view, setView] = useState<'current' | 'history'>('current')
+  const [cancelPaymentDialog, setCancelPaymentDialog] = useState<{ open: boolean; orderId: string; method: string }>({ open: false, orderId: '', method: '' })
+  const [cancelLoading, setCancelLoading] = useState(false)
 
   // Build SWR key from filters — key changes trigger automatic refetch
   const queryParams = new URLSearchParams()
@@ -150,7 +153,7 @@ export default function BuyerOrdersPage() {
   if (marketFilter) queryParams.set('market', marketFilter)
   const swrKey = `/api/buyer/orders?${queryParams.toString()}`
 
-  const { data: swrData, error: swrError, isLoading: loading } = useSWR(swrKey, fetcher, {
+  const { data: swrData, error: swrError, isLoading: loading, mutate } = useSWR(swrKey, fetcher, {
     dedupingInterval: 10000,
     onError: (err: Error & { status?: number }) => {
       if (err.status === 401) {
@@ -173,6 +176,35 @@ export default function BuyerOrdersPage() {
     code: (swrError as Error & { info?: { code?: string } })?.info?.code,
     traceId: (swrError as Error & { info?: { traceId?: string } })?.info?.traceId,
   } : null
+
+  // Handle penalty-free cancel for external payment orders
+  const handleCancelForPaymentIssue = async (orderId: string) => {
+    setCancelLoading(true)
+    try {
+      // Find all item IDs for this order
+      const order = orders.find(o => o.id === orderId)
+      if (!order?.items?.length) return
+
+      let allOk = true
+      for (const item of order.items) {
+        if (item.cancelled_at || item.status === 'cancelled') continue
+        const res = await fetch(`/api/buyer/orders/${item.id}/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: 'Payment method issue — buyer-initiated penalty-free cancellation' })
+        })
+        if (!res.ok) { allOk = false; break }
+      }
+      if (allOk) {
+        mutate()
+      }
+    } catch (err) {
+      console.error('Error cancelling order:', err)
+    } finally {
+      setCancelLoading(false)
+      setCancelPaymentDialog({ open: false, orderId: '', method: '' })
+    }
+  }
 
   // Status colors matching vendor OrderCard for consistency
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -677,6 +709,28 @@ export default function BuyerOrdersPage() {
                         : t('orders.external_banner', locale, { method: ({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method!] || order.payment_method! })
                       }
                     </p>
+                    {/* Penalty-free cancel for app-based external payments (not cash) */}
+                    {order.payment_method !== 'cash' && (
+                      <button
+                        onClick={() => setCancelPaymentDialog({
+                          open: true,
+                          orderId: order.id,
+                          method: ({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method!] || order.payment_method!
+                        })}
+                        style={{
+                          marginTop: 8,
+                          padding: 0,
+                          backgroundColor: 'transparent',
+                          color: '#92400e',
+                          border: 'none',
+                          fontSize: typography.sizes.xs,
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        Problem with {({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method!] || order.payment_method!} payment? Cancel order
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -976,6 +1030,17 @@ export default function BuyerOrdersPage() {
         })()}
 
       </div>
+
+      {/* Penalty-free cancel dialog for external payment issues */}
+      <ConfirmDialog
+        open={cancelPaymentDialog.open}
+        title={`Problem with ${cancelPaymentDialog.method} payment?`}
+        message={`Cancel this order with no penalty. You can place a new order with a different payment method.`}
+        confirmLabel={cancelLoading ? 'Cancelling...' : 'Cancel Order'}
+        variant="danger"
+        onConfirm={() => handleCancelForPaymentIssue(cancelPaymentDialog.orderId)}
+        onCancel={() => setCancelPaymentDialog({ open: false, orderId: '', method: '' })}
+      />
     </div>
   )
 }

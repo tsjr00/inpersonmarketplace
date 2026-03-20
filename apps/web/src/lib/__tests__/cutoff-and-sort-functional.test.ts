@@ -144,9 +144,9 @@ describe('VT-013: FT tier sort priority (unified: boss first)', () => {
 // NI-014: Notification type count = 46
 // =============================================================================
 
-describe('NI-014: Total notification types = 46', () => {
-  it('NOTIFICATION_REGISTRY has exactly 46 types', () => {
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(46)
+describe('NI-014: Total notification types = 48', () => {
+  it('NOTIFICATION_REGISTRY has exactly 48 types', () => {
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(48)
   })
 
   it('includes all buyer-facing types', () => {
@@ -155,6 +155,7 @@ describe('NI-014: Total notification types = 46', () => {
       'order_cancelled_by_vendor', 'order_refunded', 'order_expired',
       'pickup_missed', 'stale_confirmed_buyer', 'market_box_skip',
       'market_box_pickup_missed', 'issue_resolved',
+      'external_payment_not_received', 'order_cancelled_nonpayment',
     ]
     for (const type of buyerTypes) {
       expect(NOTIFICATION_REGISTRY).toHaveProperty(type)

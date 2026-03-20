@@ -39,6 +39,11 @@ interface OrderItem {
   cancelled_at?: string | null
   cancelled_by?: string | null
   cancellation_reason?: string | null
+  issue_reported_at?: string | null
+  issue_description?: string | null
+  issue_status?: string | null
+  issue_resolved_at?: string | null
+  issue_admin_notes?: string | null
 }
 
 // Format pickup date for display
@@ -108,6 +113,9 @@ interface OrderCardProps {
   onRejectItem?: (itemId: string, reason: string) => void
   onConfirmExternalPayment?: (orderId: string) => void
   onResolveStaleOrder?: (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => void
+  onResolveIssue?: (itemId: string, action: 'confirm_delivery' | 'issue_refund', notes?: string) => void
+  onPaymentNotReceived?: (orderId: string) => void
+  onCancelNonpayment?: (orderId: string) => void
 }
 
 function formatPrice(cents: number): string {
@@ -133,10 +141,12 @@ function getMostUrgentStatus(items: OrderItem[]): string {
   return 'cancelled'
 }
 
-export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onResolveStaleOrder }: OrderCardProps) {
+export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onResolveStaleOrder, onResolveIssue, onPaymentNotReceived, onCancelNonpayment }: OrderCardProps) {
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
   const [externalConfirmDialog, setExternalConfirmDialog] = useState(false)
   const [staleResolveDialog, setStaleResolveDialog] = useState<{ open: boolean; resolution: 'fulfilled' | 'problem' } | null>(null)
+  const [issueDialog, setIssueDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
+  const [issueNotes, setIssueNotes] = useState('')
 
   const isExternalPayment = order.payment_method && order.payment_method !== 'stripe'
   const isCash = order.payment_method === 'cash'
@@ -338,22 +348,60 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
               : `Check your ${formatPaymentMethod(order.payment_method!)} account for a payment of ${formatPrice(order.total_cents)}. Once verified, confirm below to start preparing the order.`
             }
           </p>
-          <button
-            onClick={() => setExternalConfirmDialog(true)}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: isCash ? '#3b82f6' : '#f59e0b',
-              color: isCash ? 'white' : '#78350f',
-              border: 'none',
-              borderRadius: 6,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: 'pointer',
-              minHeight: 40
-            }}
-          >
-            {isCash ? 'Confirm Order' : 'Confirm Payment Received'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              onClick={() => setExternalConfirmDialog(true)}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: isCash ? '#3b82f6' : '#f59e0b',
+                color: isCash ? 'white' : '#78350f',
+                border: 'none',
+                borderRadius: 6,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: 'pointer',
+                minHeight: 40
+              }}
+            >
+              {isCash ? 'Confirm Order' : 'Confirm Payment Received'}
+            </button>
+            {!isCash && onPaymentNotReceived && (
+              <button
+                onClick={() => onPaymentNotReceived(order.id)}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: 'white',
+                  color: '#92400e',
+                  border: '1px solid #f59e0b',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  minHeight: 40
+                }}
+              >
+                Payment Not Received
+              </button>
+            )}
+            {onCancelNonpayment && (
+              <button
+                onClick={() => onCancelNonpayment(order.id)}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'transparent',
+                  color: '#dc2626',
+                  border: '1px solid #dc2626',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  minHeight: 36
+                }}
+              >
+                Cancel for Non-Payment
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -501,6 +549,60 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                       fontWeight: 500
                     }}>
                       Customer acknowledged receipt
+                    </div>
+                  )}
+
+                  {/* Issue Reported Alert */}
+                  {item.issue_reported_at && !item.issue_resolved_at && onResolveIssue && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '8px 12px',
+                      backgroundColor: '#fee2e2',
+                      border: '1px solid #fca5a5',
+                      borderRadius: 6
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#991b1b' }}>
+                        Issue Reported {formatFulfilledDateTime(item.issue_reported_at)}
+                      </div>
+                      {item.issue_description && (
+                        <div style={{ fontSize: 11, color: '#7c2d12', marginTop: 4, fontStyle: 'italic' }}>
+                          &ldquo;{item.issue_description}&rdquo;
+                        </div>
+                      )}
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => {
+                            setIssueDialog({ open: true, itemId: item.id })
+                            setIssueNotes('')
+                          }}
+                          style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Resolve Issue
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Issue Resolved Display */}
+                  {item.issue_reported_at && item.issue_resolved_at && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '6px 10px',
+                      backgroundColor: '#d1fae5',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      color: '#065f46'
+                    }}>
+                      Issue resolved {formatFulfilledDateTime(item.issue_resolved_at)}
                     </div>
                   )}
 
@@ -675,6 +777,31 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
           }
         }}
         onCancel={() => setStaleResolveDialog(null)}
+      />
+      {/* Issue Resolution Dialog — two-step: choose action, then confirm */}
+      <ConfirmDialog
+        open={issueDialog.open}
+        title="Resolve Reported Issue"
+        message="The customer reported a problem with this item. How would you like to resolve it?"
+        confirmLabel="I Did Deliver This"
+        cancelLabel="Issue Refund"
+        showInput
+        inputLabel="Notes (optional)"
+        inputPlaceholder="Add any details about the resolution..."
+        onConfirm={(notes) => {
+          setIssueDialog({ open: false, itemId: '' })
+          if (onResolveIssue) {
+            onResolveIssue(issueDialog.itemId, 'confirm_delivery', notes || undefined)
+          }
+        }}
+        onCancel={() => {
+          // "Issue Refund" path — confirm the refund with a second dialog
+          const itemId = issueDialog.itemId
+          setIssueDialog({ open: false, itemId: '' })
+          if (onResolveIssue) {
+            onResolveIssue(itemId, 'issue_refund', issueNotes || undefined)
+          }
+        }}
       />
     </div>
   )

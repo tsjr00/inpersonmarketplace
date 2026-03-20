@@ -5,6 +5,7 @@ import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -127,6 +128,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (action === 'issue_refund') {
       // Vendor agrees buyer didn't receive — cancel item + refund
+      // Calculate full buyer-paid amount (not just subtotal)
+      // Buyer paid: subtotal + 6.5% buyer fee + prorated flat fee
+      const { count: totalItemsInOrder } = await supabase
+        .from('order_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('order_id', orderItem.order_id)
+
+      const buyerPercentFee = Math.round(orderItem.subtotal_cents * (FEES.buyerFeePercent / 100))
+      const itemFlatFee = totalItemsInOrder ? proratedFlatFeeSimple(FEES.buyerFlatFeeCents, totalItemsInOrder) : 0
+      const buyerPaidForItem = orderItem.subtotal_cents + buyerPercentFee + itemFlatFee
+
       crumb.supabase('update', 'order_items')
       await supabase
         .from('order_items')
@@ -135,20 +147,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
           cancelled_at: new Date().toISOString(),
           cancelled_by: 'vendor',
           cancellation_reason: `Vendor-initiated refund for reported issue.${notes ? ` Notes: ${notes}` : ''}`,
-          refund_amount_cents: orderItem.subtotal_cents,
+          refund_amount_cents: buyerPaidForItem,
           issue_status: 'resolved',
           issue_resolved_at: new Date().toISOString(),
           issue_resolved_by: user.id,
         })
         .eq('id', orderItemId)
 
-      // Restore inventory
-      if (orderItem.listing_id) {
+      // Restore inventory — but NOT for food truck fulfilled items (cooked food can't be resold)
+      const shouldRestoreInventory =
+        orderItem.status !== 'fulfilled' ||
+        order.vertical_id !== 'food_trucks'
+
+      if (orderItem.listing_id && shouldRestoreInventory) {
         const serviceClient = createServiceClient()
         await restoreInventory(serviceClient, orderItem.listing_id, orderItem.quantity || 1)
       }
 
-      // Process Stripe refund if applicable
+      // Process Stripe refund if applicable (platform absorbs Stripe processing fee)
       if (order.payment_method === 'stripe') {
         const serviceClient = createServiceClient()
         const { data: payment } = await serviceClient
@@ -160,7 +176,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         if (payment?.stripe_payment_intent_id) {
           try {
-            await createRefund(payment.stripe_payment_intent_id, orderItem.subtotal_cents)
+            await createRefund(payment.stripe_payment_intent_id, buyerPaidForItem)
             await supabase
               .from('order_items')
               .update({ status: 'refunded' })

@@ -375,15 +375,23 @@ export async function POST(request: NextRequest) {
 
     // Notify vendor about the new external payment order
     const vendorUserId = vendor.user_id
+    const methodLabel = payment_method === 'cashapp' ? 'Cash App'
+      : payment_method.charAt(0).toUpperCase() + payment_method.slice(1)
     if (vendorUserId) {
-      const methodLabel = payment_method === 'cashapp' ? 'Cash App'
-        : payment_method.charAt(0).toUpperCase() + payment_method.slice(1)
       await sendNotification(vendorUserId, 'new_external_order', {
         orderNumber,
         paymentMethod: methodLabel,
         amountCents: totalCents,
       }, { vertical })
     }
+
+    // Notify buyer — include payment method so they remember to send payment
+    await sendNotification(user.id, 'order_placed', {
+      orderNumber,
+      vendorName,
+      paymentMethod: methodLabel,
+      brandName: vertical === 'food_trucks' ? "Food Truck'n" : 'Farmers Marketing',
+    }, { vertical })
 
     // Generate payment link
     const paymentLink = generatePaymentLink(

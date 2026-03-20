@@ -94,11 +94,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         )
       }
 
-      // Get vendor profiles with user_ids for notifications
+      // Get vendor profiles — only event-approved vendors can be invited
       const { data: vendors, error: vendorError } = await serviceClient
         .from('vendor_profiles')
         .select('id, user_id, profile_data')
         .in('id', vendor_ids)
+        .eq('event_approved', true)
 
       if (vendorError || !vendors || vendors.length === 0) {
         return NextResponse.json(

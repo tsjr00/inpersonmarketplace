@@ -76,13 +76,13 @@ export async function POST(
       updated_at: new Date().toISOString(),
     }
 
-    // Auto-grant trial for new vendors (FT → basic, FM → standard) for 90 days
+    // Auto-grant trial for new vendors — unified tier system uses 'free' for all verticals
     const isTrialEligible = !existingVendor?.trial_started_at
     if (isTrialEligible) {
       const now = new Date()
       const trialEnd = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
       const graceEnd = new Date(trialEnd.getTime() + 14 * 24 * 60 * 60 * 1000)
-      const trialTier = existingVendor?.vertical_id === 'food_trucks' ? 'basic' : 'standard'
+      const trialTier = 'free'
       updateData.tier = trialTier
       updateData.subscription_status = 'trialing'
       updateData.trial_started_at = now.toISOString()
@@ -114,7 +114,7 @@ export async function POST(
 
     // C9 FIX: Use sendNotification() for multi-channel delivery (email + push + in-app)
     if (isTrialEligible) {
-      const trialTierLabel = existingVendor?.vertical_id === 'food_trucks' ? 'Basic' : 'Standard'
+      const trialTierLabel = 'Free'
       await sendNotification(data.user_id, 'vendor_approved_trial', {
         vendorName: businessName,
         vendorId: vendorId,

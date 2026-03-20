@@ -298,18 +298,18 @@ export default function ListingsTableClient({
                     </td>
                     <td style={tdStyle}>
                       <div style={{ color: colors.textPrimary }}>{vendorName}</div>
-                      {vendorTier && vendorTier !== 'standard' && (
+                      {vendorTier && vendorTier !== 'free' && (
                         <span style={{
                           display: 'inline-block',
                           marginTop: spacing['3xs'],
                           padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: vendorTier === 'premium' ? '#dbeafe' : '#fef3c7',
-                          color: vendorTier === 'premium' ? '#1e40af' : '#92400e',
+                          backgroundColor: vendorTier === 'pro' ? '#dbeafe' : '#fef3c7',
+                          color: vendorTier === 'pro' ? '#1e40af' : '#92400e',
                           borderRadius: radius.sm,
                           fontSize: typography.sizes.xs,
                           fontWeight: typography.weights.semibold
                         }}>
-                          {vendorTier}
+                          {vendorTier.charAt(0).toUpperCase() + vendorTier.slice(1)}
                         </span>
                       )}
                     </td>
