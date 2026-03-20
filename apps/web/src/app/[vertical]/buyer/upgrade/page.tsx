@@ -253,7 +253,7 @@ export default function BuyerUpgradePage() {
             {t('upgrade.benefits_title', locale)}
           </h2>
 
-          {/* Featured Benefit - Market Box */}
+          {/* Featured Benefit - Early Access */}
           <div style={{
             padding: 20,
             background: `linear-gradient(135deg, ${colors.primaryLight} 0%, ${colors.primaryLight} 100%)`,
@@ -274,27 +274,21 @@ export default function BuyerUpgradePage() {
                 flexShrink: 0,
                 color: 'white'
               }}>
-                📦
+                ⚡
               </div>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.primaryDark }}>
-                    {t('upgrade.mbox_title', locale, { market_box: term(vertical, 'market_box', locale) })}
-                  </h3>
-                  <span style={{
-                    padding: '2px 8px',
-                    backgroundColor: colors.primary,
-                    color: 'white',
-                    borderRadius: 4,
-                    fontSize: 11,
-                    fontWeight: 600
-                  }}>
-                    {t('upgrade.mbox_exclusive', locale)}
-                  </span>
-                </div>
-                <p style={{ margin: 0, fontSize: 14, color: colors.primaryDark, lineHeight: 1.5 }}>
-                  {t('upgrade.mbox_desc', locale)}
+                <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: colors.primaryDark }}>
+                  Early Access to New Listings
+                </h3>
+                <p style={{ margin: '0 0 8px', fontSize: 14, color: colors.primaryDark, lineHeight: 1.5 }}>
+                  Get first pick when vendors add new items. Premium members get a protected shopping window before items are available to everyone else — so you never miss the best products.
                 </p>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: colors.primaryDark, lineHeight: 1.8 }}>
+                  <li>Shop new listings before non-premium members</li>
+                  <li>Great for restaurants and food trucks buying local in quantity</li>
+                  <li>Premium badge visible to vendors — get priority treatment</li>
+                  <li>Vendors are encouraged to reserve their best items for premium buyers</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -329,7 +323,7 @@ export default function BuyerUpgradePage() {
               </div>
             </div>
 
-            {/* Priority Support */}
+            {/* Premium Recognition */}
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{
                 width: 44,
@@ -342,14 +336,14 @@ export default function BuyerUpgradePage() {
                 fontSize: 18,
                 flexShrink: 0
               }}>
-                💬
+                ⭐
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  {t('upgrade.support_title', locale)}
+                  Premium Buyer Recognition
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  {t('upgrade.support_desc', locale)}
+                  Vendors see a premium badge on your orders. Many vendors prioritize premium buyers with their best-quality items and first-choice selections.
                 </p>
               </div>
             </div>
