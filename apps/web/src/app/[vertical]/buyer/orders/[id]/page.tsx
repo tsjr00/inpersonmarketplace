@@ -930,6 +930,65 @@ export default function BuyerOrderDetailPage() {
           </>
         )}
 
+        {/* External Payment Action Box — penalty-free cancel for payment issues */}
+        {order.payment_method && order.payment_method !== 'stripe' && order.payment_method !== 'cash' &&
+         effectiveStatus === 'pending' && (
+          <div style={{
+            margin: `0 ${isPickupReady ? spacing.md : '0'} ${spacing.sm}`,
+            padding: spacing.sm,
+            backgroundColor: '#fffbeb',
+            border: '1px solid #f59e0b',
+            borderRadius: radius.md,
+          }}>
+            <p style={{ margin: 0, fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#92400e' }}>
+              {t('orders.external_banner', locale, {
+                method: ({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method] || order.payment_method
+              })}
+            </p>
+            <button
+              onClick={() => {
+                setConfirmDialog({
+                  open: true,
+                  title: `Problem with ${({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method!] || order.payment_method!} payment?`,
+                  message: 'Cancel this order with no penalty. You can place a new order with a different payment method.',
+                  confirmLabel: 'Cancel Order',
+                  variant: 'danger' as const,
+                  onConfirm: async () => {
+                    setConfirmDialog(prev => ({ ...prev, open: false }))
+                    try {
+                      for (const item of order.items) {
+                        if (item.cancelled_at) continue
+                        await fetch(`/api/buyer/orders/${item.id}/cancel`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ reason: 'Payment method issue — buyer-initiated penalty-free cancellation' })
+                        })
+                      }
+                      showBanner('Order cancelled. You can place a new order with a different payment method.', 'success')
+                      setTimeout(() => router.push(`/${vertical}/buyer/orders`), 2000)
+                    } catch {
+                      showBanner('Failed to cancel order', 'error')
+                    }
+                  }
+                })
+              }}
+              style={{
+                marginTop: 8,
+                padding: `${spacing['2xs']} ${spacing.sm}`,
+                backgroundColor: 'white',
+                color: '#92400e',
+                border: '1px solid #f59e0b',
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+                cursor: 'pointer',
+              }}
+            >
+              Problem with payment? Cancel this order
+            </button>
+          </div>
+        )}
+
         {/* Content below hero gets horizontal padding in pickup mode */}
         <div style={isPickupReady ? { padding: `${spacing.sm} ${spacing.md} 0` } : undefined}>
         {/* Timeline */}
