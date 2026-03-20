@@ -819,20 +819,33 @@ export default function BuyerOrderDetailPage() {
                 },
                 cancelled: (() => {
                   const buyerCancelled = order.items.some(i => i.cancelled_by === 'buyer')
-                  const isExternal = order.payment_method && !['stripe'].includes(order.payment_method)
+                  const systemCancelled = order.items.some(i => i.cancelled_by === 'system')
+                  const isExternal = order.payment_method && order.payment_method !== 'stripe'
+                  // External payments: never mention refund (platform doesn't process external refunds)
+                  if (isExternal) {
+                    if (systemCancelled) {
+                      return {
+                        bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
+                        text: t('order.banner_cancelled_nonpayment', locale)
+                      }
+                    }
+                    return {
+                      bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
+                      text: buyerCancelled
+                        ? t('order.banner_cancelled_buyer', locale)
+                        : t('order.banner_cancelled_vendor', locale, { vendor: primaryVendorName })
+                    }
+                  }
+                  // Stripe payments: mention refund
                   if (buyerCancelled) {
                     return {
                       bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
-                      text: isExternal
-                        ? t('order.banner_cancelled_buyer', locale)
-                        : t('order.banner_cancelled_buyer_refund', locale)
+                      text: t('order.banner_cancelled_buyer_refund', locale)
                     }
                   }
                   return {
                     bg: '#fef2f2', border: '#fca5a5', color: '#991b1b',
-                    text: isExternal
-                      ? t('order.banner_cancelled_vendor', locale, { vendor: primaryVendorName })
-                      : t('order.banner_cancelled_vendor_refund', locale, { vendor: primaryVendorName })
+                    text: t('order.banner_cancelled_vendor_refund', locale, { vendor: primaryVendorName })
                   }
                 })(),
                 fulfilled: {

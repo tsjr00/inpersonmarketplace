@@ -96,6 +96,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .is('cancelled_at', null) // Prevent double-cancel
     }
 
+    // Update order-level status to cancelled
+    crumb.supabase('update', 'orders')
+    await supabase
+      .from('orders')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+
     // Restore inventory for all items
     crumb.logic('Restoring inventory for cancelled items')
     const serviceClient = createServiceClient()

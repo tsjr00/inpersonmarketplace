@@ -479,6 +479,7 @@ export const en: Record<string, string> = {
   'order.banner_ready': 'Your order is ready for pickup!',
   'order.banner_cancelled_buyer': 'You cancelled this order.',
   'order.banner_cancelled_buyer_refund': 'You cancelled this order. Any applicable refund has been processed.',
+  'order.banner_cancelled_nonpayment': 'This order was cancelled because payment was not received. You can place a new order with a different payment method.',
   'order.banner_cancelled_vendor': '{vendor} was unable to fulfill this order. Please contact them regarding your refund.',
   'order.banner_cancelled_vendor_refund': '{vendor} was unable to fulfill this order. You have been refunded.',
   'order.banner_fulfilled': 'Order complete. Thank you for your purchase!',

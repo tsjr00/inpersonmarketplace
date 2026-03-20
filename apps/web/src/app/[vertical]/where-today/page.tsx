@@ -49,19 +49,22 @@ export default function WhereTodayPage() {
   const radiusOptions = getRadiusOptions(vertical)
 
   useEffect(() => {
-    // Check for saved location
-    const cookie = document.cookie.split(';').find(c => c.trim().startsWith('user_location='))
-    if (cookie) {
+    // Fetch saved location from API (cookie is httpOnly, can't read via document.cookie)
+    async function loadLocation() {
       try {
-        const data = JSON.parse(decodeURIComponent(cookie.split('=').slice(1).join('=')))
-        if (data.latitude && data.longitude) {
-          setUserLat(data.latitude)
-          setUserLng(data.longitude)
-          setHasLocation(true)
-          if (data.radius) setCurrentRadius(data.radius)
+        const res = await fetch('/api/buyer/location')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.latitude && data.longitude) {
+            setUserLat(data.latitude)
+            setUserLng(data.longitude)
+            setHasLocation(true)
+            if (data.radius) setCurrentRadius(data.radius)
+          }
         }
-      } catch { /* ignore */ }
+      } catch { /* no saved location */ }
     }
+    loadLocation()
   }, [])
 
   const fetchTrucks = async () => {
@@ -96,7 +99,7 @@ export default function WhereTodayPage() {
     setHasLocation(true)
   }
 
-  const title = isFT ? 'Where Are Trucks Today?' : 'What Markets Are Open?'
+  const title = isFT ? 'Where Are Trucks Today?' : 'Where Are Local Vendors?'
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: colors.surfaceBase }}>
@@ -114,7 +117,7 @@ export default function WhereTodayPage() {
         {!hasLocation ? (
           <div style={{ marginBottom: spacing.md }}>
             <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, marginBottom: spacing.xs }}>
-              Enter your location to find {isFT ? 'food trucks' : 'markets'} near you
+              Enter your location to find {isFT ? 'food trucks' : 'vendors'} near you
             </p>
             <LocationSearchInline
               onLocationSet={handleLocationSet}
@@ -128,7 +131,7 @@ export default function WhereTodayPage() {
             backgroundColor: colors.primaryLight, border: `1px solid ${colors.primary}`,
             borderRadius: radius.md, fontSize: typography.sizes.sm, flexWrap: 'wrap'
           }}>
-            <span style={{ color: colors.primaryDark }}>📍 Showing {isFT ? 'trucks' : 'markets'} within {currentRadius} miles</span>
+            <span style={{ color: colors.primaryDark }}>📍 Showing {isFT ? 'trucks' : 'vendors'} within {currentRadius} miles</span>
             {radiusOptions.map(r => (
               <button key={r} onClick={() => setCurrentRadius(r)} style={{
                 padding: `${spacing['3xs']} ${spacing.xs}`,
@@ -171,7 +174,7 @@ export default function WhereTodayPage() {
         ) : trucks.length === 0 ? (
           <div style={{ textAlign: 'center', padding: spacing.xl }}>
             <p style={{ fontSize: typography.sizes.xl, margin: `0 0 ${spacing.xs}`, color: colors.textMuted }}>
-              No {isFT ? 'trucks' : 'markets'} scheduled for {dayName}
+              No {isFT ? 'trucks' : 'vendors'} scheduled for {dayName}
             </p>
             <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: 0 }}>
               {dayOffset === 0 ? 'Check tomorrow or later this week!' : 'Try another day.'}
@@ -180,7 +183,7 @@ export default function WhereTodayPage() {
         ) : (
           <>
             <p style={{ fontSize: typography.sizes.sm, color: colors.textMuted, margin: `0 0 ${spacing.sm}` }}>
-              {trucks.length} {isFT ? 'truck' : 'market'}{trucks.length !== 1 ? 's' : ''} on {dayName}{dateStr ? `, ${new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+              {trucks.length} {isFT ? 'truck' : 'pickup location'}{trucks.length !== 1 ? 's' : ''} on {dayName}{dateStr ? `, ${new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
               {trucks.map((t, i) => (
