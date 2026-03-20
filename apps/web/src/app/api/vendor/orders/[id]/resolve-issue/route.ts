@@ -187,6 +187,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
       }
 
+      // Check if all items in the order are now cancelled — update order status
+      const { data: remainingItems } = await supabase
+        .from('order_items')
+        .select('id')
+        .eq('order_id', orderItem.order_id)
+        .is('cancelled_at', null)
+
+      if (!remainingItems || remainingItems.length === 0) {
+        await supabase
+          .from('orders')
+          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .eq('id', orderItem.order_id)
+      }
+
       // Notify buyer
       await sendNotification(order.buyer_user_id, 'issue_resolved', {
         orderNumber: order.order_number,
