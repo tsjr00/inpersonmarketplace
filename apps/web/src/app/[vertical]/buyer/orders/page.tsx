@@ -721,14 +721,17 @@ export default function BuyerOrdersPage() {
                           })
                         }}
                         style={{
-                          marginTop: 8,
-                          padding: 0,
-                          backgroundColor: 'transparent',
+                          marginTop: 10,
+                          padding: `${spacing['2xs']} ${spacing.sm}`,
+                          backgroundColor: 'white',
                           color: '#92400e',
-                          border: 'none',
-                          fontSize: typography.sizes.xs,
+                          border: '1px solid #f59e0b',
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.sm,
+                          fontWeight: typography.weights.semibold,
                           cursor: 'pointer',
-                          textDecoration: 'underline',
+                          width: '100%',
+                          textAlign: 'center',
                         }}
                       >
                         Problem with {({ venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' } as Record<string, string>)[order.payment_method!] || order.payment_method!} payment? Cancel order

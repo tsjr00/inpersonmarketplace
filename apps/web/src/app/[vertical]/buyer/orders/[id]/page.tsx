@@ -973,15 +973,17 @@ export default function BuyerOrderDetailPage() {
                 })
               }}
               style={{
-                marginTop: 8,
-                padding: `${spacing['2xs']} ${spacing.sm}`,
+                marginTop: 10,
+                padding: `${spacing.xs} ${spacing.sm}`,
                 backgroundColor: 'white',
                 color: '#92400e',
                 border: '1px solid #f59e0b',
                 borderRadius: radius.sm,
-                fontSize: typography.sizes.xs,
+                fontSize: typography.sizes.sm,
                 fontWeight: typography.weights.semibold,
                 cursor: 'pointer',
+                width: '100%',
+                textAlign: 'center' as const,
               }}
             >
               Problem with payment? Cancel this order
