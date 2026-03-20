@@ -51,6 +51,8 @@ export type NotificationType =
   | 'new_external_order'
   | 'external_payment_reminder'
   | 'external_payment_auto_confirmed'
+  | 'external_payment_not_received'
+  | 'order_cancelled_nonpayment'
   | 'order_cancelled_by_buyer'
   | 'vendor_approved'
   | 'vendor_rejected'
