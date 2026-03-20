@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 
-export type UserRole = 'buyer' | 'vendor' | 'admin' | 'verifier' | 'platform_admin'
+import type { UserRole } from '@/lib/auth/roles'
 
 export interface AdminUser {
   user_id: string
