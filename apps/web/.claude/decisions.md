@@ -29,6 +29,9 @@ Structured record of business and architecture decisions. Check here before aski
 
 | 2026-03-20 | Financial | Stripe refund fee absorption: platform absorbs Stripe processing fee on refunds | When a refund is issued via Stripe, Stripe keeps their processing fee (~2.9% + $0.30). Platform absorbs this cost — buyer gets full refund of what they paid. May revisit if refund volume becomes significant. | Yes | 62 |
 | 2026-03-20 | Financial | Refund amount = full buyer-paid amount (subtotal + 6.5% + prorated $0.15) | All refund paths (reject, cancel, resolve-issue, cron-expire) must refund what the buyer actually paid, not just the base subtotal. Per-item: `subtotal + round(subtotal * 6.5%) + floor($0.15 / totalItemsInOrder)`. | No | 62 |
+| 2026-03-20 | Financial | Market box missed pickup = no refund | Buyer makes a 4-week (or 8-week) prepaid commitment. Missed pickups are the buyer's responsibility. No refund, no credit. This differs from regular orders where no-shows trigger refunds. | No | 62 |
+| 2026-03-20 | Business | Trial tier = 'free' for all verticals | When admin approves a new vendor, trial grants 'free' tier (90 days, 14-day grace). Previously set legacy names ('basic' for FT, 'standard' for FM) which didn't match the unified Free/Pro/Boss system. | No | 62 |
+| 2026-03-20 | Business | FT fulfilled items do not restore inventory on refund | When a food truck order item is refunded after fulfillment (buyer picked up food), inventory is NOT restored — cooked food cannot be resold. FM fulfilled items DO restore inventory (produce/goods can potentially be resold). Non-fulfilled items always restore regardless of vertical. | No | 62 |
 
 ### External Payment Fee Flow — Protected Architecture (Session 62)
 
