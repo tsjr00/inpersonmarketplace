@@ -220,9 +220,8 @@ export default function VendorsTableClient({
         >
           <option value="">All Tiers</option>
           <option value="free">Free</option>
-          <option value="standard">Standard</option>
-          <option value="premium">Premium</option>
-          <option value="featured">Featured</option>
+          <option value="pro">Pro</option>
+          <option value="boss">Boss</option>
         </select>
 
         {hasFilters && (
@@ -349,13 +348,13 @@ export default function VendorsTableClient({
                         fontSize: typography.sizes.xs,
                         fontWeight: typography.weights.semibold,
                         backgroundColor:
-                          vendorTier === 'premium' ? '#dbeafe' :
-                          vendorTier === 'featured' ? '#fef3c7' : '#f3f4f6',
+                          vendorTier === 'pro' ? '#dbeafe' :
+                          vendorTier === 'boss' ? '#fef3c7' : '#f3f4f6',
                         color:
-                          vendorTier === 'premium' ? '#1e40af' :
-                          vendorTier === 'featured' ? '#92400e' : '#6b7280'
+                          vendorTier === 'pro' ? '#1e40af' :
+                          vendorTier === 'boss' ? '#92400e' : '#6b7280'
                       }}>
-                        {vendorTier}
+                        {vendorTier.charAt(0).toUpperCase() + vendorTier.slice(1)}
                       </span>
                     </td>
                     <td style={tdStyle}>

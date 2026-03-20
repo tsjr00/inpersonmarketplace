@@ -91,6 +91,17 @@ export default async function AdminLayout({
           >
             Markets
           </Link>
+          <Link
+            href="/admin/order-issues"
+            style={{
+              padding: `${spacing.xs} ${spacing.sm}`,
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: radius.sm
+            }}
+          >
+            Order Issues
+          </Link>
 
           <div style={{
             borderTop: '1px solid rgba(255,255,255,0.2)',

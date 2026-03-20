@@ -39,6 +39,11 @@ interface OrderItem {
   cancelled_at?: string | null
   cancelled_by?: string | null
   cancellation_reason?: string | null
+  issue_reported_at?: string | null
+  issue_description?: string | null
+  issue_status?: string | null
+  issue_resolved_at?: string | null
+  issue_admin_notes?: string | null
 }
 
 // Format pickup date for display
@@ -108,6 +113,7 @@ interface OrderCardProps {
   onRejectItem?: (itemId: string, reason: string) => void
   onConfirmExternalPayment?: (orderId: string) => void
   onResolveStaleOrder?: (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => void
+  onResolveIssue?: (itemId: string, action: 'confirm_delivery' | 'issue_refund', notes?: string) => void
 }
 
 function formatPrice(cents: number): string {
@@ -133,10 +139,12 @@ function getMostUrgentStatus(items: OrderItem[]): string {
   return 'cancelled'
 }
 
-export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onResolveStaleOrder }: OrderCardProps) {
+export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfillItem, onRejectItem, onConfirmExternalPayment, onResolveStaleOrder, onResolveIssue }: OrderCardProps) {
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
   const [externalConfirmDialog, setExternalConfirmDialog] = useState(false)
   const [staleResolveDialog, setStaleResolveDialog] = useState<{ open: boolean; resolution: 'fulfilled' | 'problem' } | null>(null)
+  const [issueDialog, setIssueDialog] = useState<{ open: boolean; itemId: string }>({ open: false, itemId: '' })
+  const [issueNotes, setIssueNotes] = useState('')
 
   const isExternalPayment = order.payment_method && order.payment_method !== 'stripe'
   const isCash = order.payment_method === 'cash'
@@ -504,6 +512,60 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
                     </div>
                   )}
 
+                  {/* Issue Reported Alert */}
+                  {item.issue_reported_at && !item.issue_resolved_at && onResolveIssue && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '8px 12px',
+                      backgroundColor: '#fee2e2',
+                      border: '1px solid #fca5a5',
+                      borderRadius: 6
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#991b1b' }}>
+                        Issue Reported {formatFulfilledDateTime(item.issue_reported_at)}
+                      </div>
+                      {item.issue_description && (
+                        <div style={{ fontSize: 11, color: '#7c2d12', marginTop: 4, fontStyle: 'italic' }}>
+                          &ldquo;{item.issue_description}&rdquo;
+                        </div>
+                      )}
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => {
+                            setIssueDialog({ open: true, itemId: item.id })
+                            setIssueNotes('')
+                          }}
+                          style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Resolve Issue
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Issue Resolved Display */}
+                  {item.issue_reported_at && item.issue_resolved_at && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '6px 10px',
+                      backgroundColor: '#d1fae5',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      color: '#065f46'
+                    }}>
+                      Issue resolved {formatFulfilledDateTime(item.issue_resolved_at)}
+                    </div>
+                  )}
+
                   {/* Item Actions - hide for cancelled, fulfilled, pending external, or stale blocked items */}
                   {!item.cancelled_at && item.status !== 'cancelled' && item.status !== 'fulfilled' && !isPendingExternal && !isStaleBlocked && (
                     <>
@@ -675,6 +737,31 @@ export default function OrderCard({ order, onConfirmItem, onReadyItem, onFulfill
           }
         }}
         onCancel={() => setStaleResolveDialog(null)}
+      />
+      {/* Issue Resolution Dialog — two-step: choose action, then confirm */}
+      <ConfirmDialog
+        open={issueDialog.open}
+        title="Resolve Reported Issue"
+        message="The customer reported a problem with this item. How would you like to resolve it?"
+        confirmLabel="I Did Deliver This"
+        cancelLabel="Issue Refund"
+        showInput
+        inputLabel="Notes (optional)"
+        inputPlaceholder="Add any details about the resolution..."
+        onConfirm={(notes) => {
+          setIssueDialog({ open: false, itemId: '' })
+          if (onResolveIssue) {
+            onResolveIssue(issueDialog.itemId, 'confirm_delivery', notes || undefined)
+          }
+        }}
+        onCancel={() => {
+          // "Issue Refund" path — confirm the refund with a second dialog
+          const itemId = issueDialog.itemId
+          setIssueDialog({ open: false, itemId: '' })
+          if (onResolveIssue) {
+            onResolveIssue(itemId, 'issue_refund', issueNotes || undefined)
+          }
+        }}
       />
     </div>
   )

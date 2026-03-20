@@ -261,6 +261,28 @@ export default function VendorOrdersPage() {
 
 
 
+  const handleResolveIssue = async (itemId: string, action: 'confirm_delivery' | 'issue_refund', notes?: string) => {
+    try {
+      const res = await fetch(`/api/vendor/orders/${itemId}/resolve-issue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, notes })
+      })
+      if (res.ok) {
+        const msg = action === 'issue_refund'
+          ? 'Refund issued and issue resolved.'
+          : 'Delivery confirmed. Admin has been notified for review.'
+        setToast({ message: msg, type: 'success' })
+        fetchOrders()
+      } else {
+        const data = await res.json()
+        setToast({ message: data.error || 'Failed to resolve issue', type: 'error' })
+      }
+    } catch {
+      setToast({ message: 'An error occurred while resolving the issue', type: 'error' })
+    }
+  }
+
   const handleResolveStaleOrder = async (orderId: string, resolution: 'fulfilled' | 'problem', itemIds: string[]) => {
     if (resolution === 'fulfilled') {
       let allOk = true
@@ -543,6 +565,7 @@ export default function VendorOrdersPage() {
                   onRejectItem={handleRejectItem}
                   onConfirmExternalPayment={handleConfirmExternalPayment}
                   onResolveStaleOrder={handleResolveStaleOrder}
+                  onResolveIssue={handleResolveIssue}
                 />
               </div>
             )

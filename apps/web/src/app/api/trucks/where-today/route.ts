@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/trucks/where-today', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await checkRateLimit(`trucks-where-today:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
     const supabase = await createClient()
     const sp = request.nextUrl.searchParams
     const lat = parseFloat(sp.get('lat') || '0')

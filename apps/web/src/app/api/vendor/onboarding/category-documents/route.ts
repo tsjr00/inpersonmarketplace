@@ -119,37 +119,54 @@ export async function POST(request: NextRequest) {
       uploaded_at: new Date().toISOString(),
     }
 
-    // Update category_verifications JSONB
+    // Update category_verifications JSONB with optimistic concurrency control
+    // Re-read + conditional update prevents concurrent uploads from losing documents
     crumb.supabase('select', 'vendor_verifications')
-    const { data: verification } = await supabase
-      .from('vendor_verifications')
-      .select('category_verifications')
-      .eq('vendor_profile_id', vendor.id)
-      .single()
+    const maxRetries = 3
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const { data: verification } = await supabase
+        .from('vendor_verifications')
+        .select('category_verifications, updated_at')
+        .eq('vendor_profile_id', vendor.id)
+        .single()
 
-    const catVerifications = (verification?.category_verifications || {}) as Record<string, unknown>
-    const existingCat = (catVerifications[category] || {}) as Record<string, unknown>
-    const existingDocs = Array.isArray(existingCat.documents) ? existingCat.documents : []
+      const catVerifications = (verification?.category_verifications || {}) as Record<string, unknown>
+      const existingCat = (catVerifications[category] || {}) as Record<string, unknown>
+      const existingDocs = Array.isArray(existingCat.documents) ? existingCat.documents : []
 
-    catVerifications[category] = {
-      ...existingCat,
-      status: 'pending',
-      doc_type: docType,
-      documents: [...existingDocs, newDoc],
-      submitted_at: new Date().toISOString(),
-    }
+      catVerifications[category] = {
+        ...existingCat,
+        status: 'pending',
+        doc_type: docType,
+        documents: [...existingDocs, newDoc],
+        submitted_at: new Date().toISOString(),
+      }
 
-    crumb.supabase('update', 'vendor_verifications')
-    const { error: updateError } = await supabase
-      .from('vendor_verifications')
-      .update({
-        category_verifications: catVerifications,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('vendor_profile_id', vendor.id)
+      const newUpdatedAt = new Date().toISOString()
+      crumb.supabase('update', 'vendor_verifications')
+      const { data: updated, error: updateError } = await supabase
+        .from('vendor_verifications')
+        .update({
+          category_verifications: catVerifications,
+          updated_at: newUpdatedAt,
+        })
+        .eq('vendor_profile_id', vendor.id)
+        .eq('updated_at', verification?.updated_at || '')
+        .select('id')
 
-    if (updateError) {
-      throw traced.fromSupabase(updateError, { table: 'vendor_verifications', operation: 'update' })
+      if (updateError) {
+        throw traced.fromSupabase(updateError, { table: 'vendor_verifications', operation: 'update' })
+      }
+
+      if (updated && updated.length > 0) {
+        break // Success — row was not modified between read and write
+      }
+
+      // Row was modified concurrently — retry with fresh data
+      if (attempt === maxRetries - 1) {
+        throw traced.validation('ERR_CONCURRENCY_001', 'Document upload conflict. Please try again.')
+      }
+      crumb.logic(`Concurrent modification detected, retrying (attempt ${attempt + 2}/${maxRetries})`)
     }
 
     return NextResponse.json({ success: true, category, document: newDoc })

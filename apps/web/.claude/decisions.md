@@ -24,3 +24,28 @@ Structured record of business and architecture decisions. Check here before aski
 | 2026-02-22 | UX | Browse page: 50 items/page with pagination | Performance + usability balance | Yes | 44 |
 | 2026-02-28 | Infrastructure | Resend email: `updates@mail.[domain]` (not noreply@) | Better deliverability, clearer branding | Yes | 47 |
 | 2026-02-28 | Infrastructure | Per-vertical email FROM domains | FM → farmersmarketing.app, FT → foodtruckn.app | Yes | 47 |
+| 2026-03-20 | Financial | External payment fee flow: vendor fees deferred, not upfront | External orders set `vendor_payout_cents = subtotal` at checkout (vendor gets full amount). 3.5% vendor fee is recorded to `vendor_fee_ledger` LATER when vendor confirms payment received (non-cash: at confirm-external-payment; cash: at fulfill). Buyer pays 6.5% (no $0.15 flat fee). This differs from Stripe intentionally — no processing cost on external payments. See detailed flow doc below. | No — 5 files coordinate | 62 |
+| 2026-03-20 | Financial | External payment refund policy: buyer handles directly with vendor | Platform does not process refunds for external payments. Buyer sees disclaimer at checkout and when reporting issues. Vendor manages refund directly via Venmo/CashApp/PayPal/cash. | No | 62 |
+
+| 2026-03-20 | Financial | Stripe refund fee absorption: platform absorbs Stripe processing fee on refunds | When a refund is issued via Stripe, Stripe keeps their processing fee (~2.9% + $0.30). Platform absorbs this cost — buyer gets full refund of what they paid. May revisit if refund volume becomes significant. | Yes | 62 |
+| 2026-03-20 | Financial | Refund amount = full buyer-paid amount (subtotal + 6.5% + prorated $0.15) | All refund paths (reject, cancel, resolve-issue, cron-expire) must refund what the buyer actually paid, not just the base subtotal. Per-item: `subtotal + round(subtotal * 6.5%) + floor($0.15 / totalItemsInOrder)`. | No | 62 |
+
+### External Payment Fee Flow — Protected Architecture (Session 62)
+
+**DO NOT modify any of these files without understanding the full flow first.**
+
+**Flow:**
+1. **Checkout** (`api/checkout/external/route.ts`): Creates order with `vendor_payout_cents = subtotal` (full amount). Buyer charged `subtotal + 6.5%`. No vendor fee recorded yet — vendor hasn't received payment.
+2. **Vendor confirms payment** (`api/vendor/orders/[id]/confirm-external-payment/route.ts:106-123`): For non-cash methods (Venmo/CashApp/PayPal), calls `recordExternalPaymentFee()` which writes 3.5% vendor fee to `vendor_fee_ledger`. Cash orders skip this — deferred to fulfill.
+3. **Vendor fulfills** (`api/vendor/orders/[id]/fulfill/route.ts:153`): For cash orders, `recordExternalPaymentFee()` is called here.
+4. **Fee accumulates** in `vendor_fee_balance` view. When balance >= $50 or oldest entry > 40 days, vendor must pay.
+5. **Auto-deduction** (`vendor-fees.ts:186-196`): Platform can auto-deduct up to 50% of Stripe payouts to recover external payment fees.
+
+**Key files:**
+- `src/lib/payments/vendor-fees.ts` — Fee calculation functions + ledger operations
+- `src/app/api/checkout/external/route.ts` — External order creation
+- `src/app/api/vendor/orders/[id]/confirm-external-payment/route.ts` — Fee recording for non-cash
+- `src/app/api/vendor/orders/[id]/fulfill/route.ts` — Fee recording for cash
+- `src/lib/pricing.ts` — Stripe fee constants (6.5% + $0.15)
+
+**Why fees differ:** No Stripe processing cost on external payments, so platform charges less (3.5% seller vs 6.5% Stripe). Buyer fee is same 6.5% but no $0.15 flat fee (no processing to cover).
