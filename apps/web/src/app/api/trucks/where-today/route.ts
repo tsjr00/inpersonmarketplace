@@ -103,17 +103,33 @@ export async function GET(request: NextRequest) {
           market_id: m.id,
         }
       })
-      .filter(Boolean)
-      .sort((a, b) => {
-        if (a!.distance_miles !== null && b!.distance_miles !== null) return a!.distance_miles - b!.distance_miles
-        return (a!.start_time || '').localeCompare(b!.start_time || '')
-      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+
+    type TruckEntry = typeof trucks[number]
+
+    // Sort: group by vendor, earliest start_time first within each vendor,
+    // then order vendor groups by their earliest start_time
+    const vendorGroups = new Map<string, TruckEntry[]>()
+    for (const t of trucks) {
+      const group = vendorGroups.get(t.vendor_id) || []
+      group.push(t)
+      vendorGroups.set(t.vendor_id, group)
+    }
+    // Sort within each group by start_time
+    for (const group of vendorGroups.values()) {
+      group.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
+    }
+    // Sort groups by earliest start_time of first entry
+    const sortedGroups = [...vendorGroups.values()].sort((a, b) =>
+      (a[0].start_time || '').localeCompare(b[0].start_time || '')
+    )
+    const sortedTrucks = sortedGroups.flat()
 
     return NextResponse.json({
       date: targetDate.toISOString().split('T')[0],
       day_of_week: dayOfWeek,
-      trucks,
-      total: trucks.length,
+      trucks: sortedTrucks,
+      total: sortedTrucks.length,
     })
   })
 }
