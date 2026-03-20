@@ -37,11 +37,30 @@ export default async function AdminDashboardPage() {
   const twoDaysAgo = new Date()
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
 
-  const { count: stalePendingCount } = await supabase
-    .from('vendor_profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'submitted')
-    .lt('created_at', twoDaysAgo.toISOString())
+  const oneDayAgo = new Date()
+  oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+
+  const [
+    { count: stalePendingCount },
+    { count: stuckOrdersCount },
+    { count: openIssuesCount }
+  ] = await Promise.all([
+    supabase
+      .from('vendor_profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'submitted')
+      .lt('created_at', twoDaysAgo.toISOString()),
+    supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['paid', 'confirmed'])
+      .lt('created_at', oneDayAgo.toISOString()),
+    supabase
+      .from('order_items')
+      .select('*', { count: 'exact', head: true })
+      .not('issue_reported_at', 'is', null)
+      .or('issue_status.is.null,issue_status.eq.new')
+  ])
 
   return (
     <div style={{ maxWidth: containers.wide, margin: '0 auto' }}>
@@ -76,6 +95,54 @@ export default async function AdminDashboardPage() {
             }}
           >
             Review now →
+          </Link>
+        </div>
+      )}
+
+      {/* Stuck Orders Warning */}
+      {stuckOrdersCount && stuckOrdersCount > 0 && (
+        <div style={{
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fca5a5',
+          borderLeft: '4px solid #ef4444',
+          borderRadius: radius.sm,
+          padding: spacing.sm,
+          marginBottom: spacing.md,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <span style={{ color: '#991b1b', fontWeight: typography.weights.semibold }}>
+            {stuckOrdersCount} order{stuckOrdersCount > 1 ? 's' : ''} stuck in paid/confirmed for 24+ hours
+          </span>
+        </div>
+      )}
+
+      {/* Open Issues Warning */}
+      {openIssuesCount && openIssuesCount > 0 && (
+        <div style={{
+          backgroundColor: '#eff6ff',
+          border: '1px solid #93c5fd',
+          borderLeft: '4px solid #3b82f6',
+          borderRadius: radius.sm,
+          padding: spacing.sm,
+          marginBottom: spacing.md,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <span style={{ color: '#1e40af', fontWeight: typography.weights.semibold }}>
+            {openIssuesCount} unresolved order issue{openIssuesCount > 1 ? 's' : ''}
+          </span>
+          <Link
+            href="/admin/order-issues"
+            style={{
+              color: '#1e40af',
+              textDecoration: 'none',
+              fontWeight: typography.weights.semibold,
+            }}
+          >
+            Review →
           </Link>
         </div>
       )}

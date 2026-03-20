@@ -575,7 +575,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             />
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+              {/* Line 1: Name + tier badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                 <h1 style={{
                   color: branding.colors.primary,
                   margin: 0,
@@ -588,6 +589,9 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 {(vendorTier === 'pro' || vendorTier === 'boss') && (
                   <TierBadge tier={vendorTier} size="lg" />
                 )}
+              </div>
+              {/* Line 2: Event Approved + reviews */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                 {vendor.event_approved && (vertical === 'food_trucks' || vertical === 'farmers_market') && (
                   <span style={{
                     display: 'inline-flex',
@@ -728,13 +732,13 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
-                        padding: '5px 12px',
+                        padding: '4px 10px',
                         backgroundColor: 'transparent',
                         color: '#1877f2',
                         border: '1px solid #1877f2',
                         textDecoration: 'none',
                         borderRadius: 4,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: 500
                       }}
                     >
@@ -747,13 +751,13 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
-                        padding: '5px 12px',
+                        padding: '4px 10px',
                         backgroundColor: 'transparent',
                         color: '#e4405f',
                         border: '1px solid #e4405f',
                         textDecoration: 'none',
                         borderRadius: 4,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: 500
                       }}
                     >
@@ -766,13 +770,13 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
-                        padding: '5px 12px',
+                        padding: '4px 10px',
                         backgroundColor: 'transparent',
                         color: '#6b7280',
                         border: '1px solid #6b7280',
                         textDecoration: 'none',
                         borderRadius: 4,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: 500
                       }}
                     >
