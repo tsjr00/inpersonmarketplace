@@ -177,11 +177,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
-    // On COMPLETED: send post-event feedback request to buyers who ordered
+    // On COMPLETED: send post-event feedback request to buyers + settlement to vendors
     if (status === 'completed' && cateringReq.market_id) {
       // Fire-and-forget — don't block the response
       sendEventFeedbackNotifications(serviceClient, cateringReq.market_id, cateringReq.vertical_id).catch(
         (err) => console.error('[admin/catering] Feedback notification error:', err)
+      )
+      // Notify accepted vendors that settlement is complete
+      sendEventSettlementNotifications(serviceClient, cateringReq.market_id, cateringReq.vertical_id, updated.company_name).catch(
+        (err) => console.error('[admin/catering] Settlement notification error:', err)
       )
     }
 
@@ -229,5 +233,47 @@ async function sendEventFeedbackNotifications(
       },
       { vertical: verticalId }
     )
+  }
+}
+
+async function sendEventSettlementNotifications(
+  serviceClient: ReturnType<typeof createServiceClient>,
+  marketId: string,
+  verticalId: string,
+  companyName: string
+) {
+  // Get accepted vendors for this event
+  const { data: acceptedVendors } = await serviceClient
+    .from('market_vendors')
+    .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
+    .eq('market_id', marketId)
+    .eq('response_status', 'accepted')
+
+  if (!acceptedVendors || acceptedVendors.length === 0) return
+
+  const { data: market } = await serviceClient
+    .from('markets')
+    .select('name')
+    .eq('id', marketId)
+    .single()
+
+  const marketName = market?.name || companyName || 'Event'
+
+  for (const mv of acceptedVendors) {
+    const vp = mv.vendor_profiles as unknown as { user_id: string } | null
+    if (!vp?.user_id) continue
+
+    // Count this vendor's fulfilled orders at this event
+    const { count: orderCount } = await serviceClient
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', mv.vendor_profile_id)
+      .in('status', ['fulfilled', 'completed'])
+
+    await sendNotification(vp.user_id, 'event_settlement_summary', {
+      marketName,
+      orderCount: orderCount || 0,
+    }, { vertical: verticalId })
   }
 }
