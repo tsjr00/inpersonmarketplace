@@ -20,91 +20,121 @@ export const STRIPE_CONFIG = {
   vendorFlatFeeCents: FEES.vendorFlatFeeCents,
 }
 
-// Subscription pricing — unified Pro ($25/mo) / Boss ($50/mo) for all verticals
-// Price IDs must be created in Stripe Dashboard and added to environment variables
-export const SUBSCRIPTION_PRICES = {
-  // Vendor tiers — same pricing for both verticals
-  // Each vertical may have its own Stripe Price IDs but the amounts are identical
-  vendor: {
-    pro_monthly: {
-      priceId: process.env.STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID || process.env.STRIPE_FT_PRO_MONTHLY_PRICE_ID || process.env.STRIPE_FM_PREMIUM_MONTHLY_PRICE_ID || '',
-      amountCents: 2500, // $25/month
-    },
-    pro_annual: {
-      priceId: process.env.STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID || process.env.STRIPE_FT_PRO_ANNUAL_PRICE_ID || process.env.STRIPE_FM_PREMIUM_ANNUAL_PRICE_ID || '',
-      amountCents: 20815, // $208.15/year (saves ~30%)
-    },
-    boss_monthly: {
-      priceId: process.env.STRIPE_VENDOR_BOSS_MONTHLY_PRICE_ID || process.env.STRIPE_FT_BOSS_MONTHLY_PRICE_ID || process.env.STRIPE_FM_FEATURED_MONTHLY_PRICE_ID || '',
-      amountCents: 5000, // $50/month
-    },
-    boss_annual: {
-      priceId: process.env.STRIPE_VENDOR_BOSS_ANNUAL_PRICE_ID || process.env.STRIPE_FT_BOSS_ANNUAL_PRICE_ID || process.env.STRIPE_FM_FEATURED_ANNUAL_PRICE_ID || '',
-      amountCents: 48150, // $481.50/year (saves ~20%)
-    },
+// Per-vertical vendor subscription prices
+// Each vertical has its own Stripe products for branding on receipts/statements
+const VERTICAL_VENDOR_PRICES: Record<string, Record<string, { priceId: string; amountCents: number }>> = {
+  farmers_market: {
+    pro_monthly: { priceId: process.env.STRIPE_FM_PRO_MONTHLY_PRICE_ID || '', amountCents: 2500 },
+    pro_annual: { priceId: process.env.STRIPE_FM_PRO_ANNUAL_PRICE_ID || '', amountCents: 20815 },
+    boss_monthly: { priceId: process.env.STRIPE_FM_BOSS_MONTHLY_PRICE_ID || '', amountCents: 5000 },
+    boss_annual: { priceId: process.env.STRIPE_FM_BOSS_ANNUAL_PRICE_ID || '', amountCents: 48150 },
   },
-  buyer: {
-    monthly: {
-      priceId: process.env.STRIPE_BUYER_MONTHLY_PRICE_ID || '',
-      amountCents: 999, // $9.99/month
-    },
-    annual: {
-      priceId: process.env.STRIPE_BUYER_ANNUAL_PRICE_ID || '',
-      amountCents: 8150, // $81.50/year (saves 32%)
-    },
-  },
-  // Legacy references kept for backward compat (point to unified vendor prices)
-  fm_premium: {
-    monthly: { get priceId() { return SUBSCRIPTION_PRICES.vendor.pro_monthly.priceId }, amountCents: 2500 },
-    annual: { get priceId() { return SUBSCRIPTION_PRICES.vendor.pro_annual.priceId }, amountCents: 20815 },
-  },
-  fm_vendor: {
-    standard_monthly: { priceId: '', amountCents: 0 }, // standard is now free
-    standard_annual: { priceId: '', amountCents: 0 },
-    featured_monthly: { get priceId() { return SUBSCRIPTION_PRICES.vendor.boss_monthly.priceId }, amountCents: 5000 },
-    featured_annual: { get priceId() { return SUBSCRIPTION_PRICES.vendor.boss_annual.priceId }, amountCents: 48150 },
-  },
-  food_truck_vendor: {
-    basic_monthly: { priceId: '', amountCents: 0 }, // basic is now free
-    basic_annual: { priceId: '', amountCents: 0 },
-    pro_monthly: { get priceId() { return SUBSCRIPTION_PRICES.vendor.pro_monthly.priceId }, amountCents: 2500 },
-    pro_annual: { get priceId() { return SUBSCRIPTION_PRICES.vendor.pro_annual.priceId }, amountCents: 20815 },
-    boss_monthly: { get priceId() { return SUBSCRIPTION_PRICES.vendor.boss_monthly.priceId }, amountCents: 5000 },
-    boss_annual: { get priceId() { return SUBSCRIPTION_PRICES.vendor.boss_annual.priceId }, amountCents: 48150 },
+  food_trucks: {
+    pro_monthly: { priceId: process.env.STRIPE_FT_PRO_MONTHLY_PRICE_ID || '', amountCents: 2500 },
+    pro_annual: { priceId: process.env.STRIPE_FT_PRO_ANNUAL_PRICE_ID || '', amountCents: 20815 },
+    boss_monthly: { priceId: process.env.STRIPE_FT_BOSS_MONTHLY_PRICE_ID || '', amountCents: 5000 },
+    boss_annual: { priceId: process.env.STRIPE_FT_BOSS_ANNUAL_PRICE_ID || '', amountCents: 48150 },
   },
 }
 
-// Check if vendor subscription prices are configured
+// Buyer subscription prices (same across all verticals)
+const BUYER_PRICES = {
+  monthly: { priceId: process.env.STRIPE_BUYER_MONTHLY_PRICE_ID || '', amountCents: 999 },
+  annual: { priceId: process.env.STRIPE_BUYER_ANNUAL_PRICE_ID || '', amountCents: 8150 },
+}
+
+// Backward-compatible unified view (uses first available vertical's prices)
+export const SUBSCRIPTION_PRICES = {
+  vendor: {
+    pro_monthly: {
+      priceId: process.env.STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID || VERTICAL_VENDOR_PRICES.food_trucks.pro_monthly.priceId || VERTICAL_VENDOR_PRICES.farmers_market.pro_monthly.priceId,
+      amountCents: 2500,
+    },
+    pro_annual: {
+      priceId: process.env.STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID || VERTICAL_VENDOR_PRICES.food_trucks.pro_annual.priceId || VERTICAL_VENDOR_PRICES.farmers_market.pro_annual.priceId,
+      amountCents: 20815,
+    },
+    boss_monthly: {
+      priceId: process.env.STRIPE_VENDOR_BOSS_MONTHLY_PRICE_ID || VERTICAL_VENDOR_PRICES.food_trucks.boss_monthly.priceId || VERTICAL_VENDOR_PRICES.farmers_market.boss_monthly.priceId,
+      amountCents: 5000,
+    },
+    boss_annual: {
+      priceId: process.env.STRIPE_VENDOR_BOSS_ANNUAL_PRICE_ID || VERTICAL_VENDOR_PRICES.food_trucks.boss_annual.priceId || VERTICAL_VENDOR_PRICES.farmers_market.boss_annual.priceId,
+      amountCents: 48150,
+    },
+  },
+  buyer: BUYER_PRICES,
+  // Legacy references
+  fm_premium: {
+    monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.pro_monthly.priceId }, amountCents: 2500 },
+    annual: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.pro_annual.priceId }, amountCents: 20815 },
+  },
+  fm_vendor: {
+    standard_monthly: { priceId: '', amountCents: 0 },
+    standard_annual: { priceId: '', amountCents: 0 },
+    featured_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.boss_monthly.priceId }, amountCents: 5000 },
+    featured_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.farmers_market.boss_annual.priceId }, amountCents: 48150 },
+  },
+  food_truck_vendor: {
+    basic_monthly: { priceId: '', amountCents: 0 },
+    basic_annual: { priceId: '', amountCents: 0 },
+    pro_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.pro_monthly.priceId }, amountCents: 2500 },
+    pro_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.pro_annual.priceId }, amountCents: 20815 },
+    boss_monthly: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.boss_monthly.priceId }, amountCents: 5000 },
+    boss_annual: { get priceId() { return VERTICAL_VENDOR_PRICES.food_trucks.boss_annual.priceId }, amountCents: 48150 },
+  },
+}
+
+// Check if vendor subscription prices are configured (checks at least one vertical)
 export function areSubscriptionPricesConfigured(): boolean {
-  return !!(SUBSCRIPTION_PRICES.vendor.pro_monthly.priceId && SUBSCRIPTION_PRICES.buyer.monthly.priceId)
+  return !!(
+    (VERTICAL_VENDOR_PRICES.food_trucks.pro_monthly.priceId || VERTICAL_VENDOR_PRICES.farmers_market.pro_monthly.priceId) &&
+    BUYER_PRICES.monthly.priceId
+  )
 }
 
 /** @deprecated Use areSubscriptionPricesConfigured */
 export function areFtPricesConfigured(): boolean {
-  return !!SUBSCRIPTION_PRICES.vendor.pro_monthly.priceId
+  return !!VERTICAL_VENDOR_PRICES.food_trucks.pro_monthly.priceId
 }
 
-export function areVerticalPricesConfigured(_vertical: string): boolean {
-  return !!SUBSCRIPTION_PRICES.vendor.pro_monthly.priceId
+export function areVerticalPricesConfigured(vertical: string): boolean {
+  const prices = VERTICAL_VENDOR_PRICES[vertical]
+  return !!(prices && prices.pro_monthly.priceId)
 }
 
-/** Get vendor price config by tier + cycle (unified — works for any vertical) */
-export function getVendorPriceConfig(tier: string, cycle?: 'monthly' | 'annual'): { priceId: string; amountCents: number } | null {
+/** Get vendor price config by tier + cycle + vertical */
+export function getVendorPriceConfig(tier: string, cycle?: 'monthly' | 'annual', vertical?: string): { priceId: string; amountCents: number } | null {
   const suffix = cycle === 'annual' ? 'annual' : 'monthly'
-  const key = `${tier}_${suffix}` as keyof typeof SUBSCRIPTION_PRICES.vendor
-  return SUBSCRIPTION_PRICES.vendor[key] || null
+  const key = `${tier}_${suffix}`
+
+  // Try vertical-specific prices first
+  if (vertical && VERTICAL_VENDOR_PRICES[vertical]) {
+    const config = VERTICAL_VENDOR_PRICES[vertical][key]
+    if (config?.priceId) return config
+  }
+
+  // Fall back to unified prices
+  const unifiedKey = key as keyof typeof SUBSCRIPTION_PRICES.vendor
+  const unified = SUBSCRIPTION_PRICES.vendor[unifiedKey]
+  return unified?.priceId ? unified : null
 }
 
-/** @deprecated Use getVendorPriceConfig */
+/** Get FT vendor price — uses food_trucks vertical prices */
 export function getFtPriceConfig(tier: string, cycle?: 'monthly' | 'annual'): { priceId: string; amountCents: number } | null {
-  return getVendorPriceConfig(tier, cycle)
+  return getVendorPriceConfig(tier, cycle, 'food_trucks')
 }
 
-/** @deprecated Use getVendorPriceConfig */
+/** Get FM vendor price — maps legacy tier names to unified, uses farmers_market vertical prices */
 export function getFmPriceConfig(tier: string, cycle?: 'monthly' | 'annual'): { priceId: string; amountCents: number } | null {
-  // Map legacy names to unified
-  if (tier === 'premium') return getVendorPriceConfig('pro', cycle)
-  if (tier === 'featured') return getVendorPriceConfig('boss', cycle)
-  if (tier === 'standard') return null // standard is now free
-  return getVendorPriceConfig(tier, cycle)
+  if (tier === 'premium') return getVendorPriceConfig('pro', cycle, 'farmers_market')
+  if (tier === 'featured') return getVendorPriceConfig('boss', cycle, 'farmers_market')
+  if (tier === 'standard') return null
+  return getVendorPriceConfig(tier, cycle, 'farmers_market')
+}
+
+/** Get buyer price config (same across all verticals) */
+export function getBuyerPriceConfig(cycle?: 'monthly' | 'annual'): { priceId: string; amountCents: number } | null {
+  const config = cycle === 'annual' ? BUYER_PRICES.annual : BUYER_PRICES.monthly
+  return config?.priceId ? config : null
 }
