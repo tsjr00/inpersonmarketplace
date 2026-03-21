@@ -85,6 +85,8 @@ export type NotificationType =
   | 'catering_vendor_invited'
   | 'catering_vendor_responded'
   | 'event_feedback_request'
+  | 'event_prep_reminder'
+  | 'event_settlement_summary'
   | 'vendor_event_approved'
   | 'vendor_event_application_submitted'
 
@@ -671,6 +673,26 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => `Vendor Responded to Event Invite`,
     message: (d) => `${d.vendorName} ${d.responseAction || 'responded to'} the event invitation for ${d.marketName}.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
+  },
+
+  event_prep_reminder: {
+    urgency: 'immediate',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => 'Event Tomorrow — Prep Reminder',
+    message: (d) => `Your event "${d.marketName}" is tomorrow! Headcount: ~${d.headcountPerVendor || d.headcount} servings. Review your pre-orders and prep accordingly. Arrive by ${d.setupTime || 'the scheduled start time'}.`,
+    actionUrl: (d) => d.marketId
+      ? `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketId}`
+      : `/${d.vertical || 'food_trucks'}/vendor/dashboard`,
+  },
+
+  event_settlement_summary: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => 'Event Settlement Complete',
+    message: (d) => `Settlement for "${d.marketName}" is complete. ${d.orderCount || 0} order${(d.orderCount || 0) !== 1 ? 's' : ''} fulfilled${d.payoutAmount ? ` — $${d.payoutAmount} paid out` : ''}. Thank you for participating!`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/orders`,
   },
 
   event_feedback_request: {

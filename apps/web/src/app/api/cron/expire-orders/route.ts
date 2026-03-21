@@ -1936,6 +1936,64 @@ export async function GET(request: NextRequest) {
       console.error('Phase 10 error:', phase10Error instanceof Error ? phase10Error.message : 'Unknown error')
     }
 
+    // ─── Phase 11: Event Prep Reminders (24h before) ─────────────────
+    let eventReminders = 0
+    try {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const tomorrowStr = tomorrow.toISOString().split('T')[0]
+
+      // Find events happening tomorrow that are in ready/active status
+      const { data: upcomingEvents } = await serviceClient
+        .from('catering_requests')
+        .select('id, market_id, event_date, company_name, event_start_time, headcount')
+        .in('status', ['ready', 'active'])
+        .eq('event_date', tomorrowStr)
+
+      if (upcomingEvents && upcomingEvents.length > 0) {
+        for (const event of upcomingEvents) {
+          if (!event.market_id) continue
+
+          // Get accepted vendors for this event
+          const { data: acceptedVendors } = await serviceClient
+            .from('market_vendors')
+            .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
+            .eq('market_id', event.market_id)
+            .eq('response_status', 'accepted')
+
+          const acceptedCount = acceptedVendors?.length || 1
+          const headcountPerVendor = Math.ceil((event.headcount || 0) / acceptedCount)
+
+          for (const mv of acceptedVendors || []) {
+            const vp = mv.vendor_profiles as unknown as { user_id: string } | null
+            if (!vp?.user_id) continue
+
+            // Check if we already sent this reminder (dedup by type + date)
+            const { count: alreadySent } = await serviceClient
+              .from('notifications')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', vp.user_id)
+              .eq('type', 'event_prep_reminder')
+              .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+
+            if (alreadySent && alreadySent > 0) continue
+
+            await sendNotification(vp.user_id, 'event_prep_reminder', {
+              marketName: event.company_name || 'Event',
+              marketId: event.market_id,
+              headcount: event.headcount,
+              headcountPerVendor,
+              setupTime: event.event_start_time?.slice(0, 5) || undefined,
+            }, { vertical: 'food_trucks' })
+
+            eventReminders++
+          }
+        }
+      }
+    } catch (phase11Error) {
+      console.error('Phase 11 error:', phase11Error instanceof Error ? phase11Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -1950,6 +2008,7 @@ export async function GET(request: NextRequest) {
       tierExpirations: { vendors: vendorTiersExpired, buyers: buyerTiersExpired },
       dataRetention: { errorLogs: errorLogsDeleted, notifications: notificationsDeleted, activityEvents: activityEventsDeleted },
       trialLifecycle: { reminders: trialReminders, expired: trialExpired, graceProcessed: trialGraceProcessed },
+      eventReminders,
     })
   })
 }
