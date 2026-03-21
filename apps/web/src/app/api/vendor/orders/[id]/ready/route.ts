@@ -91,6 +91,7 @@ export async function POST(
     const vendorName = listing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
     await sendNotification(orderData.buyer_user_id, 'order_ready', {
       orderNumber: orderData.order_number,
+      orderId: orderData.id,
       vendorName,
       itemTitle: listing?.title,
       marketName: ((orderItem as any).market as any)?.name,

@@ -111,6 +111,18 @@ async function handleListingAdd(
     })
   }
 
+  // Validate listing belongs to the requested vertical
+  crumb.logic('Validating listing vertical match')
+  const { data: listingVertical } = await supabase
+    .from('listings')
+    .select('vertical_id')
+    .eq('id', listingId)
+    .single()
+
+  if (listingVertical && listingVertical.vertical_id !== vertical) {
+    throw traced.validation('ERR_CART_001', 'Item not available in this vertical')
+  }
+
   // Validate market selection
   crumb.supabase('select', 'listing_markets', { listingId, marketId })
   const { data: marketValid, error: marketError } = await supabase
@@ -296,13 +308,14 @@ async function handleMarketBoxAdd(
     throw traced.notFound('ERR_CART_005', `Vertical not found: ${vertical}`)
   }
 
-  // Validate offering exists and is active
+  // Validate offering exists, is active, and belongs to correct vertical
   crumb.supabase('select', 'market_box_offerings')
   const { data: offering, error: offeringError } = await supabase
     .from('market_box_offerings')
     .select(`
       id,
       name,
+      vertical_id,
       price_4week_cents,
       price_8week_cents,
       max_subscribers,
@@ -323,6 +336,11 @@ async function handleMarketBoxAdd(
 
   if (!offering || !offering.active) {
     throw traced.notFound('ERR_CART_006', 'Market box offering not found or not available')
+  }
+
+  // Validate offering belongs to the requested vertical
+  if (offering.vertical_id && offering.vertical_id !== vertical) {
+    throw traced.validation('ERR_CART_001', 'Item not available in this vertical')
   }
 
   // Validate 8-week option exists if requested

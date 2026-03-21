@@ -71,7 +71,7 @@ Last updated: 2026-03-20
 
 ## Priority 2 — Soon
 
-- [ ] **Browse page: consolidate filters into single 3-dot menu** — Three dropdowns intimidate new users. Replace with one "Filters" button. Priority: high — conversion issue.
+- [x] **Browse page: consolidate filters into single 3-dot menu** — DONE (prior session).
 - [ ] **Playwright automated smoke tests** — See detailed plan below.
 - [ ] **Test push notifications on staging** — Verify web push end-to-end.
 - [ ] **Stripe live mode activation** — Switch from test to live keys when ready.
