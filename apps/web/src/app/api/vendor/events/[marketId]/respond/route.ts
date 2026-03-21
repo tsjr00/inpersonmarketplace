@@ -40,13 +40,33 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       const { marketId } = await context.params
       const body = await request.json()
-      const { response_status, response_notes } = body
+      const { response_status, response_notes, listing_ids } = body as {
+        response_status: string
+        response_notes?: string
+        listing_ids?: string[]
+      }
 
       if (!response_status || !['accepted', 'declined'].includes(response_status)) {
         return NextResponse.json(
           { error: 'response_status must be "accepted" or "declined"' },
           { status: 400 }
         )
+      }
+
+      // Accepting requires at least 1 listing selection
+      if (response_status === 'accepted') {
+        if (!listing_ids || !Array.isArray(listing_ids) || listing_ids.length === 0) {
+          return NextResponse.json(
+            { error: 'Please select at least one menu item for this event' },
+            { status: 400 }
+          )
+        }
+        if (listing_ids.length > 5) {
+          return NextResponse.json(
+            { error: 'Maximum 5 menu items per event' },
+            { status: 400 }
+          )
+        }
       }
 
       // Get vendor profile for this user
@@ -104,6 +124,45 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           { error: 'Failed to update response' },
           { status: 500 }
         )
+      }
+
+      // If accepted, save vendor's menu selections for this event
+      if (response_status === 'accepted' && listing_ids && listing_ids.length > 0) {
+        // Validate listings belong to this vendor and are catering-eligible
+        const { data: validListings } = await serviceClient
+          .from('listings')
+          .select('id, listing_data')
+          .eq('vendor_profile_id', vendorProfile.id)
+          .eq('status', 'published')
+          .in('id', listing_ids)
+
+        const cateringEligible = (validListings || []).filter(l => {
+          const data = l.listing_data as Record<string, unknown> | null
+          return data?.event_menu_item === true
+        })
+
+        if (cateringEligible.length === 0) {
+          return NextResponse.json(
+            { error: 'None of the selected items are marked as catering eligible. Please update your listings first.' },
+            { status: 400 }
+          )
+        }
+
+        // Insert event vendor listings
+        const { error: listingError } = await serviceClient
+          .from('event_vendor_listings')
+          .insert(
+            cateringEligible.map(l => ({
+              market_id: marketId,
+              vendor_profile_id: vendorProfile.id,
+              listing_id: l.id,
+            }))
+          )
+
+        if (listingError) {
+          console.error('[vendor/catering/respond] Listing insert error:', listingError)
+          // Don't fail the response — acceptance is recorded, listings can be added later
+        }
       }
 
       // Get market + catering request for admin notification

@@ -20,7 +20,7 @@ export default async function EventPage({ params }: EventPageProps) {
     .from('catering_requests')
     .select('*')
     .eq('event_token', token)
-    .in('status', ['approved', 'completed'])
+    .in('status', ['approved', 'ready', 'active', 'review', 'completed'])
     .single()
 
   if (!event) notFound()
@@ -68,14 +68,36 @@ export default async function EventPage({ params }: EventPageProps) {
         } | null
         if (!vp) continue
 
-        // Get vendor's published listings at this market
-        const { data: listings } = await supabase
-          .from('listings')
-          .select('id, title, description, price_cents, image_urls, listing_data')
+        // Get vendor's event-specific menu (from event_vendor_listings)
+        // Falls back to all catering-eligible listings if no selections exist yet
+        const { data: eventListings } = await supabase
+          .from('event_vendor_listings')
+          .select('listing:listings(id, title, description, price_cents, image_urls, listing_data)')
+          .eq('market_id', event.market_id)
           .eq('vendor_profile_id', vp.id)
-          .eq('status', 'published')
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false })
+
+        let listings: Array<{ id: string; title: string; description: string | null; price_cents: number; image_urls: string[] | null; listing_data: Record<string, unknown> | null }> = []
+
+        if (eventListings && eventListings.length > 0) {
+          // Use event-specific selections
+          listings = eventListings
+            .map(el => el.listing as unknown as typeof listings[0])
+            .filter(Boolean)
+        } else {
+          // Fallback: show all catering-eligible published listings
+          const { data: allListings } = await supabase
+            .from('listings')
+            .select('id, title, description, price_cents, image_urls, listing_data')
+            .eq('vendor_profile_id', vp.id)
+            .eq('status', 'published')
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false })
+
+          listings = (allListings || []).filter(l => {
+            const data = l.listing_data as Record<string, unknown> | null
+            return data?.event_menu_item === true
+          }) as typeof listings
+        }
 
         vendors.push({
           id: vp.id,
