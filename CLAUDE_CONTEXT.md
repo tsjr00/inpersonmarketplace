@@ -385,6 +385,7 @@ Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/m
 | 38 | 02-20 | Vitest 34 tests, enum fix (migration 038), FT seed data, events 5-phase plan |
 | 39 | 02-21 | **Events feature Phases 1-4 COMPLETE**. market_type='event' on markets. Migrations 039+040 (Staging). 37 files, event detail page, admin create, vendor suggest. |
 | 40 | 02-20 | **Post-demo 8-item plan + tip rounding fix**. ConfirmDialog (replaces browser popups), buyer status banners, full address links, events in availability, markets filters, lat/lng suggestions, input validation, PickupScheduleGrid branding. Tip fix: displaySubtotal per-item rounding, tip on displayed subtotal, platform fee tip tracking (migration 041). All pushed to prod+staging. |
+| 62 | 03-20 | **Massive session: independent audit + 28 commits**. 58-finding audit, 20+ bug fixes (refund math, tier names, inventory logic, active orders count), external payment safety net (buyer cancel + vendor non-payment), vendor resolve-issue UI + admin order issues page, notification deep-linking, all notification titles i18n'd (36 titles EN+ES), Event Phase 1 complete (per-event vendor menus, lifecycle statuses), Event Phase 3/4 (feedback form, prep reminders, settlement, revenue estimate). Migrations 085a/b, 093, 094. Prod zip_codes seeded. |
 
 ---
 
