@@ -98,6 +98,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // Notify buyer that issue was resolved
       await sendNotification(order.buyer_user_id, 'issue_resolved', {
         orderNumber: order.order_number,
+        orderId: order.id,
         resolution: 'Vendor confirmed the item was delivered. If you disagree, please contact support.',
       }, { vertical: order.vertical_id })
 
@@ -204,6 +205,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // Notify buyer
       await sendNotification(order.buyer_user_id, 'issue_resolved', {
         orderNumber: order.order_number,
+        orderId: order.id,
         resolution: 'Vendor has issued a refund for this item.',
       }, { vertical: order.vertical_id })
 
