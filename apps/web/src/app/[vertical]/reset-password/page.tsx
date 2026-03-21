@@ -48,22 +48,42 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
     loadConfig()
   }, [vertical])
 
-  // Validate reset token on mount
+  // Wait for Supabase to process the hash fragment tokens from the reset link
+  // The reset email redirects with #access_token=...&type=recovery in the URL hash.
+  // Supabase client detects these and fires a PASSWORD_RECOVERY auth event.
   useEffect(() => {
-    const validateToken = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession()
-
-      if (error || !session) {
-        setError(t('reset.invalid_link', locale))
+    // First check if there's already a valid session (e.g., page refresh after token processed)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         setValidatingToken(false)
         return
       }
+    })
 
-      setValidatingToken(false)
+    // Listen for auth state changes — Supabase processes hash tokens asynchronously
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        setError('')
+        setValidatingToken(false)
+      }
+    })
+
+    // Timeout — if no auth event fires within 5 seconds, the link is invalid/expired
+    const timeout = setTimeout(() => {
+      setValidatingToken(prev => {
+        if (prev) {
+          setError(t('reset.invalid_link', locale))
+          return false
+        }
+        return prev
+      })
+    }, 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
     }
-
-    validateToken()
-  }, [supabase])
+  }, [supabase, locale])
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault()
