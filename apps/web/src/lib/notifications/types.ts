@@ -207,7 +207,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       vendorName: d.vendorName || '',
       atMarket: d.marketName ? ` at ${d.marketName}` : '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   order_fulfilled: {
