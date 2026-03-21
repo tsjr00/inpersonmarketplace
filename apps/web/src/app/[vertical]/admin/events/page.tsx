@@ -596,8 +596,32 @@ export default function AdminCateringPage() {
                   )}
                   {selected.status === 'approved' && (
                     <button
-                      onClick={() => updateStatus(selected.id, 'completed')}
+                      onClick={() => updateStatus(selected.id, 'ready')}
+                      style={{ ...sizing.control, backgroundColor: '#dbeafe', color: '#1e40af', border: '1px solid #93c5fd', cursor: 'pointer' }}
+                    >
+                      Open Pre-Orders
+                    </button>
+                  )}
+                  {selected.status === 'ready' && (
+                    <button
+                      onClick={() => updateStatus(selected.id, 'active')}
                       style={{ ...sizing.control, backgroundColor: statusColors.successLight, color: statusColors.successDark, border: `1px solid ${statusColors.successBorder}`, cursor: 'pointer' }}
+                    >
+                      Event Started
+                    </button>
+                  )}
+                  {selected.status === 'active' && (
+                    <button
+                      onClick={() => updateStatus(selected.id, 'review')}
+                      style={{ ...sizing.control, backgroundColor: '#f3e8ff', color: '#7e22ce', border: '1px solid #c4b5fd', cursor: 'pointer' }}
+                    >
+                      Event Ended — Collect Feedback
+                    </button>
+                  )}
+                  {selected.status === 'review' && (
+                    <button
+                      onClick={() => updateStatus(selected.id, 'completed')}
+                      style={{ ...sizing.control, backgroundColor: statusColors.neutral100, color: statusColors.neutral700, border: `1px solid ${statusColors.neutral300}`, cursor: 'pointer' }}
                     >
                       Mark Complete
                     </button>

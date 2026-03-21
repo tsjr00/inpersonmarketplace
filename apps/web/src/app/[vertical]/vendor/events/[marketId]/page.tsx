@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+import { createClient } from '@/lib/supabase/client'
 
 interface EventDetails {
   market_id: string
@@ -45,6 +46,10 @@ export default function VendorCateringDetailPage() {
   const [responding, setResponding] = useState(false)
   const [responseNotes, setResponseNotes] = useState('')
   const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [showMenuPicker, setShowMenuPicker] = useState(false)
+  const [cateringListings, setCateringListings] = useState<Array<{ id: string; title: string; price_cents: number }>>([])
+  const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set())
+  const [loadingListings, setLoadingListings] = useState(false)
 
   useEffect(() => {
     fetchDetails()
@@ -68,7 +73,95 @@ export default function VendorCateringDetailPage() {
     setLoading(false)
   }
 
+  async function fetchCateringListings() {
+    setLoadingListings(true)
+    try {
+      const supabase = createClient()
+      // Get vendor's own profile
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: vendorProfile } = await supabase
+        .from('vendor_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!vendorProfile) return
+
+      // Get published listings with event_menu_item flag
+      const { data: listings } = await supabase
+        .from('listings')
+        .select('id, title, price_cents, listing_data')
+        .eq('vendor_profile_id', vendorProfile.id)
+        .eq('status', 'published')
+        .eq('vertical_id', vertical)
+        .is('deleted_at', null)
+        .order('title')
+
+      const catering = (listings || []).filter(l => {
+        const data = l.listing_data as Record<string, unknown> | null
+        return data?.event_menu_item === true
+      })
+
+      setCateringListings(catering.map(l => ({ id: l.id, title: l.title, price_cents: l.price_cents })))
+    } catch { /* ignore */ }
+    setLoadingListings(false)
+  }
+
+  function handleAcceptClick() {
+    setShowMenuPicker(true)
+    if (cateringListings.length === 0) fetchCateringListings()
+  }
+
+  function toggleListing(id: string) {
+    setSelectedListingIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else if (next.size < 5) {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  async function handleConfirmAccept() {
+    if (selectedListingIds.size === 0) {
+      setActionMessage('Error: Please select at least one menu item')
+      return
+    }
+    setResponding(true)
+    setActionMessage(null)
+    try {
+      const res = await fetch(`/api/vendor/events/${marketId}/respond`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          response_status: 'accepted',
+          response_notes: responseNotes.trim() || null,
+          listing_ids: Array.from(selectedListingIds),
+        }),
+      })
+      if (res.ok) {
+        setActionMessage('You accepted this event and your menu has been submitted!')
+        setDetails((prev) => prev ? { ...prev, response_status: 'accepted' } : prev)
+        setShowMenuPicker(false)
+      } else {
+        const err = await res.json()
+        setActionMessage(`Error: ${err.error}`)
+      }
+    } catch {
+      setActionMessage('Network error')
+    }
+    setResponding(false)
+  }
+
   async function handleRespond(status: 'accepted' | 'declined') {
+    if (status === 'accepted') {
+      handleAcceptClick()
+      return
+    }
     setResponding(true)
     setActionMessage(null)
     try {
@@ -81,14 +174,8 @@ export default function VendorCateringDetailPage() {
         }),
       })
       if (res.ok) {
-        setActionMessage(
-          status === 'accepted'
-            ? 'You accepted this catering invitation!'
-            : 'You declined this invitation.'
-        )
-        setDetails((prev) =>
-          prev ? { ...prev, response_status: status } : prev
-        )
+        setActionMessage('You declined this invitation.')
+        setDetails((prev) => prev ? { ...prev, response_status: status } : prev)
       } else {
         const err = await res.json()
         setActionMessage(`Error: ${err.error}`)
@@ -350,38 +437,120 @@ export default function VendorCateringDetailPage() {
               }}
             />
           </div>
-          <div style={{ display: 'flex', gap: spacing.sm }}>
-            <button
-              onClick={() => handleRespond('accepted')}
-              disabled={responding}
-              style={{
-                flex: 1,
-                ...sizing.cta,
-                fontWeight: typography.weights.semibold,
-                backgroundColor: responding ? '#ccc' : statusColors.success,
-                color: 'white',
-                border: 'none',
-                cursor: responding ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {responding ? 'Sending...' : 'Accept'}
-            </button>
-            <button
-              onClick={() => handleRespond('declined')}
-              disabled={responding}
-              style={{
-                flex: 1,
-                ...sizing.cta,
-                fontWeight: typography.weights.semibold,
-                backgroundColor: 'white',
-                color: statusColors.danger,
-                border: `2px solid ${statusColors.danger}`,
-                cursor: responding ? 'not-allowed' : 'pointer',
-              }}
-            >
-              Decline
-            </button>
-          </div>
+          {!showMenuPicker ? (
+            <div style={{ display: 'flex', gap: spacing.sm }}>
+              <button
+                onClick={() => handleRespond('accepted')}
+                disabled={responding}
+                style={{
+                  flex: 1,
+                  ...sizing.cta,
+                  fontWeight: typography.weights.semibold,
+                  backgroundColor: responding ? '#ccc' : statusColors.success,
+                  color: 'white',
+                  border: 'none',
+                  cursor: responding ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Accept
+              </button>
+              <button
+                onClick={() => handleRespond('declined')}
+                disabled={responding}
+                style={{
+                  flex: 1,
+                  ...sizing.cta,
+                  fontWeight: typography.weights.semibold,
+                  backgroundColor: 'white',
+                  color: statusColors.danger,
+                  border: `2px solid ${statusColors.danger}`,
+                  cursor: responding ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Decline
+              </button>
+            </div>
+          ) : (
+            <div>
+              <h4 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: `0 0 ${spacing['2xs']}` }}>
+                Select your menu for this event (up to 5 items)
+              </h4>
+              <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}` }}>
+                Only items marked &quot;Available for Events&quot; in your listings are shown.
+                {cateringListings.length === 0 && !loadingListings && ' No catering-eligible items found — mark items as event-ready in your listings first.'}
+              </p>
+              {loadingListings ? (
+                <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm }}>Loading your menu items...</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'], marginBottom: spacing.sm }}>
+                  {cateringListings.map(listing => {
+                    const selected = selectedListingIds.has(listing.id)
+                    const atLimit = selectedListingIds.size >= 5 && !selected
+                    return (
+                      <button
+                        key={listing.id}
+                        onClick={() => toggleListing(listing.id)}
+                        disabled={atLimit}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: `${spacing['2xs']} ${spacing.sm}`,
+                          backgroundColor: selected ? statusColors.successLight : 'white',
+                          border: `1.5px solid ${selected ? statusColors.success : statusColors.neutral200}`,
+                          borderRadius: radius.md,
+                          cursor: atLimit ? 'not-allowed' : 'pointer',
+                          opacity: atLimit ? 0.5 : 1,
+                          textAlign: 'left',
+                          fontSize: typography.sizes.sm,
+                        }}
+                      >
+                        <span style={{ fontWeight: selected ? typography.weights.semibold : typography.weights.normal, color: statusColors.neutral800 }}>
+                          {selected ? '✓ ' : ''}{listing.title}
+                        </span>
+                        <span style={{ color: statusColors.neutral500, fontSize: typography.sizes.xs }}>
+                          ${(listing.price_cents / 100).toFixed(2)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}` }}>
+                {selectedListingIds.size}/5 selected
+              </p>
+              <div style={{ display: 'flex', gap: spacing.sm }}>
+                <button
+                  onClick={handleConfirmAccept}
+                  disabled={responding || selectedListingIds.size === 0}
+                  style={{
+                    flex: 1,
+                    ...sizing.cta,
+                    fontWeight: typography.weights.semibold,
+                    backgroundColor: responding || selectedListingIds.size === 0 ? '#ccc' : statusColors.success,
+                    color: 'white',
+                    border: 'none',
+                    cursor: responding || selectedListingIds.size === 0 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {responding ? 'Submitting...' : `Accept with ${selectedListingIds.size} item${selectedListingIds.size !== 1 ? 's' : ''}`}
+                </button>
+                <button
+                  onClick={() => { setShowMenuPicker(false); setSelectedListingIds(new Set()) }}
+                  style={{
+                    ...sizing.cta,
+                    fontWeight: typography.weights.semibold,
+                    backgroundColor: 'white',
+                    color: statusColors.neutral500,
+                    border: `1px solid ${statusColors.neutral300}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
