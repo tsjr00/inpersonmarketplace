@@ -513,7 +513,7 @@ export const en: Record<string, string> = {
   'notif.order_placed_title': 'Order Placed',
   'notif.order_placed_msg': 'Thank you for using {brandName}!\n\n\u2022 Your order #{orderNumber} has been placed with {vendorName}.\n\u2022 You have selected {marketName} at {marketAddress} as your pickup location.\n\u2022 You scheduled your items to be ready for pickup at {pickupTime} on {pickupDate}.\n\nWe will notify you when your order has been confirmed by {vendorName}. {signOff}',
   'notif.order_confirmed_title': 'Order Confirmed',
-  'notif.order_confirmed_msg': '{vendorName} confirmed your order #{orderNumber}{forItem}. We\'ll notify you when it\'s ready for pickup.',
+  'notif.order_confirmed_msg': '{vendorName} confirmed your order #{orderNumber}{forItem}. We\'ll notify you when it\'s ready for pickup. When you arrive, you\'ll show your order screen to the vendor and both of you will confirm the handoff.',
   'notif.order_ready_title': 'Order Ready for Pickup',
   'notif.order_ready_msg': 'Your order #{orderNumber} from {vendorName} is ready for pickup{atMarket}. When you arrive, show your order screen to the vendor — both you and the vendor will need to confirm the handoff. Tap your order number below to pull up your pickup screen.',
   'notif.order_fulfilled_title': 'Order Complete',

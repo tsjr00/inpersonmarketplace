@@ -250,6 +250,15 @@ export async function GET(request: NextRequest) {
               )
             }
 
+            // Notify vendor that the order expired because they didn't confirm
+            if (vendor?.user_id) {
+              await sendNotification(vendor.user_id, 'order_expired_vendor', {
+                orderNumber: order?.order_number || item.order_id.slice(0, 8),
+                itemTitle: listing?.title || 'Item',
+                buyerName: (order?.buyer as any)?.display_name || 'A customer',
+              }, { vertical: order?.vertical_id })
+            }
+
             totalProcessed++
           } catch (itemError) {
             console.error('Error processing expired item:', itemError instanceof Error ? itemError.message : 'Unknown error')
