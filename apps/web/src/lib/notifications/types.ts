@@ -659,7 +659,7 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (d) => d.vertical === 'farmers_market' ? 'New Pop-Up Market Opportunity' : 'New Event Opportunity',
     message: (d) => {
       const vendorWord = d.vertical === 'farmers_market' ? 'vendors' : 'food trucks'
-      return `${d.companyName} is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate} at ${d.eventAddress}. Tap to view details and respond.`
+      return `${d.companyName} is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate} at ${d.eventAddress}. When you accept, you'll select up to 5 items from your catering menu for this event. Tap to view details and respond.`
     },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketName}`,
   },
