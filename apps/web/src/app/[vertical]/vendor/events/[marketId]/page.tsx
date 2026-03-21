@@ -326,6 +326,26 @@ export default function VendorCateringDetailPage() {
         />
       </div>
 
+      {/* Revenue Estimate */}
+      {details.headcount > 0 && (
+        <div style={{
+          padding: spacing.sm,
+          backgroundColor: '#f0fdf4',
+          border: '1px solid #86efac',
+          borderRadius: radius.md,
+          marginBottom: spacing.md,
+        }}>
+          <h3 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#166534', margin: `0 0 ${spacing['2xs']}` }}>
+            Revenue Opportunity
+          </h3>
+          <p style={{ fontSize: typography.sizes.sm, color: '#15803d', margin: 0, lineHeight: 1.6 }}>
+            With ~{headcountPerTruck} servings at an average of $10-15/plate, this event could generate
+            approximately <strong>${(headcountPerTruck * 10).toLocaleString()}-${(headcountPerTruck * 15).toLocaleString()}</strong> in
+            revenue for your truck. Pre-orders help you prep exactly what you need — less waste, more profit.
+          </p>
+        </div>
+      )}
+
       {/* Preferences */}
       {(details.cuisine_preferences || details.dietary_notes) && (
         <div

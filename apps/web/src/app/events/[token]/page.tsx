@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { formatDisplayPrice } from '@/lib/constants'
 import { spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
+import EventFeedbackForm from '@/components/events/EventFeedbackForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -264,6 +265,16 @@ export default async function EventPage({ params }: EventPageProps) {
             <p style={{ color: '#9ca3af', fontSize: typography.sizes.base, margin: 0 }}>
               We&apos;re coordinating food trucks for this event. Check back soon for the menu!
             </p>
+          </div>
+        )}
+
+        {/* Feedback Form — shown during active and review phases */}
+        {['active', 'review'].includes(event.status) && vendors.length > 0 && (
+          <div style={{ marginTop: spacing.lg }}>
+            <EventFeedbackForm
+              eventToken={token}
+              vendors={vendors.map(v => ({ id: v.id, business_name: v.business_name }))}
+            />
           </div>
         )}
 
