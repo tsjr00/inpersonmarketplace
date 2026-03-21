@@ -167,6 +167,7 @@ export async function POST(
         const fulfillVendorName = fulfillListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
         await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
           orderNumber: orderData.order_number,
+          orderId: orderData.id,
           vendorName: fulfillVendorName,
           itemTitle: fulfillListing?.title,
         }, { vertical: orderData.vertical_id })
@@ -340,6 +341,7 @@ export async function POST(
           const failedVendorName = failedListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
           await sendNotification(orderData.buyer_user_id, 'order_fulfilled', {
             orderNumber: orderData.order_number,
+            orderId: orderData.id,
             vendorName: failedVendorName,
             itemTitle: failedListing?.title,
           }, { vertical: orderData.vertical_id })
@@ -388,6 +390,7 @@ export async function POST(
       const fulfillVendorName = fulfillListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
       await sendNotification(fulfillOrderData.buyer_user_id, 'order_fulfilled', {
         orderNumber: fulfillOrderData.order_number,
+        orderId: fulfillOrderData.id,
         vendorName: fulfillVendorName,
         itemTitle: fulfillListing?.title,
       }, { vertical: fulfillOrderData.vertical_id })

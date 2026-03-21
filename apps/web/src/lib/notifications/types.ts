@@ -181,7 +181,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
         signOff: signOffs[d.vertical as string] || 'Thanks again!',
       })
     },
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   order_confirmed: {
@@ -194,7 +196,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       orderNumber: d.orderNumber || '',
       forItem: d.itemTitle ? ` for ${d.itemTitle}` : '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   order_ready: {
@@ -221,7 +225,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       orderNumber: d.orderNumber || '',
       vendorName: d.vendorName || '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   order_cancelled_by_vendor: {
@@ -234,7 +240,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       orderNumber: d.orderNumber || '',
       reason: d.reason ? ` Reason: ${d.reason}` : '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   order_refunded: {
@@ -246,7 +254,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       amount: d.amountCents ? ` of $${(d.amountCents / 100).toFixed(2)}` : '',
       orderNumber: d.orderNumber || '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   order_expired: {
@@ -258,7 +268,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       orderNumber: d.orderNumber || '',
       refundInfo: d.amountCents ? ` A refund of $${(d.amountCents / 100).toFixed(2)} will be processed.` : '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   pickup_missed: {
@@ -271,7 +283,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       itemInfo: d.itemTitle ? ` (${d.itemTitle})` : '',
       vendorName: d.vendorName || '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   stale_confirmed_buyer: {
@@ -284,7 +298,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       forItem: d.itemTitle ? ` for ${d.itemTitle}` : '',
       vendorName: d.vendorName || '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   market_box_skip: {
@@ -323,7 +339,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
       orderNumber: d.orderNumber || '',
       resolution: d.resolution ? ` Resolution: ${d.resolution}` : '',
     }),
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   // ── Vendor-facing ────────────────────────────────────────────────
@@ -370,7 +388,9 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     audience: 'buyer',
     title: () => `Payment Not Received`,
     message: (d) => `${d.vendorName || 'The vendor'} has not received your ${d.paymentMethod || 'external'} payment for order #${d.orderNumber}. Please send the payment or cancel the order if needed.`,
-    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/buyer/orders`,
+    actionUrl: (d) => d.orderId
+      ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
+      : `/${d.vertical || 'farmers_market'}/buyer/orders`,
   },
 
   order_cancelled_nonpayment: {

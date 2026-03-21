@@ -97,6 +97,7 @@ export async function POST(
   const vendorName = listing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
   await sendNotification(orderData.buyer_user_id, 'order_confirmed', {
     orderNumber: orderData.order_number,
+    orderId: orderData.id,
     vendorName,
     itemTitle: listing?.title,
   }, { vertical: orderData.vertical_id })

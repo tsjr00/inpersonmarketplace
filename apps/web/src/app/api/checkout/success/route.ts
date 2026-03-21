@@ -404,6 +404,7 @@ export async function GET(request: NextRequest) {
 
           await sendNotification(capturedUserId, 'order_placed', {
             orderNumber: capturedOrderNumber,
+            orderId,
             vendorName,
             brandName: branding?.brand_name || "Food Truck'n",
             itemTitle: itemTitles.length === 1 ? itemTitles[0] : `${itemTitles.length} items`,

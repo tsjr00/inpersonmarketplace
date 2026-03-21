@@ -127,6 +127,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const handoffVendorName = handoffListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
       await sendNotification(handoffOrderData.buyer_user_id, 'order_fulfilled', {
         orderNumber: handoffOrderData.order_number,
+        orderId: handoffOrderData.id,
         vendorName: handoffVendorName,
         itemTitle: handoffListing?.title,
       }, { vertical: handoffOrderData.vertical_id })
@@ -291,6 +292,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const stripeHandoffVendorName = stripeHandoffListing?.vendor_profiles?.profile_data?.business_name || 'Vendor'
     await sendNotification(handoffOrderData.buyer_user_id, 'order_fulfilled', {
       orderNumber: handoffOrderData.order_number,
+      orderId: handoffOrderData.id,
       vendorName: stripeHandoffVendorName,
       itemTitle: stripeHandoffListing?.title,
     }, { vertical: handoffOrderData.vertical_id })
