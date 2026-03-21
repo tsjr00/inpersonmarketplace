@@ -1944,7 +1944,7 @@ export async function GET(request: NextRequest) {
       const tomorrowStr = tomorrow.toISOString().split('T')[0]
 
       // Find events happening tomorrow that are in ready/active status
-      const { data: upcomingEvents } = await serviceClient
+      const { data: upcomingEvents } = await supabase
         .from('catering_requests')
         .select('id, market_id, event_date, company_name, event_start_time, headcount')
         .in('status', ['ready', 'active'])
@@ -1955,7 +1955,7 @@ export async function GET(request: NextRequest) {
           if (!event.market_id) continue
 
           // Get accepted vendors for this event
-          const { data: acceptedVendors } = await serviceClient
+          const { data: acceptedVendors } = await supabase
             .from('market_vendors')
             .select('vendor_profile_id, vendor_profiles:vendor_profile_id(user_id)')
             .eq('market_id', event.market_id)
@@ -1969,7 +1969,7 @@ export async function GET(request: NextRequest) {
             if (!vp?.user_id) continue
 
             // Check if we already sent this reminder (dedup by type + date)
-            const { count: alreadySent } = await serviceClient
+            const { count: alreadySent } = await supabase
               .from('notifications')
               .select('id', { count: 'exact', head: true })
               .eq('user_id', vp.user_id)
