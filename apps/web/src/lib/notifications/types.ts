@@ -52,6 +52,7 @@ export type NotificationType =
   | 'external_payment_reminder'
   | 'external_payment_auto_confirmed'
   | 'external_payment_not_received'
+  | 'order_expired_vendor'
   | 'order_cancelled_nonpayment'
   | 'order_cancelled_by_buyer'
   | 'vendor_approved'
@@ -391,6 +392,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     actionUrl: (d) => d.orderId
       ? `/${d.vertical || 'farmers_market'}/buyer/orders/${d.orderId}`
       : `/${d.vertical || 'farmers_market'}/buyer/orders`,
+  },
+
+  order_expired_vendor: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => `Order Expired — Not Confirmed in Time`,
+    message: (d) => `Order #${d.orderNumber}${d.itemTitle ? ` (${d.itemTitle})` : ''} from ${d.buyerName || 'a customer'} expired because it was not confirmed within the required window. The customer has been refunded. Please confirm orders promptly to avoid missed sales.`,
+    actionUrl: (d) => `/${d.vertical || 'farmers_market'}/vendor/orders`,
   },
 
   order_cancelled_nonpayment: {
