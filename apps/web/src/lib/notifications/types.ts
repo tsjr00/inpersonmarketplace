@@ -130,10 +130,16 @@ export interface NotificationTemplateData {
   // Catering / Events
   companyName?: string
   headcount?: number
+  headcountPerVendor?: number
   eventDate?: string
   eventAddress?: string
   responseAction?: string  // 'accepted' | 'declined'
   vertical?: string
+  marketId?: string
+  setupTime?: string
+  orderCount?: number
+  payoutAmount?: string
+  eventToken?: string
   // Order confirmation email enrichment
   brandName?: string
   marketAddress?: string
