@@ -278,16 +278,15 @@ export default function BuyerUpgradePage() {
               </div>
               <div>
                 <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: colors.primaryDark }}>
-                  Early Access to New Listings
+                  {t('upgrade.early_title', locale)}
                 </h3>
                 <p style={{ margin: '0 0 8px', fontSize: 14, color: colors.primaryDark, lineHeight: 1.5 }}>
-                  Get first pick when vendors add new items. Premium members get a protected shopping window before items are available to everyone else — so you never miss the best products.
+                  {t('upgrade.featured_desc', locale)}
                 </p>
                 <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: colors.primaryDark, lineHeight: 1.8 }}>
-                  <li>Shop new listings before non-premium members</li>
-                  <li>Great for restaurants and food trucks buying local in quantity</li>
-                  <li>Premium badge visible to vendors — get priority treatment</li>
-                  <li>Vendors are encouraged to reserve their best items for premium buyers</li>
+                  <li>{t('upgrade.featured_bullet1', locale)}</li>
+                  <li>{t('upgrade.featured_bullet2', locale)}</li>
+                  <li>{t('upgrade.featured_bullet3', locale, { market_boxes: term(vertical, 'market_boxes', locale) })}</li>
                 </ul>
               </div>
             </div>
@@ -298,7 +297,7 @@ export default function BuyerUpgradePage() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: 20
           }}>
-            {/* Early Access */}
+            {/* Support Local Vendors */}
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{
                 width: 44,
@@ -311,64 +310,14 @@ export default function BuyerUpgradePage() {
                 fontSize: 18,
                 flexShrink: 0
               }}>
-                ⏰
+                🤝
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  {t('upgrade.early_title', locale)}
+                  {t('upgrade.mbox_title', locale)}
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  {t('upgrade.early_desc', locale)}
-                </p>
-              </div>
-            </div>
-
-            {/* Premium Recognition */}
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{
-                width: 44,
-                height: 44,
-                backgroundColor: '#fef3c7',
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 18,
-                flexShrink: 0
-              }}>
-                ⭐
-              </div>
-              <div>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  Premium Buyer Recognition
-                </h3>
-                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  Vendors see a premium badge on your orders. Many vendors prioritize premium buyers with their best-quality items and first-choice selections.
-                </p>
-              </div>
-            </div>
-
-            {/* Order Insights */}
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{
-                width: 44,
-                height: 44,
-                backgroundColor: colors.primaryLight,
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 18,
-                flexShrink: 0
-              }}>
-                📊
-              </div>
-              <div>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  {t('upgrade.insights_title', locale)}
-                </h3>
-                <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  {t('upgrade.insights_desc', locale)}
+                  {t('upgrade.mbox_desc', locale, { market_boxes: term(vertical, 'market_boxes', locale) })}
                 </p>
               </div>
             </div>
@@ -390,10 +339,10 @@ export default function BuyerUpgradePage() {
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600, color: '#333' }}>
-                  {t('upgrade.badge_title', locale)}
+                  {t('upgrade.support_title', locale)}
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
-                  {t('upgrade.badge_desc', locale)}
+                  {t('upgrade.support_desc', locale)}
                 </p>
               </div>
             </div>
