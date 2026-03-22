@@ -2,7 +2,14 @@
 
 Last updated: 2026-03-20 (end of Session 62)
 
-## Priority 1 — From Session 62 (Today)
+## Priority 0 — Next Session (from Session 62 end)
+
+### Vendor Hours & Ordering UX
+- [ ] **Vendor hours display mismatch** — Market cards and vendor profiles show market hours (e.g., 9 PM) but vendor-specific override hours may be earlier (e.g., 8 PM). Buyer sees "open until 9" but can't order after 8. Need to display vendor hours when they differ from market hours. Affects: browse cards, listing detail, vendor profile, where-today page.
+- [ ] **Vendor configurable pickup lead time** — FT vendors have hardcoded 31-min lead time for pickup slots. Proposed: `pickup_lead_minutes` column on `vendor_profiles` (INTEGER, default 30), vendor settings toggle for 15/30 min. `generateTimeSlots()` already accepts `minLeadMinutes` param — just needs to read from vendor profile. One migration + settings UI + AddToCartButton update.
+- [ ] **Password reset verification** — Fix deployed to staging (uses onAuthStateChange instead of getSession). Needs manual testing to confirm it works.
+
+## Priority 1 — From Session 62
 
 ### Notifications & Communication
 - [x] **Confirmation email pickup instructions** — DONE Session 62. order_ready notification includes handoff instructions + deep-link to specific order.
