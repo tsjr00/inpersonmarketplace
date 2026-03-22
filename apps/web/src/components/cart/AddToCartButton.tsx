@@ -495,6 +495,22 @@ export function AddToCartButton({
         </div>
       )}
 
+      {/* No time slots available — vendor closing soon */}
+      {vertical === 'food_trucks' && selectedPickup && timeSlots.length === 0 && (
+        <div style={{
+          padding: spacing.xs,
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fca5a5',
+          borderRadius: radius.sm,
+          marginBottom: 12,
+          fontSize: typography.sizes.sm,
+          color: '#991b1b',
+          textAlign: 'center',
+        }}>
+          No pickup times available — vendor closes soon. Try again during their next operating hours.
+        </div>
+      )}
+
       {/* Time Slot Picker - Food trucks only, after date selection */}
       {vertical === 'food_trucks' && selectedPickup && timeSlots.length > 0 && (
         <div style={{ marginBottom: 12 }}>

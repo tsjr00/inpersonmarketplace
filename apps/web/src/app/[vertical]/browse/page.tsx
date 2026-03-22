@@ -960,7 +960,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                           listing={listing}
                           vertical={vertical}
                           branding={branding}
-                          availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id))}
+                          availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id) ? { ...availabilityMap.get(listing.id)!, vertical } : undefined)}
                           locale={locale}
                         />
                       ))}
@@ -982,7 +982,7 @@ export default async function BrowsePage({ params, searchParams }: BrowsePagePro
                     listing={listing}
                     vertical={vertical}
                     branding={branding}
-                    availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id))}
+                    availabilityStatus={deriveAvailabilityStatus(availabilityMap.get(listing.id) ? { ...availabilityMap.get(listing.id)!, vertical } : undefined)}
                     locale={locale}
                   />
                 ))}
