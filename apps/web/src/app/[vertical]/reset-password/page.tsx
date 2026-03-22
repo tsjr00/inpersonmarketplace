@@ -21,6 +21,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
+  const [tokenInvalid, setTokenInvalid] = useState(false)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [validatingToken, setValidatingToken] = useState(true)
@@ -69,6 +70,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         if (cancelled) return
         if (exchangeError) {
           setError(t('reset.invalid_link', locale))
+          setTokenInvalid(true)
           setValidatingToken(false)
           return
         }
@@ -106,6 +108,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
       setValidatingToken(prev => {
         if (prev) {
           setError(t('reset.invalid_link', locale))
+          setTokenInvalid(true)
           return false
         }
         return prev
@@ -293,9 +296,9 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setError('') }}
                 required
-                disabled={loading || !!error}
+                disabled={loading || tokenInvalid}
                 minLength={6}
                 style={{
                   width: '100%',
@@ -342,9 +345,9 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => { setConfirmPassword(e.target.value); setError('') }}
                 required
-                disabled={loading || !!error}
+                disabled={loading || tokenInvalid}
                 style={{
                   width: '100%',
                   padding: `${spacing.xs} 40px ${spacing.xs} ${spacing.xs}`,
@@ -390,13 +393,13 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
               padding: spacing.xs,
               fontSize: typography.sizes.base,
               fontWeight: typography.weights.semibold,
-              backgroundColor: (loading || !!error) ? colors.textMuted : colors.primary,
+              backgroundColor: (loading || tokenInvalid) ? colors.textMuted : colors.primary,
               color: colors.textInverse,
               border: 'none',
               borderRadius: radius.sm,
-              cursor: (loading || !!error) ? 'not-allowed' : 'pointer',
+              cursor: (loading || tokenInvalid) ? 'not-allowed' : 'pointer',
               marginBottom: spacing.sm,
-              boxShadow: (loading || !!error) ? 'none' : shadows.primary
+              boxShadow: (loading || tokenInvalid) ? 'none' : shadows.primary
             }}
           >
             {loading ? t('reset.updating', locale) : t('reset.submit', locale)}
