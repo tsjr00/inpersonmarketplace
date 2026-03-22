@@ -130,7 +130,9 @@ export default async function EventPage({ params }: EventPageProps) {
     return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
   }
 
-  const isCompleted = event.status === 'completed'
+  const isCompleted = event.status === 'completed' || event.status === 'review'
+  const isOrderable = event.status === 'ready' || event.status === 'active'
+  const verticalId = event.vertical_id || 'food_trucks'
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
@@ -142,7 +144,7 @@ export default async function EventPage({ params }: EventPageProps) {
       }}>
         <div style={{ maxWidth: containers.md, margin: '0 auto' }}>
           <p style={{ fontSize: typography.sizes.sm, color: '#9ca3af', margin: `0 0 ${spacing.xs}`, textTransform: 'uppercase', letterSpacing: 1 }}>
-            {isCompleted ? 'Past Event' : 'Upcoming Event'}
+            {isCompleted ? 'Past Event' : isOrderable ? 'Pre-Orders Open' : 'Upcoming Event'}
           </p>
           <h1 style={{ margin: `0 0 ${spacing.sm}`, fontSize: typography.sizes['3xl'], fontWeight: typography.weights.bold }}>
             {event.company_name}
@@ -164,6 +166,22 @@ export default async function EventPage({ params }: EventPageProps) {
 
       {/* Content */}
       <div style={{ maxWidth: containers.md, margin: '0 auto', padding: `${spacing.lg} ${spacing.md}` }}>
+
+        {/* Pre-order banner */}
+        {isOrderable && vendors.length > 0 && (
+          <div style={{
+            padding: spacing.sm,
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #86efac',
+            borderRadius: radius.md,
+            marginBottom: spacing.md,
+            textAlign: 'center',
+          }}>
+            <p style={{ margin: 0, fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: '#166534' }}>
+              Pre-orders are open! Browse menus below and tap any item to order.
+            </p>
+          </div>
+        )}
 
         {/* Vendors */}
         {vendors.length > 0 ? (
@@ -209,44 +227,58 @@ export default async function EventPage({ params }: EventPageProps) {
                   {/* Menu Items */}
                   {vendor.listings.length > 0 ? (
                     <div style={{ padding: spacing.sm }}>
-                      {vendor.listings.map(item => (
-                        <div key={item.id} style={{
-                          display: 'flex',
-                          gap: spacing.sm,
-                          padding: spacing.xs,
-                          borderBottom: '1px solid #f9fafb',
-                        }}>
-                          {item.image_urls?.[0] && (
-                            <Image
-                              src={item.image_urls[0]}
-                              alt={item.title}
-                              width={64}
-                              height={64}
-                              style={{ borderRadius: radius.sm, objectFit: 'cover', flexShrink: 0 }}
-                            />
-                          )}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                              <h4 style={{ margin: 0, fontSize: typography.sizes.base, fontWeight: typography.weights.medium, color: '#111827' }}>
-                                {item.title}
-                              </h4>
-                              <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#111827', flexShrink: 0 }}>
-                                {formatDisplayPrice(item.price_cents)}
-                              </span>
+                      {vendor.listings.map(item => {
+                        const itemContent = (
+                          <div style={{
+                            display: 'flex',
+                            gap: spacing.sm,
+                            padding: spacing.xs,
+                            borderBottom: '1px solid #f9fafb',
+                          }}>
+                            {item.image_urls?.[0] && (
+                              <Image
+                                src={item.image_urls[0]}
+                                alt={item.title}
+                                width={64}
+                                height={64}
+                                style={{ borderRadius: radius.sm, objectFit: 'cover', flexShrink: 0 }}
+                              />
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                <h4 style={{ margin: 0, fontSize: typography.sizes.base, fontWeight: typography.weights.medium, color: '#111827' }}>
+                                  {item.title}
+                                </h4>
+                                <span style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#111827', flexShrink: 0 }}>
+                                  {formatDisplayPrice(item.price_cents)}
+                                </span>
+                              </div>
+                              {item.description && (
+                                <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: '#6b7280' }}>
+                                  {item.description.slice(0, 80)}{item.description.length > 80 ? '...' : ''}
+                                </p>
+                              )}
+                              {!!item.listing_data?.contains_allergens && (
+                                <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: 10, color: '#b45309' }}>
+                                  Allergens: {(item.listing_data?.ingredients as string) || 'Contains allergens'}
+                                </p>
+                              )}
+                              {isOrderable && (
+                                <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#16a34a' }}>
+                                  Tap to order →
+                                </p>
+                              )}
                             </div>
-                            {item.description && (
-                              <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: '#6b7280' }}>
-                                {item.description.slice(0, 80)}{item.description.length > 80 ? '...' : ''}
-                              </p>
-                            )}
-                            {!!item.listing_data?.contains_allergens && (
-                              <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: 10, color: '#b45309' }}>
-                                Allergens: {(item.listing_data?.ingredients as string) || 'Contains allergens'}
-                              </p>
-                            )}
                           </div>
-                        </div>
-                      ))}
+                        )
+                        return isOrderable ? (
+                          <Link key={item.id} href={`/${verticalId}/listing/${item.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                            {itemContent}
+                          </Link>
+                        ) : (
+                          <div key={item.id}>{itemContent}</div>
+                        )
+                      })}
                     </div>
                   ) : (
                     <p style={{ padding: spacing.md, color: '#9ca3af', fontStyle: 'italic', margin: 0, fontSize: typography.sizes.sm }}>

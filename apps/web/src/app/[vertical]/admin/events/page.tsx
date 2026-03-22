@@ -685,6 +685,35 @@ export default function AdminCateringPage() {
                 </Section>
               )}
 
+              {/* Event link for sharing */}
+              {selected.event_token && (
+                <Section title="Attendee Link">
+                  <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <code style={{ fontSize: typography.sizes.xs, color: statusColors.neutral600, backgroundColor: statusColors.neutral50, padding: `${spacing['3xs']} ${spacing.xs}`, borderRadius: radius.sm, wordBreak: 'break-all' }}>
+                      {typeof window !== 'undefined' ? `${window.location.origin}/events/${selected.event_token}` : `/events/${selected.event_token}`}
+                    </code>
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/events/${selected.event_token}`
+                        navigator.clipboard.writeText(url)
+                        setActionMessage('Event link copied!')
+                      }}
+                      style={{
+                        ...sizing.control,
+                        backgroundColor: statusColors.infoBg,
+                        color: statusColors.infoDark,
+                        border: `1px solid ${statusColors.infoBorder}`,
+                        cursor: 'pointer',
+                        fontWeight: typography.weights.semibold,
+                        fontSize: typography.sizes.xs,
+                      }}
+                    >
+                      Copy Link
+                    </button>
+                  </div>
+                </Section>
+              )}
+
               {/* Event market link + settlement report */}
               {selected.market_id && (
                 <Section title="Event Market">
@@ -826,6 +855,7 @@ export default function AdminCateringPage() {
                           <tr style={{ borderBottom: `1px solid ${statusColors.neutral200}` }}>
                             <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>Vendor</th>
                             <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>Status</th>
+                            <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>Menu Items</th>
                             <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>Notes</th>
                           </tr>
                         </thead>
@@ -849,6 +879,11 @@ export default function AdminCateringPage() {
                                   >
                                     {mv.response_status || 'invited'}
                                   </span>
+                                </td>
+                                <td style={{ padding: spacing['2xs'], color: statusColors.neutral600, fontSize: typography.sizes.xs }}>
+                                  {mv.menu_items && mv.menu_items.length > 0
+                                    ? mv.menu_items.map((item: string) => item).join(', ')
+                                    : mv.response_status === 'accepted' ? 'No items selected' : '—'}
                                 </td>
                                 <td style={{ padding: spacing['2xs'], color: statusColors.neutral500, fontSize: typography.sizes.xs }}>
                                   {mv.response_notes || '—'}
