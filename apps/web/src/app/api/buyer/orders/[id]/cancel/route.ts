@@ -41,66 +41,53 @@ export async function POST(request: NextRequest, context: RouteContext) {
       // No body provided, that's fine
     }
 
-    // FIX: Query orders first to bypass RLS issue on order_items table
-    // The order_items_select RLS policy uses user_buyer_order_ids() which should work,
-    // but querying order_items directly fails. Querying orders first (with nested items) works.
-    // Note: Only select columns that definitely exist - grace_period_ends_at may not be applied
-    crumb.supabase('select', 'orders')
-    const { data: userOrders, error: fetchError } = await supabase
-      .from('orders')
+    // Query order_item directly by ID — RLS policy authorizes via user_buyer_order_ids()
+    crumb.supabase('select', 'order_items')
+    const { data: orderItem, error: itemError } = await supabase
+      .from('order_items')
       .select(`
         id,
-        buyer_user_id,
+        order_id,
         status,
-        total_cents,
-        small_order_fee_cents,
-        created_at,
-        order_number,
-        vertical_id,
-        order_items (
+        quantity,
+        subtotal_cents,
+        platform_fee_cents,
+        vendor_payout_cents,
+        cancelled_at,
+        listing:listings (
           id,
-          status,
-          quantity,
-          subtotal_cents,
-          platform_fee_cents,
-          vendor_payout_cents,
-          cancelled_at,
-          listing:listings (
+          vendor_profile_id,
+          vendor_profiles (
             id,
-            vendor_profile_id,
-            vendor_profiles (
-              id,
-              user_id,
-              profile_data,
-              stripe_account_id,
-              stripe_payouts_enabled
-            )
+            user_id,
+            profile_data,
+            stripe_account_id,
+            stripe_payouts_enabled
           )
         )
       `)
-      .eq('buyer_user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(50) // Reasonable limit for recent orders
+      .eq('id', orderItemId)
+      .single()
 
-    if (fetchError) {
-      throw traced.fromSupabase(fetchError, { table: 'orders', operation: 'select' })
-    }
-
-    // Find the order containing the target order_item
-    let order: typeof userOrders[0] | null = null
-    let orderItem: typeof userOrders[0]['order_items'][0] | null = null
-
-    for (const o of userOrders || []) {
-      const item = o.order_items?.find((i: { id: string }) => i.id === orderItemId)
-      if (item) {
-        order = o
-        orderItem = item
-        break
-      }
-    }
-
-    if (!order || !orderItem) {
+    if (itemError || !orderItem) {
       throw traced.notFound('ERR_ORDER_001', 'Order item not found', { orderItemId })
+    }
+
+    // Fetch the parent order
+    crumb.supabase('select', 'orders')
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, buyer_user_id, status, total_cents, small_order_fee_cents, created_at, order_number, vertical_id, payment_method')
+      .eq('id', orderItem.order_id)
+      .single()
+
+    if (orderError || !order) {
+      throw traced.notFound('ERR_ORDER_001', 'Order not found', { orderId: orderItem.order_id })
+    }
+
+    // Verify this buyer owns the order
+    if (order.buyer_user_id !== user.id) {
+      throw traced.auth('ERR_AUTH_002', 'Not authorized for this order')
     }
 
     // Ownership already verified via buyer_user_id filter in query
@@ -121,7 +108,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Calculate cancellation fee using extracted pure function
     crumb.logic('Calculating refund amounts')
     const orderCreatedAt = order.created_at ? new Date(order.created_at) : new Date()
-    const totalItemsInOrder = order.order_items?.length || 1
+
+    // Count total items in this order for fee proration
+    const { count: totalItemsInOrder } = await supabase
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('order_id', order.id)
 
     const {
       refundAmountCents,
@@ -133,7 +125,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       vendorHadConfirmed: vendorHasConfirmed,
     } = calculateCancellationFee({
       subtotalCents: orderItem.subtotal_cents,
-      totalItemsInOrder,
+      totalItemsInOrder: totalItemsInOrder || 1,
       orderStatus: orderItem.status,
       orderCreatedAt,
       vertical: order.vertical_id,
