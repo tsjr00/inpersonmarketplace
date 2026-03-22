@@ -107,14 +107,35 @@ export async function GET(request: NextRequest) {
         .in('market_id', marketIds)
 
       if (mvData) {
+        // Also fetch event_vendor_listings to show which items each vendor selected
+        const { data: evlData } = await serviceClient
+          .from('event_vendor_listings')
+          .select('market_id, vendor_profile_id, listing:listings(title)')
+          .in('market_id', marketIds)
+
+        // Build a map: market_id → vendor_profile_id → listing titles
+        const menuItemsMap: Record<string, Record<string, string[]>> = {}
+        if (evlData) {
+          for (const evl of evlData) {
+            const mid = evl.market_id as string
+            const vid = evl.vendor_profile_id as string
+            if (!menuItemsMap[mid]) menuItemsMap[mid] = {}
+            if (!menuItemsMap[mid][vid]) menuItemsMap[mid][vid] = []
+            const listing = evl.listing as unknown as { title: string } | null
+            if (listing?.title) menuItemsMap[mid][vid].push(listing.title)
+          }
+        }
+
         for (const mv of mvData) {
           const mid = mv.market_id as string
+          const vid = mv.vendor_profile_id as string
           if (!marketVendorsMap[mid]) marketVendorsMap[mid] = []
           marketVendorsMap[mid].push({
-            vendor_profile_id: mv.vendor_profile_id as string,
+            vendor_profile_id: vid,
             response_status: mv.response_status as string | null,
             response_notes: mv.response_notes as string | null,
             invited_at: mv.invited_at as string | null,
+            menu_items: menuItemsMap[mid]?.[vid] || [],
           })
         }
       }
