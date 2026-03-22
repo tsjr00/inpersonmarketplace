@@ -127,7 +127,8 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
           venmo_username,
           cashapp_cashtag,
           paypal_username,
-          accepts_cash_at_pickup
+          accepts_cash_at_pickup,
+          pickup_lead_minutes
         ),
         listing_images (
           id,
@@ -430,6 +431,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   vertical={vertical}
                   isPremiumRestricted={isPremiumRestricted}
                   availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
+                  pickupLeadMinutes={vendorProfile.pickup_lead_minutes as number | undefined}
                 />
               </div>
             )}
@@ -459,6 +461,7 @@ export default async function ListingDetailPage({ params }: ListingDetailPagePro
                   vertical={vertical}
                   isPremiumRestricted={isPremiumRestricted}
                   availablePickupDates={(availablePickupDates as AvailablePickupDate[] | null) || []}
+                  pickupLeadMinutes={vendorProfile.pickup_lead_minutes as number | undefined}
                 />
               </div>
             )}
