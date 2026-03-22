@@ -36,6 +36,8 @@ interface AddToCartButtonProps {
   availablePickupDates?: AvailablePickupDate[]
   /** Show warning when some dates are closed but others are open */
   showMixedAvailabilityWarning?: boolean
+  /** Vendor's configured prep time in minutes (15 or 30, default 30) */
+  pickupLeadMinutes?: number
 }
 
 interface PickupSelection {
@@ -54,7 +56,8 @@ export function AddToCartButton({
   vertical = 'farmers_market',
   ordersClosed = false,
   availablePickupDates = [],
-  showMixedAvailabilityWarning = false
+  showMixedAvailabilityWarning = false,
+  pickupLeadMinutes
 }: AddToCartButtonProps) {
   const locale = getClientLocale()
   const { addToCart, items } = useCart()
@@ -68,8 +71,8 @@ export function AddToCartButton({
   // Generate 30-min time slots for food trucks when a date is selected
   const timeSlots = useMemo(() => {
     if (vertical !== 'food_trucks' || !selectedPickup?.startTime || !selectedPickup?.endTime) return []
-    return generateTimeSlots(selectedPickup.startTime, selectedPickup.endTime, selectedPickup.pickupDate)
-  }, [vertical, selectedPickup])
+    return generateTimeSlots(selectedPickup.startTime, selectedPickup.endTime, selectedPickup.pickupDate, pickupLeadMinutes)
+  }, [vertical, selectedPickup, pickupLeadMinutes])
 
   // Reset time slot when pickup selection changes
   useEffect(() => {
@@ -514,54 +517,53 @@ export function AddToCartButton({
       {/* Time Slot Picker - Food trucks only, after date selection */}
       {vertical === 'food_trucks' && selectedPickup && timeSlots.length > 0 && (
         <div style={{ marginBottom: 12 }}>
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 13,
-            fontWeight: 600,
-            color: '#374151',
-            marginBottom: 6
-          }}>
+          <label
+            htmlFor="pickup-time-slot"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#374151',
+              marginBottom: 6
+            }}
+          >
             <span style={{ color: primaryColor }}>✓</span>
             {t('atc.select_time', locale)}
           </label>
           <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: 8 }} />
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 6
-          }}>
-            {timeSlots.map(slot => {
-              const isSelected = selectedTimeSlot === slot
-              return (
-                <button
-                  key={slot}
-                  type="button"
-                  onClick={() => setSelectedTimeSlot(slot)}
-                  style={{
-                    padding: `${spacing['2xs']} ${spacing['3xs']}`,
-                    border: isSelected
-                      ? `2px solid ${statusColors.selectionBorder}`
-                      : `1px solid ${colors.border}`,
-                    borderRadius: radius.sm,
-                    backgroundColor: isSelected ? statusColors.selectionBg : 'white',
-                    cursor: 'pointer',
-                    fontSize: typography.sizes.sm,
-                    fontWeight: isSelected ? typography.weights.semibold : typography.weights.normal,
-                    color: '#374151',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: spacing['3xs']
-                  }}
-                >
-                  {isSelected && <span style={{ color: statusColors.selectionBorder, fontSize: 14 }}>✓</span>}
-                  {formatTimeSlot(slot)}
-                </button>
-              )
-            })}
-          </div>
+          <select
+            id="pickup-time-slot"
+            value={selectedTimeSlot || ''}
+            onChange={(e) => setSelectedTimeSlot(e.target.value || null)}
+            style={{
+              width: '100%',
+              padding: `${spacing.xs} ${spacing.sm}`,
+              border: selectedTimeSlot
+                ? `2px solid ${statusColors.selectionBorder}`
+                : `1px solid ${colors.border}`,
+              borderRadius: radius.sm,
+              backgroundColor: 'white',
+              fontSize: typography.sizes.base,
+              fontWeight: typography.weights.medium,
+              color: selectedTimeSlot ? '#374151' : colors.textMuted,
+              cursor: 'pointer',
+              minHeight: '44px',
+              appearance: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M2 4l4 4 4-4'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 12px center',
+              backgroundSize: '12px'
+            }}
+          >
+            <option value="">Choose a pickup time...</option>
+            {timeSlots.map(slot => (
+              <option key={slot} value={slot}>
+                {formatTimeSlot(slot)}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 

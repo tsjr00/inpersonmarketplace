@@ -23,6 +23,7 @@ interface ListingPurchaseSectionProps {
   vertical?: string
   isPremiumRestricted?: boolean
   availablePickupDates?: AvailablePickupDate[]
+  pickupLeadMinutes?: number
 }
 
 export default function ListingPurchaseSection({
@@ -31,7 +32,8 @@ export default function ListingPurchaseSection({
   primaryColor = '#333',
   vertical = 'farmers_market',
   isPremiumRestricted = false,
-  availablePickupDates = []
+  availablePickupDates = [],
+  pickupLeadMinutes
 }: ListingPurchaseSectionProps) {
   const locale = getClientLocale()
 
@@ -99,6 +101,7 @@ export default function ListingPurchaseSection({
       availablePickupDates={availablePickupDates}
       ordersClosed={!hasAcceptingDates}
       showMixedAvailabilityWarning={hasMixedAvailability}
+      pickupLeadMinutes={pickupLeadMinutes}
     />
   )
 }

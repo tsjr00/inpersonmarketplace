@@ -279,7 +279,7 @@ export async function GET(request: NextRequest) {
 
       const { data: staleStripeOrders, error: staleError } = await supabase
         .from('orders')
-        .select('id, order_number, buyer_user_id')
+        .select('id, order_number, buyer_user_id, vertical_id')
         .eq('status', 'pending')
         .not('stripe_checkout_session_id', 'is', null)
         .lte('created_at', tenMinutesAgo)
@@ -290,8 +290,8 @@ export async function GET(request: NextRequest) {
       } else if (staleStripeOrders && staleStripeOrders.length > 0) {
         for (const order of staleStripeOrders) {
           try {
-            // Restore inventory for all items in this order
-            await restoreOrderInventory(supabase, order.id)
+            // Restore inventory for all items (respects FT fulfilled rule)
+            await restoreOrderInventory(supabase, order.id, order.vertical_id)
 
             // Cancel all order items
             await supabase
@@ -338,6 +338,7 @@ export async function GET(request: NextRequest) {
           id,
           order_number,
           buyer_user_id,
+          vertical_id,
           payment_method,
           order_items (
             id,
@@ -371,8 +372,8 @@ export async function GET(request: NextRequest) {
 
             if (!allPastPickup) continue
 
-            // Restore inventory for all items in this order
-            await restoreOrderInventory(supabase, order.id)
+            // Restore inventory for all items (respects FT fulfilled rule)
+            await restoreOrderInventory(supabase, order.id, order.vertical_id)
 
             // Cancel all order items
             await supabase

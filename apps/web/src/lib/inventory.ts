@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { shouldRestoreInventory } from '@/lib/inventory-rules'
 
 /**
  * Restore inventory for cancelled/expired order items.
@@ -39,30 +40,45 @@ export async function restoreInventory(
 /**
  * Restore inventory for all items in an order.
  * Used when an entire order is cancelled or expires.
+ *
+ * Respects vertical-aware restore rules:
+ * - FT fulfilled items are NOT restored (cooked food can't be resold)
+ * - All other items are restored
+ *
+ * @param verticalId - The order's vertical (e.g., 'food_trucks', 'farmers_market').
+ *   When provided, each item's status is checked against restore rules.
+ *   When omitted, all items are restored unconditionally (legacy behavior).
  */
 export async function restoreOrderInventory(
   serviceClient: SupabaseClient,
-  orderId: string
-): Promise<{ restored: number; failed: number }> {
+  orderId: string,
+  verticalId?: string
+): Promise<{ restored: number; failed: number; skipped: number }> {
   const { data: orderItems, error } = await serviceClient
     .from('order_items')
-    .select('listing_id, quantity')
+    .select('listing_id, quantity, status')
     .eq('order_id', orderId)
     .is('cancelled_at', null) // Only restore non-cancelled items
 
   if (error || !orderItems) {
-    return { restored: 0, failed: 0 }
+    return { restored: 0, failed: 0, skipped: 0 }
   }
+
+  // Filter items using restore rules when vertical is known
+  const restorableItems = verticalId
+    ? orderItems.filter(item => shouldRestoreInventory(item.status, verticalId))
+    : orderItems
 
   // Group quantities by listing_id (same listing could appear in multiple items)
   const quantityByListing = new Map<string, number>()
-  for (const item of orderItems) {
+  for (const item of restorableItems) {
     const current = quantityByListing.get(item.listing_id) || 0
     quantityByListing.set(item.listing_id, current + item.quantity)
   }
 
   let restored = 0
   let failed = 0
+  const skipped = orderItems.length - restorableItems.length
 
   for (const [listingId, qty] of quantityByListing) {
     const result = await restoreInventory(serviceClient, listingId, qty)
@@ -73,5 +89,5 @@ export async function restoreOrderInventory(
     }
   }
 
-  return { restored, failed }
+  return { restored, failed, skipped }
 }

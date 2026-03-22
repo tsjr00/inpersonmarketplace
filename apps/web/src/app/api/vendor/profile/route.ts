@@ -30,7 +30,8 @@ export async function PATCH(request: NextRequest) {
         venmo_username,
         cashapp_cashtag,
         paypal_username,
-        accepts_cash_at_pickup
+        accepts_cash_at_pickup,
+        pickup_lead_minutes
       } = await request.json()
 
       // Verify vendor ownership
@@ -98,6 +99,15 @@ export async function PATCH(request: NextRequest) {
       // Update cash at pickup
       if (accepts_cash_at_pickup !== undefined) {
         updates.accepts_cash_at_pickup = Boolean(accepts_cash_at_pickup)
+      }
+
+      // Update pickup lead time (FT vendors: 15 or 30 minutes)
+      if (pickup_lead_minutes !== undefined) {
+        const leadVal = Number(pickup_lead_minutes)
+        if (leadVal !== 15 && leadVal !== 30) {
+          return NextResponse.json({ error: 'Pickup lead time must be 15 or 30 minutes' }, { status: 400 })
+        }
+        updates.pickup_lead_minutes = leadVal
       }
 
       // Update

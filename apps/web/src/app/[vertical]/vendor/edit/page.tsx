@@ -8,6 +8,7 @@ import ProfileImageUpload from '@/components/vendor/ProfileImageUpload'
 import ProfileEditForm from '@/components/vendor/ProfileEditForm'
 import CertificationsForm, { Certification } from '@/components/vendor/CertificationsForm'
 import EventReadinessForm from './EventReadinessForm'
+import PickupLeadTimeForm from '@/components/vendor/PickupLeadTimeForm'
 
 interface EditProfilePageProps {
   params: Promise<{ vertical: string }>
@@ -126,6 +127,16 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
           branding={branding}
         />
       </div>
+
+      {/* Pickup Lead Time — FT only */}
+      {vertical === 'food_trucks' && (
+        <div style={{ marginTop: 20 }}>
+          <PickupLeadTimeForm
+            vendorId={vendorProfile.id}
+            currentLeadMinutes={vendorProfile.pickup_lead_minutes ?? 30}
+          />
+        </div>
+      )}
 
       {/* Certifications Section */}
       <div style={{ marginTop: 20 }}>

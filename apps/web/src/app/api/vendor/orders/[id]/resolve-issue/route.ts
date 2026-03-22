@@ -4,6 +4,7 @@ import { createRefund } from '@/lib/stripe/payments'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
 import { restoreInventory } from '@/lib/inventory'
+import { shouldRestoreInventory } from '@/lib/inventory-rules'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
 
@@ -156,11 +157,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .eq('id', orderItemId)
 
       // Restore inventory — but NOT for food truck fulfilled items (cooked food can't be resold)
-      const shouldRestoreInventory =
-        orderItem.status !== 'fulfilled' ||
-        order.vertical_id !== 'food_trucks'
-
-      if (orderItem.listing_id && shouldRestoreInventory) {
+      if (orderItem.listing_id && shouldRestoreInventory(orderItem.status, order.vertical_id)) {
         const serviceClient = createServiceClient()
         await restoreInventory(serviceClient, orderItem.listing_id, orderItem.quantity || 1)
       }
