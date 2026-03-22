@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     const { data: expiredPendingOrders } = await serviceClient
       .from('orders')
-      .select('id')
+      .select('id, vertical_id')
       .eq('buyer_user_id', user.id)
       .eq('status', 'pending')
       .lte('created_at', tenMinutesAgo)
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       const now = new Date().toISOString()
       const cleanupResults = await Promise.allSettled(
         expiredPendingOrders.map(async (expired) => {
-          await restoreOrderInventory(serviceClient, expired.id)
+          await restoreOrderInventory(serviceClient, expired.id, expired.vertical_id)
           await serviceClient
             .from('order_items')
             .update({
