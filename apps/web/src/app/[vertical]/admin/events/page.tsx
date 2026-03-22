@@ -31,6 +31,7 @@ interface CateringRequest {
   additional_notes: string | null
   market_id: string | null
   admin_notes: string | null
+  event_token: string | null
   created_at: string
 }
 
@@ -47,6 +48,7 @@ interface MarketVendor {
   response_notes: string | null
   invited_at: string | null
   vendor_name?: string
+  menu_items?: string[]
 }
 
 const statusBadge: Record<string, { bg: string; text: string; border: string }> = {
@@ -700,7 +702,7 @@ export default function AdminCateringPage() {
                       }}
                       style={{
                         ...sizing.control,
-                        backgroundColor: statusColors.infoBg,
+                        backgroundColor: statusColors.infoLight,
                         color: statusColors.infoDark,
                         border: `1px solid ${statusColors.infoBorder}`,
                         cursor: 'pointer',

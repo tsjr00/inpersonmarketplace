@@ -98,6 +98,7 @@ export async function GET(request: NextRequest) {
       response_status: string | null
       response_notes: string | null
       invited_at: string | null
+      menu_items?: string[]
     }>> = {}
 
     if (marketIds.length > 0) {
