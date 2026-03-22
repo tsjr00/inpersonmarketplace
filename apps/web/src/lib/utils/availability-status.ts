@@ -9,6 +9,7 @@ export interface AvailabilityInput {
   is_accepting: boolean
   hours_until_cutoff: number | null
   cutoff_hours: number | null
+  vertical?: string
 }
 
 export interface AvailabilityStatus {
@@ -25,6 +26,11 @@ export interface AvailabilityStatus {
 export function deriveAvailabilityStatus(avail: AvailabilityInput | undefined): AvailabilityStatus {
   if (!avail || !avail.is_accepting) {
     return { status: 'closed', hoursUntilCutoff: null }
+  }
+  // FT-specific: need ~31 min for time slot selection + 30 min pickup window
+  // If less than ~1 hour remains, show closing-soon (buyer likely can't order)
+  if (avail.vertical === 'food_trucks' && avail.hours_until_cutoff !== null && avail.hours_until_cutoff <= 1) {
+    return { status: 'closing-soon', hoursUntilCutoff: Math.round(avail.hours_until_cutoff * 10) / 10 }
   }
   if (avail.hours_until_cutoff !== null && avail.cutoff_hours !== null
       && avail.hours_until_cutoff <= avail.cutoff_hours && avail.hours_until_cutoff > 0) {
