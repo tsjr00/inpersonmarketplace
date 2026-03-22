@@ -49,20 +49,39 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
     loadConfig()
   }, [vertical])
 
-  // Verify the user has a valid session.
+  // Verify the reset token and establish a session.
   //
-  // The email link routes through /api/auth/callback which handles the PKCE
-  // code exchange server-side and sets session cookies. By the time the user
-  // arrives here, the session should already be established.
+  // The email link comes directly to this page with ?token_hash=...&type=recovery.
+  // We call verifyOtp() to validate the token and establish a session.
+  // This bypasses PKCE entirely — no code_verifier needed.
   //
-  // Also handles: direct navigation (no session), page refresh, and legacy
-  // hash fragment flow (#access_token=...&type=recovery).
+  // Also handles: existing session (page refresh), and legacy flows.
   useEffect(() => {
     let cancelled = false
 
-    async function checkSession() {
-      // 1. Check for ?code= that somehow arrived here directly (fallback)
+    async function verifyToken() {
       const params = new URLSearchParams(window.location.search)
+      const tokenHash = params.get('token_hash')
+      const type = params.get('type')
+
+      // 1. Primary path: verify token_hash from email link
+      if (tokenHash && type) {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type as 'recovery' | 'signup' | 'email',
+        })
+        if (cancelled) return
+        if (verifyError) {
+          setError(t('reset.invalid_link', locale))
+          setTokenInvalid(true)
+          setValidatingToken(false)
+          return
+        }
+        setValidatingToken(false)
+        return
+      }
+
+      // 2. Fallback: check for ?code= (PKCE flow, in case old emails still use it)
       const code = params.get('code')
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
@@ -71,10 +90,9 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
           setValidatingToken(false)
           return
         }
-        // Code exchange failed — fall through to session check
       }
 
-      // 2. Check for existing session (primary path — set by /api/auth/callback)
+      // 3. Check for existing session (page refresh after token was already verified)
       const { data: { session } } = await supabase.auth.getSession()
       if (cancelled) return
       if (session) {
@@ -82,38 +100,15 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         return
       }
 
-      // 3. No session found — wait briefly for onAuthStateChange (hash fragment flow)
-      // If nothing fires within 3 seconds, the link is invalid
+      // 4. No token, no code, no session — invalid
+      setError(t('reset.invalid_link', locale))
+      setTokenInvalid(true)
+      setValidatingToken(false)
     }
 
-    // Listen for auth state changes (hash fragment tokens, late session events)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-        setError('')
-        setTokenInvalid(false)
-        setValidatingToken(false)
-      }
-    })
+    verifyToken()
 
-    checkSession()
-
-    // Timeout — if no session established within 3 seconds, the link is invalid
-    const timeout = setTimeout(() => {
-      setValidatingToken(prev => {
-        if (prev) {
-          setError(t('reset.invalid_link', locale))
-          setTokenInvalid(true)
-          return false
-        }
-        return prev
-      })
-    }, 3000)
-
-    return () => {
-      cancelled = true
-      subscription.unsubscribe()
-      clearTimeout(timeout)
-    }
+    return () => { cancelled = true }
   }, [supabase, locale])
 
   const handlePasswordReset = async (e: React.FormEvent) => {

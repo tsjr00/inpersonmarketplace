@@ -112,23 +112,20 @@ function buildVerificationUrl(
     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not configured')
   }
 
-  // Build correct redirect URL — use NEXT_PUBLIC_APP_URL for environment awareness
-  // (staging → staging URL, production → production domain)
+  // Build direct link to our page with the token_hash as a query param.
+  // We skip Supabase's /auth/v1/verify entirely because:
+  // 1. PKCE flow ties the auth code to a code_verifier stored in the original browser
+  // 2. Users may open the email link on a different device/browser/tab
+  // 3. verifyOtp({ token_hash, type }) works without PKCE — direct token verification
   const redirectPath = ACTION_REDIRECT_PATHS[emailData.email_action_type] || 'dashboard'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${brandDomain}`
-  const finalDestination = `/${vertical}/${redirectPath}`
-
-  // Route through /api/auth/callback which handles the PKCE code exchange
-  // server-side (no code_verifier needed — uses cookie-based session)
-  const callbackUrl = `${appUrl}/api/auth/callback?next=${encodeURIComponent(finalDestination)}`
 
   const params = new URLSearchParams({
-    token: emailData.token_hash,
+    token_hash: emailData.token_hash,
     type: emailData.email_action_type,
-    redirect_to: callbackUrl,
   })
 
-  return `${supabaseUrl}/auth/v1/verify?${params.toString()}`
+  return `${appUrl}/${vertical}/${redirectPath}?${params.toString()}`
 }
 
 export async function POST(request: NextRequest) {
