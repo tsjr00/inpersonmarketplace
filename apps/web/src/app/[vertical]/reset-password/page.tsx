@@ -48,19 +48,50 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
     loadConfig()
   }, [vertical])
 
-  // Wait for Supabase to process the hash fragment tokens from the reset link
-  // The reset email redirects with #access_token=...&type=recovery in the URL hash.
-  // Supabase client detects these and fires a PASSWORD_RECOVERY auth event.
+  // Process the reset link and establish a session.
+  //
+  // Supabase uses PKCE flow: the email link goes through /auth/v1/verify which
+  // redirects here with ?code=<uuid>. We must exchange that code for a session
+  // via exchangeCodeForSession(). This fires the PASSWORD_RECOVERY auth event.
+  //
+  // Also handles legacy hash fragment flow (#access_token=...&type=recovery)
+  // and page refreshes where a session already exists.
   useEffect(() => {
-    // First check if there's already a valid session (e.g., page refresh after token processed)
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let cancelled = false
+
+    async function processAuth() {
+      // 1. Check for ?code= query param (PKCE flow — primary path)
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        if (cancelled) return
+        if (exchangeError) {
+          setError(t('reset.invalid_link', locale))
+          setValidatingToken(false)
+          return
+        }
+        // exchangeCodeForSession fires PASSWORD_RECOVERY via onAuthStateChange,
+        // but we can proceed immediately since the session is now established
+        setError('')
+        setValidatingToken(false)
+        return
+      }
+
+      // 2. Check for existing session (page refresh after token was already processed)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (cancelled) return
       if (session) {
         setValidatingToken(false)
         return
       }
-    })
 
-    // Listen for auth state changes — Supabase processes hash tokens asynchronously
+      // 3. Wait for hash fragment flow (legacy) via onAuthStateChange
+      // If neither code nor session nor hash fragment, the link is invalid
+    }
+
+    // Listen for auth state changes (handles hash fragment tokens if present)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setError('')
@@ -68,7 +99,9 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
       }
     })
 
-    // Timeout — if no auth event fires within 5 seconds, the link is invalid/expired
+    processAuth()
+
+    // Timeout — if no auth method succeeds within 8 seconds, the link is invalid/expired
     const timeout = setTimeout(() => {
       setValidatingToken(prev => {
         if (prev) {
@@ -77,9 +110,10 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         }
         return prev
       })
-    }, 5000)
+    }, 8000)
 
     return () => {
+      cancelled = true
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
