@@ -116,12 +116,16 @@ function buildVerificationUrl(
   // (staging → staging URL, production → production domain)
   const redirectPath = ACTION_REDIRECT_PATHS[emailData.email_action_type] || 'dashboard'
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${brandDomain}`
-  const correctRedirectTo = `${appUrl}/${vertical}/${redirectPath}`
+  const finalDestination = `/${vertical}/${redirectPath}`
+
+  // Route through /api/auth/callback which handles the PKCE code exchange
+  // server-side (no code_verifier needed — uses cookie-based session)
+  const callbackUrl = `${appUrl}/api/auth/callback?next=${encodeURIComponent(finalDestination)}`
 
   const params = new URLSearchParams({
     token: emailData.token_hash,
     type: emailData.email_action_type,
-    redirect_to: correctRedirectTo,
+    redirect_to: callbackUrl,
   })
 
   return `${supabaseUrl}/auth/v1/verify?${params.toString()}`

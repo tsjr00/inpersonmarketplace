@@ -49,39 +49,32 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
     loadConfig()
   }, [vertical])
 
-  // Process the reset link and establish a session.
+  // Verify the user has a valid session.
   //
-  // Supabase uses PKCE flow: the email link goes through /auth/v1/verify which
-  // redirects here with ?code=<uuid>. We must exchange that code for a session
-  // via exchangeCodeForSession(). This fires the PASSWORD_RECOVERY auth event.
+  // The email link routes through /api/auth/callback which handles the PKCE
+  // code exchange server-side and sets session cookies. By the time the user
+  // arrives here, the session should already be established.
   //
-  // Also handles legacy hash fragment flow (#access_token=...&type=recovery)
-  // and page refreshes where a session already exists.
+  // Also handles: direct navigation (no session), page refresh, and legacy
+  // hash fragment flow (#access_token=...&type=recovery).
   useEffect(() => {
     let cancelled = false
 
-    async function processAuth() {
-      // 1. Check for ?code= query param (PKCE flow — primary path)
+    async function checkSession() {
+      // 1. Check for ?code= that somehow arrived here directly (fallback)
       const params = new URLSearchParams(window.location.search)
       const code = params.get('code')
-
       if (code) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
         if (cancelled) return
-        if (exchangeError) {
-          setError(t('reset.invalid_link', locale))
-          setTokenInvalid(true)
+        if (!exchangeError) {
           setValidatingToken(false)
           return
         }
-        // exchangeCodeForSession fires PASSWORD_RECOVERY via onAuthStateChange,
-        // but we can proceed immediately since the session is now established
-        setError('')
-        setValidatingToken(false)
-        return
+        // Code exchange failed — fall through to session check
       }
 
-      // 2. Check for existing session (page refresh after token was already processed)
+      // 2. Check for existing session (primary path — set by /api/auth/callback)
       const { data: { session } } = await supabase.auth.getSession()
       if (cancelled) return
       if (session) {
@@ -89,21 +82,22 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         return
       }
 
-      // 3. Wait for hash fragment flow (legacy) via onAuthStateChange
-      // If neither code nor session nor hash fragment, the link is invalid
+      // 3. No session found — wait briefly for onAuthStateChange (hash fragment flow)
+      // If nothing fires within 3 seconds, the link is invalid
     }
 
-    // Listen for auth state changes (handles hash fragment tokens if present)
+    // Listen for auth state changes (hash fragment tokens, late session events)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setError('')
+        setTokenInvalid(false)
         setValidatingToken(false)
       }
     })
 
-    processAuth()
+    checkSession()
 
-    // Timeout — if no auth method succeeds within 8 seconds, the link is invalid/expired
+    // Timeout — if no session established within 3 seconds, the link is invalid
     const timeout = setTimeout(() => {
       setValidatingToken(prev => {
         if (prev) {
@@ -113,7 +107,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
         }
         return prev
       })
-    }, 8000)
+    }, 3000)
 
     return () => {
       cancelled = true
