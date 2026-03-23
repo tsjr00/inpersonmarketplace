@@ -12,6 +12,7 @@ export const en: Record<string, string> = {
   'location.enter_zip_prompt': 'Enter your zip code to find local {vendors} near you',
   'location.placeholder': 'Enter zip code',
   'location.find_local': 'Find Local',
+  'location.where_today': 'Where are {vendors} today?',
   'location.privacy_note': "We store this locally on your device. We don't track your location.",
   'location.browse_all_in_area': 'Or browse all vendors in the {city} area',
 
