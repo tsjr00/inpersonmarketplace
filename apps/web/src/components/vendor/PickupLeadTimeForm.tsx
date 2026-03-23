@@ -61,7 +61,7 @@ export default function PickupLeadTimeForm({ vendorId, currentLeadMinutes }: Pro
         fontSize: typography.sizes.sm,
         color: colors.textMuted
       }}>
-        How much time do you need to prepare an order before the pickup window? Buyers will only see time slots that give you enough prep time.
+        Choose the minimum time you need to prepare an order after a buyer places it. If you select 15 minutes, you guarantee at least 15 minutes of prep time before the buyer arrives. If you select 30 minutes, you get at least 30. The actual window may be longer — this is just the minimum.
       </p>
 
       <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.sm }}>
@@ -95,8 +95,8 @@ export default function PickupLeadTimeForm({ vendorId, currentLeadMinutes }: Pro
         fontStyle: 'italic'
       }}>
         {leadMinutes === 15
-          ? 'Fast prep — buyers can order closer to their pickup time.'
-          : 'Standard prep — gives you a full 30 minutes before each pickup window.'}
+          ? 'Fast prep — you will have at least 15 minutes between when a buyer orders and when they arrive. Arrival times shown in 15-minute increments.'
+          : 'Standard prep — you will have at least 30 minutes between when a buyer orders and when they arrive. Arrival times shown in 30-minute increments.'}
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
