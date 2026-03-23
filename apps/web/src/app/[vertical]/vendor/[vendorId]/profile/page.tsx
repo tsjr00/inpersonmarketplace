@@ -928,180 +928,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
           <PickupScheduleGrid locations={allPickupLocations} />
         )}
 
-        {/* Market Boxes Section */}
-        {hasActiveMarketBoxes && marketBoxes && (
-          <div style={{ marginBottom: 32 }}>
-            <h2 style={{
-              color: branding.colors.primary,
-              margin: '0 0 20px 0',
-              fontSize: 20,
-              fontWeight: 600
-            }}>
-              📦 {term(vertical, 'market_box', locale)} {t('vp.subscriptions', locale)}
-            </h2>
-
-            <div className="listings-grid" style={{
-              display: 'grid',
-              gap: 16
-            }}>
-              {marketBoxes.map((box) => {
-                const boxId = box.id as string
-                const boxName = box.name as string
-                const boxDescription = box.description as string | null
-                const boxImageUrls = box.image_urls as string[] | null
-                const boxPriceCents = (box.price_4week_cents || box.price_cents) as number
-                const boxDay = box.pickup_day_of_week as number
-                const boxStartTime = box.pickup_start_time as string
-                const rawMarket = box.market as { id: string; name: string; city: string; state: string } | { id: string; name: string; city: string; state: string }[] | null
-                const boxMarket = Array.isArray(rawMarket) ? rawMarket[0] : rawMarket
-                const DAYS = [t('day.0', locale), t('day.1', locale), t('day.2', locale), t('day.3', locale), t('day.4', locale), t('day.5', locale), t('day.6', locale)]
-                const boxPremiumWindowEndsAt = box.premium_window_ends_at as string | null
-                const boxInPremiumWindow = premiumEnabled && boxPremiumWindowEndsAt && boxPremiumWindowEndsAt > now
-                const showBoxPremiumRestriction = boxInPremiumWindow && !isPremiumBuyer
-
-                const formatTime = (time: string) => {
-                  const [hours, minutes] = time.split(':')
-                  const hour = parseInt(hours)
-                  const ampm = hour >= 12 ? 'PM' : 'AM'
-                  const displayHour = hour % 12 || 12
-                  return `${displayHour}:${minutes} ${ampm}`
-                }
-
-                return (
-                  <Link
-                    key={boxId}
-                    href={`/${vertical}/market-box/${boxId}`}
-                    style={{
-                      display: 'block',
-                      padding: 16,
-                      backgroundColor: 'white',
-                      color: '#333',
-                      border: showBoxPremiumRestriction ? '2px solid #3b82f6' : '1px solid #dbeafe',
-                      borderRadius: 8,
-                      textDecoration: 'none',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Premium Window Banner for standard buyers */}
-                    {showBoxPremiumRestriction && (
-                      <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        backgroundColor: '#3b82f6',
-                        color: 'white',
-                        padding: '6px 12px',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        textAlign: 'center',
-                        borderRadius: '6px 6px 0 0',
-                        zIndex: 2
-                      }}>
-                        {t('vp.premium_early_bird', locale)}
-                      </div>
-                    )}
-
-                    {/* Image with Market Box Badge */}
-                    <div style={{ position: 'relative', marginBottom: 12, marginTop: showBoxPremiumRestriction ? 28 : 0 }}>
-                      <span style={{
-                        position: 'absolute',
-                        top: 8,
-                        left: 8,
-                        padding: '4px 10px',
-                        backgroundColor: '#dbeafe',
-                        color: '#1e40af',
-                        borderRadius: 12,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        zIndex: 1
-                      }}>
-                        📦 {term(vertical, 'market_box', locale)}
-                      </span>
-
-                      {boxImageUrls && boxImageUrls.length > 0 ? (
-                        <Image
-                          src={boxImageUrls[0]}
-                          alt={boxName}
-                          width={280}
-                          height={140}
-                          style={{
-                            width: '100%',
-                            height: 140,
-                            objectFit: 'cover',
-                            borderRadius: 6,
-                            backgroundColor: '#f3f4f6'
-                          }}
-                        />
-                      ) : (
-                        <div style={{
-                          height: 140,
-                          backgroundColor: '#eff6ff',
-                          borderRadius: 6,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <span style={{ fontSize: 48 }}>📦</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <h3 style={{
-                      marginBottom: 8,
-                      marginTop: 0,
-                      color: branding.colors.primary,
-                      fontSize: 16,
-                      fontWeight: 600
-                    }}>
-                      {boxName}
-                    </h3>
-
-                    {/* Description */}
-                    {boxDescription && (
-                      <p style={{
-                        margin: '0 0 8px 0',
-                        fontSize: 13,
-                        color: '#6b7280',
-                        lineHeight: 1.4,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical'
-                      }}>
-                        {boxDescription}
-                      </p>
-                    )}
-
-                    {/* Pickup Info */}
-                    <div style={{
-                      fontSize: 12,
-                      color: '#6b7280',
-                      marginBottom: 8
-                    }}>
-                      {DAYS[boxDay]}s at {formatTime(boxStartTime)}
-                      {boxMarket && ` • ${boxMarket.name}`}
-                    </div>
-
-                    {/* Price - includes buyer platform fee */}
-                    <div style={{
-                      fontSize: 18,
-                      fontWeight: 'bold',
-                      color: branding.colors.primary
-                    }}>
-                      {formatDisplayPrice(boxPriceCents)}
-                      <span style={{ fontSize: 12, fontWeight: 'normal', color: '#6b7280' }}> {t('vp.per_4_weeks', locale)}</span>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Vendor Listings */}
+        {/* Vendor Listings (daily menu/products) — shown first for daily customers */}
         <div>
           <h2 style={{
             color: branding.colors.primary,
@@ -1370,34 +1197,202 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             </div>
           )}
 
-          {/* Event / Catering */}
-          {vendor.event_approved && (vertical === 'food_trucks' || vertical === 'farmers_market') && (
-            <div style={{ paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
-              <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
-                Event Catering
-              </h3>
-              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px 0' }}>
-                This vendor is approved for private events and corporate catering.
-              </p>
-              <Link
-                href={`/${vertical}/events?vendor=${vendorId}`}
-                style={{
-                  display: 'inline-block',
-                  padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  color: '#545454',
-                  border: '1.5px solid #545454',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                }}
-              >
-                Book for Your Event
-              </Link>
-            </div>
-          )}
         </div>
+
+        {/* Market Boxes / Chef Boxes — below daily menu listings */}
+        {hasActiveMarketBoxes && marketBoxes && (
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{
+              color: branding.colors.primary,
+              margin: '0 0 20px 0',
+              fontSize: 20,
+              fontWeight: 600
+            }}>
+              📦 {term(vertical, 'market_box', locale)} {t('vp.subscriptions', locale)}
+            </h2>
+
+            <div className="listings-grid" style={{
+              display: 'grid',
+              gap: 16
+            }}>
+              {marketBoxes.map((box) => {
+                const boxId = box.id as string
+                const boxName = box.name as string
+                const boxDescription = box.description as string | null
+                const boxImageUrls = box.image_urls as string[] | null
+                const boxPriceCents = (box.price_4week_cents || box.price_cents) as number
+                const boxDay = box.pickup_day_of_week as number
+                const boxStartTime = box.pickup_start_time as string
+                const rawMarket = box.market as { id: string; name: string; city: string; state: string } | { id: string; name: string; city: string; state: string }[] | null
+                const boxMarket = Array.isArray(rawMarket) ? rawMarket[0] : rawMarket
+                const DAYS = [t('day.0', locale), t('day.1', locale), t('day.2', locale), t('day.3', locale), t('day.4', locale), t('day.5', locale), t('day.6', locale)]
+                const boxPremiumWindowEndsAt = box.premium_window_ends_at as string | null
+                const boxInPremiumWindow = premiumEnabled && boxPremiumWindowEndsAt && boxPremiumWindowEndsAt > now
+                const showBoxPremiumRestriction = boxInPremiumWindow && !isPremiumBuyer
+
+                const formatTime = (time: string) => {
+                  const [hours, minutes] = time.split(':')
+                  const hour = parseInt(hours)
+                  const ampm = hour >= 12 ? 'PM' : 'AM'
+                  const displayHour = hour % 12 || 12
+                  return `${displayHour}:${minutes} ${ampm}`
+                }
+
+                return (
+                  <Link
+                    key={boxId}
+                    href={`/${vertical}/market-box/${boxId}`}
+                    style={{
+                      display: 'block',
+                      padding: 16,
+                      backgroundColor: 'white',
+                      color: '#333',
+                      border: showBoxPremiumRestriction ? '2px solid #3b82f6' : '1px solid #dbeafe',
+                      borderRadius: 8,
+                      textDecoration: 'none',
+                      position: 'relative'
+                    }}
+                  >
+                    {showBoxPremiumRestriction && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        padding: '6px 12px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        borderRadius: '6px 6px 0 0',
+                        zIndex: 2
+                      }}>
+                        {t('vp.premium_early_bird', locale)}
+                      </div>
+                    )}
+
+                    <div style={{ position: 'relative', marginBottom: 12, marginTop: showBoxPremiumRestriction ? 28 : 0 }}>
+                      <span style={{
+                        position: 'absolute',
+                        top: 8,
+                        left: 8,
+                        padding: '4px 10px',
+                        backgroundColor: '#dbeafe',
+                        color: '#1e40af',
+                        borderRadius: 12,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        zIndex: 1
+                      }}>
+                        📦 {term(vertical, 'market_box', locale)}
+                      </span>
+
+                      {boxImageUrls && boxImageUrls.length > 0 ? (
+                        <Image
+                          src={boxImageUrls[0]}
+                          alt={boxName}
+                          width={280}
+                          height={140}
+                          style={{
+                            width: '100%',
+                            height: 140,
+                            objectFit: 'cover',
+                            borderRadius: 6,
+                            backgroundColor: '#f3f4f6'
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          height: 140,
+                          backgroundColor: '#eff6ff',
+                          borderRadius: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <span style={{ fontSize: 48 }}>📦</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <h3 style={{
+                      marginBottom: 8,
+                      marginTop: 0,
+                      color: branding.colors.primary,
+                      fontSize: 16,
+                      fontWeight: 600
+                    }}>
+                      {boxName}
+                    </h3>
+
+                    {boxDescription && (
+                      <p style={{
+                        margin: '0 0 8px 0',
+                        fontSize: 13,
+                        color: '#6b7280',
+                        lineHeight: 1.4,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}>
+                        {boxDescription}
+                      </p>
+                    )}
+
+                    <div style={{
+                      fontSize: 12,
+                      color: '#6b7280',
+                      marginBottom: 8
+                    }}>
+                      {DAYS[boxDay]}s at {formatTime(boxStartTime)}
+                      {boxMarket && ` • ${boxMarket.name}`}
+                    </div>
+
+                    <div style={{
+                      fontSize: 18,
+                      fontWeight: 'bold',
+                      color: branding.colors.primary
+                    }}>
+                      {formatDisplayPrice(boxPriceCents)}
+                      <span style={{ fontSize: 12, fontWeight: 'normal', color: '#6b7280' }}> {t('vp.per_4_weeks', locale)}</span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Event / Catering — below chef boxes */}
+        {vendor.event_approved && (vertical === 'food_trucks' || vertical === 'farmers_market') && (
+          <div style={{ marginBottom: 32, paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
+              Event Catering
+            </h3>
+            <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px 0' }}>
+              This vendor is approved for private events and corporate catering.
+            </p>
+            <Link
+              href={`/${vertical}/events?vendor=${vendorId}`}
+              style={{
+                display: 'inline-block',
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: '#545454',
+                border: '1.5px solid #545454',
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              Book for Your Event
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Responsive Styles */}
