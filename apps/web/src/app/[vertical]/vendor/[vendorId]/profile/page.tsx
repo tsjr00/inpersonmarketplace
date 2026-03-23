@@ -691,19 +691,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 </p>
               )}
 
-              {/* Cover Photo — mobile (capped at 180px tall) */}
-              {vendor.cover_image_url && (
-                <div style={{ margin: '12px 0', borderRadius: 8, overflow: 'hidden', maxHeight: 180 }}>
-                  <Image
-                    src={vendor.cover_image_url as string}
-                    alt={`${vendorName} cover photo`}
-                    width={600}
-                    height={180}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
-                  />
-                </div>
-              )}
-
               <div className="vendor-meta" style={{
                 display: 'flex',
                 gap: 16,
@@ -848,19 +835,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               </p>
             )}
 
-            {/* Cover Photo — desktop (capped at 220px tall) */}
-            {vendor.cover_image_url && (
-              <div style={{ margin: '0 0 16px 0', borderRadius: 8, overflow: 'hidden', maxHeight: 220 }}>
-                <Image
-                  src={vendor.cover_image_url as string}
-                  alt={`${vendorName} cover photo`}
-                  width={600}
-                  height={220}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
-                />
-              </div>
-            )}
-
             {/* Social Links - Mobile (compact, outlined) */}
             {socialLinks && Object.keys(socialLinks).some(key => socialLinks[key]) && (
               <div style={{
@@ -928,6 +902,20 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               </div>
             )}
           </div>
+
+          {/* Cover Photo — below all vendor info, above View Menu */}
+          {vendor.cover_image_url && (
+            <div style={{ marginTop: 16, borderRadius: 8, overflow: 'hidden', maxHeight: 200 }}>
+              <Image
+                src={vendor.cover_image_url as string}
+                alt={`${vendorName} cover photo`}
+                width={600}
+                height={200}
+                sizes="(max-width: 640px) 100vw, 600px"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
+              />
+            </div>
+          )}
 
           {/* CTAs — View Menu + Event booking */}
           <div style={{ marginTop: 16, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
