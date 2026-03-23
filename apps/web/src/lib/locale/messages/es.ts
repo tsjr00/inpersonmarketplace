@@ -14,6 +14,8 @@ export const es: Record<string, string> = {
   'location.find_local': 'Buscar',
   'location.where_today': '¿Dónde están los {vendors} hoy?',
   'location.privacy_note': 'Guardamos esto en tu dispositivo. No rastreamos tu ubicación.',
+  'favorites.empty': 'Aún no has guardado ningún {vendors}. Toca el corazón en el perfil de un vendedor para agregarlo aquí.',
+  'favorites.browse': 'Explorar {vendors}',
   'location.browse_all_in_area': 'O explora todos los vendedores en el área de {city}',
 
   // Footer sections

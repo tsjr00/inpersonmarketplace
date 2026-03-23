@@ -565,7 +565,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
 
           {/* My Favorites Card */}
           <Link
-            href={`/${vertical}/vendors?favorites=true`}
+            href={`/${vertical}/favorites`}
             style={{
               display: 'block',
               padding: spacing.md,
