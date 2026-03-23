@@ -1099,15 +1099,9 @@ export default function CheckoutPage() {
         .checkout-page .checkout-grid {
           grid-template-columns: 1fr;
         }
-        .checkout-page .order-summary {
-          order: -1;
-        }
         @media (min-width: 1024px) {
           .checkout-page .checkout-grid {
             grid-template-columns: 1fr 380px;
-          }
-          .checkout-page .order-summary {
-            order: 0;
           }
         }
       `}</style>
