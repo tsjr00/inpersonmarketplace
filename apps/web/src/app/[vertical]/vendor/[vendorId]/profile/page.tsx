@@ -691,6 +691,19 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 </p>
               )}
 
+              {/* Cover Photo — mobile */}
+              {vendor.cover_image_url && (
+                <div style={{ margin: '12px 0', borderRadius: 8, overflow: 'hidden' }}>
+                  <Image
+                    src={vendor.cover_image_url as string}
+                    alt={`${vendorName} cover photo`}
+                    width={600}
+                    height={200}
+                    style={{ width: '100%', height: 'auto', objectFit: 'cover', borderRadius: 8 }}
+                  />
+                </div>
+              )}
+
               <div className="vendor-meta" style={{
                 display: 'flex',
                 gap: 16,
@@ -833,6 +846,19 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               }}>
                 {vendorDescription}
               </p>
+            )}
+
+            {/* Cover Photo — desktop */}
+            {vendor.cover_image_url && (
+              <div style={{ margin: '0 0 16px 0', borderRadius: 8, overflow: 'hidden' }}>
+                <Image
+                  src={vendor.cover_image_url as string}
+                  alt={`${vendorName} cover photo`}
+                  width={600}
+                  height={200}
+                  style={{ width: '100%', height: 'auto', objectFit: 'cover', borderRadius: 8 }}
+                />
+              </div>
             )}
 
             {/* Social Links - Mobile (compact, outlined) */}
