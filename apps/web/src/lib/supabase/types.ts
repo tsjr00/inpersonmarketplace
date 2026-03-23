@@ -1,7 +1,7 @@
 // Database types for InPersonMarketplace
 // These types match the schema defined in supabase/migrations/
 
-export type UserRole = 'buyer' | 'vendor' | 'admin' | 'verifier'
+export type UserRole = 'buyer' | 'vendor' | 'admin' | 'platform_admin' | 'regional_admin'
 export type VendorStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'suspended'
 export type VerificationStatus = 'pending' | 'in_review' | 'approved' | 'rejected'
 export type ListingStatus = 'draft' | 'published' | 'paused' | 'archived'

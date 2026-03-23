@@ -6,7 +6,7 @@
  * for backward compatibility during transition.
  */
 
-export type UserRole = 'buyer' | 'vendor' | 'admin' | 'verifier' | 'platform_admin'
+export type UserRole = 'buyer' | 'vendor' | 'admin' | 'platform_admin' | 'regional_admin'
 
 interface ProfileWithRoles {
   role?: string | null
@@ -53,8 +53,15 @@ export function isVendor(profile: ProfileWithRoles | null | undefined): boolean 
 }
 
 /**
- * Check if user is a verifier
+ * Check if user is a regional admin
  */
-export function isVerifier(profile: ProfileWithRoles | null | undefined): boolean {
-  return hasRole(profile, 'verifier')
+export function isRegionalAdmin(profile: ProfileWithRoles | null | undefined): boolean {
+  return hasRole(profile, 'regional_admin')
+}
+
+/**
+ * Check if user is a platform admin (distinct from vertical admin)
+ */
+export function isPlatformAdmin(profile: ProfileWithRoles | null | undefined): boolean {
+  return hasRole(profile, 'platform_admin')
 }
