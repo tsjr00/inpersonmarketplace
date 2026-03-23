@@ -901,21 +901,27 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 )}
               </div>
             )}
-          </div>
 
-          {/* Cover Photo — below all vendor info, above View Menu */}
-          {vendor.cover_image_url && (
-            <div style={{ marginTop: 16, borderRadius: 8, overflow: 'hidden', maxHeight: 200 }}>
-              <Image
-                src={vendor.cover_image_url as string}
-                alt={`${vendorName} cover photo`}
-                width={600}
-                height={200}
-                sizes="(max-width: 640px) 100vw, 600px"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
-              />
-            </div>
-          )}
+            {/* Cover Photo — below socials, left-justified, 16:9 aspect ratio */}
+            {vendor.cover_image_url && (
+              <div style={{
+                marginTop: 12,
+                borderRadius: 8,
+                overflow: 'hidden',
+                maxWidth: 400,
+                aspectRatio: '16 / 9',
+              }}>
+                <Image
+                  src={vendor.cover_image_url as string}
+                  alt={`${vendorName} cover photo`}
+                  width={400}
+                  height={225}
+                  sizes="(max-width: 640px) 100vw, 400px"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
+                />
+              </div>
+            )}
+          </div>
 
           {/* CTAs — View Menu + Event booking */}
           <div style={{ marginTop: 16, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -1127,19 +1133,6 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               {t('vp.no_products', locale)}
             </div>
           )}
-        </div>
-
-        {/* Vendor Details — metadata moved below menu for better conversion flow */}
-        <div style={{
-          padding: 16,
-          backgroundColor: 'white',
-          borderRadius: 8,
-          border: '1px solid #e5e7eb',
-          marginBottom: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
         </div>
 
         {/* Market Boxes / Chef Boxes — below daily menu listings */}
