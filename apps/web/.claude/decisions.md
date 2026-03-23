@@ -33,6 +33,11 @@ Structured record of business and architecture decisions. Check here before aski
 | 2026-03-20 | Financial | Market box missed pickup = no refund | Buyer makes a 4-week (or 8-week) prepaid commitment. Missed pickups are the buyer's responsibility. No refund, no credit. This differs from regular orders where no-shows trigger refunds. | No | 62 |
 | 2026-03-20 | Business | Trial tier = 'free' for all verticals | When admin approves a new vendor, trial grants 'free' tier (90 days, 14-day grace). Previously set legacy names ('basic' for FT, 'standard' for FM) which didn't match the unified Free/Pro/Boss system. | No | 62 |
 | 2026-03-20 | Business | FT fulfilled items do not restore inventory on refund | When a food truck order item is refunded after fulfillment (buyer picked up food), inventory is NOT restored — cooked food cannot be resold. FM fulfilled items DO restore inventory (produce/goods can potentially be resold). Non-fulfilled items always restore regardless of vertical. | No | 62 |
+| 2026-03-23 | Business | Catering pre-order minimum = 10 items per vendor | Catering orders (advance_order_days > 0) require minimum 10 items per vendor. Separate from private event orders. Both require event-approved vendor status. | No | 63 |
+| 2026-03-23 | Business | Catering advance notice tiers by size | 10-29 items: 1 day ahead. 30-49 items: 2 days ahead. 50+ items: 3 days ahead. More notice preferred. All require prepayment. | No | 63 |
+| 2026-03-23 | Financial | Event per-truck fee = $75 | Charged per truck to event organizer. Due with 50% deposit when agreement is signed/uploaded. Separate from transaction fees. | No | 63 |
+| 2026-03-23 | Financial | Event transaction fees = normal platform fees | Event orders use standard 6.5% buyer + 6.5% vendor fee structure. No separate event percentage — the 13% total already exceeds the 10% target. | No | 63 |
+| 2026-03-23 | Business | Event approval gates advance ordering AND events | Intentional coupling: event-approved status is a quality gate ensuring vendors have systems/staff for multi-day advance orders. Also feeds the event pipeline ($75/truck + transaction fees). Incentivizes vendors to get event-ready. | No | 63 |
 
 ### External Payment Fee Flow — Protected Architecture (Session 62)
 
