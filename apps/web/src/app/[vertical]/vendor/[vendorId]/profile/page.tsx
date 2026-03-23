@@ -984,6 +984,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                   <Link
                     key={listingId}
                     href={`/${vertical}/listing/${listingId}`}
+                    data-catering={isCateringEligible ? 'true' : undefined}
                     style={{
                       display: 'block',
                       padding: 16,
@@ -993,7 +994,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       borderRadius: 8,
                       textDecoration: 'none',
                       height: '100%',
-                      position: 'relative'
+                      position: 'relative',
+                      transition: 'border-color 0.3s ease',
                     }}
                   >
                     {/* Premium Window Banner for standard buyers */}
@@ -1334,22 +1336,60 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px 0' }}>
               This vendor is approved for private events and corporate catering.
             </p>
-            <Link
-              href={`/${vertical}/events?vendor=${vendorId}`}
-              style={{
-                display: 'inline-block',
-                padding: '8px 16px',
-                backgroundColor: 'transparent',
-                color: '#545454',
-                border: '1.5px solid #545454',
-                borderRadius: 6,
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: 'none',
-              }}
-            >
-              Book for Your Event
-            </Link>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Link
+                href={`/${vertical}/events?vendor=${vendorId}`}
+                style={{
+                  display: 'inline-block',
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#545454',
+                  border: '1.5px solid #545454',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                Book for Your Event
+              </Link>
+              <button
+                id="highlight-catering-btn"
+                type="button"
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#b45309',
+                  border: '1.5px solid #f59e0b',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Highlight Catering Menu
+              </button>
+            </div>
+            <script dangerouslySetInnerHTML={{ __html: `
+              (function() {
+                var btn = document.getElementById('highlight-catering-btn');
+                if (!btn) return;
+                var active = false;
+                btn.addEventListener('click', function() {
+                  active = !active;
+                  var cards = document.querySelectorAll('[data-catering="true"]');
+                  cards.forEach(function(card) {
+                    card.style.borderColor = active ? '#f59e0b' : '';
+                    card.style.borderWidth = active ? '2.5px' : '';
+                    card.style.boxShadow = active ? '0 0 0 1px #f59e0b' : '';
+                  });
+                  btn.style.backgroundColor = active ? '#f59e0b' : 'transparent';
+                  btn.style.color = active ? 'white' : '#b45309';
+                  btn.textContent = active ? 'Clear Highlight' : 'Highlight Catering Menu';
+                });
+              })();
+            `}} />
           </div>
         )}
 
