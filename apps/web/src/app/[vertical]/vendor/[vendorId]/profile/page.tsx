@@ -974,6 +974,8 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 const listingImages = listing.listing_images as { id: string; url: string; is_primary: boolean; display_order: number }[] | null
                 const listingMarkets = listing.listing_markets as { market_id: string; markets: { id: string; name: string; market_type: string } | null }[] | null
                 const primaryImage = listingImages?.find(img => img.is_primary) || listingImages?.[0]
+                const listingData = listing.listing_data as Record<string, unknown> | null
+                const isCateringEligible = !!(listingData?.event_menu_item)
                 const premiumWindowEndsAt = listing.premium_window_ends_at as string | null
                 const isInPremiumWindow = premiumEnabled && premiumWindowEndsAt && premiumWindowEndsAt > now
                 const showPremiumRestriction = isInPremiumWindow && !isPremiumBuyer
@@ -1101,24 +1103,44 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                       {formatDisplayPrice(listingPriceCents)}
                     </div>
 
-                    {/* Market/Location */}
-                    {listingMarkets && listingMarkets.length > 0 && (
-                      <div style={{
-                        fontSize: 12,
-                        color: '#6b7280',
-                        marginTop: 4
-                      }}>
-                        {listingMarkets.length === 1
-                          ? (() => {
-                              const market = listingMarkets[0].markets
-                              return market?.market_type === 'private_pickup'
-                                ? t('vp.private_pickup', locale, { name: market?.name || t('vp.location_fallback', locale) })
-                                : t('vp.market_label', locale, { name: market?.name || t('vp.location_fallback', locale) })
-                            })()
-                          : t('vp.pickup_locations', locale, { count: String(listingMarkets.length) })
-                        }
-                      </div>
-                    )}
+                    {/* Market/Location + Catering Badge */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: 4,
+                    }}>
+                      {listingMarkets && listingMarkets.length > 0 && (
+                        <div style={{
+                          fontSize: 12,
+                          color: '#6b7280',
+                        }}>
+                          {listingMarkets.length === 1
+                            ? (() => {
+                                const market = listingMarkets[0].markets
+                                return market?.market_type === 'private_pickup'
+                                  ? t('vp.private_pickup', locale, { name: market?.name || t('vp.location_fallback', locale) })
+                                  : t('vp.market_label', locale, { name: market?.name || t('vp.location_fallback', locale) })
+                              })()
+                            : t('vp.pickup_locations', locale, { count: String(listingMarkets.length) })
+                          }
+                        </div>
+                      )}
+                      {isCateringEligible && (
+                        <span style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: '#1e40af',
+                          backgroundColor: '#eff6ff',
+                          padding: '2px 8px',
+                          borderRadius: 10,
+                          border: '1px solid #bfdbfe',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          ✓ Catering
+                        </span>
+                      )}
+                    </div>
                   </Link>
                 )
               })}
