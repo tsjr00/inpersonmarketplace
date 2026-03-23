@@ -691,15 +691,15 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                 </p>
               )}
 
-              {/* Cover Photo — mobile */}
+              {/* Cover Photo — mobile (capped at 180px tall) */}
               {vendor.cover_image_url && (
-                <div style={{ margin: '12px 0', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ margin: '12px 0', borderRadius: 8, overflow: 'hidden', maxHeight: 180 }}>
                   <Image
                     src={vendor.cover_image_url as string}
                     alt={`${vendorName} cover photo`}
                     width={600}
-                    height={200}
-                    style={{ width: '100%', height: 'auto', objectFit: 'cover', borderRadius: 8 }}
+                    height={180}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
                   />
                 </div>
               )}
@@ -848,15 +848,15 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               </p>
             )}
 
-            {/* Cover Photo — desktop */}
+            {/* Cover Photo — desktop (capped at 220px tall) */}
             {vendor.cover_image_url && (
-              <div style={{ margin: '0 0 16px 0', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ margin: '0 0 16px 0', borderRadius: 8, overflow: 'hidden', maxHeight: 220 }}>
                 <Image
                   src={vendor.cover_image_url as string}
                   alt={`${vendorName} cover photo`}
                   width={600}
-                  height={200}
-                  style={{ width: '100%', height: 'auto', objectFit: 'cover', borderRadius: 8 }}
+                  height={220}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
                 />
               </div>
             )}
