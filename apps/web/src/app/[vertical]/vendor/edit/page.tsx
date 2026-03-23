@@ -9,6 +9,7 @@ import ProfileEditForm from '@/components/vendor/ProfileEditForm'
 import CertificationsForm, { Certification } from '@/components/vendor/CertificationsForm'
 import EventReadinessForm from './EventReadinessForm'
 import PickupLeadTimeForm from '@/components/vendor/PickupLeadTimeForm'
+import CoverImageUpload from '@/components/vendor/CoverImageUpload'
 
 interface EditProfilePageProps {
   params: Promise<{ vertical: string }>
@@ -99,6 +100,14 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
       }}>
         <ProfileImageUpload
           currentImageUrl={vendorProfile.profile_image_url}
+        />
+      </div>
+
+      {/* Cover Photo */}
+      <div style={{ marginBottom: 20 }}>
+        <CoverImageUpload
+          currentImageUrl={vendorProfile.cover_image_url}
+          vertical={vertical}
         />
       </div>
 
