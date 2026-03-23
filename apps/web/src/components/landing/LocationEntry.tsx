@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { MapPin, Search } from 'lucide-react'
 import { spacing, typography, radius, getVerticalColors, getVerticalShadows } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
@@ -23,6 +24,7 @@ interface StoredLocation {
 }
 
 export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: LocationEntryProps) {
+  const router = useRouter()
   const colors = getVerticalColors(vertical)
   const shadows = getVerticalShadows(vertical)
   const [savedLocation, setSavedLocation] = useState<StoredLocation | null>(() => {
@@ -81,6 +83,9 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
     // Set server-side cookie in background (for persistence across pages)
     // This geocodes the zip and sets the httpOnly user_location cookie
     setLocationCookie(trimmedZip)
+
+    // Navigate to where-today page with the zip code
+    router.push(`/${vertical}/where-today?zip=${trimmedZip}`)
   }
 
   /** Geocode zip → set httpOnly cookie so markets/vendors/browse pages pick it up */
@@ -214,7 +219,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
             borderRadius: radius.full,
             backgroundColor: colors.surfaceElevated,
             color: colors.textPrimary,
-            width: 160,
+            width: 200,
             outline: 'none',
             transition: 'border-color 0.2s, box-shadow 0.2s',
             boxSizing: 'border-box',
@@ -250,7 +255,8 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
             cursor: 'pointer',
             transition: 'background-color 0.2s, transform 0.2s',
             boxShadow: shadows.sm,
-            width: 150,
+            width: 'auto',
+            minWidth: 200,
             boxSizing: 'border-box',
             whiteSpace: 'nowrap',
           }}
@@ -264,7 +270,7 @@ export function LocationEntry({ vertical, initialCity, onLocationSet, locale }: 
           }}
         >
           <Search style={{ width: 16, height: 16, flexShrink: 0 }} />
-          {t('location.find_local', locale)}
+          {t('location.where_today', locale, { vendors: term(vertical, 'vendors', locale).toLowerCase() })}
         </button>
       </form>
 

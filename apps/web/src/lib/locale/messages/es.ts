@@ -12,6 +12,7 @@ export const es: Record<string, string> = {
   'location.enter_zip_prompt': 'Ingresa tu código postal para encontrar {vendors} cerca de ti',
   'location.placeholder': 'Código postal',
   'location.find_local': 'Buscar',
+  'location.where_today': '¿Dónde están los {vendors} hoy?',
   'location.privacy_note': 'Guardamos esto en tu dispositivo. No rastreamos tu ubicación.',
   'location.browse_all_in_area': 'O explora todos los vendedores en el área de {city}',
 
