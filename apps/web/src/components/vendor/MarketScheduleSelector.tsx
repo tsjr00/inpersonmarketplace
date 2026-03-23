@@ -417,6 +417,9 @@ export default function MarketScheduleSelector({
                       <span style={{ fontSize: 12, color: colors.primary, fontWeight: 600 }}>Saved</span>
                     )}
                   </div>
+                  <div style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic', lineHeight: 1.4 }}>
+                    End time = last time a pre-paid customer can arrive for pickup. Set this earlier than your walk-up close time if you want to stop accepting online orders before you close.
+                  </div>
                 </div>
               )}
             </div>
