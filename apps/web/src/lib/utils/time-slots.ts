@@ -21,7 +21,7 @@ function minutesToTime(minutes: number): string {
 }
 
 /**
- * Generate 30-min arrival time slots from a vendor's operating hours.
+ * Generate arrival time slots from a vendor's operating hours.
  * Each slot is an arrival time the buyer can choose (e.g., "10:00" = "I'll arrive at 10:00").
  * Multiple buyers can pick the same slot — slots are waves, not reservations.
  *
@@ -45,8 +45,9 @@ export function generateTimeSlots(
   const endMins = parseTimeToMinutes(endTime)
   const slots: string[] = []
 
-  // Generate slots every 30 min up to and including end time
-  for (let m = startMins; m <= endMins; m += 30) {
+  // Generate slots at intervals matching the vendor's lead time (15 or 30 min)
+  const slotInterval = minLeadMinutes <= 15 ? 15 : 30
+  for (let m = startMins; m <= endMins; m += slotInterval) {
     slots.push(minutesToTime(m))
   }
 
