@@ -902,26 +902,27 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
               </div>
             )}
 
-            {/* Cover Photo — below socials, left-justified, 16:9 aspect ratio */}
-            {vendor.cover_image_url && (
-              <div style={{
-                marginTop: 12,
-                borderRadius: 8,
-                overflow: 'hidden',
-                maxWidth: 400,
-                aspectRatio: '16 / 9',
-              }}>
-                <Image
-                  src={vendor.cover_image_url as string}
-                  alt={`${vendorName} cover photo`}
-                  width={400}
-                  height={225}
-                  sizes="(max-width: 640px) 100vw, 400px"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
-                />
-              </div>
-            )}
           </div>
+
+          {/* Cover Photo — below all vendor info, above View Menu. Visible on both mobile + desktop */}
+          {vendor.cover_image_url && (
+            <div style={{
+              marginTop: 16,
+              borderRadius: 8,
+              overflow: 'hidden',
+              maxWidth: 400,
+              aspectRatio: '16 / 9',
+            }}>
+              <Image
+                src={vendor.cover_image_url as string}
+                alt={`${vendorName} cover photo`}
+                width={400}
+                height={225}
+                sizes="(max-width: 640px) 100vw, 400px"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
+              />
+            </div>
+          )}
 
           {/* CTAs — View Menu + Event booking */}
           <div style={{ marginTop: 16, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
