@@ -21,15 +21,18 @@ function minutesToTime(minutes: number): string {
 }
 
 /**
- * Generate 30-min time slots from a schedule's start/end times.
- * Each slot represents the START of a 30-min window (e.g., "10:00" = 10:00–10:30).
+ * Generate 30-min arrival time slots from a vendor's operating hours.
+ * Each slot is an arrival time the buyer can choose (e.g., "10:00" = "I'll arrive at 10:00").
+ * Multiple buyers can pick the same slot — slots are waves, not reservations.
+ *
+ * End time = last time vendor will serve a customer. A slot AT end time is valid
+ * (buyer arrives at close, vendor serves them).
  *
  * @param startTime - Schedule start ("HH:MM:SS" or "HH:MM")
- * @param endTime - Schedule end ("HH:MM:SS" or "HH:MM")
+ * @param endTime - Schedule end ("HH:MM:SS" or "HH:MM") — last time vendor will serve
  * @param pickupDate - "YYYY-MM-DD" — if today, filters out slots too close to now
  * @param minLeadMinutes - Minimum minutes from now for today's slots (default 30).
  *   FT vendors configure this to 15 or 30 via vendor_profiles.pickup_lead_minutes.
- *   e.g., lead=30 and window ends 5:00 PM → last order by 4:30 PM.
  * @returns Array of "HH:MM" time strings
  */
 export function generateTimeSlots(
@@ -42,8 +45,8 @@ export function generateTimeSlots(
   const endMins = parseTimeToMinutes(endTime)
   const slots: string[] = []
 
-  // Generate slots every 30 min; last slot must allow a full 30-min window
-  for (let m = startMins; m + 30 <= endMins; m += 30) {
+  // Generate slots every 30 min up to and including end time
+  for (let m = startMins; m <= endMins; m += 30) {
     slots.push(minutesToTime(m))
   }
 
