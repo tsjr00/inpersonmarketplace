@@ -2,12 +2,32 @@
 
 Last updated: 2026-03-20 (end of Session 62)
 
-## Priority 0 — Next Session (from Session 62 end)
+## Priority 0 — Next Session
 
-### Vendor Hours & Ordering UX
-- [ ] **Vendor hours display mismatch** — Market cards and vendor profiles show market hours (e.g., 9 PM) but vendor-specific override hours may be earlier (e.g., 8 PM). Buyer sees "open until 9" but can't order after 8. Need to display vendor hours when they differ from market hours. Affects: browse cards, listing detail, vendor profile, where-today page.
-- [ ] **Vendor configurable pickup lead time** — FT vendors have hardcoded 31-min lead time for pickup slots. Proposed: `pickup_lead_minutes` column on `vendor_profiles` (INTEGER, default 30), vendor settings toggle for 15/30 min. `generateTimeSlots()` already accepts `minLeadMinutes` param — just needs to read from vendor profile. One migration + settings UI + AddToCartButton update.
-- [ ] **Password reset verification** — Fix deployed to staging (uses onAuthStateChange instead of getSession). Needs manual testing to confirm it works.
+### Catering Pre-Order System (Session 63 decisions)
+- [ ] **Catering minimum order enforcement** — 10 items per vendor minimum for catering orders (`advance_order_days > 0`). Enforce at cart validation AND checkout. Show clear message: "Catering orders require a minimum of 10 items per vendor."
+- [ ] **Catering advance notice tiers** — Size-based minimum lead time: 10-29 items = 1 day, 30-49 items = 2 days, 50+ items = 3 days. Enforce in SQL `get_available_pickup_dates()` — the advance window should expand/contract based on cart quantity per vendor. Also enforce at checkout validation.
+- [ ] **Listing form advance ordering update** — Current dropdown offers fixed 2-7 days. Needs to reflect the new tier logic. The vendor sets their MAX advance window; the system enforces minimums based on order size. May need rethinking — vendor sets "I accept catering orders" (boolean) and the tiers are platform-enforced, not vendor-chosen.
+- [ ] **Event $75 per-truck fee** — Due with 50% deposit when agreement signed/uploaded. Needs: fee calculation in event booking flow, payment capture mechanism, tracking in a fees table or on catering_requests.
+- [ ] **Zip code visibility across geographic pages** — Research item from Session 63. All geo-search pages should show what zip they're keyed off of. Changing zip on one should change all. DO NOT change until implications understood (browse page has different fallback logic).
+
+### Session 63 Completed
+- [x] **Vendor configurable pickup lead time** — DONE. Migration 096, 15/30 toggle, dropdown UI.
+- [x] **Password reset** — DONE. verifyOtp with token_hash, bypasses PKCE.
+- [x] **Vendor hours display mismatch** — Was already done (Session 31).
+- [x] **T-2, T-3, T-11 protective tests** — DONE. 32 new tests.
+- [x] **Inventory restore safety** — DONE. shouldRestoreInventory() utility.
+- [x] **Buyer premium page rewrite** — DONE. False claims removed.
+- [x] **Time slot UX** — Dropdown replaces tiles. End time = valid arrival. 15-min slots for 15-min lead.
+- [x] **Vendor profile reorder** — Menu → Chef boxes → Catering → Info at bottom.
+- [x] **Cover photo** — Migration 097, upload with resize, 16:9 display.
+- [x] **Favorites page** — Simple name+logo cards, no geo search.
+- [x] **Landing page button** — "Where are trucks today?" navigates to where-today.
+- [x] **Tutorial fix** — Missing notification_preferences column on prod.
+- [x] **TypeScript build errors** — All resolved (events page types).
+- [x] **Production push** — 49+ commits pushed to prod with revert tag.
+- [x] **Stress test protocols** — 8 protocols documented.
+- [x] **Cite-or-verify rule** — New absolute rule in CLAUDE.md + global rules.
 
 ## Priority 1 — From Session 62
 
