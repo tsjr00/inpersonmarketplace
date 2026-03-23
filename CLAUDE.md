@@ -30,6 +30,7 @@ This file defines 7 protocols that govern how sessions are run:
 - `apps/web/.claude/backlog.md` — Prioritized pending work
 - `apps/web/.claude/decisions.md` — Decision log
 - `apps/web/.claude/smoke-test-checklist.md` — Post-deployment verification
+- `apps/web/.claude/stress-test-protocols.md` — Pre-launch stress & resilience testing (8 protocols)
 
 ---
 
@@ -160,6 +161,30 @@ To back up the vault to an external drive:
 ### Full Protocol
 
 See `apps/web/.claude/rules/vault-protocol.md` for the complete rule set.
+
+---
+
+## ABSOLUTE RULE: Cite the Code or Mark as Unverified
+
+**Priority: ABSOLUTE — This rule applies to every claim Claude makes about what code does or doesn't do.**
+
+**Before presenting any claim about what the code does, doesn't do, or should do, cite the specific file and line number where you personally read the evidence. If you cannot cite a line, either read the code first or explicitly label the claim as "UNVERIFIED."**
+
+### Why This Exists
+
+In Session 63, Claude delegated a codebase audit to research agents and presented their findings as verified facts. Multiple claims were wrong — including presenting a bug as active when the fix was visible in the code (`C-1 FIX` comment at the call site), writing "premium-exclusive" on the upgrade page when the API has zero premium checks, and claiming vendors see a premium badge when the vendor API doesn't fetch buyer_tier. In each case, reading the actual code would have taken seconds.
+
+### The Checkpoint
+
+Research agents, prior audits, documentation, and memory files are useful for **finding where to look**. They are NOT sources of truth about **what the code does**. Only the code is.
+
+1. Can you cite the file path and line number where you read the evidence?
+2. **YES** → present the finding with the citation
+3. **NO** → read the code now, or say **"UNVERIFIED: [claim]. I have not read the code that implements this."**
+
+**An unverified claim presented as fact is misinformation.** It doesn't matter that an agent said it, that a prior session documented it, or that a translation file implies it. If you didn't read the implementation, you don't know.
+
+**Full protocol:** See `apps/web/.claude/rules/cite-or-verify.md`
 
 ---
 

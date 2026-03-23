@@ -69,11 +69,27 @@ export default function LoginPage({ params }: LoginPageProps) {
     if (data.user) {
       // Post-login vertical check: verify user belongs to this vertical
       // If not, redirect to their home vertical instead
-      const { data: profile } = await supabase
+      let { data: profile } = await supabase
         .from('user_profiles')
         .select('role, roles, verticals')
         .eq('user_id', data.user.id)
         .single()
+
+      // Lazy profile creation: if no profile exists, create one via RPC
+      if (!profile) {
+        await supabase.rpc('ensure_user_profile', {
+          p_user_id: data.user.id,
+          p_email: data.user.email || email,
+          p_display_name: '',
+        })
+        // Re-fetch the newly created profile
+        const { data: newProfile } = await supabase
+          .from('user_profiles')
+          .select('role, roles, verticals')
+          .eq('user_id', data.user.id)
+          .single()
+        profile = newProfile
+      }
 
       const isAdmin = profile?.role === 'admin' ||
         profile?.role === 'platform_admin' ||

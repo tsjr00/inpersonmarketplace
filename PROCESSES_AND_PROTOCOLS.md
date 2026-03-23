@@ -88,6 +88,8 @@ We push to staging, user manually tests, finds issues, we fix, push again. No st
 
 Full checklist details at `apps/web/.claude/smoke-test-checklist.md`.
 
+**Stress & resilience testing:** `apps/web/.claude/stress-test-protocols.md` — 8 protocols covering concurrent checkout, webhook resilience, full money path tracing, Vercel timeout limits, rate limit verification, Stripe Connect onboarding, failure recovery scenarios, and production environment verification. Run before go-live and after significant payment flow changes.
+
 ### User Prompts
 > "Running smoke test." (then reports results)
 > "Smoke test passed."
