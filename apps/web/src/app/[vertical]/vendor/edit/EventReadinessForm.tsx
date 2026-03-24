@@ -186,7 +186,9 @@ export default function EventReadinessForm({
         fontSize: typography.sizes.sm,
         color: colors.textSecondary,
       }}>
-        Want to serve at corporate events, sports tournaments, and private gatherings? Fill out this questionnaire so our team can match you with the right events.
+        {vertical === 'food_trucks'
+          ? 'Want to serve at corporate events, sports tournaments, and private gatherings? Fill out this questionnaire so our team can match you with the right events.'
+          : 'Want to sell at community events, corporate wellness fairs, and private gatherings? Fill out this questionnaire so our team can match you with the right events.'}
       </p>
 
       {/* Event Approved Banner */}
@@ -204,125 +206,200 @@ export default function EventReadinessForm({
         </div>
       )}
 
-      {/* ── Vehicle & Setup ── */}
-      <h3 style={{
-        margin: `0 0 ${spacing.sm} 0`,
-        fontSize: typography.sizes.base,
-        fontWeight: typography.weights.semibold,
-        color: colors.textPrimary,
-        borderBottom: `1px solid ${colors.border}`,
-        paddingBottom: spacing['2xs'],
-      }}>
-        Vehicle & Setup
-      </h3>
+      {/* ── Vehicle & Setup — FT only ── */}
+      {vertical === 'food_trucks' && (<>
+        <h3 style={{
+          margin: `0 0 ${spacing.sm} 0`,
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+          borderBottom: `1px solid ${colors.border}`,
+          paddingBottom: spacing['2xs'],
+        }}>
+          Vehicle & Setup
+        </h3>
 
-      {/* 1. Vehicle Type */}
-      <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Vehicle Type *</label>
-        <select
-          value={form.vehicle_type}
-          onChange={(e) => updateField('vehicle_type', e.target.value)}
-          style={inputStyle}
-        >
-          <option value="">Select...</option>
-          <option value="food_truck">Food Truck</option>
-          <option value="food_trailer">Food Trailer (truck + trailer)</option>
-        </select>
-      </div>
+        {/* 1. Vehicle Type */}
+        <div style={{ marginBottom: spacing.sm }}>
+          <label style={labelStyle}>Vehicle Type *</label>
+          <select
+            value={form.vehicle_type}
+            onChange={(e) => updateField('vehicle_type', e.target.value)}
+            style={inputStyle}
+          >
+            <option value="">Select...</option>
+            <option value="food_truck">Food Truck</option>
+            <option value="food_trailer">Food Trailer (truck + trailer)</option>
+          </select>
+        </div>
 
-      {/* 2. Vehicle Length */}
-      <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Vehicle Length (feet) *</label>
-        <input
-          type="number"
-          min={5}
-          max={80}
-          value={form.vehicle_length_feet || ''}
-          onChange={(e) => updateField('vehicle_length_feet', Number(e.target.value))}
-          placeholder="e.g., 24"
-          style={inputStyle}
-        />
-        {form.vehicle_type === 'food_trailer' && (
-          <p style={hintStyle}>Combined length of truck + trailer</p>
+        {/* 2. Vehicle Length */}
+        <div style={{ marginBottom: spacing.sm }}>
+          <label style={labelStyle}>Vehicle Length (feet) *</label>
+          <input
+            type="number"
+            min={5}
+            max={80}
+            value={form.vehicle_length_feet || ''}
+            onChange={(e) => updateField('vehicle_length_feet', Number(e.target.value))}
+            placeholder="e.g., 24"
+            style={inputStyle}
+          />
+          {form.vehicle_type === 'food_trailer' && (
+            <p style={hintStyle}>Combined length of truck + trailer</p>
+          )}
+        </div>
+
+        {/* 3. Requires Generator */}
+        <div style={{ marginBottom: spacing.sm }}>
+          <label style={labelStyle}>Requires Generator? *</label>
+          <div style={{ display: 'flex', gap: spacing.md }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
+              <input
+                type="radio"
+                name="requires_generator"
+                checked={form.requires_generator === true}
+                onChange={() => updateField('requires_generator', true)}
+                style={{ width: 18, height: 18 }}
+              />
+              Yes
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
+              <input
+                type="radio"
+                name="requires_generator"
+                checked={form.requires_generator === false}
+                onChange={() => updateField('requires_generator', false)}
+                style={{ width: 18, height: 18 }}
+              />
+              No
+            </label>
+          </div>
+        </div>
+
+        {/* 4. Generator Type (conditional) */}
+        {form.requires_generator && (
+          <div style={{ marginBottom: spacing.sm }}>
+            <label style={labelStyle}>Generator Type *</label>
+            <select
+              value={form.generator_type || ''}
+              onChange={(e) => updateField('generator_type', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select...</option>
+              <option value="quiet_inverter">Quiet / Inverter Generator</option>
+              <option value="standard">Standard Generator</option>
+            </select>
+            <p style={hintStyle}>Many venues require quiet generators for noise restrictions</p>
+          </div>
         )}
-      </div>
 
-      {/* 3. Requires Generator */}
-      <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Requires Generator? *</label>
-        <div style={{ display: 'flex', gap: spacing.md }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
-            <input
-              type="radio"
-              name="requires_generator"
-              checked={form.requires_generator === true}
-              onChange={() => updateField('requires_generator', true)}
-              style={{ width: 18, height: 18 }}
-            />
-            Yes
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
-            <input
-              type="radio"
-              name="requires_generator"
-              checked={form.requires_generator === false}
-              onChange={() => updateField('requires_generator', false)}
-              style={{ width: 18, height: 18 }}
-            />
-            No
-          </label>
+        {/* 5. Generator Fuel (conditional) */}
+        {form.requires_generator && (
+          <div style={{ marginBottom: spacing.sm }}>
+            <label style={labelStyle}>Generator Fuel *</label>
+            <select
+              value={form.generator_fuel || ''}
+              onChange={(e) => updateField('generator_fuel', e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select...</option>
+              <option value="propane">Propane (minimal smell)</option>
+              <option value="gasoline">Gasoline</option>
+              <option value="diesel">Diesel</option>
+            </select>
+          </div>
+        )}
+
+        {/* 6. Max Runtime */}
+        <div style={{ marginBottom: spacing.md }}>
+          <label style={labelStyle}>Max Runtime Without External Power (hours) *</label>
+          <input
+            type="number"
+            min={1}
+            max={24}
+            value={form.max_runtime_hours || ''}
+            onChange={(e) => updateField('max_runtime_hours', Number(e.target.value))}
+            placeholder="e.g., 8"
+            style={inputStyle}
+          />
         </div>
-      </div>
+      </>)}
 
-      {/* 4. Generator Type (conditional) */}
-      {form.requires_generator && (
+      {/* ── Booth Setup — FM only ── */}
+      {vertical === 'farmers_market' && (<>
+        <h3 style={{
+          margin: `0 0 ${spacing.sm} 0`,
+          fontSize: typography.sizes.base,
+          fontWeight: typography.weights.semibold,
+          color: colors.textPrimary,
+          borderBottom: `1px solid ${colors.border}`,
+          paddingBottom: spacing['2xs'],
+        }}>
+          Booth & Setup
+        </h3>
+
+        {/* FM: Setup type */}
         <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Generator Type *</label>
+          <label style={labelStyle}>Setup Type *</label>
           <select
-            value={form.generator_type || ''}
-            onChange={(e) => updateField('generator_type', e.target.value)}
+            value={form.vehicle_type}
+            onChange={(e) => updateField('vehicle_type', e.target.value)}
             style={inputStyle}
           >
             <option value="">Select...</option>
-            <option value="quiet_inverter">Quiet / Inverter Generator</option>
-            <option value="standard">Standard Generator</option>
+            <option value="tent_booth">Tent / Booth</option>
+            <option value="table_only">Table Only</option>
+            <option value="trailer">Trailer</option>
+            <option value="vehicle_booth">Vehicle + Booth</option>
           </select>
-          <p style={hintStyle}>Many venues require quiet generators for noise restrictions</p>
         </div>
-      )}
 
-      {/* 5. Generator Fuel (conditional) */}
-      {form.requires_generator && (
+        {/* FM: Space needed */}
         <div style={{ marginBottom: spacing.sm }}>
-          <label style={labelStyle}>Generator Fuel *</label>
-          <select
-            value={form.generator_fuel || ''}
-            onChange={(e) => updateField('generator_fuel', e.target.value)}
+          <label style={labelStyle}>Space Needed (feet wide) *</label>
+          <input
+            type="number"
+            min={4}
+            max={40}
+            value={form.vehicle_length_feet || ''}
+            onChange={(e) => updateField('vehicle_length_feet', Number(e.target.value))}
+            placeholder="e.g., 10"
             style={inputStyle}
-          >
-            <option value="">Select...</option>
-            <option value="propane">Propane (minimal smell)</option>
-            <option value="gasoline">Gasoline</option>
-            <option value="diesel">Diesel</option>
-          </select>
+          />
+          <p style={hintStyle}>How much frontage space does your booth setup need?</p>
         </div>
-      )}
 
-      {/* 6. Max Runtime */}
-      <div style={{ marginBottom: spacing.md }}>
-        <label style={labelStyle}>Max Runtime Without External Power (hours) *</label>
-        <input
-          type="number"
-          min={1}
-          max={24}
-          value={form.max_runtime_hours || ''}
-          onChange={(e) => updateField('max_runtime_hours', Number(e.target.value))}
-          placeholder="e.g., 8"
-          style={inputStyle}
-        />
-      </div>
+        {/* FM: Power needed */}
+        <div style={{ marginBottom: spacing.md }}>
+          <label style={labelStyle}>Do You Need Access to Electrical Power? *</label>
+          <div style={{ display: 'flex', gap: spacing.md }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
+              <input
+                type="radio"
+                name="requires_generator"
+                checked={form.requires_generator === true}
+                onChange={() => updateField('requires_generator', true)}
+                style={{ width: 18, height: 18 }}
+              />
+              Yes
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
+              <input
+                type="radio"
+                name="requires_generator"
+                checked={form.requires_generator === false}
+                onChange={() => updateField('requires_generator', false)}
+                style={{ width: 18, height: 18 }}
+              />
+              No
+            </label>
+          </div>
+          <p style={hintStyle}>For refrigeration, lighting, or display equipment</p>
+        </div>
+      </>)}
 
-      {/* ── Food Service Characteristics ── */}
+      {/* ── Food / Product Characteristics ── */}
       <h3 style={{
         margin: `0 0 ${spacing.sm} 0`,
         fontSize: typography.sizes.base,
@@ -331,12 +408,16 @@ export default function EventReadinessForm({
         borderBottom: `1px solid ${colors.border}`,
         paddingBottom: spacing['2xs'],
       }}>
-        Food Service Characteristics
+        {vertical === 'food_trucks' ? 'Food Service Characteristics' : 'Product Characteristics'}
       </h3>
 
       {/* 7. Strong Odors */}
       <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Does Your Cooking Produce Strong Odors? *</label>
+        <label style={labelStyle}>
+          {vertical === 'food_trucks'
+            ? 'Does Your Cooking Produce Strong Odors? *'
+            : 'Does Your Setup Produce Strong Odors? (e.g., cooking demos, samples) *'}
+        </label>
         <div style={{ display: 'flex', gap: spacing.md }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.base }}>
             <input
@@ -470,7 +551,11 @@ export default function EventReadinessForm({
 
       {/* 12. Max Headcount Per Wave */}
       <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Max Headcount Per 30-Minute Wave *</label>
+        <label style={labelStyle}>
+          {vertical === 'food_trucks'
+            ? 'Max Headcount Per 30-Minute Wave *'
+            : 'Max Customers Per 30-Minute Window *'}
+        </label>
         <input
           type="number"
           min={5}
@@ -480,7 +565,11 @@ export default function EventReadinessForm({
           placeholder="e.g., 50"
           style={inputStyle}
         />
-        <p style={hintStyle}>Events use staggered waves — how many people can you serve in a 30-minute window?</p>
+        <p style={hintStyle}>
+          {vertical === 'food_trucks'
+            ? 'Events use staggered waves — how many people can you serve in a 30-minute window?'
+            : 'How many customers can you handle in a 30-minute window at an event?'}
+        </p>
       </div>
 
       {/* 13. Event Experience */}
