@@ -104,10 +104,55 @@ export default function ListingForm({
     (listingData?.ingredients as string) || ''
   )
 
-  // Sales tax tracking — FT items are always taxable (prepared food)
+  // Texas sales tax logic per category
+  // Always taxable: Prepared Foods, Plants & Flowers, Health & Wellness, Art & Decor, Home & Functional
+  // Always exempt: Produce, Dairy & Eggs, Pantry
+  // Depends on preparation: Meat & Poultry, Baked Goods (exempt unless sold for immediate consumption)
+  const FM_ALWAYS_TAXABLE = ['Prepared Foods', 'Plants & Flowers', 'Health & Wellness', 'Art & Decor', 'Home & Functional']
+  const FM_ALWAYS_EXEMPT = ['Produce', 'Dairy & Eggs', 'Pantry']
+  const FM_DEPENDS_ON_PREP = ['Meat & Poultry', 'Baked Goods']
+
+  const getFmTaxStatus = (category: string, immediateConsumption: boolean): { taxable: boolean; locked: boolean; reason: string } => {
+    if (FM_ALWAYS_TAXABLE.includes(category)) {
+      return { taxable: true, locked: true, reason: 'This category is subject to Texas sales tax.' }
+    }
+    if (FM_ALWAYS_EXEMPT.includes(category)) {
+      return { taxable: false, locked: true, reason: 'This category is exempt from Texas sales tax when sold for home consumption.' }
+    }
+    if (FM_DEPENDS_ON_PREP.includes(category)) {
+      return {
+        taxable: immediateConsumption,
+        locked: false,
+        reason: immediateConsumption
+          ? 'Food sold for immediate consumption is subject to Texas sales tax.'
+          : 'Food sold for home consumption is exempt from Texas sales tax.'
+      }
+    }
+    // Unknown category — let vendor decide
+    return { taxable: false, locked: false, reason: '' }
+  }
+
+  // Immediate consumption flag (FM only, for Meat/Poultry and Baked Goods)
+  const [isImmediateConsumption, setIsImmediateConsumption] = useState(
+    (listingData?.is_immediate_consumption as boolean) || false
+  )
+
+  // Sales tax tracking
+  const fmTaxInfo = vertical === 'farmers_market' ? getFmTaxStatus(formData.category, isImmediateConsumption) : null
   const [isTaxable, setIsTaxable] = useState(
     vertical === 'food_trucks' ? true : ((listing?.is_taxable as boolean) || false)
   )
+
+  // Sync FM tax status when category or immediate consumption changes
+  useEffect(() => {
+    if (vertical === 'farmers_market' && formData.category) {
+      const info = getFmTaxStatus(formData.category, isImmediateConsumption)
+      if (info.locked || FM_DEPENDS_ON_PREP.includes(formData.category)) {
+        setIsTaxable(info.taxable)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.category, isImmediateConsumption, vertical])
 
   // Pre-packaged food check (FT only) — blocks publishing
   const [isPrePackaged, setIsPrePackaged] = useState(
@@ -268,6 +313,7 @@ export default function ListingForm({
         ingredients: containsAllergens ? ingredients.trim() : null,
         event_menu_item: eventMenuItem,
         is_pre_packaged: isPrePackaged,
+        is_immediate_consumption: isImmediateConsumption,
       },
       updated_at: new Date().toISOString()
     }
@@ -679,51 +725,102 @@ export default function ListingForm({
           </div>
         )}
 
-        {/* Sales Tax — FT: always taxable (greyed out). FM: toggle. */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 10,
-            cursor: vertical === 'food_trucks' ? 'default' : 'pointer',
-            padding: 12,
-            backgroundColor: isTaxable ? '#fef3c7' : '#f9fafb',
-            border: `1px solid ${isTaxable ? '#f59e0b' : '#e5e7eb'}`,
-            borderRadius: 6,
-            opacity: vertical === 'food_trucks' ? 0.7 : 1,
-          }}>
-            <input
-              type="checkbox"
-              checked={isTaxable}
-              onChange={(e) => { if (vertical !== 'food_trucks') setIsTaxable(e.target.checked) }}
-              disabled={loading || vertical === 'food_trucks'}
-              style={{ marginTop: 3, width: 18, height: 18 }}
-            />
-            <div>
-              <span style={{ fontWeight: 600 }}>
-                {vertical === 'food_trucks'
-                  ? 'Sales tax applies to this item'
-                  : 'This item is subject to sales tax'}
-              </span>
-              <p style={{ fontSize: 13, color: '#666', margin: '4px 0 0 0' }}>
-                {vertical === 'food_trucks'
-                  ? 'Prepared food sold for immediate consumption is subject to Texas sales tax.'
-                  : (<>Check this to track taxable sales in your analytics report.{' '}
-                      <a
-                        href={`/${vertical}/help?q=Sales+Tax`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: branding.colors.primary }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Learn more about sales tax
-                      </a>
-                    </>)
-                }
-              </p>
-            </div>
-          </label>
-        </div>
+        {/* Sales Tax Section — varies by vertical and category */}
+        {(() => {
+          const isFT = vertical === 'food_trucks'
+          const isFM = vertical === 'farmers_market'
+          const taxLocked = isFT || (isFM && fmTaxInfo?.locked)
+          const taxReason = isFT
+            ? 'Prepared food sold for immediate consumption is subject to Texas sales tax.'
+            : (fmTaxInfo?.reason || '')
+          const showImmediateQ = isFM && FM_DEPENDS_ON_PREP.includes(formData.category)
+
+          return (
+            <>
+              {/* Tax status display */}
+              <div style={{ marginBottom: showImmediateQ ? 0 : 20 }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  cursor: taxLocked ? 'default' : 'pointer',
+                  padding: 12,
+                  backgroundColor: isTaxable ? '#fef3c7' : '#f0fdf4',
+                  border: `1px solid ${isTaxable ? '#f59e0b' : '#86efac'}`,
+                  borderRadius: 6,
+                  opacity: taxLocked ? 0.7 : 1,
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={isTaxable}
+                    onChange={(e) => { if (!taxLocked) setIsTaxable(e.target.checked) }}
+                    disabled={loading || !!taxLocked}
+                    style={{ marginTop: 3, width: 18, height: 18 }}
+                  />
+                  <div>
+                    <span style={{ fontWeight: 600 }}>
+                      {isTaxable ? 'Sales tax applies to this item' : 'This item is exempt from sales tax'}
+                    </span>
+                    {taxReason && (
+                      <p style={{ fontSize: 13, color: '#666', margin: '4px 0 0 0' }}>
+                        {taxReason}
+                      </p>
+                    )}
+                    {!isFT && !taxLocked && !showImmediateQ && (
+                      <p style={{ fontSize: 13, color: '#666', margin: '4px 0 0 0' }}>
+                        <a
+                          href={`/${vertical}/help?q=Sales+Tax`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: branding.colors.primary }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Learn more about sales tax
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              {/* Immediate consumption question — FM Meat/Poultry and Baked Goods only */}
+              {showImmediateQ && (
+                <div style={{ marginBottom: 20, marginTop: 8 }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                    cursor: 'pointer',
+                    padding: 12,
+                    backgroundColor: isImmediateConsumption ? '#fef3c7' : '#f9fafb',
+                    border: `1px solid ${isImmediateConsumption ? '#f59e0b' : '#e5e7eb'}`,
+                    borderRadius: 6,
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={isImmediateConsumption}
+                      onChange={(e) => setIsImmediateConsumption(e.target.checked)}
+                      disabled={loading}
+                      style={{ marginTop: 3, width: 18, height: 18 }}
+                    />
+                    <div>
+                      <span style={{ fontWeight: 600 }}>
+                        {formData.category === 'Meat & Poultry'
+                          ? 'Is this item sold cooked, heated, or ready to eat? (e.g., smoked brisket plate, rotisserie chicken)'
+                          : 'Is this item sold as an individual serving for immediate consumption? (e.g., single slice with plate/fork, cupcake with napkin)'}
+                      </span>
+                      <p style={{ fontSize: 12, color: '#666', margin: '4px 0 0 0' }}>
+                        {isImmediateConsumption
+                          ? 'Food sold for immediate consumption is subject to Texas sales tax.'
+                          : 'Food sold for home consumption (e.g., frozen cuts, whole loaves, dozen cookies) is exempt from Texas sales tax.'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         {/* Pre-packaged food check — FT only */}
         {vertical === 'food_trucks' && (
