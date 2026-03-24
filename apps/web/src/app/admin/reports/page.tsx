@@ -8,7 +8,7 @@ interface ReportOption {
   id: string
   name: string
   description: string
-  category: 'sales' | 'operations' | 'vendors' | 'customers' | 'inventory'
+  category: 'sales' | 'operations' | 'vendors' | 'customers' | 'inventory' | 'accounting'
 }
 
 interface Vertical {
@@ -116,6 +116,44 @@ const AVAILABLE_REPORTS: ReportOption[] = [
     description: 'Each listing\'s order count, revenue, and popularity ranking',
     category: 'inventory'
   },
+
+  // Accounting (Platform Admin)
+  {
+    id: 'transaction_reconciliation',
+    name: 'Transaction Reconciliation',
+    description: 'Every payment with Stripe IDs, buyer paid, vendor payout, platform revenue, transfer IDs — for bank statement reconciliation',
+    category: 'accounting'
+  },
+  {
+    id: 'refund_detail',
+    name: 'Refund Detail',
+    description: 'All cancellations with original amount, refund amount, cancellation fees, who cancelled, reason',
+    category: 'accounting'
+  },
+  {
+    id: 'external_fee_ledger',
+    name: 'External Payment Fee Ledger',
+    description: 'Vendor fees owed from Venmo/CashApp/PayPal/cash orders — amounts owed, collected, outstanding balances',
+    category: 'accounting'
+  },
+  {
+    id: 'subscription_revenue',
+    name: 'Subscription Revenue',
+    description: 'Vendor tier subscriptions (Pro/Boss) and buyer premium — subscriber list, billing cycle, Stripe subscription IDs',
+    category: 'accounting'
+  },
+  {
+    id: 'tax_summary',
+    name: 'Tax Summary by State',
+    description: 'Gross sales and platform fee revenue grouped by state — for sales tax and income tax reporting',
+    category: 'accounting'
+  },
+  {
+    id: 'monthly_pnl',
+    name: 'Monthly P&L',
+    description: 'Monthly profit & loss: platform revenue, vendor payouts, refunds, estimated Stripe costs, estimated net income',
+    category: 'accounting'
+  },
 ]
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
@@ -124,6 +162,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   vendors: { label: 'Vendors', color: '#8b5cf6' },
   customers: { label: 'Customers', color: '#f59e0b' },
   inventory: { label: 'Inventory', color: '#ec4899' },
+  accounting: { label: 'Accounting', color: '#dc2626' },
 }
 
 export default function AdminReportsPage() {
