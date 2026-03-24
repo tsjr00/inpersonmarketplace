@@ -312,8 +312,9 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
       }
 
       // H-1 FIX: Redirect to success page with celebration + next-step guidance
+      const vendorType = (values.vendor_type as string) || ''
       setTimeout(() => {
-        router.push(`/${vertical}/vendor-signup/success`);
+        router.push(`/${vertical}/vendor-signup/success${vendorType ? `?type=${encodeURIComponent(vendorType)}` : ''}`);
       }, 1500);
     } catch (err) {
       console.error("Submit error:", err);
