@@ -4,8 +4,18 @@ Last updated: 2026-03-20 (end of Session 62)
 
 ## Priority 0 — Next Session
 
+### Stripe Tax Implementation (BLOCKED — needs user action first)
+- [ ] **TX Comptroller registration** — Register as marketplace provider, get sales tax permit. USER ACTION.
+- [ ] **Stripe Tax registration** — Add Texas in Stripe Dashboard → Tax → Registrations with permit number. USER ACTION.
+- [ ] **Get Stripe product tax codes** — Find codes for "prepared food" (taxable) and "food and food ingredients" (exempt). USER ACTION: browse Dashboard → Products → Tax codes, or run `stripe tax_codes list`.
+- [ ] **Code: Enable automatic_tax on checkout sessions** — Add `automatic_tax: { enabled: true, liability: { type: 'self' } }` to order, market box, and subscription checkout. Map `is_taxable` to Stripe product tax codes per line item.
+- [ ] **Code: Buyer address collection** — Add `shipping_address_collection` or pass pickup location zip for tax jurisdiction determination.
+- [ ] **Code: Withhold tax from vendor transfers** — Exclude tax amount from transfer to connected account. Tax stays with platform for remittance.
+- [ ] **Code: Track sales_tax_cents** — Add to orders/order_items for internal records + accounting reports.
+- [ ] **Filing setup** — Choose: manual filing with Stripe Tax location reports, or TaxJar AutoFile ($35/filing).
+
 ### Pre-Launch Business Items
-- [ ] **Tax compliance consultation** — One-hour CPA consultation re: Texas marketplace facilitator rules, sales tax collection/remittance obligations, franchise tax, 1099-K reporting for external payment vendors. Must happen before significant transaction volume. Estimated cost $200-400. Reports built: Tax Summary by State, Monthly P&L, Transaction Reconciliation, External Fee Ledger.
+- [ ] **Tax compliance consultation** — Partially done (Session 63 research). Remaining: confirm platform fee taxability, verify filing frequency, confirm marketplace facilitator registration process. CPA recommended.
 
 ### Catering Pre-Order System (Session 63 decisions)
 - [ ] **Catering minimum order enforcement** — 10 items per vendor minimum for catering orders (`advance_order_days > 0`). Enforce at cart validation AND checkout. Show clear message: "Catering orders require a minimum of 10 items per vendor."
@@ -31,6 +41,20 @@ Last updated: 2026-03-20 (end of Session 62)
 - [x] **Production push** — 49+ commits pushed to prod with revert tag.
 - [x] **Stress test protocols** — 8 protocols documented.
 - [x] **Cite-or-verify rule** — New absolute rule in CLAUDE.md + global rules.
+- [x] **Vendor profile section reorder** — Menu → Chef boxes → Catering → Info at bottom.
+- [x] **Cover photo** — Migration 097, upload with resize, 16:9 display.
+- [x] **Favorites page** — Simple name+logo cards, no geo search.
+- [x] **Catering badge on vendor profile** — Shows on listing cards + gold highlight button.
+- [x] **Checkout mobile layout** — Items → tip → payment → Pay Now → cross-sell.
+- [x] **Accounting reports (6)** — Transaction reconciliation, refund detail, external fee ledger, subscription revenue, tax summary, monthly P&L.
+- [x] **Payment methods expanded** — Card + Cash App + Amazon Pay + Link explicitly listed.
+- [x] **External payments hidden** — EXTERNAL_PAYMENTS_ENABLED flag, UI hidden, backend preserved.
+- [x] **FT sales tax always-on** — Greyed out checkbox + pre-packaged food block.
+- [x] **FM category-based tax rules** — Auto tax by category + trigger questions for Meat/Baked Goods.
+- [x] **Signup tax guidance** — Tax notice on vendor signup success page per category.
+- [x] **FM vendor_type expanded** — Migration 098, 11 categories matching listing categories.
+- [x] **Catering cash restriction removed** — Premature; will rebuild with catering minimum system.
+- [x] **Vendor outreach emails** — FT and FM templates written for vendor recruitment.
 
 ## Priority 1 — From Session 62
 
