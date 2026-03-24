@@ -306,7 +306,9 @@ export async function POST(request: NextRequest) {
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode: 'subscription',
-        payment_method_types: ['card'],
+        // Explicitly list all payment methods for maximum buyer visibility.
+        // Apple Pay + Google Pay are wallet options within 'card'.
+        payment_method_types: ['card', 'cashapp', 'amazon_pay', 'link'],
         line_items: [
           {
             price: priceId,
