@@ -805,7 +805,6 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            <CrossSellSection products={suggestedProducts} vertical={vertical} />
           </div>
 
           {/* Order Summary */}
@@ -1091,6 +1090,11 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+
+          {/* Cross-sell — below Pay Now on mobile, spans full width on desktop */}
+          <div className="cross-sell-area">
+            <CrossSellSection products={suggestedProducts} vertical={vertical} />
+          </div>
         </div>
       </div>
 
@@ -1102,6 +1106,9 @@ export default function CheckoutPage() {
         @media (min-width: 1024px) {
           .checkout-page .checkout-grid {
             grid-template-columns: 1fr 380px;
+          }
+          .checkout-page .cross-sell-area {
+            grid-column: 1 / -1;
           }
         }
       `}</style>
