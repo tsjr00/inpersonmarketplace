@@ -297,8 +297,11 @@ export default function CheckoutPage() {
         return
       }
 
-      // Catering items: no cash (48hr lead time = prepaid/digital only)
-      const cartHasCatering = checkoutItems.some(i => (i.advance_order_days || 0) > 0)
+      // Catering order detection: only applies when 10+ items from an event-approved
+      // vendor with catering-eligible items. A single catering-eligible item ordered
+      // for same-day is NOT a catering order. Full enforcement built in catering system.
+      // TODO: Wire up catering minimum (10 items) + advance notice tiers (1/2/3 days)
+      const cartHasCatering = false // Disabled until catering order system is built
 
       const vendorIds = [...new Set(checkoutItems.map(item => item.vendor_profile_id).filter(Boolean))]
       if (vendorIds.length === 0) return
@@ -738,19 +741,8 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {/* Catering advance order notice */}
-              {checkoutItems.some(i => (i.advance_order_days || 0) > 0) && (
-                <div style={{
-                  padding: spacing.xs,
-                  backgroundColor: statusColors.infoLight,
-                  border: `1px solid ${statusColors.infoBorder}`,
-                  borderRadius: radius.md,
-                  color: statusColors.infoDark,
-                  fontSize: typography.sizes.xs,
-                }}>
-                  {t('checkout.catering_no_cash', locale)}
-                </div>
-              )}
+              {/* Catering advance order notice — only when order meets catering threshold
+                  (10+ items from event-approved vendor). Disabled until catering system built. */}
 
               {/* Listing items — grouped by vendor + pickup location/date */}
               {(() => {
