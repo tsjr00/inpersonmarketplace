@@ -56,7 +56,9 @@ export async function createCheckoutSession({
 
   const session = await stripe.checkout.sessions.create(
     {
-      payment_method_types: ['card'],
+      // Explicitly list all payment methods so buyers see every option.
+      // Apple Pay + Google Pay are wallet options within 'card' (not separate types).
+      payment_method_types: ['card', 'cashapp', 'amazon_pay', 'link'],
       line_items: lineItems,
       mode: 'payment',
       success_url: successUrl,
@@ -144,7 +146,9 @@ export async function createMarketBoxCheckoutSession({
 
   const session = await stripe.checkout.sessions.create(
     {
-      payment_method_types: ['card'],
+      // Explicitly list all payment methods so buyers see every option.
+      // Apple Pay + Google Pay are wallet options within 'card' (not separate types).
+      payment_method_types: ['card', 'cashapp', 'amazon_pay', 'link'],
       line_items: [
         {
           price_data: {
