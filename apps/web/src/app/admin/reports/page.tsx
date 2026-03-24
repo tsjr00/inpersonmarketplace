@@ -133,7 +133,7 @@ const AVAILABLE_REPORTS: ReportOption[] = [
   {
     id: 'external_fee_ledger',
     name: 'External Payment Fee Ledger',
-    description: 'Vendor fees owed from Venmo/CashApp/PayPal/cash orders — amounts owed, collected, outstanding balances',
+    description: 'Full external payment report: every Venmo/CashApp/PayPal/cash transaction with buyer fees, vendor fees owed, collection status, and vendor balance summary',
     category: 'accounting'
   },
   {

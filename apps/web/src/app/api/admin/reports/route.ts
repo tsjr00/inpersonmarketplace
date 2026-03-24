@@ -1462,31 +1462,52 @@ async function generateRefundDetail(supabase: ReturnType<typeof createServiceCli
 }
 
 async function generateExternalFeeLedger(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
-  const query = supabase
-    .from('vendor_fee_ledger')
+  // Part 1: All external payment orders (the underlying transactions)
+  let orderQuery = supabase
+    .from('orders')
     .select(`
       id,
-      vendor_profile_id,
-      order_item_id,
-      fee_cents,
-      fee_type,
+      order_number,
+      status,
+      total_cents,
+      payment_method,
       created_at,
-      vendor_profiles (
-        profile_data,
-        vertical_id
+      vertical_id,
+      buyer_user_id,
+      order_items (
+        id,
+        subtotal_cents,
+        platform_fee_cents,
+        vendor_payout_cents,
+        status,
+        quantity,
+        listing:listings (title, vendor_profile_id, vendor_profiles (profile_data))
       )
     `)
+    .in('payment_method', ['venmo', 'cashapp', 'paypal', 'cash'])
     .gte('created_at', dateFrom)
     .lte('created_at', dateTo)
 
-  const { data: entries } = await query
+  if (verticalId) {
+    orderQuery = orderQuery.eq('vertical_id', verticalId)
+  }
 
-  // Filter by vertical if needed (join filter)
-  const filtered = verticalId
-    ? (entries || []).filter((e: any) => e.vendor_profiles?.vertical_id === verticalId)
-    : (entries || [])
+  const { data: orders } = await orderQuery
 
-  // Also get current balances
+  // Part 2: Fee ledger entries
+  const { data: ledgerEntries } = await supabase
+    .from('vendor_fee_ledger')
+    .select('id, vendor_profile_id, order_item_id, fee_cents, fee_type, created_at')
+    .gte('created_at', dateFrom)
+    .lte('created_at', dateTo)
+
+  // Build ledger lookup by order_item_id
+  const ledgerMap = new Map<string, any>()
+  ledgerEntries?.forEach((e: any) => {
+    if (e.order_item_id) ledgerMap.set(e.order_item_id, e)
+  })
+
+  // Part 3: Current vendor balances
   const { data: balances } = await supabase
     .from('vendor_fee_balance')
     .select('vendor_profile_id, total_owed_cents, total_collected_cents, balance_cents')
@@ -1494,32 +1515,99 @@ async function generateExternalFeeLedger(supabase: ReturnType<typeof createServi
   const balanceMap = new Map<string, any>()
   balances?.forEach((b: any) => balanceMap.set(b.vendor_profile_id, b))
 
-  const rows = filtered.map((entry: any) => {
-    const vendorName = (entry.vendor_profiles?.profile_data as any)?.business_name ||
-                       (entry.vendor_profiles?.profile_data as any)?.farm_name || 'Unknown'
-    const balance = balanceMap.get(entry.vendor_profile_id)
-    return {
-      date: formatDate(entry.created_at),
-      vendor: vendorName,
-      vertical: entry.vendor_profiles?.vertical_id || '',
-      fee_type: entry.fee_type || 'external_payment',
-      fee_amount: formatCents(entry.fee_cents),
-      outstanding_balance: balance ? formatCents(balance.balance_cents) : '',
-      total_owed: balance ? formatCents(balance.total_owed_cents) : '',
-      total_collected: balance ? formatCents(balance.total_collected_cents) : '',
+  // Build rows — one per order item
+  const rows: Record<string, unknown>[] = []
+
+  // Section header
+  const lines: string[] = []
+  lines.push('EXTERNAL PAYMENT REPORT')
+  lines.push(`"Date Range","${dateFrom.split('T')[0]} to ${dateTo.split('T')[0]}"`)
+  lines.push('')
+
+  // Transaction detail
+  lines.push('TRANSACTION DETAIL')
+  lines.push('"Date","Order #","Payment Method","Vertical","Vendor","Item","Qty","Item Subtotal","Buyer Fee (6.5%)","Buyer Total","Vendor Fee (3.5%)","Fee Recorded","Fee Date","Order Status"')
+
+  let totalSubtotal = 0
+  let totalBuyerFee = 0
+  let totalVendorFee = 0
+  let totalTransactions = 0
+
+  orders?.forEach((order: any) => {
+    order.order_items?.forEach((item: any) => {
+      const vendorName = (item.listing?.vendor_profiles as any)?.profile_data?.business_name ||
+                         (item.listing?.vendor_profiles as any)?.profile_data?.farm_name || 'Unknown'
+      const ledgerEntry = ledgerMap.get(item.id)
+      const subtotal = item.subtotal_cents || 0
+      const buyerFee = item.platform_fee_cents || 0
+      const vendorFee = ledgerEntry?.fee_cents || 0
+
+      totalSubtotal += subtotal
+      totalBuyerFee += buyerFee
+      totalVendorFee += vendorFee
+      totalTransactions++
+
+      lines.push([
+        `"${formatDate(order.created_at)}"`,
+        `"${order.order_number}"`,
+        `"${order.payment_method}"`,
+        `"${order.vertical_id}"`,
+        `"${vendorName}"`,
+        `"${item.listing?.title || 'Unknown'}"`,
+        item.quantity || 1,
+        `"${formatCents(subtotal)}"`,
+        `"${formatCents(buyerFee)}"`,
+        `"${formatCents(subtotal + buyerFee)}"`,
+        `"${formatCents(vendorFee)}"`,
+        ledgerEntry ? 'Yes' : 'No',
+        ledgerEntry ? `"${formatDate(ledgerEntry.created_at)}"` : '""',
+        `"${order.status}"`,
+      ].join(','))
+    })
+  })
+
+  lines.push('')
+  lines.push('SUMMARY')
+  lines.push(`"Total External Transactions",${totalTransactions}`)
+  lines.push(`"Total Subtotal (base price)","${formatCents(totalSubtotal)}"`)
+  lines.push(`"Total Buyer Fees Collected (6.5%)","${formatCents(totalBuyerFee)}"`)
+  lines.push(`"Total Vendor Fees Owed (3.5%)","${formatCents(totalVendorFee)}"`)
+  lines.push('')
+
+  // Vendor balance summary
+  lines.push('VENDOR BALANCE SUMMARY')
+  lines.push('"Vendor","Vertical","Total Owed (All Time)","Total Collected (All Time)","Outstanding Balance"')
+
+  // Get unique vendors from orders
+  const vendorIds = new Set<string>()
+  orders?.forEach((order: any) => {
+    order.order_items?.forEach((item: any) => {
+      const vpId = item.listing?.vendor_profile_id || (item.listing?.vendor_profiles as any)?.id
+      if (vpId) vendorIds.add(vpId)
+    })
+  })
+
+  // Get vendor names
+  const { data: vendorProfiles } = await supabase
+    .from('vendor_profiles')
+    .select('id, profile_data, vertical_id')
+    .in('id', Array.from(vendorIds))
+
+  vendorProfiles?.forEach((vp: any) => {
+    const name = (vp.profile_data as any)?.business_name || (vp.profile_data as any)?.farm_name || 'Unknown'
+    const balance = balanceMap.get(vp.id)
+    if (balance) {
+      lines.push([
+        `"${name}"`,
+        `"${vp.vertical_id}"`,
+        `"${formatCents(balance.total_owed_cents)}"`,
+        `"${formatCents(balance.total_collected_cents)}"`,
+        `"${formatCents(balance.balance_cents)}"`,
+      ].join(','))
     }
   })
 
-  return toCSV(rows, [
-    { key: 'date', label: 'Date' },
-    { key: 'vendor', label: 'Vendor' },
-    { key: 'vertical', label: 'Vertical' },
-    { key: 'fee_type', label: 'Fee Type' },
-    { key: 'fee_amount', label: 'Fee Amount' },
-    { key: 'outstanding_balance', label: 'Outstanding Balance' },
-    { key: 'total_owed', label: 'Total Owed (All Time)' },
-    { key: 'total_collected', label: 'Total Collected (All Time)' },
-  ])
+  return lines.join('\n')
 }
 
 async function generateSubscriptionRevenue(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {

@@ -4,6 +4,9 @@ Last updated: 2026-03-20 (end of Session 62)
 
 ## Priority 0 — Next Session
 
+### Pre-Launch Business Items
+- [ ] **Tax compliance consultation** — One-hour CPA consultation re: Texas marketplace facilitator rules, sales tax collection/remittance obligations, franchise tax, 1099-K reporting for external payment vendors. Must happen before significant transaction volume. Estimated cost $200-400. Reports built: Tax Summary by State, Monthly P&L, Transaction Reconciliation, External Fee Ledger.
+
 ### Catering Pre-Order System (Session 63 decisions)
 - [ ] **Catering minimum order enforcement** — 10 items per vendor minimum for catering orders (`advance_order_days > 0`). Enforce at cart validation AND checkout. Show clear message: "Catering orders require a minimum of 10 items per vendor."
 - [ ] **Catering advance notice tiers** — Size-based minimum lead time: 10-29 items = 1 day, 30-49 items = 2 days, 50+ items = 3 days. Enforce in SQL `get_available_pickup_dates()` — the advance window should expand/contract based on cart quantity per vendor. Also enforce at checkout validation.
