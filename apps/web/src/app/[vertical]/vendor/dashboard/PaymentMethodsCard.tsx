@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 import { validatePaymentUsername } from '@/lib/payments/external-links'
+import { EXTERNAL_PAYMENTS_ENABLED } from '@/lib/constants'
 
 interface PaymentMethodsCardProps {
   vendorId: string
@@ -283,11 +284,15 @@ export default function PaymentMethodsCard({
                 ⚠ Connect Stripe for card payments →
               </span>
               <span style={{ color: '#92400e', display: 'block', marginTop: spacing['3xs'] }}>
-                Required for external payment methods. Click to set up.
+                {EXTERNAL_PAYMENTS_ENABLED
+                  ? 'Required for external payment methods. Click to set up.'
+                  : 'Click to set up card payments and start accepting orders.'}
               </span>
             </Link>
           )}
 
+          {/* External payment methods — hidden when disabled (tax compliance) */}
+          {EXTERNAL_PAYMENTS_ENABLED && (<>
           {/* Venmo */}
           <div>
             <label style={{ fontSize: typography.sizes.xs, color: colors.textSecondary, display: 'block', marginBottom: spacing['3xs'] }}>
@@ -394,6 +399,7 @@ export default function PaymentMethodsCard({
               External payments: 6.5% + $0.15 buyer fee, 3.5% seller fee (auto-deducted from card sales)
             </p>
           )}
+          </>)}
 
           {/* Username accuracy warning */}
           {(venmoUsername || cashappCashtag || paypalUsername) && (

@@ -316,6 +316,12 @@ export default function CheckoutPage() {
         if (res.ok) {
           const data = await res.json()
           let methods: PaymentMethod[] = data.methods || []
+          // Filter external payment methods when disabled (tax compliance)
+          const { EXTERNAL_PAYMENTS_ENABLED } = await import('@/lib/constants')
+          if (!EXTERNAL_PAYMENTS_ENABLED) {
+            const externalIds = ['venmo', 'cashapp', 'paypal', 'cash']
+            methods = methods.filter((m: PaymentMethod) => !externalIds.includes(m.id))
+          }
           // Remove cash option when cart has catering items (48hr lead time rule)
           if (cartHasCatering) {
             methods = methods.filter((m: PaymentMethod) => m.id !== 'cash')

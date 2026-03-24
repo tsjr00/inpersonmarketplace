@@ -6,6 +6,11 @@
  * Imports below are for backwards compatibility - use pricing.ts directly for new code
  */
 
+// Feature flag: external payments (Venmo, CashApp, PayPal, Cash)
+// Set to false to hide all external payment UI while preserving backend code.
+// Tax implications of facilitating external transactions need resolution before re-enabling.
+export const EXTERNAL_PAYMENTS_ENABLED = false
+
 // Re-export pricing functions for backwards compatibility
 export {
   formatPrice,
