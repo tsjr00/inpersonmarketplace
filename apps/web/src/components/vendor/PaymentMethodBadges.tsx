@@ -1,6 +1,7 @@
 'use client'
 
 import { spacing, typography } from '@/lib/design-tokens'
+import { EXTERNAL_PAYMENTS_ENABLED } from '@/lib/constants'
 
 interface PaymentMethodBadgesProps {
   stripeChargesEnabled?: boolean
@@ -31,10 +32,13 @@ export default function PaymentMethodBadges({
 }: PaymentMethodBadgesProps) {
   const methods: string[] = ['Cards'] // Stripe/cards always available
 
-  if (venmoUsername) methods.push('Venmo')
-  if (cashappCashtag) methods.push('Cash App')
-  if (paypalUsername) methods.push('PayPal')
-  if (acceptsCashAtPickup) methods.push('Cash')
+  // External payment methods hidden when disabled (tax compliance)
+  if (EXTERNAL_PAYMENTS_ENABLED) {
+    if (venmoUsername) methods.push('Venmo')
+    if (cashappCashtag) methods.push('Cash App')
+    if (paypalUsername) methods.push('PayPal')
+    if (acceptsCashAtPickup) methods.push('Cash')
+  }
 
   const sizeStyle = BADGE_STYLES[size]
 
