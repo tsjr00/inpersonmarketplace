@@ -157,6 +157,37 @@ export async function POST(request: NextRequest) {
           filename = `${verticalPrefix}product_performance_${dateFrom}_to_${dateTo}.csv`
           break
 
+        // Accounting reports (platform admin)
+        case 'transaction_reconciliation':
+          csvContent = await generateTransactionReconciliation(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}transaction_reconciliation_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'refund_detail':
+          csvContent = await generateRefundDetail(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}refund_detail_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'external_fee_ledger':
+          csvContent = await generateExternalFeeLedger(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}external_fee_ledger_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'subscription_revenue':
+          csvContent = await generateSubscriptionRevenue(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}subscription_revenue_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'tax_summary':
+          csvContent = await generateTaxSummary(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}tax_summary_${dateFrom}_to_${dateTo}.csv`
+          break
+
+        case 'monthly_pnl':
+          csvContent = await generateMonthlyPnl(supabaseService, dateFromStart, dateToEnd, verticalId)
+          filename = `${verticalPrefix}monthly_pnl_${dateFrom}_to_${dateTo}.csv`
+          break
+
         default:
           return NextResponse.json({ error: 'Unknown report type' }, { status: 400 })
       }
@@ -1248,5 +1279,487 @@ async function generateProductPerformance(supabase: ReturnType<typeof createServ
     { key: 'times_ordered', label: 'Times Ordered' },
     { key: 'units_sold', label: 'Units Sold' },
     { key: 'total_revenue', label: 'Total Revenue' }
+  ])
+}
+
+// ============================================================================
+// ACCOUNTING REPORTS (Platform Admin)
+// ============================================================================
+
+async function generateTransactionReconciliation(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+  // Every payment with Stripe IDs for bank reconciliation
+  let query = supabase
+    .from('payments')
+    .select(`
+      id,
+      order_id,
+      stripe_payment_intent_id,
+      amount_cents,
+      status,
+      created_at,
+      order:orders!inner (
+        order_number,
+        total_cents,
+        vertical_id,
+        payment_method,
+        tip_amount,
+        tip_on_platform_fee_cents,
+        buyer_user_id,
+        order_items (
+          id,
+          subtotal_cents,
+          platform_fee_cents,
+          vendor_payout_cents,
+          status,
+          refund_amount_cents,
+          listing:listings (title, vendor_profile_id)
+        )
+      )
+    `)
+    .gte('created_at', dateFrom)
+    .lte('created_at', dateTo)
+
+  if (verticalId) {
+    query = query.eq('order.vertical_id', verticalId)
+  }
+
+  const { data: payments } = await query
+
+  // Also get vendor payouts for transfer IDs
+  const payoutQuery = supabase
+    .from('vendor_payouts')
+    .select(`
+      id,
+      order_item_id,
+      vendor_profile_id,
+      amount_cents,
+      stripe_transfer_id,
+      status,
+      created_at
+    `)
+    .gte('created_at', dateFrom)
+    .lte('created_at', dateTo)
+
+  const { data: payouts } = await payoutQuery
+
+  // Build payout lookup by order_item_id
+  const payoutMap = new Map<string, typeof payouts extends (infer T)[] | null ? T : never>()
+  payouts?.forEach(p => {
+    if (p.order_item_id) payoutMap.set(p.order_item_id, p)
+  })
+
+  const rows: Record<string, unknown>[] = []
+
+  payments?.forEach((payment: any) => {
+    const order = payment.order
+    if (!order) return
+
+    order.order_items?.forEach((item: any) => {
+      const payout = payoutMap.get(item.id)
+      rows.push({
+        date: formatDate(payment.created_at),
+        order_number: order.order_number,
+        vertical: order.vertical_id,
+        payment_method: order.payment_method || 'stripe',
+        stripe_payment_id: payment.stripe_payment_intent_id || '',
+        item: item.listing?.title || 'Unknown',
+        item_subtotal: formatCents(item.subtotal_cents),
+        buyer_fee: formatCents(item.platform_fee_cents),
+        buyer_total: formatCents((item.subtotal_cents || 0) + (item.platform_fee_cents || 0)),
+        vendor_payout: formatCents(item.vendor_payout_cents),
+        platform_fee_kept: formatCents((item.platform_fee_cents || 0) + ((item.subtotal_cents || 0) - (item.vendor_payout_cents || 0) - (item.platform_fee_cents || 0))),
+        tip: formatCents(order.tip_amount || 0),
+        tip_platform_portion: formatCents(order.tip_on_platform_fee_cents || 0),
+        refund_amount: formatCents(item.refund_amount_cents || 0),
+        item_status: item.status,
+        stripe_transfer_id: payout?.stripe_transfer_id || '',
+        transfer_status: payout?.status || 'pending',
+        transfer_amount: payout ? formatCents(payout.amount_cents) : '',
+      })
+    })
+  })
+
+  return toCSV(rows, [
+    { key: 'date', label: 'Date' },
+    { key: 'order_number', label: 'Order #' },
+    { key: 'vertical', label: 'Vertical' },
+    { key: 'payment_method', label: 'Payment Method' },
+    { key: 'stripe_payment_id', label: 'Stripe Payment ID' },
+    { key: 'item', label: 'Item' },
+    { key: 'item_subtotal', label: 'Item Subtotal' },
+    { key: 'buyer_fee', label: 'Buyer Fee' },
+    { key: 'buyer_total', label: 'Buyer Paid' },
+    { key: 'vendor_payout', label: 'Vendor Payout' },
+    { key: 'platform_fee_kept', label: 'Platform Revenue' },
+    { key: 'tip', label: 'Tip Total' },
+    { key: 'tip_platform_portion', label: 'Tip (Platform Portion)' },
+    { key: 'refund_amount', label: 'Refund Amount' },
+    { key: 'item_status', label: 'Item Status' },
+    { key: 'stripe_transfer_id', label: 'Stripe Transfer ID' },
+    { key: 'transfer_status', label: 'Transfer Status' },
+    { key: 'transfer_amount', label: 'Transfer Amount' },
+  ])
+}
+
+async function generateRefundDetail(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+  let query = supabase
+    .from('order_items')
+    .select(`
+      id,
+      subtotal_cents,
+      refund_amount_cents,
+      cancellation_fee_cents,
+      status,
+      cancelled_at,
+      cancelled_by,
+      cancellation_reason,
+      order:orders!inner (
+        order_number,
+        total_cents,
+        vertical_id,
+        payment_method,
+        buyer_user_id
+      ),
+      listing:listings (title)
+    `)
+    .not('cancelled_at', 'is', null)
+    .gte('cancelled_at', dateFrom)
+    .lte('cancelled_at', dateTo)
+
+  if (verticalId) {
+    query = query.eq('order.vertical_id', verticalId)
+  }
+
+  const { data: items } = await query
+
+  const rows = (items || []).map((item: any) => ({
+    date: formatDate(item.cancelled_at),
+    order_number: item.order?.order_number || '',
+    vertical: item.order?.vertical_id || '',
+    payment_method: item.order?.payment_method || '',
+    item: item.listing?.title || 'Unknown',
+    item_subtotal: formatCents(item.subtotal_cents),
+    refund_amount: formatCents(item.refund_amount_cents || 0),
+    cancellation_fee: formatCents(item.cancellation_fee_cents || 0),
+    cancelled_by: item.cancelled_by || '',
+    reason: item.cancellation_reason || '',
+    item_status: item.status,
+  }))
+
+  return toCSV(rows, [
+    { key: 'date', label: 'Cancellation Date' },
+    { key: 'order_number', label: 'Order #' },
+    { key: 'vertical', label: 'Vertical' },
+    { key: 'payment_method', label: 'Payment Method' },
+    { key: 'item', label: 'Item' },
+    { key: 'item_subtotal', label: 'Original Subtotal' },
+    { key: 'refund_amount', label: 'Refund Amount' },
+    { key: 'cancellation_fee', label: 'Cancellation Fee Kept' },
+    { key: 'cancelled_by', label: 'Cancelled By' },
+    { key: 'reason', label: 'Reason' },
+    { key: 'item_status', label: 'Final Status' },
+  ])
+}
+
+async function generateExternalFeeLedger(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+  const query = supabase
+    .from('vendor_fee_ledger')
+    .select(`
+      id,
+      vendor_profile_id,
+      order_item_id,
+      fee_cents,
+      fee_type,
+      created_at,
+      vendor_profiles (
+        profile_data,
+        vertical_id
+      )
+    `)
+    .gte('created_at', dateFrom)
+    .lte('created_at', dateTo)
+
+  const { data: entries } = await query
+
+  // Filter by vertical if needed (join filter)
+  const filtered = verticalId
+    ? (entries || []).filter((e: any) => e.vendor_profiles?.vertical_id === verticalId)
+    : (entries || [])
+
+  // Also get current balances
+  const { data: balances } = await supabase
+    .from('vendor_fee_balance')
+    .select('vendor_profile_id, total_owed_cents, total_collected_cents, balance_cents')
+
+  const balanceMap = new Map<string, any>()
+  balances?.forEach((b: any) => balanceMap.set(b.vendor_profile_id, b))
+
+  const rows = filtered.map((entry: any) => {
+    const vendorName = (entry.vendor_profiles?.profile_data as any)?.business_name ||
+                       (entry.vendor_profiles?.profile_data as any)?.farm_name || 'Unknown'
+    const balance = balanceMap.get(entry.vendor_profile_id)
+    return {
+      date: formatDate(entry.created_at),
+      vendor: vendorName,
+      vertical: entry.vendor_profiles?.vertical_id || '',
+      fee_type: entry.fee_type || 'external_payment',
+      fee_amount: formatCents(entry.fee_cents),
+      outstanding_balance: balance ? formatCents(balance.balance_cents) : '',
+      total_owed: balance ? formatCents(balance.total_owed_cents) : '',
+      total_collected: balance ? formatCents(balance.total_collected_cents) : '',
+    }
+  })
+
+  return toCSV(rows, [
+    { key: 'date', label: 'Date' },
+    { key: 'vendor', label: 'Vendor' },
+    { key: 'vertical', label: 'Vertical' },
+    { key: 'fee_type', label: 'Fee Type' },
+    { key: 'fee_amount', label: 'Fee Amount' },
+    { key: 'outstanding_balance', label: 'Outstanding Balance' },
+    { key: 'total_owed', label: 'Total Owed (All Time)' },
+    { key: 'total_collected', label: 'Total Collected (All Time)' },
+  ])
+}
+
+async function generateSubscriptionRevenue(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+  // Vendor subscriptions
+  let vendorQuery = supabase
+    .from('vendor_profiles')
+    .select('id, tier, subscription_status, subscription_cycle, tier_started_at, tier_expires_at, stripe_subscription_id, vertical_id, profile_data')
+    .not('tier', 'eq', 'free')
+    .not('subscription_status', 'is', null)
+
+  if (verticalId) {
+    vendorQuery = vendorQuery.eq('vertical_id', verticalId)
+  }
+
+  const { data: vendors } = await vendorQuery
+
+  // Buyer premium subscriptions
+  const { data: buyers } = await supabase
+    .from('user_profiles')
+    .select('id, buyer_tier, subscription_status, subscription_cycle, tier_started_at, tier_expires_at, stripe_subscription_id, display_name, email')
+    .eq('buyer_tier', 'premium')
+
+  const rows: Record<string, unknown>[] = []
+
+  vendors?.forEach((v: any) => {
+    const name = (v.profile_data as any)?.business_name || (v.profile_data as any)?.farm_name || 'Unknown'
+    rows.push({
+      type: 'Vendor',
+      name,
+      vertical: v.vertical_id,
+      tier: v.tier,
+      cycle: v.subscription_cycle || 'monthly',
+      status: v.subscription_status || 'active',
+      started: formatDate(v.tier_started_at),
+      expires: formatDate(v.tier_expires_at),
+      stripe_sub_id: v.stripe_subscription_id || '',
+      monthly_revenue: v.tier === 'pro' ? '$25.00' : v.tier === 'boss' ? '$50.00' : '$0.00',
+    })
+  })
+
+  buyers?.forEach((b: any) => {
+    rows.push({
+      type: 'Buyer Premium',
+      name: b.display_name || b.email || 'Unknown',
+      vertical: 'all',
+      tier: 'premium',
+      cycle: b.subscription_cycle || 'monthly',
+      status: b.subscription_status || 'active',
+      started: formatDate(b.tier_started_at),
+      expires: formatDate(b.tier_expires_at),
+      stripe_sub_id: b.stripe_subscription_id || '',
+      monthly_revenue: '$9.99',
+    })
+  })
+
+  return toCSV(rows, [
+    { key: 'type', label: 'Type' },
+    { key: 'name', label: 'Name' },
+    { key: 'vertical', label: 'Vertical' },
+    { key: 'tier', label: 'Tier' },
+    { key: 'cycle', label: 'Billing Cycle' },
+    { key: 'status', label: 'Status' },
+    { key: 'started', label: 'Started' },
+    { key: 'expires', label: 'Expires' },
+    { key: 'stripe_sub_id', label: 'Stripe Subscription ID' },
+    { key: 'monthly_revenue', label: 'Monthly Revenue' },
+  ])
+}
+
+async function generateTaxSummary(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+  let query = supabase
+    .from('order_items')
+    .select(`
+      subtotal_cents,
+      platform_fee_cents,
+      vendor_payout_cents,
+      status,
+      market:markets (state, city, zip),
+      order:orders!inner (vertical_id, created_at, status, payment_method)
+    `)
+    .gte('created_at', dateFrom)
+    .lte('created_at', dateTo)
+    .neq('status', 'cancelled')
+
+  if (verticalId) {
+    query = query.eq('order.vertical_id', verticalId)
+  }
+
+  const { data: items } = await query
+
+  // Group by state
+  const byState = new Map<string, { gross: number; fees: number; orders: number; stripe: number; external: number }>()
+
+  items?.forEach((item: any) => {
+    if (item.order?.status === 'cancelled') return
+    const state = (item.market as any)?.state || 'Unknown'
+    if (!byState.has(state)) byState.set(state, { gross: 0, fees: 0, orders: 0, stripe: 0, external: 0 })
+    const s = byState.get(state)!
+    s.gross += item.subtotal_cents || 0
+    s.fees += item.platform_fee_cents || 0
+    s.orders++
+    if (item.order?.payment_method === 'stripe') {
+      s.stripe += item.subtotal_cents || 0
+    } else {
+      s.external += item.subtotal_cents || 0
+    }
+  })
+
+  const rows = Array.from(byState.entries())
+    .sort((a, b) => b[1].gross - a[1].gross)
+    .map(([state, data]) => ({
+      state,
+      order_count: data.orders,
+      gross_sales: formatCents(data.gross),
+      stripe_sales: formatCents(data.stripe),
+      external_sales: formatCents(data.external),
+      platform_fees: formatCents(data.fees),
+    }))
+
+  // Add totals row
+  const totals = Array.from(byState.values()).reduce((acc, d) => ({
+    gross: acc.gross + d.gross,
+    fees: acc.fees + d.fees,
+    orders: acc.orders + d.orders,
+    stripe: acc.stripe + d.stripe,
+    external: acc.external + d.external,
+  }), { gross: 0, fees: 0, orders: 0, stripe: 0, external: 0 })
+
+  rows.push({
+    state: 'TOTAL',
+    order_count: totals.orders,
+    gross_sales: formatCents(totals.gross),
+    stripe_sales: formatCents(totals.stripe),
+    external_sales: formatCents(totals.external),
+    platform_fees: formatCents(totals.fees),
+  })
+
+  return toCSV(rows, [
+    { key: 'state', label: 'State' },
+    { key: 'order_count', label: 'Orders' },
+    { key: 'gross_sales', label: 'Gross Sales' },
+    { key: 'stripe_sales', label: 'Stripe Sales' },
+    { key: 'external_sales', label: 'External Sales' },
+    { key: 'platform_fees', label: 'Platform Fee Revenue' },
+  ])
+}
+
+async function generateMonthlyPnl(supabase: ReturnType<typeof createServiceClient>, dateFrom: string, dateTo: string, verticalId?: string) {
+  // Get all order items in range
+  let query = supabase
+    .from('order_items')
+    .select(`
+      subtotal_cents,
+      platform_fee_cents,
+      vendor_payout_cents,
+      refund_amount_cents,
+      status,
+      created_at,
+      order:orders!inner (vertical_id, status, tip_amount, tip_on_platform_fee_cents, payment_method)
+    `)
+    .gte('created_at', dateFrom)
+    .lte('created_at', dateTo)
+
+  if (verticalId) {
+    query = query.eq('order.vertical_id', verticalId)
+  }
+
+  const { data: items } = await query
+
+  // Group by month
+  const byMonth = new Map<string, {
+    grossSales: number
+    platformFees: number
+    vendorPayouts: number
+    refunds: number
+    tipRevenue: number
+    stripeOrders: number
+    externalOrders: number
+    cancelledItems: number
+  }>()
+
+  items?.forEach((item: any) => {
+    const month = item.created_at.substring(0, 7) // YYYY-MM
+    if (!byMonth.has(month)) {
+      byMonth.set(month, { grossSales: 0, platformFees: 0, vendorPayouts: 0, refunds: 0, tipRevenue: 0, stripeOrders: 0, externalOrders: 0, cancelledItems: 0 })
+    }
+    const m = byMonth.get(month)!
+
+    if (item.status === 'cancelled' || item.order?.status === 'cancelled') {
+      m.cancelledItems++
+      m.refunds += item.refund_amount_cents || 0
+    } else {
+      m.grossSales += item.subtotal_cents || 0
+      m.platformFees += item.platform_fee_cents || 0
+      m.vendorPayouts += item.vendor_payout_cents || 0
+      m.tipRevenue += item.order?.tip_on_platform_fee_cents || 0
+      if (item.order?.payment_method === 'stripe') {
+        m.stripeOrders++
+      } else {
+        m.externalOrders++
+      }
+    }
+  })
+
+  const rows = Array.from(byMonth.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([month, data]) => {
+      const netRevenue = data.platformFees + data.tipRevenue
+      // Estimate Stripe processing cost: ~2.9% + $0.30 per Stripe transaction
+      const estimatedStripeCost = Math.round(data.grossSales * 0.029) + (data.stripeOrders * 30)
+      const estimatedNetAfterStripe = netRevenue - estimatedStripeCost - data.refunds
+
+      return {
+        month,
+        gross_sales: formatCents(data.grossSales),
+        platform_fee_revenue: formatCents(data.platformFees),
+        tip_platform_revenue: formatCents(data.tipRevenue),
+        total_revenue: formatCents(netRevenue),
+        vendor_payouts: formatCents(data.vendorPayouts),
+        refunds_absorbed: formatCents(data.refunds),
+        est_stripe_processing: formatCents(estimatedStripeCost),
+        est_net_income: formatCents(estimatedNetAfterStripe),
+        stripe_transactions: data.stripeOrders,
+        external_transactions: data.externalOrders,
+        cancelled_items: data.cancelledItems,
+      }
+    })
+
+  return toCSV(rows, [
+    { key: 'month', label: 'Month' },
+    { key: 'gross_sales', label: 'Gross Sales' },
+    { key: 'platform_fee_revenue', label: 'Platform Fee Revenue' },
+    { key: 'tip_platform_revenue', label: 'Tip Revenue (Platform Portion)' },
+    { key: 'total_revenue', label: 'Total Platform Revenue' },
+    { key: 'vendor_payouts', label: 'Vendor Payouts' },
+    { key: 'refunds_absorbed', label: 'Refunds Absorbed' },
+    { key: 'est_stripe_processing', label: 'Est. Stripe Processing Cost' },
+    { key: 'est_net_income', label: 'Est. Net Income' },
+    { key: 'stripe_transactions', label: 'Stripe Transactions' },
+    { key: 'external_transactions', label: 'External Transactions' },
+    { key: 'cancelled_items', label: 'Cancelled Items' },
   ])
 }
