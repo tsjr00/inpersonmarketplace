@@ -104,9 +104,14 @@ export default function ListingForm({
     (listingData?.ingredients as string) || ''
   )
 
-  // Sales tax tracking
+  // Sales tax tracking — FT items are always taxable (prepared food)
   const [isTaxable, setIsTaxable] = useState(
-    (listing?.is_taxable as boolean) || false
+    vertical === 'food_trucks' ? true : ((listing?.is_taxable as boolean) || false)
+  )
+
+  // Pre-packaged food check (FT only) — blocks publishing
+  const [isPrePackaged, setIsPrePackaged] = useState(
+    (listingData?.is_pre_packaged as boolean) || false
   )
 
   // Event menu item tracking
@@ -244,7 +249,7 @@ export default function ListingForm({
     // But if editing an existing published listing AND vendor is still approved,
     // preserve published status (gates were passed at first publish — edits shouldn't demote)
     const isAlreadyPublished = mode === 'edit' && listing?.status === 'published' && vendorStatus === 'approved'
-    const canPublishListing = isAlreadyPublished || (!isPendingVendor && canPublish !== false)
+    const canPublishListing = isAlreadyPublished || (!isPendingVendor && canPublish !== false && !isPrePackaged)
     const submitData = {
       vendor_profile_id: vendorProfileId,
       vertical_id: vertical,
@@ -262,6 +267,7 @@ export default function ListingForm({
         contains_allergens: containsAllergens,
         ingredients: containsAllergens ? ingredients.trim() : null,
         event_menu_item: eventMenuItem,
+        is_pre_packaged: isPrePackaged,
       },
       updated_at: new Date().toISOString()
     }
@@ -673,42 +679,94 @@ export default function ListingForm({
           </div>
         )}
 
-        {/* Sales Tax Checkbox — both verticals */}
+        {/* Sales Tax — FT: always taxable (greyed out). FM: toggle. */}
         <div style={{ marginBottom: 20 }}>
           <label style={{
             display: 'flex',
             alignItems: 'flex-start',
             gap: 10,
-            cursor: 'pointer',
+            cursor: vertical === 'food_trucks' ? 'default' : 'pointer',
             padding: 12,
             backgroundColor: isTaxable ? '#fef3c7' : '#f9fafb',
             border: `1px solid ${isTaxable ? '#f59e0b' : '#e5e7eb'}`,
-            borderRadius: 6
+            borderRadius: 6,
+            opacity: vertical === 'food_trucks' ? 0.7 : 1,
           }}>
             <input
               type="checkbox"
               checked={isTaxable}
-              onChange={(e) => setIsTaxable(e.target.checked)}
-              disabled={loading}
+              onChange={(e) => { if (vertical !== 'food_trucks') setIsTaxable(e.target.checked) }}
+              disabled={loading || vertical === 'food_trucks'}
               style={{ marginTop: 3, width: 18, height: 18 }}
             />
             <div>
-              <span style={{ fontWeight: 600 }}>This item is subject to sales tax</span>
+              <span style={{ fontWeight: 600 }}>
+                {vertical === 'food_trucks'
+                  ? 'Sales tax applies to this item'
+                  : 'This item is subject to sales tax'}
+              </span>
               <p style={{ fontSize: 13, color: '#666', margin: '4px 0 0 0' }}>
-                Check this to track taxable sales in your analytics report.{' '}
-                <a
-                  href={`/${vertical}/help?q=Sales+Tax`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: branding.colors.primary }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Learn more about sales tax
-                </a>
+                {vertical === 'food_trucks'
+                  ? 'Prepared food sold for immediate consumption is subject to Texas sales tax.'
+                  : (<>Check this to track taxable sales in your analytics report.{' '}
+                      <a
+                        href={`/${vertical}/help?q=Sales+Tax`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: branding.colors.primary }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Learn more about sales tax
+                      </a>
+                    </>)
+                }
               </p>
             </div>
           </label>
         </div>
+
+        {/* Pre-packaged food check — FT only */}
+        {vertical === 'food_trucks' && (
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              cursor: 'pointer',
+              padding: 12,
+              backgroundColor: isPrePackaged ? '#fef2f2' : '#f9fafb',
+              border: `1px solid ${isPrePackaged ? '#ef4444' : '#e5e7eb'}`,
+              borderRadius: 6
+            }}>
+              <input
+                type="checkbox"
+                checked={isPrePackaged}
+                onChange={(e) => setIsPrePackaged(e.target.checked)}
+                disabled={loading}
+                style={{ marginTop: 3, width: 18, height: 18 }}
+              />
+              <div>
+                <span style={{ fontWeight: 600 }}>
+                  Is this a pre-packaged food item you did not produce? (chips, bottled water, etc.)
+                </span>
+              </div>
+            </label>
+            {isPrePackaged && (
+              <div style={{
+                marginTop: 8,
+                padding: 12,
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fca5a5',
+                borderRadius: 6,
+                fontSize: 13,
+                color: '#991b1b',
+                lineHeight: 1.5,
+              }}>
+                <strong>This item cannot be published.</strong> Food Truck{"'"}n is not a resale platform. All items sold on the platform should be food or drink items that are prepared for immediate consumption.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Price & Quantity Row */}
         <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
