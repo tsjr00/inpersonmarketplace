@@ -135,17 +135,10 @@ export async function POST(request: NextRequest) {
         'External payment methods only work with single-vendor orders. Please use card payment or remove items from different vendors.')
     }
 
-    // Catering items cannot be paid with cash (48hr lead time = no pay-at-pickup)
-    if (payment_method === 'cash') {
-      const hasCatering = cartItems.some(item => {
-        const listing = item.listings as unknown as { advance_order_days?: number }
-        return (listing.advance_order_days || 0) > 0
-      })
-      if (hasCatering) {
-        throw traced.validation('ERR_CHECKOUT_001',
-          'Cash payment is not available for catering orders. Please use card or a digital payment method.')
-      }
-    }
+    // Catering cash restriction: only applies when order meets catering threshold
+    // (10+ items from event-approved vendor). A single catering-eligible item is
+    // a regular order and cash is fine if vendor accepts it.
+    // TODO: Wire up catering minimum enforcement (10 items + advance notice tiers)
 
     // Get vendor info
     const firstListing = cartItems[0].listings as unknown as {
