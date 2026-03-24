@@ -1,16 +1,61 @@
 'use client'
 
 import { use } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { getVerticalColors, getVerticalCSSVars } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 import { statusColors } from '@/lib/design-tokens'
 
+function getTaxNotice(vertical: string, vendorType: string): { title: string; message: string } | null {
+  if (vertical === 'food_trucks') {
+    return {
+      title: 'Sales Tax Reminder',
+      message: 'Prepared food sold for immediate consumption is subject to Texas sales tax. Sales tax will be automatically applied to your listings. Please ensure you have a Texas sales tax permit and are prepared to collect and remit sales tax in accordance with Texas Comptroller guidelines.',
+    }
+  }
+  if (vertical !== 'farmers_market' || !vendorType) return null
+
+  const type = vendorType.toLowerCase()
+  if (type.includes('produce') || type.includes('dairy')) {
+    return {
+      title: 'Sales Tax Information',
+      message: 'Fresh produce, dairy, and eggs sold for home consumption are generally exempt from Texas sales tax. However, if you also sell prepared foods, baked goods for immediate consumption, or non-food items, those may be subject to sales tax. You will set the tax status per item when creating listings. Please make sure you understand the tax rules that apply to your products and are prepared to comply with all applicable Texas tax laws.',
+    }
+  }
+  if (type.includes('meat')) {
+    return {
+      title: 'Sales Tax Information',
+      message: 'Raw and frozen meats sold for home consumption are generally exempt from Texas sales tax. However, cooked or ready-to-eat meat products (e.g., smoked brisket plates, rotisserie chicken) are taxable as prepared food. You will set the tax status per item when creating listings. Please ensure you understand which of your products are taxable and are prepared to comply with all applicable Texas tax laws.',
+    }
+  }
+  if (type.includes('baked')) {
+    return {
+      title: 'Sales Tax Information',
+      message: 'Baked goods sold for home consumption (loaves of bread, bags of cookies, whole pies) are generally exempt from Texas sales tax. However, items sold as individual servings for immediate consumption (a slice of pie with a fork, a cupcake with a napkin) are taxable. You will set the tax status per item when creating listings. Please ensure you understand the distinction and are prepared to comply with all applicable Texas tax laws.',
+    }
+  }
+  if (type.includes('prepared')) {
+    return {
+      title: 'Sales Tax Reminder',
+      message: 'Prepared foods sold for immediate consumption are subject to Texas sales tax. This includes hot foods, foods served with utensils, and foods sold at booths with seating. Sales tax will be automatically applied to your listings in this category. Please ensure you have a Texas sales tax permit and are prepared to collect and remit sales tax in accordance with Texas Comptroller guidelines.',
+    }
+  }
+  // "Other" or unrecognized
+  return {
+    title: 'Sales Tax Information',
+    message: 'Texas sales tax rules vary by product type. Food items sold for home consumption are generally exempt, while prepared foods, plants, crafts, and non-food items are typically taxable. You will set the tax status per item when creating your listings. Please make sure you understand the tax rules that apply to your specific products and are prepared to comply with all applicable Texas tax laws.',
+  }
+}
+
 export default function VendorSignupSuccess({ params }: { params: Promise<{ vertical: string }> }) {
   const { vertical } = use(params)
+  const searchParams = useSearchParams()
+  const vendorType = searchParams.get('type') || ''
   const verticalColors = getVerticalColors(vertical)
   const cssVars = getVerticalCSSVars(vertical)
+  const taxNotice = getTaxNotice(vertical, vendorType)
 
   const steps = [
     {
@@ -175,6 +220,35 @@ export default function VendorSignupSuccess({ params }: { params: Promise<{ vert
             You can also check your status anytime on your vendor dashboard.
           </p>
         </div>
+
+        {/* Tax notice — based on vendor type selected during signup */}
+        {taxNotice && (
+          <div style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: radius.md,
+            padding: spacing.sm,
+            marginBottom: spacing.xl,
+            textAlign: 'left',
+          }}>
+            <p style={{
+              fontSize: typography.sizes.sm,
+              fontWeight: typography.weights.bold,
+              color: '#92400e',
+              margin: `0 0 ${spacing['2xs']} 0`,
+            }}>
+              {taxNotice.title}
+            </p>
+            <p style={{
+              fontSize: typography.sizes.sm,
+              color: '#78350f',
+              margin: 0,
+              lineHeight: typography.leading.relaxed,
+            }}>
+              {taxNotice.message}
+            </p>
+          </div>
+        )}
 
         {/* CTA button */}
         <Link
