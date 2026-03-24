@@ -38,6 +38,37 @@ Structured record of business and architecture decisions. Check here before aski
 | 2026-03-23 | Financial | Event per-truck fee = $75 | Charged per truck to event organizer. Due with 50% deposit when agreement is signed/uploaded. Separate from transaction fees. | No | 63 |
 | 2026-03-23 | Financial | Event transaction fees = normal platform fees | Event orders use standard 6.5% buyer + 6.5% vendor fee structure. No separate event percentage — the 13% total already exceeds the 10% target. | No | 63 |
 | 2026-03-23 | Business | Event approval gates advance ordering AND events | Intentional coupling: event-approved status is a quality gate ensuring vendors have systems/staff for multi-day advance orders. Also feeds the event pipeline ($75/truck + transaction fees). Incentivizes vendors to get event-ready. | No | 63 |
+| 2026-03-24 | Tax | FT listings always taxable | Prepared food for immediate consumption is subject to TX sales tax. Sales tax checkbox forced on, greyed out for FT. Pre-packaged resale items blocked from publishing. | No | 63 |
+| 2026-03-24 | Tax | FM category-based tax rules | Per TX Comptroller 151.314: Produce/Dairy/Pantry = exempt. Prepared Foods/Plants/Wellness/Art/Home = taxable. Meat & Baked Goods = depends on preparation (trigger question for immediate consumption). | No | 63 |
+| 2026-03-24 | Tax | Platform is TX marketplace facilitator | Under TX Tax Code, platform collects, reports, and remits sales tax on all marketplace sales. Vendors don't collect tax on platform sales but still need their own TX sales tax permit. | No | 63 |
+| 2026-03-24 | Tax | Stripe Tax for tax calculation + collection | Use Stripe Tax (automatic_tax with liability:'self') instead of building own tax engine. Stripe handles rate lookup by jurisdiction, product tax code distinction, collection. 0.5% per transaction. Platform still files with Comptroller (via reports or TaxJar AutoFile at $35/filing). | No | 63 |
+| 2026-03-24 | Tax | External payments hidden pending tax resolution | EXTERNAL_PAYMENTS_ENABLED = false. All external payment UI (Venmo/CashApp/PayPal/Cash) hidden. Backend preserved. Risk: platform facilitates transactions without full visibility into tax-relevant details. Will re-enable after tax treatment is resolved. | Yes | 63 |
+| 2026-03-24 | Payments | Explicit payment methods: Card, Cash App, Amazon Pay, Link | Stripe checkout sessions list all methods explicitly so buyers see every option. Apple Pay + Google Pay come through 'card' automatically. All methods enabled in Stripe Dashboard for platform + connected accounts (on by default). | Yes | 63 |
+
+### Sales Tax Implementation Plan (Session 63)
+
+**Status: PENDING — needs Texas Comptroller registration + Stripe Tax setup before code changes.**
+
+**Prerequisites (user action required):**
+1. Register with Texas Comptroller as marketplace provider → get TX sales tax permit
+2. Add Texas as registration in Stripe Tax Dashboard (Settings → Tax → Registrations)
+3. Get Stripe product tax codes for "prepared food" (taxable) and "food and food ingredients" (exempt)
+
+**Code changes (after prerequisites):**
+1. Add `automatic_tax: { enabled: true, liability: { type: 'self' } }` to all checkout sessions
+2. Add `shipping_address_collection` or use pickup location zip for tax jurisdiction
+3. Map `is_taxable` flag to Stripe product tax codes per line item at checkout
+4. Withhold tax amount from vendor transfers (exclude tax_cents from transfer amount)
+5. Add `sales_tax_cents` tracking to orders/order_items for internal records
+6. Update accounting reports to include Stripe Tax data
+
+**Filing:**
+- Option A: Use Stripe Tax location reports + file manually with TX Comptroller
+- Option B: TaxJar AutoFile ($35/filing) — syncs from Stripe Tax, submits automatically
+
+**Tax rate:** Determined automatically by Stripe Tax based on pickup location address. TX base 6.25% + local up to 2% = max 8.25%. No manual rate table needed.
+
+**Cost:** 0.5% per transaction (e.g., $0.05 on a $10 order) on top of standard Stripe processing fees.
 
 ### External Payment Fee Flow — Protected Architecture (Session 62)
 
