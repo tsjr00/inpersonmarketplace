@@ -130,10 +130,10 @@ export function getPlatformUserAgreement(): LegalDocument {
           },
           {
             id: 'shopper-obligations-4',
-            title: '3.4 External Payment Methods.',
+            title: '3.4 Payment Processing.',
             level: 'section',
             content: [
-              'Certain vendors may offer alternative payment methods for in-person transactions, including but not limited to cash, Venmo, Cash App, PayPal, or other direct payment arrangements between you and the vendor ("External Payment Methods"). When you elect to use an External Payment Method:\n\n(a) The transaction is conducted directly between you and the vendor;\n\n(b) The Platform facilitates the order, tracks fulfillment, and applies applicable fees, but does not process the payment itself;\n\n(c) Refunds for transactions completed through External Payment Methods must be arranged directly between you and the vendor — the Platform cannot process refunds for External Payment transactions; and\n\n(d) You acknowledge that the vendor\'s use of External Payment Methods is subject to the vendor\'s agreement with the Company and applicable Platform policies.',
+              'All transactions on the Platform are processed through the Platform\'s integrated payment system powered by Stripe. Available payment methods include credit and debit cards, Apple Pay, Google Pay, Cash App Pay, Amazon Pay, and Stripe Link. The specific payment methods available at checkout may vary based on your device, location, and the payment methods enabled by the vendor. The Company may, at its sole discretion, introduce or discontinue payment methods at any time. All payments are subject to the Company\'s marketplace facilitator obligations, including applicable sales tax collection.',
             ],
           },
         ],
@@ -205,7 +205,7 @@ export function getPlatformUserAgreement(): LegalDocument {
             title: '4.8 Tax-Related Data.',
             level: 'section',
             content: [
-              'The Company collects, stores, and retains transaction data — including purchase amounts, tax amounts, product categories, pickup locations, and associated tax rates — for a minimum of four (4) years as required by Texas tax law. This data may be shared with tax authorities, payment processors, and tax reporting service providers as required by law or as necessary to fulfill the Company\'s obligations as a marketplace facilitator. By using the Platform, you consent to this collection, storage, and sharing of tax-related transaction data.',
+              'The Company collects, stores, and retains transaction data — including purchase amounts, tax amounts, product categories, pickup locations, and associated tax rates — for at least as long as required by applicable federal and state tax laws for the jurisdictions in which the Company operates. Retention periods may vary by state based on applicable laws. This data may be shared with tax authorities, payment processors, and tax reporting service providers as required by law or as necessary to fulfill the Company\'s obligations as a marketplace facilitator. By using the Platform, you consent to this collection, storage, and sharing of tax-related transaction data.',
             ],
           },
         ],

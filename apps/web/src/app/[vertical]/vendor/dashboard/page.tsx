@@ -314,10 +314,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
           </div>
         )}
 
-        {/* External Payment Banner — pending orders needing vendor confirmation */}
-        {vendorProfile.status === 'approved' && (
-          <ExternalPaymentBanner vertical={vertical} />
-        )}
+        {/* External Payment Banner — hidden when external payments disabled */}
 
         {/* Trial Status Banner — free trial countdown */}
         {vendorProfile.status === 'approved' && (
