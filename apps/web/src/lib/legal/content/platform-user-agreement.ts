@@ -189,7 +189,23 @@ export function getPlatformUserAgreement(): LegalDocument {
             title: '4.6 Transaction Liability.',
             level: 'section',
             content: [
-              'The Company acts solely as a marketplace facilitator connecting vendors and shoppers. The Company is not a party to the underlying transaction between vendor and shopper, regardless of whether the transaction is completed via Platform-Processed Payment or External Payment Method. The Company is not responsible for disputes, losses, product quality issues, or other issues arising from any transaction facilitated through the Platform. All purchases are made at the shopper\'s own risk.',
+              'The Company acts as a marketplace facilitator as defined under Texas Tax Code Section 151.0242. While the Company facilitates transactions between vendors and shoppers and fulfills certain tax collection obligations as required by law, the Company is not a party to the underlying transaction between vendor and shopper. The Company is not responsible for disputes, losses, product quality issues, or other issues arising from any transaction facilitated through the Platform. All purchases are made at the shopper\'s own risk.',
+            ],
+          },
+          {
+            id: 'payment-terms-7',
+            title: '4.7 Sales Tax.',
+            level: 'section',
+            content: [
+              'As a marketplace facilitator under Texas law, the Company collects applicable state and local sales tax on taxable items purchased through the Platform. Sales tax is calculated based on the product category and the tax rate applicable to the pickup location. Sales tax is displayed as a separate line item at checkout and is included in the total amount charged to the buyer. The Company remits collected sales tax to the Texas Comptroller of Public Accounts as required by law. Sales tax rates and product taxability are determined in accordance with Texas Tax Code Chapter 151 and applicable Texas Comptroller rules.',
+            ],
+          },
+          {
+            id: 'payment-terms-8',
+            title: '4.8 Tax-Related Data.',
+            level: 'section',
+            content: [
+              'The Company collects, stores, and retains transaction data — including purchase amounts, tax amounts, product categories, pickup locations, and associated tax rates — for a minimum of four (4) years as required by Texas tax law. This data may be shared with tax authorities, payment processors, and tax reporting service providers as required by law or as necessary to fulfill the Company\'s obligations as a marketplace facilitator. By using the Platform, you consent to this collection, storage, and sharing of tax-related transaction data.',
             ],
           },
         ],
