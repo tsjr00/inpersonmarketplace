@@ -85,7 +85,7 @@ export function getVendorServiceAgreement(): LegalDocument {
             title: '2.5 Compliance',
             level: 'section',
             content: [
-              'You represent, warrant, and agree that you will at all times comply with all applicable federal, state, and local laws, regulations, ordinances, and licensing requirements applicable to your products and business operations, including but not limited to food safety regulations, health department requirements, sales tax obligations, and business licensing requirements.',
+              'You represent, warrant, and agree that you will at all times comply with all applicable federal, state, and local laws, regulations, ordinances, and licensing requirements applicable to your products and business operations, including but not limited to food safety regulations, health department requirements, business licensing requirements, and tax obligations as described in Article 5 of this Agreement.',
             ],
           },
         ],
@@ -211,21 +211,85 @@ export function getVendorServiceAgreement(): LegalDocument {
         ],
       },
       {
-        id: 'vendor-termination',
-        title: 'ARTICLE 5 — VENDOR ACCOUNT TERMINATION',
+        id: 'sales-tax',
+        title: 'ARTICLE 5 — SALES TAX AND TAX COMPLIANCE',
         level: 'article',
         content: [],
         subsections: [
           {
-            id: 'vendor-termination-5.1',
-            title: '5.1 Termination by Vendor',
+            id: 'sales-tax-5.1',
+            title: '5.1 Marketplace Facilitator Status',
+            level: 'section',
+            content: [
+              'The Company operates as a marketplace facilitator as defined under Texas Tax Code Section 151.0242. As a marketplace facilitator, the Company is responsible for collecting, reporting, and remitting applicable Texas state and local sales tax on all transactions processed through the Platform. You acknowledge that the Company collects sales tax from buyers at the point of sale and remits it to the Texas Comptroller of Public Accounts on your behalf for marketplace transactions.',
+            ],
+          },
+          {
+            id: 'sales-tax-5.2',
+            title: '5.2 Tax Calculation',
+            level: 'section',
+            content: [
+              'Sales tax is calculated automatically based on: (a) the product category and taxability classification of each item as determined by the Platform in accordance with Texas tax law; and (b) the applicable state and local tax rate for the pickup location where the transaction occurs. The Company uses commercially reasonable methods to determine correct tax rates and product taxability classifications. Sales tax is displayed as a separate line item to the buyer at checkout and is not included in the product price you set.',
+            ],
+          },
+          {
+            id: 'sales-tax-5.3',
+            title: '5.3 Vendor Tax Obligations',
+            level: 'section',
+            content: [
+              'Notwithstanding the Company\'s role as marketplace facilitator, you acknowledge and agree that:\n\n(a) You must obtain and maintain a valid Texas sales tax permit from the Texas Comptroller of Public Accounts. You shall provide your sales tax permit number to the Company upon request;\n\n(b) You must report marketplace sales on your Texas sales tax returns as marketplace provider transactions. Although the Company collects and remits the tax, you are required to report these sales to the Comptroller;\n\n(c) You are solely responsible for collecting and remitting sales tax on any sales you make outside the Platform, including walk-up cash sales, direct orders, and transactions at venues or events not processed through the Platform;\n\n(d) You are responsible for ensuring that your product listings are correctly categorized so that the Platform can determine the proper tax treatment. If you believe a product\'s tax classification is incorrect, you must notify the Company promptly;\n\n(e) You must maintain complete and accurate records of all sales, both on-platform and off-platform, for a minimum of four (4) years as required by Texas law; and\n\n(f) You are solely responsible for any federal, state, or local income tax obligations arising from your business activities, including income earned through the Platform.',
+            ],
+          },
+          {
+            id: 'sales-tax-5.4',
+            title: '5.4 Tax Withholding from Vendor Payouts',
+            level: 'section',
+            content: [
+              'Sales tax collected from buyers on your transactions is not included in your vendor payout. Vendor payouts are calculated based on the product subtotal minus applicable platform fees. The sales tax portion of each transaction is retained by the Company for remittance to the Texas Comptroller. You acknowledge that you have no claim to sales tax amounts collected by the Company on marketplace transactions.',
+            ],
+          },
+          {
+            id: 'sales-tax-5.5',
+            title: '5.5 Tax Reporting and Information Sharing',
+            level: 'section',
+            content: [
+              'The Company will:\n\n(a) Provide you with access to sales reports through your vendor dashboard showing total sales, taxable sales, non-taxable sales, and tax amounts collected for each period;\n\n(b) Issue IRS Form 1099-K to you for each calendar year in which your gross payments through the Platform meet or exceed the applicable federal reporting threshold;\n\n(c) Report your marketplace transactions to the Texas Comptroller as required by law; and\n\n(d) Maintain transaction records in accordance with applicable federal and state record retention requirements.\n\nYou consent to the Company collecting, storing, and sharing your tax-related information (including your name, address, taxpayer identification number, and transaction data) with tax authorities, payment processors, and tax reporting service providers as required by law or as necessary to fulfill the Company\'s tax obligations.',
+            ],
+          },
+          {
+            id: 'sales-tax-5.6',
+            title: '5.6 Changes in Tax Law',
+            level: 'section',
+            content: [
+              'Tax laws, rates, and classifications are subject to change. The Company will update its tax calculation methods as required by changes in applicable law. The Company is not liable for any errors in tax calculation resulting from changes in law that have not yet been incorporated into the Platform\'s tax systems, provided that the Company uses commercially reasonable efforts to implement such changes promptly.',
+            ],
+          },
+          {
+            id: 'sales-tax-5.7',
+            title: '5.7 Record Retention',
+            level: 'section',
+            content: [
+              'The Company maintains records of all marketplace transactions, including sales amounts, tax amounts collected, tax rates applied, product classifications, and payout amounts, for a minimum of four (4) years from the date of the transaction as required by Texas Tax Code. You may access your transaction records through your vendor dashboard for the duration of your account, and you may request copies of historical records by contacting the Company through the Platform\'s support page.',
+            ],
+          },
+        ],
+      },
+      {
+        id: 'vendor-termination',
+        title: 'ARTICLE 6 — VENDOR ACCOUNT TERMINATION',
+        level: 'article',
+        content: [],
+        subsections: [
+          {
+            id: 'vendor-termination-6.1',
+            title: '6.1 Termination by Vendor',
             level: 'section',
             content: [
               'You may terminate your vendor account at any time through your account settings or by contacting the Company through the Platform\'s support page. Active subscriptions must be separately cancelled.',
             ],
           },
           {
-            id: 'vendor-termination-5.2',
+            id: 'vendor-termination-6.2',
             title: '5.2 Termination by Company',
             level: 'section',
             content: [
@@ -233,7 +297,7 @@ export function getVendorServiceAgreement(): LegalDocument {
             ],
           },
           {
-            id: 'vendor-termination-5.3',
+            id: 'vendor-termination-6.3',
             title: '5.3 Effect of Termination',
             level: 'section',
             content: [
