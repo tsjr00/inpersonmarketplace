@@ -54,7 +54,7 @@ Even though the platform collects and remits sales tax on marketplace transactio
 
 3. **Collect tax on non-platform sales** — If you make sales outside the platform (walk-up cash sales at your booth, direct orders not placed through the app), you are responsible for collecting and remitting sales tax on those transactions yourself.
 
-4. **Keep records** — Texas law requires you to maintain sales records for a minimum of four (4) years. The platform provides sales reports and analytics in your vendor dashboard that can help with your recordkeeping.
+4. **Keep records** — You are required to maintain sales records for at least as long as applicable federal and state law requires. The platform provides sales reports and analytics in your vendor dashboard that can help with your recordkeeping.
 
 ## Using the Platform for Tax Records
 

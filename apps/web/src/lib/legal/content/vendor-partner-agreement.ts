@@ -77,25 +77,25 @@ export function getVendorPartnerAgreement(): LegalDocument {
         ],
       },
       {
-        id: 'external-payments',
-        title: 'ARTICLE 3 — EXTERNAL PAYMENT SYSTEM DISCLOSURE',
+        id: 'payment-systems',
+        title: 'ARTICLE 3 — PAYMENT SYSTEM AND TAX COMPLIANCE DISCLOSURE',
         level: 'article',
         content: [],
         subsections: [
           {
-            id: 'external-payments-3.1',
-            title: '3.1 Confidential Disclosure',
+            id: 'payment-systems-3.1',
+            title: '3.1 Payment Processing',
             level: 'section',
             content: [
-              'The following information regarding the Company\'s External Payment Facilitation System is disclosed to you as a Vendor Partner on a confidential basis and constitutes trade secret information subject to the protections set forth in Article 2:\n\n(a) System Description: The Platform enables approved vendors to offer external payment options (including cash, Venmo, Cash App, PayPal, and other direct payment methods) as alternatives to Platform-Processed Payments. Orders placed by customers are tracked through the Platform regardless of payment method, enabling integrated order management and fulfillment tracking.\n\n(b) Fee Structure: Transactions completed via External Payment Methods are subject to a reduced vendor service fee of three and one-half percent (3.5%) of the order subtotal, compared to six and one-half percent (6.5%) for Platform-Processed Payment transactions. This reduced rate reflects the absence of payment processing costs borne by the Platform.\n\n(c) Vendor Responsibilities: When accepting External Payments, you are responsible for: (i) collecting payment directly from the customer at the point of pickup or via the applicable external payment service; (ii) confirming receipt of payment through the Platform\'s order management system; and (iii) settling applicable vendor service fees through the Platform\'s fee collection process as they accrue on your vendor fee ledger.\n\n(d) Customer Interface: External Payment options are presented to customers through the Platform\'s checkout experience. You shall not independently advertise, promote, or solicit External Payment arrangements outside of the Platform\'s designated checkout processes.',
+              'The following information regarding the Company\'s payment processing and tax compliance systems is disclosed to you as a Vendor Partner on a confidential basis and constitutes trade secret information subject to the protections set forth in Article 2:\n\n(a) System Description: All transactions on the Platform are processed through the Platform\'s integrated payment system. Available buyer payment methods include credit and debit cards, Apple Pay, Google Pay, Cash App Pay, Amazon Pay, and Stripe Link. The Company may introduce or discontinue payment methods at its sole discretion.\n\n(b) Fee Structure: Transactions are subject to a vendor service fee of six and one-half percent (6.5%) of the order subtotal, plus a flat fee of fifteen cents ($0.15) per order prorated across order items. Current fee rates and structures are available in your vendor dashboard.\n\n(c) Marketplace Facilitator Tax Collection: The Company operates as a marketplace facilitator under applicable state law and collects and remits sales tax on marketplace transactions. Sales tax collected from buyers is withheld from vendor payouts and remitted by the Company to the applicable state tax authority. The design, implementation, and operational details of the Company\'s tax calculation, collection, and remittance systems constitute Confidential Information.',
             ],
           },
           {
-            id: 'external-payments-3.2',
-            title: '3.2 Confidentiality of External Payment System',
+            id: 'payment-systems-3.2',
+            title: '3.2 Confidentiality of Payment and Tax Systems',
             level: 'section',
             content: [
-              'The External Payment facilitation system described in Section 3.1 — including its design, implementation, fee structure, workflow, and the specific methods by which the Platform integrates external payments into its marketplace operations — constitutes a trade secret and Confidential Information of the Company. You shall not disclose the operational details of this system to any third party, competing platform, industry publication, or public forum.',
+              'The payment processing and tax compliance systems described in Section 3.1 — including their design, implementation, fee structures, tax calculation methods, workflows, and the specific methods by which the Platform processes payments and fulfills its marketplace facilitator obligations — constitute trade secrets and Confidential Information of the Company. You shall not disclose the operational details of these systems to any third party, competing platform, industry publication, or public forum.',
             ],
           },
         ],

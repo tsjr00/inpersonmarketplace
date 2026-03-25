@@ -469,8 +469,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
           </div>
         )}
 
-        {/* External Order Follow-Up — confirm pickup for external payment orders */}
-        <ExternalOrderFollowUp vertical={vertical} />
+        {/* External Order Follow-Up — hidden when external payments disabled */}
 
         {/* Rate Recent Order Card */}
         <RateOrderCard vertical={vertical} />
