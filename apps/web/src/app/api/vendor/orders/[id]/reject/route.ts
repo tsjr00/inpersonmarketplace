@@ -147,8 +147,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Process Stripe refund for vendor rejection (full refund)
+    // Use service client to read payments table (vendor RLS can't read payments)
     let stripeRefundId: string | null = null
-    const { data: payment } = await supabase
+    const { data: payment } = await rejectServiceClient
       .from('payments')
       .select('stripe_payment_intent_id, status')
       .eq('order_id', orderItem.order_id)

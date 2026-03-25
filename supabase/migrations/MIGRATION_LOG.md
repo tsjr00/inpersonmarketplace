@@ -84,6 +84,18 @@
 | 20260304_068_user_agreement_acceptances.sql | ✅ | 2026-03-04 | ✅ | 2026-03-04 | user_agreement_acceptances table for legal agreement tracking. RLS: self-select + self-insert. Applied to all 3 envs. |
 | 20260307_071_catering_help_articles.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | 6 vendor catering help articles under "For Food Truck Operators". Data only. Applied to all 3 envs. |
 | 20260307_070_corporate_catering.sql | ✅ | 2026-03-07 | ✅ | 2026-03-07 | New `catering_requests` table + columns on `markets` (catering_request_id, headcount) and `market_vendors` (response_status, response_notes, invited_at). RLS, indexes, trigger. Applied to all 3 envs. |
+| 20260325_099_update_sales_tax_help_article.sql | ✅ | 2026-03-25 | ✅ | 2026-03-25 | Rewrite sales tax help article: platform is marketplace facilitator, handles tax collection/remittance. Updated vendor responsibilities, retention language. Applied to all 3 envs. Session 63. |
+| 20260324_098_expand_fm_vendor_type_options.sql | ✅ | 2026-03-24 | ✅ | 2026-03-24 | Expand FM vendor_type options from 6 to 11 (match listing categories). Config JSONB update. Applied to all 3 envs. Session 63. |
+| 20260323_097_vendor_cover_image.sql | ✅ | 2026-03-23 | ✅ | 2026-03-23 | Add cover_image_url TEXT to vendor_profiles. Landscape photo display on vendor profile. Applied to all 3 envs. Session 63. |
+| 20260322_096_vendor_pickup_lead_minutes.sql | ✅ | 2026-03-22 | ✅ | 2026-03-22 | Add pickup_lead_minutes INTEGER DEFAULT 30 to vendor_profiles. CHECK (15 or 30). Vendor configurable prep time. Applied to all 3 envs. Session 63. |
+| 20260321_095_prod_sync_triggers_indexes_policies.sql | ✅ | 2026-03-21 | ✅ | 2026-03-21 | Comprehensive prod sync: 58 triggers, 30 indexes, 2 tables, 3 columns, 2 enum values, RLS policies. Idempotent. Applied to all 3 envs. Session 62. |
+| 20260320_094_event_vendor_listings_and_lifecycle.sql | ✅ | 2026-03-20 | ✅ | 2026-03-20 | New event_vendor_listings table. Event lifecycle statuses (ready/active/review). Migration applied to all 3 envs. Session 62. |
+| 20260320_093_auto_cancel_order_when_all_items_cancelled.sql | ✅ | 2026-03-20 | ✅ | 2026-03-20 | Auto-cancel trigger: when all order items cancelled, order status → cancelled. Safety net. Applied to all 3 envs. Session 62. |
+| 20260319_091_event_token.sql | ✅ | 2026-03-19 | ✅ | 2026-03-19 | Add event_token TEXT UNIQUE to catering_requests. Public event page access. Applied to all 3 envs. Session 61. |
+| 20260319_090_fix_tier_trigger_status_enum.sql | ✅ | 2026-03-19 | ✅ | 2026-03-19 | Fix 'active' → 'published' in enforce_listing_tier_limit(). Regression from 089. Applied to all 3 envs. Session 61. |
+| 20260319_089_unified_tier_limits.sql | ✅ | 2026-03-19 | ✅ | 2026-03-19 | Rewrite enforce_listing_tier_limit() for Free/Pro/Boss (20/50/100). CHECK constraint updated. Applied to all 3 envs. Session 61. |
+| 20260316_085b_lazy_profile_and_role_functions.sql | ✅ | 2026-03-20 | ✅ | 2026-03-20 | Lazy profile creation RPC, role migrations (verifier→regional_admin), is_platform_admin update. Applied to all 3 envs. Session 62. |
+| 20260316_085a_add_role_enum_values.sql | ✅ | 2026-03-20 | ✅ | 2026-03-20 | Add platform_admin, regional_admin to user_role enum. Applied to all 3 envs. Session 62. |
 | 20260316_084_add_vendor_tier_index.sql | ✅ | 2026-03-16 | ✅ | 2026-03-16 | Composite index on vendor_profiles(vertical_id, tier). Applied to all 3 envs. |
 | 20260314_083_coi_soft_gate.sql | ✅ | 2026-03-14 | ✅ | 2026-03-14 | Remove COI check from can_vendor_publish(). COI is soft gate for publishing, hard gate for events only (VJ-R1). Applied to all 3 envs. |
 | 20260314_082_sales_tax_help_article.sql | ✅ | 2026-03-14 | ✅ | 2026-03-14 | Sales tax help article for vendors. Data only. Applied to all 3 envs. |

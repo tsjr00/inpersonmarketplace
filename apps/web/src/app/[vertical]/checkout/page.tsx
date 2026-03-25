@@ -1056,7 +1056,7 @@ export default function CheckoutPage() {
                 {checkoutLabel}
               </button>
 
-              {/* Security messaging */}
+              {/* Payment options + security messaging */}
               <div style={{
                 marginTop: spacing.sm,
                 padding: spacing.xs,
@@ -1082,6 +1082,14 @@ export default function CheckoutPage() {
                       lineHeight: typography.leading.normal
                     }}>
                       {t('checkout.secure_desc', locale)}
+                    </p>
+                    <p style={{
+                      margin: `${spacing['2xs']} 0 0 0`,
+                      fontSize: typography.sizes.xs,
+                      color: colors.textMuted,
+                      lineHeight: typography.leading.normal,
+                    }}>
+                      {t('checkout.payment_options', locale)}
                     </p>
                   </div>
                 </div>
