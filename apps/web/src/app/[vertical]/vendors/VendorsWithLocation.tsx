@@ -11,6 +11,7 @@ import { colors, spacing, typography, radius as radiusToken } from '@/lib/design
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
 import PaymentMethodBadges from '@/components/vendor/PaymentMethodBadges'
+import { EXTERNAL_PAYMENTS_ENABLED } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 
 interface VendorMarket {
@@ -631,8 +632,8 @@ export default function VendorsWithLocation({
                 </div>
               )}
 
-              {/* Payment Methods */}
-              {vendor.paymentMethods && (
+              {/* Payment Methods — hidden when all payments go through Stripe */}
+              {EXTERNAL_PAYMENTS_ENABLED && vendor.paymentMethods && (
                 <div style={{ marginBottom: spacing.xs }}>
                   <PaymentMethodBadges
                     venmoUsername={vendor.paymentMethods.venmo}

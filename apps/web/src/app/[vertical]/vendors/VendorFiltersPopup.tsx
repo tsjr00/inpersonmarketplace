@@ -5,6 +5,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { colors, spacing, typography, radius } from '@/lib/design-tokens'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
+import { EXTERNAL_PAYMENTS_ENABLED } from '@/lib/constants'
 
 interface VendorFiltersPopupProps {
   currentMarket?: string
@@ -59,20 +60,22 @@ export default function VendorFiltersPopup({
     })
   }
 
-  // Payment method
-  groups.push({
-    label: t('vendors.payment_label', locale),
-    param: 'payment',
-    options: [
-      { value: '', label: t('vendors.all_payments', locale) },
-      { value: 'cards', label: t('vendors.cards', locale) },
-      { value: 'venmo', label: 'Venmo' },
-      { value: 'cashapp', label: 'Cash App' },
-      { value: 'paypal', label: 'PayPal' },
-      { value: 'cash', label: 'Cash' },
-    ],
-    current: currentPayment || '',
-  })
+  // Payment method filter — hidden when all payments go through Stripe
+  if (EXTERNAL_PAYMENTS_ENABLED) {
+    groups.push({
+      label: t('vendors.payment_label', locale),
+      param: 'payment',
+      options: [
+        { value: '', label: t('vendors.all_payments', locale) },
+        { value: 'cards', label: t('vendors.cards', locale) },
+        { value: 'venmo', label: 'Venmo' },
+        { value: 'cashapp', label: 'Cash App' },
+        { value: 'paypal', label: 'PayPal' },
+        { value: 'cash', label: 'Cash' },
+      ],
+      current: currentPayment || '',
+    })
+  }
 
   // Sort
   groups.push({
