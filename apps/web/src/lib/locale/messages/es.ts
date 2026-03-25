@@ -755,6 +755,7 @@ export const es: Record<string, string> = {
   'checkout.review_orders': 'Revisar y confirmar tus pedidos →',
   'checkout.secure_title': 'Tu pago es seguro',
   'checkout.secure_desc': 'Usamos Stripe, confiado por millones en todo el mundo. Tu información de pago está encriptada y nunca se almacena en nuestros servidores.',
+  'checkout.payment_options': 'Paga con tarjeta de crédito/débito, Apple Pay, Google Pay, Cash App Pay, Amazon Pay, o información de pago guardada.',
   'checkout.no_payment_methods': 'No hay métodos de pago disponibles. El vendedor puede necesitar configurar pagos antes de que se puedan realizar pedidos.',
   'checkout.failed': 'Error en el pago',
   'checkout.select_payment_method': 'Por favor selecciona un método de pago',
