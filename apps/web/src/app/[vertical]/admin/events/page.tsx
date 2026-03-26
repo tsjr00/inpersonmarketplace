@@ -17,6 +17,7 @@ interface CateringRequest {
   contact_phone: string | null
   event_type: string | null
   payment_model: string | null
+  per_meal_budget_cents: number | null
   event_date: string
   event_end_date: string | null
   event_start_time: string | null
@@ -24,6 +25,9 @@ interface CateringRequest {
   headcount: number
   expected_meal_count: number | null
   total_food_budget_cents: number | null
+  competing_food_options: string | null
+  is_ticketed: boolean
+  estimated_dwell_hours: number | null
   address: string
   city: string
   state: string
@@ -825,14 +829,19 @@ export default function AdminCateringPage() {
               {/* Viability Assessment — admin-only scoring */}
               {(() => {
                 const scoreInput: EventScoreInput = {
+                  event_type: selected.event_type,
                   payment_model: selected.payment_model,
                   total_food_budget_cents: selected.total_food_budget_cents,
+                  per_meal_budget_cents: selected.per_meal_budget_cents,
                   expected_meal_count: selected.expected_meal_count,
                   headcount: selected.headcount,
                   vendor_count: selected.vendor_count,
                   event_start_time: selected.event_start_time,
                   event_end_time: selected.event_end_time,
                   is_recurring: selected.is_recurring,
+                  is_ticketed: selected.is_ticketed || false,
+                  competing_food_options: selected.competing_food_options,
+                  estimated_dwell_hours: selected.estimated_dwell_hours,
                 }
                 const viability = calculateViability(scoreInput)
 
@@ -911,6 +920,47 @@ export default function AdminCateringPage() {
                         {viability.duration.detail}
                       </p>
                     </div>
+
+                    {/* Revenue opportunity (Products B & C only) */}
+                    {viability.revenueOpportunity && (
+                      <div style={{ marginBottom: spacing['2xs'] }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                          <span style={{
+                            display: 'inline-block',
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            backgroundColor: SCORE_COLORS[viability.revenueOpportunity.level].text,
+                          }} />
+                          <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700 }}>
+                            Revenue/Truck: {viability.revenueOpportunity.label}
+                          </span>
+                        </div>
+                        <p style={{ margin: `2px 0 0 20px`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+                          {viability.revenueOpportunity.detail}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Assumptions — show the math */}
+                    {viability.assumptions.length > 0 && (
+                      <div style={{
+                        marginTop: spacing.xs,
+                        padding: spacing.xs,
+                        backgroundColor: statusColors.neutral50,
+                        borderRadius: radius.sm,
+                        border: `1px solid ${statusColors.neutral200}`,
+                      }}>
+                        <div style={{ fontSize: 10, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
+                          ASSUMPTIONS USED:
+                        </div>
+                        {viability.assumptions.map((a, i) => (
+                          <div key={i} style={{ fontSize: 10, color: statusColors.neutral500, lineHeight: 1.5 }}>
+                            &bull; {a}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </Section>
                 )
               })()}
