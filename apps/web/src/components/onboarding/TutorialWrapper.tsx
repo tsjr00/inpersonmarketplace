@@ -6,10 +6,12 @@ import TutorialModal from './TutorialModal'
 interface TutorialWrapperProps {
   vertical: string
   mode?: 'buyer' | 'vendor'
+  /** Vendor tutorial phase: 1 = Getting Approved, 2 = Your Dashboard */
+  phase?: 1 | 2
   showTutorial: boolean
 }
 
-export default function TutorialWrapper({ vertical, mode = 'buyer', showTutorial }: TutorialWrapperProps) {
+export default function TutorialWrapper({ vertical, mode = 'buyer', phase = 1, showTutorial }: TutorialWrapperProps) {
   const [isOpen, setIsOpen] = useState(showTutorial)
 
   const apiEndpoint = mode === 'vendor' ? '/api/vendor/tutorial' : '/api/user/tutorial'
@@ -19,7 +21,7 @@ export default function TutorialWrapper({ vertical, mode = 'buyer', showTutorial
       await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'complete' })
+        body: JSON.stringify({ action: 'complete', phase })
       })
     } catch (err) {
       console.error('Failed to mark tutorial as complete:', err)
@@ -32,7 +34,7 @@ export default function TutorialWrapper({ vertical, mode = 'buyer', showTutorial
       await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'skip' })
+        body: JSON.stringify({ action: 'skip', phase })
       })
     } catch (err) {
       console.error('Failed to mark tutorial as skipped:', err)
@@ -48,6 +50,7 @@ export default function TutorialWrapper({ vertical, mode = 'buyer', showTutorial
     <TutorialModal
       vertical={vertical}
       mode={mode}
+      phase={phase}
       onComplete={handleComplete}
       onSkip={handleSkip}
     />

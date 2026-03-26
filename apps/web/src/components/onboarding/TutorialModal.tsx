@@ -13,6 +13,8 @@ interface TutorialSlide {
 interface TutorialModalProps {
   vertical: string
   mode: 'buyer' | 'vendor'
+  /** Vendor tutorial phase: 1 = Getting Approved (pre-onboarding), 2 = Your Dashboard (post-onboarding) */
+  phase?: 1 | 2
   onComplete: () => void
   onSkip: () => void
 }
@@ -56,40 +58,90 @@ function getVendorSlides(vertical: string): TutorialSlide[] {
   return [
     {
       icon: '🎉',
-      title: `Welcome, ${term(vertical, 'vendor')}!`,
-      description: `You're ready to start selling on ${term(vertical, 'display_name')}! This quick guide will show you how to set up your shop, create ${term(vertical, 'listings').toLowerCase()}, and manage orders from local customers.`
+      title: 'You\'ve Been Preliminarily Approved!',
+      description: `Great news — your application to sell on ${term(vertical, 'display_name')} has been preliminarily approved! There are a few more steps before you can publish ${term(vertical, 'listings').toLowerCase()} and start selling. This guide walks you through what's needed.`
     },
     {
-      icon: '📝',
-      title: `Create Your First ${term(vertical, 'listing')}`,
-      description: `Click "${term(vertical, 'my_listings_nav')}" then "${term(vertical, 'create_listing_cta')}" to add your first ${term(vertical, 'product').toLowerCase()}. Add a clear photo, description, pricing, and set your available inventory. You can save as draft or publish immediately.`
+      icon: '📋',
+      title: 'Verify Your Business',
+      description: 'Upload your business formation documents — such as your DBA filing, LLC articles, or sole proprietorship registration. You\'ll also need your Texas sales tax permit number. These are reviewed by our admin team.'
     },
     {
-      icon: '📍',
-      title: 'Set Your Pickup Locations',
-      description: `Go to "My ${term(vertical, 'markets')}" to connect with ${term(vertical, 'traditional_markets').toLowerCase()} where you sell, or set up a ${term(vertical, 'private_pickup').toLowerCase()} at your ${term(vertical, 'vendor_location')}. Customers will choose from your available pickup options at checkout.`
+      icon: '📜',
+      title: 'Registrations & Certifications',
+      description: 'Based on your product categories, you may need specific permits or registrations. Your onboarding checklist will show exactly what\'s required — such as a Cottage Food Registration or DSHS permit. Links to state requirements are included.'
     },
     {
-      icon: '🔔',
-      title: 'Manage Incoming Orders',
-      description: `When a customer places an order, you'll see it in "Orders" on your dashboard. Review the order details, confirm it to let the customer know you're preparing it, then mark it "Ready" when it's packed for pickup.`
+      icon: '🛡️',
+      title: 'Certificate of Insurance',
+      description: 'A Certificate of Insurance (COI) protects you and your customers. It\'s not required to start selling, but it is required if you want to participate in events. We recommend getting one as your business grows.'
     },
     {
-      icon: '📦',
-      title: 'Prepare for Pickup Day',
-      description: `On ${term(vertical, 'market_day').toLowerCase()} or your scheduled pickup time, bring the confirmed orders. Customers will come to collect their pre-paid items. Mark orders as "Picked Up" once the customer has them.`
+      icon: '🏦',
+      title: 'Connect Your Bank Account',
+      description: 'Set up Stripe Connect to receive payments. Customers can pay with credit/debit cards, Apple Pay, Google Pay, Cash App, and more — all payments are deposited to your one bank account. Setup takes about 5 minutes.'
     },
     {
-      icon: '📊',
-      title: 'Track Your Performance',
-      description: 'Visit "Analytics" to see your sales trends, top-selling products, and customer insights. Use this data to understand what\'s working and grow your business on the platform.'
+      icon: '🚀',
+      title: 'What Happens Next',
+      description: `Complete these steps in your onboarding checklist on the dashboard. Once your documents are reviewed and approved, you'll be able to publish ${term(vertical, 'listings').toLowerCase()} and start selling to customers in your area!`
     }
   ]
 }
 
-export default function TutorialModal({ vertical, mode, onComplete, onSkip }: TutorialModalProps) {
+function getVendorDashboardSlides(vertical: string): TutorialSlide[] {
+  const isFoodTruck = vertical === 'food_trucks'
+
+  return [
+    {
+      icon: '🎉',
+      title: 'You\'re Fully Approved!',
+      description: `Congratulations — your account is fully approved and you're ready to sell on ${term(vertical, 'display_name')}! Before you jump in, let's walk through how the system works so your customers can find you, place orders, and pay you.`
+    },
+    {
+      icon: '🔗',
+      title: 'How Pre-Orders Work',
+      description: `${term(vertical, 'display_name')} is a pre-order marketplace. For a customer to purchase from you, three things must be connected: a location (where they pick it up), a schedule (when it's available), and a ${term(vertical, 'listing').toLowerCase()} (what you're selling). Let's walk through each one.`
+    },
+    {
+      icon: '📍',
+      title: 'Add Your Locations',
+      description: `Start by adding the places where customers pick up orders — a ${isFoodTruck ? 'food truck stop' : 'market'} you attend, or a private pickup at your ${isFoodTruck ? 'kitchen' : 'farm'}. Each location needs an address so customers can find you. Your plan includes multiple locations, and you can upgrade anytime if you need more.`
+    },
+    {
+      icon: '🕐',
+      title: 'Set Your Schedule',
+      description: isFoodTruck
+        ? 'For each location, set the hours you\'re open. Your schedule determines when customers can place orders AND when they can pick up. If you\'re open 11am\u20132pm, customers choose a pickup time within those hours. When you\'re closed, your menu is unavailable for new orders \u2014 but customers can still browse and see what\'s available when you\'re open again. For event-approved vendors, catering orders are also available and can come in multiple days in advance.'
+        : 'Each market has set hours that customers see. Orders automatically close 18 hours before market time (or 10 hours for private pickups) \u2014 giving you time to prepare without scrambling at the last minute to fill surprise orders. Customers place orders before the cutoff, then pick up during your scheduled hours.'
+    },
+    {
+      icon: '📝',
+      title: `Create Your ${term(vertical, 'listings')}`,
+      description: `Now that your locations and schedules are set, create your ${term(vertical, 'listings').toLowerCase()}. Each ${isFoodTruck ? 'menu item' : 'product'} gets a photo, description, price, and inventory count. Connect each ${term(vertical, 'listing').toLowerCase()} to the locations where you sell it \u2014 one location or many. You can also choose to sell certain items only at certain locations. This flexibility lets you tailor what's available at each spot.`
+    },
+    {
+      icon: '💰',
+      title: 'Get Paid with Stripe',
+      description: 'Stripe Connect is how you receive payments. Customers can pay with cards, Apple Pay, Google Pay, Cash App, and more \u2014 all deposited to your one bank account. Without Stripe connected, customers can\'t check out. This is the final piece that makes everything work.'
+    },
+    {
+      icon: '🚀',
+      title: 'Let\'s Go!',
+      description: `To recap: add your locations, set your schedules, create ${term(vertical, 'listings').toLowerCase()} and connect them, and connect Stripe. Once these pieces are in place, customers in your area can find your ${term(vertical, 'products').toLowerCase()}, place pre-orders, and pay \u2014 no more chasing payments or juggling social media updates. Orders appear on your dashboard ready to fulfill.`
+    }
+  ]
+}
+
+export default function TutorialModal({ vertical, mode, phase = 1, onComplete, onSkip }: TutorialModalProps) {
   const [currentSlide, setCurrentSlide] = useState(0)
-  const slides = mode === 'vendor' ? getVendorSlides(vertical) : getBuyerSlides(vertical)
+
+  const getSlides = () => {
+    if (mode === 'buyer') return getBuyerSlides(vertical)
+    if (phase === 2) return getVendorDashboardSlides(vertical)
+    return getVendorSlides(vertical)
+  }
+  const slides = getSlides()
 
   const isLastSlide = currentSlide === slides.length - 1
   const isFirstSlide = currentSlide === 0
@@ -171,7 +223,7 @@ export default function TutorialModal({ vertical, mode, onComplete, onSkip }: Tu
               fontSize: typography.sizes.xs,
               color: colors.textMuted
             }}>
-              Vendor Guide
+              {phase === 2 ? 'Your Dashboard' : 'Getting Approved'}
             </span>
           )}
         </div>

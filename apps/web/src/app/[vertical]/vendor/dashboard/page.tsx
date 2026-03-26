@@ -46,7 +46,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       .single(),
     supabase
       .from('user_profiles')
-      .select('display_name, email, vendor_tutorial_completed_at, vendor_tutorial_skipped_at')
+      .select('display_name, email, vendor_tutorial_completed_at, vendor_tutorial_skipped_at, notification_preferences')
       .eq('user_id', user.id)
       .single()
   ])
@@ -59,9 +59,18 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     redirect(`/${vertical}/vendor-signup`)
   }
 
-  // Check if vendor tutorial should be shown
-  const hasSeenVendorTutorial = !!(userProfile?.vendor_tutorial_completed_at || userProfile?.vendor_tutorial_skipped_at)
-  const showVendorTutorial = !hasSeenVendorTutorial
+  // Check which vendor tutorial to show
+  // Phase 1 ("Getting Approved"): shows pre-onboarding, tracked via dedicated columns
+  // Phase 2 ("Your Dashboard"): shows post-onboarding, tracked via notification_preferences JSONB
+  const hasSeenTutorial1 = !!(userProfile?.vendor_tutorial_completed_at || userProfile?.vendor_tutorial_skipped_at)
+  const notifPrefs = (userProfile?.notification_preferences || {}) as Record<string, unknown>
+  const hasSeenTutorial2 = !!(notifPrefs.dashboard_tutorial_completed_at || notifPrefs.dashboard_tutorial_skipped_at)
+  const isFullyOnboarded = vendorProfile.status === 'approved' && !!vendorProfile.stripe_payouts_enabled
+
+  // Priority: Tutorial 1 first, then Tutorial 2 after onboarding complete
+  const showTutorial1 = !hasSeenTutorial1
+  const showTutorial2 = hasSeenTutorial1 && isFullyOnboarded && !hasSeenTutorial2
+  const tutorialPhase: 1 | 2 = showTutorial1 ? 1 : 2
 
   // Parse profile_data JSON
   const profileData = vendorProfile.profile_data as Record<string, unknown>
@@ -1003,8 +1012,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         }
       `}</style>
 
-      {/* Vendor Onboarding Tutorial */}
-      <TutorialWrapper vertical={vertical} mode="vendor" showTutorial={showVendorTutorial} />
+      {/* Vendor Tutorials: Phase 1 (Getting Approved) or Phase 2 (Your Dashboard) */}
+      <TutorialWrapper vertical={vertical} mode="vendor" phase={tutorialPhase} showTutorial={showTutorial1 || showTutorial2} />
     </div>
   )
 }

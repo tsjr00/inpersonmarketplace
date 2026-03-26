@@ -10,6 +10,9 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  *
  * Body:
  * - action: 'complete' | 'skip'
+ * - phase: 1 | 2 (default 1)
+ *   Phase 1: "Getting Approved" (pre-onboarding) — stored in vendor_tutorial_completed/skipped_at
+ *   Phase 2: "Your Dashboard" (post-onboarding) — stored in notification_preferences JSONB
  */
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/tutorial', 'POST', async () => {
@@ -26,31 +29,58 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { action } = body
+    const { action, phase = 1 } = body
 
     if (!action || !['complete', 'skip'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action. Must be "complete" or "skip"' }, { status: 400 })
     }
 
     try {
-      const updateData = action === 'complete'
-        ? { vendor_tutorial_completed_at: new Date().toISOString() }
-        : { vendor_tutorial_skipped_at: new Date().toISOString() }
+      if (phase === 2) {
+        // Phase 2: store in notification_preferences JSONB (no migration needed)
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('notification_preferences')
+          .eq('user_id', user.id)
+          .single()
 
-      const { error } = await supabase
-        .from('user_profiles')
-        .update(updateData)
-        .eq('user_id', user.id)
+        const prefs = (profile?.notification_preferences || {}) as Record<string, unknown>
+        const key = action === 'complete' ? 'dashboard_tutorial_completed_at' : 'dashboard_tutorial_skipped_at'
+        prefs[key] = new Date().toISOString()
 
-      if (error) {
-        console.error('[VENDOR-TUTORIAL] Error updating tutorial status:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ notification_preferences: prefs })
+          .eq('user_id', user.id)
+
+        if (error) {
+          console.error('[VENDOR-TUTORIAL] Error updating phase 2 status:', error)
+          return NextResponse.json({ error: error.message }, { status: 500 })
+        }
+      } else {
+        // Phase 1: store in dedicated columns (existing behavior)
+        const updateData = action === 'complete'
+          ? { vendor_tutorial_completed_at: new Date().toISOString() }
+          : { vendor_tutorial_skipped_at: new Date().toISOString() }
+
+        const { error } = await supabase
+          .from('user_profiles')
+          .update(updateData)
+          .eq('user_id', user.id)
+
+        if (error) {
+          console.error('[VENDOR-TUTORIAL] Error updating phase 1 status:', error)
+          return NextResponse.json({ error: error.message }, { status: 500 })
+        }
       }
 
       return NextResponse.json({
         success: true,
         action,
-        message: action === 'complete' ? 'Vendor tutorial completed!' : 'Vendor tutorial skipped'
+        phase,
+        message: action === 'complete'
+          ? `Vendor tutorial phase ${phase} completed!`
+          : `Vendor tutorial phase ${phase} skipped`
       })
 
     } catch (error) {

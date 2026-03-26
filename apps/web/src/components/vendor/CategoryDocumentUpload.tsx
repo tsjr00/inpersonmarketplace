@@ -110,6 +110,19 @@ export default function CategoryDocumentUpload({ category, verification, onUploa
             marginTop: spacing['3xs'],
           }}>
             {requirement.description}
+            {requirement.referenceUrl && (
+              <>
+                {' '}
+                <a
+                  href={requirement.referenceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: colors.primary, textDecoration: 'underline' }}
+                >
+                  View state requirements
+                </a>
+              </>
+            )}
             <div style={{ marginTop: spacing['3xs'], fontStyle: 'italic', color: colors.textMuted }}>
               {JURISDICTION_DISCLAIMER}
             </div>
