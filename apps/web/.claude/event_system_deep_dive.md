@@ -647,3 +647,233 @@ New notification type: `event_confirmed`
 - Recurring event auto-scheduling (field collected but automation deferred)
 - Settlement email trigger to vendors on completion
 - Event page expiry/deactivation after 7 days
+
+---
+
+## Part 13: Refined Product Type Analysis (Session 63+)
+
+**Created:** 2026-03-26
+**Status:** Strategic planning — guides form, scoring, and admin UI decisions
+
+### 13.1 Product A: Company-Paid Events — Refined
+
+**Control level:** Total — organizer mandates pre-ordering, assigns time slots.
+
+**Budget entry (form):**
+- Offer BOTH fields: "Total food budget" and "Per-meal budget"
+- Once one is populated, the other auto-calculates and greys out
+- `per_meal = total / expected_meal_count` or `total = per_meal × expected_meal_count`
+- Event organizer enters whichever they've planned around
+
+**Wave duration flexibility:**
+- Default to 30-minute waves
+- BUT if all confirmed trucks have 15-minute lead time (`pickup_lead_minutes = 15`), waves can shrink to 15 minutes
+- 15-minute lead time = higher event scoring weight (faster service = better event experience)
+- Admin sees: "All confirmed vendors support 15-min service → 15-min waves recommended (feeds 2× faster)"
+- Admin has final approval on wave duration
+
+**Show the math — always:**
+- Every recommendation to admin includes the calculation behind it
+- "10 waves = 5hr event ÷ 30min per wave"
+- "3 trucks needed = 150 meals ÷ (25 throughput × 2 waves per truck per hour)"
+- Admin can then adjust: "I know this venue is tight, 2 trucks max" → recalculate
+
+**Revenue:** $75/truck + standard transaction fees. Highest margin, most predictable.
+
+### 13.2 Product B: Employee-Paid Events — Refined
+
+**Control level:** Moderate — organizer can encourage but not mandate.
+
+**Critical new data points:**
+- Competing food options on site (cafeteria, nearby restaurants, other catering)
+- Per-meal target price from organizer (what they expect employees to spend)
+- Time context matters: lunch hour = 60-80% buyer rate, afternoon = 30-50%
+
+**Organizer promotion support (future build):**
+- Templated marketing materials the organizer can distribute:
+  - **Breakroom flyer:** truck names, cuisine types, QR code to event page
+  - **Email template:** "Skip the line — pre-order your lunch" with event link
+- Key messaging: "Pre-order and skip the line. More time with your team, less time waiting."
+- We provide these to the organizer as part of the service
+
+**Incentive model (theoretical — document now, build later):**
+- Set a per-truck revenue target (e.g., $500)
+- If trucks hit that threshold, platform discounts the $75/truck fee to the organizer by 5% increments
+- Incentivizes organizer to promote → more orders → trucks earn more → platform earns more
+- Network effect: organizer sees direct financial benefit from promoting engagement
+- Example: target $500/truck → truck makes $600 → organizer's $75 fee drops to $71.25 (5% off)
+
+**Anonymized vendor presentation to organizer:**
+- When presenting truck options, do NOT show truck names
+- Show: "Truck A — Mexican cuisine, avg $12/meal, 15-min service, 4.8★ rating"
+- Organizer selects preferred trucks from anonymized list
+- Admin curates which trucks make the list; organizer makes final choice from that curated set
+- Truck identity revealed only after both sides confirm
+- Prevents organizer from going around the platform
+
+**Per-meal target matching:**
+- Organizer sets target: "$15/meal"
+- System matches against vendor average pricing from their listings
+- Show admin: "Truck A avg $12, Truck B avg $16, Truck C avg $14"
+- Admin curates: includes A and C, excludes B (over budget), presents to organizer
+- Organizer sees: "Option 1: Mexican, ~$12/meal, 15-min service" / "Option 2: BBQ, ~$14/meal, 30-min service"
+
+**Higher per-truck fee for Product B:**
+- Risk is higher (low turnout = trucks lose money)
+- Consider $100/truck instead of $75 to account for uncertainty
+- Or: $75 base + guaranteed minimum order threshold (if < X orders, organizer pays difference)
+- Decision deferred — document as option
+
+**Post-event vendor feedback (build into workflow):**
+- After event, ask each vendor:
+  - "How accurate was our volume estimate?" (1-5)
+  - "How was the crowd engagement?" (1-5)
+  - "Would you do an event with this organizer again?" (yes/no)
+  - "Any notes for our admin?"
+- Feeds back into organizer reputation score for future events
+- Helps platform improve estimation accuracy over time
+
+### 13.3 Product C: Crowd Events — Refined
+
+**Control level:** None — public event, random attendance.
+
+**Key distinction: foot traffic ≠ headcount:**
+- Reframe "headcount" as "expected visitors" for crowd events
+- Buy rate: 10-30% for public events (much lower than corporate)
+- Dwell time matters: longer stay = more likely to see trucks and buy
+
+**Ticketed vs non-ticketed (new scoring factor):**
+- **Ticketed events score HIGHER** because:
+  - Access to attendee inbox (ticket confirmation email = pre-order promotion opportunity)
+  - Welcome packet can include our branding and QR code
+  - Known attendee count (more predictable than "expected foot traffic")
+  - Organizer has a communication channel to every attendee
+- **Non-ticketed:** rely on organizer's general marketing + day-of signage
+
+**Promotion requirements for organizer:**
+- Platform provides marketing copy + QR codes for event page
+- Copy emphasizes: "Pre-order food, skip the line, enjoy more of the event"
+- For crowd events: REQUEST (or require) that organizer includes our materials in their event marketing
+- Key: do NOT list truck names in general marketing — list cuisine types + "pre-order to skip the line"
+- Prevents attendees from contacting trucks directly
+
+**Event schedule analysis (admin value-add):**
+- Organizer shares event schedule (uploaded PDF/image or described in notes)
+- Admin identifies meal break opportunities: "3-hour gap at 12-2pm → prime lunch window"
+- Admin can suggest to organizer: "Announce lunch break at noon, direct crowd to truck area"
+- Even without waves, timing guidance increases order concentration and truck efficiency
+- System does NOT need to parse the schedule — admin reads it and makes strategic recommendations
+
+**"Is this worth it?" threshold for vendors:**
+- Estimated revenue per truck < $300 → flag as "low revenue opportunity — visibility/marketing event"
+- $300-600 → "moderate opportunity"
+- $600+ → "strong opportunity"
+- This helps admin communicate honestly with vendors about what to expect
+
+**Pre-order promotion at crowd events:**
+- QR codes on signage at the event: "Skip the line — scan to pre-order"
+- If event has a schedule, align truck availability with break times
+- Highlight on event page: "Pre-orders close 30 minutes before your pickup time"
+- Even 20-30% pre-order rate at a crowd event is a win for trucks (reduces line chaos)
+
+### 13.4 Cross-Product Insights
+
+**Marketing as a platform service:**
+Every event type benefits from organizer promotion. The platform should provide:
+1. Breakroom flyer template (Product B)
+2. Email template for staff/attendees (Product A, B)
+3. QR code + pre-order messaging for event marketing (Product C)
+4. Ticket insert / welcome packet copy (Product C — ticketed)
+
+These are NOT in-app features yet. They're PDF/image templates the admin emails to the organizer. Future: auto-generate from event details.
+
+**Anonymized vendor selection (Products A, B):**
+- Admin curates a shortlist of qualified vendors
+- Presents to organizer as anonymized options with key stats
+- Organizer selects preferences
+- Admin finalizes and invites selected vendors
+- This protects vendor identity AND gives organizer meaningful choice
+
+**Post-event feedback loop:**
+- Organizer rates the platform's service (separate from vendor ratings)
+- Vendors rate the event accuracy and crowd quality
+- Both feed into future scoring: reliable organizers and reliable vendors get matched together
+
+### 13.5 Form & Scoring Implications (Implementation)
+
+**Form changes needed (migration 101):**
+- Add `per_meal_budget_cents` (INTEGER, nullable) — alternative to total budget
+- Add `competing_food_options` (TEXT, nullable) — "Are there other food options at the venue?"
+- Add `is_ticketed` (BOOLEAN DEFAULT false) — ticketed events score higher
+- Add `estimated_dwell_hours` (NUMERIC, nullable) — how long do attendees typically stay?
+- Reframe headcount label dynamically: "Number of employees" (A/B) vs "Expected visitors" (C)
+
+**Viability scoring v2:**
+- Event-type-aware: apply different models per product type
+- Wave math only for Product A (and optionally B)
+- Product C uses foot_traffic × buy_rate model
+- Incorporate vendor lead time (15 vs 30 min) into wave duration
+- Show ALL assumptions and math to admin
+- Display ranges, not single numbers
+- Ticketed event bonus in scoring
+
+**Admin workflow additions:**
+- Anonymized vendor presentation view (for organizer communication)
+- Per-meal price matching against vendor listing averages
+- Post-event feedback collection from vendors
+- Marketing material templates (Phase 2)
+
+### 13.6 Priority Sequence (Impact-Ranked)
+
+**DONE (this session):**
+1. [x] Event-type-aware viability scoring (3 models: company_paid, attendee_paid, crowd)
+2. [x] Dual budget fields (total OR per-meal, auto-calculate, grey-out logic)
+3. [x] Show math/assumptions explicitly in admin UI
+4. [x] Competing food, ticketed event, dwell time fields on form + API + DB
+5. [x] Revenue opportunity per truck (Products B & C)
+6. [x] Ticketed event scoring bonus
+
+**HIGH IMPACT — Next session:**
+7. [ ] **Anonymized vendor presentation for organizer** — Admin curates shortlist, presents to organizer as "Truck A: Mexican, ~$12/meal, 15-min service" without truck names. Organizer selects preferences. Prevents platform bypass. This is the #1 differentiator for our event service.
+8. [ ] **Per-meal price matching against vendor listings** — Calculate vendor average menu price from published listings. Compare against organizer's per-meal target. Show in admin UI for vendor selection decisions.
+9. [ ] **Wave duration flexibility** — If all confirmed vendors have 15-min lead time, recommend 15-min waves. Show throughput improvement to admin: "15-min waves = 2× faster service." Already scored in vendor matching (lead_time_advantage flag).
+
+**MEDIUM IMPACT — Following sessions:**
+10. [ ] **Post-event vendor feedback collection** — After event, survey each vendor: estimate accuracy (1-5), crowd engagement (1-5), would-you-do-this-again (yes/no), notes. Feeds into organizer reputation + platform accuracy improvement.
+11. [ ] **Marketing material templates** — Breakroom flyer, email template, QR code for event page. Provided by admin to organizer. Key messaging: "Pre-order and skip the line." For crowd events: require organizer to include our materials in their marketing.
+12. [ ] **Event schedule analysis** — Admin reviews organizer's event schedule (uploaded PDF/notes), identifies meal break opportunities, suggests timing to drive truck traffic. Not automated — admin reads and strategizes.
+
+**LOWER IMPACT — Phase 2+:**
+13. [ ] **Incentive discount model** — Discount $75/truck fee by 5% increments when trucks hit revenue targets. Incentivizes organizer promotion. Theoretical — design now, build later.
+14. [ ] **Organizer reputation scoring** — Track success metrics across events. Repeat organizers with good ratings get priority matching. Unreliable organizers get flagged.
+15. [ ] **Corporate account dashboard** — Login-based organizer portal for companies with 3+ events/year. Event history, favorites, simplified rebooking.
+
+### 13.7 Vendor Communication Strategy (for admin reference)
+
+**What to share with vendors when inviting them to events:**
+
+| Data Point | Share? | Why |
+|---|---|---|
+| Event date, time, general area | Yes | Need to check availability |
+| Headcount per vendor estimate | Yes | Need to plan prep quantities |
+| Cuisine preferences | Yes | Confirms they're a fit |
+| Budget tier ($$, $$$) | Yes | General guidance, not exact $ |
+| Payment model | Yes | Affects their checkout expectations |
+| Company name | No (until accepted) | Prevent direct solicitation |
+| Exact address | No (until accepted) | Prevent drive-by solicitation |
+| Contact details | Never | Platform handles all communication |
+| Other invited/accepted vendors | No | Prevent competitive pressure |
+| Per-meal exact dollar amount | No | Use "budget tier" instead |
+
+**What to share with organizer when presenting vendor options:**
+
+| Data Point | Share? | Format |
+|---|---|---|
+| Truck name | No | "Option A", "Option B" |
+| Cuisine type | Yes | "Mexican", "BBQ", etc. |
+| Avg per-meal price | Yes | "$12-14 range" |
+| Service speed | Yes | "15-min service" or "30-min service" |
+| Platform rating | Yes | "4.8★ from 45 reviews" |
+| Event experience | Yes | "Experienced" or "New to events" |
+| Capacity fit | Yes | "Can handle your headcount" |
+| Vehicle details | No | Not relevant to organizer |

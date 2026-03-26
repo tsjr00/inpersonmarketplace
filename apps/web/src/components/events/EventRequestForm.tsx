@@ -25,6 +25,10 @@ interface FormData {
   headcount: string
   expected_meal_count: string
   total_food_budget: string
+  per_meal_budget: string
+  competing_food_options: string
+  is_ticketed: boolean
+  estimated_dwell_hours: string
   address: string
   city: string
   state: string
@@ -125,6 +129,10 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     headcount: '',
     expected_meal_count: '',
     total_food_budget: '',
+    per_meal_budget: '',
+    competing_food_options: '',
+    is_ticketed: false,
+    estimated_dwell_hours: '',
     address: '',
     city: '',
     state: '',
@@ -201,6 +209,10 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           headcount: form.headcount,
           expected_meal_count: form.expected_meal_count ? parseInt(form.expected_meal_count) : null,
           total_food_budget_cents: form.total_food_budget ? Math.round(parseFloat(form.total_food_budget) * 100) : null,
+          per_meal_budget_cents: form.per_meal_budget ? Math.round(parseFloat(form.per_meal_budget) * 100) : null,
+          competing_food_options: form.competing_food_options.trim() || null,
+          is_ticketed: form.is_ticketed,
+          estimated_dwell_hours: form.estimated_dwell_hours ? parseFloat(form.estimated_dwell_hours) : null,
           address: form.address.trim(),
           city: form.city.trim(),
           state: form.state.trim(),
@@ -366,20 +378,44 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
             </div>
           </div>
           {/* Budget — only for company_paid or hybrid */}
+          {/* Budget — only for company_paid or hybrid. Dual fields: enter one, the other auto-calculates */}
           {(form.payment_model === 'company_paid' || form.payment_model === 'hybrid') && (
             <div>
-              <label style={labelStyle}>Total food budget ($)</label>
-              <input
-                type="number"
-                placeholder="e.g., 2500"
-                min="0"
-                step="0.01"
-                value={form.total_food_budget}
-                onChange={(e) => updateField('total_food_budget', e.target.value)}
-                style={inputStyle}
-              />
+              <label style={labelStyle}>Food budget (enter either total or per-meal)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+                <div>
+                  <input
+                    type="number"
+                    placeholder="Total budget (e.g., 2500)"
+                    min="0"
+                    step="0.01"
+                    value={form.total_food_budget}
+                    disabled={!!form.per_meal_budget}
+                    onChange={(e) => setForm(prev => ({ ...prev, total_food_budget: e.target.value, per_meal_budget: '' }))}
+                    style={{ ...inputStyle, opacity: form.per_meal_budget ? 0.5 : 1 }}
+                  />
+                  <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: 10, color: statusColors.neutral400 }}>
+                    Total food budget ($)
+                  </p>
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    placeholder="Per meal (e.g., 15)"
+                    min="0"
+                    step="0.01"
+                    value={form.per_meal_budget}
+                    disabled={!!form.total_food_budget}
+                    onChange={(e) => setForm(prev => ({ ...prev, per_meal_budget: e.target.value, total_food_budget: '' }))}
+                    style={{ ...inputStyle, opacity: form.total_food_budget ? 0.5 : 1 }}
+                  />
+                  <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: 10, color: statusColors.neutral400 }}>
+                    Per-meal budget ($)
+                  </p>
+                </div>
+              </div>
               <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
-                Helps us recommend the right number of vendors for your budget
+                Helps us match vendors that fit your budget
               </p>
             </div>
           )}
@@ -620,6 +656,44 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
               </label>
             </div>
           </div>
+          <div>
+            <label style={labelStyle}>Are there other food options at the venue?</label>
+            <input
+              type="text"
+              placeholder="e.g., cafeteria, nearby restaurants, other catering"
+              value={form.competing_food_options}
+              onChange={(e) => updateField('competing_food_options', e.target.value)}
+              style={inputStyle}
+            />
+            <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+              Helps us estimate how many people are likely to order
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={form.is_ticketed}
+                onChange={(e) => setForm(prev => ({ ...prev, is_ticketed: e.target.checked }))}
+              />
+              This is a ticketed event
+            </label>
+          </div>
+          {(form.event_type === 'grand_opening' || form.event_type === 'festival') && (
+            <div>
+              <label style={labelStyle}>How long do attendees typically stay? (hours)</label>
+              <input
+                type="number"
+                placeholder="e.g., 3"
+                min="0.5"
+                max="24"
+                step="0.5"
+                value={form.estimated_dwell_hours}
+                onChange={(e) => updateField('estimated_dwell_hours', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          )}
           <div>
             <label style={labelStyle}>Additional budget or pricing notes</label>
             <input
