@@ -254,3 +254,51 @@ export const FOOD_TRUCK_PROHIBITED_ITEMS = [
 export function getVerticalProhibitedItems(vertical: string) {
   return vertical === 'food_trucks' ? FOOD_TRUCK_PROHIBITED_ITEMS : PROHIBITED_ITEMS
 }
+
+// ============================================================
+// Badge Configuration — Unified Documents & Certifications
+// ============================================================
+
+export interface BadgeConfig {
+  icon: string
+  label: string
+  color: string
+  bg: string
+}
+
+/** Badge configs for FM gate document types (shown on vendor profile when approved) */
+export const FM_DOC_BADGES: Partial<Record<DocType, BadgeConfig>> = {
+  cottage_food_ack: { icon: '🏠', label: 'Cottage Food', color: '#d97706', bg: '#fef3c7' },
+  dshs_temp_food_permit: { icon: '✓', label: 'Health Dept Approved', color: '#059669', bg: '#d1fae5' },
+  processing_facility_compliance: { icon: '✓', label: 'Processing Compliant', color: '#0284c7', bg: '#dbeafe' },
+}
+
+/** Badge configs for FT permit types (shown on vendor profile when approved) */
+export const FT_PERMIT_BADGES: Record<FoodTruckDocType, BadgeConfig> = {
+  mfu_permit: { icon: '🚚', label: 'Licensed Mobile Food Unit', color: '#d97706', bg: '#fef3c7' },
+  cfm_certificate: { icon: '👨‍🍳', label: 'Certified Food Manager', color: '#059669', bg: '#d1fae5' },
+  food_handler_card: { icon: '🍴', label: 'Food Safety Trained', color: '#0284c7', bg: '#dbeafe' },
+  fire_safety_certificate: { icon: '🔥', label: 'Fire Safety Certified', color: '#dc2626', bg: '#fee2e2' },
+  commissary_agreement: { icon: '🏪', label: 'Commissary Approved', color: '#7c3aed', bg: '#ede9fe' },
+}
+
+/** Badge configs for voluntary certifications (from vendor_profiles.certifications) */
+export const VOLUNTARY_CERT_BADGES: Record<string, BadgeConfig> = {
+  cottage_goods: { icon: '🏠', label: 'Cottage Food', color: '#d97706', bg: '#fef3c7' },
+  organic: { icon: '🌱', label: 'Certified Organic', color: '#059669', bg: '#d1fae5' },
+  regenerative: { icon: '♻️', label: 'Regenerative', color: '#0284c7', bg: '#dbeafe' },
+  gap_certified: { icon: '✓', label: 'GAP Certified', color: '#7c3aed', bg: '#ede9fe' },
+  other: { icon: '📜', label: 'Certified', color: '#6b7280', bg: '#f3f4f6' },
+}
+
+/** COI badge — separate because COI is Gate 3 (soft gate) */
+export const COI_BADGE: BadgeConfig = { icon: '🛡️', label: 'Insured', color: '#059669', bg: '#d1fae5' }
+
+/**
+ * Maps gate doc types to equivalent voluntary cert types for deduplication.
+ * On the public profile, if a vendor has both cottage_food_ack (gate approved)
+ * and cottage_goods (voluntary cert), show only one badge.
+ */
+export const GATE_TO_CERT_EQUIV: Record<string, string> = {
+  cottage_food_ack: 'cottage_goods',
+}

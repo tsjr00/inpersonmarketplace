@@ -6,7 +6,8 @@ import { enforceVerticalAccess } from '@/lib/auth/vertical-gate'
 import EditProfileForm from './EditProfileForm'
 import ProfileImageUpload from '@/components/vendor/ProfileImageUpload'
 import ProfileEditForm from '@/components/vendor/ProfileEditForm'
-import CertificationsForm, { Certification } from '@/components/vendor/CertificationsForm'
+import { type Certification } from '@/components/vendor/CertificationsForm'
+import DocumentsCertificationsSection from '@/components/vendor/DocumentsCertificationsSection'
 import EventReadinessForm from './EventReadinessForm'
 import PickupLeadTimeForm from '@/components/vendor/PickupLeadTimeForm'
 import CoverImageUpload from '@/components/vendor/CoverImageUpload'
@@ -147,10 +148,11 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         </div>
       )}
 
-      {/* Certifications Section */}
+      {/* Unified Documents & Certifications Section */}
       <div style={{ marginTop: 20 }}>
-        <CertificationsForm
+        <DocumentsCertificationsSection
           vendorId={vendorProfile.id}
+          vertical={vertical}
           currentCertifications={(vendorProfile.certifications as Certification[]) || []}
         />
       </div>

@@ -17,6 +17,15 @@ import { colors } from '@/lib/design-tokens'
 import { getLocale } from '@/lib/locale/server'
 import { t } from '@/lib/locale/messages'
 import type { Metadata } from 'next'
+import {
+  FM_DOC_BADGES,
+  FT_PERMIT_BADGES,
+  COI_BADGE,
+  VOLUNTARY_CERT_BADGES,
+  type BadgeConfig,
+  type DocType,
+  type FoodTruckDocType,
+} from '@/lib/onboarding/category-requirements'
 
 interface VendorProfilePageProps {
   params: Promise<{ vertical: string; vendorId: string }>
@@ -152,6 +161,44 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     state: string
     verified?: boolean
   }[]) || []
+
+  // Get approved gate doc badges for this vendor's public profile
+  const badgeServiceClient = createServiceClient()
+  const { data: verificationData } = await badgeServiceClient
+    .from('vendor_verifications')
+    .select('category_verifications, coi_status')
+    .eq('vendor_profile_id', vendorId)
+    .maybeSingle()
+
+  const gateDocBadges: BadgeConfig[] = []
+  if (verificationData?.category_verifications) {
+    const catVer = verificationData.category_verifications as Record<string, { status: string; doc_type?: string }>
+    const seenLabels = new Set<string>()
+
+    for (const [key, val] of Object.entries(catVer)) {
+      if (val.status !== 'approved') continue
+
+      let badge: BadgeConfig | null = null
+      if (vertical === 'food_trucks') {
+        badge = FT_PERMIT_BADGES[key as FoodTruckDocType] || null
+      } else {
+        const docType = val.doc_type
+        if (docType) {
+          badge = (FM_DOC_BADGES as Record<string, BadgeConfig>)[docType] || null
+        }
+      }
+
+      if (badge && !seenLabels.has(badge.label)) {
+        seenLabels.add(badge.label)
+        gateDocBadges.push(badge)
+      }
+    }
+  }
+
+  // Add COI badge if approved
+  if (verificationData?.coi_status === 'approved') {
+    gateDocBadges.push(COI_BADGE)
+  }
 
   // Certification badge styling by type
   const certificationStyles: Record<string, { color: string; bg: string; icon: string }> = {
@@ -1453,17 +1500,27 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
             </div>
           )}
 
-          {/* Certifications */}
-          {certifications.length > 0 && (
+          {/* Certifications & Approved Document Badges */}
+          {(gateDocBadges.length > 0 || certifications.length > 0) && (
             <div style={{ paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
               <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
                 {t('vp.registrations', locale)}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {/* Gate doc badges (approved permits/certifications) */}
+                {gateDocBadges.map((badge, index) => (
+                  <div key={`gate-${index}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                    <span style={{ fontSize: 14 }}>{badge.icon}</span>
+                    <span style={{ color: badge.color, fontWeight: 600 }}>{badge.label}</span>
+                  </div>
+                ))}
+                {/* Voluntary certifications (deduplicated against gate doc badges) */}
                 {certifications.map((cert, index) => {
+                  const certBadge = VOLUNTARY_CERT_BADGES[cert.type]
+                  if (certBadge && gateDocBadges.some(g => g.label === certBadge.label)) return null
                   const style = certificationStyles[cert.type] || certificationStyles.other
                   return (
-                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                    <div key={`cert-${index}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                       <span style={{ fontSize: 14 }}>{style.icon}</span>
                       <span style={{ color: style.color, fontWeight: 600 }}>{cert.label}</span>
                       <span style={{ color: '#6b7280' }}>#{cert.registration_number}</span>
