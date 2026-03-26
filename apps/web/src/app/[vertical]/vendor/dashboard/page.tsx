@@ -65,11 +65,44 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   const hasSeenTutorial1 = !!(userProfile?.vendor_tutorial_completed_at || userProfile?.vendor_tutorial_skipped_at)
   const notifPrefs = (userProfile?.notification_preferences || {}) as Record<string, unknown>
   const hasSeenTutorial2 = !!(notifPrefs.dashboard_tutorial_completed_at || notifPrefs.dashboard_tutorial_skipped_at)
-  const isFullyOnboarded = vendorProfile.status === 'approved' && !!vendorProfile.stripe_payouts_enabled
 
-  // Priority: Tutorial 1 first, then Tutorial 2 after onboarding complete
+  // Tutorial 2 requires canPublishListings — check all gates directly via DB
+  let canPublishListings = false
+  if (hasSeenTutorial1 && !hasSeenTutorial2 && vendorProfile.status === 'approved' && vendorProfile.stripe_payouts_enabled) {
+    const { data: verification } = await supabase
+      .from('vendor_verifications')
+      .select('status, category_verifications, onboarding_completed_at')
+      .eq('vendor_profile_id', vendorProfile.id)
+      .single()
+
+    if (verification) {
+      const { data: partnerAcceptance } = await supabase
+        .from('user_agreement_acceptances')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('agreement_type', 'vendor_partner')
+        .limit(1)
+        .maybeSingle()
+
+      const isGrandfathered = !!verification.onboarding_completed_at
+      const partnerAccepted = !!partnerAcceptance
+
+      // Check Gate 2: all category docs approved
+      const catVer = (verification.category_verifications || {}) as Record<string, { status: string }>
+      const allCatsApproved = Object.values(catVer).every(
+        v => v.status === 'approved' || v.status === 'not_required'
+      )
+
+      canPublishListings =
+        verification.status === 'approved' &&
+        allCatsApproved &&
+        (isGrandfathered || partnerAccepted)
+    }
+  }
+
+  // Priority: Tutorial 1 first, then Tutorial 2 after all gates passed
   const showTutorial1 = !hasSeenTutorial1
-  const showTutorial2 = hasSeenTutorial1 && isFullyOnboarded && !hasSeenTutorial2
+  const showTutorial2 = hasSeenTutorial1 && canPublishListings && !hasSeenTutorial2
   const tutorialPhase: 1 | 2 = showTutorial1 ? 1 : 2
 
   // Parse profile_data JSON
