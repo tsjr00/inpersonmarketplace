@@ -172,6 +172,15 @@ export async function POST(request: NextRequest) {
           }
         }
 
+          // Set prohibited items acknowledged at signup time
+          const acks = (data as Record<string, unknown>)?.acknowledgments as Record<string, unknown> | undefined
+          if (acks?.prohibitedItems) {
+            await supabaseAdmin
+              .from('vendor_verifications')
+              .update({ prohibited_items_acknowledged_at: new Date().toISOString() })
+              .eq('vendor_profile_id', vendor.id)
+          }
+
         // If vendor was referred, create pending referral credit
         if (!error && vendor && referredByVendorId) {
           await supabaseAdmin

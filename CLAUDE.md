@@ -34,6 +34,18 @@ This file defines 7 protocols that govern how sessions are run:
 
 ---
 
+## ABSOLUTE RULE: Present Before Changing — No Edits Without Permission
+
+**Priority: ABSOLUTE — Before opening any Edit, Write, or file-modification tool, you MUST first send a text message describing what you plan to change and asking for permission.**
+
+The sequence is: Investigate → Present findings → Ask permission → Wait for approval → Implement.
+
+If your preceding message does not contain a question asking for approval, you are not allowed to edit. Even "obvious" or "one-line" fixes require permission. The user's trust depends on knowing that nothing changes without their knowledge.
+
+**Full protocol:** See `apps/web/.claude/rules/present-before-changing.md`
+
+---
+
 ## ABSOLUTE RULE: Never Change a Business Rule Test to Match Code
 
 **Priority: ABSOLUTE — This is the single most important rule in this entire file.**
