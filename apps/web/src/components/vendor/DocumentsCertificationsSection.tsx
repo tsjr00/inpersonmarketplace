@@ -267,10 +267,11 @@ export default function DocumentsCertificationsSection({
         name: permit?.label || FOOD_TRUCK_DOC_TYPE_LABELS[key as FoodTruckDocType] || key,
         description: permit?.description || '',
         isRequired: permit?.required ?? true,
+        referenceUrl: undefined as string | undefined,
       }
     }
     const req = getCategoryRequirement(key as Category)
-    return { name: key, description: req.description, isRequired: true }
+    return { name: key, description: req.description, isRequired: true, referenceUrl: req.referenceUrl }
   }
 
   const getGateBadge = (key: string, docStatus: GateDocStatus): BadgeConfig | null => {
@@ -396,6 +397,19 @@ export default function DocumentsCertificationsSection({
                         marginTop: spacing['3xs'],
                       }}>
                         {info.description}
+                        {info.referenceUrl && (
+                          <>
+                            {' '}
+                            <a
+                              href={info.referenceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: colors.primary, textDecoration: 'underline' }}
+                            >
+                              View state requirements
+                            </a>
+                          </>
+                        )}
                       </div>
                     </div>
                     <span style={{

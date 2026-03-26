@@ -30,6 +30,8 @@ export interface CategoryRequirement {
   label: string
   description: string
   acceptedDocTypes: DocType[]
+  /** Link to the state regulatory page explaining the requirement */
+  referenceUrl?: string
 }
 
 const CATEGORY_REQUIREMENTS: Record<Category, CategoryRequirement> = {
@@ -68,30 +70,35 @@ const CATEGORY_REQUIREMENTS: Record<Category, CategoryRequirement> = {
     label: 'Cottage food acknowledgment or DSHS permit',
     description: 'Baked goods can be sold under the Texas Cottage Food Law (home kitchen, under $75,000/year) or with a DSHS Temporary Food Establishment permit.',
     acceptedDocTypes: ['cottage_food_ack', 'dshs_temp_food_permit'],
+    referenceUrl: 'https://www.dshs.texas.gov/retail-food-establishments/texas-cottage-food-production',
   },
   'Pantry': {
     level: 'cottage_food_or_dshs',
     label: 'Cottage food acknowledgment or DSHS permit',
     description: 'Shelf-stable items like jams, honey, and pickles can be sold under the Texas Cottage Food Law or with a DSHS Temporary Food Establishment permit.',
     acceptedDocTypes: ['cottage_food_ack', 'dshs_temp_food_permit'],
+    referenceUrl: 'https://www.dshs.texas.gov/retail-food-establishments/texas-cottage-food-production',
   },
   'Dairy & Eggs': {
     level: 'dshs_permit',
     label: 'DSHS permit required',
     description: 'Dairy products and eggs require a Texas DSHS Temporary Food Establishment permit for sale at farmers markets.',
     acceptedDocTypes: ['dshs_temp_food_permit'],
+    referenceUrl: 'https://www.dshs.texas.gov/retail-food-establishments/permitting-information-retail-food-establishments',
   },
   'Prepared Foods': {
     level: 'dshs_permit',
     label: 'DSHS permit required',
     description: 'Prepared foods require a Texas DSHS Temporary Food Establishment permit for sale at farmers markets.',
     acceptedDocTypes: ['dshs_temp_food_permit'],
+    referenceUrl: 'https://www.dshs.texas.gov/retail-food-establishments/permitting-information-retail-food-establishments',
   },
   'Meat & Poultry': {
     level: 'dshs_plus_processing',
     label: 'DSHS permit + processing facility compliance',
     description: 'Meat and poultry require a DSHS Temporary Food Establishment permit and documentation of processing facility compliance.',
     acceptedDocTypes: ['dshs_temp_food_permit', 'processing_facility_compliance'],
+    referenceUrl: 'https://www.dshs.texas.gov/meat-safety',
   },
 }
 
