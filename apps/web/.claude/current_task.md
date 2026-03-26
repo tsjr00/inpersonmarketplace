@@ -1,63 +1,84 @@
-# Current Task: Session 63 Complete
-Started: 2026-03-22, ended 2026-03-24
-Status: COMPLETE — 3-day marathon session
+# Current Task: Session 63 (continued after compaction)
+Started: 2026-03-22, still active as of 2026-03-26
 
-## Full Session Summary
+## What's Happening RIGHT NOW
 
-### Production & Go-Live
-- Pushed 49+ commits to production with revert tag (pre-session63-prod)
-- Fixed TypeScript build errors blocking all Vercel deploys
-- Fixed missing `notification_preferences` column on prod (caused tutorial repeat)
-- Cleared fake Stripe account IDs from prod
-- First live Stripe Connect vendor account created (triggered fraud check — resolved)
-- Stripe Dashboard configured: Apple Pay, Google Pay, Cash App Pay, Amazon Pay, Link enabled
-- Connected account features: all visibility on, 1099-K compliance on, bank required, smart disputes on
+Working on vendor onboarding improvements:
 
-### Features Built (20+)
-- Vendor pickup lead time (15/30 toggle, migration 096)
-- Time slot UX overhaul (dropdown, end time valid, slot interval matches lead time)
-- Password reset (verifyOtp bypasses PKCE entirely)
-- Vendor cover photo (migration 097, upload with resize, 16:9 display)
-- Favorites page (dedicated simple page)
-- Landing page "Where are trucks today?" button
-- Vendor profile section reorder (menu → boxes → catering → info)
-- Catering badge on listing cards + gold highlight button
-- Checkout mobile layout fix (items → tip → payment → Pay Now → cross-sell)
-- 6 accounting reports (transaction reconciliation, refund detail, external fee ledger, subscription revenue, tax summary, monthly P&L)
-- Payment methods expanded (Card + Cash App + Amazon Pay + Link)
-- External payments hidden (EXTERNAL_PAYMENTS_ENABLED flag)
-- FT sales tax always-on + pre-packaged food block
-- FM category-based tax rules (auto tax by category + trigger questions)
-- Signup tax guidance (per-category notice on success page)
-- FM vendor_type expanded (migration 098)
-- FM event readiness form (vertical-aware: booth setup vs truck setup)
-- Premature catering cash restriction removed
-- Vendor outreach emails (FT + FM templates)
-- Buyer premium page rewrite (false claims removed)
+### Completed This Continuation:
+- **Vercel Pro upgrade** — upgraded, added `maxDuration` to 12 API routes (60s cron, 30s Stripe routes, 15s verify)
+- **Present-before-changing rule** — new absolute rule added to CLAUDE.md, global rules, rule file, memory
+- **Vendor reject route RLS fix** — payment query used vendor's client (RLS blocked), refunds silently failed. Fixed to use serviceClient.
+- **Prohibited items moved to signup** — vertical-specific lists (FT vs FM), starred items for conditional/regulatory, acknowledgment checkbox on signup form, DB flag set at signup
+- **Payment options note on checkout** — shows available methods below Pay Now button
+- **Vendor outreach emails** — FT and FM templates with Session 63 feature updates
+- **Fireworks vertical master plan** — research from prior FastWrks project documented
+- **Flash sales + VIP system plan** — cross-vertical feature plan documented
+- **Legal docs updated** — marketplace facilitator compliance, retention language, external payments removed from legal text
+- **Migration 099 applied** — sales tax help article rewrite (all 3 DBs)
+- **Migrations 094-099 moved to applied/** — migration log updated
 
-### Tests & Safety
-- T-2 refund consistency (20 tests), T-11 inventory restore (12 tests)
-- shouldRestoreInventory() utility wired into all callers
-- Inventory restore safety: restoreOrderInventory() now vertical-aware
-- Go-live readiness audit (verified against code, not agent summaries)
-- 8 stress test protocols documented
+### In Progress: Vendor Tutorial Rewrite
+Two tutorials replacing the current single one:
 
-### Process & Rules
-- Cite-or-verify rule (absolute rule in CLAUDE.md + global rules + rule file)
-- Real numbers only (never fabricate financial figures)
-- Catering business rules logged (min 10 items, tiered notice, $75/truck, quality gate)
-- Sales tax decisions logged extensively
+**Tutorial 1: "Getting Approved" (post-preliminary approval, pre-gates)**
+Content revised through user feedback. 6 slides:
+1. Welcome — preliminary approval, steps ahead
+2. Verify Your Business — legal business docs (DBA, LLC, sales tax permit)
+3. Registrations & Certifications — category-matched doc requirements
+4. Certificate of Insurance — soft gate, encouraged not required
+5. Connect Your Bank Account — Stripe funnels all payment methods to one bank
+6. What Happens Next — wrap up, review steps
 
-### Migrations Applied
-- 096: pickup_lead_minutes (all 3 DBs)
-- 097: cover_image_url (all 3 DBs)
-- 098: expanded FM vendor_type options (all 3 DBs)
-- notification_preferences column on prod
+Key changes from original:
+- Prohibited items moved OUT of tutorial (now at signup)
+- Differentiates "preliminary approval" from "full approval"
+- Slide 2 is about business verification docs, not category docs
+- COI is soft gate (not mandatory to start selling, required for events)
+- Catering reference removed (FT-only, not appropriate for tutorial)
 
-## Next Session Priorities
-1. **Stripe Tax** — BLOCKED on: TX Comptroller registration, Stripe Tax registration, product tax codes. Then code changes.
-2. **Catering pre-order system** — min 10 items/vendor, advance notice tiers
-3. **Event $75 per-truck fee**
-4. **Stripe Connect testing** — once restriction lifted
-5. **Zip code visibility across pages** — research first
-6. **Vercel Pro upgrade** — $20/month for 60s function timeout (cron safety)
+**Tutorial 2: "Your Dashboard" (post-gates, fully onboarded)**
+Not yet revised with user feedback. Original draft:
+1. You're Ready to Sell
+2. Create Your Listings
+3. Set Your Markets & Schedule
+4. Make Your Profile Stand Out
+5. How Orders Work
+6. Track & Grow
+
+### In Progress: Unified Documents & Certifications Plan
+Plan written and saved at `.claude/unified_documents_plan.md`. Key concept:
+- Merge onboarding gate docs (category_verifications) with profile certifications into one UI
+- One upload serves both compliance gates AND profile badges
+- Example: Cottage Food Registration → unlocks Baked Goods category AND shows 🏠 badge
+- Option C architecture: no new tables, extend existing, unified component
+- 6-8 hours, 1.5-2 sessions estimated
+- NOT started yet
+
+## Key Decisions Made This Continuation
+- Vercel Pro for 60s function timeouts ($20/month)
+- Present-before-changing rule (absolute — no edits without explicit permission)
+- Prohibited items are vertical-specific (FT has 6, FM has 10)
+- Starred (*) items for conditional/regulatory prohibitions
+- Raw milk is FM only, not FT
+- Pre-packaged food (FT) allowed in combos, not standalone
+- Documents serve dual purpose: compliance + marketing badges
+
+## Files Changed This Continuation
+- 12 API routes: added maxDuration
+- `category-requirements.ts`: vertical-specific prohibited items
+- `vendor-signup/page.tsx`: prohibited items acknowledgment checkbox
+- `api/submit/route.ts`: set prohibited_items_acknowledged_at at signup
+- `vendor/prohibited-items/page.tsx`: vertical-aware with starred items
+- `vendor/orders/[id]/reject/route.ts`: RLS fix for payment query
+- `checkout/page.tsx`: payment options note
+- Legal docs: retention language, external payment removal
+- New rule file: `rules/present-before-changing.md`
+- New plan files: `fireworks_vertical_plan.md`, `flash_sales_vip_plan.md`, `unified_documents_plan.md`
+
+## Next Steps
+1. Finalize Tutorial 1 content and get user approval on Tutorial 2
+2. Build both tutorials (new component structure with two tutorial phases)
+3. Build unified documents/certifications section (plan ready)
+4. Stripe Tax implementation (blocked on TX Comptroller registration)
+5. Catering pre-order system (min 10 items, tiered advance notice)
