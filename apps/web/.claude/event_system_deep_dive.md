@@ -480,3 +480,170 @@ All open questions have been answered. Decisions added to Part 10 table.
 4. **Event page expiry:** 7 days post-event for feedback, then deactivate. Confirm?
 5. **Wave assignment:** Should organizers be able to pre-assign groups to waves, or is it always first-come-first-served?
 6. **Event pricing:** Same 6.5%+6.5% transaction fees, plus a flat event booking fee? Or different structure?
+
+---
+
+## Part 12: Path A — Event System Strengthening (Session 63+)
+
+**Created:** 2026-03-26
+**Status:** In Progress
+**Goal:** Strengthen the existing event flow with better data collection, viability scoring, vendor matching indicators, and admin workflow visibility — enough to handle real incoming business inquiries.
+
+### 12.1 Status Definitions (No Schema Change — Document Only)
+
+Keep existing DB statuses. Add code comments to every file that references them:
+
+| Status | Meaning | Admin Actions Available |
+|--------|---------|----------------------|
+| `new` | Request received, not yet reviewed | View details, change to `reviewing` or `declined` |
+| `reviewing` | Admin is evaluating viability and logistics | View viability scores, change to `approved` or `declined` |
+| `approved` | Passes viability check, market + token created, ready to invite vendors | Invite vendors, view vendor match scores |
+| `declined` | Request doesn't meet platform criteria | Add decline reason (visible to organizer) |
+| `cancelled` | Organizer or admin cancelled | No further actions |
+| `ready` | Enough vendors confirmed, event page shareable | Send organizer the event link, advance lifecycle |
+| `active` | Event day | Monitor orders |
+| `review` | Post-event, feedback collection window | Review feedback, prepare settlement |
+| `completed` | Settled, all payouts processed | View settlement report |
+
+### 12.2 New Form Fields + Migration
+
+**Migration:** Add nullable columns to `catering_requests`:
+
+```sql
+ALTER TABLE catering_requests ADD COLUMN event_type TEXT;
+-- Values: corporate_lunch, team_building, grand_opening, festival, private_party, other
+
+ALTER TABLE catering_requests ADD COLUMN payment_model TEXT;
+-- Values: company_paid, attendee_paid, hybrid
+
+ALTER TABLE catering_requests ADD COLUMN total_food_budget_cents INTEGER;
+-- Only relevant for company_paid/hybrid. Null for attendee_paid.
+
+ALTER TABLE catering_requests ADD COLUMN expected_meal_count INTEGER;
+-- Distinct from headcount. "How many people do you expect to order food?"
+-- For company_paid: usually = headcount. For attendee_paid: typically 40-70% of headcount.
+
+ALTER TABLE catering_requests ADD COLUMN beverages_provided BOOLEAN DEFAULT false;
+-- "Will beverages be provided separately?" Affects vendor menu planning.
+
+ALTER TABLE catering_requests ADD COLUMN dessert_provided BOOLEAN DEFAULT false;
+-- "Will dessert be provided separately?" Affects vendor menu planning.
+
+ALTER TABLE catering_requests ADD COLUMN is_recurring BOOLEAN DEFAULT false;
+-- "Is this a recurring event?" Increases scoring weight.
+
+ALTER TABLE catering_requests ADD COLUMN recurring_frequency TEXT;
+-- Values: weekly, biweekly, monthly, quarterly. Only if is_recurring=true.
+```
+
+All nullable — existing requests unaffected.
+
+**Form field additions** (EventRequestForm.tsx):
+
+| Field | Type | Shows When | Question Phrasing |
+|-------|------|-----------|-------------------|
+| Event Type | Dropdown | Always | "What type of event is this?" |
+| Payment Model | Radio | Always | "Who will be paying for food?" (Company pays for everyone / Each person pays for themselves / Mix — company covers base, individuals can upgrade) |
+| Total Food Budget | Currency input | company_paid or hybrid | "What is your total food budget?" |
+| Expected Meal Count | Number | Always | "How many people do you expect to order food?" (with helper: "This may be different from your total guest count — not everyone orders at every event") |
+| Beverages Provided | Checkbox | Always | "Beverages will be provided separately (not from food trucks)" |
+| Dessert Provided | Checkbox | Always | "Dessert will be provided separately" |
+| Recurring | Checkbox | Always | "This is a recurring event" |
+| Recurring Frequency | Dropdown | is_recurring | "How often?" |
+
+### 12.3 Auto-Calculated Viability Scores
+
+**New file:** `src/lib/events/viability.ts` — pure functions, no DB, fully testable.
+
+Calculations displayed to admin on the event detail view:
+
+**Budget Score** (company_paid/hybrid only):
+- `per_meal = total_food_budget_cents / expected_meal_count`
+- Green: $10+ per meal (realistic for food truck pricing)
+- Yellow: $7-10 (tight but possible)
+- Red: <$7 (unrealistic — flag for admin)
+
+**Capacity Score:**
+- `trucks_needed = expected_meal_count / (platform_avg_throughput × num_waves)`
+- `platform_avg_throughput` = average `max_headcount_per_wave` across event-approved vendors (~30)
+- `num_waves = ceil((end_time - start_time) / 30 minutes)`
+- Compare `trucks_needed` vs `vendor_count` requested
+- Green: requested >= needed
+- Yellow: requested = needed - 1
+- Red: requested < needed - 1 (significantly understaffed)
+
+**Duration Score:**
+- `event_hours = (end_time - start_time)`
+- Compare against average vendor `max_runtime_hours`
+- Green: event ≤ avg runtime
+- Yellow: event = avg runtime + 1-2hr
+- Red: event > avg runtime + 2hr (vendors may not be able to serve full duration)
+
+**Overall Viability:** Composite — all green = "Strong", any yellow = "Review", any red = "Concerns"
+
+### 12.4 Vendor Matching Indicators
+
+When admin selects vendors to invite, show alongside each event-approved vendor:
+
+| Indicator | Source | Display |
+|-----------|--------|---------|
+| Cuisine Match | Compare event `cuisine_preferences` keywords vs vendor listing categories | High / Partial / Low |
+| Capacity Fit | Vendor `max_headcount_per_wave` × waves vs per-vendor headcount allocation | Good / Tight / Over |
+| Runtime Fit | Vendor `max_runtime_hours` vs event duration | Yes / Marginal / No |
+| Platform Score | Rating (weighted by count) + reliability (1 - cancellation rate) | 1-5 stars composite |
+| Tier | Vendor tier | Badge (free/pro/boss) |
+| Experience | `has_event_experience` from readiness questionnaire | Experienced / New |
+
+These are **advisory** — admin makes the final decision. The data just helps them make faster, better-informed choices.
+
+### 12.5 Admin UI: Full Lifecycle Visibility
+
+**Horizontal stepper** at top of event detail page showing all statuses:
+
+```
+[new] → [reviewing] → [approved] → [ready] → [active] → [review] → [completed]
+                                                              ↗
+                                 [declined]  [cancelled] ←──┘
+```
+
+- Current status: highlighted/filled
+- Completed statuses: checkmark
+- Future statuses: greyed out but visible with labels
+- Each step shows a tooltip or subtitle: "Evaluate viability" → "Invite vendors" → "Confirm vendors" etc.
+- A new admin can look at this and understand the full process without guessing
+
+### 12.6 Event Manager Notification at `ready`
+
+New notification type: `event_confirmed`
+- Triggered when admin advances status to `ready`
+- Sent to the event organizer (contact_email)
+- Contains: "Your event is confirmed! [X] vendors are ready. Share this link with your team: [event_page_url]"
+- Includes the shareable `/events/[token]` URL
+
+### 12.7 Implementation Checklist
+
+| # | Task | Complexity | Status |
+|---|------|-----------|--------|
+| 1 | Add status documentation comments to all event API routes | Low | [x] |
+| 2 | Migration: add new columns to catering_requests | Low | [x] Applied all 3 envs |
+| 3 | Update EventRequestForm with new fields | Medium | [x] |
+| 4 | Update event-requests API to accept new fields | Low | [x] |
+| 5 | Create `src/lib/events/viability.ts` scoring functions | Medium | [x] |
+| 6 | Update admin events page: viability scores display | Medium | [x] |
+| 7 | Update admin events page: vendor matching indicators | Medium | [ ] Deferred — needs admin vendor data enrichment |
+| 8 | Update admin events page: lifecycle stepper UI | Medium | [x] |
+| 9 | Add `event_confirmed` notification type + trigger | Low | [x] |
+| 10 | Update SCHEMA_SNAPSHOT.md after migration | Low | [x] |
+
+**Estimated total:** 4-6 hours across 1-2 sessions
+
+### 12.8 What Path A Does NOT Include (Preserved for Later)
+
+- Wave-based ordering system (Phase 2)
+- $75/truck fee collection mechanism
+- Catering minimum enforcement at checkout
+- Automated vendor ranking algorithm (admin picks manually with data support)
+- Corporate account dashboard
+- Recurring event auto-scheduling (field collected but automation deferred)
+- Settlement email trigger to vendors on completion
+- Event page expiry/deactivation after 7 days

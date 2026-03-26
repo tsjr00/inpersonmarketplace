@@ -1,84 +1,74 @@
-# Current Task: Session 63 (continued after compaction)
+# Current Task: Session 63 (continued)
 Started: 2026-03-22, still active as of 2026-03-26
 
 ## What's Happening RIGHT NOW
 
-Working on vendor onboarding improvements:
+Working on Event System Strengthening (Path A) — see `event_system_deep_dive.md` Part 12.
 
-### Completed This Continuation:
-- **Vercel Pro upgrade** — upgraded, added `maxDuration` to 12 API routes (60s cron, 30s Stripe routes, 15s verify)
-- **Present-before-changing rule** — new absolute rule added to CLAUDE.md, global rules, rule file, memory
-- **Vendor reject route RLS fix** — payment query used vendor's client (RLS blocked), refunds silently failed. Fixed to use serviceClient.
-- **Prohibited items moved to signup** — vertical-specific lists (FT vs FM), starred items for conditional/regulatory, acknowledgment checkbox on signup form, DB flag set at signup
-- **Payment options note on checkout** — shows available methods below Pay Now button
-- **Vendor outreach emails** — FT and FM templates with Session 63 feature updates
-- **Fireworks vertical master plan** — research from prior FastWrks project documented
-- **Flash sales + VIP system plan** — cross-vertical feature plan documented
-- **Legal docs updated** — marketplace facilitator compliance, retention language, external payments removed from legal text
-- **Migration 099 applied** — sales tax help article rewrite (all 3 DBs)
-- **Migrations 094-099 moved to applied/** — migration log updated
+### Completed This Session (2026-03-26):
+- **Unified Documents & Certifications** — new component combining onboarding gate docs + profile certifications into one UI. Badge metadata, edit profile integration, public profile gate doc badges. `DocumentsCertificationsSection.tsx` created. `CertificationsForm.tsx` preserved for rollback.
+- **DSHS reference links** — `referenceUrl` field on category requirements. Links to TX DSHS pages for Cottage Food, Temp Food Permits, Meat Safety. Shown in both onboarding checklist and unified docs section.
+- **Tutorial 1 rewrite ("Getting Approved")** — 6 slides: preliminary approval, business docs, registrations, COI (soft gate), Stripe Connect, next steps. Header: "Getting Approved".
+- **Tutorial 2 ("Your Dashboard")** — NEW. 7 slides: fully approved → how pre-orders work → locations → schedules (FT/FM-specific) → listings (multi-location) → Stripe → recap. Triggered only when `canPublishListings` is satisfied (all gates complete). Tracked via `notification_preferences` JSONB (no migration).
+- **Schema snapshot updated** — changelog entries for migrations 096-099.
+- **Event system deep dive updated** — Part 12 added: Path A plan with implementation checklist.
 
-### In Progress: Vendor Tutorial Rewrite
-Two tutorials replacing the current single one:
+### In Progress: Event System Path A
+Implementation checklist (from `event_system_deep_dive.md` Part 12.7):
 
-**Tutorial 1: "Getting Approved" (post-preliminary approval, pre-gates)**
-Content revised through user feedback. 6 slides:
-1. Welcome — preliminary approval, steps ahead
-2. Verify Your Business — legal business docs (DBA, LLC, sales tax permit)
-3. Registrations & Certifications — category-matched doc requirements
-4. Certificate of Insurance — soft gate, encouraged not required
-5. Connect Your Bank Account — Stripe funnels all payment methods to one bank
-6. What Happens Next — wrap up, review steps
+| # | Task | Status |
+|---|------|--------|
+| 1 | Status documentation comments on event API routes | DONE |
+| 2 | Migration 100: new columns on catering_requests | CREATED (not applied) |
+| 3 | Update EventRequestForm with new fields | IN PROGRESS |
+| 4 | Update event-requests API to accept new fields | NOT STARTED |
+| 5 | Create `src/lib/events/viability.ts` scoring functions | DONE |
+| 6 | Update admin events page: viability scores display | NOT STARTED |
+| 7 | Update admin events page: vendor matching indicators | NOT STARTED |
+| 8 | Update admin events page: lifecycle stepper UI | NOT STARTED |
+| 9 | Add `event_confirmed` notification type + trigger | NOT STARTED |
+| 10 | Update SCHEMA_SNAPSHOT.md after migration | NOT STARTED |
 
-Key changes from original:
-- Prohibited items moved OUT of tutorial (now at signup)
-- Differentiates "preliminary approval" from "full approval"
-- Slide 2 is about business verification docs, not category docs
-- COI is soft gate (not mandatory to start selling, required for events)
-- Catering reference removed (FT-only, not appropriate for tutorial)
+### Files Created/Changed This Session
+- `src/components/vendor/DocumentsCertificationsSection.tsx` — NEW
+- `src/lib/onboarding/category-requirements.ts` — badge metadata + referenceUrl
+- `src/app/[vertical]/vendor/edit/page.tsx` — swap to unified docs component
+- `src/app/[vertical]/vendor/[vendorId]/profile/page.tsx` — gate doc badges on public profile
+- `src/components/vendor/CategoryDocumentUpload.tsx` — DSHS reference link
+- `src/components/onboarding/TutorialModal.tsx` — Tutorial 1 rewrite + Tutorial 2 added
+- `src/components/onboarding/TutorialWrapper.tsx` — phase prop support
+- `src/app/api/vendor/tutorial/route.ts` — phase 2 tracking via notification_preferences
+- `src/app/[vertical]/vendor/dashboard/page.tsx` — Tutorial 2 trigger (canPublishListings check)
+- `supabase/SCHEMA_SNAPSHOT.md` — changelog entries 096-099
+- `supabase/migrations/20260326_100_event_request_fields.sql` — NEW (not applied)
+- `src/lib/events/viability.ts` — NEW (event scoring functions)
+- `src/app/api/admin/events/route.ts` — status documentation
+- `src/app/api/admin/events/[id]/route.ts` — status documentation
+- `.claude/event_system_deep_dive.md` — Part 12 added
 
-**Tutorial 2: "Your Dashboard" (post-gates, fully onboarded)**
-Not yet revised with user feedback. Original draft:
-1. You're Ready to Sell
-2. Create Your Listings
-3. Set Your Markets & Schedule
-4. Make Your Profile Stand Out
-5. How Orders Work
-6. Track & Grow
+### Commits on main (3 ahead of origin/main, pushed to staging):
+1. `feat: unified documents & certifications section`
+2. `feat: two-phase vendor tutorial + DSHS reference links`
+3. `fix: Tutorial 2 requires canPublishListings before launching`
 
-### In Progress: Unified Documents & Certifications Plan
-Plan written and saved at `.claude/unified_documents_plan.md`. Key concept:
-- Merge onboarding gate docs (category_verifications) with profile certifications into one UI
-- One upload serves both compliance gates AND profile badges
-- Example: Cottage Food Registration → unlocks Baked Goods category AND shows 🏠 badge
-- Option C architecture: no new tables, extend existing, unified component
-- 6-8 hours, 1.5-2 sessions estimated
-- NOT started yet
+### Key Decisions Made This Session
+- Keep existing catering_request statuses (no rename) — add code comments documenting meaning
+- Tutorial 2 triggers only when ALL onboarding gates pass (canPublishListings)
+- DSHS Temp Food Permit requirement stays — link to state page deflects frustration
+- Unified docs component reads both JSONB sources, no data migration
+- Event viability scoring: budget/capacity/duration auto-calculated, admin makes final call
+- Vendor matching: cuisine/capacity/runtime/rating indicators shown to admin, not automated ranking
 
-## Key Decisions Made This Continuation
-- Vercel Pro for 60s function timeouts ($20/month)
-- Present-before-changing rule (absolute — no edits without explicit permission)
-- Prohibited items are vertical-specific (FT has 6, FM has 10)
-- Starred (*) items for conditional/regulatory prohibitions
-- Raw milk is FM only, not FT
-- Pre-packaged food (FT) allowed in combos, not standalone
-- Documents serve dual purpose: compliance + marketing badges
+### Next Steps (Event Path A remaining)
+1. Finish EventRequestForm updates (new fields with conditional visibility)
+2. Update event-requests API to accept + validate new fields
+3. Apply migration 100 to dev (need user to run SQL)
+4. Build admin event detail enhancements (viability scores, vendor matching, lifecycle stepper)
+5. Add event_confirmed notification type
 
-## Files Changed This Continuation
-- 12 API routes: added maxDuration
-- `category-requirements.ts`: vertical-specific prohibited items
-- `vendor-signup/page.tsx`: prohibited items acknowledgment checkbox
-- `api/submit/route.ts`: set prohibited_items_acknowledged_at at signup
-- `vendor/prohibited-items/page.tsx`: vertical-aware with starred items
-- `vendor/orders/[id]/reject/route.ts`: RLS fix for payment query
-- `checkout/page.tsx`: payment options note
-- Legal docs: retention language, external payment removal
-- New rule file: `rules/present-before-changing.md`
-- New plan files: `fireworks_vertical_plan.md`, `flash_sales_vip_plan.md`, `unified_documents_plan.md`
-
-## Next Steps
-1. Finalize Tutorial 1 content and get user approval on Tutorial 2
-2. Build both tutorials (new component structure with two tutorial phases)
-3. Build unified documents/certifications section (plan ready)
-4. Stripe Tax implementation (blocked on TX Comptroller registration)
-5. Catering pre-order system (min 10 items, tiered advance notice)
+### Pending from Prior Work
+- Catering minimum enforcement (10 items) — decided but not coded
+- Catering advance notice tiers — decided but not coded
+- $75/truck fee collection — decided but not coded
+- Settlement email trigger to vendors — type exists, trigger not wired
+- Wave-based ordering — design only

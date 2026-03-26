@@ -14,7 +14,22 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
-// PATCH - Update catering request status (approve → auto-creates event market)
+/**
+ * PATCH /api/admin/events/[id]
+ *
+ * Update catering request status. On approval, auto-creates event market + token.
+ *
+ * Event Lifecycle Statuses:
+ *   new        — Request received, not yet reviewed by admin
+ *   reviewing  — Admin is evaluating viability (scoring, logistics, budget check)
+ *   approved   — Passes viability check; market + token created; ready to invite vendors
+ *   declined   — Request doesn't meet platform criteria (unrealistic budget, scope, etc.)
+ *   cancelled  — Organizer or admin cancelled before or during event
+ *   ready      — Enough vendors confirmed; event page shareable with organizer
+ *   active     — Event day (orders being fulfilled)
+ *   review     — Post-event; feedback collection window (~7 days)
+ *   completed  — Settled; all vendor payouts processed
+ */
 export async function PATCH(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/admin/events/[id]', 'PATCH', async () => {
     const clientIp = getClientIp(request)
@@ -55,12 +70,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { status, admin_notes } = body
 
     const validStatuses = [
-      'new',
-      'reviewing',
-      'approved',
-      'declined',
-      'cancelled',
-      'completed',
+      'new',       // Request received, not yet reviewed
+      'reviewing', // Admin evaluating viability
+      'approved',  // Passes viability check, market+token created, ready to invite vendors
+      'declined',  // Doesn't meet criteria
+      'cancelled', // Organizer or admin cancelled
+      'ready',     // Enough vendors confirmed, event page shareable
+      'active',    // Event day
+      'review',    // Post-event, feedback collection
+      'completed', // Settled, payouts done
     ]
     if (status && !validStatuses.includes(status)) {
       return NextResponse.json(
@@ -177,6 +195,28 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // On READY: notify organizer that event is confirmed with shareable link
+    if (status === 'ready' && updated.event_token && updated.contact_email) {
+      const eventPageUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://foodtruckn.app'}/events/${updated.event_token}`
+      // Count confirmed vendors
+      const { count: vendorCount } = await serviceClient
+        .from('market_vendors')
+        .select('id', { count: 'exact', head: true })
+        .eq('market_id', updated.market_id)
+        .eq('response_status', 'accepted')
+
+      // Send via email to organizer (not an app user — use direct email)
+      sendEventConfirmedEmail(
+        updated.contact_name,
+        updated.contact_email,
+        updated.company_name,
+        updated.event_date,
+        vendorCount || 0,
+        eventPageUrl,
+        updated.vertical_id
+      ).catch(err => console.error('[admin/catering] Event confirmed email error:', err))
+    }
+
     // On COMPLETED: send post-event feedback request to buyers + settlement to vendors
     if (status === 'completed' && cateringReq.market_id) {
       // Fire-and-forget — don't block the response
@@ -275,5 +315,61 @@ async function sendEventSettlementNotifications(
       marketName,
       orderCount: orderCount || 0,
     }, { vertical: verticalId })
+  }
+}
+
+async function sendEventConfirmedEmail(
+  contactName: string,
+  contactEmail: string,
+  companyName: string,
+  eventDate: string,
+  vendorCount: number,
+  eventPageUrl: string,
+  verticalId: string
+) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return
+
+  const isFM = verticalId === 'farmers_market'
+  const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+  const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+  const accentColor = isFM ? '#2d5016' : '#ff5757'
+  const vendorLabel = isFM ? 'vendor' : 'food truck'
+
+  try {
+    const { Resend } = await import('resend')
+    const resend = new Resend(apiKey)
+
+    await resend.emails.send({
+      from: `${senderName} <updates@${senderDomain}>`,
+      to: contactEmail,
+      subject: `Your event is confirmed — ${vendorCount} ${vendorLabel}${vendorCount > 1 ? 's' : ''} ready!`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
+          <h2 style="color:${accentColor};margin:0 0 8px">Your event is confirmed!</h2>
+          <p style="color:#374151;margin:0 0 16px;font-size:16px">Hi ${contactName},</p>
+          <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
+            Great news &mdash; <strong>${vendorCount} ${vendorLabel}${vendorCount > 1 ? 's are' : ' is'}</strong> confirmed for your
+            ${companyName} event on <strong>${eventDate}</strong>.
+          </p>
+          <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
+            Share the link below with your team so they can browse menus and pre-order:
+          </p>
+          <div style="text-align:center;margin:0 0 24px">
+            <a href="${eventPageUrl}" style="display:inline-block;padding:14px 28px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px">
+              View Event Page
+            </a>
+          </div>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin:0 0 20px">
+            <p style="margin:0;font-size:13px;color:#6b7280;word-break:break-all">${eventPageUrl}</p>
+          </div>
+          <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
+            Questions? Reply to this email and our team will help.
+          </p>
+        </div>
+      `,
+    })
+  } catch (err) {
+    console.error('[admin/catering] Failed to send event confirmed email:', err)
   }
 }

@@ -26,11 +26,15 @@ export async function POST(request: NextRequest) {
       contact_name,
       contact_email,
       contact_phone,
+      event_type,
+      payment_model,
       event_date,
       event_end_date,
       event_start_time,
       event_end_time,
       headcount,
+      expected_meal_count,
+      total_food_budget_cents,
       address,
       city,
       state,
@@ -38,9 +42,13 @@ export async function POST(request: NextRequest) {
       cuisine_preferences,
       dietary_notes,
       budget_notes,
+      beverages_provided,
+      dessert_provided,
       vendor_count,
       setup_instructions,
       additional_notes,
+      is_recurring,
+      recurring_frequency,
       vertical,
     } = body
 
@@ -97,6 +105,11 @@ export async function POST(request: NextRequest) {
     // Use service client (public form, no auth required)
     const supabase = createServiceClient()
 
+    // Validate new structured fields
+    const validEventTypes = ['corporate_lunch', 'team_building', 'grand_opening', 'festival', 'private_party', 'other']
+    const validPaymentModels = ['company_paid', 'attendee_paid', 'hybrid']
+    const validRecurringFreqs = ['weekly', 'biweekly', 'monthly', 'quarterly']
+
     const { error: insertError } = await supabase
       .from('catering_requests')
       .insert({
@@ -107,11 +120,15 @@ export async function POST(request: NextRequest) {
         contact_phone: contact_phone
           ? String(contact_phone).slice(0, 30)
           : null,
+        event_type: event_type && validEventTypes.includes(event_type) ? event_type : null,
+        payment_model: payment_model && validPaymentModels.includes(payment_model) ? payment_model : null,
         event_date,
         event_end_date: event_end_date || null,
         event_start_time: event_start_time || null,
         event_end_time: event_end_time || null,
         headcount: hc,
+        expected_meal_count: expected_meal_count ? Math.min(Math.max(parseInt(expected_meal_count, 10) || 0, 0), 5000) : null,
+        total_food_budget_cents: total_food_budget_cents ? Math.max(parseInt(total_food_budget_cents, 10) || 0, 0) : null,
         address: String(address).slice(0, 500),
         city: String(city).slice(0, 100),
         state: String(state).slice(0, 50),
@@ -125,6 +142,8 @@ export async function POST(request: NextRequest) {
         budget_notes: budget_notes
           ? String(budget_notes).slice(0, 500)
           : null,
+        beverages_provided: !!beverages_provided,
+        dessert_provided: !!dessert_provided,
         vendor_count: vendor_count ? Math.min(parseInt(vendor_count, 10) || 2, 20) : 2,
         setup_instructions: setup_instructions
           ? String(setup_instructions).slice(0, 1000)
@@ -132,6 +151,9 @@ export async function POST(request: NextRequest) {
         additional_notes: additional_notes
           ? String(additional_notes).slice(0, 2000)
           : null,
+        is_recurring: !!is_recurring,
+        recurring_frequency: is_recurring && recurring_frequency && validRecurringFreqs.includes(recurring_frequency)
+          ? recurring_frequency : null,
       })
 
     if (insertError) {

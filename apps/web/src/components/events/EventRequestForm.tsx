@@ -16,11 +16,15 @@ interface FormData {
   contact_name: string
   contact_email: string
   contact_phone: string
+  event_type: string
+  payment_model: string
   event_date: string
   event_end_date: string
   event_start_time: string
   event_end_time: string
   headcount: string
+  expected_meal_count: string
+  total_food_budget: string
   address: string
   city: string
   state: string
@@ -28,10 +32,36 @@ interface FormData {
   cuisine_preferences: string
   dietary_notes: string
   budget_notes: string
+  beverages_provided: boolean
+  dessert_provided: boolean
   vendor_count: string
   setup_instructions: string
   additional_notes: string
+  is_recurring: boolean
+  recurring_frequency: string
 }
+
+const EVENT_TYPES = [
+  { value: 'corporate_lunch', label: 'Corporate Lunch / Team Meal' },
+  { value: 'team_building', label: 'Team Building / Employee Appreciation' },
+  { value: 'grand_opening', label: 'Grand Opening / Promotional Event' },
+  { value: 'festival', label: 'Festival / Community Event' },
+  { value: 'private_party', label: 'Private Party / Celebration' },
+  { value: 'other', label: 'Other' },
+]
+
+const PAYMENT_MODELS = [
+  { value: 'company_paid', label: 'Our company pays for everyone' },
+  { value: 'attendee_paid', label: 'Each person pays for themselves' },
+  { value: 'hybrid', label: 'Company covers a base meal, individuals can upgrade' },
+]
+
+const RECURRING_OPTIONS = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Every 2 weeks' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+]
 
 const verticalAccent: Record<string, string> = {
   food_trucks: '#ff5757',
@@ -86,11 +116,15 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     contact_name: '',
     contact_email: '',
     contact_phone: '',
+    event_type: '',
+    payment_model: '',
     event_date: '',
     event_end_date: '',
     event_start_time: '',
     event_end_time: '',
     headcount: '',
+    expected_meal_count: '',
+    total_food_budget: '',
     address: '',
     city: '',
     state: '',
@@ -98,9 +132,13 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     cuisine_preferences: '',
     dietary_notes: '',
     budget_notes: '',
+    beverages_provided: false,
+    dessert_provided: false,
     vendor_count: '2',
     setup_instructions: '',
     additional_notes: vendorPreference ? `Preferred vendor: ${vendorPreference}` : '',
+    is_recurring: false,
+    recurring_frequency: '',
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -154,11 +192,15 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           contact_name: form.contact_name.trim(),
           contact_email: form.contact_email.trim().toLowerCase(),
           contact_phone: form.contact_phone.trim() || null,
+          event_type: form.event_type || null,
+          payment_model: form.payment_model || null,
           event_date: form.event_date,
           event_end_date: form.event_end_date || null,
           event_start_time: form.event_start_time || null,
           event_end_time: form.event_end_time || null,
           headcount: form.headcount,
+          expected_meal_count: form.expected_meal_count ? parseInt(form.expected_meal_count) : null,
+          total_food_budget_cents: form.total_food_budget ? Math.round(parseFloat(form.total_food_budget) * 100) : null,
           address: form.address.trim(),
           city: form.city.trim(),
           state: form.state.trim(),
@@ -166,9 +208,13 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           cuisine_preferences: form.cuisine_preferences.trim() || null,
           dietary_notes: form.dietary_notes.trim() || null,
           budget_notes: form.budget_notes.trim() || null,
+          beverages_provided: form.beverages_provided,
+          dessert_provided: form.dessert_provided,
           vendor_count: form.vendor_count || null,
           setup_instructions: form.setup_instructions.trim() || null,
           additional_notes: form.additional_notes.trim() || null,
+          is_recurring: form.is_recurring,
+          recurring_frequency: form.is_recurring ? form.recurring_frequency || null : null,
         }),
       })
 
@@ -275,6 +321,96 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
         </div>
       </div>
 
+      {/* Section: Event Type & Payment */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Event Type</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+          <div>
+            <label style={labelStyle}>What type of event is this? *</label>
+            <select
+              value={form.event_type}
+              onChange={(e) => updateField('event_type', e.target.value)}
+              style={{ ...inputStyle, backgroundColor: 'white', cursor: 'pointer' }}
+              required
+            >
+              <option value="">Select event type...</option>
+              {EVENT_TYPES.map((et) => (
+                <option key={et.value} value={et.value}>{et.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Who will be paying for food? *</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+              {PAYMENT_MODELS.map((pm) => (
+                <label key={pm.value} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  fontSize: typography.sizes.sm,
+                  color: statusColors.neutral700,
+                  cursor: 'pointer',
+                  padding: `${spacing['3xs']} 0`,
+                }}>
+                  <input
+                    type="radio"
+                    name="payment_model"
+                    value={pm.value}
+                    checked={form.payment_model === pm.value}
+                    onChange={(e) => updateField('payment_model', e.target.value)}
+                    style={{ margin: 0 }}
+                  />
+                  {pm.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          {/* Budget — only for company_paid or hybrid */}
+          {(form.payment_model === 'company_paid' || form.payment_model === 'hybrid') && (
+            <div>
+              <label style={labelStyle}>Total food budget ($)</label>
+              <input
+                type="number"
+                placeholder="e.g., 2500"
+                min="0"
+                step="0.01"
+                value={form.total_food_budget}
+                onChange={(e) => updateField('total_food_budget', e.target.value)}
+                style={inputStyle}
+              />
+              <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+                Helps us recommend the right number of vendors for your budget
+              </p>
+            </div>
+          )}
+          <div>
+            <label style={labelStyle}>Is this a recurring event?</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], fontSize: typography.sizes.sm, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.is_recurring}
+                  onChange={(e) => setForm(prev => ({ ...prev, is_recurring: e.target.checked, recurring_frequency: e.target.checked ? prev.recurring_frequency : '' }))}
+                />
+                Yes, this is recurring
+              </label>
+              {form.is_recurring && (
+                <select
+                  value={form.recurring_frequency}
+                  onChange={(e) => updateField('recurring_frequency', e.target.value)}
+                  style={{ ...inputStyle, width: 'auto', minWidth: 140, cursor: 'pointer', backgroundColor: 'white' }}
+                >
+                  <option value="">How often?</option>
+                  {RECURRING_OPTIONS.map((ro) => (
+                    <option key={ro.value} value={ro.value}>{ro.label}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Section: Event Details */}
       <div style={sectionStyle}>
         <h3 style={sectionTitleStyle}>{t('erf.section_event', locale)}</h3>
@@ -343,6 +479,29 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                 {t('erf.min_people', locale)}
               </p>
             </div>
+            <div>
+              <label style={labelStyle}>Expected food orders</label>
+              <input
+                type="number"
+                placeholder={form.headcount || '50'}
+                min="1"
+                max="5000"
+                value={form.expected_meal_count}
+                onChange={(e) => updateField('expected_meal_count', e.target.value)}
+                style={inputStyle}
+              />
+              <p
+                style={{
+                  margin: `${spacing['3xs']} 0 0`,
+                  fontSize: typography.sizes.xs,
+                  color: statusColors.neutral400,
+                }}
+              >
+                May differ from guest count — not everyone orders at every event
+              </p>
+            </div>
+          </div>
+          <div style={rowStyle}>
             <div>
               <label style={labelStyle}>{term(vertical, 'event_vendor_count_label', locale)}</label>
               <select
@@ -441,10 +600,31 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
             />
           </div>
           <div>
-            <label style={labelStyle}>{t('erf.budget', locale)}</label>
+            <label style={labelStyle}>Menu planning</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.beverages_provided}
+                  onChange={(e) => setForm(prev => ({ ...prev, beverages_provided: e.target.checked }))}
+                />
+                Beverages will be provided separately (not from food vendors)
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.dessert_provided}
+                  onChange={(e) => setForm(prev => ({ ...prev, dessert_provided: e.target.checked }))}
+                />
+                Dessert will be provided separately
+              </label>
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Additional budget or pricing notes</label>
             <input
               type="text"
-              placeholder={t('erf.budget_placeholder', locale)}
+              placeholder="Any other details about budget expectations or constraints"
               value={form.budget_notes}
               onChange={(e) => updateField('budget_notes', e.target.value)}
               style={inputStyle}
