@@ -266,9 +266,7 @@ export default function VendorCateringDetailPage() {
         >
           {details.market_name}
         </h1>
-        <p style={{ color: statusColors.neutral500, margin: 0, fontSize: typography.sizes.sm }}>
-          {details.company_name}
-        </p>
+        {/* company_name intentionally not shown — organizer identity protected */}
       </div>
 
       {actionMessage && (
@@ -322,7 +320,7 @@ export default function VendorCateringDetailPage() {
         <InfoCard
           label="Location"
           value={`${details.city}, ${details.state}`}
-          sub={details.address}
+          sub={details.address || (details.response_status !== 'accepted' ? 'Full address provided after acceptance' : undefined)}
         />
       </div>
 

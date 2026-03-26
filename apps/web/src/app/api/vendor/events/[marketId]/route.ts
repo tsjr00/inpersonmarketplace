@@ -126,6 +126,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         .eq('market_id', marketId)
         .eq('response_status', 'accepted')
 
+      // Organizer identity protection: vendors never see company_name or contact info.
+      // Full address is only revealed after the vendor has accepted the invitation.
+      // Before acceptance, vendors see only city + state (enough to decide if location works).
+      const hasAccepted = marketVendor.response_status === 'accepted'
+
       return NextResponse.json({
         event: {
           market_id: market.id,
@@ -135,14 +140,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
           event_start_time: cateringDetails.event_start_time,
           event_end_time: cateringDetails.event_end_time,
           headcount: market.headcount || 0,
-          address: market.address,
+          // Full address only after acceptance — before that, city/state only
+          address: hasAccepted ? market.address : null,
           city: market.city,
           state: market.state,
-          zip: market.zip,
-          company_name: cateringDetails.company_name,
+          zip: hasAccepted ? market.zip : null,
+          // company_name intentionally omitted — vendors should not know the client identity
+          // to prevent direct solicitation outside the platform
           cuisine_preferences: cateringDetails.cuisine_preferences,
           dietary_notes: cateringDetails.dietary_notes,
-          setup_instructions: cateringDetails.setup_instructions,
+          // Setup instructions only after acceptance (contains venue-specific details)
+          setup_instructions: hasAccepted ? cateringDetails.setup_instructions : null,
           vendor_count: cateringDetails.vendor_count,
           response_status: marketVendor.response_status,
           response_notes: marketVendor.response_notes,

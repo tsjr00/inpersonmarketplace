@@ -78,22 +78,68 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Also fetch approved vendors for the invite UI
+    // Fetch approved vendors with enriched data for invite UI + scoring
     const { data: vendorProfiles } = await serviceClient
       .from('vendor_profiles')
-      .select('id, user_id, profile_data, event_approved')
+      .select('id, user_id, profile_data, event_approved, tier, average_rating, rating_count, pickup_lead_minutes, orders_confirmed_count, orders_cancelled_after_confirm_count')
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
 
-    const vendors = (vendorProfiles || []).map((v) => ({
-      id: v.id,
-      business_name:
-        (v.profile_data as Record<string, unknown>)?.business_name as string ||
-        (v.profile_data as Record<string, unknown>)?.farm_name as string ||
-        'Unknown',
-      event_approved: !!(v.event_approved),
-    }))
+    // Get average listing price per vendor (for per-meal price matching)
+    const vendorIds = (vendorProfiles || []).map(v => v.id)
+    const avgPriceMap: Record<string, number | null> = {}
+    const categoryMap: Record<string, string[]> = {}
+
+    if (vendorIds.length > 0) {
+      const { data: listingStats } = await serviceClient
+        .from('listings')
+        .select('vendor_profile_id, price_cents, category')
+        .in('vendor_profile_id', vendorIds)
+        .eq('status', 'published')
+        .is('deleted_at', null)
+
+      if (listingStats) {
+        // Group by vendor, calculate average price and collect categories
+        const vendorPrices: Record<string, number[]> = {}
+        const vendorCats: Record<string, Set<string>> = {}
+        for (const l of listingStats) {
+          const vid = l.vendor_profile_id as string
+          if (!vendorPrices[vid]) vendorPrices[vid] = []
+          if (!vendorCats[vid]) vendorCats[vid] = new Set()
+          if (l.price_cents) vendorPrices[vid].push(l.price_cents as number)
+          if (l.category) vendorCats[vid].add(l.category as string)
+        }
+        for (const [vid, prices] of Object.entries(vendorPrices)) {
+          avgPriceMap[vid] = prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
+        }
+        for (const [vid, cats] of Object.entries(vendorCats)) {
+          categoryMap[vid] = Array.from(cats)
+        }
+      }
+    }
+
+    const vendors = (vendorProfiles || []).map((v) => {
+      const confirmedCount = (v as Record<string, unknown>).orders_confirmed_count as number || 0
+      const cancelledCount = (v as Record<string, unknown>).orders_cancelled_after_confirm_count as number || 0
+      const cancellationRate = confirmedCount >= 10 ? Math.round((cancelledCount / confirmedCount) * 100) : 0
+
+      return {
+        id: v.id,
+        business_name:
+          (v.profile_data as Record<string, unknown>)?.business_name as string ||
+          (v.profile_data as Record<string, unknown>)?.farm_name as string ||
+          'Unknown',
+        event_approved: !!(v.event_approved),
+        tier: (v.tier || 'free') as string,
+        average_rating: v.average_rating as number | null,
+        rating_count: (v.rating_count || 0) as number,
+        pickup_lead_minutes: (v.pickup_lead_minutes || 30) as number,
+        avg_price_cents: avgPriceMap[v.id] || null,
+        listing_categories: categoryMap[v.id] || [],
+        cancellation_rate: cancellationRate,
+      }
+    })
 
     // Fetch market_vendors for any approved requests
     const marketIds = (requests || [])
