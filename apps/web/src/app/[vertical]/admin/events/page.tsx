@@ -95,7 +95,13 @@ interface VendorOption {
   id: string
   business_name: string
   event_approved?: boolean
-  vertical_id: string
+  tier: string
+  average_rating: number | null
+  rating_count: number
+  pickup_lead_minutes: number
+  avg_price_cents: number | null
+  listing_categories: string[]
+  cancellation_rate: number
 }
 
 interface MarketVendor {
@@ -961,6 +967,38 @@ export default function AdminCateringPage() {
                         ))}
                       </div>
                     )}
+
+                    {/* Wave duration recommendation based on confirmed vendor lead times */}
+                    {(() => {
+                      const confirmedVendorIds = marketVendors
+                        .filter(mv => mv.response_status === 'accepted')
+                        .map(mv => mv.vendor_profile_id)
+                      if (confirmedVendorIds.length === 0) return null
+
+                      const confirmedVendorData = vendors.filter(v => confirmedVendorIds.includes(v.id))
+                      const allFifteen = confirmedVendorData.length > 0 && confirmedVendorData.every(v => v.pickup_lead_minutes <= 15)
+                      const allThirty = confirmedVendorData.some(v => v.pickup_lead_minutes > 15)
+
+                      if (!allFifteen) return null
+
+                      return (
+                        <div style={{
+                          marginTop: spacing.xs,
+                          padding: spacing.xs,
+                          backgroundColor: '#f0fdf4',
+                          border: '1px solid #86efac',
+                          borderRadius: radius.sm,
+                        }}>
+                          <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#166534' }}>
+                            ⚡ 15-Minute Waves Recommended
+                          </div>
+                          <div style={{ fontSize: 10, color: '#15803d', marginTop: 2 }}>
+                            All {confirmedVendorData.length} confirmed vendor{confirmedVendorData.length > 1 ? 's' : ''} support 15-minute service.
+                            Using 15-min waves doubles throughput — feeds attendees 2× faster than 30-min waves.
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </Section>
                 )
               })()}
@@ -1279,20 +1317,40 @@ export default function AdminCateringPage() {
                                     }
                                   }}
                                 />
-                                {v.business_name}
+                                <span style={{ fontWeight: typography.weights.medium }}>{v.business_name}</span>
                                 {v.event_approved && (
                                   <span style={{
                                     padding: `1px ${spacing['2xs']}`,
                                     backgroundColor: '#d1fae5',
                                     color: '#065f46',
                                     borderRadius: 8,
-                                    fontSize: typography.sizes.xs,
+                                    fontSize: 10,
                                     fontWeight: typography.weights.semibold,
-                                    marginLeft: spacing['3xs'],
                                   }}>
                                     Event ✓
                                   </span>
                                 )}
+                                {/* Enriched vendor data for admin decision-making */}
+                                <span style={{ fontSize: 10, color: statusColors.neutral400, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap', marginLeft: 'auto' }}>
+                                  {v.avg_price_cents != null && (
+                                    <span style={{
+                                      color: selected.per_meal_budget_cents
+                                        ? v.avg_price_cents <= selected.per_meal_budget_cents ? '#059669' : '#dc2626'
+                                        : selected.total_food_budget_cents && selected.expected_meal_count
+                                          ? v.avg_price_cents <= Math.round(selected.total_food_budget_cents / selected.expected_meal_count) ? '#059669' : '#dc2626'
+                                          : statusColors.neutral500,
+                                    }}>
+                                      ~${(v.avg_price_cents / 100).toFixed(0)}/meal
+                                    </span>
+                                  )}
+                                  {v.average_rating != null && (
+                                    <span>{v.average_rating.toFixed(1)}★</span>
+                                  )}
+                                  {v.pickup_lead_minutes <= 15 && (
+                                    <span style={{ color: '#059669' }}>15min⚡</span>
+                                  )}
+                                  <span style={{ textTransform: 'capitalize' }}>{v.tier}</span>
+                                </span>
                               </label>
                             ))}
                         </div>
