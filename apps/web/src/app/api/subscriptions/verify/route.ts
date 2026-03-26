@@ -4,6 +4,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 
+export const maxDuration = 15
+
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/subscriptions/verify', 'GET', async () => {
     const clientIp = getClientIp(request)

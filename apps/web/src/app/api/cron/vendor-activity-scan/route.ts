@@ -30,6 +30,8 @@ function safeCompare(a: string, b: string): boolean {
  * Query params:
  * - vertical: Optional vertical ID to scan (defaults to all)
  */
+export const maxDuration = 30
+
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cron/vendor-activity-scan', 'GET', async () => {
     // Skip cron on non-production Vercel environments (staging/preview waste DB resources)

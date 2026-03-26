@@ -47,6 +47,9 @@ interface CartItemFromDB {
   markets: { id: string; name: string; market_type: string; city: string; state: string } | null
 }
 
+// Vercel Pro: checkout involves Stripe API calls + DB operations
+export const maxDuration = 30
+
 export async function POST(request: NextRequest) {
   // Rate limit checkout requests - stricter limit to prevent abuse
   const clientIp = getClientIp(request)

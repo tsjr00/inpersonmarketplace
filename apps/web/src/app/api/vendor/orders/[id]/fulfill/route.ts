@@ -13,6 +13,9 @@ import {
 import { sendNotification } from '@/lib/notifications'
 import { calculateTipShare } from '@/lib/payments/tip-math'
 
+// Vercel Pro: fulfill involves Stripe transfer + fee calculation + notifications
+export const maxDuration = 30
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

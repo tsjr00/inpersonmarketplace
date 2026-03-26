@@ -16,6 +16,8 @@ interface RouteContext {
 // Vendor resolves a buyer-reported issue on an order item.
 // Actions: "confirm_delivery" (vendor says they did deliver) or "issue_refund" (vendor agrees to refund)
 // If vendor disputes buyer (confirm_delivery), admin gets notified.
+export const maxDuration = 30
+
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderItemId } = await context.params
 

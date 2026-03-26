@@ -11,6 +11,8 @@ import { calculateVendorPayout } from '@/lib/pricing'
 import { defaultBranding } from '@/lib/branding/defaults'
 import { formatPickupTime } from '@/types/pickup'
 
+export const maxDuration = 30
+
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/checkout/success', 'GET', async () => {
     const clientIp = getClientIp(request)

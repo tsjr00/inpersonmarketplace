@@ -4,6 +4,9 @@ import { withErrorTracing } from '@/lib/errors'
 import { TracedError } from '@/lib/errors/traced-error'
 import { logError } from '@/lib/errors/logger'
 
+// Vercel Pro: webhook processing includes DB writes + potential Stripe transfers
+export const maxDuration = 30
+
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/webhooks/stripe', 'POST', async () => {
     const body = await request.text()

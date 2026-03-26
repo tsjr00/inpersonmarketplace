@@ -12,6 +12,8 @@ import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/li
  *
  * Creates a Stripe Checkout session for vendor to pay their fee balance
  */
+export const maxDuration = 30
+
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/vendor/fees/pay', 'POST', async () => {
     const clientIp = getClientIp(request)
