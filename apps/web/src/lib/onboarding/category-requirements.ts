@@ -135,18 +135,48 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   processing_facility_compliance: 'Processing Facility Compliance Documentation',
 }
 
-export const PROHIBITED_ITEMS = [
+// Vertical-specific prohibited items
+// starred = conditional/regulatory (rendered differently in UI)
+export interface ProhibitedItem {
+  item: string
+  description: string
+  starred?: boolean
+}
+
+export const PROHIBITED_ITEMS_FT: ProhibitedItem[] = [
+  { item: 'Controlled substances', description: 'Including THC/CBD products regardless of legal status' },
+  { item: 'Alcohol', description: 'All alcoholic beverages' },
+  { item: 'Tobacco & nicotine products', description: 'All tobacco and nicotine products' },
+  { item: 'Recalled or adulterated food products', description: 'Products subject to recall, adulterated, or misbranded' },
+  { item: 'Counterfeit or trademarked goods', description: 'Unauthorized use of trademarks or counterfeit products' },
+  { item: 'Pre-packaged food items not prepared by you', description: 'Chips, bottled water, etc. — these items may be included as part of a meal combo but cannot be sold individually as standalone items', starred: true },
+]
+
+export const PROHIBITED_ITEMS_FM: ProhibitedItem[] = [
   { item: 'Controlled substances', description: 'Including THC/CBD products regardless of legal status' },
   { item: 'Firearms & ammunition', description: 'Including weapon accessories' },
   { item: 'Explosives & fireworks', description: 'All explosive materials' },
   { item: 'Tobacco & nicotine products', description: 'All tobacco and nicotine products' },
   { item: 'Alcohol', description: 'All alcoholic beverages' },
-  { item: 'Raw (unpasteurized) milk', description: 'Unpasteurized milk products' },
-  { item: 'Live animals', description: 'No live animal sales' },
   { item: 'Recalled or adulterated products', description: 'Products subject to recall, adulterated, or misbranded' },
-  { item: 'Resale or wholesale items', description: 'Items not produced by the vendor' },
+  { item: 'Resale items not produced by you', description: 'Items you did not produce, grow, or make yourself' },
   { item: 'Counterfeit or trademarked goods', description: 'Unauthorized use of trademarks or counterfeit products' },
-] as const
+  { item: 'Raw (unpasteurized) milk', description: 'Unpasteurized milk products', starred: true },
+  { item: 'Live animals', description: 'No live animal sales', starred: true },
+]
+
+export const PROHIBITED_ITEMS_DISCLAIMER = 'Prohibited based on current Texas state law and platform guidance. Prohibited items may change as laws and regulatory guidance evolve.'
+
+/** Get prohibited items for a vertical */
+export function getProhibitedItems(vertical: string): ProhibitedItem[] {
+  if (vertical === 'food_trucks') return PROHIBITED_ITEMS_FT
+  if (vertical === 'farmers_market') return PROHIBITED_ITEMS_FM
+  // Default: union of both lists (fireworks or unknown verticals)
+  return [...PROHIBITED_ITEMS_FM]
+}
+
+// Legacy: keep for backward compatibility with existing code that imports PROHIBITED_ITEMS
+export const PROHIBITED_ITEMS = PROHIBITED_ITEMS_FM
 
 // ============================================================
 // Food Truck Permit Requirements (Texas)

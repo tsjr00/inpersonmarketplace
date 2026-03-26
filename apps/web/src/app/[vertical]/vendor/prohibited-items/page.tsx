@@ -1,5 +1,5 @@
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
-import { PROHIBITED_ITEMS } from '@/lib/onboarding/category-requirements'
+import { getProhibitedItems, PROHIBITED_ITEMS_DISCLAIMER } from '@/lib/onboarding/category-requirements'
 import Link from 'next/link'
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
 
 export default async function ProhibitedItemsPage({ params }: Props) {
   const { vertical } = await params
+  const items = getProhibitedItems(vertical)
+  const hasStarredItems = items.some(item => item.starred)
 
   return (
     <div style={{
@@ -48,28 +50,28 @@ export default async function ProhibitedItemsPage({ params }: Props) {
           color: colors.textSecondary,
           lineHeight: 1.6,
         }}>
-          The following items are strictly prohibited from being listed or sold on our platform.
+          The following items are prohibited from being listed or sold on our platform.
           Vendors found in violation of this policy may have their account suspended or permanently removed.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-          {PROHIBITED_ITEMS.map((item, i) => (
+          {items.map((item, i) => (
             <div key={i} style={{
               padding: spacing.sm,
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
+              backgroundColor: item.starred ? '#fefce8' : '#fef2f2',
+              border: `1px solid ${item.starred ? '#fde68a' : '#fecaca'}`,
               borderRadius: radius.md,
             }}>
               <div style={{
                 fontSize: typography.sizes.base,
                 fontWeight: typography.weights.semibold,
-                color: '#991b1b',
+                color: item.starred ? '#92400e' : '#991b1b',
               }}>
-                {i + 1}. {item.item}
+                {item.starred ? '*' : ''}{item.item}
               </div>
               <div style={{
                 fontSize: typography.sizes.sm,
-                color: '#7f1d1d',
+                color: item.starred ? '#78350f' : '#7f1d1d',
                 marginTop: spacing['3xs'],
                 lineHeight: 1.5,
               }}>
@@ -78,6 +80,18 @@ export default async function ProhibitedItemsPage({ params }: Props) {
             </div>
           ))}
         </div>
+
+        {hasStarredItems && (
+          <p style={{
+            marginTop: spacing.sm,
+            fontSize: typography.sizes.sm,
+            color: colors.textMuted,
+            fontStyle: 'italic',
+            lineHeight: 1.6,
+          }}>
+            *{PROHIBITED_ITEMS_DISCLAIMER}
+          </p>
+        )}
 
         <div style={{
           marginTop: spacing.lg,

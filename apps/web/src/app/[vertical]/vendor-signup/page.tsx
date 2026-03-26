@@ -50,7 +50,8 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
     productSafety: false,
     platformTerms: false,
     accurateInfo: false,
-    vendorServiceAgreement: false
+    vendorServiceAgreement: false,
+    prohibitedItems: false,
   });
   const [marketLimitInfo, setMarketLimitInfo] = useState<{
     atLimit: boolean;
@@ -957,6 +958,29 @@ export default function VendorSignup({ params }: { params: Promise<{ vertical: s
                 />
                 <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
                   <strong style={{ color: colors.textPrimary }}><Link href={`/${vertical}/terms/vendor`} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>Vendor Service Agreement</Link>:</strong> I have read and agree to the Vendor Service Agreement, which governs my relationship with the platform as a vendor.
+                </span>
+              </label>
+
+              {/* Prohibited Items Acknowledgment */}
+              <label style={{
+                display: 'flex',
+                gap: spacing.sm,
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+                padding: spacing.sm,
+                backgroundColor: acknowledgments.prohibitedItems ? colors.primaryLight : colors.surfaceMuted,
+                border: `1px solid ${acknowledgments.prohibitedItems ? colors.primary : colors.border}`,
+                borderRadius: radius.md,
+                transition: 'all 0.2s ease',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={acknowledgments.prohibitedItems}
+                  onChange={(e) => setAcknowledgments(prev => ({ ...prev, prohibitedItems: e.target.checked }))}
+                  style={{ marginTop: 2, width: 18, height: 18, flexShrink: 0, accentColor: colors.primary }}
+                />
+                <span style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, lineHeight: typography.leading.relaxed }}>
+                  <strong style={{ color: colors.textPrimary }}><Link href={`/${vertical}/vendor/prohibited-items`} target="_blank" rel="noopener noreferrer" style={{ color: colors.primary, textDecoration: 'underline' }}>Prohibited Items Policy</Link>:</strong> I have reviewed the list of prohibited items and confirm that I will not list or sell any prohibited items through the platform. I understand that violation of this policy may result in account suspension or termination.
                 </span>
               </label>
             </div>
