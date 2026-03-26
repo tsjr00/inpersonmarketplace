@@ -6,6 +6,7 @@ import AdminNav from '@/components/admin/AdminNav'
 import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
+import { calculateViability, type EventScoreInput, type ScoreLevel } from '@/lib/events/viability'
 
 interface CateringRequest {
   id: string
@@ -14,11 +15,15 @@ interface CateringRequest {
   contact_name: string
   contact_email: string
   contact_phone: string | null
+  event_type: string | null
+  payment_model: string | null
   event_date: string
   event_end_date: string | null
   event_start_time: string | null
   event_end_time: string | null
   headcount: number
+  expected_meal_count: number | null
+  total_food_budget_cents: number | null
   address: string
   city: string
   state: string
@@ -26,13 +31,60 @@ interface CateringRequest {
   cuisine_preferences: string | null
   dietary_notes: string | null
   budget_notes: string | null
+  beverages_provided: boolean
+  dessert_provided: boolean
   vendor_count: number
   setup_instructions: string | null
   additional_notes: string | null
+  is_recurring: boolean
+  recurring_frequency: string | null
   market_id: string | null
   admin_notes: string | null
   event_token: string | null
   created_at: string
+}
+
+/**
+ * Event Lifecycle Status Definitions:
+ *   new        — Request received, not yet reviewed by admin
+ *   reviewing  — Admin is evaluating viability (scoring, logistics, budget check)
+ *   approved   — Passes viability check; market + token created; ready to invite vendors
+ *   declined   — Request doesn't meet platform criteria (unrealistic budget, scope, etc.)
+ *   cancelled  — Organizer or admin cancelled before or during event
+ *   ready      — Enough vendors confirmed; event page shareable with organizer
+ *   active     — Event day (orders being fulfilled)
+ *   review     — Post-event; feedback collection window (~7 days)
+ *   completed  — Settled; all vendor payouts processed
+ */
+const LIFECYCLE_STEPS = [
+  { status: 'new', label: 'Received', subtitle: 'Review request' },
+  { status: 'reviewing', label: 'Reviewing', subtitle: 'Evaluate viability' },
+  { status: 'approved', label: 'Approved', subtitle: 'Invite vendors' },
+  { status: 'ready', label: 'Confirmed', subtitle: 'Share event page' },
+  { status: 'active', label: 'Active', subtitle: 'Event day' },
+  { status: 'review', label: 'Feedback', subtitle: 'Collect reviews' },
+  { status: 'completed', label: 'Settled', subtitle: 'Payouts done' },
+]
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  corporate_lunch: 'Corporate Lunch / Team Meal',
+  team_building: 'Team Building / Employee Appreciation',
+  grand_opening: 'Grand Opening / Promotional',
+  festival: 'Festival / Community Event',
+  private_party: 'Private Party / Celebration',
+  other: 'Other',
+}
+
+const PAYMENT_MODEL_LABELS: Record<string, string> = {
+  company_paid: 'Company pays for everyone',
+  attendee_paid: 'Each person pays individually',
+  hybrid: 'Company covers base, individuals upgrade',
+}
+
+const SCORE_COLORS: Record<ScoreLevel, { bg: string; text: string; border: string }> = {
+  green: { bg: statusColors.successLight, text: statusColors.successDark, border: statusColors.successBorder },
+  yellow: { bg: statusColors.warningLight, text: statusColors.warningDark, border: statusColors.warningBorder },
+  red: { bg: statusColors.dangerLight, text: statusColors.dangerDark, border: statusColors.dangerBorder },
 }
 
 interface VendorOption {
@@ -531,6 +583,98 @@ export default function AdminCateringPage() {
                 </div>
               )}
 
+              {/* Lifecycle Stepper — shows full workflow, current step highlighted */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0,
+                marginBottom: spacing.md,
+                padding: `${spacing.xs} ${spacing.sm}`,
+                backgroundColor: statusColors.neutral50,
+                borderRadius: radius.md,
+                border: `1px solid ${statusColors.neutral200}`,
+                overflowX: 'auto',
+              }}>
+                {LIFECYCLE_STEPS.map((step, i) => {
+                  const stepIndex = LIFECYCLE_STEPS.findIndex(s => s.status === selected.status)
+                  const isDeclined = selected.status === 'declined' || selected.status === 'cancelled'
+                  const isCurrent = step.status === selected.status
+                  const isPast = !isDeclined && stepIndex > i
+                  const isFuture = !isCurrent && !isPast
+
+                  return (
+                    <div key={step.status} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        flex: 1,
+                        minWidth: 0,
+                        opacity: isFuture ? 0.4 : 1,
+                      }}>
+                        <div style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          backgroundColor: isCurrent ? statusColors.infoDark
+                            : isPast ? statusColors.successDark
+                            : statusColors.neutral200,
+                          color: (isCurrent || isPast) ? 'white' : statusColors.neutral500,
+                        }}>
+                          {isPast ? '\u2713' : i + 1}
+                        </div>
+                        <div style={{
+                          fontSize: 10,
+                          fontWeight: isCurrent ? 700 : 500,
+                          color: isCurrent ? statusColors.infoDark : isPast ? statusColors.successDark : statusColors.neutral400,
+                          marginTop: 2,
+                          textAlign: 'center',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {step.label}
+                        </div>
+                        <div style={{
+                          fontSize: 9,
+                          color: statusColors.neutral400,
+                          textAlign: 'center',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {step.subtitle}
+                        </div>
+                      </div>
+                      {i < LIFECYCLE_STEPS.length - 1 && (
+                        <div style={{
+                          width: 16,
+                          height: 2,
+                          backgroundColor: isPast ? statusColors.successDark : statusColors.neutral200,
+                          flexShrink: 0,
+                        }} />
+                      )}
+                    </div>
+                  )
+                })}
+                {/* Show declined/cancelled as overlay badge if applicable */}
+                {(selected.status === 'declined' || selected.status === 'cancelled') && (
+                  <div style={{
+                    position: 'absolute',
+                    right: spacing.sm,
+                    padding: `${spacing['3xs']} ${spacing.xs}`,
+                    backgroundColor: selected.status === 'declined' ? statusColors.dangerLight : statusColors.neutral100,
+                    color: selected.status === 'declined' ? statusColors.dangerDark : statusColors.neutral600,
+                    borderRadius: radius.sm,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                  }}>
+                    {selected.status === 'declined' ? 'Declined' : 'Cancelled'}
+                  </div>
+                )}
+              </div>
+
               <div
                 style={{
                   display: 'flex',
@@ -654,19 +798,129 @@ export default function AdminCateringPage() {
                   />
                 )}
                 <DetailRow label="Headcount" value={`${selected.headcount} people`} />
+                {selected.expected_meal_count && selected.expected_meal_count !== selected.headcount && (
+                  <DetailRow label="Expected Orders" value={`${selected.expected_meal_count} meals`} />
+                )}
                 <DetailRow label={`${term(vertical, 'event_vendor_unit')}s Requested`} value={`${selected.vendor_count}`} />
                 <DetailRow
                   label="Location"
                   value={`${selected.address}, ${selected.city}, ${selected.state} ${selected.zip}`}
                 />
+                {selected.event_type && (
+                  <DetailRow label="Event Type" value={EVENT_TYPE_LABELS[selected.event_type] || selected.event_type} />
+                )}
+                {selected.payment_model && (
+                  <DetailRow label="Payment" value={PAYMENT_MODEL_LABELS[selected.payment_model] || selected.payment_model} />
+                )}
+                {selected.total_food_budget_cents != null && (
+                  <DetailRow label="Food Budget" value={`$${(selected.total_food_budget_cents / 100).toFixed(2)}`} />
+                )}
+                {selected.beverages_provided && <DetailRow label="Beverages" value="Provided separately" />}
+                {selected.dessert_provided && <DetailRow label="Dessert" value="Provided separately" />}
+                {selected.is_recurring && (
+                  <DetailRow label="Recurring" value={selected.recurring_frequency ? `Yes — ${selected.recurring_frequency}` : 'Yes'} />
+                )}
               </Section>
+
+              {/* Viability Assessment — admin-only scoring */}
+              {(() => {
+                const scoreInput: EventScoreInput = {
+                  payment_model: selected.payment_model,
+                  total_food_budget_cents: selected.total_food_budget_cents,
+                  expected_meal_count: selected.expected_meal_count,
+                  headcount: selected.headcount,
+                  vendor_count: selected.vendor_count,
+                  event_start_time: selected.event_start_time,
+                  event_end_time: selected.event_end_time,
+                  is_recurring: selected.is_recurring,
+                }
+                const viability = calculateViability(scoreInput)
+
+                return (
+                  <Section title="Viability Assessment">
+                    {/* Overall */}
+                    <div style={{
+                      padding: spacing.xs,
+                      backgroundColor: SCORE_COLORS[viability.overall].bg,
+                      border: `1px solid ${SCORE_COLORS[viability.overall].border}`,
+                      borderRadius: radius.sm,
+                      marginBottom: spacing.xs,
+                    }}>
+                      <span style={{
+                        fontSize: typography.sizes.sm,
+                        fontWeight: typography.weights.semibold,
+                        color: SCORE_COLORS[viability.overall].text,
+                      }}>
+                        {viability.overallLabel}
+                      </span>
+                    </div>
+
+                    {/* Individual scores */}
+                    {viability.budget && (
+                      <div style={{ marginBottom: spacing['2xs'] }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                          <span style={{
+                            display: 'inline-block',
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            backgroundColor: SCORE_COLORS[viability.budget.level].text,
+                          }} />
+                          <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700 }}>
+                            Budget: {viability.budget.label}
+                          </span>
+                        </div>
+                        <p style={{ margin: `2px 0 0 20px`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+                          {viability.budget.detail}
+                        </p>
+                      </div>
+                    )}
+
+                    <div style={{ marginBottom: spacing['2xs'] }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                        <span style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          backgroundColor: SCORE_COLORS[viability.capacity.level].text,
+                        }} />
+                        <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700 }}>
+                          Capacity: {viability.capacity.label}
+                        </span>
+                      </div>
+                      <p style={{ margin: `2px 0 0 20px`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+                        {viability.capacity.detail}
+                      </p>
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+                        <span style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          backgroundColor: SCORE_COLORS[viability.duration.level].text,
+                        }} />
+                        <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700 }}>
+                          Duration: {viability.duration.label}
+                        </span>
+                      </div>
+                      <p style={{ margin: `2px 0 0 20px`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
+                        {viability.duration.detail}
+                      </p>
+                    </div>
+                  </Section>
+                )
+              })()}
 
               {/* Preferences */}
               {(selected.cuisine_preferences || selected.dietary_notes || selected.budget_notes) && (
                 <Section title="Preferences">
                   {selected.cuisine_preferences && <DetailRow label="Cuisine" value={selected.cuisine_preferences} />}
                   {selected.dietary_notes && <DetailRow label="Dietary" value={selected.dietary_notes} />}
-                  {selected.budget_notes && <DetailRow label="Budget" value={selected.budget_notes} />}
+                  {selected.budget_notes && <DetailRow label="Budget Notes" value={selected.budget_notes} />}
                 </Section>
               )}
 

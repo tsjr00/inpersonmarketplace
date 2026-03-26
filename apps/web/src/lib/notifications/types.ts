@@ -84,6 +84,7 @@ export type NotificationType =
   | 'catering_request_received'
   | 'catering_vendor_invited'
   | 'catering_vendor_responded'
+  | 'event_confirmed'
   | 'event_feedback_request'
   | 'event_prep_reminder'
   | 'event_settlement_summary'
@@ -140,6 +141,8 @@ export interface NotificationTemplateData {
   orderCount?: number
   payoutAmount?: string
   eventToken?: string
+  eventPageUrl?: string
+  vendorCount?: number
   // Order confirmation email enrichment
   brandName?: string
   marketAddress?: string
@@ -679,6 +682,16 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (_d, locale) => t('notif.catering_vendor_responded_title', locale),
     message: (d) => `${d.vendorName} ${d.responseAction || 'responded to'} the event invitation for ${d.marketName}.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
+  },
+
+  // Sent to event organizer when admin advances event to 'ready' (vendors confirmed)
+  event_confirmed: {
+    urgency: 'immediate',
+    severity: 'info',
+    audience: 'buyer', // organizer is external — uses email delivery, audience doesn't matter for routing
+    title: () => 'Your event is confirmed!',
+    message: (d) => `Great news — ${d.vendorCount || 'your'} vendor${(d.vendorCount || 0) > 1 ? 's are' : ' is'} confirmed for your event on ${d.eventDate}! Share this link with your team so they can browse menus and pre-order: ${d.eventPageUrl || '(link pending)'}`,
+    actionUrl: (d) => d.eventPageUrl || '/',
   },
 
   event_prep_reminder: {

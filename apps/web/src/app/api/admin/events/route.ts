@@ -9,7 +9,14 @@ import {
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 
-// GET - List catering requests (admin only)
+/**
+ * GET /api/admin/events
+ *
+ * List catering requests (admin only). Filterable by vertical and status.
+ * Returns event-approved vendors for the invitation UI.
+ *
+ * See event_system_deep_dive.md Part 12.1 for status definitions.
+ */
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/admin/events', 'GET', async () => {
     const clientIp = getClientIp(request)

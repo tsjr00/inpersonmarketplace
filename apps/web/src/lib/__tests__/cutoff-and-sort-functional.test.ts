@@ -144,9 +144,9 @@ describe('VT-013: FT tier sort priority (unified: boss first)', () => {
 // NI-014: Notification type count = 46
 // =============================================================================
 
-describe('NI-014: Total notification types = 51', () => {
-  it('NOTIFICATION_REGISTRY has exactly 51 types', () => {
-    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(51)
+describe('NI-014: Total notification types = 52', () => {
+  it('NOTIFICATION_REGISTRY has exactly 52 types', () => {
+    expect(Object.keys(NOTIFICATION_REGISTRY)).toHaveLength(52)
   })
 
   it('includes all buyer-facing types', () => {
