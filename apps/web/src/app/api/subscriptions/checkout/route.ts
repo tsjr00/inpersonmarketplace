@@ -5,6 +5,8 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit
 import { withErrorTracing } from '@/lib/errors'
 import { isFoodTruckTier } from '@/lib/vendor-limits'
 
+export const maxDuration = 30
+
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/subscriptions/checkout', 'POST', async () => {
     // Rate limit subscription checkout requests

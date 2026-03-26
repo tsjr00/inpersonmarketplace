@@ -46,6 +46,9 @@ function safeCompare(a: string, b: string): boolean {
  *
  * Called by Vercel Cron daily at 12pm UTC / ~6am CT (configured in vercel.json)
  */
+// Vercel Pro: allow up to 60 seconds for the cron job (10+ phases with DB + Stripe calls)
+export const maxDuration = 60
+
 export async function GET(request: NextRequest) {
   return withErrorTracing('/api/cron/expire-orders', 'GET', async () => {
     // Skip cron on non-production Vercel environments (staging/preview waste DB resources)

@@ -13,6 +13,8 @@ interface RouteContext {
 
 // POST /api/vendor/orders/[id]/reject - Vendor rejects/cancels an order item
 // Vendor can reject at any time before fulfillment (pending, paid, confirmed, ready)
+export const maxDuration = 30
+
 export async function POST(request: NextRequest, context: RouteContext) {
   return withErrorTracing('/api/vendor/orders/[id]/reject', 'POST', async () => {
     const clientIp = getClientIp(request)

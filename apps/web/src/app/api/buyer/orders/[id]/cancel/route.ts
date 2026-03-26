@@ -15,6 +15,8 @@ interface RouteContext {
 // Layer 1: Within per-vertical early cancel window → full refund (FM=1hr, FT=15min)
 // Layer 2: After window AND vendor has confirmed/prepared → 25% cancellation fee
 // Layer 3: After window but vendor NOT confirmed → full refund (pre-confirm override)
+export const maxDuration = 30
+
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id: orderItemId } = await context.params
 
