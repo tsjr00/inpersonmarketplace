@@ -53,6 +53,10 @@ export default function EventSelectPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [menusReviewed, setMenusReviewed] = useState<Set<string>>(new Set())
+  const [shareContact, setShareContact] = useState(false)
+  const [contactName, setContactName] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -112,7 +116,13 @@ export default function EventSelectPage() {
       const res = await fetch(`/api/events/${token}/select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selected_vendor_ids: selectedIds }),
+        body: JSON.stringify({
+          selected_vendor_ids: selectedIds,
+          share_contact: shareContact,
+          organizer_contact_name: shareContact ? contactName.trim() : null,
+          organizer_contact_phone: shareContact ? contactPhone.trim() : null,
+          organizer_contact_email: shareContact ? contactEmail.trim() : null,
+        }),
       })
 
       if (!res.ok) {
@@ -336,6 +346,64 @@ export default function EventSelectPage() {
                   </div>
                 )
               })}
+            </div>
+
+            {/* Contact Sharing Opt-In */}
+            <div style={{
+              backgroundColor: 'white',
+              border: `1px solid ${statusColors.neutral200}`,
+              borderRadius: radius.lg,
+              padding: spacing.md,
+              marginBottom: spacing.md,
+            }}>
+              <h3 style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: `0 0 ${spacing.xs}` }}>
+                Communication with Trucks
+              </h3>
+              <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}`, lineHeight: 1.5 }}>
+                Would you like to share your contact information with your selected trucks so they can reach you directly for logistical questions?
+                If you choose not to, trucks can still send you messages through the platform.
+              </p>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                fontSize: typography.sizes.sm,
+                color: statusColors.neutral700,
+                cursor: 'pointer',
+                marginBottom: spacing.sm,
+              }}>
+                <input
+                  type="checkbox"
+                  checked={shareContact}
+                  onChange={(e) => setShareContact(e.target.checked)}
+                />
+                Yes, share my contact information with selected trucks
+              </label>
+              {shareContact && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs, paddingLeft: spacing.md }}>
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral300}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone number"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral300}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    style={{ padding: spacing.xs, border: `1px solid ${statusColors.neutral300}`, borderRadius: radius.sm, fontSize: typography.sizes.sm }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Terms Agreement */}

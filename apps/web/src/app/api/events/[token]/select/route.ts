@@ -173,7 +173,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const serviceClient = createServiceClient()
 
     const body = await request.json()
-    const { selected_vendor_ids } = body
+    const {
+      selected_vendor_ids,
+      share_contact,
+      organizer_contact_name,
+      organizer_contact_phone,
+      organizer_contact_email,
+    } = body
 
     if (!Array.isArray(selected_vendor_ids) || selected_vendor_ids.length === 0) {
       return NextResponse.json({ error: 'Please select at least one truck' }, { status: 400 })
@@ -182,7 +188,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Find the event
     const { data: event } = await serviceClient
       .from('catering_requests')
-      .select('id, company_name, contact_name, contact_email, event_date, headcount, vendor_count, city, state, vertical_id, market_id, event_token, status, service_level')
+      .select('id, company_name, contact_name, contact_email, event_date, headcount, vendor_count, city, state, vertical_id, market_id, event_token, status, service_level, vendor_preferences')
       .eq('event_token', token)
       .single()
 
@@ -236,10 +242,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Update event status to 'ready' (organizer has made their selections)
+    // Update event status + store organizer contact preferences
+    const updateData: Record<string, unknown> = { status: 'ready' }
+    if (share_contact) {
+      // Store organizer contact info in vendor_preferences JSONB for vendor access
+      updateData.vendor_preferences = {
+        ...(typeof event.vendor_preferences === 'object' && event.vendor_preferences ? event.vendor_preferences : {}),
+        organizer_contact: {
+          shared: true,
+          name: organizer_contact_name || null,
+          phone: organizer_contact_phone || null,
+          email: organizer_contact_email || null,
+        },
+      }
+    }
     await serviceClient
       .from('catering_requests')
-      .update({ status: 'ready' })
+      .update(updateData)
       .eq('id', event.id)
 
     // Notify selected vendors — prompt them to connect catering listings
