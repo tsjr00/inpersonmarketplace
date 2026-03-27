@@ -877,3 +877,254 @@ These are NOT in-app features yet. They're PDF/image templates the admin emails 
 | Event experience | Yes | "Experienced" or "New to events" |
 | Capacity fit | Yes | "Can handle your headcount" |
 | Vehicle details | No | Not relevant to organizer |
+
+---
+
+## Part 14: Event Manager Direct Selection + Self-Service Crowd Events (Session 63+)
+
+**Created:** 2026-03-27
+**Status:** Planning — documented for future implementation
+
+### 14.1 Event Manager Direct Truck Selection
+
+**Problem:** Current flow assumes admin recommends trucks. Many event managers want to browse and choose specific trucks themselves.
+
+**Solution:** Add a path toggle early in the intake form:
+> "Would you like to choose specific trucks, or let us recommend?"
+
+**If "I'll choose":**
+- Show an in-form type-ahead search widget for event-approved vendors
+- Event manager searches by name, sees mini-cards (name, cuisine, rating, avg price)
+- Adds vendors to an ordered preference list (1st choice, 2nd, etc.) — max 10
+- System runs scoring against event parameters and shows inline guidance:
+  - "Great match — Mexican cuisine aligns with your preferences"
+  - "Note — this truck's max runtime is 4hr, your event is 6hr"
+  - "Note — this truck uses a generator that may produce noise"
+- Guidance doesn't block selection — just informs
+- Selected vendors are stored in the catering_request for admin to review/approve
+
+**If "Recommend for me":**
+- Current flow (admin curates + scoring system recommends)
+
+**Technical needs:**
+- Public-facing API endpoint: `/api/event-approved-vendors?vertical=X` — returns event-approved vendors with name, cuisine categories, avg price, rating (no sensitive data)
+- Type-ahead search component in EventRequestForm
+- New DB column: `vendor_preferences` (JSONB array of { vendor_id, priority_order })
+- Inline scoring display using existing `scoreVendorMatch()`
+
+**Catering menu item limit:** Increase from 5 to 7 per vendor per event.
+
+### 14.2 Self-Service Crowd Event System (Product C Lite)
+
+**Problem:** The most common event request in the market right now is crowd-style: businesses post to Facebook groups asking for 2-3 trucks for a grand opening, community event, etc. No budget for managed service. Event managers get flooded with responses and have no insight into which truck fits best.
+
+**Our opportunity:** Build a free, fully automated self-service funnel that replaces Facebook group posts. Event managers get curated, scored truck recommendations. Trucks get organized event opportunities. Platform gets users, pre-orders, and network growth.
+
+**No admin involvement.** This is a user-acquisition play, not a revenue play (transaction fees on pre-orders only).
+
+#### Full Flow:
+
+**Step 1: Intake Form (self-service path)**
+- Event manager selects "Self-Service" (vs "Full Service — admin managed")
+- Simplified form: event type, date/time, location (city/state only), headcount, cuisine preferences, truck count needed
+- NO budget fields (attendees pay individually)
+- NO admin notes or setup instructions (those are for managed events)
+
+**Step 2: Auto-Match + Auto-Invite**
+- On form submission, system runs `scoreVendorMatch()` against all event-approved vendors
+- Filters to green/yellow matches on cuisine + capacity + runtime
+- Auto-creates anonymized event opportunity (company_name + address hidden)
+- Auto-sends `catering_vendor_invited` notification to matched vendors
+- Invitation includes: event date, city (not address), headcount per truck, cuisine match info
+
+**Step 3: Vendor Response Collection**
+- Vendors respond via existing accept/decline flow
+- On "interested": vendor confirms date availability
+- System tracks response count
+
+**Step 4: Threshold Trigger → Results Email**
+- Cron checks hourly for self-service events where:
+  - 48 hours have passed since invitations sent, OR
+  - Response count >= requested vendor_count
+- When triggered: compile results + email to event manager
+- Results email shows each interested vendor with:
+  - Truck name (NOT anonymized — no reason to hide from event manager)
+  - Cuisine type, rating, truck length, generator info
+  - Catering menu preview (item names + prices)
+  - Odor/utensil/seating notes from readiness questionnaire
+  - "View full profile" link to vendor's public profile page
+
+**Step 5: Event Manager Selection Page**
+- New page: `/events/[token]/select`
+- Shows interested vendors with details from Step 4
+- Checkboxes to select (max = requested vendor_count)
+- For each selected vendor: "I have reviewed this vendor's catering menu" checkbox
+- Terms agreement: "I understand that [platform] is a facilitator only. The arrangement for food service is between me and the selected vendor(s). [Platform] is not responsible for food quality, vendor no-shows, or any issues arising from the event."
+- Submit button
+
+**Step 6: Confirmation + Event Page Creation**
+- System creates event market + token + schedule (existing logic)
+- Sends confirmation to selected vendors → prompts them to connect catering listings + set schedule
+- Sends event manager: event page link, QR code, marketing recommendations:
+  - "Share this link with your audience so they can pre-order"
+  - "Pre-ordering means less waiting and more time enjoying your event"
+  - "Include the QR code on flyers, social media, and event signage"
+
+**Step 7: Vendor Commitment**
+- Selected vendors connect their catering listings to the event (existing menu picker)
+- Once connected, they're committed — cancellation policy applies
+
+#### Gaps to Address:
+
+| Gap | Impact | Resolution |
+|---|---|---|
+| Vendor date conflict detection | Prevents double-booking | Check market_vendors + market_schedules for date overlap before accepting |
+| No vendor responses | Event manager gets nothing | "No matches" email after 48hr with suggestions to broaden criteria |
+| Vendor backs out after confirmation | Event manager loses a truck | 72hr cancellation deadline, affects vendor score, auto-notify event manager |
+| Day-of support | Nobody to call if truck no-shows | Terms make clear: self-service = no platform support. Upsell to full-service. |
+| Post-event feedback | Still valuable for scoring | Keep existing feedback form on event page |
+
+#### Revenue Model:
+- Free for event managers (no $75/truck fee)
+- Transaction fees on pre-orders (built into Stripe checkout, automatic)
+- Upsell path: "Want day-of coordination and vendor guarantees? Upgrade to Full Service."
+- Network effect: more trucks + more event managers = more marketplace users
+
+### 14.3 Implementation Phases
+
+**Phase 1 — Form Enhancements (next session):**
+- [ ] Form path toggle: self-service vs full-service
+- [ ] In-form vendor search/select widget (for "I'll choose" path)
+- [ ] Increase catering menu limit from 5 to 7
+- [ ] `vendor_preferences` JSONB column on catering_requests
+
+**Phase 2 — Self-Service Pipeline (2 sessions):**
+- [ ] Auto-matching trigger on self-service form submission
+- [ ] Response threshold cron (48hr or vendor_count responses)
+- [ ] Results email template with vendor details
+- [ ] Organizer selection page (`/events/[token]/select`)
+- [ ] Terms agreement component + legal text
+- [ ] Confirmation trigger → event page creation + vendor notification
+
+**Phase 3 — Polish + Safety (1 session):**
+- [ ] Vendor date conflict detection (see 14.4 decisions)
+- [ ] Vendor cancellation policy + penalties + backup escalation
+- [ ] "No vendors found" fallback email
+- [ ] QR code generation for event page link
+- [ ] Marketing copy templates in confirmation email
+- [ ] Post-event feedback collection (already exists, just verify it works for self-service events)
+- [ ] Event organizer contact sharing opt-in
+- [ ] Vendor → organizer message relay (platform-mediated email)
+
+---
+
+## Part 15: Gap Resolutions — Decisions Made (2026-03-27)
+
+These decisions resolve the gaps identified in Parts 13-14. Each includes rationale and implementation notes.
+
+### 15.1 Multi-Truck Vendor Scheduling
+
+**Decision:** The system already asks vendors during onboarding if they operate more than one truck. Multi-truck vendors are responsible for managing their own scheduling conflicts. For single-truck vendors, the system enforces conflict prevention.
+
+**Implementation:**
+- On event acceptance, check if vendor has `multi_truck = true` (or equivalent flag — verify field name in profile_data)
+- If single-truck: query `market_vendors` + `market_schedules` for overlapping dates/times. If conflict found, BLOCK acceptance with message: "You already have a commitment on this date. Cancel the existing commitment first, or contact admin for help."
+- If multi-truck: allow acceptance, show WARNING: "You have another event on this date. As a multi-truck operator, please ensure you have a truck available for each commitment."
+- On acceptance, auto-block the time slot for single-truck vendors (create a schedule entry or flag that prevents other event acceptances for that date/time range)
+
+### 15.2 Event Manager App Accounts
+
+**Decision:** Event managers should create an app account for the best experience, but first engagement can be guest (email-only) to reduce friction.
+
+**Flow:**
+- **Initial intake form:** No login required. At form submission, prompt: "Create a free account for the fastest experience — track your event, browse vendors in-app, and get instant notifications" OR "Continue as guest — we'll send updates via email"
+- **Secondary stage (truck selection):** Account REQUIRED. If they were a guest, prompt sign-up at this point. Explain: "To select your trucks and manage your event, you'll need a free account. We'll also send you in-app notifications for urgent updates like vendor cancellations."
+- **Account type:** Standard buyer account with `event_organizer` flag on user_profiles. This lets them:
+  - Browse vendor profiles in-app (filtered for event-eligible)
+  - See an "Event Management" card on their buyer dashboard
+  - Receive in-app notifications for event updates
+  - Place catering orders (cross-sell opportunity)
+- **Tagging:** Accounts created from the event intake form get `event_organizer = true` automatically. This flag controls dashboard UI (show event management card).
+
+### 15.3 Vendor Contact Info for Events
+
+**Decision:** During event readiness application, vendors authorize sharing of contact info with event managers AND can provide event-specific contact details (may differ from their account email/phone).
+
+**Implementation:**
+- Add to event readiness questionnaire:
+  - "If selected for an event, we will share your contact information with the event organizer so they can reach you for logistics. You may provide event-specific contact details below, or we will use your account information."
+  - `event_contact_name` (TEXT, defaults to profile business_name)
+  - `event_contact_phone` (TEXT, optional but strongly recommended)
+  - `event_contact_email` (TEXT, defaults to account email)
+  - Checkbox: "I authorize sharing my contact information with event organizers" (REQUIRED for event approval)
+- Store in `profile_data.event_readiness.contact_info`
+- Share with event organizer ONLY after terms are agreed and trucks are confirmed
+
+### 15.4 Backup Vendor System
+
+**Decision:** When vendors respond to an event invitation, they can indicate willingness to serve as a backup. Event managers rank preferences. If a primary vendor cancels, the platform auto-escalates to the backup.
+
+**Flow:**
+1. Invitation includes question: "If you are not selected as a primary vendor, would you be willing to serve as a backup?" (yes/no)
+2. Vendor responds: interested (primary) + backup_willing (boolean)
+3. Event manager selects their preferred trucks in priority order
+4. Non-selected vendors who said backup_willing = true are tagged as backups
+5. If a primary vendor cancels (72hr+ before event):
+   - System auto-notifies the highest-priority backup
+   - Backup has 24 hours to confirm
+   - If backup confirms → they become primary, event manager is notified of the swap
+   - If backup declines or doesn't respond → next backup is tried, or event manager is notified "no backup available"
+6. If cancellation is <72hr before event: admin is notified for manual intervention (even on self-service events — this is an exception)
+
+**New fields on market_vendors:**
+- `is_backup` (BOOLEAN DEFAULT false) — vendor is willing to be backup
+- `backup_priority` (INTEGER, nullable) — admin/system-assigned priority among backups
+- `replaced_vendor_id` (UUID, nullable) — if this vendor replaced a cancelled primary
+
+### 15.5 Catering Menu Requirements
+
+**Decision:** Minimum 4 catering-eligible listings, maximum 7 per event. Enforce at event approval time.
+
+**Implementation:**
+- When admin sets `event_approved = true`, check: does vendor have ≥4 published listings with `listing_data.event_menu_item = true`?
+- If not: block approval with message: "Vendor needs at least 4 catering menu items to be event-approved. Currently has X."
+- At event acceptance: vendor selects 4-7 items (changed from 1-5)
+- Vendor browse/profile for event managers should NOT show vendors with <4 catering items (filter them out of event-eligible results)
+- Throughput info (`max_headcount_per_wave`) must also be filled in before event approval — already required by readiness questionnaire
+
+### 15.6 Event Manager ↔ Vendor Communication
+
+**Decision:** Two-tiered system based on event manager opt-in.
+
+**Tier 1 — Direct contact (opt-in):**
+- During truck selection (secondary form), event manager is asked: "Would you like to share your contact information with your selected vendors? This allows them to reach you directly for logistical questions."
+- If yes: provide `organizer_contact_name`, `organizer_contact_phone`, `organizer_contact_email`
+- Shared with selected vendors after confirmation
+- Note shown to event manager: "If you choose not to share your contact info, vendors can still send you messages through the platform."
+
+**Tier 2 — Platform relay (default):**
+- Vendor sees a "Message event organizer" button on their event detail page
+- Message is sent as an email to the organizer FROM the platform (not from the vendor's personal email)
+- Organizer can reply to the email — reply goes to a platform relay that forwards to the vendor
+- This keeps the organizer's email private while enabling communication
+
+**For managed events (full-service):** All communication goes through admin. Neither party gets the other's contact info.
+
+### 15.7 Self-Service Event Expectations
+
+**Decision:** Set clear expectations in the intake form for self-service events.
+
+**Messaging at form submission:**
+- "We'll send your invitation to matching food trucks right away."
+- "If we don't receive enough interested trucks within 48 hours, we'll notify you with the option to broaden your criteria."
+- "We recommend keeping your criteria broad (cuisine types, not specific trucks) to maximize responses."
+
+**Do NOT tell event managers:**
+- Exact matching criteria or scoring algorithm
+- Number of vendors notified
+- Internal scoring thresholds
+
+**DO tell them:**
+- Approximate timeline (48hr for responses)
+- That broader criteria = more responses
+- That we match based on cuisine, capacity, availability, and experience
