@@ -265,6 +265,87 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
       }
 
+      // Self-service instant threshold check:
+      // If enough vendors have accepted (or all have responded), send
+      // organizer results email immediately instead of waiting for cron.
+      if (response_status === 'accepted' && market?.catering_request_id) {
+        try {
+          const { data: cReq } = await serviceClient
+            .from('catering_requests')
+            .select('id, service_level, status, vendor_count, contact_name, contact_email, event_date, city, state, vertical_id, event_token, auto_invite_sent_at')
+            .eq('id', market.catering_request_id)
+            .single()
+
+          if (cReq?.service_level === 'self_service' && cReq.status === 'approved' && cReq.auto_invite_sent_at) {
+            // Count responses for this event
+            const { data: allMv } = await serviceClient
+              .from('market_vendors')
+              .select('response_status')
+              .eq('market_id', marketId)
+
+            if (allMv) {
+              const acceptedCount = allMv.filter(mv => mv.response_status === 'accepted').length
+              const pendingCount = allMv.filter(mv => mv.response_status === 'invited').length
+              const thresholdMet = acceptedCount >= (cReq.vendor_count || 2)
+              const allResponded = pendingCount === 0 && acceptedCount > 0
+
+              if (thresholdMet || allResponded) {
+                // Build results email + send immediately (same logic as cron Phase 12)
+                const selectUrl = cReq.event_token
+                  ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://foodtruckn.app'}/events/${cReq.event_token}/select`
+                  : null
+
+                const isFM = cReq.vertical_id === 'farmers_market'
+                const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+                const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+                const accentColor = isFM ? '#2d5016' : '#ff5757'
+
+                const { Resend } = await import('resend')
+                const resend = new Resend(process.env.RESEND_API_KEY)
+
+                await resend.emails.send({
+                  from: `${senderName} <updates@${senderDomain}>`,
+                  to: cReq.contact_email,
+                  subject: `${acceptedCount} food truck${acceptedCount > 1 ? 's are' : ' is'} interested in your event!`,
+                  html: `
+                    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
+                      <h2 style="color:${accentColor};margin:0 0 8px">Your Event Results</h2>
+                      <p style="color:#374151;margin:0 0 16px">Hi ${cReq.contact_name || 'there'},</p>
+                      <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
+                        Great news! <strong>${acceptedCount}</strong> food truck${acceptedCount > 1 ? 's have' : ' has'} expressed interest in your event on <strong>${cReq.event_date}</strong> in ${cReq.city}, ${cReq.state}.
+                      </p>
+                      ${selectUrl ? `
+                      <div style="text-align:center;margin:0 0 24px">
+                        <a href="${selectUrl}" style="display:inline-block;padding:14px 28px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px">
+                          Select Your Trucks
+                        </a>
+                      </div>
+                      <p style="color:#6b7280;font-size:13px;margin:0 0 16px">
+                        Click above to review truck details, menus, and make your final selections.
+                      </p>
+                      ` : ''}
+                      <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
+                        Questions? Reply to this email.
+                      </p>
+                    </div>
+                  `,
+                })
+
+                // Update status to 'ready' so organizer can select
+                await serviceClient
+                  .from('catering_requests')
+                  .update({ status: 'ready' })
+                  .eq('id', cReq.id)
+                  .eq('status', 'approved') // Only if still approved (prevent double-send)
+              }
+            }
+          }
+        } catch (thresholdErr) {
+          // Non-critical — cron is the fallback. Don't fail the vendor's response.
+          console.error('[vendor-respond] Threshold check error:', thresholdErr)
+        }
+      }
+
       return NextResponse.json({
         ok: true,
         response_status,
