@@ -53,17 +53,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
 
-      // Accepting requires at least 1 listing selection
+      // Accepting requires 4-7 catering menu items
+      // Min 4: ensures meaningful menu variety for event attendees
+      // Max 7: keeps service focused and prep manageable
       if (response_status === 'accepted') {
-        if (!listing_ids || !Array.isArray(listing_ids) || listing_ids.length === 0) {
+        if (!listing_ids || !Array.isArray(listing_ids) || listing_ids.length < 4) {
           return NextResponse.json(
-            { error: 'Please select at least one menu item for this event' },
+            { error: 'Please select at least 4 menu items for this event (maximum 7)' },
             { status: 400 }
           )
         }
-        if (listing_ids.length > 5) {
+        if (listing_ids.length > 7) {
           return NextResponse.json(
-            { error: 'Maximum 5 menu items per event' },
+            { error: 'Maximum 7 menu items per event' },
             { status: 400 }
           )
         }

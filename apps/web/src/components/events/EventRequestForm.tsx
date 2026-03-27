@@ -43,7 +43,21 @@ interface FormData {
   additional_notes: string
   is_recurring: boolean
   recurring_frequency: string
+  service_level: string
 }
+
+const SERVICE_LEVELS = [
+  {
+    value: 'self_service',
+    label: 'Self-Service (Free)',
+    description: 'We automatically match and notify qualifying food trucks. You select from interested vendors. No platform fee.',
+  },
+  {
+    value: 'full_service',
+    label: 'Full Service (Managed)',
+    description: 'Our team personally coordinates your event — vendor selection, logistics, day-of support. Platform fee applies.',
+  },
+]
 
 const EVENT_TYPES = [
   { value: 'corporate_lunch', label: 'Corporate Lunch / Team Meal' },
@@ -147,6 +161,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     additional_notes: vendorPreference ? `Preferred vendor: ${vendorPreference}` : '',
     is_recurring: false,
     recurring_frequency: '',
+    service_level: 'self_service',
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -227,6 +242,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           additional_notes: form.additional_notes.trim() || null,
           is_recurring: form.is_recurring,
           recurring_frequency: form.is_recurring ? form.recurring_frequency || null : null,
+          service_level: form.service_level || 'self_service',
         }),
       })
 
@@ -281,6 +297,46 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
 
   return (
     <form onSubmit={handleSubmit}>
+      {/* Section: Service Level */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>How can we help?</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+          {SERVICE_LEVELS.map((sl) => (
+            <label
+              key={sl.value}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: spacing.xs,
+                padding: spacing.sm,
+                border: `2px solid ${form.service_level === sl.value ? accent : statusColors.neutral200}`,
+                borderRadius: radius.md,
+                cursor: 'pointer',
+                backgroundColor: form.service_level === sl.value ? `${accent}08` : 'transparent',
+                transition: 'border-color 0.2s',
+              }}
+            >
+              <input
+                type="radio"
+                name="service_level"
+                value={sl.value}
+                checked={form.service_level === sl.value}
+                onChange={(e) => updateField('service_level', e.target.value)}
+                style={{ marginTop: 3 }}
+              />
+              <div>
+                <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800 }}>
+                  {sl.label}
+                </div>
+                <div style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, marginTop: 2, lineHeight: 1.5 }}>
+                  {sl.description}
+                </div>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
       {/* Section: Company & Contact */}
       <div style={sectionStyle}>
         <h3 style={sectionTitleStyle}>{t('erf.section_contact', locale)}</h3>

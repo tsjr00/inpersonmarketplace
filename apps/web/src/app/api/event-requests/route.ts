@@ -7,6 +7,7 @@ import {
   rateLimitResponse,
 } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors/with-error-tracing'
+import { approveEventRequest, autoMatchAndInvite } from '@/lib/events/event-actions'
 
 export async function POST(request: NextRequest) {
   return withErrorTracing('/api/event-requests', 'POST', async () => {
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       additional_notes,
       is_recurring,
       recurring_frequency,
+      service_level,
       vertical,
     } = body
 
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest) {
     const validPaymentModels = ['company_paid', 'attendee_paid', 'hybrid']
     const validRecurringFreqs = ['weekly', 'biweekly', 'monthly', 'quarterly']
 
-    const { error: insertError } = await supabase
+    const { data: insertedRow, error: insertError } = await supabase
       .from('catering_requests')
       .insert({
         vertical_id: verticalId,
@@ -162,9 +164,12 @@ export async function POST(request: NextRequest) {
         is_recurring: !!is_recurring,
         recurring_frequency: is_recurring && recurring_frequency && validRecurringFreqs.includes(recurring_frequency)
           ? recurring_frequency : null,
+        service_level: service_level === 'self_service' ? 'self_service' : 'full_service',
       })
+      .select('id')
+      .single()
 
-    if (insertError) {
+    if (insertError || !insertedRow) {
       console.error('[catering-requests] Insert error:', insertError)
       return NextResponse.json(
         { error: 'Failed to save your request. Please try again.' },
@@ -172,7 +177,66 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send admin notification email + organizer confirmation email (parallel)
+    const requestId = (insertedRow as { id: string }).id
+    const isSelfService = service_level === 'self_service'
+
+    // Self-service: auto-approve → auto-match → auto-invite (no admin involvement)
+    if (isSelfService) {
+      const requestData = {
+        id: requestId,
+        vertical_id: verticalId,
+        company_name: String(company_name),
+        event_date,
+        event_end_date: event_end_date || null,
+        event_start_time: event_start_time || null,
+        event_end_time: event_end_time || null,
+        headcount: hc,
+        expected_meal_count: expected_meal_count ? parseInt(expected_meal_count, 10) : null,
+        address: String(address),
+        city: String(city),
+        state: String(state),
+        zip: String(zip),
+        vendor_count: vendor_count ? Math.min(parseInt(vendor_count, 10) || 2, 20) : 2,
+        cuisine_preferences: cuisine_preferences ? String(cuisine_preferences) : null,
+        event_type: event_type || null,
+        payment_model: payment_model || null,
+      }
+
+      // Step 1: Auto-approve (create market + token + schedule)
+      const approval = await approveEventRequest(supabase, requestData)
+
+      if (approval.success && approval.market_id && approval.event_token) {
+        // Update the catering request with approval data
+        await supabase
+          .from('catering_requests')
+          .update({
+            status: 'approved',
+            market_id: approval.market_id,
+            event_token: approval.event_token,
+          })
+          .eq('id', requestId)
+
+        // Step 2: Auto-match and invite vendors
+        const inviteResult = await autoMatchAndInvite(supabase, requestData, approval.market_id)
+
+        // Track when auto-invites were sent (for cron threshold check)
+        if (inviteResult.invited > 0) {
+          await supabase
+            .from('catering_requests')
+            .update({ auto_invite_sent_at: new Date().toISOString() })
+            .eq('id', requestId)
+        }
+
+        console.log(`[self-service] Event ${requestId}: approved, ${inviteResult.invited} vendors invited (${inviteResult.matched} matched)`)
+      } else {
+        console.error(`[self-service] Event ${requestId}: auto-approval failed:`, approval.error)
+        // Request stays as 'new' — admin will need to handle manually
+      }
+    }
+
+    // Send emails (both service levels get confirmation)
+    // Full service: admin gets notification to review
+    // Self service: admin gets FYI notification, organizer gets "invitations sent" message
     await Promise.all([
       sendAdminEmail(
         String(company_name),
@@ -184,7 +248,8 @@ export async function POST(request: NextRequest) {
         String(address),
         String(city),
         String(state),
-        verticalId
+        verticalId,
+        isSelfService
       ),
       sendOrganizerConfirmation(
         String(contact_name),
@@ -194,14 +259,16 @@ export async function POST(request: NextRequest) {
         hc,
         String(city),
         String(state),
-        verticalId
+        verticalId,
+        isSelfService
       ),
     ])
 
     return NextResponse.json({
       ok: true,
-      message:
-        "Thank you! We've received your event request. Check your email for a confirmation.",
+      message: isSelfService
+        ? "Your event request is live! We're notifying qualified food trucks now. You'll hear back within 48 hours."
+        : "Thank you! We've received your event request. Our team will review it and get back to you shortly.",
     })
   })
 }
@@ -216,7 +283,8 @@ async function sendAdminEmail(
   address: string,
   city: string,
   state: string,
-  verticalId: string
+  verticalId: string,
+  isSelfService: boolean = false
 ) {
   const adminEmail = process.env.ADMIN_ALERT_EMAIL
   const apiKey = process.env.RESEND_API_KEY
@@ -235,7 +303,7 @@ async function sendAdminEmail(
     await resend.emails.send({
       from: `${senderName} <updates@${senderDomain}>`,
       to: adminEmail,
-      subject: `New ${requestType}: ${companyName} (${headcount} people)`,
+      subject: `${isSelfService ? '[Self-Service] ' : ''}New ${requestType}: ${companyName} (${headcount} people)`,
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
           <h2 style="color:${accentColor};margin:0 0 16px">New ${requestType}</h2>
@@ -265,7 +333,8 @@ async function sendOrganizerConfirmation(
   headcount: number,
   city: string,
   state: string,
-  verticalId: string
+  verticalId: string,
+  isSelfService: boolean = false
 ) {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return
@@ -302,10 +371,17 @@ async function sendOrganizerConfirmation(
           </div>
           <h3 style="color:${accentColor};margin:0 0 8px;font-size:16px">What happens next?</h3>
           <ol style="color:#4b5563;line-height:1.8;padding-left:20px;margin:0 0 20px">
+            ${isSelfService ? `
+            <li>We&rsquo;re notifying qualified food trucks about your event right now</li>
+            <li>Interested trucks will respond within 48 hours</li>
+            <li>You&rsquo;ll receive a list of available trucks with menus and details</li>
+            <li>Select your favorites, and we&rsquo;ll set up your event page for pre-orders</li>
+            ` : `
             <li>Our team reviews your request (typically within 24 hours)</li>
             <li>We match event-approved food trucks to your needs</li>
             <li>You&rsquo;ll receive vendor recommendations with menus and pricing</li>
             <li>Once confirmed, your guests can pre-order online for a seamless experience</li>
+            `}
           </ol>
           <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
             Questions? Reply to this email or visit our <a href="https://${isFM ? 'farmersmarketing.app' : 'foodtruckn.app'}/${verticalId}/support" style="color:${accentColor}">support page</a>.
