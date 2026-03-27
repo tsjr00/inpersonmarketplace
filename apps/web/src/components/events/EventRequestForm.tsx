@@ -129,6 +129,55 @@ const rowStyle: React.CSSProperties = {
 export function EventRequestForm({ vertical, vendorPreference }: EventRequestFormProps) {
   const accent = verticalAccent[vertical] || verticalAccent.farmers_market
   const locale = getClientLocale()
+  // Vendor search/select state (for "I'll choose" path)
+  const [vendorSearchMode, setVendorSearchMode] = useState<'recommend' | 'choose'>('recommend')
+  const [vendorSearch, setVendorSearch] = useState('')
+  const [vendorResults, setVendorResults] = useState<Array<{
+    id: string; business_name: string; cuisine_categories: string[]
+    avg_price_cents: number | null; average_rating: number | null
+    rating_count: number; pickup_lead_minutes: number; catering_item_count: number
+  }>>([])
+  const [selectedVendors, setSelectedVendors] = useState<Array<{ id: string; name: string }>>([])
+  const [vendorSearchLoading, setVendorSearchLoading] = useState(false)
+  const [vendorSearchTimer, setVendorSearchTimer] = useState<NodeJS.Timeout | null>(null)
+
+  // Debounced vendor search
+  function handleVendorSearch(q: string) {
+    setVendorSearch(q)
+    if (vendorSearchTimer) clearTimeout(vendorSearchTimer)
+    if (q.trim().length < 2) {
+      setVendorResults([])
+      return
+    }
+    const timer = setTimeout(async () => {
+      setVendorSearchLoading(true)
+      try {
+        const res = await fetch(`/api/event-approved-vendors?vertical=${vertical}&q=${encodeURIComponent(q.trim())}`)
+        if (res.ok) {
+          const data = await res.json()
+          // Filter out already-selected vendors
+          setVendorResults((data.vendors || []).filter(
+            (v: { id: string }) => !selectedVendors.some(sv => sv.id === v.id)
+          ))
+        }
+      } catch { /* silent */ }
+      setVendorSearchLoading(false)
+    }, 300)
+    setVendorSearchTimer(timer)
+  }
+
+  function addVendor(vendor: { id: string; business_name: string }) {
+    if (selectedVendors.length >= 10) return
+    if (selectedVendors.some(v => v.id === vendor.id)) return
+    setSelectedVendors(prev => [...prev, { id: vendor.id, name: vendor.business_name }])
+    setVendorSearch('')
+    setVendorResults([])
+  }
+
+  function removeVendor(vendorId: string) {
+    setSelectedVendors(prev => prev.filter(v => v.id !== vendorId))
+  }
+
   const [form, setForm] = useState<FormData>({
     company_name: '',
     contact_name: '',
@@ -243,6 +292,9 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           is_recurring: form.is_recurring,
           recurring_frequency: form.is_recurring ? form.recurring_frequency || null : null,
           service_level: form.service_level || 'self_service',
+          vendor_preferences: selectedVendors.length > 0
+            ? selectedVendors.map((v, i) => ({ vendor_id: v.id, priority: i + 1 }))
+            : null,
         }),
       })
 
@@ -336,6 +388,129 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           ))}
         </div>
       </div>
+
+      {/* Section: Vendor Selection (self-service only) */}
+      {form.service_level === 'self_service' && (
+        <div style={sectionStyle}>
+          <h3 style={sectionTitleStyle}>Vendor Preference</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: spacing.xs,
+                fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer',
+              }}>
+                <input type="radio" name="vendor_search_mode" value="recommend"
+                  checked={vendorSearchMode === 'recommend'}
+                  onChange={() => setVendorSearchMode('recommend')} />
+                Recommend trucks for me based on my event details
+              </label>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: spacing.xs,
+                fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer',
+              }}>
+                <input type="radio" name="vendor_search_mode" value="choose"
+                  checked={vendorSearchMode === 'choose'}
+                  onChange={() => setVendorSearchMode('choose')} />
+                I want to choose specific trucks
+              </label>
+            </div>
+
+            {vendorSearchMode === 'choose' && (
+              <div>
+                <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.xs}`, lineHeight: 1.5 }}>
+                  Search for food trucks by name or cuisine type. Select up to 10 in your preferred priority order. We&apos;ll reach out to your top choices first.
+                </p>
+
+                {/* Search input */}
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="Search by truck name or cuisine..."
+                    value={vendorSearch}
+                    onChange={(e) => handleVendorSearch(e.target.value)}
+                    style={inputStyle}
+                  />
+                  {vendorSearchLoading && (
+                    <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+                      Searching...
+                    </span>
+                  )}
+
+                  {/* Search results dropdown */}
+                  {vendorResults.length > 0 && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                      backgroundColor: 'white', border: `1px solid ${statusColors.neutral300}`,
+                      borderRadius: radius.md, boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      maxHeight: 240, overflowY: 'auto',
+                    }}>
+                      {vendorResults.map(v => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => addVendor(v)}
+                          style={{
+                            width: '100%', padding: `${spacing.xs} ${spacing.sm}`,
+                            backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${statusColors.neutral100}`,
+                            cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800 }}>
+                              {v.business_name}
+                            </div>
+                            <div style={{ fontSize: 11, color: statusColors.neutral500 }}>
+                              {v.cuisine_categories.join(', ') || 'Various'}
+                              {v.avg_price_cents ? ` \u2022 ~$${(v.avg_price_cents / 100).toFixed(0)}/meal` : ''}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 11, color: statusColors.neutral400, textAlign: 'right' }}>
+                            {v.average_rating ? `${v.average_rating.toFixed(1)}\u2605` : ''}
+                            {v.pickup_lead_minutes <= 15 ? ' \u26A1' : ''}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected vendors list */}
+                {selectedVendors.length > 0 && (
+                  <div style={{ marginTop: spacing.xs }}>
+                    <div style={{ fontSize: 11, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
+                      YOUR SELECTIONS ({selectedVendors.length}/10) — in priority order
+                    </div>
+                    {selectedVendors.map((v, i) => (
+                      <div key={v.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: `${spacing['3xs']} ${spacing.xs}`,
+                        backgroundColor: statusColors.neutral50,
+                        border: `1px solid ${statusColors.neutral200}`,
+                        borderRadius: radius.sm,
+                        marginBottom: spacing['3xs'],
+                      }}>
+                        <span style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700 }}>
+                          <strong style={{ color: accent }}>{i + 1}.</strong> {v.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeVendor(v.id)}
+                          style={{
+                            backgroundColor: 'transparent', border: 'none',
+                            color: statusColors.neutral400, cursor: 'pointer', fontSize: typography.sizes.lg, lineHeight: 1, padding: 0,
+                          }}
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Section: Company & Contact */}
       <div style={sectionStyle}>
