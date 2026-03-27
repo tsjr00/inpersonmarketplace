@@ -1998,6 +1998,146 @@ export async function GET(request: NextRequest) {
       console.error('Phase 11 error:', phase11Error instanceof Error ? phase11Error.message : 'Unknown error')
     }
 
+    // ─── Phase 12: Self-Service Event Response Threshold ──────────────
+    // Check self-service events where 48hr has passed since auto-invite
+    // and send results email to organizer with interested vendor list.
+    let selfServiceResultsSent = 0
+    try {
+      const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+      const { data: pendingEvents } = await supabase
+        .from('catering_requests')
+        .select('id, company_name, contact_name, contact_email, event_date, event_start_time, event_end_time, headcount, vendor_count, city, state, vertical_id, market_id, event_token, auto_invite_sent_at')
+        .eq('service_level', 'self_service')
+        .eq('status', 'approved')
+        .not('auto_invite_sent_at', 'is', null)
+        .lte('auto_invite_sent_at', cutoffTime)
+
+      if (pendingEvents && pendingEvents.length > 0) {
+        for (const event of pendingEvents) {
+          if (!event.market_id || !event.contact_email) continue
+
+          // Get vendor responses for this event
+          const { data: responses } = await supabase
+            .from('market_vendors')
+            .select('vendor_profile_id, response_status, response_notes, vendor_profiles:vendor_profile_id(profile_data, profile_image_url, average_rating, rating_count, tier, pickup_lead_minutes)')
+            .eq('market_id', event.market_id)
+
+          if (!responses || responses.length === 0) continue
+
+          const accepted = responses.filter((r: Record<string, unknown>) => r.response_status === 'accepted')
+          const invited = responses.filter((r: Record<string, unknown>) => r.response_status === 'invited')
+
+          // Only send if we haven't already (check: if any are still 'invited', threshold not yet processed)
+          // If ALL have responded (none still 'invited'), or 48hr passed — send results
+          const allResponded = invited.length === 0
+          const hasResponses = accepted.length > 0
+          if (!allResponded && !hasResponses) continue // Nobody responded and some still pending — wait more
+
+          // Build vendor details for the results email
+          const vendorDetails = accepted.map((r: Record<string, unknown>) => {
+            const vp = r.vendor_profiles as unknown as {
+              profile_data: Record<string, unknown>
+              profile_image_url: string | null
+              average_rating: number | null
+              rating_count: number
+              tier: string
+              pickup_lead_minutes: number
+            } | null
+            const pd = vp?.profile_data || {}
+            return {
+              name: (pd.business_name as string) || (pd.farm_name as string) || 'Vendor',
+              rating: vp?.average_rating,
+              ratingCount: vp?.rating_count || 0,
+              tier: vp?.tier || 'free',
+              leadTime: vp?.pickup_lead_minutes || 30,
+            }
+          })
+
+          // Send results email to organizer
+          const isFM = event.vertical_id === 'farmers_market'
+          const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
+          const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
+          const accentColor = isFM ? '#2d5016' : '#ff5757'
+          const selectUrl = event.event_token
+            ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://foodtruckn.app'}/events/${event.event_token}/select`
+            : null
+
+          try {
+            const { Resend } = await import('resend')
+            const resend = new Resend(process.env.RESEND_API_KEY)
+
+            const vendorListHtml = vendorDetails.length > 0
+              ? vendorDetails.map((v: { name: string; rating?: number | null; ratingCount: number; tier: string; leadTime: number }, i: number) => `
+                <tr>
+                  <td style="padding:8px 12px;border-bottom:1px solid #eee">${i + 1}. <strong>${v.name}</strong></td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #eee">${v.rating ? `${v.rating.toFixed(1)}★ (${v.ratingCount})` : 'New'}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #eee">${v.leadTime <= 15 ? '15 min ⚡' : '30 min'}</td>
+                </tr>
+              `).join('')
+              : '<tr><td colspan="3" style="padding:12px;color:#6b7280">No vendors responded to your event. Consider broadening your criteria and trying again.</td></tr>'
+
+            await resend.emails.send({
+              from: `${senderName} <updates@${senderDomain}>`,
+              to: event.contact_email,
+              subject: accepted.length > 0
+                ? `${accepted.length} food truck${accepted.length > 1 ? 's are' : ' is'} interested in your event!`
+                : 'Update on your event request',
+              html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
+                  <h2 style="color:${accentColor};margin:0 0 8px">Your Event Results</h2>
+                  <p style="color:#374151;margin:0 0 16px">Hi ${event.contact_name || 'there'},</p>
+                  <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
+                    ${accepted.length > 0
+                      ? `Great news! <strong>${accepted.length}</strong> food truck${accepted.length > 1 ? 's have' : ' has'} expressed interest in your event on <strong>${event.event_date}</strong> in ${event.city}, ${event.state}.`
+                      : `We sent your event details to qualified food trucks, but haven't received responses yet. This can happen with very specific criteria or dates. You're welcome to submit a new request with broader preferences.`
+                    }
+                  </p>
+                  ${accepted.length > 0 ? `
+                  <table style="border-collapse:collapse;width:100%;margin:0 0 20px">
+                    <tr style="background:#f9fafb">
+                      <th style="padding:8px 12px;text-align:left;font-size:13px;color:#374151">Truck</th>
+                      <th style="padding:8px 12px;text-align:left;font-size:13px;color:#374151">Rating</th>
+                      <th style="padding:8px 12px;text-align:left;font-size:13px;color:#374151">Service Speed</th>
+                    </tr>
+                    ${vendorListHtml}
+                  </table>
+                  ${selectUrl ? `
+                  <div style="text-align:center;margin:0 0 24px">
+                    <a href="${selectUrl}" style="display:inline-block;padding:14px 28px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px">
+                      Select Your Trucks
+                    </a>
+                  </div>
+                  <p style="color:#6b7280;font-size:13px;margin:0 0 16px">
+                    Click above to review truck details, menus, and make your final selections.
+                  </p>
+                  ` : ''}
+                  ` : ''}
+                  <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
+                    Questions? Reply to this email and our team will help.
+                  </p>
+                </div>
+              `,
+            })
+
+            // Update status to 'ready' if there are accepted vendors, indicating organizer can select
+            if (accepted.length > 0) {
+              await supabase
+                .from('catering_requests')
+                .update({ status: 'ready' })
+                .eq('id', event.id)
+            }
+
+            selfServiceResultsSent++
+          } catch (emailErr) {
+            console.error(`[Phase 12] Failed to send results email for event ${event.id}:`, emailErr)
+          }
+        }
+      }
+    } catch (phase12Error) {
+      console.error('Phase 12 error:', phase12Error instanceof Error ? phase12Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -2013,6 +2153,7 @@ export async function GET(request: NextRequest) {
       dataRetention: { errorLogs: errorLogsDeleted, notifications: notificationsDeleted, activityEvents: activityEventsDeleted },
       trialLifecycle: { reminders: trialReminders, expired: trialExpired, graceProcessed: trialGraceProcessed },
       eventReminders,
+      selfServiceResultsSent,
     })
   })
 }
