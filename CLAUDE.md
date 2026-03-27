@@ -551,6 +551,7 @@ Don't create incremental policy fixes. If policies need fixing:
 ### Rules
 
 - **NEVER `git push origin main`** without user confirming staging is verified
+- **Production push window: 9:00 PM – 7:00 AM CT only.** No production pushes between 7:00 AM and 9:00 PM CT to avoid disrupting active user sessions. If the user requests a push during restricted hours, remind them of the rule and ask to confirm. Emergency hotfixes are the only exception — and must be explicitly labeled as such.
 - After each commit, proactively ask: "Want me to push to staging for testing?"
 - If multiple commits are batched, merge all to staging at once
 - Staging deploys to Vercel Preview → Supabase Staging

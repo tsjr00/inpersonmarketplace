@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       is_recurring,
       recurring_frequency,
       service_level,
+      vendor_preferences,
       vertical,
     } = body
 
@@ -165,6 +166,7 @@ export async function POST(request: NextRequest) {
         recurring_frequency: is_recurring && recurring_frequency && validRecurringFreqs.includes(recurring_frequency)
           ? recurring_frequency : null,
         service_level: service_level === 'self_service' ? 'self_service' : 'full_service',
+        vendor_preferences: Array.isArray(vendor_preferences) ? vendor_preferences : null,
       })
       .select('id')
       .single()
