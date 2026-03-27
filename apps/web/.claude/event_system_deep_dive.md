@@ -992,27 +992,28 @@ These are NOT in-app features yet. They're PDF/image templates the admin emails 
 
 ### 14.3 Implementation Phases
 
-**Phase 1 — Form Enhancements (next session):**
-- [ ] Form path toggle: self-service vs full-service
-- [ ] In-form vendor search/select widget (for "I'll choose" path)
-- [ ] Increase catering menu limit from 5 to 7
-- [ ] `vendor_preferences` JSONB column on catering_requests
+**Phase 1 — Form Enhancements: DONE**
+- [x] Form path toggle: self-service vs full-service
+- [ ] In-form vendor search/select widget (for "I'll choose" path) — deferred
+- [x] Increase catering menu limit from 5 to 7 (floor: 4)
+- [x] `vendor_preferences` JSONB column on catering_requests (migration 102)
 
-**Phase 2 — Self-Service Pipeline (2 sessions):**
-- [ ] Auto-matching trigger on self-service form submission
-- [ ] Response threshold cron (48hr or vendor_count responses)
-- [ ] Results email template with vendor details
-- [ ] Organizer selection page (`/events/[token]/select`)
-- [ ] Terms agreement component + legal text
-- [ ] Confirmation trigger → event page creation + vendor notification
+**Phase 2 — Self-Service Pipeline: DONE**
+- [x] Auto-matching trigger on self-service form submission
+- [x] Response threshold cron Phase 12 (48hr check + results email)
+- [x] Results email template with vendor details (name, rating, speed)
+- [x] Organizer selection page (`/events/[token]/select`)
+- [x] Terms agreement component + legal text
+- [x] Confirmation trigger → vendor notifications + organizer event page link email
 
-**Phase 3 — Polish + Safety (1 session):**
-- [ ] Vendor date conflict detection (see 14.4 decisions)
-- [ ] Vendor cancellation policy + penalties + backup escalation
-- [ ] "No vendors found" fallback email
+**Phase 3 — Polish + Safety: IN PROGRESS**
+- [x] Vendor date conflict detection — single-truck blocked, multi-truck warned
+- [x] Backup vendor flag (`is_backup` on market_vendors, migration 103)
+- [x] "No vendors found" fallback messaging in cron Phase 12 results email
+- [ ] Vendor cancellation flow (cancel button + admin notification + backup escalation)
 - [ ] QR code generation for event page link
 - [ ] Marketing copy templates in confirmation email
-- [ ] Post-event feedback collection (already exists, just verify it works for self-service events)
+- [ ] Post-event feedback collection (already exists, verify for self-service)
 - [ ] Event organizer contact sharing opt-in
 - [ ] Vendor → organizer message relay (platform-mediated email)
 

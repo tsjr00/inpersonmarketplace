@@ -40,11 +40,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       const { marketId } = await context.params
       const body = await request.json()
-      const { response_status, response_notes, listing_ids } = body as {
+      const { response_status, listing_ids } = body as {
         response_status: string
         response_notes?: string
         listing_ids?: string[]
       }
+      let response_notes = (body as { response_notes?: string }).response_notes
 
       if (!response_status || !['accepted', 'declined'].includes(response_status)) {
         return NextResponse.json(
@@ -107,6 +108,61 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           { error: 'You have already responded to this invitation' },
           { status: 400 }
         )
+      }
+
+      // Conflict detection: check for overlapping event commitments on the same date
+      // Single-truck vendors are BLOCKED. Multi-truck vendors get a WARNING (in response notes).
+      if (response_status === 'accepted') {
+        // Get this event's date
+        const { data: thisMarket } = await serviceClient
+          .from('markets')
+          .select('event_start_date, event_end_date')
+          .eq('id', marketId)
+          .single()
+
+        if (thisMarket?.event_start_date) {
+          // Find other events this vendor has accepted on the same date
+          const { data: conflicts } = await serviceClient
+            .from('market_vendors')
+            .select('market_id, markets:market_id(name, event_start_date, event_end_date, market_type)')
+            .eq('vendor_profile_id', vendorProfile.id)
+            .eq('response_status', 'accepted')
+            .neq('market_id', marketId)
+
+          const dateConflicts = (conflicts || []).filter(c => {
+            const m = c.markets as unknown as { event_start_date: string; event_end_date: string; market_type: string } | null
+            if (!m || m.market_type !== 'event') return false
+            // Check date overlap
+            const thisStart = thisMarket.event_start_date
+            const thisEnd = thisMarket.event_end_date || thisStart
+            const otherStart = m.event_start_date
+            const otherEnd = m.event_end_date || otherStart
+            return thisStart <= otherEnd && thisEnd >= otherStart
+          })
+
+          if (dateConflicts.length > 0) {
+            const isMultiTruck = (vendorProfile.profile_data as Record<string, unknown>)?.multiple_trucks === true
+            const conflictNames = dateConflicts.map(c => {
+              const m = c.markets as unknown as { name: string } | null
+              return m?.name || 'another event'
+            })
+
+            if (!isMultiTruck) {
+              // Single-truck vendor: BLOCK acceptance
+              return NextResponse.json(
+                { error: `Schedule conflict: you already have a commitment on this date (${conflictNames.join(', ')}). As a single-truck operator, please cancel the existing commitment first or enable "Multiple Trucks" in your profile settings.` },
+                { status: 409 }
+              )
+            }
+            // Multi-truck vendor: allow but add warning to response notes
+            const conflictWarning = `[MULTI-TRUCK] Vendor has other commitments on this date: ${conflictNames.join(', ')}`
+            if (response_notes) {
+              response_notes = `${response_notes}\n${conflictWarning}`
+            } else {
+              response_notes = conflictWarning
+            }
+          }
+        }
       }
 
       // Update response
