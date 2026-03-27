@@ -284,12 +284,44 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Send organizer the event page link
     const eventPageUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://foodtruckn.app'}/events/${event.event_token}`
 
-    // Send confirmation email with event page link
+    // Generate QR code for event page URL
+    let qrCodeDataUrl = ''
+    try {
+      const QRCode = await import('qrcode')
+      qrCodeDataUrl = await QRCode.toDataURL(eventPageUrl, { width: 200, margin: 1 })
+    } catch (qrErr) {
+      console.error('[event-select] QR code generation failed:', qrErr)
+    }
+
+    // Get accepted vendor cuisine types for marketing copy
+    const acceptedVendorData = validVendors || []
+    // Build cuisine list from vendor categories (we already have this data)
+    const cuisineTypes = new Set<string>()
+    for (const vId of selected_vendor_ids) {
+      // Quick lookup from the vendors we already fetched in GET
+      const { data: vListings } = await serviceClient
+        .from('listings')
+        .select('category')
+        .eq('vendor_profile_id', vId)
+        .eq('status', 'published')
+        .is('deleted_at', null)
+        .limit(20)
+
+      if (vListings) {
+        for (const l of vListings) {
+          if (l.category) cuisineTypes.add(l.category as string)
+        }
+      }
+    }
+    const cuisineList = Array.from(cuisineTypes).slice(0, 5).join(', ') || 'a variety of food options'
+
+    // Send confirmation email with QR code + marketing kit
     try {
       const isFM = event.vertical_id === 'farmers_market'
       const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
       const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
       const accentColor = isFM ? '#2d5016' : '#ff5757'
+      const vendorLabel = isFM ? 'vendor' : 'food truck'
 
       const { Resend } = await import('resend')
       const resend = new Resend(process.env.RESEND_API_KEY)
@@ -297,32 +329,68 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await resend.emails.send({
         from: `${senderName} <updates@${senderDomain}>`,
         to: event.contact_email,
-        subject: `Your event is confirmed — ${selected_vendor_ids.length} truck${selected_vendor_ids.length > 1 ? 's' : ''} ready!`,
+        subject: `Your event is confirmed — ${selected_vendor_ids.length} ${vendorLabel}${selected_vendor_ids.length > 1 ? 's' : ''} ready!`,
         html: `
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
             <h2 style="color:${accentColor};margin:0 0 8px">Your Event Is Confirmed!</h2>
             <p style="color:#374151;margin:0 0 16px">Hi ${event.contact_name || 'there'},</p>
             <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
-              Your ${selected_vendor_ids.length} selected truck${selected_vendor_ids.length > 1 ? 's are' : ' is'} confirmed for
-              <strong>${event.event_date}</strong>. They&rsquo;re connecting their catering menus to your event page now.
+              Your ${selected_vendor_ids.length} selected ${vendorLabel}${selected_vendor_ids.length > 1 ? 's are' : ' is'} confirmed for
+              <strong>${event.event_date}</strong>. They&rsquo;re connecting their menus to your event page now.
             </p>
-            <p style="color:#4b5563;line-height:1.6;margin:0 0 20px">
-              Share this link with your guests so they can browse menus and pre-order:
-            </p>
-            <div style="text-align:center;margin:0 0 24px">
-              <a href="${eventPageUrl}" style="display:inline-block;padding:14px 28px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px">
+
+            <!-- Event Page Link + QR Code -->
+            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin:0 0 24px;text-align:center">
+              <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:#374151">Share this with your guests:</p>
+              ${qrCodeDataUrl ? `<img src="${qrCodeDataUrl}" alt="QR Code" style="width:160px;height:160px;margin:0 auto 12px;display:block" />` : ''}
+              <a href="${eventPageUrl}" style="display:inline-block;padding:12px 24px;background:${accentColor};color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;margin:0 0 8px">
                 View Event Page
               </a>
+              <p style="margin:8px 0 0;font-size:12px;color:#6b7280;word-break:break-all">${eventPageUrl}</p>
             </div>
-            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin:0 0 20px">
-              <p style="margin:0;font-size:13px;color:#6b7280;word-break:break-all">${eventPageUrl}</p>
+
+            <!-- Marketing Kit -->
+            <h3 style="color:${accentColor};margin:0 0 12px;font-size:16px">Your Event Marketing Kit</h3>
+            <p style="color:#6b7280;font-size:13px;margin:0 0 16px">Copy and use the text below to promote your event. The more people who pre-order, the faster the service and the better the experience for everyone.</p>
+
+            <!-- Email Template -->
+            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 16px">
+              <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin:0 0 8px">EMAIL TO STAFF / ATTENDEES</div>
+              <div style="font-size:13px;color:#374151;line-height:1.6">
+                <p style="margin:0 0 8px"><strong>Subject:</strong> Food at our upcoming event — pre-order now!</p>
+                <p style="margin:0 0 8px">We&rsquo;ve arranged ${vendorLabel}s for our event on ${event.event_date} featuring ${cuisineList}.</p>
+                <p style="margin:0 0 8px"><strong>Pre-order your meal ahead of time and skip the line!</strong> Browse menus, pick what you want, and it&rsquo;ll be ready when you arrive. More time enjoying the event, less time waiting.</p>
+                <p style="margin:0">Order here: ${eventPageUrl}</p>
+              </div>
             </div>
-            <h3 style="color:${accentColor};margin:0 0 8px;font-size:14px">Tips for a Great Event</h3>
-            <ul style="color:#4b5563;line-height:1.8;padding-left:20px;margin:0 0 20px;font-size:14px">
-              <li>Share the event link early so guests can pre-order and skip the line</li>
-              <li>Include the link in event communications, flyers, or social media</li>
-              <li>Pre-ordering means faster service and less waiting for your guests</li>
+
+            <!-- Social Media Blurb -->
+            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 16px">
+              <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin:0 0 8px">SOCIAL MEDIA POST</div>
+              <div style="font-size:13px;color:#374151;line-height:1.6">
+                <p style="margin:0">${isFM ? 'Fresh food vendors' : 'Food trucks'} at our event on ${event.event_date}! Pre-order your meal and skip the line &rarr; ${eventPageUrl}</p>
+              </div>
+            </div>
+
+            <!-- Signage Text -->
+            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 16px">
+              <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin:0 0 8px">DAY-OF SIGNAGE (near ${vendorLabel} area)</div>
+              <div style="font-size:13px;color:#374151;line-height:1.6">
+                <p style="margin:0 0 4px;font-size:16px;font-weight:700">Skip the line!</p>
+                <p style="margin:0">Scan the QR code or visit the link to pre-order your meal. Faster service, more time to enjoy the event.</p>
+              </div>
+            </div>
+
+            <!-- Tips -->
+            <h3 style="color:${accentColor};margin:0 0 8px;font-size:14px">Tips for Maximum Pre-Orders</h3>
+            <ul style="color:#4b5563;line-height:1.8;padding-left:20px;margin:0 0 20px;font-size:13px">
+              <li>Share the link 3-5 days before the event for best results</li>
+              <li>Include the QR code on any printed materials or digital signage</li>
+              <li>Highlight the benefit: &ldquo;Pre-order and skip the line!&rdquo;</li>
+              <li>For ticketed events: include the link in ticket confirmation emails</li>
+              <li>Post a reminder the day before: &ldquo;Last chance to pre-order!&rdquo;</li>
             </ul>
+
             <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
               Questions? Reply to this email.
             </p>
