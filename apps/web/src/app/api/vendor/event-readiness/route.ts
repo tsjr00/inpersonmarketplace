@@ -21,13 +21,13 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const validation = validateEventReadiness(body)
+    const vertical = request.nextUrl.searchParams.get('vertical')
+    const validation = validateEventReadiness(body, vertical || undefined)
     if (!validation.valid) {
       throw traced.validation('ERR_VALIDATION_001', validation.error!)
     }
 
     // Get vendor profile — H13 FIX: add vertical filter for multi-vertical safety
-    const vertical = request.nextUrl.searchParams.get('vertical')
     crumb.supabase('select', 'vendor_profiles')
     let vpQuery = supabase
       .from('vendor_profiles')

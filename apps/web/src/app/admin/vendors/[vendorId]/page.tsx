@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import VendorActions from './VendorActions'
@@ -13,7 +13,7 @@ interface VendorDetailPageProps {
 export default async function VendorDetailPage({ params }: VendorDetailPageProps) {
   const { vendorId } = await params
   await requireAdmin()
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get vendor details (using id, not vendor_id)
   const { data: vendor, error } = await supabase

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -13,7 +13,7 @@ interface MarketDetailPageProps {
 export default async function MarketDetailPage({ params }: MarketDetailPageProps) {
   await requireAdmin()
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get market with schedules and vendors
   const { data: market, error } = await supabase

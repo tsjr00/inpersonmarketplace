@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -11,7 +11,7 @@ interface EditMarketPageProps {
 export default async function EditMarketPage({ params }: EditMarketPageProps) {
   await requireAdmin()
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get market
   const { data: market, error } = await supabase

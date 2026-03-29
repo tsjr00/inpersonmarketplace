@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import MarketForm from '../MarketForm'
 
 export default async function NewMarketPage() {
   await requireAdmin()
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get verticals for dropdown
   const { data: verticals } = await supabase

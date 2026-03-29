@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
@@ -6,7 +6,7 @@ import { term } from '@/lib/vertical'
 
 export default async function AdminDashboardPage() {
   await requireAdmin()
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get stats
   const [
