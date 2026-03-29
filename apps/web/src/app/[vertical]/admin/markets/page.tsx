@@ -578,7 +578,7 @@ export default function AdminMarketsPage() {
                   <div style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: '#92400e' }}>
                     🎪 Event Details
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+                  <div className="admin-form-grid" style={{ gap: spacing.sm }}>
                     <div>
                       <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing['3xs'], fontSize: typography.sizes.xs }}>
                         Start Date *
@@ -705,7 +705,7 @@ export default function AdminMarketsPage() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: spacing.sm }}>
+              <div className="admin-grid-3" style={{ gap: spacing.sm }}>
                 <div>
                   <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
                     City *
@@ -793,7 +793,7 @@ export default function AdminMarketsPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+              <div className="admin-form-grid" style={{ gap: spacing.sm }}>
                 <div>
                   <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
                     Latitude *
@@ -864,9 +864,7 @@ export default function AdminMarketsPage() {
                 </div>
 
                 {formData.schedules.map((schedule, index) => (
-                  <div key={index} style={{
-                    display: 'grid',
-                    gridTemplateColumns: '2fr 1fr 1fr auto',
+                  <div key={index} className="admin-grid-4" style={{
                     gap: spacing.sm,
                     marginBottom: spacing.sm,
                     padding: spacing.sm,
@@ -956,7 +954,7 @@ export default function AdminMarketsPage() {
               </div>
 
               {/* Season Dates */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+              <div className="admin-form-grid" style={{ gap: spacing.sm }}>
                 <div>
                   <label style={{ display: 'block', fontWeight: typography.weights.medium, marginBottom: spacing.xs, fontSize: typography.sizes.sm }}>
                     Season Start <span style={{ fontWeight: typography.weights.normal, color: colors.textSecondary }}>(optional)</span>
@@ -1220,6 +1218,7 @@ export default function AdminMarketsPage() {
                   )}
                 </div>
               ) : (
+                <div className="admin-table-wrap">
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: colors.surfaceSubtle }}>
@@ -1484,6 +1483,7 @@ export default function AdminMarketsPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </>

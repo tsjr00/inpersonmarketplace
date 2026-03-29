@@ -197,7 +197,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // On READY: notify organizer that event is confirmed with shareable link
     if (status === 'ready' && updated.event_token && updated.contact_email) {
-      const eventPageUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://foodtruckn.app'}/events/${updated.event_token}`
+      const { getAppUrl } = await import('@/lib/environment')
+      const eventPageUrl = `${getAppUrl(updated.vertical_id)}/events/${updated.event_token}`
       // Count confirmed vendors
       const { count: vendorCount } = await serviceClient
         .from('market_vendors')

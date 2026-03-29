@@ -23,6 +23,7 @@ interface UserProfile {
   verticals: string[] | null
   buyer_tier: string | null
   buyer_tier_expires_at: string | null
+  deleted_at: string | null
   created_at: string
   vendor_profiles: VendorProfile[] | null
 }
@@ -75,6 +76,7 @@ export default async function UsersPage({ searchParams }: AdminUsersPageProps) {
       verticals,
       buyer_tier,
       buyer_tier_expires_at,
+      deleted_at,
       created_at,
       vendor_profiles!left (
         id,
@@ -157,6 +159,7 @@ export default async function UsersPage({ searchParams }: AdminUsersPageProps) {
     verticals: user.verticals as string[] | null,
     buyer_tier: user.buyer_tier as string | null,
     buyer_tier_expires_at: user.buyer_tier_expires_at as string | null,
+    deleted_at: (user as Record<string, unknown>).deleted_at as string | null,
     created_at: user.created_at as string,
     vendor_profiles: user.vendor_profiles as VendorProfile[] | null
   }))

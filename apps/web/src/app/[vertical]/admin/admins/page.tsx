@@ -296,8 +296,8 @@ export default function VerticalAdminManagementPage() {
         backgroundColor: 'white',
         borderRadius: radius.md,
         boxShadow: shadows.sm,
-        overflow: 'hidden'
       }}>
+      <div className="admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: colors.surfaceMuted }}>
@@ -362,6 +362,7 @@ export default function VerticalAdminManagementPage() {
             )}
           </tbody>
         </table>
+      </div>
       </div>
 
       {/* Info Box */}

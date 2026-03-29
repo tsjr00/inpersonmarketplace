@@ -291,8 +291,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
               if (thresholdMet || allResponded) {
                 // Build results email + send immediately (same logic as cron Phase 12)
+                const { getAppUrl } = await import('@/lib/environment')
                 const selectUrl = cReq.event_token
-                  ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://foodtruckn.app'}/events/${cReq.event_token}/select`
+                  ? `${getAppUrl(cReq.vertical_id)}/events/${cReq.event_token}/select`
                   : null
 
                 const isFM = cReq.vertical_id === 'farmers_market'

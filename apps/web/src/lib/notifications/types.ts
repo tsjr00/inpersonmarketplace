@@ -90,6 +90,7 @@ export type NotificationType =
   | 'event_settlement_summary'
   | 'vendor_event_approved'
   | 'vendor_event_application_submitted'
+  | 'listing_suspended'
 
 // ── Template Types ───────────────────────────────────────────────────
 
@@ -741,6 +742,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (_d, locale) => t('notif.vendor_event_application_title', locale),
     message: (d) => `${d.vendorName || 'A vendor'} has applied for private event approval. Review their event readiness profile.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/vendors`,
+  },
+
+  listing_suspended: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'vendor',
+    title: () => 'Listing Suspended',
+    message: (d) => `Your listing "${d.listingTitle || 'Unknown'}" has been paused by an admin.${d.reason ? ` Reason: ${d.reason}` : ''} Contact support if you have questions.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/listings`,
   },
 }
 

@@ -409,7 +409,7 @@ export default function VerticalAdminErrorsPage() {
           position: 'fixed',
           top: 0,
           right: 0,
-          width: '500px',
+          width: 'min(500px, 100vw)',
           height: '100vh',
           backgroundColor: colors.surfaceElevated,
           borderLeft: `1px solid ${colors.border}`,

@@ -282,7 +282,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Send organizer the event page link
-    const eventPageUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://foodtruckn.app'}/events/${event.event_token}`
+    const { getAppUrl } = await import('@/lib/environment')
+    const eventPageUrl = `${getAppUrl(event.vertical_id)}/events/${event.event_token}`
 
     // Generate QR code for event page URL
     let qrCodeDataUrl = ''

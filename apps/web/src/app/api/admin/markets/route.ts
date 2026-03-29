@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify admin using centralized helper
+    // Verify admin — platform admin or vertical admin for the target vertical
     const { data: userProfile } = await supabase
       .from('user_profiles')
       .select('role, roles')
@@ -149,15 +149,28 @@ export async function POST(request: NextRequest) {
       .is('deleted_at', null)
       .single()
 
-    if (!hasAdminRole(userProfile || {})) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
-
     const body = await request.json()
     const { vertical, name, address, city, state, zip, latitude, longitude, day_of_week, start_time, end_time, schedules, season_start, season_end, status = 'active', market_type = 'traditional', event_start_date, event_end_date, event_url, cutoff_hours: customCutoffHours } = body
 
     if (!vertical || !name || !address || !city || !state || !zip) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    let isAdmin = hasAdminRole(userProfile || {})
+
+    // If not platform admin, check if they're a vertical admin for the target vertical
+    if (!isAdmin) {
+      const { data: verticalAdmin } = await supabase
+        .from('vertical_admins')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('vertical_id', vertical)
+        .single()
+      isAdmin = !!verticalAdmin
+    }
+
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
     // Validate market_type

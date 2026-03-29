@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { hasAdminRole } from '@/lib/auth/admin'
+import AdminResponsiveStyles from '@/components/admin/AdminResponsiveStyles'
 
 export default async function AdminLayout({
   children,
@@ -28,5 +29,10 @@ export default async function AdminLayout({
     redirect('/')
   }
 
-  return <>{children}</>
+  return (
+    <>
+      {children}
+      <AdminResponsiveStyles />
+    </>
+  )
 }

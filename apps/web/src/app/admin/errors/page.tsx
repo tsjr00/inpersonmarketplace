@@ -403,10 +403,8 @@ export default function PlatformAdminErrorsPage() {
       <div style={{
         maxWidth: containers.xl,
         margin: '0 auto',
-        display: 'grid',
-        gridTemplateColumns: selectedReport ? '1fr 450px' : '1fr',
         gap: spacing.lg,
-      }}>
+      }} className={`admin-detail-split${selectedReport ? ' has-detail' : ''}`}>
         {/* Reports List */}
         <div>
           {loading ? (

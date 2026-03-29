@@ -90,8 +90,8 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
           backgroundColor: 'white',
           borderRadius: radius.md,
           boxShadow: shadows.sm,
-          overflow: 'hidden',
         }}>
+        <div className="admin-table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa' }}>
@@ -208,6 +208,7 @@ export default async function MarketsAdminPage({ searchParams }: MarketsAdminPag
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       ) : (
         <div style={{

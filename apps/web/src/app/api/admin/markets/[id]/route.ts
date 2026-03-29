@@ -105,7 +105,7 @@ export async function PUT(
       return NextResponse.json({ market })
     }
 
-    // For traditional markets, admin can update all fields
+    // For traditional and event markets, admin can update all fields
     const updateData: Record<string, unknown> = {}
     if (name !== undefined) updateData.name = name
     if (address !== undefined) updateData.address = address
@@ -121,12 +121,13 @@ export async function PUT(
     if (rejection_reason !== undefined) updateData.rejection_reason = rejection_reason
 
     // Update market fields if any (use service client for admin operations)
+    // Note: private_pickup markets are handled above and returned early,
+    // so only traditional and event markets reach this point
     if (Object.keys(updateData).length > 0) {
       const { error: updateError } = await serviceClient
         .from('markets')
         .update(updateData)
         .eq('id', marketId)
-        .eq('market_type', 'traditional')
 
       if (updateError) {
         console.error('Error updating market:', updateError)

@@ -13,12 +13,32 @@ const NON_VERTICAL_PREFIXES = new Set([
 // Paths that contain sensitive user data — prevent caching by proxies/CDNs/browser
 const SENSITIVE_PATHS = ['/admin', '/dashboard', '/vendor/dashboard', '/buyer/orders', '/settings']
 
-export async function middleware(request: NextRequest) {
-  const response = await updateSession(request)
+// Domain ↔ vertical mapping for cross-domain redirect enforcement
+// Each vertical has a canonical domain. If a vertical path is accessed on the wrong domain, redirect.
+const VERTICAL_DOMAINS: Record<string, string> = {
+  food_trucks: 'foodtruckn.app',
+  farmers_market: 'farmersmarketing.app',
+}
 
+export async function middleware(request: NextRequest) {
+  const host = request.headers.get('host') || ''
   const path = request.nextUrl.pathname
   const segments = path.split('/').filter(Boolean)
   const firstSegment = segments[0]
+
+  // Domain enforcement: redirect cross-domain vertical access to the correct domain
+  // Only applies on production custom domains (skip localhost, Vercel preview URLs)
+  const isProductionDomain = Object.values(VERTICAL_DOMAINS).some(d => host === d || host === `www.${d}`)
+  if (isProductionDomain && firstSegment && VERTICAL_DOMAINS[firstSegment]) {
+    const correctDomain = VERTICAL_DOMAINS[firstSegment]
+    if (!host.includes(correctDomain)) {
+      const redirectUrl = new URL(path, `https://${correctDomain}`)
+      redirectUrl.search = request.nextUrl.search
+      return NextResponse.redirect(redirectUrl, 308)
+    }
+  }
+
+  const response = await updateSession(request)
 
   // C-5: Vertical allowlist — if first segment could be a vertical but isn't valid, 404
   if (firstSegment && !NON_VERTICAL_PREFIXES.has(firstSegment) && !VALID_VERTICALS.has(firstSegment)) {

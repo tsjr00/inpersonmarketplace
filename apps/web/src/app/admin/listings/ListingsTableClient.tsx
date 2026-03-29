@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { exportToCSV, formatDateForExport, formatCentsForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -13,6 +14,7 @@ interface Listing {
   title: string
   status: string
   price_cents: number
+  quantity: number | null
   category: string | null
   vertical_id: string
   created_at: string
@@ -61,6 +63,32 @@ export default function ListingsTableClient({
   const [vertical, setVertical] = useState(initialFilters.vertical)
   const [category, setCategory] = useState(initialFilters.category)
   const [exporting, setExporting] = useState(false)
+  const [moderating, setModerating] = useState<string | null>(null)
+  const [suspendTarget, setSuspendTarget] = useState<{ id: string; title: string; verticalId: string; action: 'suspend' | 'unsuspend' } | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+  const handleModerate = async (reason?: string) => {
+    if (!suspendTarget) return
+    setModerating(suspendTarget.id)
+    try {
+      const res = await fetch(`/api/admin/listings/${suspendTarget.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: suspendTarget.action, reason: reason?.trim() || undefined }),
+      })
+      if (res.ok) {
+        setToast({ message: `Listing ${suspendTarget.action === 'suspend' ? 'suspended' : 'unsuspended'}`, type: 'success' })
+        router.refresh()
+      } else {
+        const data = await res.json()
+        setToast({ message: data.error || 'Failed', type: 'error' })
+      }
+    } catch {
+      setToast({ message: 'Network error', type: 'error' })
+    }
+    setModerating(null)
+    setSuspendTarget(null)
+  }
 
   // Debounce search input (300ms)
   const debouncedSearch = useDebounce(searchInput, 300)
@@ -261,8 +289,8 @@ export default function ListingsTableClient({
         backgroundColor: 'white',
         borderRadius: radius.md,
         boxShadow: shadows.sm,
-        overflow: 'hidden'
       }}>
+      <div className="admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: colors.surfaceMuted }}>
@@ -343,26 +371,87 @@ export default function ListingsTableClient({
                       }}>
                         {listing.status}
                       </span>
+                      {listing.status === 'published' && listing.quantity !== null && listing.quantity === 0 && (
+                        <span style={{
+                          marginLeft: spacing['2xs'],
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
+                          backgroundColor: '#fee2e2',
+                          color: '#991b1b',
+                        }}>
+                          Out of Stock
+                        </span>
+                      )}
+                      {listing.status === 'published' && listing.quantity !== null && listing.quantity > 0 && listing.quantity <= 5 && (
+                        <span style={{
+                          marginLeft: spacing['2xs'],
+                          padding: `${spacing['3xs']} ${spacing.xs}`,
+                          borderRadius: radius.sm,
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
+                          backgroundColor: '#ffedd5',
+                          color: '#9a3412',
+                        }}>
+                          Low ({listing.quantity})
+                        </span>
+                      )}
                     </td>
                     <td style={tdStyle}>
                       {new Date(listing.created_at).toLocaleDateString()}
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
-                      <Link
-                        href={`/${listing.vertical_id}/listing/${listing.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          padding: `${spacing['3xs']} ${spacing.xs}`,
-                          backgroundColor: colors.primary,
-                          color: 'white',
-                          textDecoration: 'none',
-                          borderRadius: radius.sm,
-                          fontSize: typography.sizes.sm
-                        }}
-                      >
-                        View
-                      </Link>
+                      <div style={{ display: 'flex', gap: spacing['2xs'], justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <Link
+                          href={`/${listing.vertical_id}/listing/${listing.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: colors.primary,
+                            color: 'white',
+                            textDecoration: 'none',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs
+                          }}
+                        >
+                          View
+                        </Link>
+                        {listing.status === 'published' ? (
+                          <button
+                            onClick={() => setSuspendTarget({ id: listing.id, title: listing.title, verticalId: listing.vertical_id, action: 'suspend' })}
+                            disabled={moderating === listing.id}
+                            style={{
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              backgroundColor: 'white',
+                              color: '#991b1b',
+                              border: '1px solid #fca5a5',
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              cursor: moderating === listing.id ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            Suspend
+                          </button>
+                        ) : listing.status === 'paused' ? (
+                          <button
+                            onClick={() => setSuspendTarget({ id: listing.id, title: listing.title, verticalId: listing.vertical_id, action: 'unsuspend' })}
+                            disabled={moderating === listing.id}
+                            style={{
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              backgroundColor: 'white',
+                              color: '#166534',
+                              border: '1px solid #86efac',
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              cursor: moderating === listing.id ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            Unsuspend
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -370,6 +459,7 @@ export default function ListingsTableClient({
             )}
           </tbody>
         </table>
+      </div>
 
         {/* Pagination */}
         <div style={{ padding: `0 ${spacing.sm}` }}>
@@ -383,6 +473,51 @@ export default function ListingsTableClient({
           />
         </div>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          padding: `${spacing.xs} ${spacing.md}`,
+          backgroundColor: toast.type === 'success' ? '#d1fae5' : '#fee2e2',
+          border: `1px solid ${toast.type === 'success' ? '#10b981' : '#ef4444'}`,
+          borderRadius: radius.md,
+          color: toast.type === 'success' ? '#065f46' : '#991b1b',
+          fontSize: typography.sizes.sm,
+          zIndex: 1000,
+          boxShadow: shadows.lg,
+        }}>
+          {toast.message}
+        </div>
+      )}
+
+      {/* Suspend Confirmation */}
+      <ConfirmDialog
+        open={!!suspendTarget && suspendTarget.action === 'suspend'}
+        title="Suspend Listing"
+        message={`Suspend "${suspendTarget?.title}"? The vendor will be notified and the listing will be hidden from buyers.`}
+        confirmLabel="Suspend"
+        cancelLabel="Cancel"
+        variant="danger"
+        showInput
+        inputLabel="Reason (visible to vendor)"
+        inputPlaceholder="Why is this listing being suspended?"
+        onConfirm={handleModerate}
+        onCancel={() => setSuspendTarget(null)}
+      />
+
+      {/* Unsuspend Confirmation */}
+      <ConfirmDialog
+        open={!!suspendTarget && suspendTarget.action === 'unsuspend'}
+        title="Unsuspend Listing"
+        message={`Republish "${suspendTarget?.title}"? This will make it visible to buyers again.`}
+        confirmLabel="Republish"
+        cancelLabel="Cancel"
+        onConfirm={() => handleModerate()}
+        onCancel={() => setSuspendTarget(null)}
+      />
     </>
   )
 }

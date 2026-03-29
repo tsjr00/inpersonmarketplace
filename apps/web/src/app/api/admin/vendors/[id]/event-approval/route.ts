@@ -25,7 +25,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify admin role
+    // Verify admin role — platform admin or vertical admin for this vendor's vertical
     const { data: userProfile } = await supabase
       .from('user_profiles')
       .select('role, roles')
@@ -33,9 +33,7 @@ export async function PATCH(
       .is('deleted_at', null)
       .single()
 
-    if (!hasAdminRole(userProfile || {})) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
+    let isAdmin = hasAdminRole(userProfile || {})
 
     const body = await request.json()
     const { event_approved } = body
@@ -49,7 +47,7 @@ export async function PATCH(
 
     const serviceClient = createServiceClient()
 
-    // Verify vendor exists, is approved, and is food_trucks vertical
+    // Verify vendor exists and is approved
     const { data: vendor, error: vendorError } = await serviceClient
       .from('vendor_profiles')
       .select('id, user_id, status, vertical_id, profile_data')
@@ -58,6 +56,21 @@ export async function PATCH(
 
     if (vendorError || !vendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    }
+
+    // If not platform admin, check if they're a vertical admin for this vendor's vertical
+    if (!isAdmin) {
+      const { data: verticalAdmin } = await supabase
+        .from('vertical_admins')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('vertical_id', vendor.vertical_id)
+        .single()
+      isAdmin = !!verticalAdmin
+    }
+
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
     if (vendor.status !== 'approved') {

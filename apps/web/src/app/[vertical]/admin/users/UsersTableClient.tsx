@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -23,6 +24,7 @@ interface UserProfile {
   role: string
   roles: string[] | null
   buyer_tier?: string | null
+  deleted_at?: string | null
   created_at: string
   vendor_profiles: VendorProfile[] | null
 }
@@ -62,6 +64,30 @@ export default function UsersTableClient({
   const [vendorTier, setVendorTier] = useState(initialFilters.vendorTier)
   const [buyerTier, setBuyerTier] = useState(initialFilters.buyerTier)
   const [exporting, setExporting] = useState(false)
+  const [suspendTarget, setSuspendTarget] = useState<{ userId: string; name: string; action: 'suspend' | 'reactivate' } | null>(null)
+  const [suspending, setSuspending] = useState(false)
+
+  const handleSuspendAction = async () => {
+    if (!suspendTarget) return
+    setSuspending(true)
+    try {
+      const res = await fetch(`/api/admin/users/${suspendTarget.userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: suspendTarget.action }),
+      })
+      if (res.ok) {
+        router.refresh()
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed')
+      }
+    } catch {
+      alert('Network error')
+    }
+    setSuspending(false)
+    setSuspendTarget(null)
+  }
 
   // Debounce search input (300ms)
   const debouncedSearch = useDebounce(searchInput, 300)
@@ -285,11 +311,10 @@ export default function UsersTableClient({
       </div>
 
       {/* Table */}
-      <div style={{
+      <div className="admin-table-wrap" style={{
         backgroundColor: 'white',
         borderRadius: radius.md,
         boxShadow: shadows.sm,
-        overflow: 'hidden'
       }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -371,18 +396,52 @@ export default function UsersTableClient({
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
                     <td style={tdStyle}>
-                      {vendorProfile && (
-                        <Link
-                          href={`/${vertical}/admin/vendors/${vendorProfile.id}`}
-                          style={{
-                            color: colors.primary,
-                            textDecoration: 'none',
-                            fontSize: typography.sizes.sm
-                          }}
-                        >
-                          View Vendor
-                        </Link>
-                      )}
+                      <div style={{ display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap' }}>
+                        {vendorProfile && (
+                          <Link
+                            href={`/${vertical}/admin/vendors/${vendorProfile.id}`}
+                            style={{
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              color: colors.primary,
+                              textDecoration: 'none',
+                              fontSize: typography.sizes.xs
+                            }}
+                          >
+                            Vendor →
+                          </Link>
+                        )}
+                        {user.deleted_at ? (
+                          <button
+                            onClick={() => setSuspendTarget({ userId: user.user_id, name: user.display_name || user.email || 'User', action: 'reactivate' })}
+                            style={{
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              backgroundColor: 'white',
+                              color: '#166534',
+                              border: '1px solid #86efac',
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Reactivate
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSuspendTarget({ userId: user.user_id, name: user.display_name || user.email || 'User', action: 'suspend' })}
+                            style={{
+                              padding: `${spacing['3xs']} ${spacing.xs}`,
+                              backgroundColor: 'white',
+                              color: '#991b1b',
+                              border: '1px solid #fca5a5',
+                              borderRadius: radius.sm,
+                              fontSize: typography.sizes.xs,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Suspend
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -403,6 +462,21 @@ export default function UsersTableClient({
           />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!suspendTarget}
+        title={suspendTarget?.action === 'suspend' ? 'Suspend User Account' : 'Reactivate User Account'}
+        message={
+          suspendTarget?.action === 'suspend'
+            ? `Suspend "${suspendTarget.name}"? They will be unable to log in or use the platform. Any vendor profiles will also be suspended.`
+            : `Reactivate "${suspendTarget?.name}"? They will be able to log in again. Vendor profiles will need to be reactivated separately.`
+        }
+        confirmLabel={suspending ? 'Processing...' : suspendTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'}
+        cancelLabel="Cancel"
+        variant={suspendTarget?.action === 'suspend' ? 'danger' : 'default'}
+        onConfirm={handleSuspendAction}
+        onCancel={() => setSuspendTarget(null)}
+      />
     </>
   )
 }

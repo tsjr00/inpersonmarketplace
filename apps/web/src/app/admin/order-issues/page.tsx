@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 
 interface OrderIssue {
@@ -22,6 +23,7 @@ interface OrderIssue {
   buyer_email: string
   buyer_name: string
   vendor_name: string
+  vendor_profile_id: string | null
   order_created_at: string
 }
 
@@ -226,7 +228,11 @@ export default function AdminOrderIssuesPage() {
                   <strong>{issue.listing_title}</strong> (x{issue.quantity}) — {formatPrice(issue.subtotal_cents)}
                 </div>
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing['2xs'] }}>
-                  Buyer: {issue.buyer_name} ({issue.buyer_email}) | Vendor: {issue.vendor_name} | {issue.market_name}
+                  Buyer: {issue.buyer_name} ({issue.buyer_email}) | Vendor: {issue.vendor_profile_id ? (
+                    <Link href={`/${issue.vertical_id}/admin/vendors/${issue.vendor_profile_id}`} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}>
+                      {issue.vendor_name} →
+                    </Link>
+                  ) : issue.vendor_name} | {issue.market_name}
                 </div>
 
                 {/* Issue description */}

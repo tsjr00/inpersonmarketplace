@@ -350,14 +350,12 @@ export default function AdminCateringPage() {
 
       {/* Create Event Form */}
       {showCreateForm && (
-        <form onSubmit={handleCreateEvent} style={{
+        <form onSubmit={handleCreateEvent} className="admin-form-grid" style={{
           padding: spacing.md,
           backgroundColor: 'white',
           border: `1px solid ${statusColors.neutral200}`,
           borderRadius: radius.md,
           marginBottom: spacing.md,
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
           gap: spacing.xs,
         }}>
           <h3 style={{ gridColumn: '1 / -1', margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.lg, fontWeight: typography.weights.semibold }}>
@@ -499,7 +497,7 @@ export default function AdminCateringPage() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: selectedId ? '1fr 2fr' : '1fr', gap: spacing.md }}>
+        <div className={`admin-detail-split${selectedId ? ' has-detail' : ''}`} style={{ gap: spacing.md }}>
           {/* Request list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
             {filtered.map((req) => {
@@ -1121,7 +1119,7 @@ export default function AdminCateringPage() {
                       <p style={{ margin: `0 0 ${spacing.xs}`, fontSize: typography.sizes.xs, color: statusColors.neutral600 }}>
                         Create a new request with same company & location, new dates:
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.xs, marginBottom: spacing.xs }}>
+                      <div className="admin-grid-2" style={{ gap: spacing.xs, marginBottom: spacing.xs }}>
                         <div>
                           <label style={{ display: 'block', fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral600, marginBottom: spacing['3xs'] }}>
                             Event Date *
@@ -1193,7 +1191,7 @@ export default function AdminCateringPage() {
                 <Section title="Vendor Invitations">
                   {/* Current invitations */}
                   {marketVendors.length > 0 && (
-                    <div style={{ marginBottom: spacing.sm }}>
+                    <div className="admin-table-wrap" style={{ marginBottom: spacing.sm }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: typography.sizes.sm }}>
                         <thead>
                           <tr style={{ borderBottom: `1px solid ${statusColors.neutral200}` }}>

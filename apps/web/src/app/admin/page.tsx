@@ -43,7 +43,13 @@ export default async function AdminDashboardPage() {
   const [
     { count: stalePendingCount },
     { count: stuckOrdersCount },
-    { count: openIssuesCount }
+    { count: openIssuesCount },
+    { count: fmPendingVendors },
+    { count: fmOpenIssues },
+    { count: fmPendingEvents },
+    { count: ftPendingVendors },
+    { count: ftOpenIssues },
+    { count: ftPendingEvents }
   ] = await Promise.all([
     supabase
       .from('vendor_profiles')
@@ -59,7 +65,14 @@ export default async function AdminDashboardPage() {
       .from('order_items')
       .select('*', { count: 'exact', head: true })
       .not('issue_reported_at', 'is', null)
-      .or('issue_status.is.null,issue_status.eq.new')
+      .or('issue_status.is.null,issue_status.eq.new'),
+    // Per-vertical urgency counts
+    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', 'farmers_market').eq('status', 'submitted'),
+    supabase.from('order_items').select('*, listings!inner(vertical_id)', { count: 'exact', head: true }).eq('listings.vertical_id', 'farmers_market').not('issue_reported_at', 'is', null).or('issue_status.is.null,issue_status.eq.new'),
+    supabase.from('catering_requests').select('*', { count: 'exact', head: true }).eq('vertical_id', 'farmers_market').in('status', ['new', 'reviewing']),
+    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', 'food_trucks').eq('status', 'submitted'),
+    supabase.from('order_items').select('*, listings!inner(vertical_id)', { count: 'exact', head: true }).eq('listings.vertical_id', 'food_trucks').not('issue_reported_at', 'is', null).or('issue_status.is.null,issue_status.eq.new'),
+    supabase.from('catering_requests').select('*', { count: 'exact', head: true }).eq('vertical_id', 'food_trucks').in('status', ['new', 'reviewing']),
   ])
 
   return (
@@ -147,34 +160,69 @@ export default async function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Navigation back to Vertical Admin */}
-      <div style={{ marginBottom: spacing.sm }}>
-        <Link
-          href="/farmers_market/admin"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: spacing['2xs'],
-            padding: `${spacing['2xs']} ${spacing.sm}`,
-            backgroundColor: '#f3f4f6',
-            border: '1px solid #d1d5db',
-            borderRadius: radius.sm,
-            textDecoration: 'none',
-            color: '#374151',
-            fontSize: typography.sizes.sm,
-            fontWeight: typography.weights.medium
-          }}
-        >
-          ← Back to {term('farmers_market', 'display_name')} Admin
-        </Link>
+      {/* Vertical Command Center */}
+      <div className="admin-grid-2" style={{ gap: spacing.md, marginBottom: spacing.md }}>
+        {[
+          { id: 'farmers_market', name: 'Farmers Marketing', color: '#2d5016', pending: fmPendingVendors || 0, issues: fmOpenIssues || 0, events: fmPendingEvents || 0 },
+          { id: 'food_trucks', name: "Food Truck'n", color: '#ff5757', pending: ftPendingVendors || 0, issues: ftOpenIssues || 0, events: ftPendingEvents || 0 },
+        ].map(v => {
+          const totalUrgent = v.pending + v.issues + v.events
+          return (
+            <Link
+              key={v.id}
+              href={`/${v.id}/admin`}
+              style={{
+                display: 'block',
+                padding: spacing.md,
+                backgroundColor: 'white',
+                border: totalUrgent > 0 ? `2px solid ${v.color}` : '1px solid #d1d5db',
+                borderRadius: radius.md,
+                textDecoration: 'none',
+                boxShadow: shadows.sm,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                <h3 style={{ margin: 0, color: v.color, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }}>
+                  {v.name}
+                </h3>
+                {totalUrgent > 0 && (
+                  <span style={{
+                    backgroundColor: v.color,
+                    color: 'white',
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.bold,
+                    padding: `2px ${spacing['2xs']}`,
+                    borderRadius: radius.full,
+                    minWidth: 20,
+                    textAlign: 'center',
+                  }}>
+                    {totalUrgent}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: spacing.md, fontSize: typography.sizes.sm }}>
+                {v.pending > 0 && (
+                  <span style={{ color: '#92400e' }}>⏳ {v.pending} pending vendor{v.pending !== 1 ? 's' : ''}</span>
+                )}
+                {v.issues > 0 && (
+                  <span style={{ color: '#1e40af' }}>⚠️ {v.issues} open issue{v.issues !== 1 ? 's' : ''}</span>
+                )}
+                {v.events > 0 && (
+                  <span style={{ color: '#92400e' }}>🎪 {v.events} event request{v.events !== 1 ? 's' : ''}</span>
+                )}
+                {totalUrgent === 0 && (
+                  <span style={{ color: '#6b7280' }}>All clear</span>
+                )}
+              </div>
+            </Link>
+          )
+        })}
       </div>
 
       <h1 style={{ marginBottom: spacing.lg, color: '#333', fontSize: typography.sizes['2xl'] }}>Admin Dashboard</h1>
 
       {/* Stats Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+      <div className="admin-grid-3" style={{
         gap: spacing.md,
         marginBottom: spacing.xl
       }}>
@@ -238,6 +286,7 @@ export default async function AdminDashboardPage() {
             </Link>
           </div>
 
+          <div className="admin-table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #eee' }}>
@@ -282,13 +331,12 @@ export default async function AdminDashboardPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* Quick Actions */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+      <div className="admin-grid-3" style={{
         gap: spacing.md,
         marginTop: spacing.lg
       }}>
