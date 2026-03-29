@@ -176,7 +176,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
     const seenLabels = new Set<string>()
 
     for (const [key, val] of Object.entries(catVer)) {
-      if (val.status !== 'approved') continue
+      if (!val || val.status !== 'approved') continue
 
       let badge: BadgeConfig | null = null
       if (vertical === 'food_trucks') {
