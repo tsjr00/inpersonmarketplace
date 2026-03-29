@@ -189,7 +189,7 @@ export default function ListingForm({
       const saved = sessionStorage.getItem(storageKey)
       if (saved) {
         const draft = JSON.parse(saved)
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time initialization from sessionStorage
+         
         setFormData(prev => ({ ...prev, ...draft.formData }))
         if (draft.containsAllergens !== undefined) setContainsAllergens(draft.containsAllergens)
         if (draft.ingredients) setIngredients(draft.ingredients)
@@ -273,6 +273,18 @@ export default function ListingForm({
     // Validate market selection (required for all listings)
     if (selectedMarketIds.length === 0 && hasMarkets) {
       setError(`Please select at least one ${term(vertical, 'market').toLowerCase()} for this listing`)
+      setLoading(false)
+      return
+    }
+
+    // Content moderation on listing text
+    const { checkFields } = await import('@/lib/content-moderation')
+    const modCheck = checkFields({
+      title: formData.title,
+      description: formData.description,
+    })
+    if (!modCheck.passed) {
+      setError(modCheck.reason || 'Content contains inappropriate language')
       setLoading(false)
       return
     }

@@ -39,6 +39,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Content moderation
+      const { checkFields } = await import('@/lib/content-moderation')
+      const modCheck = checkFields({ message, market_name })
+      if (!modCheck.passed) {
+        return NextResponse.json({ error: modCheck.reason }, { status: 400 })
+      }
+
       // Insert feedback
       const { data: feedback, error: insertError } = await supabase
         .from('shopper_feedback')

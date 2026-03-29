@@ -67,6 +67,13 @@ export async function POST(request: NextRequest) {
       // Not authenticated — that's fine
     }
 
+    // Content moderation
+    const { checkFields } = await import('@/lib/content-moderation')
+    const modCheck = checkFields({ name, message })
+    if (!modCheck.passed) {
+      return NextResponse.json({ error: modCheck.reason }, { status: 400 })
+    }
+
     // Use service client for insert (public form, bypasses RLS)
     const serviceClient = createServiceClient()
 

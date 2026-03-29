@@ -40,6 +40,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       )
     }
 
+    // Content moderation
+    const { isProfane } = await import('@/lib/content-moderation')
+    if (isProfane(message)) {
+      return NextResponse.json({ error: 'Message contains inappropriate language. Please revise.' }, { status: 400 })
+    }
+
     // Get vendor profile
     const { data: vendorProfile } = await supabase
       .from('vendor_profiles')
