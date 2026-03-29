@@ -80,6 +80,9 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
     console.error('Error fetching vendors:', error)
   }
 
+  // Surface query error visibly for admin debugging
+  const queryError = error ? `${error.message} (code: ${error.code})` : null
+
   // Client-side search filter (profile_data is JSONB, can't easily filter server-side)
   let filteredVendors = vendors || []
   if (search) {
@@ -108,6 +111,21 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 20px' }}>
       <AdminNav type="platform" />
+
+      {/* Query error banner */}
+      {queryError && (
+        <div style={{
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fca5a5',
+          borderRadius: 8,
+          padding: '12px 16px',
+          marginBottom: 16,
+          color: '#991b1b',
+          fontSize: 14
+        }}>
+          <strong>Query error:</strong> {queryError}
+        </div>
+      )}
 
       {/* Header */}
       <div style={{

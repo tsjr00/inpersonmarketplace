@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 import MarketAdminFilters from './MarketAdminFilters'
@@ -12,7 +12,7 @@ interface MarketsAdminPageProps {
 export default async function MarketsAdminPage({ searchParams }: MarketsAdminPageProps) {
   await requireAdmin()
   const { vertical, type, active } = await searchParams
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Build query
   let query = supabase

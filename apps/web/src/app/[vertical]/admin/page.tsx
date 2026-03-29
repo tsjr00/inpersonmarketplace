@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
@@ -37,6 +37,9 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
   // Get branding
   const branding = defaultBranding[vertical] || defaultBranding.farmers_market
 
+  // Use service client for data queries (RLS restricts counts to own rows)
+  const serviceClient = createServiceClient()
+
   // ============ Fetch all dashboard data ============
 
   // Markets data
@@ -45,9 +48,9 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     { count: pendingMarkets },
     { count: activeMarkets }
   ] = await Promise.all([
-    supabase.from('markets').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical),
-    supabase.from('markets').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'pending'),
-    supabase.from('markets').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('active', true)
+    serviceClient.from('markets').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical),
+    serviceClient.from('markets').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'pending'),
+    serviceClient.from('markets').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('active', true)
   ])
 
   // Vendors data
@@ -58,11 +61,11 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     { count: proVendors },
     { count: bossVendors }
   ] = await Promise.all([
-    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical),
-    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'submitted'),
-    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved'),
-    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'pro'),
-    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'boss')
+    serviceClient.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical),
+    serviceClient.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'submitted'),
+    serviceClient.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved'),
+    serviceClient.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'pro'),
+    serviceClient.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'boss')
   ])
 
   // Users/Buyers data
@@ -70,8 +73,8 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     { count: standardBuyers },
     { count: premiumBuyers }
   ] = await Promise.all([
-    supabase.from('user_profiles').select('*', { count: 'exact', head: true }).or('buyer_tier.is.null,buyer_tier.eq.standard'),
-    supabase.from('user_profiles').select('*', { count: 'exact', head: true }).eq('buyer_tier', 'premium')
+    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).or('buyer_tier.is.null,buyer_tier.eq.standard'),
+    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).eq('buyer_tier', 'premium')
   ])
 
   // Listings data - products/bundles + active market boxes
@@ -79,12 +82,12 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     { count: publishedListings },
     { count: activeMarketBoxes }
   ] = await Promise.all([
-    supabase.from('listings').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'published').is('deleted_at', null),
-    supabase.from('market_box_offerings').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('active', true)
+    serviceClient.from('listings').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'published').is('deleted_at', null),
+    serviceClient.from('market_box_offerings').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('active', true)
   ])
 
   // Calculate stale vendors (pending 2+ days)
-  const { data: pendingVendorsList } = await supabase
+  const { data: pendingVendorsList } = await serviceClient
     .from('vendor_profiles')
     .select('id, created_at')
     .eq('vertical_id', vertical)
@@ -107,19 +110,19 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     { count: openIssuesCount },
     { count: pendingEventCount }
   ] = await Promise.all([
-    supabase
+    serviceClient
       .from('orders')
       .select('*', { count: 'exact', head: true })
       .eq('vertical_id', vertical)
       .in('status', ['paid', 'confirmed'])
       .lt('created_at', oneDayAgo.toISOString()),
-    supabase
+    serviceClient
       .from('order_items')
       .select('*, listings!inner(vertical_id)', { count: 'exact', head: true })
       .eq('listings.vertical_id', vertical)
       .not('issue_reported_at', 'is', null)
       .or('issue_status.is.null,issue_status.eq.new'),
-    supabase
+    serviceClient
       .from('catering_requests')
       .select('*', { count: 'exact', head: true })
       .eq('vertical_id', vertical)
@@ -127,7 +130,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
   ])
 
   // Vendor Activity Flags data
-  const { data: activityFlags } = await supabase
+  const { data: activityFlags } = await serviceClient
     .from('vendor_activity_flags')
     .select('id, reason, status')
     .eq('vertical_id', vertical)

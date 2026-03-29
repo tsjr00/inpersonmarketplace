@@ -1,10 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 import Link from 'next/link'
 
 export default async function PendingVendorsPage() {
   await requireAdmin()
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get all pending vendors (using id, not vendor_id)
   const { data: pendingVendors } = await supabase
