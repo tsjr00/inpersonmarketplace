@@ -2059,8 +2059,9 @@ export async function GET(request: NextRequest) {
           const senderName = isFM ? 'Farmers Marketing' : "Food Truck'n"
           const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
           const accentColor = isFM ? '#2d5016' : '#ff5757'
+          const { getAppUrl } = await import('@/lib/environment')
           const selectUrl = event.event_token
-            ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://foodtruckn.app'}/events/${event.event_token}/select`
+            ? `${getAppUrl(event.vertical_id)}/events/${event.event_token}/select`
             : null
 
           try {
