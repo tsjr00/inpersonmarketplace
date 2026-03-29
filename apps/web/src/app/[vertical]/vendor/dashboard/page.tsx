@@ -133,6 +133,21 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     market_name: string
     item_count: number
   }
+  interface VendorEvent {
+    id: string
+    response_status: string
+    invited_at: string | null
+    is_backup: boolean
+    markets: {
+      id: string
+      name: string
+      city: string | null
+      state: string | null
+      headcount: number | null
+      event_start_date: string | null
+      event_end_date: string | null
+    }
+  }
 
   // Default values for non-approved vendors
   let draftCount = 0
@@ -145,6 +160,7 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
   let monthlySalesCents = 0
   let pendingPayoutsCents = 0
   let completedPayoutsCents = 0
+  let vendorEvents: VendorEvent[] = []
 
   // Run all dashboard queries in parallel for approved vendors
   if (vendorProfile.status === 'approved') {
@@ -165,7 +181,8 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
       upcomingResult,
       monthlySalesResult,
       pendingPayoutsResult,
-      completedPayoutsResult
+      completedPayoutsResult,
+      vendorEventsResult
     ] = await Promise.all([
       // Draft listings
       supabase
@@ -265,6 +282,20 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
         .eq('vendor_profile_id', vendorProfile.id)
         .eq('status', 'completed')
         .gte('created_at', new Date(today.getFullYear(), today.getMonth(), 1).toISOString()),
+      // Vendor events (only for event-approved vendors)
+      vendorProfile.event_approved
+        ? supabase
+            .from('market_vendors')
+            .select(`
+              id, response_status, invited_at, is_backup,
+              markets!inner (
+                id, name, city, state, headcount, event_start_date, event_end_date
+              )
+            `)
+            .eq('vendor_profile_id', vendorProfile.id)
+            .eq('markets.market_type', 'event')
+            .neq('response_status', 'declined')
+        : Promise.resolve({ data: null, error: null }),
     ])
 
     // Extract results
@@ -278,6 +309,11 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
     monthlySalesCents = (monthlySalesResult.data || []).reduce((sum: number, item: { subtotal_cents: number }) => sum + (item.subtotal_cents || 0), 0)
     pendingPayoutsCents = (pendingPayoutsResult.data || []).reduce((sum: number, item: { amount_cents: number }) => sum + (item.amount_cents || 0), 0)
     completedPayoutsCents = (completedPayoutsResult.data || []).reduce((sum: number, item: { amount_cents: number }) => sum + (item.amount_cents || 0), 0)
+
+    // Vendor events
+    if (vendorEventsResult.data) {
+      vendorEvents = (vendorEventsResult.data as unknown as VendorEvent[]) || []
+    }
 
     // Build active markets: home market + private pickups + markets with listings
     // Only shows locations where vendor actually sells (not auto-enrolled empty markets)
@@ -554,6 +590,169 @@ export default async function VendorDashboardPage({ params }: VendorDashboardPag
             )}
           </div>
         </div>
+
+        {/* ============================================= */}
+        {/* YOUR EVENTS — only for event-approved vendors  */}
+        {/* ============================================= */}
+        {vendorProfile.event_approved && vendorProfile.status === 'approved' && (() => {
+          const todayStr = new Date().toISOString().split('T')[0]
+          const invitations = vendorEvents.filter(e => e.response_status === 'invited' && e.markets.event_start_date && e.markets.event_start_date >= todayStr)
+          const todayEvents = vendorEvents.filter(e => e.response_status === 'accepted' && !e.is_backup && e.markets.event_start_date && e.markets.event_start_date <= todayStr && (!e.markets.event_end_date || e.markets.event_end_date >= todayStr))
+          const upcoming = vendorEvents.filter(e => e.response_status === 'accepted' && !e.is_backup && e.markets.event_start_date && e.markets.event_start_date > todayStr)
+          const backups = vendorEvents.filter(e => e.is_backup && e.markets.event_start_date && e.markets.event_start_date >= todayStr)
+          const past = vendorEvents.filter(e => e.response_status === 'accepted' && e.markets.event_start_date && e.markets.event_start_date < todayStr && (!e.markets.event_end_date || e.markets.event_end_date < todayStr))
+          const hasContent = invitations.length > 0 || todayEvents.length > 0 || upcoming.length > 0 || backups.length > 0 || past.length > 0
+
+          const fmtEventDate = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          const eventRowStyle = {
+            display: 'flex' as const,
+            justifyContent: 'space-between' as const,
+            alignItems: 'center' as const,
+            padding: `${spacing['2xs']} ${spacing.xs}`,
+            borderRadius: radius.sm,
+            textDecoration: 'none' as const,
+            fontSize: typography.sizes.sm,
+            color: colors.textPrimary,
+            lineHeight: 1.5,
+          }
+
+          return (
+            <div style={{
+              padding: spacing.sm,
+              backgroundColor: invitations.length > 0 ? '#fff7ed' : todayEvents.length > 0 ? colors.primaryLight : colors.surfaceElevated,
+              border: invitations.length > 0 ? '2px solid #ea580c' : todayEvents.length > 0 ? `2px solid ${colors.primary}` : `1px solid ${colors.border}`,
+              borderRadius: radius.md,
+              boxShadow: shadows.sm,
+              marginBottom: spacing.md,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                <h3 style={{
+                  color: colors.primary,
+                  margin: 0,
+                  fontSize: typography.sizes.base,
+                  fontWeight: typography.weights.semibold,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing['2xs'],
+                }}>
+                  🎪 Your Events
+                  {invitations.length > 0 && (
+                    <span style={{
+                      backgroundColor: '#ea580c',
+                      color: 'white',
+                      fontSize: typography.sizes.xs,
+                      fontWeight: typography.weights.bold,
+                      padding: `1px ${spacing['2xs']}`,
+                      borderRadius: radius.full,
+                      minWidth: '20px',
+                      textAlign: 'center',
+                    }}>
+                      {invitations.length}
+                    </span>
+                  )}
+                </h3>
+              </div>
+
+              {!hasContent ? (
+                <p style={{ margin: 0, fontSize: typography.sizes.sm, color: colors.textMuted }}>
+                  No event invitations yet. When organizers request food trucks, you&apos;ll see invitations here.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                  {/* Action Needed — invitations awaiting response */}
+                  {invitations.length > 0 && (
+                    <div>
+                      <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Action Needed
+                      </p>
+                      {invitations
+                        .sort((a, b) => (a.markets.event_start_date || '').localeCompare(b.markets.event_start_date || ''))
+                        .map(ev => (
+                          <Link key={ev.id} href={`/${vertical}/vendor/events/${ev.markets.id}`} style={{ ...eventRowStyle, backgroundColor: '#fff7ed' }}>
+                            <span>
+                              {fmtEventDate(ev.markets.event_start_date!)} · {ev.markets.city}{ev.markets.state ? `, ${ev.markets.state}` : ''} · ~{ev.markets.headcount || '?'} people
+                            </span>
+                            <span style={{ color: '#ea580c', fontWeight: typography.weights.semibold, fontSize: typography.sizes.xs, whiteSpace: 'nowrap' }}>
+                              View &amp; Respond →
+                            </span>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Today — events happening now */}
+                  {todayEvents.length > 0 && (
+                    <div>
+                      <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.primaryDark, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Today
+                      </p>
+                      {todayEvents.map(ev => (
+                        <Link key={ev.id} href={`/${vertical}/vendor/events/${ev.markets.id}`} style={{ ...eventRowStyle, backgroundColor: colors.primaryLight }}>
+                          <span>
+                            🎪 {ev.markets.name} · {ev.markets.city}{ev.markets.state ? `, ${ev.markets.state}` : ''} · ~{ev.markets.headcount || '?'} people
+                          </span>
+                          <span style={{ color: colors.primaryDark, fontWeight: typography.weights.semibold, fontSize: typography.sizes.xs, whiteSpace: 'nowrap' }}>
+                            Details →
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upcoming — accepted future events */}
+                  {upcoming.length > 0 && (
+                    <div>
+                      <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Upcoming
+                      </p>
+                      {upcoming
+                        .sort((a, b) => (a.markets.event_start_date || '').localeCompare(b.markets.event_start_date || ''))
+                        .slice(0, 5)
+                        .map(ev => (
+                          <Link key={ev.id} href={`/${vertical}/vendor/events/${ev.markets.id}`} style={eventRowStyle}>
+                            <span>
+                              {fmtEventDate(ev.markets.event_start_date!)} · {ev.markets.city}{ev.markets.state ? `, ${ev.markets.state}` : ''} · ~{ev.markets.headcount || '?'} people
+                            </span>
+                            <span style={{ color: colors.primary, fontSize: typography.sizes.xs, whiteSpace: 'nowrap' }}>
+                              Details →
+                            </span>
+                          </Link>
+                        ))}
+                      {upcoming.length > 5 && (
+                        <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                          +{upcoming.length - 5} more upcoming
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Backup — standby for escalation */}
+                  {backups.length > 0 && (
+                    <div>
+                      <p style={{ margin: `0 0 ${spacing['3xs']}`, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Backup
+                      </p>
+                      {backups.map(ev => (
+                        <div key={ev.id} style={{ ...eventRowStyle, color: colors.textMuted }}>
+                          <span>
+                            Standby for {fmtEventDate(ev.markets.event_start_date!)} event in {ev.markets.city || 'TBD'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Past — collapsed count */}
+                  {past.length > 0 && (
+                    <p style={{ margin: 0, fontSize: typography.sizes.xs, color: colors.textMuted }}>
+                      {past.length} past event{past.length !== 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* ============================================= */}
         {/* ROW 2: Daily Ops - Orders, Listings, Market Boxes */}

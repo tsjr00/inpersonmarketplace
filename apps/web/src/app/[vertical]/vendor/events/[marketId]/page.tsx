@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
 import { createClient } from '@/lib/supabase/client'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 
 interface EventDetails {
   market_id: string
@@ -50,6 +51,16 @@ export default function VendorCateringDetailPage() {
   const [cateringListings, setCateringListings] = useState<Array<{ id: string; title: string; price_cents: number }>>([])
   const [selectedListingIds, setSelectedListingIds] = useState<Set<string>>(new Set())
   const [loadingListings, setLoadingListings] = useState(false)
+
+  // Contact organizer state
+  const [showMessageForm, setShowMessageForm] = useState(false)
+  const [messageText, setMessageText] = useState('')
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const [messageResult, setMessageResult] = useState<string | null>(null)
+
+  // Cancel participation state
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     fetchDetails()
@@ -185,6 +196,67 @@ export default function VendorCateringDetailPage() {
     }
     setResponding(false)
   }
+
+  async function handleSendMessage() {
+    if (messageText.trim().length < 10) {
+      setMessageResult('Error: Message must be at least 10 characters')
+      return
+    }
+    setSendingMessage(true)
+    setMessageResult(null)
+    try {
+      const res = await fetch(`/api/vendor/events/${marketId}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: messageText.trim() }),
+      })
+      if (res.ok) {
+        setMessageResult('Message sent to the event organizer!')
+        setMessageText('')
+        setShowMessageForm(false)
+      } else {
+        const err = await res.json()
+        setMessageResult(`Error: ${err.error || 'Failed to send message'}`)
+      }
+    } catch {
+      setMessageResult('Error: Network error')
+    }
+    setSendingMessage(false)
+  }
+
+  async function handleCancelParticipation(reason?: string) {
+    if (!reason || reason.trim().length < 10) return
+    setCancelling(true)
+    setActionMessage(null)
+    try {
+      const res = await fetch(`/api/vendor/events/${marketId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim() }),
+      })
+      if (res.ok) {
+        setActionMessage('Your participation has been cancelled. The organizer has been notified.')
+        setDetails((prev) => prev ? { ...prev, response_status: 'cancelled' } : prev)
+      } else {
+        const err = await res.json()
+        setActionMessage(`Error: ${err.error || 'Failed to cancel'}`)
+      }
+    } catch {
+      setActionMessage('Error: Network error')
+    }
+    setCancelling(false)
+    setShowCancelDialog(false)
+  }
+
+  // Check if event is within 72 hours (late cancellation warning)
+  const isLateCancellation = details?.event_date
+    ? (() => {
+        const eventDate = new Date(details.event_date + 'T00:00:00')
+        const now = new Date()
+        const hoursUntil = (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+        return hoursUntil < 72
+      })()
+    : false
 
   if (loading) {
     return (
@@ -616,6 +688,161 @@ export default function VendorCateringDetailPage() {
           </ol>
         </div>
       )}
+
+      {/* Contact Organizer — available for accepted vendors */}
+      {details.response_status === 'accepted' && (
+        <div style={{ marginTop: spacing.md }}>
+          {messageResult && (
+            <div
+              style={{
+                padding: `${spacing['2xs']} ${spacing.xs}`,
+                marginBottom: spacing.sm,
+                borderRadius: radius.md,
+                backgroundColor: messageResult.startsWith('Error') ? statusColors.dangerLight : statusColors.successLight,
+                color: messageResult.startsWith('Error') ? statusColors.danger : statusColors.successDark,
+                fontSize: typography.sizes.sm,
+              }}
+            >
+              {messageResult}
+            </div>
+          )}
+
+          {!showMessageForm ? (
+            <button
+              onClick={() => { setShowMessageForm(true); setMessageResult(null) }}
+              style={{
+                ...sizing.cta,
+                width: '100%',
+                fontWeight: typography.weights.semibold,
+                backgroundColor: 'white',
+                color: accent,
+                border: `2px solid ${accent}`,
+                cursor: 'pointer',
+              }}
+            >
+              Contact Event Organizer
+            </button>
+          ) : (
+            <div style={{
+              padding: spacing.sm,
+              border: `1px solid ${statusColors.neutral200}`,
+              borderRadius: radius.md,
+              backgroundColor: 'white',
+            }}>
+              <h4 style={{
+                fontSize: typography.sizes.sm,
+                fontWeight: typography.weights.semibold,
+                color: statusColors.neutral800,
+                margin: `0 0 ${spacing['2xs']}`,
+              }}>
+                Send a Message to the Organizer
+              </h4>
+              <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}` }}>
+                Your message is sent via the platform — the organizer&apos;s contact info stays private unless they shared it with you.
+              </p>
+              <textarea
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                placeholder="Questions about setup, logistics, timing..."
+                maxLength={1000}
+                style={{
+                  width: '100%',
+                  padding: sizing.control.padding,
+                  border: `1px solid ${statusColors.neutral300}`,
+                  borderRadius: radius.md,
+                  fontSize: sizing.control.fontSize,
+                  minHeight: '80px',
+                  resize: 'vertical',
+                  boxSizing: 'border-box',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  marginBottom: spacing['2xs'],
+                }}
+              />
+              <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral400, margin: `0 0 ${spacing.sm}` }}>
+                {messageText.length}/1000 characters {messageText.length > 0 && messageText.length < 10 && '(min 10)'}
+              </p>
+              <div style={{ display: 'flex', gap: spacing.sm }}>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={sendingMessage || messageText.trim().length < 10}
+                  style={{
+                    flex: 1,
+                    ...sizing.cta,
+                    fontWeight: typography.weights.semibold,
+                    backgroundColor: sendingMessage || messageText.trim().length < 10 ? '#ccc' : accent,
+                    color: 'white',
+                    border: 'none',
+                    cursor: sendingMessage || messageText.trim().length < 10 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {sendingMessage ? 'Sending...' : 'Send Message'}
+                </button>
+                <button
+                  onClick={() => { setShowMessageForm(false); setMessageText('') }}
+                  style={{
+                    ...sizing.cta,
+                    fontWeight: typography.weights.semibold,
+                    backgroundColor: 'white',
+                    color: statusColors.neutral500,
+                    border: `1px solid ${statusColors.neutral300}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cancel Participation — available for accepted vendors, styled as destructive */}
+      {details.response_status === 'accepted' && (
+        <div style={{ marginTop: spacing.lg, paddingTop: spacing.md, borderTop: `1px solid ${statusColors.neutral200}` }}>
+          <button
+            onClick={() => setShowCancelDialog(true)}
+            disabled={cancelling}
+            style={{
+              ...sizing.cta,
+              width: '100%',
+              fontWeight: typography.weights.semibold,
+              backgroundColor: 'white',
+              color: statusColors.danger,
+              border: `1px solid ${statusColors.neutral300}`,
+              cursor: cancelling ? 'not-allowed' : 'pointer',
+              fontSize: typography.sizes.sm,
+            }}
+          >
+            {cancelling ? 'Cancelling...' : 'Cancel My Participation'}
+          </button>
+          {isLateCancellation && (
+            <p style={{ margin: `${spacing['2xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.danger, textAlign: 'center' }}>
+              This event is less than 72 hours away. Late cancellations may affect your vendor score.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Cancel Confirmation Dialog */}
+      <ConfirmDialog
+        open={showCancelDialog}
+        title="Cancel Event Participation"
+        message={
+          isLateCancellation
+            ? 'This event is less than 72 hours away. Late cancellations are flagged and may affect your vendor score. Are you sure you want to cancel?'
+            : 'Are you sure you want to cancel your participation? The event organizer will be notified and a backup vendor may be contacted.'
+        }
+        confirmLabel={cancelling ? 'Cancelling...' : 'Yes, Cancel'}
+        cancelLabel="Keep My Spot"
+        variant="danger"
+        showInput
+        inputLabel="Reason for cancellation"
+        inputPlaceholder="Please explain why you need to cancel (min 10 characters)..."
+        inputRequired
+        onConfirm={handleCancelParticipation}
+        onCancel={() => setShowCancelDialog(false)}
+      />
     </div>
   )
 }
