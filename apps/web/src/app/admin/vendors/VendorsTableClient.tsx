@@ -263,8 +263,8 @@ export default function VendorsTableClient({
         backgroundColor: 'white',
         borderRadius: radius.md,
         boxShadow: shadows.sm,
-        overflow: 'hidden'
       }}>
+      <div className="admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: colors.surfaceMuted }}>
@@ -403,6 +403,7 @@ export default function VendorsTableClient({
             )}
           </tbody>
         </table>
+      </div>
 
         {/* Pagination */}
         <div style={{ padding: `0 ${spacing.sm}` }}>

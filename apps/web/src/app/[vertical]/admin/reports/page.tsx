@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { colors, spacing, typography, radius, shadows, statusColors } from '@/lib/design-tokens'
 import { useStatusBanner } from '@/hooks/useStatusBanner'
 
@@ -721,7 +722,7 @@ export default function AdminReportsPage() {
                     No scans have been run yet.
                   </p>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
+                  <div className="admin-table-wrap">
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: typography.sizes.sm }}>
                       <thead>
                         <tr style={{ backgroundColor: statusColors.neutral50 }}>
@@ -809,7 +810,7 @@ export default function AdminReportsPage() {
                     </p>
                   </div>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
+                  <div className="admin-table-wrap">
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: typography.sizes.sm }}>
                       <thead>
                         <tr style={{ backgroundColor: statusColors.neutral50 }}>
@@ -839,7 +840,12 @@ export default function AdminReportsPage() {
                                 </span>
                               </td>
                               <td style={{ ...tdStyle, fontWeight: typography.weights.medium, whiteSpace: 'nowrap' }}>
-                                {f.vendorName}
+                                <Link
+                                  href={`/${vertical}/admin/vendors/${f.vendor_profile_id}`}
+                                  style={{ color: colors.primary, textDecoration: 'none' }}
+                                >
+                                  {f.vendorName} →
+                                </Link>
                               </td>
                               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                                 {CHECK_LABELS[f.check_type] || f.check_type}

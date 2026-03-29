@@ -178,6 +178,7 @@ export async function GET(request: NextRequest) {
           buyer_email: buyer.email || 'Unknown',
           buyer_name: buyer.display_name || 'Customer',
           vendor_name: vendor.name || 'Unknown Vendor',
+          vendor_profile_id: issue.vendor_profile_id || null,
           order_created_at: order.created_at || issue.created_at
         }
       })

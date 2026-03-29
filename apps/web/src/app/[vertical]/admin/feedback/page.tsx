@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 
@@ -49,6 +50,7 @@ interface OrderIssue {
   buyer_email: string
   buyer_name: string
   vendor_name: string
+  vendor_profile_id?: string
   order_created_at: string
 }
 
@@ -566,8 +568,14 @@ export default function AdminFeedbackPage() {
                         }}>
                           {issue.issue_description}
                         </p>
-                        <p style={{ margin: `${spacing.xs} 0 0 0`, fontSize: typography.sizes.sm, color: colors.accent }}>
-                          Vendor: {issue.vendor_name}
+                        <p style={{ margin: `${spacing.xs} 0 0 0`, fontSize: typography.sizes.sm }}>
+                          Vendor: {issue.vendor_profile_id ? (
+                            <Link href={`/${vertical}/admin/vendors/${issue.vendor_profile_id}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: typography.weights.semibold }}>
+                              {issue.vendor_name} →
+                            </Link>
+                          ) : (
+                            <span style={{ color: colors.accent }}>{issue.vendor_name}</span>
+                          )}
                         </p>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -675,10 +683,15 @@ export default function AdminFeedbackPage() {
                         <div style={{
                           fontSize: typography.sizes.sm,
                           fontWeight: typography.weights.semibold,
-                          color: colors.accent,
                           marginBottom: spacing['3xs']
                         }}>
-                          {f.vendor_name}
+                          {f.vendor_profile_id ? (
+                            <Link href={`/${vertical}/admin/vendors/${f.vendor_profile_id}`} style={{ color: colors.primary, textDecoration: 'none' }}>
+                              {f.vendor_name} →
+                            </Link>
+                          ) : (
+                            <span style={{ color: colors.accent }}>{f.vendor_name}</span>
+                          )}
                         </div>
                       )}
                       <div style={{ fontSize: typography.sizes.sm, color: colors.textSecondary }}>
@@ -782,10 +795,15 @@ export default function AdminFeedbackPage() {
                   <div style={{
                     fontSize: typography.sizes.lg,
                     fontWeight: typography.weights.semibold,
-                    color: colors.accent,
                     marginBottom: spacing['3xs']
                   }}>
-                    {selectedFeedback.vendor_name}
+                    {selectedFeedback.vendor_profile_id ? (
+                      <Link href={`/${vertical}/admin/vendors/${selectedFeedback.vendor_profile_id}`} style={{ color: colors.primary, textDecoration: 'none' }}>
+                        {selectedFeedback.vendor_name} →
+                      </Link>
+                    ) : (
+                      <span style={{ color: colors.accent }}>{selectedFeedback.vendor_name}</span>
+                    )}
                   </div>
                 )}
                 <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium }}>
@@ -1032,8 +1050,14 @@ export default function AdminFeedbackPage() {
                 <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing['3xs'] }}>
                   Vendor
                 </div>
-                <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium, color: colors.accent }}>
-                  {selectedIssue.vendor_name}
+                <div style={{ fontSize: typography.sizes.base, fontWeight: typography.weights.medium }}>
+                  {selectedIssue.vendor_profile_id ? (
+                    <Link href={`/${vertical}/admin/vendors/${selectedIssue.vendor_profile_id}`} style={{ color: colors.primary, textDecoration: 'none' }}>
+                      {selectedIssue.vendor_name} →
+                    </Link>
+                  ) : (
+                    <span style={{ color: colors.accent }}>{selectedIssue.vendor_name}</span>
+                  )}
                 </div>
               </div>
 

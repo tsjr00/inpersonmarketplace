@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
+import AdminResponsiveStyles from '@/components/admin/AdminResponsiveStyles'
 import { colors, spacing, typography, radius, shadows, containers } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical'
 
@@ -54,14 +55,14 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     { count: _totalVendors },
     { count: pendingVendors },
     { count: _approvedVendors },
-    { count: standardVendors },
-    { count: premiumVendors }
+    { count: proVendors },
+    { count: bossVendors }
   ] = await Promise.all([
     supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical),
     supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'submitted'),
     supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved'),
-    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'standard'),
-    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'premium')
+    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'pro'),
+    supabase.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'boss')
   ])
 
   // Users/Buyers data
@@ -96,6 +97,34 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     )
     return daysPending >= 2
   }).length || 0
+
+  // Urgency data: stuck orders + open issues (scoped to vertical via listings join)
+  const oneDayAgo = new Date()
+  oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+
+  const [
+    { count: stuckOrdersCount },
+    { count: openIssuesCount },
+    { count: pendingEventCount }
+  ] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('vertical_id', vertical)
+      .in('status', ['paid', 'confirmed'])
+      .lt('created_at', oneDayAgo.toISOString()),
+    supabase
+      .from('order_items')
+      .select('*, listings!inner(vertical_id)', { count: 'exact', head: true })
+      .eq('listings.vertical_id', vertical)
+      .not('issue_reported_at', 'is', null)
+      .or('issue_status.is.null,issue_status.eq.new'),
+    supabase
+      .from('catering_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('vertical_id', vertical)
+      .in('status', ['new', 'reviewing'])
+  ])
 
   // Vendor Activity Flags data
   const { data: activityFlags } = await supabase
@@ -184,10 +213,99 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
           </div>
         )}
 
+        {/* Stuck Orders Warning */}
+        {(stuckOrdersCount || 0) > 0 && (
+          <div style={{
+            backgroundColor: '#fee2e2',
+            border: '1px solid #ef4444',
+            borderLeft: '4px solid #ef4444',
+            borderRadius: radius.sm,
+            padding: spacing.sm,
+            marginBottom: spacing.md,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: spacing.sm
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+              <span style={{ fontSize: typography.sizes.lg }}>🚨</span>
+              <span style={{ color: '#991b1b', fontWeight: typography.weights.semibold }}>
+                {stuckOrdersCount} order{(stuckOrdersCount || 0) > 1 ? 's' : ''} stuck for 24+ hours (paid/confirmed but not fulfilled)
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Open Issues Warning */}
+        {(openIssuesCount || 0) > 0 && (
+          <div style={{
+            backgroundColor: '#dbeafe',
+            border: '1px solid #3b82f6',
+            borderLeft: '4px solid #3b82f6',
+            borderRadius: radius.sm,
+            padding: spacing.sm,
+            marginBottom: spacing.md,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: spacing.sm
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+              <span style={{ fontSize: typography.sizes.lg }}>📋</span>
+              <span style={{ color: '#1e40af', fontWeight: typography.weights.semibold }}>
+                {openIssuesCount} open buyer issue{(openIssuesCount || 0) > 1 ? 's' : ''} need attention
+              </span>
+            </div>
+            <Link
+              href={`/${vertical}/admin/order-issues`}
+              style={{
+                color: '#1e40af',
+                textDecoration: 'none',
+                fontWeight: typography.weights.semibold,
+                fontSize: typography.sizes.sm
+              }}
+            >
+              Review →
+            </Link>
+          </div>
+        )}
+
+        {/* Pending Events Warning */}
+        {(pendingEventCount || 0) > 0 && (
+          <div style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderLeft: '4px solid #f59e0b',
+            borderRadius: radius.sm,
+            padding: spacing.sm,
+            marginBottom: spacing.md,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: spacing.sm
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+              <span style={{ fontSize: typography.sizes.lg }}>🎪</span>
+              <span style={{ color: '#92400e', fontWeight: typography.weights.semibold }}>
+                {pendingEventCount} event request{(pendingEventCount || 0) > 1 ? 's' : ''} awaiting review
+              </span>
+            </div>
+            <Link
+              href={`/${vertical}/admin/events`}
+              style={{
+                color: '#92400e',
+                textDecoration: 'none',
+                fontWeight: typography.weights.semibold,
+                fontSize: typography.sizes.sm
+              }}
+            >
+              Review →
+            </Link>
+          </div>
+        )}
+
         {/* 2x2 Management Cards Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        <div className="admin-grid-2" style={{
           gap: spacing.md
         }}>
           {/* Manage Markets Card */}
@@ -271,17 +389,17 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
               Review applications, manage vendor tiers and status
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing.xs }}>
-              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: colors.surfaceSubtle, borderRadius: radius.sm }}>
-                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-                  {standardVendors || 0}
-                </div>
-                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Standard</div>
-              </div>
               <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#dbeafe', borderRadius: radius.sm }}>
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#1e40af' }}>
-                  {premiumVendors || 0}
+                  {proVendors || 0}
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: '#1e40af' }}>Premium</div>
+                <div style={{ fontSize: typography.sizes.xs, color: '#1e40af' }}>Pro</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#fef3c7', borderRadius: radius.sm }}>
+                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#92400e' }}>
+                  {bossVendors || 0}
+                </div>
+                <div style={{ fontSize: typography.sizes.xs, color: '#92400e' }}>Boss</div>
               </div>
               <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: (pendingVendors || 0) > 0 ? '#fef3c7' : colors.surfaceSubtle, borderRadius: radius.sm }}>
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: (pendingVendors || 0) > 0 ? '#92400e' : colors.textPrimary }}>
@@ -320,13 +438,13 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
                   {standardBuyers || 0}
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Standard Buyers</div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Free Buyers</div>
               </div>
               <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#dbeafe', borderRadius: radius.sm }}>
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#1e40af' }}>
                   {premiumBuyers || 0}
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: '#1e40af' }}>Premium Buyers</div>
+                <div style={{ fontSize: typography.sizes.xs, color: '#1e40af' }}>Premium</div>
               </div>
             </div>
           </Link>
@@ -372,9 +490,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
         </div>
 
         {/* Bottom Row: Activity + Admins + Errors + Reports */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        <div className="admin-grid-4" style={{
           gap: spacing.md,
           marginTop: spacing.md
         }}>
@@ -605,6 +721,7 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
           </div>
         )}
       </div>
+      <AdminResponsiveStyles />
     </div>
   )
 }

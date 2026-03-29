@@ -80,6 +80,7 @@ export default async function AdminUsersPage({ params, searchParams }: AdminUser
       role,
       roles,
       buyer_tier,
+      deleted_at,
       created_at,
       vendor_profiles!left (
         id,

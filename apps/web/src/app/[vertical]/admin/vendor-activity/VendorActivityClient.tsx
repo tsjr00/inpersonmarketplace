@@ -409,8 +409,40 @@ export default function VendorActivityClient({
           </select>
         </div>
 
-        <div style={{ marginLeft: 'auto', fontSize: typography.sizes.sm, color: colors.textMuted }}>
-          Showing {flags.length} of {pagination.total} flags
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+          {statusFilter === 'pending' && flags.length > 0 && (
+            <button
+              onClick={async () => {
+                if (!confirm(`Dismiss all ${flags.length} visible pending flags?`)) return
+                setProcessingId('bulk')
+                for (const flag of flags) {
+                  await fetch(`/api/admin/vendor-activity/flags/${flag.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'dismiss', notes: 'Bulk dismissed' })
+                  })
+                }
+                setProcessingId(null)
+                await fetchFlags()
+              }}
+              disabled={processingId === 'bulk'}
+              style={{
+                padding: `${spacing['2xs']} ${spacing.sm}`,
+                backgroundColor: colors.surfaceMuted,
+                color: colors.textSecondary,
+                border: `1px solid ${colors.border}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                cursor: processingId === 'bulk' ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {processingId === 'bulk' ? 'Dismissing...' : `Dismiss All (${flags.length})`}
+            </button>
+          )}
+          <span style={{ fontSize: typography.sizes.sm, color: colors.textMuted }}>
+            Showing {flags.length} of {pagination.total} flags
+          </span>
         </div>
       </div>
 
@@ -467,15 +499,15 @@ export default function VendorActivityClient({
                 <div style={{ flex: '1 1 300px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
                     <Link
-                      href={`/${vertical}/admin/vendors?search=${encodeURIComponent(flag.vendor?.businessName || '')}`}
+                      href={`/${vertical}/admin/vendors/${flag.vendorProfileId}`}
                       style={{
                         fontSize: typography.sizes.base,
                         fontWeight: typography.weights.semibold,
-                        color: colors.textPrimary,
+                        color: colors.primary,
                         textDecoration: 'none',
                       }}
                     >
-                      {flag.vendor?.businessName || 'Unknown Vendor'}
+                      {flag.vendor?.businessName || 'Unknown Vendor'} →
                     </Link>
                     {getStatusBadge(flag.status)}
                   </div>

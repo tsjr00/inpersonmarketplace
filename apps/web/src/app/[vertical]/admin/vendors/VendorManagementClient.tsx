@@ -24,6 +24,11 @@ interface Vendor {
     phone?: string
     vendor_type?: string | string[]
   } | null
+  orders_confirmed_count: number
+  orders_cancelled_after_confirm_count: number
+  stripe_connected: boolean
+  event_approved: boolean
+  listing_count: number
   days_pending: number
   user_email: string
   markets: Array<{ market_id: string; markets: { name: string } | null }>
@@ -365,7 +370,7 @@ export default function VendorManagementClient({
           )}
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div className="admin-table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `2px solid ${colors.border}`, backgroundColor: colors.surfaceSubtle }}>
@@ -374,6 +379,8 @@ export default function VendorManagementClient({
                 <th style={thStyle}>Type</th>
                 <th style={thStyle}>Markets</th>
                 <th style={thStyle}>Tier</th>
+                <th style={thStyle}>Cancel %</th>
+                <th style={thStyle}>Info</th>
                 <th style={thStyle}>Status</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
               </tr>
@@ -515,14 +522,55 @@ function VendorRow({
             fontSize: typography.sizes.xs,
             fontWeight: typography.weights.semibold,
             backgroundColor:
-              vendor.tier === 'premium' ? '#dbeafe' :
-              vendor.tier === 'featured' ? '#fef3c7' : '#f3f4f6',
+              vendor.tier === 'pro' ? '#dbeafe' :
+              vendor.tier === 'boss' ? '#fef3c7' : '#f3f4f6',
             color:
-              vendor.tier === 'premium' ? '#1e40af' :
-              vendor.tier === 'featured' ? '#92400e' : '#6b7280'
+              vendor.tier === 'pro' ? '#1e40af' :
+              vendor.tier === 'boss' ? '#92400e' : '#6b7280'
           }}>
             {vendor.tier || 'free'}
           </span>
+        </td>
+        <td style={tdStyle}>
+          {(() => {
+            const confirmed = vendor.orders_confirmed_count || 0
+            const cancelled = vendor.orders_cancelled_after_confirm_count || 0
+            if (confirmed < 10) return <span style={{ color: colors.textMuted, fontSize: typography.sizes.xs }}>&mdash;</span>
+            const rate = Math.round((cancelled / confirmed) * 100)
+            const isRed = rate >= 20
+            const isOrange = rate >= 10
+            return (
+              <span style={{
+                padding: `${spacing['3xs']} ${spacing['2xs']}`,
+                borderRadius: radius.sm,
+                fontSize: typography.sizes.xs,
+                fontWeight: typography.weights.semibold,
+                backgroundColor: isRed ? '#fee2e2' : isOrange ? '#ffedd5' : '#dcfce7',
+                color: isRed ? '#991b1b' : isOrange ? '#9a3412' : '#166534'
+              }}>
+                {rate}%
+              </span>
+            )
+          })()}
+        </td>
+        <td style={tdStyle}>
+          <div style={{ display: 'flex', gap: spacing['3xs'], flexWrap: 'wrap' }}>
+            <span title={`${vendor.listing_count} published listing${vendor.listing_count !== 1 ? 's' : ''}`} style={{
+              fontSize: typography.sizes.xs,
+              color: vendor.listing_count > 0 ? '#166534' : '#991b1b',
+            }}>
+              📦{vendor.listing_count}
+            </span>
+            <span title={vendor.stripe_connected ? 'Stripe connected' : 'Stripe not connected'} style={{
+              fontSize: typography.sizes.xs,
+              color: vendor.stripe_connected ? '#166534' : '#991b1b',
+            }}>
+              {vendor.stripe_connected ? '💳✓' : '💳✗'}
+            </span>
+            {vendor.event_approved && (
+              <span title="Event approved" style={{ fontSize: typography.sizes.xs }}>🎪</span>
+            )}
+          </div>
         </td>
         <td style={tdStyle}>
           <span style={{

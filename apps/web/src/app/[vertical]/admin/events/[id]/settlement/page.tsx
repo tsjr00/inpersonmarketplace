@@ -394,7 +394,7 @@ export default function SettlementReportPage() {
             </div>
 
             {/* Order table */}
-            <div style={{ overflowX: 'auto' }}>
+            <div className="admin-table-wrap">
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: typography.sizes.sm }}>
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${statusColors.neutral200}` }}>

@@ -45,8 +45,8 @@ export default async function PendingVendorsPage() {
           backgroundColor: 'white',
           borderRadius: 8,
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          overflow: 'hidden'
         }}>
+        <div className="admin-table-wrap">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa' }}>
@@ -112,6 +112,7 @@ export default async function PendingVendorsPage() {
               })}
             </tbody>
           </table>
+        </div>
         </div>
       ) : (
         <div style={{

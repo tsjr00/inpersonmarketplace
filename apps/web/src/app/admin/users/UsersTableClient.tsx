@@ -2,8 +2,10 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useDebounce } from '@/lib/hooks/useDebounce'
 import Pagination from '@/components/admin/Pagination'
+import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { exportToCSV, formatDateForExport } from '@/lib/export-csv'
 import { colors, spacing, typography, radius, shadows } from '@/lib/design-tokens'
 
@@ -24,6 +26,7 @@ interface UserProfile {
   verticals: string[] | null
   buyer_tier: string | null
   buyer_tier_expires_at: string | null
+  deleted_at: string | null
   created_at: string
   vendor_profiles: VendorProfile[] | null
 }
@@ -92,6 +95,30 @@ export default function UsersTableClient({
   const [vendorTier, setVendorTier] = useState(initialFilters.vendorTier)
   const [buyerTier, setBuyerTier] = useState(initialFilters.buyerTier)
   const [exporting, setExporting] = useState(false)
+  const [suspendTarget, setSuspendTarget] = useState<{ userId: string; name: string; action: 'suspend' | 'reactivate' } | null>(null)
+  const [suspending, setSuspending] = useState(false)
+
+  const handleSuspendAction = async () => {
+    if (!suspendTarget) return
+    setSuspending(true)
+    try {
+      const res = await fetch(`/api/admin/users/${suspendTarget.userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: suspendTarget.action }),
+      })
+      if (res.ok) {
+        router.refresh()
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed')
+      }
+    } catch {
+      alert('Network error')
+    }
+    setSuspending(false)
+    setSuspendTarget(null)
+  }
 
   // Debounce search input (300ms)
   const debouncedSearch = useDebounce(searchInput, 300)
@@ -266,9 +293,8 @@ export default function UsersTableClient({
         >
           <option value="">Vendor Tier</option>
           <option value="free">Free</option>
-          <option value="standard">Standard</option>
-          <option value="premium">Premium</option>
-          <option value="featured">Featured</option>
+          <option value="pro">Pro</option>
+          <option value="boss">Boss</option>
         </select>
 
         <select
@@ -323,8 +349,8 @@ export default function UsersTableClient({
         backgroundColor: 'white',
         borderRadius: radius.md,
         boxShadow: shadows.sm,
-        overflow: 'hidden'
       }}>
+      <div className="admin-table-wrap">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: colors.surfaceMuted }}>
@@ -336,6 +362,7 @@ export default function UsersTableClient({
               <th style={thStyle}>Vendor Status</th>
               <th style={thStyle}>Vendor Tier</th>
               <th style={thStyle}>Joined</th>
+              <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -430,11 +457,11 @@ export default function UsersTableClient({
                               style={{
                                 padding: `${spacing['3xs']} ${spacing['2xs']}`,
                                 backgroundColor:
-                                  vp.tier === 'premium' ? '#dbeafe' :
-                                  vp.tier === 'featured' ? '#fef3c7' : '#f3f4f6',
+                                  vp.tier === 'pro' ? '#dbeafe' :
+                                  vp.tier === 'boss' ? '#fef3c7' : '#f3f4f6',
                                 color:
-                                  vp.tier === 'premium' ? '#1e40af' :
-                                  vp.tier === 'featured' ? '#92400e' : '#6b7280',
+                                  vp.tier === 'pro' ? '#1e40af' :
+                                  vp.tier === 'boss' ? '#92400e' : '#6b7280',
                                 borderRadius: radius.sm,
                                 fontSize: typography.sizes.xs,
                                 display: 'inline-block'
@@ -449,12 +476,46 @@ export default function UsersTableClient({
                     <td style={tdStyle}>
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      {user.deleted_at ? (
+                        <button
+                          onClick={() => setSuspendTarget({ userId: user.user_id, name: user.display_name || user.email || 'User', action: 'reactivate' })}
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: 'white',
+                            color: '#166534',
+                            border: '1px solid #86efac',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Reactivate
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setSuspendTarget({ userId: user.user_id, name: user.display_name || user.email || 'User', action: 'suspend' })}
+                          style={{
+                            padding: `${spacing['3xs']} ${spacing.xs}`,
+                            backgroundColor: 'white',
+                            color: '#991b1b',
+                            border: '1px solid #fca5a5',
+                            borderRadius: radius.sm,
+                            fontSize: typography.sizes.xs,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Suspend
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 )
               })
             )}
           </tbody>
         </table>
+      </div>
 
         {/* Pagination */}
         <div style={{ padding: `0 ${spacing.sm}` }}>
@@ -468,6 +529,21 @@ export default function UsersTableClient({
           />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!suspendTarget}
+        title={suspendTarget?.action === 'suspend' ? 'Suspend User Account' : 'Reactivate User Account'}
+        message={
+          suspendTarget?.action === 'suspend'
+            ? `Suspend "${suspendTarget.name}"? They will be unable to log in or use the platform. Any vendor profiles will also be suspended.`
+            : `Reactivate "${suspendTarget?.name}"? They will be able to log in again. Vendor profiles will need to be reactivated separately.`
+        }
+        confirmLabel={suspending ? 'Processing...' : suspendTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'}
+        cancelLabel="Cancel"
+        variant={suspendTarget?.action === 'suspend' ? 'danger' : 'default'}
+        onConfirm={handleSuspendAction}
+        onCancel={() => setSuspendTarget(null)}
+      />
     </>
   )
 }

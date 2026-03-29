@@ -196,7 +196,7 @@ export default async function VerticalAdminVendorDetailPage({ params }: VendorDe
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: spacing.lg }}>
+        <div className="admin-grid-2" style={{ gap: spacing.lg }}>
           {/* Main Content */}
           <div>
             {/* Business Info */}
