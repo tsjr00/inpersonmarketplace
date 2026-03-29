@@ -68,15 +68,15 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     serviceClient.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'boss')
   ])
 
-  // Users data
+  // Users data — scoped to this vertical
   const [
     { count: totalUsers },
     { count: vendorUsers },
     { count: premiumBuyers }
   ] = await Promise.all([
-    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }),
-    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).contains('roles', ['vendor']),
-    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).eq('buyer_tier', 'premium')
+    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).contains('verticals', [vertical]),
+    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).contains('verticals', [vertical]).contains('roles', ['vendor']),
+    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).contains('verticals', [vertical]).eq('buyer_tier', 'premium')
   ])
 
   // Listings data - products/bundles + active market boxes
