@@ -46,18 +46,21 @@ interface FormData {
   service_level: string
 }
 
-const SERVICE_LEVELS = [
-  {
-    value: 'self_service',
-    label: 'Self-Service (Free)',
-    description: 'We automatically match and notify qualifying food trucks. You select from interested vendors. No platform fee.',
-  },
-  {
-    value: 'full_service',
-    label: 'Full Service (Managed)',
-    description: 'Our team personally coordinates your event — vendor selection, logistics, day-of support. Platform fee applies.',
-  },
-]
+function getServiceLevels(vertical: string) {
+  const vendorTerm = vertical === 'farmers_market' ? 'vendors' : 'food trucks'
+  return [
+    {
+      value: 'self_service',
+      label: 'Self-Service (Free)',
+      description: `We automatically match and notify qualifying ${vendorTerm}. You select from interested vendors. No platform fee.`,
+    },
+    {
+      value: 'full_service',
+      label: 'Full Service (Managed)',
+      description: 'Our team personally coordinates your event — vendor selection, logistics, day-of support. Platform fee applies.',
+    },
+  ]
+}
 
 const EVENT_TYPES = [
   { value: 'corporate_lunch', label: 'Corporate Lunch / Team Meal' },
@@ -353,7 +356,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
       <div style={sectionStyle}>
         <h3 style={sectionTitleStyle}>How can we help?</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-          {SERVICE_LEVELS.map((sl) => (
+          {getServiceLevels(vertical).map((sl) => (
             <label
               key={sl.value}
               style={{
@@ -402,7 +405,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                 <input type="radio" name="vendor_search_mode" value="recommend"
                   checked={vendorSearchMode === 'recommend'}
                   onChange={() => setVendorSearchMode('recommend')} />
-                Recommend trucks for me based on my event details
+                {vertical === 'farmers_market' ? 'Recommend vendors for me based on my event details' : 'Recommend trucks for me based on my event details'}
               </label>
               <label style={{
                 display: 'flex', alignItems: 'center', gap: spacing.xs,
@@ -411,21 +414,23 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                 <input type="radio" name="vendor_search_mode" value="choose"
                   checked={vendorSearchMode === 'choose'}
                   onChange={() => setVendorSearchMode('choose')} />
-                I want to choose specific trucks
+                {vertical === 'farmers_market' ? 'I want to choose specific vendors' : 'I want to choose specific trucks'}
               </label>
             </div>
 
             {vendorSearchMode === 'choose' && (
               <div>
                 <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.xs}`, lineHeight: 1.5 }}>
-                  Search for food trucks by name or cuisine type. Select up to 10 in your preferred priority order. We&apos;ll reach out to your top choices first.
+                  {vertical === 'farmers_market'
+                    ? 'Search for vendors by name or product type. Select up to 10 in your preferred priority order. We\u2019ll reach out to your top choices first.'
+                    : 'Search for food trucks by name or cuisine type. Select up to 10 in your preferred priority order. We\u2019ll reach out to your top choices first.'}
                 </p>
 
                 {/* Search input */}
                 <div style={{ position: 'relative' }}>
                   <input
                     type="text"
-                    placeholder="Search by truck name or cuisine..."
+                    placeholder={vertical === 'farmers_market' ? 'Search by vendor name or product type...' : 'Search by truck name or cuisine...'}
                     value={vendorSearch}
                     onChange={(e) => handleVendorSearch(e.target.value)}
                     style={inputStyle}
@@ -612,7 +617,9 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           {/* Budget — only for company_paid or hybrid. Dual fields: enter one, the other auto-calculates */}
           {(form.payment_model === 'company_paid' || form.payment_model === 'hybrid') && (
             <div>
-              <label style={labelStyle}>Food budget (enter either total or per-meal)</label>
+              <label style={labelStyle}>
+                {vertical === 'farmers_market' ? 'Vendor budget (enter either total or per-vendor)' : 'Food budget (enter either total or per-meal)'}
+              </label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
                 <div>
                   <input
@@ -626,13 +633,13 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                     style={{ ...inputStyle, opacity: form.per_meal_budget ? 0.5 : 1 }}
                   />
                   <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: 10, color: statusColors.neutral400 }}>
-                    Total food budget ($)
+                    Total budget ($)
                   </p>
                 </div>
                 <div>
                   <input
                     type="number"
-                    placeholder="Per meal (e.g., 15)"
+                    placeholder={vertical === 'farmers_market' ? 'Per vendor (e.g., 200)' : 'Per meal (e.g., 15)'}
                     min="0"
                     step="0.01"
                     value={form.per_meal_budget}
@@ -641,7 +648,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                     style={{ ...inputStyle, opacity: form.total_food_budget ? 0.5 : 1 }}
                   />
                   <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: 10, color: statusColors.neutral400 }}>
-                    Per-meal budget ($)
+                    {vertical === 'farmers_market' ? 'Per-vendor budget ($)' : 'Per-meal budget ($)'}
                   </p>
                 </div>
               </div>
@@ -747,7 +754,9 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
               </p>
             </div>
             <div>
-              <label style={labelStyle}>Expected food orders</label>
+              <label style={labelStyle}>
+                {vertical === 'farmers_market' ? 'Expected buyers / shoppers' : 'Expected food orders'}
+              </label>
               <input
                 type="number"
                 placeholder={form.headcount || '50'}
@@ -764,7 +773,9 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                   color: statusColors.neutral400,
                 }}
               >
-                May differ from guest count — not everyone orders at every event
+                {vertical === 'farmers_market'
+                  ? 'How many attendees do you expect to browse and shop?'
+                  : 'May differ from guest count — not everyone orders at every event'}
               </p>
             </div>
           </div>
@@ -866,32 +877,41 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
               style={inputStyle}
             />
           </div>
-          <div>
-            <label style={labelStyle}>Menu planning</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={form.beverages_provided}
-                  onChange={(e) => setForm(prev => ({ ...prev, beverages_provided: e.target.checked }))}
-                />
-                Beverages will be provided separately (not from food vendors)
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={form.dessert_provided}
-                  onChange={(e) => setForm(prev => ({ ...prev, dessert_provided: e.target.checked }))}
-                />
-                Dessert will be provided separately
-              </label>
+          {/* Menu planning — food-specific, only for food trucks */}
+          {vertical === 'food_trucks' && (
+            <div>
+              <label style={labelStyle}>Menu planning</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.beverages_provided}
+                    onChange={(e) => setForm(prev => ({ ...prev, beverages_provided: e.target.checked }))}
+                  />
+                  Beverages will be provided separately (not from food vendors)
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.dessert_provided}
+                    onChange={(e) => setForm(prev => ({ ...prev, dessert_provided: e.target.checked }))}
+                  />
+                  Dessert will be provided separately
+                </label>
+              </div>
             </div>
-          </div>
+          )}
           <div>
-            <label style={labelStyle}>Are there other food options at the venue?</label>
+            <label style={labelStyle}>
+              {vertical === 'farmers_market'
+                ? 'Are there other vendors or shopping options at the venue?'
+                : 'Are there other food options at the venue?'}
+            </label>
             <input
               type="text"
-              placeholder="e.g., cafeteria, nearby restaurants, other catering"
+              placeholder={vertical === 'farmers_market'
+                ? 'e.g., retail stores, other vendor markets, craft fairs'
+                : 'e.g., cafeteria, nearby restaurants, other catering'}
               value={form.competing_food_options}
               onChange={(e) => updateField('competing_food_options', e.target.value)}
               style={inputStyle}
