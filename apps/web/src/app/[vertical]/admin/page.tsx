@@ -68,12 +68,14 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
     serviceClient.from('vendor_profiles').select('*', { count: 'exact', head: true }).eq('vertical_id', vertical).eq('status', 'approved').eq('tier', 'boss')
   ])
 
-  // Users/Buyers data
+  // Users data
   const [
-    { count: standardBuyers },
+    { count: totalUsers },
+    { count: vendorUsers },
     { count: premiumBuyers }
   ] = await Promise.all([
-    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).or('buyer_tier.is.null,buyer_tier.eq.standard'),
+    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }),
+    serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).contains('roles', ['vendor']),
     serviceClient.from('user_profiles').select('*', { count: 'exact', head: true }).eq('buyer_tier', 'premium')
   ])
 
@@ -436,12 +438,18 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
             <p style={{ fontSize: typography.sizes.sm, color: colors.textSecondary, margin: `0 0 ${spacing.sm} 0` }}>
               View all users, buyer tiers, and account status
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: spacing.xs }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing.xs }}>
               <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: colors.surfaceSubtle, borderRadius: radius.sm }}>
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
-                  {standardBuyers || 0}
+                  {totalUsers || 0}
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Free Buyers</div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Total</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#dcfce7', borderRadius: radius.sm }}>
+                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#166534' }}>
+                  {vendorUsers || 0}
+                </div>
+                <div style={{ fontSize: typography.sizes.xs, color: '#166534' }}>Vendors</div>
               </div>
               <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#dbeafe', borderRadius: radius.sm }}>
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#1e40af' }}>

@@ -46,9 +46,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
       status,
       tier,
       created_at,
-      profile_data,
-      orders_confirmed_count,
-      orders_cancelled_after_confirm_count
+      profile_data
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
 

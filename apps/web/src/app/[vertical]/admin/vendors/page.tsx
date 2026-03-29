@@ -69,8 +69,6 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
       tier,
       created_at,
       profile_data,
-      orders_confirmed_count,
-      orders_cancelled_after_confirm_count,
       stripe_account_id,
       event_approved,
       market_vendors (
@@ -141,8 +139,8 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
       phone?: string
       vendor_type?: string | string[]
     } | null,
-    orders_confirmed_count: (vendor as Record<string, unknown>).orders_confirmed_count as number || 0,
-    orders_cancelled_after_confirm_count: (vendor as Record<string, unknown>).orders_cancelled_after_confirm_count as number || 0,
+    orders_confirmed_count: 0,
+    orders_cancelled_after_confirm_count: 0,
     stripe_connected: !!(vendor as Record<string, unknown>).stripe_account_id,
     event_approved: !!(vendor as Record<string, unknown>).event_approved,
     listing_count: ((vendor as Record<string, unknown>).listings as Array<{ id: string }> | null)?.length || 0,
