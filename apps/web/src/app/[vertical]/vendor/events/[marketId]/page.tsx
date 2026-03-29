@@ -130,7 +130,7 @@ export default function VendorCateringDetailPage() {
       const next = new Set(prev)
       if (next.has(id)) {
         next.delete(id)
-      } else if (next.size < 5) {
+      } else if (vertical !== 'food_trucks' || next.size < 7) {
         next.add(id)
       }
       return next
@@ -563,11 +563,11 @@ export default function VendorCateringDetailPage() {
           ) : (
             <div>
               <h4 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral800, margin: `0 0 ${spacing['2xs']}` }}>
-                Select your menu for this event (up to 5 items)
+                {vertical === 'food_trucks' ? 'Select your menu for this event (4-7 items)' : 'Select items for this event'}
               </h4>
               <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}` }}>
                 Only items marked &quot;Available for Events&quot; in your listings are shown.
-                {cateringListings.length === 0 && !loadingListings && ' No catering-eligible items found — mark items as event-ready in your listings first.'}
+                {cateringListings.length === 0 && !loadingListings && ' No event-eligible items found — mark items as "Available for Events" in your listings first.'}
               </p>
               {loadingListings ? (
                 <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm }}>Loading your menu items...</p>
@@ -575,7 +575,8 @@ export default function VendorCateringDetailPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'], marginBottom: spacing.sm }}>
                   {cateringListings.map(listing => {
                     const selected = selectedListingIds.has(listing.id)
-                    const atLimit = selectedListingIds.size >= 5 && !selected
+                    const maxItems = vertical === 'food_trucks' ? 7 : Infinity
+                    const atLimit = selectedListingIds.size >= maxItems && !selected
                     return (
                       <button
                         key={listing.id}
@@ -607,7 +608,7 @@ export default function VendorCateringDetailPage() {
                 </div>
               )}
               <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: `0 0 ${spacing.sm}` }}>
-                {selectedListingIds.size}/5 selected
+                {selectedListingIds.size} selected{vertical === 'food_trucks' ? ' (4-7 required)' : ''}
               </p>
               <div style={{ display: 'flex', gap: spacing.sm }}>
                 <button

@@ -54,28 +54,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
 
-      // Accepting requires 4-7 catering menu items
-      // Min 4: ensures meaningful menu variety for event attendees
-      // Max 7: keeps service focused and prep manageable
-      if (response_status === 'accepted') {
-        if (!listing_ids || !Array.isArray(listing_ids) || listing_ids.length < 4) {
-          return NextResponse.json(
-            { error: 'Please select at least 4 menu items for this event (maximum 7)' },
-            { status: 400 }
-          )
-        }
-        if (listing_ids.length > 7) {
-          return NextResponse.json(
-            { error: 'Maximum 7 menu items per event' },
-            { status: 400 }
-          )
-        }
-      }
-
       // Get vendor profile for this user
       const { data: vendorProfile } = await supabase
         .from('vendor_profiles')
-        .select('id, profile_data')
+        .select('id, profile_data, vertical_id')
         .eq('user_id', user.id)
         .single()
 
@@ -84,6 +66,31 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           { error: 'Vendor profile not found' },
           { status: 404 }
         )
+      }
+
+      // Accepting requires menu item selection
+      // FT: 4-7 items (focused catering menu, manageable prep)
+      // FM: 1+ items (variety is the value, different prep process)
+      if (response_status === 'accepted') {
+        if (!listing_ids || !Array.isArray(listing_ids) || listing_ids.length < 1) {
+          return NextResponse.json(
+            { error: 'Please select at least one item for this event' },
+            { status: 400 }
+          )
+        }
+        const isFT = vendorProfile.vertical_id === 'food_trucks'
+        if (isFT && listing_ids.length < 4) {
+          return NextResponse.json(
+            { error: 'Please select at least 4 menu items for this event (maximum 7)' },
+            { status: 400 }
+          )
+        }
+        if (isFT && listing_ids.length > 7) {
+          return NextResponse.json(
+            { error: 'Maximum 7 menu items per event' },
+            { status: 400 }
+          )
+        }
       }
 
       const serviceClient = createServiceClient()
