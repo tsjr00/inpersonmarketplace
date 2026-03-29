@@ -70,13 +70,32 @@ export async function POST(
     // Use service client for the update to bypass RLS
     const serviceClient = createServiceClient()
 
-    // Update vendor status to rejected
+    // Get current profile_data to preserve it when adding rejection reason
+    const { data: currentVendor } = await serviceClient
+      .from('vendor_profiles')
+      .select('profile_data')
+      .eq('id', vendorId)
+      .single()
+
+    const existingProfileData = (currentVendor?.profile_data as Record<string, unknown>) || {}
+
+    // Update vendor status to rejected, persist reason in profile_data
+    const updatePayload: Record<string, unknown> = {
+      status: 'rejected',
+      updated_at: new Date().toISOString(),
+    }
+
+    if (reason) {
+      updatePayload.profile_data = {
+        ...existingProfileData,
+        rejection_reason: reason,
+        rejected_at: new Date().toISOString(),
+      }
+    }
+
     const { data, error } = await serviceClient
       .from('vendor_profiles')
-      .update({
-        status: 'rejected',
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', vendorId)
       .select()
       .maybeSingle()
