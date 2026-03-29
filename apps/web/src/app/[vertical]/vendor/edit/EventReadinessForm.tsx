@@ -456,86 +456,108 @@ export default function EventReadinessForm({
         </div>
       )}
 
-      {/* 8. Food Perishability */}
+      {/* 8. Product Perishability / Storage */}
       <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Food Perishability *</label>
+        <label style={labelStyle}>
+          {vertical === 'food_trucks' ? 'Food Perishability *' : 'Product Storage Needs *'}
+        </label>
         <select
           value={form.food_perishability}
           onChange={(e) => updateField('food_perishability', e.target.value)}
           style={inputStyle}
         >
           <option value="">Select...</option>
-          <option value="immediate">Must be eaten immediately (ice cream, frozen items)</option>
-          <option value="within_15_min">Best within 15 minutes (fried items, hot plates)</option>
-          <option value="can_sit_30_plus">Can sit 30+ minutes (tacos, sandwiches, packaged items)</option>
+          {vertical === 'food_trucks' ? (<>
+            <option value="immediate">Must be eaten immediately (ice cream, frozen items)</option>
+            <option value="within_15_min">Best within 15 minutes (fried items, hot plates)</option>
+            <option value="can_sit_30_plus">Can sit 30+ minutes (tacos, sandwiches, packaged items)</option>
+          </>) : (<>
+            <option value="refrigerated">Requires refrigeration or ice (dairy, meat, produce)</option>
+            <option value="shade_required">Needs shade / temperature control (chocolate, baked goods)</option>
+            <option value="shelf_stable">Shelf-stable (jams, honey, crafts, dry goods)</option>
+          </>)}
         </select>
       </div>
 
-      {/* 9. Packaging */}
+      {/* 9. Packaging / Display */}
       <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Packaging Used for Serving *</label>
+        <label style={labelStyle}>
+          {vertical === 'food_trucks' ? 'Packaging Used for Serving *' : 'Product Display Setup *'}
+        </label>
         <input
           type="text"
           value={form.packaging}
           onChange={(e) => updateField('packaging', e.target.value)}
-          placeholder="e.g., boxes, wrappers, bowls, foil containers"
+          placeholder={vertical === 'food_trucks'
+            ? 'e.g., boxes, wrappers, bowls, foil containers'
+            : 'e.g., table displays, baskets, refrigerated cooler, shelving, signage'}
           style={inputStyle}
         />
       </div>
 
-      {/* 10. Utensils Required */}
-      <div style={{ marginBottom: spacing.sm }}>
-        <label style={labelStyle}>Does Your Food Require Utensils? *</label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-            <input
-              type="radio"
-              name="utensils_required"
-              checked={form.utensils_required === true}
-              onChange={() => updateField('utensils_required', true)}
-              style={{ width: 16, height: 16 }}
-            />
-            Yes (forks, knives, or spoons needed)
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-            <input
-              type="radio"
-              name="utensils_required"
-              checked={form.utensils_required === false}
-              onChange={() => updateField('utensils_required', false)}
-              style={{ width: 16, height: 16 }}
-            />
-            No (handheld)
-          </label>
+      {/* FT: Utensils + Seating | FM: Samples + Weather */}
+      {vertical === 'food_trucks' ? (<>
+        {/* 10. Utensils Required */}
+        <div style={{ marginBottom: spacing.sm }}>
+          <label style={labelStyle}>Does Your Food Require Utensils? *</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="utensils_required" checked={form.utensils_required === true} onChange={() => updateField('utensils_required', true)} style={{ width: 16, height: 16 }} />
+              Yes (forks, knives, or spoons needed)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="utensils_required" checked={form.utensils_required === false} onChange={() => updateField('utensils_required', false)} style={{ width: 16, height: 16 }} />
+              No (handheld)
+            </label>
+          </div>
         </div>
-      </div>
 
-      {/* 11. Seating Recommended */}
-      <div style={{ marginBottom: spacing.md }}>
-        <label style={labelStyle}>Should Guests Have Seating? *</label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-            <input
-              type="radio"
-              name="seating_recommended"
-              checked={form.seating_recommended === true}
-              onChange={() => updateField('seating_recommended', true)}
-              style={{ width: 16, height: 16 }}
-            />
-            Yes (e.g., BBQ plates, full meals)
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
-            <input
-              type="radio"
-              name="seating_recommended"
-              checked={form.seating_recommended === false}
-              onChange={() => updateField('seating_recommended', false)}
-              style={{ width: 16, height: 16 }}
-            />
-            No (handheld, walk-and-eat)
-          </label>
+        {/* 11. Seating Recommended */}
+        <div style={{ marginBottom: spacing.md }}>
+          <label style={labelStyle}>Should Guests Have Seating? *</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="seating_recommended" checked={form.seating_recommended === true} onChange={() => updateField('seating_recommended', true)} style={{ width: 16, height: 16 }} />
+              Yes (e.g., BBQ plates, full meals)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="seating_recommended" checked={form.seating_recommended === false} onChange={() => updateField('seating_recommended', false)} style={{ width: 16, height: 16 }} />
+              No (handheld, walk-and-eat)
+            </label>
+          </div>
         </div>
-      </div>
+      </>) : (<>
+        {/* FM 10. Samples Available */}
+        <div style={{ marginBottom: spacing.sm }}>
+          <label style={labelStyle}>Can You Offer Product Samples at Events? *</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="utensils_required" checked={form.utensils_required === true} onChange={() => updateField('utensils_required', true)} style={{ width: 16, height: 16 }} />
+              Yes — I can provide samples or tastings
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="utensils_required" checked={form.utensils_required === false} onChange={() => updateField('utensils_required', false)} style={{ width: 16, height: 16 }} />
+              No — display and sell only
+            </label>
+          </div>
+          <p style={hintStyle}>Event organizers love vendors who offer samples — it drives foot traffic to your booth</p>
+        </div>
+
+        {/* FM 11. Weather Sensitivity */}
+        <div style={{ marginBottom: spacing.md }}>
+          <label style={labelStyle}>Outdoor Event Suitability *</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="seating_recommended" checked={form.seating_recommended === false} onChange={() => updateField('seating_recommended', false)} style={{ width: 16, height: 16 }} />
+              Fully outdoor OK — my products and setup handle sun, wind, and light rain
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'], cursor: 'pointer', fontSize: typography.sizes.sm }}>
+              <input type="radio" name="seating_recommended" checked={form.seating_recommended === true} onChange={() => updateField('seating_recommended', true)} style={{ width: 16, height: 16 }} />
+              Needs covered / indoor space — products are weather-sensitive
+            </label>
+          </div>
+        </div>
+      </>)}
 
       {/* ── Capacity & Experience ── */}
       <h3 style={{
@@ -549,12 +571,12 @@ export default function EventReadinessForm({
         Capacity & Experience
       </h3>
 
-      {/* 12. Max Headcount Per Wave */}
+      {/* 12. Capacity */}
       <div style={{ marginBottom: spacing.sm }}>
         <label style={labelStyle}>
           {vertical === 'food_trucks'
             ? 'Max Headcount Per 30-Minute Wave *'
-            : 'Max Customers Per 30-Minute Window *'}
+            : 'How Many Customers Can You Serve Per Hour? *'}
         </label>
         <input
           type="number"
@@ -562,13 +584,13 @@ export default function EventReadinessForm({
           max={500}
           value={form.max_headcount_per_wave || ''}
           onChange={(e) => updateField('max_headcount_per_wave', Number(e.target.value))}
-          placeholder="e.g., 50"
+          placeholder={vertical === 'food_trucks' ? 'e.g., 50' : 'e.g., 30'}
           style={inputStyle}
         />
         <p style={hintStyle}>
           {vertical === 'food_trucks'
             ? 'Events use staggered waves — how many people can you serve in a 30-minute window?'
-            : 'How many customers can you handle in a 30-minute window at an event?'}
+            : 'Consider checkout speed, product restocking, and customer interaction time'}
         </p>
       </div>
 
@@ -606,7 +628,9 @@ export default function EventReadinessForm({
           <textarea
             value={form.event_experience_description || ''}
             onChange={(e) => updateField('event_experience_description', e.target.value)}
-            placeholder="e.g., corporate events, festivals, sports tournaments, wedding catering..."
+            placeholder={vertical === 'food_trucks'
+              ? 'e.g., corporate events, festivals, sports tournaments, wedding catering...'
+              : 'e.g., holiday markets, community festivals, pop-up shops, corporate wellness fairs...'}
             rows={3}
             style={{
               ...inputStyle,
