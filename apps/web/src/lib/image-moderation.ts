@@ -44,7 +44,6 @@ export async function moderateImage(
 ): Promise<ModerationResult> {
   const apiKey = process.env.GOOGLE_CLOUD_VISION_API_KEY
   if (!apiKey) {
-    // No API key — fail open, log warning
     console.warn('[image-moderation] GOOGLE_CLOUD_VISION_API_KEY not set — skipping image moderation')
     return { passed: true, reason: null, scores: null }
   }
@@ -69,8 +68,10 @@ export async function moderateImage(
     )
 
     if (!response.ok) {
-      console.error('[image-moderation] Google Vision API error:', response.status, await response.text())
-      // API error — fail open
+      const errorBody = await response.text()
+      console.error('[image-moderation] Google Vision API error:', response.status, errorBody)
+      // Notify admin that image moderation is failing
+      await notifyModerationFailure(`Google Vision API returned ${response.status}: ${errorBody.slice(0, 200)}`)
       return { passed: true, reason: null, scores: null }
     }
 
@@ -79,6 +80,7 @@ export async function moderateImage(
 
     if (!annotation) {
       console.warn('[image-moderation] No SafeSearch annotation returned')
+      await notifyModerationFailure('Google Vision API returned no SafeSearch annotation — response may be malformed')
       return { passed: true, reason: null, scores: null }
     }
 
@@ -113,8 +115,58 @@ export async function moderateImage(
     return { passed: true, reason: null, scores: annotation }
   } catch (error) {
     console.error('[image-moderation] Error checking image:', error)
-    // Network/parse error — fail open
+    await notifyModerationFailure(`Network/parse error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     return { passed: true, reason: null, scores: null }
+  }
+}
+
+// Track consecutive failures to avoid spamming admin
+let _failureCount = 0
+let _lastNotifiedAt = 0
+
+/**
+ * Notify admin when image moderation fails.
+ * Rate-limited: only sends once per 30 minutes to avoid spam during outages.
+ */
+async function notifyModerationFailure(details: string): Promise<void> {
+  _failureCount++
+  const now = Date.now()
+  const thirtyMinutes = 30 * 60 * 1000
+
+  // Only notify once per 30 minutes
+  if (now - _lastNotifiedAt < thirtyMinutes) {
+    return
+  }
+  _lastNotifiedAt = now
+
+  try {
+    // Send email to admin alert address
+    const alertEmail = process.env.ADMIN_ALERT_EMAIL
+    if (!alertEmail) return
+
+    const { Resend } = await import('resend')
+    const resendKey = process.env.RESEND_API_KEY
+    if (!resendKey) return
+
+    const resend = new Resend(resendKey)
+    await resend.emails.send({
+      from: 'updates@mail.farmersmarketing.app',
+      to: alertEmail,
+      subject: `[ALERT] Image moderation is failing (${_failureCount} failures)`,
+      html: `
+        <h3>Image Moderation Alert</h3>
+        <p><strong>Status:</strong> Image moderation is not working. Uploads are passing through unscreened.</p>
+        <p><strong>Failures since last alert:</strong> ${_failureCount}</p>
+        <p><strong>Latest error:</strong> ${details}</p>
+        <p><strong>Action needed:</strong> Check the Google Cloud Vision API key and billing status at
+        <a href="https://console.cloud.google.com">console.cloud.google.com</a>.</p>
+        <p style="color: #666; font-size: 12px;">This alert is rate-limited to once per 30 minutes.</p>
+      `,
+    })
+    _failureCount = 0 // Reset after successful notification
+  } catch {
+    // If we can't even send the alert, just log it
+    console.error('[image-moderation] Failed to send admin alert for moderation failure')
   }
 }
 
