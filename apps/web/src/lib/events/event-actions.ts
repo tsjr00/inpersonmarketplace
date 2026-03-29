@@ -154,7 +154,7 @@ export async function autoMatchAndInvite(
   // 1. Get all event-approved vendors for this vertical
   const { data: vendors } = await serviceClient
     .from('vendor_profiles')
-    .select('id, user_id, profile_data, event_approved, tier, average_rating, rating_count, pickup_lead_minutes, orders_confirmed_count, orders_cancelled_after_confirm_count')
+    .select('id, user_id, profile_data, event_approved, tier, average_rating, rating_count, pickup_lead_minutes')
     .eq('vertical_id', request.vertical_id)
     .eq('status', 'approved')
     .eq('event_approved', true)
@@ -204,8 +204,8 @@ export async function autoMatchAndInvite(
   for (const v of vendors) {
     const profileData = v.profile_data as Record<string, unknown> | null
     const eventReadiness = profileData?.event_readiness as Record<string, unknown> | null
-    const confirmedCount = (v as Record<string, unknown>).orders_confirmed_count as number || 0
-    const cancelledCount = (v as Record<string, unknown>).orders_cancelled_after_confirm_count as number || 0
+    const confirmedCount = 0 // orders_confirmed_count not yet on prod (migration 006)
+    const cancelledCount = 0
     const cancellationRate = confirmedCount >= 10 ? Math.round((cancelledCount / confirmedCount) * 100) : 0
     const cateringItems = vendorCateringCount[v.id] || 0
 
