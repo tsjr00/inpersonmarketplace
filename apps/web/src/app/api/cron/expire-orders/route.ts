@@ -6,7 +6,7 @@ import { restoreInventory, restoreOrderInventory } from '@/lib/inventory'
 import { timingSafeEqual } from 'crypto'
 import { withErrorTracing } from '@/lib/errors'
 import { FEES, proratedFlatFeeSimple } from '@/lib/pricing'
-import { getTierLimits } from '@/lib/vendor-limits'
+import { getTierLimits, TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 import { recordExternalPaymentFee } from '@/lib/payments/vendor-fees'
 import { isCleanupDay, calculateRetentionCutoffs } from '@/lib/cron/retention'
 import { REMINDER_DELAY_MS, DEFAULT_REMINDER_DELAY_MS, isOrderOldEnoughForReminder, getAutoConfirmCutoffDate, areAllItemsPastPickupWindow, formatPaymentMethodLabel } from '@/lib/cron/external-payment'
@@ -1782,6 +1782,7 @@ export async function GET(request: NextRequest) {
     let trialExpired = 0
     let trialGraceProcessed = 0
 
+    if (TRIAL_SYSTEM_ENABLED) {
     try {
       const now = new Date()
       const nowISO = now.toISOString()
@@ -1939,6 +1940,7 @@ export async function GET(request: NextRequest) {
     } catch (phase10Error) {
       console.error('Phase 10 error:', phase10Error instanceof Error ? phase10Error.message : 'Unknown error')
     }
+    } // end TRIAL_SYSTEM_ENABLED
 
     // ─── Phase 11: Event Prep Reminders (24h before) ─────────────────
     let eventReminders = 0

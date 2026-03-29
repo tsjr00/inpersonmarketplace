@@ -1186,7 +1186,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                           border: '1px solid #bfdbfe',
                           whiteSpace: 'nowrap',
                         }}>
-                          ✓ Catering
+                          ✓ Event Ready
                         </span>
                       )}
                     </div>
@@ -1378,10 +1378,12 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
         {vendor.event_approved && (vertical === 'food_trucks' || vertical === 'farmers_market') && (
           <div style={{ marginBottom: 32, paddingTop: 8, borderTop: '1px solid #f3f4f6' }}>
             <h3 style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
-              Catering & Events
+              {vertical === 'food_trucks' ? 'Catering & Events' : 'Private Events'}
             </h3>
             <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 8px 0' }}>
-              This vendor is approved for private events and corporate catering.
+              {vertical === 'food_trucks'
+                ? 'This vendor is approved for private events and corporate catering.'
+                : 'This vendor is approved for private events and pop-up markets.'}
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Link
@@ -1415,7 +1417,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                   transition: 'all 0.2s',
                 }}
               >
-                Highlight Catering Menu
+                {vertical === 'food_trucks' ? 'Highlight Catering Menu' : 'Show Event Items'}
               </button>
             </div>
             <script dangerouslySetInnerHTML={{ __html: `
@@ -1433,7 +1435,7 @@ export default async function VendorProfilePage({ params }: VendorProfilePagePro
                   });
                   btn.style.backgroundColor = active ? '#f59e0b' : 'transparent';
                   btn.style.color = active ? 'white' : '#b45309';
-                  btn.textContent = active ? 'Clear Highlight' : 'Highlight Catering Menu';
+                  btn.textContent = active ? 'Clear Highlight' : '${vertical === 'food_trucks' ? 'Highlight Catering Menu' : 'Show Event Items'}';
                   if (active && cards.length > 0) {
                     cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }

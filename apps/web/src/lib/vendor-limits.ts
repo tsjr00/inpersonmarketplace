@@ -14,6 +14,15 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 export type VendorTier = 'free' | 'pro' | 'boss'
 
+/**
+ * Trial system feature flag.
+ * When false: new vendor approvals do NOT grant a trial period.
+ * Cron phases 10a/10b/10c skip trial processing.
+ * Existing trial UI/notifications/schema are preserved but dormant.
+ * Set to true to re-enable the 90-day free trial on vendor approval.
+ */
+export const TRIAL_SYSTEM_ENABLED = false
+
 // Legacy tier names that map to free
 const LEGACY_FREE_TIERS = ['basic', 'standard', 'premium', 'featured']
 

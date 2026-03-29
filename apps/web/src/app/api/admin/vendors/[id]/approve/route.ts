@@ -4,6 +4,7 @@ import { hasAdminRole } from '@/lib/auth/admin'
 import { checkRateLimit, getClientIp, rateLimitResponse, rateLimits } from '@/lib/rate-limit'
 import { withErrorTracing } from '@/lib/errors'
 import { sendNotification } from '@/lib/notifications'
+import { TRIAL_SYSTEM_ENABLED } from '@/lib/vendor-limits'
 
 export async function POST(
   request: NextRequest,
@@ -77,7 +78,8 @@ export async function POST(
     }
 
     // Auto-grant trial for new vendors — unified tier system uses 'free' for all verticals
-    const isTrialEligible = !existingVendor?.trial_started_at
+    // Guarded by TRIAL_SYSTEM_ENABLED flag (vendor-limits.ts) — set to false to disable
+    const isTrialEligible = TRIAL_SYSTEM_ENABLED && !existingVendor?.trial_started_at
     if (isTrialEligible) {
       const now = new Date()
       const trialEnd = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
