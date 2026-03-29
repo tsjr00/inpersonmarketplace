@@ -384,7 +384,7 @@ export default function OnboardingChecklist({ vertical, vendorStatus }: Props) {
                   : <Gate2Content status={status} onUploaded={fetchStatus} />
               )}
               {gate.number === 3 && (
-                <Gate3Content status={status} onUploaded={fetchStatus} />
+                <Gate3Content status={status} onUploaded={fetchStatus} vertical={vertical} />
               )}
               {gate.number === 4 && (
                 <Gate4Content status={status} vertical={vertical} />
@@ -654,9 +654,11 @@ function Gate2Content({
 function Gate3Content({
   status,
   onUploaded,
+  vertical,
 }: {
   status: OnboardingStatus
   onUploaded: () => void
+  vertical: string
 }) {
   return (
     <COIUpload
@@ -664,6 +666,7 @@ function Gate3Content({
       coiDocuments={status.gate3.coiDocuments}
       coiVerifiedAt={status.gate3.coiVerifiedAt}
       onUploaded={onUploaded}
+      vertical={vertical}
     />
   )
 }
