@@ -45,6 +45,13 @@ interface CateringRequest {
   market_id: string | null
   admin_notes: string | null
   event_token: string | null
+  service_level: string | null
+  children_present: boolean
+  is_themed: boolean
+  theme_description: string | null
+  has_competing_vendors: boolean
+  estimated_spend_per_attendee_cents: number | null
+  preferred_vendor_categories: string[] | null
   created_at: string
 }
 
@@ -702,16 +709,22 @@ export default function AdminCateringPage() {
                   >
                     {selected.company_name}
                   </h2>
-                  <p
-                    style={{
-                      fontSize: typography.sizes.xs,
-                      color: statusColors.neutral500,
-                      margin: `${spacing['3xs']} 0 0`,
-                    }}
-                  >
-                    Submitted{' '}
-                    {new Date(selected.created_at).toLocaleDateString()}
-                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginTop: spacing['3xs'] }}>
+                    <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: 0 }}>
+                      Submitted {new Date(selected.created_at).toLocaleDateString()}
+                    </p>
+                    <span style={{
+                      padding: `2px ${spacing.xs}`,
+                      borderRadius: radius.full,
+                      fontSize: 10,
+                      fontWeight: typography.weights.semibold,
+                      backgroundColor: selected.service_level === 'self_service' ? '#dbeafe' : '#fef3c7',
+                      color: selected.service_level === 'self_service' ? '#1e40af' : '#92400e',
+                      border: `1px solid ${selected.service_level === 'self_service' ? '#93c5fd' : '#fcd34d'}`,
+                    }}>
+                      {selected.service_level === 'self_service' ? 'Self-Service' : 'Managed'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Status actions */}
@@ -807,7 +820,7 @@ export default function AdminCateringPage() {
                 )}
                 <DetailRow label="Headcount" value={`${selected.headcount} people`} />
                 {selected.expected_meal_count && selected.expected_meal_count !== selected.headcount && (
-                  <DetailRow label="Expected Orders" value={`${selected.expected_meal_count} meals`} />
+                  <DetailRow label={vertical === 'farmers_market' ? 'Expected Buyers' : 'Expected Orders'} value={`${selected.expected_meal_count}${vertical === 'farmers_market' ? ' shoppers' : ' meals'}`} />
                 )}
                 <DetailRow label={`${term(vertical, 'event_vendor_unit')}s Requested`} value={`${selected.vendor_count}`} />
                 <DetailRow
@@ -937,7 +950,7 @@ export default function AdminCateringPage() {
                             backgroundColor: SCORE_COLORS[viability.revenueOpportunity.level].text,
                           }} />
                           <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral700 }}>
-                            Revenue/Truck: {viability.revenueOpportunity.label}
+                            {vertical === 'farmers_market' ? 'Revenue/Vendor' : 'Revenue/Truck'}: {viability.revenueOpportunity.label}
                           </span>
                         </div>
                         <p style={{ margin: `2px 0 0 20px`, fontSize: typography.sizes.xs, color: statusColors.neutral500 }}>
@@ -946,25 +959,52 @@ export default function AdminCateringPage() {
                       </div>
                     )}
 
-                    {/* Assumptions — show the math */}
-                    {viability.assumptions.length > 0 && (
-                      <div style={{
-                        marginTop: spacing.xs,
-                        padding: spacing.xs,
-                        backgroundColor: statusColors.neutral50,
-                        borderRadius: radius.sm,
-                        border: `1px solid ${statusColors.neutral200}`,
-                      }}>
-                        <div style={{ fontSize: 10, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
-                          ASSUMPTIONS USED:
-                        </div>
-                        {viability.assumptions.map((a, i) => (
-                          <div key={i} style={{ fontSize: 10, color: statusColors.neutral500, lineHeight: 1.5 }}>
-                            &bull; {a}
+                    {/* Assumptions — grouped by factor */}
+                    {viability.assumptions.length > 0 && (() => {
+                      // Group assumptions by category for readability
+                      const groups: Record<string, string[]> = {
+                        'Duration': [],
+                        'Capacity': [],
+                        'Revenue': [],
+                        'Budget': [],
+                        'Other': [],
+                      }
+                      for (const a of viability.assumptions) {
+                        if (/duration|event.*hour|event times|event.*hr/i.test(a)) groups['Duration'].push(a)
+                        else if (/wave|throughput|capacity|meals.*=|expected.*meal|buyer rate|ordering/i.test(a)) groups['Capacity'].push(a)
+                        else if (/revenue|dwell|competing|ticketed|food buyers/i.test(a)) groups['Revenue'].push(a)
+                        else if (/budget/i.test(a)) groups['Budget'].push(a)
+                        else groups['Other'].push(a)
+                      }
+                      return (
+                        <div style={{
+                          marginTop: spacing.xs,
+                          padding: spacing.xs,
+                          backgroundColor: statusColors.neutral50,
+                          borderRadius: radius.sm,
+                          border: `1px solid ${statusColors.neutral200}`,
+                        }}>
+                          <div style={{ fontSize: 10, fontWeight: typography.weights.semibold, color: statusColors.neutral500, marginBottom: spacing['3xs'] }}>
+                            SCORING BREAKDOWN:
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          {Object.entries(groups).map(([group, items]) => {
+                            if (items.length === 0) return null
+                            return (
+                              <div key={group} style={{ marginBottom: spacing['3xs'] }}>
+                                <div style={{ fontSize: 10, fontWeight: typography.weights.semibold, color: statusColors.neutral600 }}>
+                                  {group}
+                                </div>
+                                {items.map((a, i) => (
+                                  <div key={i} style={{ fontSize: 10, color: statusColors.neutral500, lineHeight: 1.5, paddingLeft: 8 }}>
+                                    &bull; {a}
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
 
                     {/* Wave duration recommendation based on confirmed vendor lead times */}
                     {(() => {
@@ -1007,6 +1047,26 @@ export default function AdminCateringPage() {
                   {selected.cuisine_preferences && <DetailRow label="Cuisine" value={selected.cuisine_preferences} />}
                   {selected.dietary_notes && <DetailRow label="Dietary" value={selected.dietary_notes} />}
                   {selected.budget_notes && <DetailRow label="Budget Notes" value={selected.budget_notes} />}
+                </Section>
+              )}
+
+              {/* Event Considerations */}
+              {(selected.children_present || selected.is_themed || selected.has_competing_vendors || selected.estimated_spend_per_attendee_cents || (selected.preferred_vendor_categories && selected.preferred_vendor_categories.length > 0)) && (
+                <Section title="Event Considerations">
+                  {selected.preferred_vendor_categories && selected.preferred_vendor_categories.length > 0 && (
+                    <div style={{ marginBottom: spacing['2xs'] }}>
+                      <span style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: statusColors.neutral600 }}>Preferred Categories: </span>
+                      <span style={{ fontSize: typography.sizes.xs, color: statusColors.neutral700 }}>
+                        {selected.preferred_vendor_categories.join(', ')}
+                      </span>
+                    </div>
+                  )}
+                  {selected.estimated_spend_per_attendee_cents && (
+                    <DetailRow label="Est. Spend/Attendee" value={`$${(selected.estimated_spend_per_attendee_cents / 100).toFixed(2)}`} />
+                  )}
+                  {selected.children_present && <DetailRow label="Children Present" value="Yes" />}
+                  {selected.is_themed && <DetailRow label="Themed Event" value={selected.theme_description || 'Yes (no theme specified)'} />}
+                  {selected.has_competing_vendors && <DetailRow label="Competing Vendors" value={selected.competing_food_options || 'Yes (no details)'} />}
                 </Section>
               )}
 

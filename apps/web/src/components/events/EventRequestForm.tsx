@@ -5,6 +5,7 @@ import { spacing, typography, radius, sizing, statusColors } from '@/lib/design-
 import { term } from '@/lib/vertical/terminology'
 import { getClientLocale } from '@/lib/locale/client'
 import { t } from '@/lib/locale/messages'
+import { CATEGORIES, FOOD_TRUCK_CATEGORIES } from '@/lib/constants'
 
 interface EventRequestFormProps {
   vertical: string
@@ -26,6 +27,7 @@ interface FormData {
   expected_meal_count: string
   total_food_budget: string
   per_meal_budget: string
+  has_competing_vendors: boolean
   competing_food_options: string
   is_ticketed: boolean
   estimated_dwell_hours: string
@@ -44,6 +46,11 @@ interface FormData {
   is_recurring: boolean
   recurring_frequency: string
   service_level: string
+  children_present: boolean
+  is_themed: boolean
+  theme_description: string
+  estimated_spend_per_attendee: string
+  preferred_vendor_categories: string[]
 }
 
 function getServiceLevels(vertical: string) {
@@ -196,9 +203,15 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
     expected_meal_count: '',
     total_food_budget: '',
     per_meal_budget: '',
+    has_competing_vendors: false,
     competing_food_options: '',
     is_ticketed: false,
     estimated_dwell_hours: '',
+    children_present: false,
+    is_themed: false,
+    theme_description: '',
+    estimated_spend_per_attendee: '',
+    preferred_vendor_categories: [],
     address: '',
     city: '',
     state: '',
@@ -277,9 +290,15 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
           expected_meal_count: form.expected_meal_count ? parseInt(form.expected_meal_count) : null,
           total_food_budget_cents: form.total_food_budget ? Math.round(parseFloat(form.total_food_budget) * 100) : null,
           per_meal_budget_cents: form.per_meal_budget ? Math.round(parseFloat(form.per_meal_budget) * 100) : null,
-          competing_food_options: form.competing_food_options.trim() || null,
+          has_competing_vendors: form.has_competing_vendors,
+          competing_food_options: form.has_competing_vendors ? (form.competing_food_options.trim() || null) : null,
           is_ticketed: form.is_ticketed,
           estimated_dwell_hours: form.estimated_dwell_hours ? parseFloat(form.estimated_dwell_hours) : null,
+          children_present: form.children_present,
+          is_themed: form.is_themed,
+          theme_description: form.is_themed ? (form.theme_description.trim() || null) : null,
+          estimated_spend_per_attendee_cents: form.estimated_spend_per_attendee ? Math.round(parseFloat(form.estimated_spend_per_attendee) * 100) : null,
+          preferred_vendor_categories: form.preferred_vendor_categories.length > 0 ? form.preferred_vendor_categories : null,
           address: form.address.trim(),
           city: form.city.trim(),
           state: form.state.trim(),
@@ -759,7 +778,7 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
               </label>
               <input
                 type="number"
-                placeholder={form.headcount || '50'}
+                placeholder=""
                 min="1"
                 max="5000"
                 value={form.expected_meal_count}
@@ -907,17 +926,29 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
                 ? 'Are there other vendors or shopping options at the venue?'
                 : 'Are there other food options at the venue?'}
             </label>
-            <input
-              type="text"
-              placeholder={vertical === 'farmers_market'
-                ? 'e.g., retail stores, other vendor markets, craft fairs'
-                : 'e.g., cafeteria, nearby restaurants, other catering'}
-              value={form.competing_food_options}
-              onChange={(e) => updateField('competing_food_options', e.target.value)}
-              style={inputStyle}
-            />
+            <div style={{ display: 'flex', gap: spacing.md, marginBottom: form.has_competing_vendors ? spacing.xs : 0 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+                <input type="radio" name="has_competing_vendors" checked={form.has_competing_vendors === true} onChange={() => setForm(prev => ({ ...prev, has_competing_vendors: true }))} />
+                Yes
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+                <input type="radio" name="has_competing_vendors" checked={form.has_competing_vendors === false} onChange={() => setForm(prev => ({ ...prev, has_competing_vendors: false, competing_food_options: '' }))} />
+                No
+              </label>
+            </div>
+            {form.has_competing_vendors && (
+              <input
+                type="text"
+                placeholder={vertical === 'farmers_market'
+                  ? 'e.g., retail stores, other vendor markets, craft fairs'
+                  : 'e.g., cafeteria, nearby restaurants, other catering'}
+                value={form.competing_food_options}
+                onChange={(e) => updateField('competing_food_options', e.target.value)}
+                style={inputStyle}
+              />
+            )}
             <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
-              Helps us estimate how many people are likely to order
+              Helps us estimate how many people are likely to buy
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
@@ -954,6 +985,106 @@ export function EventRequestForm({ vertical, vendorPreference }: EventRequestFor
               onChange={(e) => updateField('budget_notes', e.target.value)}
               style={inputStyle}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Event Considerations */}
+      <div style={sectionStyle}>
+        <h3 style={sectionTitleStyle}>Event Considerations</h3>
+        <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral400, margin: `0 0 ${spacing.sm}` }}>
+          Optional — helps us match the right vendors and plan better
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+          {/* Preferred vendor categories */}
+          <div>
+            <label style={labelStyle}>
+              {vertical === 'farmers_market' ? 'What types of vendors are you looking for?' : 'What types of food are you looking for?'}
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing['2xs'] }}>
+              {(vertical === 'farmers_market' ? [...CATEGORIES] : [...FOOD_TRUCK_CATEGORIES]).map(cat => {
+                const selected = form.preferred_vendor_categories.includes(cat)
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setForm(prev => ({
+                      ...prev,
+                      preferred_vendor_categories: selected
+                        ? prev.preferred_vendor_categories.filter(c => c !== cat)
+                        : [...prev.preferred_vendor_categories, cat]
+                    }))}
+                    style={{
+                      padding: `${spacing['3xs']} ${spacing.xs}`,
+                      borderRadius: radius.full,
+                      border: `1.5px solid ${selected ? accent : statusColors.neutral300}`,
+                      backgroundColor: selected ? accent : 'white',
+                      color: selected ? 'white' : statusColors.neutral600,
+                      fontSize: typography.sizes.xs,
+                      fontWeight: selected ? typography.weights.semibold : typography.weights.normal,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{cat}
+                  </button>
+                )
+              })}
+            </div>
+            <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+              Select all that apply — we&apos;ll match vendors in these categories near your event
+            </p>
+          </div>
+
+          {/* Estimated spend per attendee */}
+          <div>
+            <label style={labelStyle}>
+              Approx. spend per attendee (optional)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing['2xs'] }}>
+              <span style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500 }}>$</span>
+              <input
+                type="number"
+                placeholder=""
+                min="1"
+                max="500"
+                value={form.estimated_spend_per_attendee}
+                onChange={(e) => updateField('estimated_spend_per_attendee', e.target.value)}
+                style={{ ...inputStyle, maxWidth: 120 }}
+              />
+            </div>
+            <p style={{ margin: `${spacing['3xs']} 0 0`, fontSize: typography.sizes.xs, color: statusColors.neutral400 }}>
+              How much do attendees typically spend at events like this?
+            </p>
+          </div>
+
+          {/* Consideration checkboxes */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'] }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={form.children_present}
+                onChange={(e) => setForm(prev => ({ ...prev, children_present: e.target.checked }))}
+              />
+              Children will be present
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, fontSize: typography.sizes.sm, color: statusColors.neutral700, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={form.is_themed}
+                onChange={(e) => setForm(prev => ({ ...prev, is_themed: e.target.checked, theme_description: e.target.checked ? prev.theme_description : '' }))}
+              />
+              This is a themed event
+            </label>
+            {form.is_themed && (
+              <input
+                type="text"
+                placeholder="What is the theme? (e.g., Fall Harvest, Holiday Market, Wellness Fair)"
+                value={form.theme_description}
+                onChange={(e) => updateField('theme_description', e.target.value)}
+                style={{ ...inputStyle, marginLeft: 28 }}
+              />
+            )}
           </div>
         </div>
       </div>
