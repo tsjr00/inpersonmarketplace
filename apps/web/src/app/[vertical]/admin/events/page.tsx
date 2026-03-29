@@ -257,6 +257,25 @@ export default function AdminCateringPage() {
     setInviting(false)
   }
 
+  async function rematchVendors(requestId: string) {
+    setActionMessage(null)
+    try {
+      const res = await fetch(`/api/admin/events/${requestId}/rematch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setActionMessage(data.message)
+        fetchData()
+      } else {
+        setActionMessage(`Error: ${data.error}`)
+      }
+    } catch {
+      setActionMessage('Network error')
+    }
+  }
+
   async function repeatEvent(id: string) {
     if (!repeatDate || repeating) return
     setRepeating(true)
@@ -1307,17 +1326,33 @@ export default function AdminCateringPage() {
                       border: `1px solid ${statusColors.neutral200}`,
                     }}
                   >
-                    <p
-                      style={{
-                        fontSize: typography.sizes.xs,
-                        fontWeight: typography.weights.semibold,
-                        color: statusColors.neutral700,
-                        marginBottom: spacing['2xs'],
-                        marginTop: 0,
-                      }}
-                    >
-                      Invite Vendors
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing['2xs'] }}>
+                      <p
+                        style={{
+                          fontSize: typography.sizes.xs,
+                          fontWeight: typography.weights.semibold,
+                          color: statusColors.neutral700,
+                          margin: 0,
+                        }}
+                      >
+                        Invite Vendors
+                      </p>
+                      <button
+                        onClick={() => rematchVendors(selected.id)}
+                        style={{
+                          padding: `2px ${spacing.xs}`,
+                          backgroundColor: statusColors.infoLight,
+                          color: statusColors.infoDark,
+                          border: `1px solid ${statusColors.infoBorder}`,
+                          borderRadius: radius.sm,
+                          fontSize: 10,
+                          fontWeight: typography.weights.semibold,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Re-run Auto Match
+                      </button>
+                    </div>
                     {vendors.length === 0 ? (
                       <p style={{ fontSize: typography.sizes.xs, color: statusColors.neutral500, margin: 0 }}>
                         No approved vendors found.
