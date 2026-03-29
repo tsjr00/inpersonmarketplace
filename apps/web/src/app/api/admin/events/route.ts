@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     // Fetch approved vendors with enriched data for invite UI + scoring
     const { data: vendorProfiles } = await serviceClient
       .from('vendor_profiles')
-      .select('id, user_id, profile_data, event_approved, tier, average_rating, rating_count, pickup_lead_minutes, orders_confirmed_count, orders_cancelled_after_confirm_count')
+      .select('id, user_id, profile_data, event_approved, tier, average_rating, rating_count, pickup_lead_minutes')
       .eq('vertical_id', vertical)
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
@@ -120,9 +120,7 @@ export async function GET(request: NextRequest) {
     }
 
     const vendors = (vendorProfiles || []).map((v) => {
-      const confirmedCount = (v as Record<string, unknown>).orders_confirmed_count as number || 0
-      const cancelledCount = (v as Record<string, unknown>).orders_cancelled_after_confirm_count as number || 0
-      const cancellationRate = confirmedCount >= 10 ? Math.round((cancelledCount / confirmedCount) * 100) : 0
+      const cancellationRate = 0 // orders_confirmed_count not yet on prod (migration 006)
 
       return {
         id: v.id,
