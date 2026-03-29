@@ -55,9 +55,9 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
 
   // Vendors data
   const [
-    { count: _totalVendors },
+    { count: totalVendors },
     { count: pendingVendors },
-    { count: _approvedVendors },
+    { count: approvedVendors },
     { count: proVendors },
     { count: bossVendors }
   ] = await Promise.all([
@@ -392,17 +392,17 @@ export default async function AdminDashboardPage({ params }: AdminDashboardPageP
               Review applications, manage vendor tiers and status
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing.xs }}>
-              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#dbeafe', borderRadius: radius.sm }}>
-                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#1e40af' }}>
-                  {proVendors || 0}
+              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: colors.surfaceSubtle, borderRadius: radius.sm }}>
+                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: colors.textPrimary }}>
+                  {totalVendors || 0}
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: '#1e40af' }}>Pro</div>
+                <div style={{ fontSize: typography.sizes.xs, color: colors.textMuted }}>Total</div>
               </div>
-              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#fef3c7', borderRadius: radius.sm }}>
-                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#92400e' }}>
-                  {bossVendors || 0}
+              <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: '#dcfce7', borderRadius: radius.sm }}>
+                <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: '#166534' }}>
+                  {approvedVendors || 0}
                 </div>
-                <div style={{ fontSize: typography.sizes.xs, color: '#92400e' }}>Boss</div>
+                <div style={{ fontSize: typography.sizes.xs, color: '#166534' }}>Approved</div>
               </div>
               <div style={{ textAlign: 'center', padding: spacing.xs, backgroundColor: (pendingVendors || 0) > 0 ? '#fef3c7' : colors.surfaceSubtle, borderRadius: radius.sm }}>
                 <div style={{ fontSize: typography.sizes['2xl'], fontWeight: typography.weights.bold, color: (pendingVendors || 0) > 0 ? '#92400e' : colors.textPrimary }}>

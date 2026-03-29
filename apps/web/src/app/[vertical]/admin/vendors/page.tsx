@@ -4,7 +4,7 @@ import { defaultBranding } from '@/lib/branding'
 import Link from 'next/link'
 import AdminNav from '@/components/admin/AdminNav'
 import VendorManagementClient from './VendorManagementClient'
-import { colors, spacing, typography, containers } from '@/lib/design-tokens'
+import { colors, spacing, typography, radius, containers } from '@/lib/design-tokens'
 
 // Cache for 2 minutes
 export const revalidate = 120
@@ -108,6 +108,9 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
   if (error) {
     console.error('Error fetching vendors:', error)
   }
+
+  // Surface query error visibly for admin debugging
+  const queryError = error ? `${error.message} (code: ${error.code}, hint: ${error.hint || 'none'})` : null
 
   // Client-side search filter (profile_data is JSONB)
   let filteredVendors = vendors || []
@@ -234,6 +237,21 @@ export default async function AdminVendorsPage({ params, searchParams }: AdminVe
 
         {/* Admin Navigation */}
         <AdminNav type="vertical" vertical={vertical} />
+
+        {/* Query error banner */}
+        {queryError && (
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fca5a5',
+            borderRadius: radius.md,
+            padding: `${spacing.sm} ${spacing.md}`,
+            marginBottom: spacing.md,
+            color: '#991b1b',
+            fontSize: typography.sizes.sm
+          }}>
+            <strong>Query error:</strong> {queryError}
+          </div>
+        )}
 
         {/* Vendor Management Component */}
         <VendorManagementClient
