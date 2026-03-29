@@ -81,6 +81,14 @@ export async function POST(request: NextRequest) {
         .from('listing-images')
         .getPublicUrl(filePath)
 
+      // Image content moderation
+      const { moderateStorageImage } = await import('@/lib/image-moderation')
+      const modResult = await moderateStorageImage(publicUrl)
+      if (!modResult.passed) {
+        await supabase.storage.from('listing-images').remove([filePath])
+        return NextResponse.json({ error: modResult.reason }, { status: 400 })
+      }
+
       return NextResponse.json({
         success: true,
         imageUrl: publicUrl

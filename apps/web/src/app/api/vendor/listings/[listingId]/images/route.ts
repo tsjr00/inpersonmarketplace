@@ -140,6 +140,15 @@ export async function POST(
         .from('listing-images')
         .getPublicUrl(filePath)
 
+      // Image content moderation (if API key configured)
+      const { moderateStorageImage } = await import('@/lib/image-moderation')
+      const modResult = await moderateStorageImage(publicUrl)
+      if (!modResult.passed) {
+        // Delete the uploaded file — it failed moderation
+        await supabase.storage.from('listing-images').remove([filePath])
+        return NextResponse.json({ error: modResult.reason }, { status: 400 })
+      }
+
       // Determine display order (add to end)
       const nextOrder = (count ?? 0)
 

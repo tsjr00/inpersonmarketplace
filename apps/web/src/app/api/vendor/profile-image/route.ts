@@ -70,6 +70,14 @@ export async function POST(request: NextRequest) {
         .from('vendor-images')
         .getPublicUrl(filePath)
 
+      // Image content moderation
+      const { moderateStorageImage } = await import('@/lib/image-moderation')
+      const modResult = await moderateStorageImage(publicUrl)
+      if (!modResult.passed) {
+        await supabase.storage.from('vendor-images').remove([filePath])
+        return NextResponse.json({ error: modResult.reason }, { status: 400 })
+      }
+
       // Update vendor profile
       const { error: updateError } = await supabase
         .from('vendor_profiles')
