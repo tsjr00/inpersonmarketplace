@@ -41,6 +41,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!vendorProfileId) {
       return NextResponse.json({ error: 'Vendor profile ID required' }, { status: 400 })
     }
+
+    // Content moderation on review comment
+    if (comment) {
+      const { checkFields } = await import('@/lib/content-moderation')
+      const modCheck = checkFields({ comment })
+      if (!modCheck.passed) {
+        return NextResponse.json({ error: modCheck.reason }, { status: 400 })
+      }
+    }
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }

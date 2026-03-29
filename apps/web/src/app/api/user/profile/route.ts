@@ -38,6 +38,11 @@ export async function PATCH(request: NextRequest) {
       if (trimmedName.length > 50) {
         return NextResponse.json({ error: 'Display name must be 50 characters or less' }, { status: 400 })
       }
+      // Content moderation on display name
+      const { isProfane } = await import('@/lib/content-moderation')
+      if (isProfane(trimmedName)) {
+        return NextResponse.json({ error: 'Display name contains inappropriate language' }, { status: 400 })
+      }
       updates.display_name = trimmedName
     }
 

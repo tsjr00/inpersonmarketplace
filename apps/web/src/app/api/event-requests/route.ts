@@ -109,6 +109,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Content moderation on text fields
+    const { checkFields } = await import('@/lib/content-moderation')
+    const modCheck = checkFields({
+      company_name: company_name,
+      contact_name: contact_name,
+      cuisine_preferences: cuisine_preferences,
+      dietary_notes: dietary_notes,
+      budget_notes: budget_notes,
+      setup_instructions: setup_instructions,
+      additional_notes: additional_notes,
+    })
+    if (!modCheck.passed) {
+      return NextResponse.json({ error: modCheck.reason }, { status: 400 })
+    }
+
     // Use service client (public form, no auth required)
     const supabase = createServiceClient()
 
