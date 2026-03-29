@@ -90,6 +90,7 @@ export type NotificationType =
   | 'event_settlement_summary'
   | 'vendor_event_approved'
   | 'vendor_event_application_submitted'
+  | 'vendor_event_application_received'
   | 'listing_suspended'
 
 // ── Template Types ───────────────────────────────────────────────────
@@ -742,6 +743,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: (_d, locale) => t('notif.vendor_event_application_title', locale),
     message: (d) => `${d.vendorName || 'A vendor'} has applied for private event approval. Review their event readiness profile.`,
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/vendors`,
+  },
+
+  vendor_event_application_received: {
+    urgency: 'standard',
+    severity: 'info',
+    audience: 'vendor',
+    title: () => 'Event Application Received',
+    message: () => 'Your private event readiness application has been submitted. Our team will review it and get back to you.',
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/edit`,
   },
 
   listing_suspended: {

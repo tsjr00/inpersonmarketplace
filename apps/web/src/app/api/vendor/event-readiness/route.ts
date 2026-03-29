@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { withErrorTracing, traced, crumb } from '@/lib/errors'
 import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
 import { sendNotification } from '@/lib/notifications'
@@ -80,17 +81,34 @@ export async function PUT(request: NextRequest) {
       throw traced.fromSupabase(updateError, { table: 'vendor_profiles', operation: 'update' })
     }
 
-    // Notify admin on first submission only
+    // Notify on first submission only
     if (isFirstSubmission) {
+      const vendorName = (existingProfileData.business_name as string) || (existingProfileData.farm_name as string) || 'A vendor'
+
+      // Send confirmation to the vendor
       await sendNotification(
         user.id,
-        'vendor_event_application_submitted',
-        {
-          vendorName: (existingProfileData.business_name as string) || (existingProfileData.farm_name as string) || 'A vendor',
-          vendorId: vendor.id,
-        },
+        'vendor_event_application_received',
+        { vendorName },
         { vertical: vendor.vertical_id }
       )
+
+      // Notify admin(s) to review
+      const serviceClient = createServiceClient()
+      const { data: admins } = await serviceClient
+        .from('user_profiles')
+        .select('user_id')
+        .or('role.eq.admin,role.eq.platform_admin')
+      if (admins && admins.length > 0) {
+        await Promise.all(
+          admins.map((admin) =>
+            sendNotification(admin.user_id, 'vendor_event_application_submitted', {
+              vendorName,
+              vendorId: vendor.id,
+            }, { vertical: vendor.vertical_id })
+          )
+        )
+      }
     }
 
     return NextResponse.json({
