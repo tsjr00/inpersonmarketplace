@@ -8,6 +8,7 @@ import ProfileImageUpload from '@/components/vendor/ProfileImageUpload'
 import ProfileEditForm from '@/components/vendor/ProfileEditForm'
 import { type Certification } from '@/components/vendor/CertificationsForm'
 import DocumentsCertificationsSection from '@/components/vendor/DocumentsCertificationsSection'
+import COISection from '@/components/vendor/COISection'
 import EventReadinessForm from './EventReadinessForm'
 import PickupLeadTimeForm from '@/components/vendor/PickupLeadTimeForm'
 import CoverImageUpload from '@/components/vendor/CoverImageUpload'
@@ -156,6 +157,13 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
           currentCertifications={(vendorProfile.certifications as Certification[]) || []}
         />
       </div>
+
+      {/* Certificate of Insurance — required for event approval */}
+      {(vertical === 'food_trucks' || vertical === 'farmers_market') && (
+        <div style={{ marginTop: 20 }}>
+          <COISection vertical={vertical} />
+        </div>
+      )}
 
       {/* Event Readiness Section — event-enabled verticals */}
       {(vertical === 'food_trucks' || vertical === 'farmers_market') && (
