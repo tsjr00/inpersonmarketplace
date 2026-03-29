@@ -14,9 +14,10 @@ interface Props {
   coiDocuments: COIDoc[]
   coiVerifiedAt: string | null
   onUploaded: () => void
+  vertical?: string
 }
 
-export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUploaded }: Props) {
+export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUploaded, vertical }: Props) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -29,7 +30,10 @@ export default function COIUpload({ coiStatus, coiDocuments, coiVerifiedAt, onUp
       const formData = new FormData()
       formData.append('document', file)
 
-      const response = await fetch('/api/vendor/onboarding/coi', {
+      const url = vertical
+        ? `/api/vendor/onboarding/coi?vertical=${vertical}`
+        : '/api/vendor/onboarding/coi'
+      const response = await fetch(url, {
         method: 'POST',
         body: formData,
       })

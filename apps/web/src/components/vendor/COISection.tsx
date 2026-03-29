@@ -89,6 +89,7 @@ export default function COISection({ vertical }: Props) {
         coiDocuments={coiDocuments}
         coiVerifiedAt={coiVerifiedAt}
         onUploaded={fetchStatus}
+        vertical={vertical}
       />
     </div>
   )
