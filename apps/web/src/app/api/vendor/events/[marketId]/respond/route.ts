@@ -54,19 +54,33 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
 
-      // Get vendor profile for this user
-      const { data: vendorProfile } = await supabase
+      // Get vendor profile — find the one invited to THIS market (handles multi-vertical)
+      const { data: vendorProfiles } = await supabase
         .from('vendor_profiles')
         .select('id, profile_data, vertical_id')
         .eq('user_id', user.id)
-        .single()
 
-      if (!vendorProfile) {
+      if (!vendorProfiles || vendorProfiles.length === 0) {
         return NextResponse.json(
           { error: 'Vendor profile not found' },
           { status: 404 }
         )
       }
+
+      // Find which profile is invited to this market
+      const serviceClient = createServiceClient()
+      const vpIds = vendorProfiles.map(vp => vp.id)
+      const { data: invitedMv } = await serviceClient
+        .from('market_vendors')
+        .select('vendor_profile_id')
+        .eq('market_id', marketId)
+        .in('vendor_profile_id', vpIds)
+        .limit(1)
+        .single()
+
+      const vendorProfile = invitedMv
+        ? vendorProfiles.find(vp => vp.id === invitedMv.vendor_profile_id) || vendorProfiles[0]
+        : vendorProfiles[0]
 
       // Accepting requires menu item selection
       // FT: 4-7 items (focused catering menu, manageable prep)
@@ -92,8 +106,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           )
         }
       }
-
-      const serviceClient = createServiceClient()
 
       // Verify this vendor was invited to this market
       const { data: marketVendor, error: mvError } = await serviceClient

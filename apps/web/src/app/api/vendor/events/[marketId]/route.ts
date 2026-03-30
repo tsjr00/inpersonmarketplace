@@ -39,28 +39,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       const { marketId } = await context.params
 
-      // Get vendor profile
-      const { data: vendorProfile } = await supabase
+      const serviceClient = createServiceClient()
+
+      // Get ALL vendor profiles for this user (may have profiles in multiple verticals)
+      const { data: vendorProfiles } = await supabase
         .from('vendor_profiles')
         .select('id')
         .eq('user_id', user.id)
-        .single()
 
-      if (!vendorProfile) {
+      if (!vendorProfiles || vendorProfiles.length === 0) {
         return NextResponse.json(
           { error: 'Vendor profile not found' },
           { status: 404 }
         )
       }
 
-      const serviceClient = createServiceClient()
-
-      // Verify vendor is invited to this market
+      // Find which of the user's vendor profiles is invited to this specific market
+      const vendorIds = vendorProfiles.map(vp => vp.id)
       const { data: marketVendor } = await serviceClient
         .from('market_vendors')
-        .select('response_status, response_notes, invited_at')
+        .select('vendor_profile_id, response_status, response_notes, invited_at')
         .eq('market_id', marketId)
-        .eq('vendor_profile_id', vendorProfile.id)
+        .in('vendor_profile_id', vendorIds)
         .single()
 
       if (!marketVendor) {
@@ -69,6 +69,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           { status: 404 }
         )
       }
+
+      const vendorProfile = { id: marketVendor.vendor_profile_id as string }
 
       // Fetch market + catering request details
       const { data: market } = await serviceClient
