@@ -28,11 +28,33 @@ interface EventDetails {
   response_status: string | null
   response_notes: string | null
   accepted_count: number
+  event_type: string | null
+  payment_model: string | null
+  is_ticketed: boolean
+  children_present: boolean
+  is_themed: boolean
+  theme_description: string | null
+  has_competing_vendors: boolean
 }
 
 const verticalAccent: Record<string, string> = {
   food_trucks: '#ff5757',
   farmers_market: '#2d5016',
+}
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  corporate_lunch: 'Corporate Event',
+  team_building: 'Team Building',
+  grand_opening: 'Grand Opening / Promotional',
+  festival: 'Festival / Community Event',
+  private_party: 'Private Party / Celebration',
+  other: 'Special Event',
+}
+
+const PAYMENT_MODEL_LABELS: Record<string, string> = {
+  company_paid: 'Organizer pays for attendees',
+  attendee_paid: 'Attendees pay individually',
+  hybrid: 'Organizer covers base, attendees can upgrade',
 }
 
 export default function VendorCateringDetailPage() {
@@ -139,7 +161,7 @@ export default function VendorCateringDetailPage() {
 
   async function handleConfirmAccept() {
     if (selectedListingIds.size === 0) {
-      setActionMessage('Error: Please select at least one menu item')
+      setActionMessage('Error: Please select at least one item')
       return
     }
     setResponding(true)
@@ -155,7 +177,7 @@ export default function VendorCateringDetailPage() {
         }),
       })
       if (res.ok) {
-        setActionMessage('You accepted this event and your menu has been submitted!')
+        setActionMessage(vertical === 'farmers_market' ? 'You accepted this event and your items have been submitted!' : 'You accepted this event and your menu has been submitted!')
         setDetails((prev) => prev ? { ...prev, response_status: 'accepted' } : prev)
         setShowMenuPicker(false)
       } else {
@@ -277,7 +299,7 @@ export default function VendorCateringDetailPage() {
     )
   }
 
-  const headcountPerTruck =
+  const headcountPerVendor =
     details.accepted_count > 0
       ? Math.ceil(details.headcount / details.accepted_count)
       : Math.ceil(details.headcount / details.vendor_count)
@@ -336,9 +358,11 @@ export default function VendorCateringDetailPage() {
             margin: `0 0 ${spacing['2xs']}`,
           }}
         >
-          {details.market_name}
+          Private Event Invitation
         </h1>
-        {/* company_name intentionally not shown — organizer identity protected */}
+        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, margin: 0 }}>
+          {details.event_type ? EVENT_TYPE_LABELS[details.event_type] || details.event_type : 'Private Event'} · {details.city}, {details.state}
+        </p>
       </div>
 
       {actionMessage && (
@@ -380,7 +404,7 @@ export default function VendorCateringDetailPage() {
         />
         <InfoCard
           label="Your Est. Headcount"
-          value={`~${headcountPerTruck} people`}
+          value={`~${headcountPerVendor} people`}
           sub={`${details.headcount} total / ${details.accepted_count || details.vendor_count} ${term(vertical, 'event_vendor_unit')}s`}
         />
         {(details.event_start_time || details.event_end_time) && (
@@ -396,6 +420,55 @@ export default function VendorCateringDetailPage() {
         />
       </div>
 
+      {/* Event Context — helps vendor make informed decision */}
+      <div style={{
+        padding: spacing.sm,
+        backgroundColor: statusColors.neutral50,
+        border: `1px solid ${statusColors.neutral200}`,
+        borderRadius: radius.md,
+        marginBottom: spacing.md,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing['3xs'],
+      }}>
+        <h3 style={{ fontSize: typography.sizes.sm, fontWeight: typography.weights.semibold, color: statusColors.neutral700, margin: 0 }}>
+          Event Details
+        </h3>
+        {details.payment_model && (
+          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0, lineHeight: 1.5 }}>
+            <strong>Payment:</strong> {PAYMENT_MODEL_LABELS[details.payment_model] || details.payment_model}
+          </p>
+        )}
+        {details.is_ticketed && (
+          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0 }}>
+            <strong>Ticketed event</strong> — attendees have committed to attending
+          </p>
+        )}
+        {details.children_present && (
+          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0 }}>
+            <strong>Children will be present</strong> — consider family-friendly offerings
+          </p>
+        )}
+        {details.is_themed && (
+          <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: 0 }}>
+            <strong>Themed event:</strong> {details.theme_description || 'Yes'}
+          </p>
+        )}
+        {details.has_competing_vendors && (
+          <p style={{ fontSize: typography.sizes.sm, color: '#d97706', margin: 0 }}>
+            Other vendors/shopping options at venue — attendee spending may be split
+          </p>
+        )}
+        {!details.has_competing_vendors && (
+          <p style={{ fontSize: typography.sizes.sm, color: '#059669', margin: 0 }}>
+            No competing vendors at this event — you&apos;ll have a captive audience
+          </p>
+        )}
+        <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral500, margin: 0 }}>
+          {details.accepted_count} of {details.vendor_count} vendor{details.vendor_count > 1 ? 's' : ''} confirmed so far
+        </p>
+      </div>
+
       {/* Revenue Estimate */}
       {details.headcount > 0 && (
         <div style={{
@@ -409,9 +482,10 @@ export default function VendorCateringDetailPage() {
             Revenue Opportunity
           </h3>
           <p style={{ fontSize: typography.sizes.sm, color: '#15803d', margin: 0, lineHeight: 1.6 }}>
-            With ~{headcountPerTruck} servings at an average of $10-15/plate, this event could generate
-            approximately <strong>${(headcountPerTruck * 10).toLocaleString()}-${(headcountPerTruck * 15).toLocaleString()}</strong> in
-            revenue for your truck. Pre-orders help you prep exactly what you need — less waste, more profit.
+            {vertical === 'farmers_market'
+              ? `With ~${headcountPerVendor} expected shoppers browsing your booth, this event could generate approximately $${(headcountPerVendor * 8).toLocaleString()}-$${(headcountPerVendor * 20).toLocaleString()} in sales. Pre-orders let customers reserve items ahead of time — guaranteed sales before you arrive.`
+              : `With ~${headcountPerVendor} servings at an average of $10-15/plate, this event could generate approximately $${(headcountPerVendor * 10).toLocaleString()}-$${(headcountPerVendor * 15).toLocaleString()} in revenue. Pre-orders help you prep exactly what you need — less waste, more profit.`
+            }
           </p>
         </div>
       )}
@@ -435,11 +509,11 @@ export default function VendorCateringDetailPage() {
               margin: `0 0 ${spacing['2xs']}`,
             }}
           >
-            Client Preferences
+            {vertical === 'farmers_market' ? 'Organizer Preferences' : 'Client Preferences'}
           </h3>
           {details.cuisine_preferences && (
             <p style={{ fontSize: typography.sizes.sm, color: statusColors.neutral600, margin: `0 0 ${spacing['3xs']}`, lineHeight: 1.5 }}>
-              <strong>Cuisine:</strong> {details.cuisine_preferences}
+              <strong>{vertical === 'farmers_market' ? 'Product Types:' : 'Cuisine:'}</strong> {details.cuisine_preferences}
             </p>
           )}
           {details.dietary_notes && (
@@ -570,7 +644,7 @@ export default function VendorCateringDetailPage() {
                 {cateringListings.length === 0 && !loadingListings && ' No event-eligible items found — mark items as "Available for Events" in your listings first.'}
               </p>
               {loadingListings ? (
-                <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm }}>Loading your menu items...</p>
+                <p style={{ color: statusColors.neutral500, fontSize: typography.sizes.sm }}>Loading your items...</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing['2xs'], marginBottom: spacing.sm }}>
                   {cateringListings.map(listing => {
@@ -675,16 +749,22 @@ export default function VendorCateringDetailPage() {
             }}
           >
             <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
-              Add your event menu items to the{' '}
-              <Link href={`/${vertical}/markets/${marketId}`} style={{ color: accent, fontWeight: typography.weights.semibold }}>
-                event market page
-              </Link>
+              {vertical === 'farmers_market'
+                ? 'Your selected items are now visible to event attendees'
+                : <>Add your event menu items to the{' '}<Link href={`/${vertical}/markets/${marketId}`} style={{ color: accent, fontWeight: typography.weights.semibold }}>event market page</Link></>
+              }
             </li>
             <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
-              Keep your menu focused — just what you want to sell at this event
+              {vertical === 'farmers_market'
+                ? 'Keep your selection focused — highlight your best products for this audience'
+                : 'Keep your menu focused — just what you want to sell at this event'
+              }
             </li>
             <li style={{ fontSize: typography.sizes.sm, color: statusColors.neutral700, lineHeight: 1.5 }}>
-              Pre-orders will arrive before the event so you can prep exactly what&apos;s needed
+              {vertical === 'farmers_market'
+                ? 'Pre-orders let customers reserve items ahead — guaranteed sales before you arrive'
+                : "Pre-orders will arrive before the event so you can prep exactly what's needed"
+              }
             </li>
           </ol>
         </div>
