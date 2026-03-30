@@ -91,6 +91,7 @@ export type NotificationType =
   | 'vendor_event_approved'
   | 'vendor_event_application_submitted'
   | 'vendor_event_application_received'
+  | 'event_vendor_gap_alert'
   | 'listing_suspended'
 
 // ── Template Types ───────────────────────────────────────────────────
@@ -752,6 +753,15 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     title: () => 'Event Application Received',
     message: () => 'Your private event readiness application has been submitted. Our team will review it and get back to you.',
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/edit`,
+  },
+
+  event_vendor_gap_alert: {
+    urgency: 'standard',
+    severity: 'warning',
+    audience: 'admin',
+    title: () => 'Event Needs More Vendors',
+    message: (d) => `Event "${d.vendorName || 'Unknown'}" on ${d.pickupDate || '?'} — ${d.quantity || 0} of ${d.pendingOrderCount || '?'} requested vendors accepted after 24 hours. Consider manual outreach or inviting additional vendors.`,
+    actionUrl: (d) => `/${d.vertical || 'food_trucks'}/admin/events`,
   },
 
   listing_suspended: {
