@@ -96,38 +96,38 @@ export async function GET(
       const vp = vendorProfileMap[vendorId]
       if (!vp) continue
 
-        // Get vendor's event-specific listings
-        const { data: eventListings } = await supabase
+        // Get vendor's event listing IDs (simple, no embed)
+        const { data: evlRows } = await supabase
           .from('event_vendor_listings')
-          .select(`
-            listing:listings (
-              id, title, description, price_cents, image_urls,
-              quantity_available, listing_data
-            )
-          `)
+          .select('listing_id')
           .eq('market_id', event.market_id)
           .eq('vendor_profile_id', vp.id)
 
-        const listings = (eventListings || [])
-          .map(el => {
-            const l = el.listing as unknown as {
-              id: string; title: string; description: string | null
-              price_cents: number; image_urls: string[] | null
-              quantity_available: number | null; listing_data: Record<string, unknown> | null
-            } | null
-            if (!l) return null
-            const ld = l.listing_data || {}
+        const listingIds = (evlRows || []).map(r => r.listing_id as string)
+
+        // Fetch full listing details directly
+        let listings: typeof vendors[0]['listings'] = []
+        if (listingIds.length > 0) {
+          const { data: listingRows } = await supabase
+            .from('listings')
+            .select('id, title, description, price_cents, image_urls, quantity_available, listing_data')
+            .in('id', listingIds)
+            .eq('status', 'published')
+            .is('deleted_at', null)
+
+          listings = (listingRows || []).map(l => {
+            const ld = (l.listing_data as Record<string, unknown>) || {}
             return {
               id: l.id,
               title: l.title,
               description: l.description,
-              price_cents: l.price_cents,
-              primary_image_url: l.image_urls?.[0] || null,
-              quantity_available: l.quantity_available,
+              price_cents: l.price_cents as number,
+              primary_image_url: (l.image_urls as string[] | null)?.[0] || null,
+              quantity_available: l.quantity_available as number | null,
               unit_label: (ld.unit_label as string) || null,
             }
           })
-          .filter(Boolean) as typeof vendors[0]['listings']
+        }
 
         if (listings.length === 0) continue // Skip vendors with no event listings
 
