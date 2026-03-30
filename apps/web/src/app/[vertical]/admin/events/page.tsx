@@ -109,6 +109,7 @@ interface VendorOption {
   avg_price_cents: number | null
   listing_categories: string[]
   cancellation_rate: number
+  event_item_count: number
 }
 
 interface MarketVendor {
@@ -266,7 +267,10 @@ export default function AdminCateringPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setActionMessage(data.message)
+        const skippedInfo = data.skipped?.length > 0
+          ? `\nSkipped: ${data.skipped.map((s: { name: string; reason: string }) => `${s.name} — ${s.reason}`).join('; ')}`
+          : ''
+        setActionMessage(`${data.message}${skippedInfo}`)
         fetchData()
       } else {
         setActionMessage(`Error: ${data.error}`)
@@ -1420,6 +1424,14 @@ export default function AdminCateringPage() {
                                 {v.event_approved && (
                                   <span style={{ padding: `1px ${spacing['2xs']}`, backgroundColor: '#d1fae5', color: '#065f46', borderRadius: 8, fontSize: 10, fontWeight: typography.weights.semibold }}>Event ✓</span>
                                 )}
+                                <span style={{
+                                  padding: `1px ${spacing['2xs']}`,
+                                  backgroundColor: v.event_item_count >= 4 ? '#dbeafe' : '#fef3c7',
+                                  color: v.event_item_count >= 4 ? '#1e40af' : '#92400e',
+                                  borderRadius: 8, fontSize: 10, fontWeight: typography.weights.semibold,
+                                }}>
+                                  {v.event_item_count} event items{v.event_item_count < 4 ? ' (need 4+)' : ''}
+                                </span>
                                 <span style={{ fontSize: 10, fontWeight: typography.weights.semibold, color: sc }}>{ms.platform_score.toFixed(1)}</span>
                                 <span style={{ fontSize: 10, color: statusColors.neutral400, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap', marginLeft: 'auto' }}>
                                   {v.avg_price_cents != null && (

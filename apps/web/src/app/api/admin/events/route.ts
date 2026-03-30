@@ -90,31 +90,39 @@ export async function GET(request: NextRequest) {
     const vendorIds = (vendorProfiles || []).map(v => v.id)
     const avgPriceMap: Record<string, number | null> = {}
     const categoryMap: Record<string, string[]> = {}
+    const eventItemMap: Record<string, number> = {}
 
     if (vendorIds.length > 0) {
       const { data: listingStats } = await serviceClient
         .from('listings')
-        .select('vendor_profile_id, price_cents, category')
+        .select('vendor_profile_id, price_cents, category, listing_data')
         .in('vendor_profile_id', vendorIds)
         .eq('status', 'published')
         .is('deleted_at', null)
 
       if (listingStats) {
-        // Group by vendor, calculate average price and collect categories
+        // Group by vendor, calculate average price, collect categories, count event items
         const vendorPrices: Record<string, number[]> = {}
         const vendorCats: Record<string, Set<string>> = {}
+        const vendorEventItems: Record<string, number> = {}
         for (const l of listingStats) {
           const vid = l.vendor_profile_id as string
           if (!vendorPrices[vid]) vendorPrices[vid] = []
           if (!vendorCats[vid]) vendorCats[vid] = new Set()
+          if (!vendorEventItems[vid]) vendorEventItems[vid] = 0
           if (l.price_cents) vendorPrices[vid].push(l.price_cents as number)
           if (l.category) vendorCats[vid].add(l.category as string)
+          const ld = l.listing_data as Record<string, unknown> | null
+          if (ld?.event_menu_item) vendorEventItems[vid]++
         }
         for (const [vid, prices] of Object.entries(vendorPrices)) {
           avgPriceMap[vid] = prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : null
         }
         for (const [vid, cats] of Object.entries(vendorCats)) {
           categoryMap[vid] = Array.from(cats)
+        }
+        for (const [vid, count] of Object.entries(vendorEventItems)) {
+          eventItemMap[vid] = count
         }
       }
     }
@@ -138,6 +146,7 @@ export async function GET(request: NextRequest) {
         avg_price_cents: avgPriceMap[v.id] || null,
         listing_categories: categoryMap[v.id] || [],
         cancellation_rate: cancellationRate,
+        event_item_count: eventItemMap[v.id] || 0,
       }
     })
 
