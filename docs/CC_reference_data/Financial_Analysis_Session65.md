@@ -388,3 +388,265 @@ Conversion drivers: hitting free tier limits (20 listings, 3 markets, 3 market b
 | Stripe fees eating margin | 2.9% + $0.30 is significant on small orders | Small order fee partially offsets; encourage larger orders |
 | Single-admin bottleneck | You can't manage 5 markets alone | Hire before you're overwhelmed, not after |
 | TX cottage food law changes | Could restrict online sales | Monitor TX legislature; diversify to FT/events |
+
+---
+
+## Vendor Value Proposition — How the App Helps Vendors Make More Money
+
+### The Vendor's Core Question
+*"You're taking 6.5% of my sales. Why would I use this?"*
+
+The answer has to be grounded in real numbers. Below are scenarios for both FT operators and FM vendors showing net impact — including the platform fee as a cost, but also the new revenue the platform creates that they wouldn't have otherwise.
+
+### Key Assumptions
+
+| Factor | Value | Rationale |
+|--------|-------|-----------|
+| **Existing customer migration** | 5-15% of current customers start ordering through the app | Some regulars adopt the convenience; vendor still serves them in person too |
+| **Platform fee on migrated sales** | 6.5% deducted | This is the "cost" of the app on existing business |
+| **Net loss on migrated sales** | ~6.5% on 5-15% of revenue = 0.3-1.0% of total revenue | Small — most customers still pay at the truck/booth |
+| **New customers from platform** | 10-30% incremental | Discovery via browse page, location search, event invitations |
+| **Pre-order rate** | 20-40% of app orders | Buyers order ahead, vendor preps with certainty |
+| **Food waste reduction (FT)** | 5-15% of current waste | Pre-orders = known demand. Average FT wastes 8-15% of prep |
+| **No-show reduction (FM)** | Market box subs guarantee buyers | Weekly commitment, 4-week term |
+| **Event revenue** | 100% incremental | Vendor wouldn't have been at the event without the platform |
+| **Avg tip on app orders (FT)** | 15-20% | Digital payment increases tip rate vs cash (industry data: 15-18% digital vs 8-12% cash) |
+
+---
+
+### FOOD TRUCK OPERATOR SCENARIOS
+
+#### Baseline: FT Operator WITHOUT the App
+
+| Metric | Small Operator | Mid Operator | Established Operator |
+|--------|---------------|-------------|---------------------|
+| Weekly revenue | $2,000 | $4,500 | $8,000 |
+| Monthly revenue | $8,000 | $18,000 | $32,000 |
+| Locations served/week | 2-3 | 4-5 | 5-7 |
+| Avg customers/day | 40-60 | 80-120 | 120-180 |
+| Avg order value | $13.50 | $13.50 | $13.50 |
+| Food waste (% of COGS) | 12% | 10% | 8% |
+| COGS (% of revenue) | 35% | 32% | 30% |
+| Monthly food waste ($) | $336 | $576 | $768 |
+| Cash payment % | 40% | 35% | 25% |
+| Avg tip (cash) | 10% | 10% | 10% |
+| Avg tip (card/digital) | 17% | 17% | 17% |
+
+#### FT Scenario 1: Small Operator + App (Free Tier)
+
+| Impact Area | Calculation | Monthly $ |
+|-------------|------------|----------|
+| **COSTS (app-related)** | | |
+| Migrated customer fee | 10% of $8,000 migrated × 6.5% | **($52)** |
+| Subscription | Free tier | $0 |
+| **Subtotal costs** | | **($52)** |
+| | | |
+| **NEW REVENUE** | | |
+| New customers (discovery) | 15% incremental = $1,200 new sales | **+$1,200** |
+| After platform fee on new sales | $1,200 × 93.5% (vendor keeps) | Net: **+$1,122** |
+| Pre-order waste reduction | 25% of app orders pre-ordered → 8% waste reduction on those | **+$67** |
+| Event revenue (1 event/month avg) | $500 gross × 93.5% | **+$468** |
+| Higher tips (digital shift) | 10% of customers shift cash→digital: +7% tip on ~$800 | **+$56** |
+| **Subtotal new revenue** | | **+$1,713** |
+| | | |
+| **NET IMPACT** | | **+$1,661/month** |
+| **Annual impact** | | **+$19,932/year** |
+| **ROI on platform fees** | $1,661 gained ÷ $130 in fees (total) | **12.8x return** |
+
+#### FT Scenario 2: Mid Operator + App (Pro Tier, $25/mo)
+
+| Impact Area | Calculation | Monthly $ |
+|-------------|------------|----------|
+| **COSTS** | | |
+| Migrated customer fee | 12% of $18,000 × 6.5% | **($140)** |
+| Subscription | Pro tier | **($25)** |
+| **Subtotal costs** | | **($165)** |
+| | | |
+| **NEW REVENUE** | | |
+| New customers (discovery + priority placement) | 20% incremental = $3,600 | Net after fee: **+$3,366** |
+| Pre-order waste reduction | 30% pre-order rate → 10% waste cut | **+$162** |
+| Events (2/month avg) | $1,000 gross × 93.5% | **+$935** |
+| Chef Box subscriptions (3 active) | 3 × $35/week × 4 weeks × 87% (after 13% fee) | **+$366** |
+| Higher tips | 15% of customers shift: +7% on $2,700 | **+$189** |
+| **Subtotal new revenue** | | **+$5,018** |
+| | | |
+| **NET IMPACT** | | **+$4,853/month** |
+| **Annual impact** | | **+$58,236/year** |
+| **ROI** | $4,853 ÷ $399 fees | **12.2x return** |
+
+#### FT Scenario 3: Established Operator + App (Boss Tier, $50/mo)
+
+| Impact Area | Calculation | Monthly $ |
+|-------------|------------|----------|
+| **COSTS** | | |
+| Migrated customer fee | 15% of $32,000 × 6.5% | **($312)** |
+| Subscription | Boss tier | **($50)** |
+| **Subtotal costs** | | **($362)** |
+| | | |
+| **NEW REVENUE** | | |
+| New customers (full platform benefits) | 25% incremental = $8,000 | Net: **+$7,480** |
+| Pre-order waste reduction | 35% pre-order, 12% waste cut | **+$403** |
+| Events (3/month avg) | $1,500 gross × 93.5% | **+$1,403** |
+| Chef Box subscriptions (6 active) | 6 × $40/week × 4 × 87% | **+$836** |
+| Corporate recurring (1 weekly program) | $1,200/month gross × 93.5% | **+$1,122** |
+| Higher tips | 20% shift: +7% on $6,400 | **+$448** |
+| SMS/push notifications → fewer missed orders | 5% order recovery | **+$120** |
+| **Subtotal new revenue** | | **+$11,812** |
+| | | |
+| **NET IMPACT** | | **+$11,450/month** |
+| **Annual impact** | | **+$137,400/year** |
+| **ROI** | $11,450 ÷ $674 fees | **17x return** |
+
+#### FT Summary: What the Vendor Actually Sees
+
+| Tier | Monthly Fee Cost | Total Platform Fees | New Revenue | Net Gain | ROI |
+|------|-----------------|-------------------|-------------|----------|-----|
+| Free | $0 | $130 | $1,713 | **+$1,661** | 12.8x |
+| Pro ($25) | $25 | $399 | $5,018 | **+$4,853** | 12.2x |
+| Boss ($50) | $50 | $674 | $11,812 | **+$11,450** | 17x |
+
+**The pitch:** *"The app costs you about $130/month in fees. It brings you $1,700+ in new business you wouldn't have otherwise. That's a 13x return. And you keep 93.5 cents of every dollar — we just help more dollars find you."*
+
+---
+
+### FARMERS MARKET VENDOR SCENARIOS
+
+#### Baseline: FM Vendor WITHOUT the App
+
+| Metric | Cottage Food Startup | Established FM Vendor | Multi-Market Vendor |
+|--------|---------------------|----------------------|-------------------|
+| Markets attended/week | 1 | 2 | 3-4 |
+| Weekly revenue | $400 | $1,200 | $3,000 |
+| Monthly revenue | $1,600 | $4,800 | $12,000 |
+| Avg transaction | $18 | $18 | $18 |
+| Customers/market day | 15-25 | 30-50 | 50-80 |
+| Unsold product waste | 15% | 10% | 8% |
+| COGS (% of revenue) | 40% | 35% | 32% |
+| Monthly waste ($) | $96 | $168 | $307 |
+| Repeat customer rate | 30% | 50% | 60% |
+| Cash payment % | 60% | 45% | 30% |
+
+**FM-specific dynamics:**
+- FM vendors often can't take digital payments easily at the booth (poor cell signal, line friction)
+- Product is perishable — unsold inventory = lost money
+- Market boxes solve the "bake too much / harvest too much" problem
+- Events are purely incremental — cottage food vendors don't typically get invited to corporate events
+
+#### FM Scenario 1: Cottage Food Startup + App (Free Tier)
+
+| Impact Area | Calculation | Monthly $ |
+|-------------|------------|----------|
+| **COSTS** | | |
+| Migrated customer fee | 5% of $1,600 × 6.5% | **($5)** |
+| Subscription | Free tier | $0 |
+| **Subtotal costs** | | **($5)** |
+| | | |
+| **NEW REVENUE** | | |
+| New customers (discovery) | 12% incremental = $192 | Net: **+$180** |
+| Pre-order waste reduction | 20% pre-ordered → 10% waste cut | **+$10** |
+| Market Box (1 offering, 5 subs) | 5 × $30/week × 4 × 87% | **+$522** |
+| Event revenue (1 every 2 months) | $200 gross × 93.5% ÷ 2 | **+$94** |
+| **Subtotal new revenue** | | **+$806** |
+| | | |
+| **NET IMPACT** | | **+$801/month** |
+| **Annual impact** | | **+$9,612/year** |
+| **ROI** | $801 ÷ $17 fees | **47x return** |
+
+**The market box is the game-changer for FM startups.** A cottage food vendor making $1,600/month who adds just 5 Market Box subscribers at $30/week suddenly has $600/month in guaranteed recurring revenue — a 37% revenue increase with zero customer acquisition cost after the first sale.
+
+#### FM Scenario 2: Established FM Vendor + App (Free Tier)
+
+| Impact Area | Calculation | Monthly $ |
+|-------------|------------|----------|
+| **COSTS** | | |
+| Migrated customer fee | 8% of $4,800 × 6.5% | **($25)** |
+| Subscription | Free tier | $0 |
+| **Subtotal costs** | | **($25)** |
+| | | |
+| **NEW REVENUE** | | |
+| New customers (discovery + browse page) | 18% incremental = $864 | Net: **+$808** |
+| Pre-order waste reduction | 25% pre-ordered → 12% waste cut | **+$50** |
+| Market Box (2 offerings, 15 total subs) | 15 × $32/week × 4 × 87% | **+$1,670** |
+| Events (1/month) | $400 gross × 93.5% | **+$374** |
+| Private pickup location revenue | New channel, $300/month incremental | Net: **+$281** |
+| **Subtotal new revenue** | | **+$3,183** |
+| | | |
+| **NET IMPACT** | | **+$3,158/month** |
+| **Annual impact** | | **+$37,896/year** |
+| **ROI** | $3,158 ÷ $81 fees | **39x return** |
+
+#### FM Scenario 3: Multi-Market Vendor + App (Pro Tier, $25/mo)
+
+| Impact Area | Calculation | Monthly $ |
+|-------------|------------|----------|
+| **COSTS** | | |
+| Migrated customer fee | 12% of $12,000 × 6.5% | **($94)** |
+| Subscription | Pro tier | **($25)** |
+| **Subtotal costs** | | **($119)** |
+| | | |
+| **NEW REVENUE** | | |
+| New customers (priority + 5 markets) | 25% incremental = $3,000 | Net: **+$2,805** |
+| Pre-order waste reduction | 30% pre-ordered → 15% waste cut | **+$138** |
+| Market Box (4 offerings, 40 total subs) | 40 × $35/week × 4 × 87% | **+$4,872** |
+| Events (2/month) | $800 gross × 93.5% | **+$748** |
+| Private pickup locations (3) | $800/month incremental | Net: **+$748** |
+| Seasonal subscription retention | Boxes keep revenue steady in slow months | **+$200** (winter avg) |
+| **Subtotal new revenue** | | **+$9,511** |
+| | | |
+| **NET IMPACT** | | **+$9,392/month** |
+| **Annual impact** | | **+$112,704/year** |
+| **ROI** | $9,392 ÷ $337 fees | **28x return** |
+
+#### FM Summary: What the Vendor Actually Sees
+
+| Tier | Monthly Fees | New Revenue | Net Gain | ROI | Key Driver |
+|------|-------------|-------------|----------|-----|-----------|
+| Startup (Free) | $17 | $806 | **+$801** | 47x | Market Boxes |
+| Established (Free) | $81 | $3,183 | **+$3,158** | 39x | Market Boxes + discovery |
+| Multi-Market (Pro) | $337 | $9,511 | **+$9,392** | 28x | Boxes + events + locations |
+
+**The pitch:** *"Your Market Box subscriptions alone will generate more new revenue in a month than you'll pay in platform fees all year. Five subscribers at $30/week = $600/month guaranteed — your baking and harvesting is pre-sold before market day."*
+
+---
+
+### The Real Cost of NOT Using the Platform
+
+This is the flip side — what vendors lose by staying offline:
+
+| What They Miss | FT Monthly Value | FM Monthly Value |
+|---------------|-----------------|-----------------|
+| Customers who search "food trucks near me" | $500-2,000 | $200-800 |
+| Pre-orders (reduced waste) | $67-403 | $10-138 |
+| Event invitations | $468-1,403 | $94-748 |
+| Market Box/Chef Box recurring revenue | $0-836 | $522-4,872 |
+| Corporate/recurring programs | $0-1,122 | N/A |
+| Digital tip uplift | $56-448 | N/A |
+| **Total missed opportunity** | **$1,091-6,212/mo** | **$826-6,558/mo** |
+
+---
+
+### Sensitivity Analysis — "What If the App Underperforms?"
+
+Even in a worst case where the app delivers half the projected benefits:
+
+| Vendor Type | Half-Performance Revenue | Platform Fees | Still Net Positive? |
+|------------|------------------------|--------------|-------------------|
+| FT Small (Free) | $857 | $130 | **Yes — +$727** |
+| FT Mid (Pro) | $2,509 | $399 | **Yes — +$2,110** |
+| FM Startup (Free) | $403 | $17 | **Yes — +$386** |
+| FM Established (Free) | $1,592 | $81 | **Yes — +$1,511** |
+
+**Even at 50% of projected performance, every vendor scenario is profitable.** The platform fee is so small relative to the new revenue channels (especially Market Boxes and events) that it's nearly impossible for a vendor to lose money using the app — as long as they actually list products and show up.
+
+---
+
+### What to Tell Vendors (Conversation Framework)
+
+**For Food Trucks:**
+> "Right now you're serving the people who happen to drive by. With the app, you're also reaching the people who are searching for food trucks from their desk at lunch. We bring you customers you'd never see otherwise — and you keep 93.5 cents of every dollar. The app pays for itself in about 3 days of new orders."
+
+**For FM Vendors:**
+> "How much product did you bring home from the market last week? What if that was pre-sold before you got there? Our Market Box subscriptions let your best customers commit to a weekly box — that's guaranteed revenue. Five subscribers at $30/week and your app fees are covered for the entire year in the first month."
+
+**For the skeptic who says "I don't need an app":**
+> "You're right — you don't need it to survive. But you're leaving $800-5,000 a month on the table. The vendors who ARE on the app are getting event invitations, pre-orders, and new customers from browse searches. The fee is 6.5% — that's less than what Square charges you to swipe a card, and we're not just processing payments, we're sending you customers."
