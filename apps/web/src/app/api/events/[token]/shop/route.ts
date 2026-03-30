@@ -42,21 +42,38 @@ export async function GET(
       .limit(1)
       .single()
 
-    // Get accepted vendors with their event listings
+    // Get accepted vendor IDs from market_vendors (simple query, no join)
     const { data: marketVendors } = await supabase
       .from('market_vendors')
-      .select(`
-        vendor_profile_id,
-        vendor_profiles:vendor_profile_id (
-          id,
-          profile_data,
-          profile_image_url,
-          description,
-          pickup_lead_minutes
-        )
-      `)
+      .select('vendor_profile_id')
       .eq('market_id', event.market_id)
       .eq('response_status', 'accepted')
+
+    const acceptedVendorIds = (marketVendors || []).map(mv => mv.vendor_profile_id as string)
+
+    // Fetch vendor profiles separately (avoids PostgREST FK ambiguity with replaced_vendor_id)
+    const vendorProfileMap: Record<string, {
+      id: string; profile_data: Record<string, unknown>
+      profile_image_url: string | null; description: string | null
+      pickup_lead_minutes: number
+    }> = {}
+
+    if (acceptedVendorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('vendor_profiles')
+        .select('id, profile_data, profile_image_url, description, pickup_lead_minutes')
+        .in('id', acceptedVendorIds)
+
+      for (const vp of profiles || []) {
+        vendorProfileMap[vp.id] = {
+          id: vp.id,
+          profile_data: vp.profile_data as Record<string, unknown>,
+          profile_image_url: vp.profile_image_url,
+          description: vp.description,
+          pickup_lead_minutes: (vp.pickup_lead_minutes as number) || 30,
+        }
+      }
+    }
 
     const vendors: Array<{
       id: string
@@ -75,16 +92,9 @@ export async function GET(
       }>
     }> = []
 
-    if (marketVendors) {
-      for (const mv of marketVendors) {
-        const vp = mv.vendor_profiles as unknown as {
-          id: string
-          profile_data: Record<string, unknown>
-          profile_image_url: string | null
-          description: string | null
-          pickup_lead_minutes: number
-        } | null
-        if (!vp) continue
+    for (const vendorId of acceptedVendorIds) {
+      const vp = vendorProfileMap[vendorId]
+      if (!vp) continue
 
         // Get vendor's event-specific listings
         const { data: eventListings } = await supabase
@@ -130,7 +140,6 @@ export async function GET(
           listings,
         })
       }
-    }
 
     const isFT = event.vertical_id === 'food_trucks'
 
