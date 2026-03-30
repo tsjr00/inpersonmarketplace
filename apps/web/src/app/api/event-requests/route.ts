@@ -375,7 +375,46 @@ async function sendOrganizerConfirmation(
   const senderDomain = isFM ? 'mail.farmersmarketing.app' : 'mail.foodtruckn.app'
   const accentColor = isFM ? '#2d5016' : '#ff5757'
   const serviceName = isFM ? 'Farmers Marketing' : "Food Truck'n"
-  const eventType = isFM ? 'pop-up market' : 'food truck event'
+  const eventType = isFM ? 'Market event' : 'Food truck event'
+  const vendorWord = isFM ? 'vendors' : 'food trucks'
+  const { getAppUrl } = await import('@/lib/environment')
+  const signupUrl = `${getAppUrl(verticalId)}/${verticalId}/signup?ref=event&email=${encodeURIComponent(contactEmail)}`
+
+  const selfServiceBodyFT = `
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Thank you for choosing Food Truck'n to help with your event.
+    </p>
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Our system is matching your request with qualified food trucks right now based on the event details you provided and confirming their interest and availability. As available trucks respond you will be updated. We aim to have all available trucks respond within 48 hours and then present you with the menu options and details of the available trucks.
+    </p>
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Please create an account using the link below so you can see your event details before they are published, and you can start sharing your event page. On your user dashboard you will find a section titled &ldquo;My Events&rdquo; that will have all the information you need to make your final selections for which truck you want at your event. Please watch your inbox as well as your in-app notifications for additional information.
+    </p>
+  `
+
+  const selfServiceBodyFM = `
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Thank you for choosing Farmers Marketing to help with your event.
+    </p>
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Our system is matching your request with qualified vendors right now based on the event details you provided and confirming their interest and availability. As available vendors respond you will be updated. We aim to have all available vendors respond within 48 hours and then present you with information about the items they will offer at the popup market, as well as details about their space &amp; setup needs.
+    </p>
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Please create an account using the link below so you can see your event details before they are published, and you can start sharing your event page. On your user dashboard you will find a section titled &ldquo;My Events&rdquo; that will have all the information you need to make your final selections for which vendors you want at your event. Please watch your inbox as well as your in-app notifications for additional information.
+    </p>
+  `
+
+  const managedBody = `
+    <p style="color:#4b5563;line-height:1.7;margin:0 0 16px">
+      Thank you for choosing ${serviceName} to help with your event. Our team will review your request and personally coordinate ${vendorWord} selection, logistics, and day-of support.
+    </p>
+    <ol style="color:#4b5563;line-height:1.8;padding-left:20px;margin:0 0 20px">
+      <li>Our team reviews your request (typically within 24 hours)</li>
+      <li>We match event-approved ${vendorWord} to your needs</li>
+      <li>You&rsquo;ll receive vendor recommendations with details and pricing</li>
+      <li>Once confirmed, your guests can pre-order online for a seamless experience</li>
+    </ol>
+  `
 
   try {
     const { Resend } = await import('resend')
@@ -389,9 +428,6 @@ async function sendOrganizerConfirmation(
         <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto">
           <h2 style="color:${accentColor};margin:0 0 8px">We received your request!</h2>
           <p style="color:#374151;margin:0 0 20px;font-size:16px">Hi ${escapeHtml(contactName)},</p>
-          <p style="color:#4b5563;line-height:1.6;margin:0 0 16px">
-            Thank you for reaching out to ${serviceName} about your upcoming event. Here&rsquo;s a summary of what we received:
-          </p>
           <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:0 0 20px">
             <table style="border-collapse:collapse;width:100%">
               <tr><td style="padding:6px 0;font-weight:600;color:#374151;width:120px">Company</td><td style="padding:6px 0;color:#4b5563">${escapeHtml(companyName)}</td></tr>
@@ -400,20 +436,12 @@ async function sendOrganizerConfirmation(
               <tr><td style="padding:6px 0;font-weight:600;color:#374151">Location</td><td style="padding:6px 0;color:#4b5563">${escapeHtml(city)}, ${escapeHtml(state)}</td></tr>
             </table>
           </div>
-          <h3 style="color:${accentColor};margin:0 0 8px;font-size:16px">What happens next?</h3>
-          <ol style="color:#4b5563;line-height:1.8;padding-left:20px;margin:0 0 20px">
-            ${isSelfService ? `
-            <li>We&rsquo;re notifying qualified food trucks about your event right now</li>
-            <li>Interested trucks will respond within 48 hours</li>
-            <li>You&rsquo;ll receive a list of available trucks with menus and details</li>
-            <li>Select your favorites, and we&rsquo;ll set up your event page for pre-orders</li>
-            ` : `
-            <li>Our team reviews your request (typically within 24 hours)</li>
-            <li>We match event-approved food trucks to your needs</li>
-            <li>You&rsquo;ll receive vendor recommendations with menus and pricing</li>
-            <li>Once confirmed, your guests can pre-order online for a seamless experience</li>
-            `}
-          </ol>
+          ${isSelfService ? (isFM ? selfServiceBodyFM : selfServiceBodyFT) : managedBody}
+          <div style="text-align:center;margin:0 0 20px">
+            <a href="${signupUrl}" style="display:inline-block;padding:12px 32px;background:${accentColor};color:white;text-decoration:none;border-radius:6px;font-weight:600;font-size:16px">
+              Create Your Account
+            </a>
+          </div>
           <p style="color:#6b7280;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:16px">
             Questions? Reply to this email or visit our <a href="https://${isFM ? 'farmersmarketing.app' : 'foodtruckn.app'}/${verticalId}/support" style="color:${accentColor}">support page</a>.
           </p>

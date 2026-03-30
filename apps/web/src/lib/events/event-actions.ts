@@ -306,6 +306,11 @@ export async function autoMatchAndInvite(
 
   for (const inv of newInvites) {
     if (!inv.vendor.user_id) continue
+    // Build time range string if start/end times available
+    const timeRange = request.event_start_time && request.event_end_time
+      ? `${request.event_start_time.slice(0, 5)} to ${request.event_end_time.slice(0, 5)}`
+      : ''
+
     await sendNotification(inv.vendor.user_id as string, 'catering_vendor_invited', {
       // company_name intentionally NOT shared — organizer identity protected
       companyName: 'Private Event',
@@ -313,6 +318,7 @@ export async function autoMatchAndInvite(
       headcountPerVendor,
       eventDate: eventDateFormatted,
       eventAddress: `${request.city}, ${request.state}`,
+      reason: timeRange, // repurposed for time range in message template
       vertical: request.vertical_id,
       marketId: marketId,
     }, { vertical: request.vertical_id })
