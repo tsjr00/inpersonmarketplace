@@ -2141,6 +2141,74 @@ export async function GET(request: NextRequest) {
       console.error('Phase 12 error:', phase12Error instanceof Error ? phase12Error.message : 'Unknown error')
     }
 
+    // ─── Phase 13: Event Vendor Gap Alert (24hr) ───────────────────────
+    // Notify admins when self-service events have fewer accepted vendors
+    // than requested, 24 hours after auto-invite was sent.
+    let eventGapAlerts = 0
+    try {
+      const gapCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const gapMaxAge = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() // Don't alert after 48hr (Phase 12 handles that)
+
+      const { data: gapEvents } = await supabase
+        .from('catering_requests')
+        .select('id, company_name, event_date, vendor_count, market_id, vertical_id, auto_invite_sent_at')
+        .eq('service_level', 'self_service')
+        .eq('status', 'approved')
+        .not('auto_invite_sent_at', 'is', null)
+        .lte('auto_invite_sent_at', gapCutoff)
+        .gte('auto_invite_sent_at', gapMaxAge)
+
+      if (gapEvents && gapEvents.length > 0) {
+        for (const event of gapEvents) {
+          if (!event.market_id) continue
+
+          // Count accepted vendors
+          const { count: acceptedCount } = await supabase
+            .from('market_vendors')
+            .select('id', { count: 'exact', head: true })
+            .eq('market_id', event.market_id)
+            .eq('response_status', 'accepted')
+
+          const accepted = acceptedCount || 0
+          const requested = event.vendor_count || 2
+
+          // Only alert if there's a gap
+          if (accepted >= requested) continue
+
+          // Dedup: check if we already sent this alert for this event
+          const { count: alreadySent } = await supabase
+            .from('notifications')
+            .select('id', { count: 'exact', head: true })
+            .eq('type', 'event_vendor_gap_alert')
+            .like('action_url', `%/admin/events%`)
+            .gte('created_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+
+          if (alreadySent && alreadySent > 0) continue
+
+          // Get admin users
+          const { data: admins } = await supabase
+            .from('user_profiles')
+            .select('user_id')
+            .or('role.eq.admin,role.eq.platform_admin')
+
+          if (admins && admins.length > 0) {
+            const eventDateFmt = event.event_date ? new Date(event.event_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '?'
+            for (const admin of admins) {
+              await sendNotification(admin.user_id, 'event_vendor_gap_alert', {
+                vendorName: event.company_name || 'Unknown Event',
+                pickupDate: eventDateFmt,
+                quantity: accepted,
+                pendingOrderCount: requested,
+              }, { vertical: event.vertical_id })
+            }
+            eventGapAlerts++
+          }
+        }
+      }
+    } catch (phase13Error) {
+      console.error('Phase 13 error:', phase13Error instanceof Error ? phase13Error.message : 'Unknown error')
+    }
+
     return NextResponse.json({
       success: true,
       message: `Processed ${totalProcessed} items`,
@@ -2157,6 +2225,7 @@ export async function GET(request: NextRequest) {
       trialLifecycle: { reminders: trialReminders, expired: trialExpired, graceProcessed: trialGraceProcessed },
       eventReminders,
       selfServiceResultsSent,
+      eventGapAlerts,
     })
   })
 }
