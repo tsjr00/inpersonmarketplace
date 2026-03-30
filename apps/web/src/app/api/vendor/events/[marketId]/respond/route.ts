@@ -239,6 +239,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           console.error('[vendor/catering/respond] Listing insert error:', listingError)
           // Don't fail the response — acceptance is recorded, listings can be added later
         }
+
+        // Also insert into listing_markets so the cart/checkout system can find these
+        // listings at the event market (cart validates via listing_markets, not event_vendor_listings)
+        for (const l of cateringEligible) {
+          await serviceClient
+            .from('listing_markets')
+            .upsert(
+              { listing_id: l.id, market_id: marketId },
+              { onConflict: 'listing_id,market_id' }
+            )
+        }
       }
 
       // Get market + catering request for admin notification
