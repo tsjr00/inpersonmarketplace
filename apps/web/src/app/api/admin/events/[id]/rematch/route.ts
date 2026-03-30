@@ -96,6 +96,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ok: true,
         invited: result.invited,
         matched: result.matched,
+        skipped: result.skipped || [],
         message: result.invited > 0
           ? `${result.invited} new vendor${result.invited > 1 ? 's' : ''} invited`
           : result.error || 'No new qualifying vendors found',

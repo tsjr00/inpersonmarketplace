@@ -49,6 +49,7 @@ interface AutoInviteResult {
   invited: number
   matched: number
   error?: string
+  skipped?: Array<{ name: string; reason: string }>
 }
 
 // --- Event Approval (Market + Token + Schedule Creation) ---
@@ -203,6 +204,7 @@ export async function autoMatchAndInvite(
   }
 
   const scoredVendors: Array<{ vendor: typeof vendors[0]; score: ReturnType<typeof scoreVendorMatch>; cateringItems: number }> = []
+  const skippedVendors: Array<{ name: string; reason: string }> = []
 
   for (const v of vendors) {
     const profileData = v.profile_data as Record<string, unknown> | null
@@ -211,9 +213,13 @@ export async function autoMatchAndInvite(
     const cancelledCount = (v as Record<string, unknown>).orders_cancelled_after_confirm_count as number || 0
     const cancellationRate = confirmedCount >= 10 ? Math.round((cancelledCount / confirmedCount) * 100) : 0
     const cateringItems = vendorCateringCount[v.id] || 0
+    const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Unknown'
 
-    // Skip vendors with fewer than 4 catering items (minimum requirement)
-    if (cateringItems < 4) continue
+    // Skip vendors with fewer than 4 event-eligible items
+    if (cateringItems < 4) {
+      skippedVendors.push({ name: vendorName, reason: `Only ${cateringItems} event-eligible items (need 4+)` })
+      continue
+    }
 
     const matchInput: VendorMatchInput = {
       vendor_id: v.id,
@@ -237,9 +243,11 @@ export async function autoMatchAndInvite(
     const score = scoreVendorMatch(matchInput, eventData)
 
     // 3. Filter: skip vendors with any red score or deal-breakers
-    if (score.cuisine_match === 'red' || score.capacity_fit === 'red' || score.runtime_fit === 'red') continue
-    if (score.deal_breakers.length > 0) continue
-    if (score.platform_score < MIN_MATCH_SCORE) continue
+    if (score.cuisine_match === 'red') { skippedVendors.push({ name: vendorName, reason: 'Cuisine mismatch (red)' }); continue }
+    if (score.capacity_fit === 'red') { skippedVendors.push({ name: vendorName, reason: 'Capacity too low (red)' }); continue }
+    if (score.runtime_fit === 'red') { skippedVendors.push({ name: vendorName, reason: 'Runtime too short (red)' }); continue }
+    if (score.deal_breakers.length > 0) { skippedVendors.push({ name: vendorName, reason: score.deal_breakers[0] }); continue }
+    if (score.platform_score < MIN_MATCH_SCORE) { skippedVendors.push({ name: vendorName, reason: `Score ${score.platform_score} below ${MIN_MATCH_SCORE} minimum` }); continue }
 
     scoredVendors.push({ vendor: v, score, cateringItems })
   }
@@ -255,7 +263,7 @@ export async function autoMatchAndInvite(
   const toInvite = scoredVendors.slice(0, MAX_AUTO_INVITE)
 
   if (toInvite.length === 0) {
-    return { success: true, invited: 0, matched: 0, error: 'No vendors matched event criteria' }
+    return { success: true, invited: 0, matched: 0, error: 'No vendors matched event criteria', skipped: skippedVendors }
   }
 
   // 4. Check for existing invitations (prevent duplicates on retry)
@@ -270,7 +278,7 @@ export async function autoMatchAndInvite(
   const newInvites = toInvite.filter(v => !alreadyInvited.has(v.vendor.id))
 
   if (newInvites.length === 0) {
-    return { success: true, invited: 0, matched: toInvite.length, error: 'All matched vendors already invited' }
+    return { success: true, invited: 0, matched: toInvite.length, error: 'All matched vendors already invited', skipped: skippedVendors }
   }
 
   // 5. Create market_vendors records
@@ -314,5 +322,6 @@ export async function autoMatchAndInvite(
     success: true,
     invited: newInvites.length,
     matched: toInvite.length,
+    skipped: skippedVendors,
   }
 }
