@@ -46,26 +46,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Message contains inappropriate language. Please revise.' }, { status: 400 })
     }
 
-    // Get vendor profile
-    const { data: vendorProfile } = await supabase
+    // Get vendor profile — find the one invited to THIS market (handles multi-vertical)
+    const { data: vendorProfiles } = await supabase
       .from('vendor_profiles')
       .select('id, profile_data')
       .eq('user_id', user.id)
-      .single()
 
-    if (!vendorProfile) {
+    if (!vendorProfiles || vendorProfiles.length === 0) {
       return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
     }
 
     const serviceClient = createServiceClient()
 
-    // Verify vendor is accepted for this event
+    // Find which profile is invited to this market
+    const vpIds = vendorProfiles.map(vp => vp.id)
     const { data: marketVendor } = await serviceClient
       .from('market_vendors')
-      .select('response_status')
+      .select('response_status, vendor_profile_id')
       .eq('market_id', marketId)
-      .eq('vendor_profile_id', vendorProfile.id)
+      .in('vendor_profile_id', vpIds)
       .single()
+
+    const vendorProfile = marketVendor
+      ? vendorProfiles.find(vp => vp.id === marketVendor.vendor_profile_id) || vendorProfiles[0]
+      : vendorProfiles[0]
 
     if (!marketVendor || marketVendor.response_status !== 'accepted') {
       return NextResponse.json(
