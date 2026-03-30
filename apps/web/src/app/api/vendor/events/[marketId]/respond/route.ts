@@ -54,16 +54,29 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
       }
 
-      // Get vendor profile for this user
+      // Look up the market's vertical to scope the vendor profile query
+      const serviceClient = createServiceClient()
+      const { data: marketInfo } = await serviceClient
+        .from('markets')
+        .select('vertical_id')
+        .eq('id', marketId)
+        .single()
+
+      if (!marketInfo) {
+        return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+      }
+
+      // Get vendor profile for this user IN this vertical
       const { data: vendorProfile } = await supabase
         .from('vendor_profiles')
         .select('id, profile_data, vertical_id')
         .eq('user_id', user.id)
+        .eq('vertical_id', marketInfo.vertical_id)
         .single()
 
       if (!vendorProfile) {
         return NextResponse.json(
-          { error: 'Vendor profile not found' },
+          { error: 'Vendor profile not found for this vertical' },
           { status: 404 }
         )
       }
@@ -92,8 +105,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           )
         }
       }
-
-      const serviceClient = createServiceClient()
 
       // Verify this vendor was invited to this market
       const { data: marketVendor, error: mvError } = await serviceClient

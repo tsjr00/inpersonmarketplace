@@ -38,22 +38,33 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
 
       const { marketId } = await context.params
+      const serviceClient = createServiceClient()
 
-      // Get vendor profile
+      // Look up the market's vertical to scope the vendor profile query
+      const { data: marketInfo } = await serviceClient
+        .from('markets')
+        .select('vertical_id')
+        .eq('id', marketId)
+        .single()
+
+      if (!marketInfo) {
+        return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+      }
+
+      // Get vendor profile for this user IN this vertical
       const { data: vendorProfile } = await supabase
         .from('vendor_profiles')
         .select('id')
         .eq('user_id', user.id)
+        .eq('vertical_id', marketInfo.vertical_id)
         .single()
 
       if (!vendorProfile) {
         return NextResponse.json(
-          { error: 'Vendor profile not found' },
+          { error: 'Vendor profile not found for this vertical' },
           { status: 404 }
         )
       }
-
-      const serviceClient = createServiceClient()
 
       // Verify vendor is invited to this market
       const { data: marketVendor } = await serviceClient
