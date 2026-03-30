@@ -92,9 +92,10 @@ export async function GET(
       }>
     }> = []
 
+    const _loopDebug: Array<{ vendorId: string; vpFound: boolean; evlCount: number; listingCount: number; pushed: boolean; error?: string }> = []
     for (const vendorId of acceptedVendorIds) {
       const vp = vendorProfileMap[vendorId]
-      if (!vp) continue
+      if (!vp) { _loopDebug.push({ vendorId, vpFound: false, evlCount: 0, listingCount: 0, pushed: false }); continue }
 
         // Get vendor's event listing IDs (simple, no embed)
         const { data: evlRows, error: evlError } = await supabase
@@ -134,7 +135,10 @@ export async function GET(
           })
         }
 
-        if (listings.length === 0) continue // Skip vendors with no event listings
+        if (listings.length === 0) {
+          _loopDebug.push({ vendorId, vpFound: true, evlCount: listingIds.length, listingCount: 0, pushed: false })
+          continue
+        }
 
         vendors.push({
           id: vp.id,
@@ -144,6 +148,7 @@ export async function GET(
           pickup_lead_minutes: vp.pickup_lead_minutes || 30,
           listings,
         })
+        _loopDebug.push({ vendorId, vpFound: true, evlCount: listingIds.length, listingCount: listings.length, pushed: true })
       }
 
     const isFT = event.vertical_id === 'food_trucks'
@@ -154,6 +159,7 @@ export async function GET(
       acceptedVendorIds,
       profilesFound: Object.keys(vendorProfileMap).length,
       vendorsBuilt: vendors.length,
+      loopDebug: _loopDebug,
       // Test: full pipeline for first vendor
       evl_test: acceptedVendorIds.length > 0 ? await (async () => {
         const vid = acceptedVendorIds[0]
