@@ -670,10 +670,14 @@ export const NOTIFICATION_REGISTRY: Record<NotificationType, NotificationTypeCon
     urgency: 'standard',
     severity: 'info',
     audience: 'vendor',
-    title: (d) => d.vertical === 'farmers_market' ? 'New Pop-Up Market Opportunity' : 'New Event Opportunity',
+    title: () => 'New Event Opportunity',
     message: (d) => {
       const vendorWord = d.vertical === 'farmers_market' ? 'vendors' : 'food trucks'
-      return `${d.companyName} is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate} at ${d.eventAddress}. When you accept, you'll select up to 5 items from your catering menu for this event. Tap to view details and respond.`
+      const timeRange = d.reason ? ` from ${d.reason}` : ''
+      const acceptInstructions = d.vertical === 'farmers_market'
+        ? "If you accept, you'll select the items from your event-ready items for the event manager to review. We recommend updating your item descriptions to make sure they are accurate for what you plan to sell."
+        : "If you accept, you'll select from 4 to 7 items from your catering menu for the event manager to review. We recommend updating your menu item descriptions to make sure they are accurate for what you plan to serve."
+      return `We have matched you with an upcoming private event opportunity. A ${d.eventAddress || ''} event organizer is looking for ${vendorWord} for ${d.headcount} people on ${d.eventDate}${timeRange}. ${acceptInstructions} Tap to view details and respond.`
     },
     actionUrl: (d) => `/${d.vertical || 'food_trucks'}/vendor/events/${d.marketName}`,
   },
