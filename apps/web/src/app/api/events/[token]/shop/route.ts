@@ -97,11 +97,16 @@ export async function GET(
       if (!vp) continue
 
         // Get vendor's event listing IDs (simple, no embed)
-        const { data: evlRows } = await supabase
+        const { data: evlRows, error: evlError } = await supabase
           .from('event_vendor_listings')
           .select('listing_id')
           .eq('market_id', event.market_id)
           .eq('vendor_profile_id', vp.id)
+
+        // Debug: log any query errors
+        if (evlError) {
+          console.error(`[event-shop] evl query error for vendor ${vp.id}:`, evlError.message, evlError.code, evlError.hint)
+        }
 
         const listingIds = (evlRows || []).map(r => r.listing_id as string)
 
@@ -143,7 +148,15 @@ export async function GET(
 
     const isFT = event.vertical_id === 'food_trucks'
 
+    // Temporary debug info — remove after confirming fix
+    const _debug = {
+      acceptedVendorIds,
+      profilesFound: Object.keys(vendorProfileMap).length,
+      vendorsBuilt: vendors.length,
+    }
+
     return NextResponse.json({
+      _debug,
       event: {
         company_name: event.company_name,
         event_date: event.event_date,
