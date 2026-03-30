@@ -95,13 +95,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
         vendor_count: 2,
         event_start_time: null as string | null,
         event_end_time: null as string | null,
+        event_type: null as string | null,
+        payment_model: null as string | null,
+        is_ticketed: false,
+        children_present: false,
+        is_themed: false,
+        theme_description: null as string | null,
+        has_competing_vendors: false,
       }
 
       if (market.catering_request_id) {
         const { data: cReq } = await serviceClient
           .from('catering_requests')
           .select(
-            'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time'
+            'company_name, cuisine_preferences, dietary_notes, setup_instructions, vendor_count, event_start_time, event_end_time, event_type, payment_model, is_ticketed, children_present, is_themed, theme_description, has_competing_vendors'
           )
           .eq('id', market.catering_request_id)
           .single()
@@ -115,6 +122,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
             vendor_count: (cReq.vendor_count as number) || 2,
             event_start_time: cReq.event_start_time as string | null,
             event_end_time: cReq.event_end_time as string | null,
+            event_type: cReq.event_type as string | null,
+            payment_model: cReq.payment_model as string | null,
+            is_ticketed: !!(cReq.is_ticketed),
+            children_present: !!(cReq.children_present),
+            is_themed: !!(cReq.is_themed),
+            theme_description: cReq.theme_description as string | null,
+            has_competing_vendors: !!(cReq.has_competing_vendors),
           }
         }
       }
@@ -155,6 +169,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
           response_status: marketVendor.response_status,
           response_notes: marketVendor.response_notes,
           accepted_count: acceptedCount || 0,
+          event_type: cateringDetails.event_type,
+          payment_model: cateringDetails.payment_model,
+          is_ticketed: cateringDetails.is_ticketed,
+          children_present: cateringDetails.children_present,
+          is_themed: cateringDetails.is_themed,
+          theme_description: cateringDetails.theme_description,
+          has_competing_vendors: cateringDetails.has_competing_vendors,
         },
       })
     }
