@@ -6,7 +6,7 @@ import AdminNav from '@/components/admin/AdminNav'
 import Link from 'next/link'
 import { spacing, typography, radius, statusColors, sizing } from '@/lib/design-tokens'
 import { term } from '@/lib/vertical/terminology'
-import { calculateViability, type EventScoreInput, type ScoreLevel } from '@/lib/events/viability'
+import { calculateViability, scoreVendorMatch, type EventScoreInput, type ScoreLevel, type VendorMatchInput } from '@/lib/events/viability'
 
 interface CateringRequest {
   id: string
@@ -1382,48 +1382,47 @@ export default function AdminCateringPage() {
                               if (!a.event_approved && b.event_approved) return 1
                               return a.business_name.localeCompare(b.business_name)
                             })
-                            .map((v) => (
-                              <label
-                                key={v.id}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: spacing['2xs'],
-                                  fontSize: typography.sizes.sm,
-                                  color: statusColors.neutral700,
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selectedVendors.includes(v.id)}
+                            .map((v) => {
+                              const matchInput: VendorMatchInput = {
+                                vendor_id: v.id, business_name: v.business_name,
+                                listing_categories: v.listing_categories || [],
+                                max_headcount_per_wave: 30, max_runtime_hours: 6,
+                                has_event_experience: false,
+                                average_rating: v.average_rating, rating_count: v.rating_count || 0,
+                                cancellation_rate: v.cancellation_rate || 0, tier: v.tier,
+                                pickup_lead_minutes: v.pickup_lead_minutes,
+                              }
+                              const ms = scoreVendorMatch(matchInput, {
+                                cuisine_preferences: selected.cuisine_preferences,
+                                headcount: selected.headcount, expected_meal_count: selected.expected_meal_count,
+                                vendor_count: selected.vendor_count,
+                                event_start_time: selected.event_start_time, event_end_time: selected.event_end_time,
+                                children_present: selected.children_present, event_type: selected.event_type,
+                              })
+                              const hasIssues = ms.deal_breakers.length > 0
+                              const hasWarns = ms.warnings.length > 0
+                              const sc = ms.platform_score >= 4.0 ? '#059669' : ms.platform_score >= 3.0 ? '#d97706' : '#dc2626'
+                              const levelColor = (l: ScoreLevel) => l === 'green' ? '#059669' : l === 'yellow' ? '#d97706' : '#dc2626'
+                              return (
+                              <div key={v.id} style={{ marginBottom: spacing['3xs'] }}>
+                              <label style={{
+                                display: 'flex', alignItems: 'center', gap: spacing['2xs'],
+                                padding: `${spacing['3xs']} ${spacing.xs}`, borderRadius: radius.sm,
+                                cursor: 'pointer', fontSize: typography.sizes.xs,
+                                backgroundColor: hasIssues ? '#fef2f2' : selectedVendors.includes(v.id) ? statusColors.successLight : 'transparent',
+                                border: `1px solid ${hasIssues ? '#fca5a5' : selectedVendors.includes(v.id) ? statusColors.successBorder : 'transparent'}`,
+                                opacity: hasIssues ? 0.7 : 1,
+                              }}>
+                                <input type="checkbox" checked={selectedVendors.includes(v.id)}
                                   onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedVendors((prev) => [
-                                        ...prev,
-                                        v.id,
-                                      ])
-                                    } else {
-                                      setSelectedVendors((prev) =>
-                                        prev.filter((id) => id !== v.id)
-                                      )
-                                    }
-                                  }}
-                                />
+                                    if (e.target.checked) setSelectedVendors(prev => [...prev, v.id])
+                                    else setSelectedVendors(prev => prev.filter(id => id !== v.id))
+                                  }} />
                                 <span style={{ fontWeight: typography.weights.medium }}>{v.business_name}</span>
                                 {v.event_approved && (
-                                  <span style={{
-                                    padding: `1px ${spacing['2xs']}`,
-                                    backgroundColor: '#d1fae5',
-                                    color: '#065f46',
-                                    borderRadius: 8,
-                                    fontSize: 10,
-                                    fontWeight: typography.weights.semibold,
-                                  }}>
-                                    Event ✓
-                                  </span>
+                                  <span style={{ padding: `1px ${spacing['2xs']}`, backgroundColor: '#d1fae5', color: '#065f46', borderRadius: 8, fontSize: 10, fontWeight: typography.weights.semibold }}>Event ✓</span>
                                 )}
-                                {/* Enriched vendor data for admin decision-making */}
+                                <span style={{ fontSize: 10, fontWeight: typography.weights.semibold, color: sc }}>{ms.platform_score.toFixed(1)}</span>
                                 <span style={{ fontSize: 10, color: statusColors.neutral400, display: 'flex', gap: spacing['2xs'], flexWrap: 'wrap', marginLeft: 'auto' }}>
                                   {v.avg_price_cents != null && (
                                     <span style={{
@@ -1432,20 +1431,26 @@ export default function AdminCateringPage() {
                                         : selected.total_food_budget_cents && selected.expected_meal_count
                                           ? v.avg_price_cents <= Math.round(selected.total_food_budget_cents / selected.expected_meal_count) ? '#059669' : '#dc2626'
                                           : statusColors.neutral500,
-                                    }}>
-                                      ~${(v.avg_price_cents / 100).toFixed(0)}/meal
-                                    </span>
+                                    }}>~${(v.avg_price_cents / 100).toFixed(0)}/meal</span>
                                   )}
-                                  {v.average_rating != null && (
-                                    <span>{v.average_rating.toFixed(1)}★</span>
-                                  )}
-                                  {v.pickup_lead_minutes <= 15 && (
-                                    <span style={{ color: '#059669' }}>15min⚡</span>
-                                  )}
+                                  {v.average_rating != null && <span>{v.average_rating.toFixed(1)}★</span>}
+                                  {v.pickup_lead_minutes <= 15 && <span style={{ color: '#059669' }}>15min⚡</span>}
                                   <span style={{ textTransform: 'capitalize' }}>{v.tier}</span>
                                 </span>
                               </label>
-                            ))}
+                              <div style={{ paddingLeft: 28, fontSize: 10, lineHeight: 1.4, color: statusColors.neutral500 }}>
+                                <span style={{ color: levelColor(ms.cuisine_match) }}>Cuisine: {ms.cuisine_match}</span>
+                                {' · '}<span style={{ color: levelColor(ms.capacity_fit) }}>Capacity: {ms.capacity_fit}</span>
+                                {' · '}<span style={{ color: levelColor(ms.runtime_fit) }}>Runtime: {ms.runtime_fit}</span>
+                              </div>
+                              {hasIssues && <div style={{ paddingLeft: 28, fontSize: 10, color: '#dc2626', lineHeight: 1.4 }}>
+                                {ms.deal_breakers.map((db, i) => <div key={i}>⛔ {db}</div>)}
+                              </div>}
+                              {hasWarns && <div style={{ paddingLeft: 28, fontSize: 10, color: '#d97706', lineHeight: 1.4 }}>
+                                {ms.warnings.map((w, i) => <div key={i}>⚠️ {w}</div>)}
+                              </div>}
+                              </div>)
+                            })}
                         </div>
                         <button
                           onClick={() => inviteVendors(selected.id)}

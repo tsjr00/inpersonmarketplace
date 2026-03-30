@@ -34,6 +34,7 @@ interface CateringRequest {
   cuisine_preferences: string | null
   event_type: string | null
   payment_model: string | null
+  children_present?: boolean
 }
 
 interface ApprovalResult {
@@ -197,6 +198,8 @@ export async function autoMatchAndInvite(
     vendor_count: request.vendor_count,
     event_start_time: request.event_start_time,
     event_end_time: request.event_end_time,
+    children_present: !!request.children_present,
+    event_type: request.event_type,
   }
 
   const scoredVendors: Array<{ vendor: typeof vendors[0]; score: ReturnType<typeof scoreVendorMatch>; cateringItems: number }> = []
@@ -224,12 +227,18 @@ export async function autoMatchAndInvite(
       cancellation_rate: cancellationRate,
       tier: (v.tier || 'free') as string,
       pickup_lead_minutes: (v.pickup_lead_minutes || 30) as number,
+      requires_generator: !!(eventReadiness?.requires_generator),
+      generator_type: (eventReadiness?.generator_type as string) || undefined,
+      strong_odors: !!(eventReadiness?.strong_odors),
+      food_perishability: (eventReadiness?.food_perishability as string) || undefined,
+      seating_recommended: !!(eventReadiness?.seating_recommended),
     }
 
     const score = scoreVendorMatch(matchInput, eventData)
 
-    // 3. Filter: skip vendors with red cuisine match or red capacity
-    if (score.cuisine_match === 'red' || score.capacity_fit === 'red') continue
+    // 3. Filter: skip vendors with any red score or deal-breakers
+    if (score.cuisine_match === 'red' || score.capacity_fit === 'red' || score.runtime_fit === 'red') continue
+    if (score.deal_breakers.length > 0) continue
     if (score.platform_score < MIN_MATCH_SCORE) continue
 
     scoredVendors.push({ vendor: v, score, cateringItems })
