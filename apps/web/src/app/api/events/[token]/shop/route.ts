@@ -1,0 +1,167 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { withErrorTracing } from '@/lib/errors'
+import { checkRateLimit, getClientIp, rateLimits, rateLimitResponse } from '@/lib/rate-limit'
+
+/**
+ * GET /api/events/[token]/shop
+ *
+ * Public endpoint — returns event details, vendors, listings (full detail),
+ * and schedule info for the event shopping page. No auth required to browse.
+ * Prices are included in the response but the client hides them until auth.
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  return withErrorTracing('/api/events/[token]/shop', 'GET', async () => {
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await checkRateLimit(`event-shop:${clientIp}`, rateLimits.api)
+    if (!rateLimitResult.success) return rateLimitResponse(rateLimitResult)
+
+    const { token } = await params
+    const supabase = createServiceClient()
+
+    // Fetch event by token
+    const { data: event } = await supabase
+      .from('catering_requests')
+      .select('id, company_name, event_date, event_end_date, event_start_time, event_end_time, headcount, address, city, state, zip, vertical_id, market_id, status, vendor_count, is_themed, theme_description, children_present')
+      .eq('event_token', token)
+      .in('status', ['approved', 'ready', 'active'])
+      .single()
+
+    if (!event || !event.market_id) {
+      return NextResponse.json({ error: 'Event not found or not yet open for pre-orders' }, { status: 404 })
+    }
+
+    // Get market schedule (needed for cart's schedule_id + pickup_date)
+    const { data: schedule } = await supabase
+      .from('market_schedules')
+      .select('id, start_time, end_time, day_of_week')
+      .eq('market_id', event.market_id)
+      .limit(1)
+      .single()
+
+    // Get accepted vendors with their event listings
+    const { data: marketVendors } = await supabase
+      .from('market_vendors')
+      .select(`
+        vendor_profile_id,
+        vendor_profiles:vendor_profile_id (
+          id,
+          profile_data,
+          profile_image_url,
+          description,
+          pickup_lead_minutes
+        )
+      `)
+      .eq('market_id', event.market_id)
+      .eq('response_status', 'accepted')
+
+    const vendors: Array<{
+      id: string
+      business_name: string
+      description: string | null
+      profile_image_url: string | null
+      pickup_lead_minutes: number
+      listings: Array<{
+        id: string
+        title: string
+        description: string | null
+        price_cents: number
+        primary_image_url: string | null
+        quantity_available: number | null
+        unit_label: string | null
+      }>
+    }> = []
+
+    if (marketVendors) {
+      for (const mv of marketVendors) {
+        const vp = mv.vendor_profiles as unknown as {
+          id: string
+          profile_data: Record<string, unknown>
+          profile_image_url: string | null
+          description: string | null
+          pickup_lead_minutes: number
+        } | null
+        if (!vp) continue
+
+        // Get vendor's event-specific listings
+        const { data: eventListings } = await supabase
+          .from('event_vendor_listings')
+          .select(`
+            listing:listings (
+              id, title, description, price_cents, image_urls,
+              quantity_available, listing_data
+            )
+          `)
+          .eq('market_id', event.market_id)
+          .eq('vendor_profile_id', vp.id)
+
+        const listings = (eventListings || [])
+          .map(el => {
+            const l = el.listing as unknown as {
+              id: string; title: string; description: string | null
+              price_cents: number; image_urls: string[] | null
+              quantity_available: number | null; listing_data: Record<string, unknown> | null
+            } | null
+            if (!l) return null
+            const ld = l.listing_data || {}
+            return {
+              id: l.id,
+              title: l.title,
+              description: l.description,
+              price_cents: l.price_cents,
+              primary_image_url: l.image_urls?.[0] || null,
+              quantity_available: l.quantity_available,
+              unit_label: (ld.unit_label as string) || null,
+            }
+          })
+          .filter(Boolean) as typeof vendors[0]['listings']
+
+        if (listings.length === 0) continue // Skip vendors with no event listings
+
+        vendors.push({
+          id: vp.id,
+          business_name: (vp.profile_data?.business_name as string) || (vp.profile_data?.farm_name as string) || 'Vendor',
+          description: vp.description,
+          profile_image_url: vp.profile_image_url,
+          pickup_lead_minutes: vp.pickup_lead_minutes || 30,
+          listings,
+        })
+      }
+    }
+
+    const isFT = event.vertical_id === 'food_trucks'
+
+    return NextResponse.json({
+      event: {
+        company_name: event.company_name,
+        event_date: event.event_date,
+        event_end_date: event.event_end_date,
+        event_start_time: event.event_start_time,
+        event_end_time: event.event_end_time,
+        city: event.city,
+        state: event.state,
+        address: event.address,
+        vertical_id: event.vertical_id,
+        market_id: event.market_id,
+        status: event.status,
+        is_themed: event.is_themed,
+        theme_description: event.theme_description,
+        children_present: event.children_present,
+      },
+      schedule: schedule ? {
+        id: schedule.id,
+        start_time: schedule.start_time,
+        end_time: schedule.end_time,
+      } : null,
+      pickup_date: event.event_date, // for cart API
+      vendors,
+      vendor_count: vendors.length,
+      is_food_truck: isFT,
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' }
+    })
+  })
+}
