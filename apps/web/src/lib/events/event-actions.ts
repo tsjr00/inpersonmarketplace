@@ -35,6 +35,7 @@ interface CateringRequest {
   event_type: string | null
   payment_model: string | null
   children_present?: boolean
+  contact_email?: string | null
 }
 
 interface ApprovalResult {
@@ -214,6 +215,13 @@ export async function autoMatchAndInvite(
     const cancellationRate = confirmedCount >= 10 ? Math.round((cancelledCount / confirmedCount) * 100) : 0
     const cateringItems = vendorCateringCount[v.id] || 0
     const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'Unknown'
+    const vendorEmail = ((profileData?.email as string) || '').toLowerCase()
+
+    // Skip vendor if their email matches the event organizer (conflict prevention)
+    if (request.contact_email && vendorEmail && vendorEmail === request.contact_email.toLowerCase()) {
+      skippedVendors.push({ name: vendorName, reason: 'Vendor email matches event organizer — conflict prevented' })
+      continue
+    }
 
     // Skip vendors with fewer than 4 event-eligible items
     if (cateringItems < 4) {

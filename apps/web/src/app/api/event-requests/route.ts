@@ -115,6 +115,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Prevent vendor-as-organizer conflict: vendors must use a different email to request events
+    const supabaseService = createServiceClient()
+    const { data: conflictingVendor } = await supabaseService
+      .from('vendor_profiles')
+      .select('id')
+      .eq('vertical_id', verticalId)
+      .eq('status', 'approved')
+      .filter('profile_data->>email', 'ilike', contact_email.toLowerCase().trim())
+      .limit(1)
+      .maybeSingle()
+
+    if (conflictingVendor) {
+      return NextResponse.json(
+        { error: "It looks like you're already a vendor on this platform. To request an event as an organizer, please use a different email address. This keeps your vendor account and event organizer role separate." },
+        { status: 400 }
+      )
+    }
+
     // Content moderation on text fields
     const { checkFields } = await import('@/lib/content-moderation')
     const modCheck = checkFields({
