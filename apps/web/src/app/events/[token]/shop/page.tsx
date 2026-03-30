@@ -15,7 +15,7 @@ interface Listing {
   description: string | null
   price_cents: number
   primary_image_url: string | null
-  quantity_available: number | null
+  quantity: number | null
   unit_label: string | null
 }
 
@@ -434,7 +434,7 @@ export default function EventShopPage() {
                 }}>
                   {vendor.listings.map(listing => {
                     const qty = quantities[listing.id] || 0
-                    const maxQty = listing.quantity_available
+                    const maxQty = listing.quantity
                     const displayPrice = calculateItemDisplayPrice(listing.price_cents)
 
                     return (

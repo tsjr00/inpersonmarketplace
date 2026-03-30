@@ -87,7 +87,7 @@ export async function GET(
         description: string | null
         price_cents: number
         primary_image_url: string | null
-        quantity_available: number | null
+        quantity: number | null
         unit_label: string | null
       }>
     }> = []
@@ -108,7 +108,7 @@ export async function GET(
     if (allListingIds.length > 0) {
       const { data: allListingRows } = await supabase
         .from('listings')
-        .select('id, title, description, price_cents, image_urls, quantity_available, listing_data')
+        .select('id, title, description, price_cents, image_urls, quantity, listing_data')
         .in('id', allListingIds)
         .eq('status', 'published')
         .is('deleted_at', null)
@@ -121,7 +121,7 @@ export async function GET(
           description: l.description,
           price_cents: l.price_cents as number,
           primary_image_url: (l.image_urls as string[] | null)?.[0] || null,
-          quantity_available: l.quantity_available as number | null,
+          quantity: l.quantity as number | null,
           unit_label: (ld.unit_label as string) || null,
         }
       }
