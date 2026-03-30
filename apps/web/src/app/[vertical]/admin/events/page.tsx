@@ -853,10 +853,10 @@ export default function AdminCateringPage() {
                   <DetailRow label="Payment" value={PAYMENT_MODEL_LABELS[selected.payment_model] || selected.payment_model} />
                 )}
                 {selected.total_food_budget_cents != null && (
-                  <DetailRow label="Food Budget" value={`$${(selected.total_food_budget_cents / 100).toFixed(2)}`} />
+                  <DetailRow label={vertical === 'farmers_market' ? 'Event Budget' : 'Food Budget'} value={`$${(selected.total_food_budget_cents / 100).toFixed(2)}`} />
                 )}
-                {selected.beverages_provided && <DetailRow label="Beverages" value="Provided separately" />}
-                {selected.dessert_provided && <DetailRow label="Dessert" value="Provided separately" />}
+                {vertical === 'food_trucks' && selected.beverages_provided && <DetailRow label="Beverages" value="Provided separately" />}
+                {vertical === 'food_trucks' && selected.dessert_provided && <DetailRow label="Dessert" value="Provided separately" />}
                 {selected.is_recurring && (
                   <DetailRow label="Recurring" value={selected.recurring_frequency ? `Yes — ${selected.recurring_frequency}` : 'Yes'} />
                 )}
@@ -1025,7 +1025,7 @@ export default function AdminCateringPage() {
                       )
                     })()}
 
-                    {/* Wave duration recommendation based on confirmed vendor lead times */}
+                    {/* Service speed recommendation based on confirmed vendor lead times */}
                     {(() => {
                       const confirmedVendorIds = marketVendors
                         .filter(mv => mv.response_status === 'accepted')
@@ -1034,7 +1034,6 @@ export default function AdminCateringPage() {
 
                       const confirmedVendorData = vendors.filter(v => confirmedVendorIds.includes(v.id))
                       const allFifteen = confirmedVendorData.length > 0 && confirmedVendorData.every(v => v.pickup_lead_minutes <= 15)
-                      const allThirty = confirmedVendorData.some(v => v.pickup_lead_minutes > 15)
 
                       if (!allFifteen) return null
 
@@ -1047,11 +1046,10 @@ export default function AdminCateringPage() {
                           borderRadius: radius.sm,
                         }}>
                           <div style={{ fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, color: '#166534' }}>
-                            ⚡ 15-Minute Waves Recommended
+                            ⚡ Fast Service Available
                           </div>
                           <div style={{ fontSize: 10, color: '#15803d', marginTop: 2 }}>
-                            All {confirmedVendorData.length} confirmed vendor{confirmedVendorData.length > 1 ? 's' : ''} support 15-minute service.
-                            Using 15-min waves doubles throughput — feeds attendees 2× faster than 30-min waves.
+                            All {confirmedVendorData.length} confirmed vendor{confirmedVendorData.length > 1 ? 's' : ''} support 15-minute service — doubles customer throughput.
                           </div>
                         </div>
                       )
@@ -1276,7 +1274,7 @@ export default function AdminCateringPage() {
                           <tr style={{ borderBottom: `1px solid ${statusColors.neutral200}` }}>
                             <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>Vendor</th>
                             <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>Status</th>
-                            <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>Menu Items</th>
+                            <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>{vertical === 'farmers_market' ? 'Items' : 'Menu Items'}</th>
                             <th style={{ textAlign: 'left', padding: spacing['2xs'], color: statusColors.neutral600, fontWeight: typography.weights.semibold }}>Notes</th>
                           </tr>
                         </thead>
@@ -1431,7 +1429,7 @@ export default function AdminCateringPage() {
                                         : selected.total_food_budget_cents && selected.expected_meal_count
                                           ? v.avg_price_cents <= Math.round(selected.total_food_budget_cents / selected.expected_meal_count) ? '#059669' : '#dc2626'
                                           : statusColors.neutral500,
-                                    }}>~${(v.avg_price_cents / 100).toFixed(0)}/meal</span>
+                                    }}>~${(v.avg_price_cents / 100).toFixed(0)}/{vertical === 'farmers_market' ? 'item' : 'meal'}</span>
                                   )}
                                   {v.average_rating != null && <span>{v.average_rating.toFixed(1)}★</span>}
                                   {v.pickup_lead_minutes <= 15 && <span style={{ color: '#059669' }}>15min⚡</span>}

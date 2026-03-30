@@ -29,7 +29,7 @@ export interface EventViability {
   budget: ViabilityScore | null
   capacity: ViabilityScore
   duration: ViabilityScore
-  revenueOpportunity: ViabilityScore | null  // Product B & C: estimated revenue per truck
+  revenueOpportunity: ViabilityScore | null  // Product B & C: estimated revenue per vendor
   ticketedBonus: boolean                     // Ticketed events get a positive note
   assumptions: string[]                      // Explicit list of assumptions used
   overall: ScoreLevel
@@ -95,7 +95,7 @@ export interface VendorMatchResult {
 
 // --- Constants ---
 
-/** Average food truck meal price in cents */
+/** Average item/meal price in cents (platform-wide) */
 const AVG_MEAL_PRICE_CENTS = 1350  // $13.50
 
 /** Platform average throughput per vendor per 30-min wave */
@@ -116,7 +116,7 @@ const BUYER_RATES: Record<string, { low: number; high: number; label: string }> 
   crowd_ticketed: { low: 0.15, high: 0.4, label: '15-40% (ticketed event)' },
 }
 
-/** Revenue opportunity thresholds per truck */
+/** Revenue opportunity thresholds per vendor */
 const REVENUE_THRESHOLDS = {
   strong: 60000,   // $600+
   moderate: 30000, // $300-600
@@ -212,7 +212,7 @@ export function scoreBudget(
   return {
     level: 'red',
     label: 'Unrealistic',
-    detail: `$${perMealDollars}/meal budget — below typical food truck minimum (platform avg: $${avgDollars}/meal). Discuss with organizer.`,
+    detail: `$${perMealDollars}/order budget — below platform average ($${avgDollars}/order). Discuss with organizer.`,
   }
 }
 
@@ -234,20 +234,20 @@ function scoreCapacityCompanyPaid(
     return {
       level: 'green',
       label: 'Good',
-      detail: `${vendorCount} trucks requested, ~${trucksNeeded} needed (${meals} meals ÷ ${avgThroughput} per truck per wave × ${waveExplanation})`,
+      detail: `${vendorCount} vendors requested, ~${trucksNeeded} needed (${meals} orders ÷ ${avgThroughput} per vendor per wave × ${waveExplanation})`,
     }
   }
   if (ratio >= 0.75) {
     return {
       level: 'yellow',
       label: 'Tight',
-      detail: `${vendorCount} trucks requested, ~${trucksNeeded} recommended (${meals} meals, ${waveExplanation}). May cause longer wait times.`,
+      detail: `${vendorCount} vendors requested, ~${trucksNeeded} recommended (${meals} orders, ${waveExplanation}). May cause longer wait times.`,
     }
   }
   return {
     level: 'red',
     label: 'Understaffed',
-    detail: `${vendorCount} trucks requested, ~${trucksNeeded} needed (${meals} meals, ${waveExplanation}). Discuss with organizer.`,
+    detail: `${vendorCount} vendors requested, ~${trucksNeeded} needed (${meals} orders, ${waveExplanation}). Discuss with organizer.`,
   }
 }
 
@@ -267,20 +267,20 @@ function scoreCapacityAttendeePaid(
     return {
       level: 'green',
       label: 'Manageable',
-      detail: `~${ordersPerTruck} orders/truck estimated (${headcount} guests × ${buyerRate.label} = ${orderRange} orders, ${vendorCount} trucks, ${eventHours}hr)`,
+      detail: `~${ordersPerTruck} orders/vendor estimated (${headcount} guests × ${buyerRate.label} = ${orderRange} orders, ${vendorCount} trucks, ${eventHours}hr)`,
     }
   }
   if (ordersPerTruck <= 100) {
     return {
       level: 'yellow',
       label: 'Busy',
-      detail: `~${ordersPerTruck} orders/truck (${headcount} guests × ${buyerRate.label}). Manageable but expect lines.`,
+      detail: `~${ordersPerTruck} orders/vendor (${headcount} guests × ${buyerRate.label}). Manageable but expect lines.`,
     }
   }
   return {
     level: 'red',
     label: 'Overloaded',
-    detail: `~${ordersPerTruck} orders/truck — likely too many. Consider more trucks or shorter event.`,
+    detail: `~${ordersPerTruck} orders/vendor — likely too many. Consider more vendors or shorter event.`,
   }
 }
 
@@ -304,20 +304,20 @@ function scoreCapacityCrowd(
     return {
       level: 'green',
       label: 'Viable',
-      detail: `~${ordersPerTruck} orders/truck estimated (${headcount} visitors × ${buyerRate.label} = ${orderRange} orders).${ticketNote}${dwellNote}`,
+      detail: `~${ordersPerTruck} orders/vendor estimated (${headcount} visitors × ${buyerRate.label} = ${orderRange} orders).${ticketNote}${dwellNote}`,
     }
   }
   if (ordersPerTruck >= 10) {
     return {
       level: 'yellow',
       label: 'Marginal',
-      detail: `~${ordersPerTruck} orders/truck — moderate volume. This is primarily a visibility/marketing opportunity for vendors.${ticketNote}${dwellNote}`,
+      detail: `~${ordersPerTruck} orders/vendor — moderate volume. This is primarily a visibility/marketing opportunity for vendors.${ticketNote}${dwellNote}`,
     }
   }
   return {
     level: 'red',
     label: 'Low Volume',
-    detail: `~${ordersPerTruck} orders/truck — may not be worth vendors' time. Consider fewer trucks or ensure strong organizer promotion.${ticketNote}${dwellNote}`,
+    detail: `~${ordersPerTruck} orders/vendor — may not be worth vendors' time. Consider fewer vendors or ensure strong organizer promotion.${ticketNote}${dwellNote}`,
   }
 }
 
@@ -406,11 +406,11 @@ export function calculateViability(input: EventScoreInput): EventViability {
     const waveDurationMin = DEFAULT_WAVE_MINUTES
     const numWaves = calculateWaveCount(input.event_start_time, input.event_end_time, waveDurationMin)
     assumptions.push(`Wave calculation: ${numWaves} waves (${eventHours}hr ÷ ${waveDurationMin}-min per wave)`)
-    assumptions.push(`Throughput assumption: ~${DEFAULT_AVG_THROUGHPUT} meals per truck per wave (platform average)`)
+    assumptions.push(`Throughput assumption: ~${DEFAULT_AVG_THROUGHPUT} orders per vendor per wave (platform average)`)
 
     const meals = input.expected_meal_count || input.headcount
     if (!input.expected_meal_count) {
-      assumptions.push(`Expected meals = headcount (${input.headcount}) — company pays for all`)
+      assumptions.push(`Expected orders = headcount (${input.headcount}) — company pays for all`)
     }
 
     capacity = scoreCapacityCompanyPaid(meals, input.vendor_count, numWaves, waveDurationMin)
@@ -435,7 +435,7 @@ export function calculateViability(input: EventScoreInput): EventViability {
     const buyerRate = input.is_ticketed ? BUYER_RATES.crowd_ticketed : BUYER_RATES.crowd
     assumptions.push(`Buyer rate estimate: ${buyerRate.label}`)
     if (input.expected_meal_count) {
-      assumptions.push(`Organizer-provided expected food buyers: ${input.expected_meal_count}`)
+      assumptions.push(`Organizer-provided expected buyers: ${input.expected_meal_count}`)
     }
     if (input.estimated_dwell_hours) {
       assumptions.push(`Estimated dwell time: ${input.estimated_dwell_hours}hr`)
@@ -582,13 +582,13 @@ export function scoreVendorMatch(
   let capacity_detail: string
   if (vendorCapacity >= mealsPerVendor) {
     capacity_fit = 'green'
-    capacity_detail = `Can serve ${vendorCapacity} meals (${vendor.max_headcount_per_wave}/wave \u00d7 ${numWaves} waves) — need ~${mealsPerVendor}`
+    capacity_detail = `Can serve ${vendorCapacity} customers (${vendor.max_headcount_per_wave}/wave \u00d7 ${numWaves} waves) — need ~${mealsPerVendor}`
   } else if (vendorCapacity >= mealsPerVendor * 0.8) {
     capacity_fit = 'yellow'
-    capacity_detail = `Capacity ${vendorCapacity} is tight for ~${mealsPerVendor} allocated meals`
+    capacity_detail = `Capacity ${vendorCapacity} is tight for ~${mealsPerVendor} allocated customers`
   } else {
     capacity_fit = 'red'
-    capacity_detail = `Capacity ${vendorCapacity} is under the ~${mealsPerVendor} allocated meals`
+    capacity_detail = `Capacity ${vendorCapacity} is under the ~${mealsPerVendor} allocated customers`
   }
 
   let runtime_fit: ScoreLevel
@@ -654,10 +654,15 @@ export function scoreVendorMatch(
   const ratingScore = vendor.average_rating || 3.0
   const ratingWeight = Math.min(vendor.rating_count / 20, 1)
   const reliabilityScore = 5 * (1 - vendor.cancellation_rate / 100)
-  // Lead time bonus: 15-min vendors get +0.3 to platform score
+  // Lead time bonus: 15-min vendors get +0.3
   const leadBonus = lead_time_advantage ? 0.3 : 0
+  // Match quality adjustment: green=0, yellow=-0.3, red=-1.0 per category
+  const levelPenalty = (l: ScoreLevel) => l === 'green' ? 0 : l === 'yellow' ? -0.3 : -1.0
+  const matchAdj = levelPenalty(cuisine.level) + levelPenalty(capacity_fit) + levelPenalty(runtime_fit)
+  // Experience bonus: +0.2 for vendors with event experience
+  const expBonus = vendor.has_event_experience ? 0.2 : 0
   const platformScore = Math.round(
-    ((ratingScore * ratingWeight + 3.0 * (1 - ratingWeight)) * 0.6 + reliabilityScore * 0.4 + leadBonus) * 10
+    (((ratingScore * ratingWeight + 3.0 * (1 - ratingWeight)) * 0.6 + reliabilityScore * 0.4) + leadBonus + matchAdj + expBonus) * 10
   ) / 10
 
   return {
