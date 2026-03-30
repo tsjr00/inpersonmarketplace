@@ -112,11 +112,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', marketVendor.id)
 
     // 2. Remove event_vendor_listings for this vendor
+    // First get the listing IDs so we can clean up listing_markets too
+    const { data: vendorEventListings } = await serviceClient
+      .from('event_vendor_listings')
+      .select('listing_id')
+      .eq('market_id', marketId)
+      .eq('vendor_profile_id', vendorProfile.id)
+
     await serviceClient
       .from('event_vendor_listings')
       .delete()
       .eq('market_id', marketId)
       .eq('vendor_profile_id', vendorProfile.id)
+
+    // Also remove the listing_markets rows created for this event
+    if (vendorEventListings && vendorEventListings.length > 0) {
+      const cancelledListingIds = vendorEventListings.map(el => el.listing_id as string)
+      await serviceClient
+        .from('listing_markets')
+        .delete()
+        .eq('market_id', marketId)
+        .in('listing_id', cancelledListingIds)
+    }
 
     const profileData = vendorProfile.profile_data as Record<string, unknown>
     const vendorName = (profileData?.business_name as string) || (profileData?.farm_name as string) || 'A vendor'

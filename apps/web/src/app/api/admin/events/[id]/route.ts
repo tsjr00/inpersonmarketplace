@@ -228,6 +228,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       sendEventSettlementNotifications(serviceClient, cateringReq.market_id, cateringReq.vertical_id, updated.company_name).catch(
         (err) => console.error('[admin/catering] Settlement notification error:', err)
       )
+      // Clean up listing_markets rows created for this event (Option B cleanup)
+      // These were inserted when vendors accepted the invitation
+      const { data: eventListings } = await serviceClient
+        .from('event_vendor_listings')
+        .select('listing_id')
+        .eq('market_id', cateringReq.market_id)
+      if (eventListings && eventListings.length > 0) {
+        const listingIds = eventListings.map(el => el.listing_id as string)
+        await serviceClient
+          .from('listing_markets')
+          .delete()
+          .eq('market_id', cateringReq.market_id)
+          .in('listing_id', listingIds)
+      }
     }
 
     return NextResponse.json({ request: updated })
