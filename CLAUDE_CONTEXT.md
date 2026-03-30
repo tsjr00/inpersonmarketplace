@@ -2,7 +2,7 @@
 
 **Purpose:** Help future Claude sessions understand this project quickly and avoid repeating mistakes.
 
-**Last Updated:** 2026-02-20 (Session 40)
+**Last Updated:** 2026-03-29 (Session 65)
 
 ---
 
@@ -360,6 +360,7 @@ Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/m
 | 038 | Listing status enum fix: 'active' → 'published' in trigger |
 | 039-040 | Events: market_type='event', event date columns, availability function rewrite |
 | 041 | Tip platform fee tracking: tip_on_platform_fee_cents on orders |
+| 104 | Event form considerations: children_present, is_themed, theme_description, has_competing_vendors, estimated_spend_per_attendee_cents, preferred_vendor_categories on catering_requests |
 
 ---
 
@@ -387,17 +388,23 @@ Migrations 001–041 applied to Dev, Staging, and Production. All in `supabase/m
 | 40 | 02-20 | **Post-demo 8-item plan + tip rounding fix**. ConfirmDialog (replaces browser popups), buyer status banners, full address links, events in availability, markets filters, lat/lng suggestions, input validation, PickupScheduleGrid branding. Tip fix: displaySubtotal per-item rounding, tip on displayed subtotal, platform fee tip tracking (migration 041). All pushed to prod+staging. |
 | 62 | 03-20 | **Massive session: independent audit + 28 commits**. 58-finding audit, 20+ bug fixes (refund math, tier names, inventory logic, active orders count), external payment safety net (buyer cancel + vendor non-payment), vendor resolve-issue UI + admin order issues page, notification deep-linking, all notification titles i18n'd (36 titles EN+ES), Event Phase 1 complete (per-event vendor menus, lifecycle statuses), Event Phase 3/4 (feedback form, prep reminders, settlement, revenue estimate). Migrations 085a/b, 093, 094. Prod zip_codes seeded. |
 | 63 | 03-22→27 | **Multi-day session: 15 commits, 4 migrations (100-103)**. Unified docs & certifications (combined gate docs + profile certs). Two-phase vendor tutorials (Getting Approved + Your Dashboard). Complete self-service event system: event-type-aware viability scoring (3 models), admin lifecycle stepper, auto-approve → auto-match → auto-invite pipeline, organizer selection page with terms + QR code + marketing kit, vendor conflict detection, backup vendor escalation, cancellation flow, message relay, contact sharing opt-in. In-form vendor search/select widget. Instant organizer notification on response threshold. Prod push window rule (9PM-7AM CT). Stripe webhook 307 fix (Vercel domain primary). Vercel Auth on staging. See `.claude/session63_summary.md` for full details. |
+| 65 | 03-29 | **Production testing session: 21 commits, 1 migration (104)**. Admin panel RLS bug (9 pages). FM event readiness validation. COI upload on edit profile. Trial system disabled (feature flag). Event form: 6 new consideration fields + category multi-select. Viability scoring: FM synonyms, deal-breakers, warnings, differentiated scores, FM-neutral language. Admin events: per-vendor scoring UI, re-run auto match, skip reasons, service level badge. Vendor event invite: anonymization, FM language, event context. Communications rewrite: organizer email per-vertical, vendor invite per-vertical. Cron Phase 13: vendor gap alert at 24hr. Migration 006 applied to prod. See `.claude/session65_summary.md`. |
 
 ---
 
 ## Known Issues / Open Items
 
 - **A2P 10DLC**: pending carrier approval for SMS
-- **Production DB**: mostly empty — needs real signups
+- **Production DB**: seed data + test accounts only — real vendor onboarding in progress
 - **Email template brand color**: `notifications/service.ts` has hardcoded `#166534` in HTML — needs vertical-aware color
 - **Food truck icon**: `FoodTruckIcon_BW.jpg` saved at `public/icons/`, not yet integrated into nav/branding
 - **URL rewrite**: Remove redundant `/farmers_market/` from URLs on single-vertical domains
 - **Remaining outlined buttons**: ~50 buttons still need converting to outlined style for FT
+- **Trial system**: Disabled via `TRIAL_SYSTEM_ENABLED = false` in `vendor-limits.ts`. One-line re-enable.
+- **Event 3b threshold**: Instant results email fires too early (1 of 3 vendors). Needs re-evaluation.
+- **Event organizer dashboard**: "My Events" card for organizers who create accounts — not built yet
+- **Event communications**: 3a admin notif, Phase 11 prep reminder, Phase 12 48hr results still have FT language
+- **Auth session conflict**: Incognito + regular Chrome on same domain can conflict. Use different browsers for multi-role testing.
 - **`skipped_dev` / `pending_stripe_setup` payout statuses**: FIXED — migration 035 added to enum, applied to all 3 envs
 - **All branches synced**: main = origin/main = staging (as of Session 40)
 - **Dev out of sync**: Migrations 039-041 on Staging+Prod. Dev needs these applied.

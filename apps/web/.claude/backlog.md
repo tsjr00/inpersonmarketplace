@@ -151,6 +151,11 @@ Last updated: 2026-03-20 (end of Session 62)
 - [ ] **L4: Zod input validation on API routes** — Gradually add Zod schemas.
 - [ ] **L6: SMS send logic when push enabled** — Blocked by A2P 10DLC carrier approval.
 - [ ] **L2: External cron monitoring** — Deferred post-launch.
+- [ ] **RLS: Consolidate multiple permissive policies** — Supabase linter flags 15 tables with multiple OR'd permissive SELECT policies. Consolidate into single comprehensive policies for performance.
+- [ ] **RLS: Audit auth.uid() vs (SELECT auth.uid())** — Supabase flags auth RLS initialization plan warnings. Ensure all policies use `(SELECT auth.uid())` pattern.
+- [ ] **RLS: Document buyer_interests INSERT policy** — `WITH CHECK (true)` is intentional (public lead capture). Add SQL comment or tighten to require valid email. Not a real vulnerability — API validates and rate-limits.
+- [ ] **Auth: Investigate incognito/regular Chrome session conflict** — Admin in incognito got logged out when vendor logged in on regular Chrome (same domain, same Supabase project). Likely Supabase SSR cookie middleware or BroadcastChannel issue. Not blocking (different browsers work). Workaround: use Chrome + Edge for multi-role testing.
+- [ ] **Migration 006: Apply to prod** — DONE Session 65. Remove this item.
 
 ## Priority 3 — When Time Allows
 - [ ] **Geographic intelligence feature** — Plan at `.claude/geographic_intelligence_plan.md`
