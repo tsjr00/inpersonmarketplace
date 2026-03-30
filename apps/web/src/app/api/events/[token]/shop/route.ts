@@ -150,9 +150,19 @@ export async function GET(
 
     // Temporary debug info — remove after confirming fix
     const _debug = {
+      market_id_used: event.market_id,
       acceptedVendorIds,
       profilesFound: Object.keys(vendorProfileMap).length,
       vendorsBuilt: vendors.length,
+      // Test: query evl directly with first vendor to see what comes back
+      evl_test: acceptedVendorIds.length > 0 ? await (async () => {
+        const { data, error } = await supabase
+          .from('event_vendor_listings')
+          .select('listing_id')
+          .eq('market_id', event.market_id)
+          .eq('vendor_profile_id', acceptedVendorIds[0])
+        return { data_count: data?.length ?? 'null', error: error?.message ?? 'none' }
+      })() : 'no vendors',
     }
 
     return NextResponse.json({
